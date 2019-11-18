@@ -1,0 +1,13 @@
+*.pyc
+/build/
+/dist/
+/.conda/
+/.jupyter/
+/.local/
+/node_modules/
+/notebooks*/
+/*.egg-info
+/*.egg
+/*.eggs
+.DS_Store
+.vagrant
