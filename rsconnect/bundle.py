@@ -10,9 +10,6 @@ import tempfile
 
 from os.path import basename, dirname, exists, join, relpath, split, splitext
 
-import nbformat
-from ipython_genutils import text
-
 log = logging.getLogger('rsconnect')
 log.setLevel(logging.DEBUG)
 

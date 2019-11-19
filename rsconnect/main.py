@@ -14,29 +14,36 @@ import click
 from six.moves.urllib_parse import urlparse
 
 from . import api
+from .environment import EnvironmentException
 from .bundle import make_source_bundle
 
 
-line_width = 60
+line_width = 45
+debug = False
+
+click.echo()
+
 @contextlib.contextmanager
-def CLIFeedback(label, debug):
-    click.echo(label + '... ', nl=False)
+def CLIFeedback(label):
+    pad = line_width - len(label)
+    click.secho(label + '... ' + ' ' * pad, nl=False, fg='bright_white')
 
     def passed():
-        click.echo('[', nl=False)
-        click.secho('OK   ', fg='green', nl=False)
-        click.echo(']')
+        click.secho('[', nl=False, fg='bright_white')
+        click.secho('OK', fg='bright_green', nl=False)
+        click.secho(']', fg='bright_white')
 
     def failed(err):
-        click.echo('[', nl=False)
+        click.secho('[', nl=False, fg='bright_white')
         click.secho('ERROR', fg='red', nl=False)
-        click.echo(']')
-        click.secho(str(err), fg='red')
+        click.secho(']', fg='bright_white')
+        click.secho(str(err), fg='bright_red')
+        sys.exit(1)
 
     try:
         yield
         passed()
-    except RSConnectException as exc:
+    except api.RSConnectException as exc:
         failed('Error: ' + exc.message)
     except EnvironmentException as exc:
         failed('Error: ' + str(exc))
@@ -48,15 +55,11 @@ def CLIFeedback(label, debug):
 
 def which_python(python, env=os.environ):
     if python:
-        click.echo('Using packages from specified python: %s' % click.format_filename(python))
         return python
 
-    reticulate_python = env.get('RETICULATE_PYTHON')
-    if reticulate_python:
-        click.echo('Using packages from RETICULATE_PYTHON: %s' % click.format_filename(reticulate_python))
-        return reticulate_python
+    if 'RETICULATE_PYTHON' in env:
+        return env['RETICULATE_PYTHON']
 
-    click.echo('Using packages from current python: %s' % click.format_filename(sys.executable))
     return sys.executable
 
 
@@ -71,6 +74,14 @@ def make_deployment_name():
     return 'deployment-%d' % timestamp
 
 
+def read_cert(cacert):
+    if cacert:
+        with open(cacert, 'rb') as f:
+            return f.read()
+    else:
+        return None
+
+
 @click.group()
 def cli():
     pass
@@ -83,66 +94,65 @@ def cli():
 @click.option('--python', help='Path to python interpreter whose environment should be used. The python environment must have the rsconnect package installed.')
 @click.option('--insecure', is_flag=True, help='Disable TLS certification validation.')
 @click.option('--cacert', help='Path to trusted TLS CA certificate.')
-@click.option('--no-browser', is_flag=True, help='Do not open the app after deployment.')
-@click.option('--debug', is_flag=True, help='Print detailed error messages on failure.')
+@click.option('--debug', '_debug', is_flag=True, help='Print detailed error messages on failure.')
 @click.argument('file')
 @click.argument('extra_files', nargs=-1)
-def deploy(server, api_key, app_id, title, python, insecure, cacert, no_browser, debug, file, extra_files):
-    click.echo('Deploying %s to %s' % (file, server))
+def deploy(server, api_key, app_id, title, python, insecure, cacert, _debug, file, extra_files):
+    global debug
+    debug = _debug
 
-    try:
+    click.secho('Deploying %s to %s' % (file, server), fg='bright_white')
+
+    with CLIFeedback('Checking server address'):
         uri = urlparse(server)
-    except:
-        if debug:
-            traceback.print_exc()
-        click.echo('Could not parse the specified server URL (%s)' % server)
-        click.echo('Make sure that the --server option is specified.')
-        sys.exit(1)
 
     if not exists(file):
-        click.echo('Could not find file %s.' % file)
+        click.secho('Could not find file %s.' % file, fg='bright_red')
         sys.exit(1)
 
     deployment_name = make_deployment_name()
+    if not title:
+        title = basename(file).rsplit('.')[0]
 
-    try:
+    with CLIFeedback('Inspecting python environment'):
         python = which_python(python)
         environment = inspect_environment(python, dirname(file))
         if debug:
-            print('Environment: %s' % pformat(environment))
-    except EnvironmentException as exc:
-        click.echo('Environment inspection failed: %s' % str(exc))
-        click.echo('Ensure that the correct python is being used,')
-        click.echo('and that it has the rsconnect package installed.')
-        sys.exit(1)
-    except:
-        if debug:
-            traceback.print_exc()
-        click.echo('Environment inspection failed with an internal error: %s' % str(exc))
-        sys.exit(1)
+            click.echo('Python: %s' % python)
+            click.echo('Environment: %s' % pformat(environment))
 
-    try:
+    with CLIFeedback('Creating deployment bundle'):
         bundle = make_source_bundle(file, environment, extra_files)
-    except Exception as exc:
-        if debug:
-            traceback.print_exc()
-        click.echo('Bundle creation failed: %s' % str(exc))
-        sys.exit(1)
 
-    try:
-        app = api.deploy(uri, api_key, app_id, deployment_name, title, bundle, insecure, cacert)
-    except api.RSConnectException as exc:
-        click.echo('Deployment failed: %s' % exc.message)
-        sys.exit(1)
-    except Exception as exc:
-        if debug:
-            traceback.print_exc()
-        click.echo('Deployment failed with an internal error: %s' % str(exc))
-        sys.exit(1)
+    with CLIFeedback('Uploading bundle'):
+        cadata = read_cert(cacert)
+        app = api.deploy(uri, api_key, app_id, deployment_name, title, bundle, insecure, cadata)
 
-    task_id = app['task_id']
-    if not no_browser:
-        #click.launch(...)
+        task_id = app['task_id']
+
+    click.secho('\nDeployment log:', fg='bright_white')
+    last_status = None
+
+    while True:
+        time.sleep(0.5)
+        task_status = api.task_get(uri, api_key, task_id, last_status, app['cookies'], insecure, cadata)
+
+        if task_status['last_status'] != last_status:
+            for line in task_status['status']:
+                click.secho(line)
+                last_status = task_status['last_status']
+
+        if task_status['finished']:
+            exit_code = task_status['code']
+            if exit_code != 0:
+                click.secho('Task exited with status %d.' % exit_code, fg='bright_red')
+                sys.exit(1)
+
+            click.secho('Deployment completed successfully.', fg='bright_white')
+            app_config = api.app_config(uri, api_key, app['app_id'], insecure, cadata)
+            app_url = app_config['config_url']
+            click.secho('App URL: %s' % app_url, fg='bright_white')
+            break
 
 
 @cli.command()
@@ -150,44 +160,18 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, no_browser,
 @click.option('--api-key', help='Connect server API key')
 @click.option('--insecure', is_flag=True, help='Disable TLS certification validation.')
 @click.option('--cacert', help='Path to trusted TLS CA certificate.')
-@click.option('--debug', is_flag=True, help='Print detailed error messages on failure.')
-def ping(server, api_key, insecure, cacert, debug):
-    click.echo('Pinging server %s... ' % server, nl=False)
-    try:
-        api.verify_server(server, insecure, cacert)
-    except api.RSConnectException as exc:
-        click.echo('Server verification failed: %s' % exc.message)
-        sys.exit(1)
-    except Exception as exc:
-        if debug:
-            traceback.print_exc()
-        click.echo('Server verification failed with an internal error: %s' % str(exc))
-        sys.exit(1)
+@click.option('--debug', '_debug', is_flag=True, help='Print detailed error messages on failure.')
+def ping(server, api_key, insecure, cacert, _debug):
+    global debug
+    debug = _debug
+
+    with CLIFeedback('Pinging %s' % server):
+        cadata = read_cert(cacert)
+        api.verify_server(server, insecure, cadata)
     
-    click.echo('OK')
-
     if api_key:
-        click.echo('Verifying API key... ', nl=False)
-        try:
+        with CLIFeedback('Verifying API key'):
             uri = urlparse(server)
-        except:
-            if debug:
-                traceback.print_exc()
-            click.echo('Could not parse the specified server URL (%s)' % server)
-            click.echo('Make sure that the --server option is specified.')
-            sys.exit(1)
-
-        try:
             api.verify_api_key(uri, api_key, insecure, cacert)
-        except api.RSConnectException as exc:
-            click.echo('API key verification failed: %s' % exc.message)
-            sys.exit(1)
-        except Exception as exc:
-            if debug:
-                traceback.print_exc()
-            click.echo('API key verification failed with an internal error: %s' % str(exc))
-            sys.exit(1)
-        
-        click.echo('OK')
 
 cli()
