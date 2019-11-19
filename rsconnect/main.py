@@ -77,14 +77,6 @@ def make_deployment_name():
     return 'deployment-%d' % timestamp
 
 
-def read_cert(cacert):
-    if cacert:
-        with open(cacert, 'rb') as f:
-            return f.read()
-    else:
-        return None
-
-
 @click.group()
 def cli():
     pass
@@ -96,7 +88,7 @@ def cli():
 @click.option('--title', help='Title of the content (default is the same as the filename)')
 @click.option('--python', help='Path to python interpreter whose environment should be used. The python environment must have the rsconnect package installed.')
 @click.option('--insecure', is_flag=True, help='Disable TLS certification validation.')
-@click.option('--cacert', help='Path to trusted TLS CA certificate.')
+@click.option('--cacert', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
 @click.option('--debug', '_debug', is_flag=True, help='Print detailed error messages on failure.')
 @click.argument('file')
 @click.argument('extra_files', nargs=-1)
@@ -128,9 +120,7 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _debug, fil
         bundle = make_source_bundle(file, environment, extra_files)
 
     with CLIFeedback('Uploading bundle'):
-        cadata = read_cert(cacert)
-        app = api.deploy(uri, api_key, app_id, deployment_name, title, bundle, insecure, cadata)
-
+        app = api.deploy(uri, api_key, app_id, deployment_name, title, bundle, insecure, cacert)
         task_id = app['task_id']
 
     click.secho('\nDeployment log:', fg='bright_white')
@@ -164,15 +154,14 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _debug, fil
 @click.option('--server', help='Connect server URL')
 @click.option('--api-key', help='Connect server API key')
 @click.option('--insecure', is_flag=True, help='Disable TLS certification validation.')
-@click.option('--cacert', help='Path to trusted TLS CA certificate.')
+@click.option('--cacert', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
 @click.option('--debug', '_debug', is_flag=True, help='Print detailed error messages on failure.')
 def ping(server, api_key, insecure, cacert, _debug):
     global debug
     debug = _debug
 
     with CLIFeedback('Pinging %s' % server):
-        cadata = read_cert(cacert)
-        api.verify_server(server, insecure, cadata)
+        api.verify_server(server, insecure, cacert)
     
     if api_key:
         with CLIFeedback('Verifying API key'):
