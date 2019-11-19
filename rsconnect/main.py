@@ -25,18 +25,21 @@ click.echo()
 
 @contextlib.contextmanager
 def CLIFeedback(label):
-    pad = line_width - len(label)
-    click.secho(label + '... ' + ' ' * pad, nl=False, fg='bright_white')
+    if label:
+        pad = line_width - len(label)
+        click.secho(label + '... ' + ' ' * pad, nl=False, fg='bright_white')
 
     def passed():
-        click.secho('[', nl=False, fg='bright_white')
-        click.secho('OK', fg='bright_green', nl=False)
-        click.secho(']', fg='bright_white')
+        if label:
+            click.secho('[', nl=False, fg='bright_white')
+            click.secho('OK', fg='bright_green', nl=False)
+            click.secho(']', fg='bright_white')
 
     def failed(err):
-        click.secho('[', nl=False, fg='bright_white')
-        click.secho('ERROR', fg='red', nl=False)
-        click.secho(']', fg='bright_white')
+        if label:
+            click.secho('[', nl=False, fg='bright_white')
+            click.secho('ERROR', fg='red', nl=False)
+            click.secho(']', fg='bright_white')
         click.secho(str(err), fg='bright_red')
         sys.exit(1)
 
@@ -107,7 +110,7 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _debug, fil
         uri = urlparse(server)
 
     if not exists(file):
-        click.secho('Could not find file %s.' % file, fg='bright_red')
+        click.secho('Could not find file %s' % file, fg='bright_red')
         sys.exit(1)
 
     deployment_name = make_deployment_name()
@@ -135,24 +138,26 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _debug, fil
 
     while True:
         time.sleep(0.5)
-        task_status = api.task_get(uri, api_key, task_id, last_status, app['cookies'], insecure, cadata)
 
-        if task_status['last_status'] != last_status:
-            for line in task_status['status']:
-                click.secho(line)
-                last_status = task_status['last_status']
+        with CLIFeedback(''):
+            task_status = api.task_get(uri, api_key, task_id, last_status, app['cookies'], insecure, cadata)
 
-        if task_status['finished']:
-            exit_code = task_status['code']
-            if exit_code != 0:
-                click.secho('Task exited with status %d.' % exit_code, fg='bright_red')
-                sys.exit(1)
+            if task_status['last_status'] != last_status:
+                for line in task_status['status']:
+                    click.secho(line)
+                    last_status = task_status['last_status']
 
-            click.secho('Deployment completed successfully.', fg='bright_white')
-            app_config = api.app_config(uri, api_key, app['app_id'], insecure, cadata)
-            app_url = app_config['config_url']
-            click.secho('App URL: %s' % app_url, fg='bright_white')
-            break
+            if task_status['finished']:
+                exit_code = task_status['code']
+                if exit_code != 0:
+                    click.secho('Task exited with status %d.' % exit_code, fg='bright_red')
+                    sys.exit(1)
+
+                click.secho('Deployment completed successfully.', fg='bright_white')
+                app_config = api.app_config(uri, api_key, app['app_id'], insecure, cadata)
+                app_url = app_config['config_url']
+                click.secho('App URL: %s' % app_url, fg='bright_white')
+                break
 
 
 @cli.command()
@@ -175,3 +180,4 @@ def ping(server, api_key, insecure, cacert, _debug):
             api.verify_api_key(uri, api_key, insecure, cacert)
 
 cli()
+click.echo()

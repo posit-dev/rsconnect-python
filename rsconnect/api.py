@@ -80,7 +80,6 @@ def _verify_server(server_address, max_redirects, disable_tls_check, cadata):
 
         if response.status >= 400:
             err = 'Response from Connect server: %s %s' % (response.status, response.reason)
-            logger.error(err)
             raise Exception(err)
         elif response.status >= 300:
             # process redirects now so we don't have to later
@@ -91,18 +90,15 @@ def _verify_server(server_address, max_redirects, disable_tls_check, cadata):
                 return _verify_server(urljoin(server_address, target), max_redirects - 1)
             else:
                 err = 'Too many redirects'
-                logger.error(err)
                 raise Exception(err)
         else:
             content_type = response.getheader('Content-Type')
             if not content_type.startswith('application/json'):
                 err = 'Unexpected Content-Type %s from %s' % (content_type, server_address)
-                logger.error(err)
                 raise Exception(err)
 
     except (http.HTTPException, OSError, socket.error) as exc:
-        logger.error('Error connecting to Connect: %s' % str(exc))
-        raise exc
+        raise RSConnectException(str(exc))
     finally:
         if conn is not None:
             conn.close()
@@ -144,16 +140,12 @@ class RSConnect:
             self.conn.request(method, request_path, *args, **kwargs)
             return self.json_response()
         except http.HTTPException as e:
-            logger.error('HTTPException: %s' % e)
             raise RSConnectException(str(e))
         except (IOError, OSError) as e:
-            logger.error('IO/OS Error: %s' % e)
             raise RSConnectException(str(e))
         except (socket.error, socket.herror, socket.gaierror) as e:
-            logger.error('Socket Error: %s' % e)
             raise RSConnectException(str(e))
         except socket.timeout:
-            logger.error('Socket Timeout')
             raise RSConnectException('Connection timed out')
 
     def _handle_set_cookie(self, response):
