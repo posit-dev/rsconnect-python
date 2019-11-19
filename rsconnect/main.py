@@ -86,12 +86,12 @@ def cli():
 @click.option('--api-key', help='Connect server API key')
 @click.option('--app-id', type=int, help='Existing app ID to replace')
 @click.option('--title', help='Title of the content (default is the same as the filename)')
-@click.option('--python', help='Path to python interpreter whose environment should be used. The python environment must have the rsconnect package installed.')
+@click.option('--python', type=click.Path(exists=True), help='Path to python interpreter whose environment should be used. The python environment must have the rsconnect package installed.')
 @click.option('--insecure', is_flag=True, help='Disable TLS certification validation.')
 @click.option('--cacert', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
 @click.option('--debug', '_debug', is_flag=True, help='Print detailed error messages on failure.')
-@click.argument('file')
-@click.argument('extra_files', nargs=-1)
+@click.argument('file', type=click.Path(exists=True))
+@click.argument('extra_files', nargs=-1, type=click.Path())
 def deploy(server, api_key, app_id, title, python, insecure, cacert, _debug, file, extra_files):
     global debug
     debug = _debug
