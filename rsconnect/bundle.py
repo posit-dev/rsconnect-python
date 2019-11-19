@@ -8,7 +8,7 @@ import posixpath
 import tarfile
 import tempfile
 
-from os.path import dirname, exists, join, relpath, split, splitext
+from os.path import basename, dirname, exists, join, relpath, split, splitext
 
 import nbformat
 from ipython_genutils import text
@@ -169,16 +169,16 @@ def list_files(base_dir, include_subdirs, walk=os.walk):
     return list(iter_files())
 
 
-def make_source_bundle(model, environment, ext_resources_dir, extra_files=[]):
+def make_source_bundle(file, environment, extra_files=[]):
     """Create a bundle containing the specified notebook and python environment.
 
     Returns a file-like object containing the bundle tarball.
     """
-    nb_name = model['name']
-    nb_content = nbformat.writes(model['content'], nbformat.NO_CONVERT) + '\n'
+    base_dir = dirname(file)
+    nb_name = basename(file)
 
     manifest = make_source_manifest(nb_name, environment, 'jupyter-static')
-    manifest_add_buffer(manifest, nb_name, nb_content)
+    manifest_add_file(manifest, nb_name, base_dir)
     manifest_add_buffer(manifest, environment['filename'], environment['contents'])
 
     if extra_files:
@@ -186,7 +186,7 @@ def make_source_bundle(model, environment, ext_resources_dir, extra_files=[]):
         extra_files = sorted(list(set(extra_files) - set(skip)))
 
     for rel_path in extra_files:
-        manifest_add_file(manifest, rel_path, ext_resources_dir)
+        manifest_add_file(manifest, rel_path, base_dir)
 
     log.debug('manifest: %r', manifest)
 
@@ -195,11 +195,11 @@ def make_source_bundle(model, environment, ext_resources_dir, extra_files=[]):
 
         # add the manifest first in case we want to partially untar the bundle for inspection
         bundle_add_buffer(bundle, 'manifest.json', json.dumps(manifest, indent=2))
-        bundle_add_buffer(bundle, nb_name, nb_content)
         bundle_add_buffer(bundle, environment['filename'], environment['contents'])
+        bundle_add_file(bundle, nb_name, base_dir)
 
         for rel_path in extra_files:
-            bundle_add_file(bundle, rel_path, ext_resources_dir)
+            bundle_add_file(bundle, rel_path, base_dir)
 
     bundle_file.seek(0)
     return bundle_file
