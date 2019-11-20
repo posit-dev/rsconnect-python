@@ -17,10 +17,12 @@ from six.moves.urllib_parse import urlparse
 from . import api
 from .environment import EnvironmentException
 from .bundle import make_source_bundle
-
+from .metadata import ServerStore, AppStore
 
 line_width = 45
 verbose = False
+server_store = ServerStore()
+server_store.load()
 
 click.echo()
 
@@ -131,14 +133,80 @@ def output_task_log(task_status, last_status):
     return new_last_status
 
 
+def do_ping(server, api_key, insecure, cacert):
+    with CLIFeedback('Checking %s' % server):
+        api.verify_server(server, insecure, cacert)
+    
+    if api_key:
+        with CLIFeedback('Verifying API key'):
+            uri = urlparse(server)
+            api.verify_api_key(uri, api_key, insecure, cacert)
+
+
 @click.group()
 def cli():
     pass
 
 
 @cli.command()
+@click.option('--name', '-n', required=True, help='Server nickname')
+@click.option('--server', '-s', required=True, help='Connect server URL')
+@click.option('--api-key','-k',required=True, help='Connect server API key')
+@click.option('--insecure', is_flag=True, help='Disable TLS certification validation.')
+@click.option('--cacert', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
+@click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
+def add(name, server, api_key, insecure, cacert, _verbose):
+    global verbose
+    verbose = _verbose
+
+    old_server = server_store.get(name)
+
+    # server must be pingable to be added
+    do_ping(server, api_key, insecure, cacert)
+    server_store.add(name, server, api_key, insecure, cacert)
+    server_store.save()
+    
+    if old_server is None:
+        click.echo('Added server "%s" with URL %s' % (name, server))
+    else:
+        click.echo('Replaced server "%s" with URL %s' % (name, server))
+
+
+@cli.command()
+@click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
+@click.argument('server')
+def remove(server, _verbose):
+    global verbose
+    verbose = _verbose
+
+    old_server = server_store.get(server)
+
+    server_store.remove(server)
+    server_store.save()
+    
+    if old_server is None:
+        click.echo('Server %s was not found' % server)
+    else:
+        click.echo('Removed server %s' % server)
+
+
+@cli.command()
 @click.option('--server', '-s', required=True, envvar='CONNECT_SERVER', help='Connect server URL')
-@click.option('--api-key','-k', required=True, envvar='CONNECT_API_KEY', help='Connect server API key')
+@click.option('--api-key','-k', envvar='CONNECT_API_KEY', help='Connect server API key')
+@click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
+@click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
+@click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
+def ping(server, api_key, insecure, cacert, _verbose):
+    global verbose
+    verbose = _verbose
+
+    server, api_key, insecure, cacert = server_store.resolve(server, api_key, insecure, cacert)
+    do_ping(server, api_key, insecure, cacert)
+
+
+@cli.command()
+@click.option('--server', '-s', required=True, envvar='CONNECT_SERVER', help='Connect server URL')
+@click.option('--api-key','-k', envvar='CONNECT_API_KEY', help='Connect server API key')
 @click.option('--app-id', help='Existing app ID or GUID to replace')
 @click.option('--title', '-t', help='Title of the content (default is the same as the filename)')
 @click.option('--python', type=click.Path(exists=True), help='Path to python interpreter whose environment should be used. The python environment must have the rsconnect package installed.')
@@ -154,6 +222,7 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _verbose, f
     click.secho('Deploying %s to %s' % (file, server), fg='bright_white')
 
     with CLIFeedback('Checking arguments'):
+        server, api_key, insecure, cacert = server_store.resolve(server, api_key, insecure, cacert)
         uri = urlparse(server)
 
         # we check the extra files ourselves, since they are paths relative to the base file
@@ -195,23 +264,6 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _verbose, f
                 click.secho('App URL: %s' % app_url, fg='bright_white')
                 break
 
-@cli.command()
-@click.option('--server', '-s', required=True, envvar='CONNECT_SERVER', help='Connect server URL')
-@click.option('--api-key','-k', envvar='CONNECT_API_KEY', help='Connect server API key')
-@click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
-@click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
-@click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
-def ping(server, api_key, insecure, cacert, _verbose):
-    global verbose
-    verbose = _verbose
-
-    with CLIFeedback('Checking server %s' % server):
-        api.verify_server(server, insecure, cacert)
-    
-    if api_key:
-        with CLIFeedback('Verifying API key'):
-            uri = urlparse(server)
-            api.verify_api_key(uri, api_key, insecure, cacert)
 
 cli()
 click.echo()
