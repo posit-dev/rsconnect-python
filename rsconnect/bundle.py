@@ -5,9 +5,11 @@ import json
 import logging
 import os
 import posixpath
+import sys
 import tarfile
 import tempfile
 
+from datetime import datetime
 from os.path import basename, dirname, exists, join, relpath, split, splitext
 
 log = logging.getLogger('rsconnect')
@@ -198,5 +200,78 @@ def make_source_bundle(file, environment, extra_files=[]):
         for rel_path in extra_files:
             bundle_add_file(bundle, rel_path, base_dir)
 
+    bundle_file.seek(0)
+    return bundle_file
+
+
+def get_exporter(**kwargs):
+    """get an exporter, raising appropriate errors"""
+    # if this fails, will raise 500
+    try:
+        from nbconvert.exporters.base import get_exporter
+    except ImportError as e:
+        raise Exception("Could not import nbconvert: %s" % e)
+
+    try:
+        Exporter = get_exporter('html')
+    except KeyError:
+        raise Exception("No exporter for format: html")
+
+    try:
+        return Exporter(**kwargs)
+    except Exception as e:
+        raise Exception("Could not construct Exporter: %s" % e)
+
+
+def make_html_manifest(file_name):
+    return {
+        "version": 1,
+        "metadata": {
+            "appmode": "static",
+            "primary_html": file_name,
+        },
+    }
+
+
+def make_html_bundle(file, nb_title, config_dir, ext_resources_dir, config, jupyter_log):
+    ext_resources_dir = dirname(file)
+    nb_name = basename(file)
+
+    # create resources dictionary
+    modified = datetime.fromtimestamp(os.stat(file).st_mtime)
+
+    if sys.platform == 'win32':
+        date_format = "%B %d, %Y"
+    else:
+        date_format = "%B %-d, %Y"
+
+    resource_dict = {
+        "metadata": {
+            "name": nb_title,
+            "modified_date": modified.strftime(date_format)
+        },
+        "config_dir": config_dir
+    }
+
+    if ext_resources_dir:
+        resource_dict['metadata']['path'] = ext_resources_dir
+
+    exporter = get_exporter(config=config, log=jupyter_log)
+    output, resources = exporter.from_filename(file, resources=resource_dict)
+
+    filename = splitext(nb_name)[0] + resources['output_extension']
+    log.info('filename = %s' % filename)
+
+    bundle_file = tempfile.TemporaryFile(prefix='rsc_bundle')
+
+    with tarfile.open(mode='w:gz', fileobj=bundle_file) as bundle:
+        bundle_add_buffer(bundle, filename, output)
+
+        # manifest
+        manifest = make_html_manifest(filename)
+        log.debug('manifest: %r', manifest)
+        bundle_add_buffer(bundle, 'manifest.json', json.dumps(manifest))
+
+    # rewind file pointer
     bundle_file.seek(0)
     return bundle_file
