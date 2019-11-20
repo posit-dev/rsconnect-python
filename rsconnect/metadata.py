@@ -41,11 +41,11 @@ class ServerStore(object):
     Data is stored in the customary platform-specific location 
     (typically a subdirectory of the user's home directory).
     """
-    def __init__(self):
-        self.path = join(config_dirname(), 'servers.json')
+    def __init__(self, base_dir=config_dirname()):
+        self.path = join(base_dir, 'servers.json')
         self.servers = {}
 
-    def add(self, name, url, api_key, insecure, ca_cert):
+    def add(self, name, url, api_key, insecure=False, ca_cert=None):
         """Add a new server"""
         self.servers[name] = dict(
             name=name,
@@ -71,7 +71,7 @@ class ServerStore(object):
         if name_or_url in self.servers:
             return self.servers[name_or_url]
         else:
-            for name, server in self.servers:
+            for name, server in self.servers.items():
                 if server['url'] == name_or_url:
                     return self.servers[name]
 
