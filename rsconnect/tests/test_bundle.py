@@ -9,8 +9,6 @@ from datetime import datetime
 from unittest import TestCase
 from os.path import basename, dirname, exists, join
 
-import nbformat
-
 from rsconnect.environment import detect_environment
 from rsconnect.bundle import list_files, make_source_bundle
 
@@ -24,13 +22,6 @@ class TestBundle(TestCase):
     def python_version(self):
         return u'.'.join(map(str, sys.version_info[:3]))
 
-    def read_notebook(self, nb_path):
-        return {
-            'name': basename(nb_path),
-            'last_modified': datetime.fromtimestamp(os.stat(nb_path).st_mtime),
-            'content': nbformat.read(nb_path, nbformat.NO_CONVERT),
-        }
-
     def test_source_bundle1(self):
         self.maxDiff = 5000
         dir = self.get_dir('pip1')
@@ -41,8 +32,7 @@ class TestBundle(TestCase):
         # runs in the notebook server. We need the introspection to run in
         # the kernel environment and not the notebook server environment.
         environment = detect_environment(dir)
-        notebook = self.read_notebook(nb_path)
-        with make_source_bundle(notebook, environment, dir) as bundle, \
+        with make_source_bundle(nb_path, environment) as bundle, \
             tarfile.open(mode='r:gz', fileobj=bundle) as tar:
 
             names = sorted(tar.getnames())
@@ -94,9 +84,8 @@ class TestBundle(TestCase):
         # runs in the notebook server. We need the introspection to run in
         # the kernel environment and not the notebook server environment.
         environment = detect_environment(dir)
-        notebook = self.read_notebook(nb_path)
 
-        with make_source_bundle(notebook, environment, dir, extra_files=['data.csv']) as bundle, \
+        with make_source_bundle(nb_path, environment, extra_files=['data.csv']) as bundle, \
             tarfile.open(mode='r:gz', fileobj=bundle) as tar:
 
             names = sorted(tar.getnames())
