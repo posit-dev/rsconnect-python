@@ -200,18 +200,18 @@ class RSConnect:
         return self.request('POST', '__api__/applications', params, self.http_headers)
 
     def app_get(self, app_id):
-        return self.request('GET', '__api__/applications/%d' % app_id, None, self.http_headers)
+        return self.request('GET', '__api__/applications/%s' % app_id, None, self.http_headers)
 
     def app_upload(self, app_id, tarball):
-        return self.request('POST', '__api__/applications/%d/upload' % app_id, tarball, self.http_headers)
+        return self.request('POST', '__api__/applications/%s/upload' % app_id, tarball, self.http_headers)
 
     def app_update(self, app_id, updates):
         params = json.dumps(updates)
-        return self.request('POST', '__api__/applications/%d' % app_id, params, self.http_headers)
+        return self.request('POST', '__api__/applications/%s' % app_id, params, self.http_headers)
 
     def app_deploy(self, app_id, bundle_id = None):
         params = json.dumps({'bundle': bundle_id})
-        return self.request('POST', '__api__/applications/%d/deploy' % app_id, params, self.http_headers)
+        return self.request('POST', '__api__/applications/%s/deploy' % app_id, params, self.http_headers)
 
     def app_publish(self, app_id, access):
         params = json.dumps({
@@ -219,10 +219,10 @@ class RSConnect:
             'id': app_id,
             'needs_config': False
         })
-        return self.request('POST', '__api__/applications/%d' % app_id, params, self.http_headers)
+        return self.request('POST', '__api__/applications/%s' % app_id, params, self.http_headers)
 
     def app_config(self, app_id):
-        return self.request('GET', '__api__/applications/%d/config' % app_id, None, self.http_headers)
+        return self.request('GET', '__api__/applications/%s/config' % app_id, None, self.http_headers)
 
     def task_get(self, task_id, first_status=None):
         url = '__api__/tasks/%s' % task_id

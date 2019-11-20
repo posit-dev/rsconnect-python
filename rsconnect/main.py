@@ -135,10 +135,11 @@ def output_task_log(task_status, last_status):
 def cli():
     pass
 
+
 @cli.command()
 @click.option('--server', '-s', required=True, envvar='CONNECT_SERVER', help='Connect server URL')
 @click.option('--api-key','-k', required=True, envvar='CONNECT_API_KEY', help='Connect server API key')
-@click.option('--app-id', type=int, help='Existing app ID to replace')
+@click.option('--app-id', help='Existing app ID or GUID to replace')
 @click.option('--title', '-t', help='Title of the content (default is the same as the filename)')
 @click.option('--python', type=click.Path(exists=True), help='Path to python interpreter whose environment should be used. The python environment must have the rsconnect package installed.')
 @click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
