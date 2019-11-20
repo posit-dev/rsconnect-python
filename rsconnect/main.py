@@ -2,6 +2,7 @@
 import contextlib
 import json
 import os
+import random
 import sys
 import subprocess
 import time
@@ -67,13 +68,23 @@ def which_python(python, env=os.environ):
 
 
 def inspect_environment(python, dir, check_output=subprocess.check_output):
+    """Run the environment inspector using the specified python binary.
+
+    Returns a dictionary of information about the environment,
+    or containing an "error" field an an error occurred.
+    """
     environment_json = check_output([python, '-m', 'rsconnect.environment', dir], universal_newlines=True)
     environment = json.loads(environment_json)
     return environment
 
 
 def make_deployment_name():
-    timestamp = int(1000 * time.mktime(datetime.now().timetuple()))
+    """Produce a unique name for this deployment as required by the Connect API.
+
+    This is based on the current unix timestamp. Since the millisecond portion
+    is zero on some systems, we add some jitter.
+    """
+    timestamp = int(1000 * time.mktime(datetime.now().timetuple())) + random.randint(0, 999)
     return 'deployment-%d' % timestamp
 
 
