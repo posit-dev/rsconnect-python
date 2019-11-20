@@ -19,7 +19,7 @@ from .bundle import make_source_bundle
 
 
 line_width = 45
-debug = False
+verbose = False
 
 click.echo()
 
@@ -51,7 +51,7 @@ def CLIFeedback(label):
     except EnvironmentException as exc:
         failed('Error: ' + str(exc))
     except Exception as exc:
-        if debug:
+        if verbose:
             traceback.print_exc()
         failed('Internal error: ' + str(exc))
 
@@ -89,12 +89,12 @@ def cli():
 @click.option('--python', type=click.Path(exists=True), help='Path to python interpreter whose environment should be used. The python environment must have the rsconnect package installed.')
 @click.option('--insecure', is_flag=True, help='Disable TLS certification validation.')
 @click.option('--cacert', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
-@click.option('--debug', '_debug', is_flag=True, help='Print detailed error messages on failure.')
+@click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
-def deploy(server, api_key, app_id, title, python, insecure, cacert, _debug, file, extra_files):
-    global debug
-    debug = _debug
+def deploy(server, api_key, app_id, title, python, insecure, cacert, _verbose, file, extra_files):
+    global verbose
+    verbose = _verbose
 
     click.secho('Deploying %s to %s' % (file, server), fg='bright_white')
 
@@ -112,7 +112,7 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _debug, fil
     with CLIFeedback('Inspecting python environment'):
         python = which_python(python)
         environment = inspect_environment(python, dirname(file))
-        if debug:
+        if verbose:
             click.echo('Python: %s' % python)
             click.echo('Environment: %s' % pformat(environment))
 
@@ -155,10 +155,10 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _debug, fil
 @click.option('--api-key', help='Connect server API key')
 @click.option('--insecure', is_flag=True, help='Disable TLS certification validation.')
 @click.option('--cacert', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
-@click.option('--debug', '_debug', is_flag=True, help='Print detailed error messages on failure.')
-def ping(server, api_key, insecure, cacert, _debug):
-    global debug
-    debug = _debug
+@click.option('--verbose', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
+def ping(server, api_key, insecure, cacert, _verbose):
+    global verbose
+    verbose = _verbose
 
     with CLIFeedback('Pinging %s' % server):
         api.verify_server(server, insecure, cacert)
