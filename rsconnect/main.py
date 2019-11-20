@@ -8,7 +8,7 @@ import subprocess
 import time
 import traceback
 from datetime import datetime
-from os.path import basename, dirname, exists
+from os.path import basename, dirname, exists, join
 from pprint import pformat
 
 import click
@@ -103,6 +103,34 @@ def make_deployment_name():
     return 'deployment-%d' % timestamp
 
 
+def default_title(filename):
+    """Produce a default content title from the file path"""
+    return basename(filename).rsplit('.')[0]
+
+
+def output_task_log(task_status, last_status):
+    """Echo any new output from the task to stdout.
+
+    Returns an updated last_status which should be passed into
+    the next call to output_task_log.
+
+    Raises RSConnectException on task failure.
+    """
+    new_last_status = last_status
+    if task_status['last_status'] != last_status:
+        for line in task_status['status']:
+            click.echo(line)
+            new_last_status = task_status['last_status']
+
+    if task_status['finished']:
+        exit_code = task_status['code']
+        if exit_code != 0:
+            raise api.RSConnectException('Task exited with status %d.' % exit_code)
+
+        click.secho('Deployment completed successfully.', fg='bright_white')
+    return new_last_status
+
+
 @click.group()
 def cli():
     pass
@@ -128,14 +156,13 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _verbose, f
         uri = urlparse(server)
 
         # we check the extra files ourselves, since they are paths relative to the base file
-        os.chdir(dirname(file))
         for extra in extra_files:
-            if not exists(extra):
+            if not exists(join(dirname(file), extra)):
                 raise api.RSConnectException('Could not find file %s in %s' % (extra, os.getcwd()))
 
-    deployment_name = make_deployment_name()
-    if not title:
-        title = basename(file).rsplit('.')[0]
+        deployment_name = make_deployment_name()
+        if not title:
+            title = default_title(file)
 
     with CLIFeedback('Inspecting python environment'):
         python = which_python(python)
@@ -159,24 +186,13 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _verbose, f
 
         with CLIFeedback(''):
             task_status = api.task_get(uri, api_key, task_id, last_status, app['cookies'], insecure, cacert)
-
-            if task_status['last_status'] != last_status:
-                for line in task_status['status']:
-                    click.secho(line)
-                    last_status = task_status['last_status']
+            last_status = output_task_log(task_status, last_status)
 
             if task_status['finished']:
-                exit_code = task_status['code']
-                if exit_code != 0:
-                    click.secho('Task exited with status %d.' % exit_code, fg='bright_red')
-                    sys.exit(1)
-
-                click.secho('Deployment completed successfully.', fg='bright_white')
                 app_config = api.app_config(uri, api_key, app['app_id'], insecure, cacert)
                 app_url = app_config['config_url']
                 click.secho('App URL: %s' % app_url, fg='bright_white')
                 break
-
 
 @cli.command()
 @click.option('--server', '-s', required=True, envvar='CONNECT_SERVER', help='Connect server URL')
