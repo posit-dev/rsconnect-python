@@ -124,12 +124,14 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _verbose, f
 
     click.secho('Deploying %s to %s' % (file, server), fg='bright_white')
 
-    with CLIFeedback('Checking server address'):
+    with CLIFeedback('Checking arguments'):
         uri = urlparse(server)
 
-    if not exists(file):
-        click.secho('Could not find file %s' % file, fg='bright_red')
-        sys.exit(1)
+        # we check the extra files ourselves, since they are paths relative to the base file
+        os.chdir(dirname(file))
+        for extra in extra_files:
+            if not exists(extra):
+                raise api.RSConnectException('Could not find file %s in %s' % (extra, os.getcwd()))
 
     deployment_name = make_deployment_name()
     if not title:
