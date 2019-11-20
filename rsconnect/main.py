@@ -26,6 +26,14 @@ click.echo()
 
 @contextlib.contextmanager
 def CLIFeedback(label):
+    """Context manager for OK/ERROR feedback from the CLI.
+
+    If the enclosed block succeeds, OK will be emitted.
+    If it fails, ERROR will be emitted.
+    Errors will also be classified as operational errors (prefixed with 'Error')
+    vs. internal errors (prefixed with 'Internal Error'). In verbose mode,
+    tracebacks will be emitted for internal errors.
+    """
     if label:
         pad = line_width - len(label)
         click.secho(label + '... ' + ' ' * pad, nl=False, fg='bright_white')
@@ -58,6 +66,13 @@ def CLIFeedback(label):
 
 
 def which_python(python, env=os.environ):
+    """Determine which python binary should be used.
+
+    In priority order:
+    * --python specified on the command line
+    * RETICULATE_PYTHON defined in the environment
+    * the python binary running this script
+    """
     if python:
         return python
 
