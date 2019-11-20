@@ -108,13 +108,13 @@ def cli():
     pass
 
 @cli.command()
-@click.option('--server', help='Connect server URL')
-@click.option('--api-key', help='Connect server API key')
+@click.option('--server', '-s', required=True, envvar='CONNECT_SERVER', help='Connect server URL')
+@click.option('--api-key','-k', required=True, envvar='CONNECT_API_KEY', help='Connect server API key')
 @click.option('--app-id', type=int, help='Existing app ID to replace')
-@click.option('--title', help='Title of the content (default is the same as the filename)')
+@click.option('--title', '-t', help='Title of the content (default is the same as the filename)')
 @click.option('--python', type=click.Path(exists=True), help='Path to python interpreter whose environment should be used. The python environment must have the rsconnect package installed.')
-@click.option('--insecure', is_flag=True, help='Disable TLS certification validation.')
-@click.option('--cacert', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
+@click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
+@click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
 @click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
@@ -156,7 +156,7 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _verbose, f
         time.sleep(0.5)
 
         with CLIFeedback(''):
-            task_status = api.task_get(uri, api_key, task_id, last_status, app['cookies'], insecure, cadata)
+            task_status = api.task_get(uri, api_key, task_id, last_status, app['cookies'], insecure, cacert)
 
             if task_status['last_status'] != last_status:
                 for line in task_status['status']:
@@ -170,23 +170,23 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _verbose, f
                     sys.exit(1)
 
                 click.secho('Deployment completed successfully.', fg='bright_white')
-                app_config = api.app_config(uri, api_key, app['app_id'], insecure, cadata)
+                app_config = api.app_config(uri, api_key, app['app_id'], insecure, cacert)
                 app_url = app_config['config_url']
                 click.secho('App URL: %s' % app_url, fg='bright_white')
                 break
 
 
 @cli.command()
-@click.option('--server', help='Connect server URL')
-@click.option('--api-key', help='Connect server API key')
-@click.option('--insecure', is_flag=True, help='Disable TLS certification validation.')
-@click.option('--cacert', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
-@click.option('--verbose', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
+@click.option('--server', '-s', required=True, envvar='CONNECT_SERVER', help='Connect server URL')
+@click.option('--api-key','-k', envvar='CONNECT_API_KEY', help='Connect server API key')
+@click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
+@click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
+@click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
 def ping(server, api_key, insecure, cacert, _verbose):
     global verbose
     verbose = _verbose
 
-    with CLIFeedback('Pinging %s' % server):
+    with CLIFeedback('Checking server %s' % server):
         api.verify_server(server, insecure, cacert)
     
     if api_key:
