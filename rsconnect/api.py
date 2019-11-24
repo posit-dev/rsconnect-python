@@ -78,6 +78,8 @@ def _verify_server(server_address, max_redirects, disable_tls_check, cadata):
         conn.request('GET', server_address)
         response = conn.getresponse()
 
+        if response.status == 404:
+            raise RSConnectException('The specified server does not appear to be running RStudio Connect')
         if response.status >= 400:
             err = 'Response from Connect server: %s %s' % (response.status, response.reason)
             raise Exception(err)
@@ -87,7 +89,7 @@ def _verify_server(server_address, max_redirects, disable_tls_check, cadata):
             logger.warning('Redirected to: %s' % target)
 
             if max_redirects > 0:
-                return _verify_server(urljoin(server_address, target), max_redirects - 1)
+                return _verify_server(urljoin(server_address, target), max_redirects - 1, disable_tls_check, cadata)
             else:
                 err = 'Too many redirects'
                 raise Exception(err)
