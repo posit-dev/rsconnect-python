@@ -12,3 +12,17 @@ test-%:
 		-w /rsconnect \
 		rsconnect-python:$* \
 		bash -c 'python setup.py install && python -m unittest discover'
+
+lint-%:
+	docker run -it --rm \
+		-v $(PWD):/rsconnect \
+		-w /rsconnect \
+		rsconnect-python:$* \
+		pyflakes ./rsconnect/
+
+shell-%:
+	docker run -it --rm \
+		-v $(PWD):/rsconnect \
+		-w /rsconnect \
+		rsconnect-python:$* \
+		bash -c 'python setup.py install && bash'
