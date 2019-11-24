@@ -203,7 +203,6 @@ def test(server, api_key, insecure, cacert, _verbose):
     global verbose
     verbose = _verbose
 
-    server, api_key, insecure, cacert = server_store.resolve(server, api_key, insecure, cacert)
     do_ping(server, api_key, insecure, cacert)
 
 
