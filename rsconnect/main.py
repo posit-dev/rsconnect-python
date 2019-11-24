@@ -207,7 +207,7 @@ def test(server, api_key, insecure, cacert, _verbose):
 
 
 @cli.command(help='Deploy content to RStudio Connect')
-@click.option('--server', '-s', required=True, envvar='CONNECT_SERVER', help='Connect server URL')
+@click.option('--server', '-s', envvar='CONNECT_SERVER', help='Connect server URL')
 @click.option('--api-key','-k', envvar='CONNECT_API_KEY', help='Connect server API key')
 @click.option('--app-id', help='Existing app ID or GUID to replace')
 @click.option('--title', '-t', help='Title of the content (default is the same as the filename)')
@@ -221,7 +221,10 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _verbose, f
     global verbose
     verbose = _verbose
 
-    click.secho('Deploying %s to server "%s"' % (file, server), fg='bright_white')
+    if server:
+        click.secho('Deploying %s to server "%s"' % (file, server), fg='bright_white')
+    else:
+        click.secho('Deploying %s' % file, fg='bright_white')
 
     with CLIFeedback('Checking arguments'):
         server, api_key, insecure, cacert = server_store.resolve(server, api_key, insecure, cacert)

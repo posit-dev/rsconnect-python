@@ -76,7 +76,15 @@ class ServerStore(object):
                     return self.servers[name]
 
     def resolve(self, name_or_url, api_key, insecure, ca_cert):
-        entry = self.get(name_or_url)
+        if name_or_url:
+            entry = self.get(name_or_url)
+        else:
+            # if there is a single server, default to it
+            if len(self.servers) == 1:
+                entry = list(self.servers.values())[0]
+            else:
+                entry = None
+
         if entry:
             return entry['url'], entry['api_key'], entry['insecure'], entry['ca_cert']
         else:
