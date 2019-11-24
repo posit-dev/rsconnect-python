@@ -148,7 +148,7 @@ def cli():
     pass
 
 
-@cli.command()
+@cli.command(help='Add a server')
 @click.option('--name', '-n', required=True, help='Server nickname')
 @click.option('--server', '-s', required=True, help='Connect server URL')
 @click.option('--api-key','-k',required=True, help='Connect server API key')
@@ -172,7 +172,7 @@ def add(name, server, api_key, insecure, cacert, _verbose):
         click.echo('Replaced server "%s" with URL %s' % (name, server))
 
 
-@cli.command()
+@cli.command(help='Remove a server')
 @click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
 @click.argument('server')
 def remove(server, _verbose):
@@ -185,18 +185,18 @@ def remove(server, _verbose):
     server_store.save()
     
     if old_server is None:
-        click.echo('Server %s was not found' % server)
+        click.echo('Server "%s" was not found' % server)
     else:
-        click.echo('Removed server %s' % server)
+        click.echo('Removed server "%s"' % server)
 
 
-@cli.command()
+@cli.command(help='Verify a Connect server URL')
 @click.option('--server', '-s', required=True, envvar='CONNECT_SERVER', help='Connect server URL')
 @click.option('--api-key','-k', envvar='CONNECT_API_KEY', help='Connect server API key')
 @click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
 @click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
 @click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
-def ping(server, api_key, insecure, cacert, _verbose):
+def test(server, api_key, insecure, cacert, _verbose):
     global verbose
     verbose = _verbose
 
@@ -204,7 +204,7 @@ def ping(server, api_key, insecure, cacert, _verbose):
     do_ping(server, api_key, insecure, cacert)
 
 
-@cli.command()
+@cli.command(help='Deploy content to RStudio Connect')
 @click.option('--server', '-s', required=True, envvar='CONNECT_SERVER', help='Connect server URL')
 @click.option('--api-key','-k', envvar='CONNECT_API_KEY', help='Connect server API key')
 @click.option('--app-id', help='Existing app ID or GUID to replace')
@@ -219,7 +219,7 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _verbose, f
     global verbose
     verbose = _verbose
 
-    click.secho('Deploying %s to %s' % (file, server), fg='bright_white')
+    click.secho('Deploying %s to server "%s"' % (file, server), fg='bright_white')
 
     with CLIFeedback('Checking arguments'):
         server, api_key, insecure, cacert = server_store.resolve(server, api_key, insecure, cacert)
