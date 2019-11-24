@@ -135,6 +135,9 @@ def output_task_log(task_status, last_status):
 
 def do_ping(server, api_key, insecure, cacert):
     with CLIFeedback('Checking %s' % server):
+        uri = urlparse(server)
+        if not uri.netloc:
+            raise api.RSConnectException('Invalid server URL: "%s"' % server)
         api.verify_server(server, insecure, cacert)
     
     if api_key:
@@ -224,6 +227,8 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _verbose, f
     with CLIFeedback('Checking arguments'):
         server, api_key, insecure, cacert = server_store.resolve(server, api_key, insecure, cacert)
         uri = urlparse(server)
+        if not uri.netloc:
+            raise api.RSConnectException('Invalid server URL: "%s"' % server)
 
         # we check the extra files ourselves, since they are paths relative to the base file
         for extra in extra_files:

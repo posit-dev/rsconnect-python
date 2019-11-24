@@ -80,7 +80,7 @@ def _verify_server(server_address, max_redirects, disable_tls_check, cadata):
 
         if response.status == 404:
             raise RSConnectException('The specified server does not appear to be running RStudio Connect')
-        if response.status >= 400:
+        elif response.status >= 400:
             err = 'Response from Connect server: %s %s' % (response.status, response.reason)
             raise Exception(err)
         elif response.status >= 300:
