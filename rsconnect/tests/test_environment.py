@@ -41,7 +41,7 @@ class TestEnvironment(TestCase):
 
         # these are the dependencies declared in our setup.py
         self.assertIn('six', contents)
-        self.assertIn('click', contents)
+        self.assertIn('Click', contents)
 
         pip_version = result.pop('pip')
         self.assertTrue(version_re.match(pip_version))
