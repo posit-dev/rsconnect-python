@@ -145,7 +145,7 @@ def do_ping(server, api_key, insecure, cacert):
             api.verify_api_key(uri, api_key, insecure, cacert)
 
 
-@click.group()
+@click.group(no_args_is_help=True)
 def cli():
     pass
 
