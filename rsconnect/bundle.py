@@ -234,7 +234,8 @@ def make_html_manifest(filename):
 def make_html_bundle(filename, nb_title, python, check_output=subprocess.check_output):
     cmd = [
         python, '-m', 'jupyter',
-        'nbconvert', '--stdout', filename
+        'nbconvert', '--execute', '--stdout', 
+        '--log-level', 'ERROR', filename
     ]
     try:
         output = check_output(cmd)

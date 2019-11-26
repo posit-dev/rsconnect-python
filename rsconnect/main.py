@@ -16,7 +16,7 @@ from six.moves.urllib_parse import urlparse
 
 from . import api
 from .environment import EnvironmentException
-from .bundle import make_source_bundle
+from .bundle import make_html_bundle, make_source_bundle
 from .metadata import ServerStore, AppStore
 
 line_width = 45
@@ -209,6 +209,7 @@ def test(server, api_key, insecure, cacert, _verbose):
 @cli.command(help='Deploy content to RStudio Connect')
 @click.option('--server', '-s', envvar='CONNECT_SERVER', help='Connect server URL')
 @click.option('--api-key','-k', envvar='CONNECT_API_KEY', help='Connect server API key')
+@click.option('--static', is_flag=True, help='Deployed a static, pre-rendered notebook. Static notebooks cannot be re-run on the server.')
 @click.option('--new', '-n', is_flag=True, help='Force a new deployment, even if there is saved metadata from a previous deployment.')
 @click.option('--app-id', help='Existing app ID or GUID to replace. Cannot be used with --new.')
 @click.option('--title', '-t', help='Title of the content (default is the same as the filename)')
@@ -218,7 +219,7 @@ def test(server, api_key, insecure, cacert, _verbose):
 @click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
-def deploy(server, api_key, new, app_id, title, python, insecure, cacert, _verbose, file, extra_files):
+def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert, _verbose, file, extra_files):
     global verbose
     verbose = _verbose
 
@@ -277,7 +278,10 @@ def deploy(server, api_key, new, app_id, title, python, insecure, cacert, _verbo
             click.echo('Environment: %s' % pformat(environment))
 
     with CLIFeedback('Creating deployment bundle'):
-        bundle = make_source_bundle(file, environment, extra_files)
+        if static:
+            bundle = make_html_bundle(file, title, python)
+        else:
+            bundle = make_source_bundle(file, environment, extra_files)
 
     with CLIFeedback('Uploading bundle'):
         app = api.deploy(uri, api_key, app_id, deployment_name, title, bundle, insecure, cacert)
