@@ -10,7 +10,8 @@ version_re = re.compile(r'\d+\.\d+(\.\d+)?')
 
 class TestEnvironment(TestCase):
     def get_dir(self, name):
-        path = join(dirname(__file__), 'testdata', name)
+        py_version = 'py%d' % sys.version_info[0]
+        path = join(dirname(__file__), 'testdata', py_version, name)
         self.assertTrue(exists(path))
         return path
 

@@ -78,7 +78,7 @@ class TestAppMetadata(TestCase):
         self.tempdir = tempfile.mkdtemp()
         self.nb_path = join(self.tempdir, 'notebook.ipynb')
 
-        with open(self.nb_path, 'w') as f:
+        with open(self.nb_path, 'w'):
             pass
 
         self.app_store = AppStore(self.nb_path)

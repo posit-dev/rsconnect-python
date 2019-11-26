@@ -12,7 +12,8 @@ from rsconnect.bundle import list_files, make_html_bundle, make_source_bundle
 
 class TestBundle(TestCase):
     def get_dir(self, name):
-        path = join(dirname(__file__), 'testdata', name)
+        py_version = 'py%d' % sys.version_info[0]
+        path = join(dirname(__file__), 'testdata', py_version, name)
         self.assertTrue(exists(path))
         return path
 
@@ -48,6 +49,11 @@ class TestBundle(TestCase):
             del manifest['locale']
             del manifest['python']['package_manager']['version']
 
+            if sys.version_info[0] == 2:
+                ipynb_hash = u"38aa30662bc16e91e6804cf21d7722f7"
+            else:
+                ipynb_hash = u"36873800b48ca5ab54760d60ba06703a"
+
             self.assertEqual(manifest, {
                 u"version": 1,
                 u"metadata": {
@@ -63,7 +69,7 @@ class TestBundle(TestCase):
                 },
                 u"files": {
                     u"dummy.ipynb": {
-                        u"checksum": u"36873800b48ca5ab54760d60ba06703a"
+                        u"checksum": ipynb_hash,
                     },
                     u"requirements.txt": {
                         u"checksum": u"5f2a5e862fe7afe3def4a57bb5cfb214"
@@ -107,6 +113,11 @@ class TestBundle(TestCase):
             del manifest['locale']
             del manifest['python']['package_manager']['version']
 
+            if sys.version_info[0] == 2:
+                ipynb_hash = u"38aa30662bc16e91e6804cf21d7722f7"
+            else:
+                ipynb_hash = u"36873800b48ca5ab54760d60ba06703a"
+
             self.assertEqual(manifest, {
                 u"version": 1,
                 u"metadata": {
@@ -122,7 +133,7 @@ class TestBundle(TestCase):
                 },
                 u"files": {
                     u"dummy.ipynb": {
-                        u"checksum": u"36873800b48ca5ab54760d60ba06703a"
+                        u"checksum": ipynb_hash,
                     },
                     u"data.csv": {
                         u"checksum": u"f2bd77cc2752b3efbb732b761d2aa3c3"
