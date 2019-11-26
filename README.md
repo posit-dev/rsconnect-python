@@ -4,6 +4,18 @@ This package is a library used by the rsconnect-jupyter package to deploy Jupyte
 
 There is also a CLI deployment tool which can be used directly to deploy notebooks.
 
+### Installation
+
+Eventually this will be pip-installable. For now:
+
+```
+git clone https://github.com/rstudio/rsconnect-python
+cd rsconnect-python
+python setup.py install
+```
+
+### Using the rsconnect CLI
+
 ```
 rsconnect deploy \
 	--server https://my.connect.server:3939 \
