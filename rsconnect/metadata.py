@@ -77,6 +77,9 @@ class ServerStore(object):
                 if server['url'] == name_or_url:
                     return self.servers[name]
 
+    def list(self):
+        return sorted(self.servers.values(), key=lambda s:s['name'])
+
     def resolve(self, name_or_url, api_key, insecure, ca_cert):
         if name_or_url:
             entry = self.get(name_or_url)

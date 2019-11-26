@@ -193,6 +193,26 @@ def remove(server, _verbose):
         click.echo('Removed server "%s"' % server)
 
 
+@cli.command('list', help='List saved servers')
+@click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
+def list_servers( _verbose):
+    global verbose
+    verbose = _verbose
+
+    servers = server_store.list()
+    for server in servers:
+        click.echo('Server "%s"' % server['name'])
+        indent = ' ' * 4
+
+        click.echo('    URL: %s' % server['url'])
+        if server['api_key']:
+            click.echo('    API key is saved')
+        if server['insecure']:
+            click.echo('    Insecure mode (TLS certificate validation disabled)')
+        if server['ca_cert']:
+            click.echo('    TLS certificate file: %s' % server['ca_cert'])
+        click.echo()
+
 @cli.command(help='Verify a Connect server URL')
 @click.option('--server', '-s', required=True, envvar='CONNECT_SERVER', help='Connect server URL')
 @click.option('--api-key','-k', envvar='CONNECT_API_KEY', help='Connect server API key')

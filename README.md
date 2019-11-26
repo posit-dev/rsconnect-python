@@ -25,6 +25,12 @@ rsconnect deploy --server myserver ./my-notebook.ipynb
 rsconnect deploy ./my-notebook.ipynb
 ```
 
+You can see the list of saved servers with:
+
+```
+rsconnect list
+```
+
 Servers can be removed with:
 
 ```
