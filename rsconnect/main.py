@@ -209,7 +209,8 @@ def test(server, api_key, insecure, cacert, _verbose):
 @cli.command(help='Deploy content to RStudio Connect')
 @click.option('--server', '-s', envvar='CONNECT_SERVER', help='Connect server URL')
 @click.option('--api-key','-k', envvar='CONNECT_API_KEY', help='Connect server API key')
-@click.option('--app-id', help='Existing app ID or GUID to replace')
+@click.option('--new', '-n', is_flag=True, help='Force a new deployment, even if there is saved metadata from a previous deployment.')
+@click.option('--app-id', help='Existing app ID or GUID to replace. Cannot be used with --new.')
 @click.option('--title', '-t', help='Title of the content (default is the same as the filename)')
 @click.option('--python', type=click.Path(exists=True), help='Path to python interpreter whose environment should be used. The python environment must have the rsconnect package installed.')
 @click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
@@ -217,7 +218,7 @@ def test(server, api_key, insecure, cacert, _verbose):
 @click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
-def deploy(server, api_key, app_id, title, python, insecure, cacert, _verbose, file, extra_files):
+def deploy(server, api_key, new, app_id, title, python, insecure, cacert, _verbose, file, extra_files):
     global verbose
     verbose = _verbose
 
@@ -225,6 +226,9 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _verbose, f
         click.secho('Deploying %s to server "%s"' % (file, server), fg='bright_white')
     else:
         click.secho('Deploying %s' % file, fg='bright_white')
+
+    app_store = AppStore(file)
+    app_store.load()
 
     with CLIFeedback('Checking arguments'):
         server, api_key, insecure, cacert = server_store.resolve(server, api_key, insecure, cacert)
@@ -241,6 +245,27 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _verbose, f
         if not title:
             title = default_title(file)
 
+        if new:
+            if app_id is not None:
+                raise api.RSConnectException('Cannot specify both --new and --app-id.')
+        else:
+            # Redeployment. Use the saved app information unless overridden by the user.
+            metadata = app_store.get(server)
+            if metadata is not None:
+                if verbose:
+                    click.echo('Found previous deployment data in %s' % app_store.get_path())
+
+                if app_id is None:
+                    app_id = metadata.get('app_guid') or metadata.get('app_id')
+                    click.echo('Using saved app ID: %s' % app_id)
+
+                if title is None:
+                    title = metadata.get('title')
+                    click.echo('Using saved title: "%s"' % title)
+            else:
+                if verbose:
+                    click.echo('No previous deployment to this server was found; this will be a new deployment.')
+
     with CLIFeedback('Inspecting python environment'):
         python = which_python(python)
         environment = inspect_environment(python, dirname(file))
@@ -254,6 +279,9 @@ def deploy(server, api_key, app_id, title, python, insecure, cacert, _verbose, f
     with CLIFeedback('Uploading bundle'):
         app = api.deploy(uri, api_key, app_id, deployment_name, title, bundle, insecure, cacert)
         task_id = app['task_id']
+
+    app_store.set(server, app['app_id'], None, title)
+    app_store.save()
 
     click.secho('\nDeployment log:', fg='bright_white')
     last_status = None

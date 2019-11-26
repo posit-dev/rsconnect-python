@@ -1,8 +1,10 @@
 
+import base64
+import hashlib
 import json
 import os
 import sys
-from os.path import dirname, exists, join
+from os.path import abspath, basename, dirname, exists, join
 
 
 def config_dirname(platform=sys.platform, env=os.environ):
@@ -115,8 +117,16 @@ class ServerStore(object):
         os.chmod(self.path, 0o600)
 
 
+def sha1(s):
+    m = hashlib.sha1()
+    if hasattr(s, 'encode'):
+        s = s.encode('utf-8')
+    m.update(s)
+    return base64.b64encode(m.digest()).decode('utf-8').rstrip('=')
+
+
 class AppStore(object):
-    """Defines a metadata store for server information.
+    """Defines a metadata store for app information.
 
     Metadata for an app consists of one entry for each server
     where the app was deployed, containing:
@@ -128,26 +138,26 @@ class AppStore(object):
     The metadata file for an app is written in the same directory
     as the app's entrypoint file, if that directory is writable.
     Otherwise, it is stored in the user's config directory
-    under applications/{app_guid}.json.
+    under applications/{hash}.json.
     """
-    def __init__(self, app_file, app_guid):
-        self.app_path = join(dirname(app_file), '.rsconnect-python.json')
-        self.global_path = join(config_dirname(), 'applications', app_guid + '.json')
-        self.data = dict(
-            server_url=None,
-            app_id=None,
-            app_guid=None,
-            title=None,
-        )
+    def __init__(self, app_file):
+        self.app_path = join(dirname(app_file), '.%s.rsconnect.json' % basename(app_file))
+        self.global_path = join(config_dirname(), 'applications', sha1(abspath(app_file)) + '.json')
+        self.data = {}
+        self.filepath = None
 
     def set(self, server_url, app_id, app_guid, title):
-        """Set the metadata for this app."""
-        self.data = dict(
+        """Set the metadata for this app on a specific server."""
+        self.data[server_url] = dict(
             server_url=server_url,
             app_id=app_id,
             app_guid=app_guid,
             title=title,
         )
+
+    def get(self, server_url):
+        """Set the metadata for this app on a specific server."""
+        return self.data.get(server_url)
 
     def load_from(self, path):
         """Load the data from the specified path.
@@ -156,7 +166,8 @@ class AppStore(object):
         """
         if exists(path):
             with open(path, 'rb') as f:
-                self.data = json.loads(f.read())
+                self.data = json.loads(f.read().decode('utf-8'))
+                self.filepath = path
                 return True
         return False
 
@@ -173,7 +184,8 @@ class AppStore(object):
         """Save the data to the specified file."""
         data = json.dumps(self.data, indent=4)
         with open(path, 'wb') as f:
-            f.write(data)
+            f.write(data.encode('utf-8'))
+            self.filepath = path
 
     def save(self):
         """Save the data to file.
@@ -186,3 +198,6 @@ class AppStore(object):
         except OSError:
             makedirs(self.global_path)
             self.save_to(self.global_path)
+
+    def get_path(self):
+        return self.filepath
