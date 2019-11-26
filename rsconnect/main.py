@@ -220,6 +220,14 @@ def list_servers( _verbose):
             click.echo()
 
 
+@cli.command(help='Show the version of rsconnect-python')
+def version():
+    version_file = join(dirname(__file__), 'version.txt')
+    with open(version_file, 'r') as f:
+        version = f.read().strip()
+        click.echo(version)
+
+
 @cli.command(help='Verify a Connect server URL')
 @click.option('--server', '-s', required=True, envvar='CONNECT_SERVER', help='Connect server URL')
 @click.option('--api-key','-k', envvar='CONNECT_API_KEY', help='Connect server API key')
