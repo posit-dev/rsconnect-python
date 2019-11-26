@@ -23,6 +23,8 @@ rsconnect deploy \
 	my-notebook.ipynb
 ```
 
+Note: the examples here use long command line options, but there are short options (`-s`, `-k`, etc.) available. Run `rsconnect deploy --help` for details.
+
 ### Saving Server Information
 To avoid having to provide your server information at each deployment, you can optionally save server information:
 
