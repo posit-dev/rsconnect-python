@@ -249,6 +249,8 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
         if not title:
             title = default_title(file)
 
+        app_mode = 'static' if static else 'jupyter-static'
+
         if new:
             if app_id is not None:
                 raise api.RSConnectException('Cannot specify both --new and --app-id.')
@@ -268,6 +270,13 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
                     title = metadata.get('title')
                     if verbose:
                         click.echo('Using saved title: "%s"' % title)
+
+                # app mode cannot be changed on redeployment
+                app_mode = metadata.get('app_mode')
+                if static and app_mode != 'static':
+                    raise api.RSConnectException('Cannot change app mode to "static" once deployed. '
+                                                 'Use --new to create a new deployment.')
+
             else:
                 if verbose:
                     click.echo('No previous deployment to this server was found; this will be a new deployment.')
@@ -280,7 +289,7 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
             click.echo('Environment: %s' % pformat(environment))
 
     with CLIFeedback('Creating deployment bundle'):
-        if static:
+        if app_mode == 'static':
             bundle = make_html_bundle(file, title, python)
         else:
             bundle = make_source_bundle(file, environment, extra_files)
@@ -289,7 +298,7 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
         app = api.deploy(uri, api_key, app_id, deployment_name, title, bundle, insecure, cacert)
         task_id = app['task_id']
 
-    app_store.set(server, app['app_id'], None, title)
+    app_store.set(server, app['app_id'], None, title, app_mode)
     app_store.save()
 
     click.secho('\nDeployment log:', fg='bright_white')
