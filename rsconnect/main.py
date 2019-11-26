@@ -208,8 +208,6 @@ def list_servers( _verbose):
         click.echo()
         for server in servers:
             click.echo('Server "%s"' % server['name'])
-            indent = ' ' * 4
-
             click.echo('    URL: %s' % server['url'])
             if server['api_key']:
                 click.echo('    API key is saved')
