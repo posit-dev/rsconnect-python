@@ -181,24 +181,24 @@ class AppStore(object):
         if not self.load_from(self.app_path):
             self.load_from(self.global_path)
 
-    def save_to(self, path):
+    def save_to(self, path, open=open):
         """Save the data to the specified file."""
         data = json.dumps(self.data, indent=4)
         with open(path, 'wb') as f:
             f.write(data.encode('utf-8'))
             self.filepath = path
 
-    def save(self):
+    def save(self, open=open):
         """Save the data to file.
 
         The app directory is tried first. If that fails,
         then we write to the global config location.
         """
         try:
-            self.save_to(self.app_path)
+            self.save_to(self.app_path, open)
         except OSError:
             makedirs(self.global_path)
-            self.save_to(self.global_path)
+            self.save_to(self.global_path, open)
 
     def get_path(self):
         return self.filepath
