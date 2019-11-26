@@ -47,6 +47,9 @@ class ServerStore(object):
         self.path = join(base_dir, 'servers.json')
         self.servers = {}
 
+    def get_path(self):
+        return self.path
+
     def add(self, name, url, api_key, insecure=False, ca_cert=None):
         """Add a new server"""
         self.servers[name] = dict(

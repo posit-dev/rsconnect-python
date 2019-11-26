@@ -24,7 +24,6 @@ verbose = False
 server_store = ServerStore()
 server_store.load()
 
-click.echo()
 
 @contextlib.contextmanager
 def CLIFeedback(label):
@@ -200,18 +199,26 @@ def list_servers( _verbose):
     verbose = _verbose
 
     servers = server_store.list()
-    for server in servers:
-        click.echo('Server "%s"' % server['name'])
-        indent = ' ' * 4
 
-        click.echo('    URL: %s' % server['url'])
-        if server['api_key']:
-            click.echo('    API key is saved')
-        if server['insecure']:
-            click.echo('    Insecure mode (TLS certificate validation disabled)')
-        if server['ca_cert']:
-            click.echo('    TLS certificate file: %s' % server['ca_cert'])
+    click.echo('Server information from %s' % server_store.get_path())
+
+    if not servers:
+        click.echo('No servers are saved. To save a server, see `rsconnect save --help`.')
+    else:
         click.echo()
+        for server in servers:
+            click.echo('Server "%s"' % server['name'])
+            indent = ' ' * 4
+
+            click.echo('    URL: %s' % server['url'])
+            if server['api_key']:
+                click.echo('    API key is saved')
+            if server['insecure']:
+                click.echo('    Insecure mode (TLS certificate validation disabled)')
+            if server['ca_cert']:
+                click.echo('    TLS certificate file: %s' % server['ca_cert'])
+            click.echo()
+
 
 @cli.command(help='Verify a Connect server URL')
 @click.option('--server', '-s', required=True, envvar='CONNECT_SERVER', help='Connect server URL')
