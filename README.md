@@ -106,6 +106,8 @@ rsconnect deploy --app-id 123456 my-notebook.ipynb
 
 You must be the owner of the target deployment, or a collaborator with permission to change the content. The type of content (static notebook, or notebook with source code) must match the existing deployment.
 
+Note: there is no confirmation required to update a deployment. If you do so accidentally, use the "Source Versions" dialog in the Connect dashboard to activate the previous version and remove the erroneous one.
+
 
 ## Configuration Files
 Configuration files are stored in a platform-specific directory:
