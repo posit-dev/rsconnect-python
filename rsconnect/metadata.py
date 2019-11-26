@@ -147,7 +147,7 @@ class AppStore(object):
     under applications/{hash}.json.
     """
     def __init__(self, app_file):
-        self.app_path = join(dirname(app_file), '.%s.rsconnect.json' % basename(app_file))
+        self.app_path = join(dirname(app_file), 'rsconnect-python', basename(app_file))
         self.global_path = join(config_dirname(), 'applications', sha1(abspath(app_file)) + '.json')
         self.data = {}
         self.filepath = None
@@ -201,6 +201,7 @@ class AppStore(object):
         then we write to the global config location.
         """
         try:
+            makedirs(self.app_path)
             self.save_to(self.app_path, open)
         except OSError:
             makedirs(self.global_path)

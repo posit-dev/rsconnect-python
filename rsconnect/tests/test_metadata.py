@@ -103,7 +103,7 @@ class TestAppMetadata(TestCase):
         ))
 
     def test_local_save_load(self):
-        path = join(self.tempdir, '.notebook.ipynb.rsconnect.json')
+        path = join(self.tempdir, 'rsconnect-python', 'notebook.ipynb')
         self.assertFalse(exists(path))
         self.app_store.save()
         self.assertTrue(exists(path))
@@ -133,7 +133,7 @@ class TestAppMetadata(TestCase):
                 raise OSError('Mock: this directory is not writable')
             return open(path, mode, *args, **kw)
 
-        path = join(self.tempdir, '.notebook.ipynb.rsconnect.json')
+        path = join(self.tempdir, 'rsconnect-python', 'notebook.ipynb')
         self.assertFalse(exists(path))
         self.app_store.save(mockOpen)
         self.assertFalse(exists(path))
