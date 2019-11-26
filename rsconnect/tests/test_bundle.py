@@ -12,7 +12,7 @@ from rsconnect.bundle import list_files, make_html_bundle, make_source_bundle
 
 class TestBundle(TestCase):
     def get_dir(self, name):
-        path = join(dirname(__file__), 'data', name)
+        path = join(dirname(__file__), 'testdata', name)
         self.assertTrue(exists(path))
         return path
 
@@ -174,10 +174,7 @@ class TestBundle(TestCase):
         self.maxDiff = 5000
         nb_path = join(dir, 'dummy.ipynb')
 
-        def check_output(*args, **kw):
-            return "some html would be here"
-
-        bundle = make_html_bundle(nb_path, "a title", sys.executable, check_output=check_output)
+        bundle = make_html_bundle(nb_path, "a title", sys.executable)
 
         tar = tarfile.open(mode='r:gz', fileobj=bundle)
 
