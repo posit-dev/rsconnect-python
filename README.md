@@ -121,5 +121,6 @@ Server information is stored in the `servers.json` file in that directory.
 ### Deployment Metadata
 After a deployment is completed, information about the deployment is saved
 to enable later redeployment. This data is stored alongside the deployed file,
+in an `rsconnect-python` subdirectory,
 if possible. If that location is not writable during deployment, then
 the metadata will be stored in the global configuration directory specified above.
