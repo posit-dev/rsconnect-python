@@ -261,11 +261,13 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
 
                 if app_id is None:
                     app_id = metadata.get('app_guid') or metadata.get('app_id')
-                    click.echo('Using saved app ID: %s' % app_id)
+                    if verbose:
+                        click.echo('Using saved app ID: %s' % app_id)
 
                 if title is None:
                     title = metadata.get('title')
-                    click.echo('Using saved title: "%s"' % title)
+                    if verbose:
+                        click.echo('Using saved title: "%s"' % title)
             else:
                 if verbose:
                     click.echo('No previous deployment to this server was found; this will be a new deployment.')
