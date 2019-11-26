@@ -104,7 +104,7 @@ If you want to update an existing deployment but don't have the saved metadata, 
 rsconnect deploy --app-id 123456 my-notebook.ipynb
 ```
 
-You must be the owner of the target deployment, or a collaborator permission to change the content. The type of content (static notebook, or notebook with source code) must match the existing deployment.
+You must be the owner of the target deployment, or a collaborator with permission to change the content. The type of content (static notebook, or notebook with source code) must match the existing deployment.
 
 
 ## Configuration Files
