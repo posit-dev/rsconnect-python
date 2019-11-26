@@ -236,6 +236,9 @@ def deploy(server, api_key, new, app_id, title, python, insecure, cacert, _verbo
         if not uri.netloc:
             raise api.RSConnectException('Invalid server URL: "%s"' % server)
 
+        if not file.endswith('.ipynb'):
+            raise api.RSConnectException('Only Jupyter notebooks (.ipynb files) can be deployed.')
+
         # we check the extra files ourselves, since they are paths relative to the base file
         for extra in extra_files:
             if not exists(join(dirname(file), extra)):
