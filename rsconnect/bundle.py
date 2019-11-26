@@ -4,13 +4,11 @@ import io
 import json
 import logging
 import os
-import posixpath
-import sys
+import subprocess
 import tarfile
 import tempfile
 
-from datetime import datetime
-from os.path import basename, dirname, exists, join, relpath, split, splitext
+from os.path import basename, dirname, exists, join, relpath, splitext
 
 log = logging.getLogger('rsconnect')
 log.setLevel(logging.DEBUG)
@@ -223,44 +221,28 @@ def get_exporter(**kwargs):
         raise Exception("Could not construct Exporter: %s" % e)
 
 
-def make_html_manifest(file_name):
+def make_html_manifest(filename):
     return {
         "version": 1,
         "metadata": {
             "appmode": "static",
-            "primary_html": file_name,
+            "primary_html": filename,
         },
     }
 
 
-def make_html_bundle(file, nb_title, config_dir, ext_resources_dir, config, jupyter_log):
-    ext_resources_dir = dirname(file)
-    nb_name = basename(file)
+def make_html_bundle(filename, nb_title, python, check_output=subprocess.check_output):
+    cmd = [
+        python, '-m', 'jupyter',
+        'nbconvert', '--stdout', filename
+    ]
+    try:
+        output = check_output(cmd)
+    except subprocess.CalledProcessError:
+        raise
 
-    # create resources dictionary
-    modified = datetime.fromtimestamp(os.stat(file).st_mtime)
-
-    if sys.platform == 'win32':
-        date_format = "%B %d, %Y"
-    else:
-        date_format = "%B %-d, %Y"
-
-    resource_dict = {
-        "metadata": {
-            "name": nb_title,
-            "modified_date": modified.strftime(date_format)
-        },
-        "config_dir": config_dir
-    }
-
-    if ext_resources_dir:
-        resource_dict['metadata']['path'] = ext_resources_dir
-
-    exporter = get_exporter(config=config, log=jupyter_log)
-    output, resources = exporter.from_filename(file, resources=resource_dict)
-
-    filename = splitext(nb_name)[0] + resources['output_extension']
-    log.info('filename = %s' % filename)
+    nb_name = basename(filename)
+    filename = splitext(nb_name)[0] + '.html'
 
     bundle_file = tempfile.TemporaryFile(prefix='rsc_bundle')
 
@@ -269,7 +251,6 @@ def make_html_bundle(file, nb_title, config_dir, ext_resources_dir, config, jupy
 
         # manifest
         manifest = make_html_manifest(filename)
-        log.debug('manifest: %r', manifest)
         bundle_add_buffer(bundle, 'manifest.json', json.dumps(manifest))
 
     # rewind file pointer

@@ -1,13 +1,10 @@
 
 import json
-import logging
-import os
 import sys
 import tarfile
 
-from datetime import datetime
 from unittest import TestCase
-from os.path import basename, dirname, exists, join
+from os.path import dirname, exists, join
 
 from rsconnect.environment import detect_environment
 from rsconnect.bundle import list_files, make_html_bundle, make_source_bundle
@@ -177,34 +174,10 @@ class TestBundle(TestCase):
         self.maxDiff = 5000
         nb_path = join(dir, 'dummy.ipynb')
 
-        # Note that here we are introspecting the environment from within
-        # the test environment. Don't do this in the production code, which
-        # runs in the notebook server. We need the introspection to run in
-        # the kernel environment and not the notebook server environment.
-        environment = detect_environment(dir)
+        def check_output(*args, **kw):
+            return "some html would be here"
 
-        # borrowed these from the running notebook server in the container
-        config_dir = '/home/builder/.jupyter'
-        config = {
-            'FileContentsManager': {
-                'root_dir': '/notebooks'
-            },
-            'MappingKernelManager': {
-                'root_dir': '/notebooks'
-            },
-            'NotebookApp': {
-                'notebook_dir': '/notebooks',
-                'ip': '*',
-                'port': 9999,
-                'answer_yes': True,
-                'open_browser': False,
-                'token': '',
-                'nbserver_extensions': {
-                    'rsconnect_jupyter': True
-                }
-            }
-        }
-        bundle = make_html_bundle(nb_path, "a title", config_dir, dir, config, logging.getLogger())
+        bundle = make_html_bundle(nb_path, "a title", sys.executable, check_output=check_output)
 
         tar = tarfile.open(mode='r:gz', fileobj=bundle)
 
