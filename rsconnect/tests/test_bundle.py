@@ -7,7 +7,7 @@ from unittest import TestCase
 from os.path import dirname, exists, join
 
 from rsconnect.environment import detect_environment
-from rsconnect.bundle import list_files, make_notebook_html_bundle, make_notebook_source_bundle
+from rsconnect.bundle import list_files, make_manifest_bundle, make_notebook_html_bundle, make_notebook_source_bundle
 
 
 class TestBundle(TestCase):
@@ -208,3 +208,15 @@ class TestBundle(TestCase):
         finally:
             tar.close()
             bundle.close()
+
+    def test_manifest_bundle(self):
+        self.maxDiff = 5000
+        manifest_path = join(dirname(__file__), 'testdata', 'R', 'shinyapp', 'manifest.json')
+
+        with make_manifest_bundle(manifest_path) as bundle, \
+            tarfile.open(mode='r:gz', fileobj=bundle) as tar:
+
+            tar_names = sorted(tar.getnames())
+            manifest = json.loads(tar.extractfile('manifest.json').read().decode('utf-8'))
+            manifest_names = sorted(manifest['files'].keys())
+            self.assertEqual(tar_names, manifest_names)

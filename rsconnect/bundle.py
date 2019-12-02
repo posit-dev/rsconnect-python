@@ -264,8 +264,8 @@ def make_manifest_bundle(manifest_path):
 
     Returns a file-like object containing the bundle tarball.
     """
-    with open(manifest_path, 'r') as f:
-        raw_manifest = f.read()
+    with open(manifest_path, 'rb') as f:
+        raw_manifest = f.read().decode('utf-8')
         manifest = json.loads(raw_manifest)
 
     base_dir = dirname(manifest_path)
