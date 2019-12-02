@@ -2,7 +2,7 @@
 
 This package is a library used by the rsconnect-jupyter package to deploy Jupyter notebooks to RStudio Connect. It can also be used by other Python-based deployment tools.
 
-There is also a CLI deployment tool which can be used directly to deploy notebooks.
+There is also a CLI deployment tool which can be used directly to deploy Jupyter notebooks. Other content types can be deployed if they include a prepared `manifest.json` file.
 
 ### Installation
 
@@ -76,6 +76,15 @@ If you just want to publish an HTML snapshot of the notebook, you can use the `-
 
 ```
 rsconnect deploy --static my-notebook.ipynb
+```
+
+#### Deploying R or Other Content
+You can deploy other content that has an existing RStudio Connect `manifest.json` file. For example, if you download and unpack a source bundle from Connect, you can deploy the resulting directory.
+
+Note that in this case, the existing content is deployed as-is. Python environment inspection and notebook pre-rendering, if needed, are assumed to be already done and represented in the manifest.
+
+```
+rsconnect deploy /path/to/manifest.json
 ```
 
 #### Title
