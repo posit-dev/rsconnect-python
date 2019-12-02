@@ -147,7 +147,7 @@ class AppStore(object):
     under applications/{hash}.json.
     """
     def __init__(self, app_file):
-        self.app_path = join(dirname(app_file), 'rsconnect-python', basename(app_file))
+        self.app_path = join(dirname(app_file), 'rsconnect-python', basename(app_file) + '.json')
         self.global_path = join(config_dirname(), 'applications', sha1(abspath(app_file)) + '.json')
         self.data = {}
         self.filepath = None

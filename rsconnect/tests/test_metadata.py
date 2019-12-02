@@ -103,7 +103,7 @@ class TestAppMetadata(TestCase):
         ))
 
     def test_local_save_load(self):
-        path = join(self.tempdir, 'rsconnect-python', 'notebook.ipynb')
+        path = join(self.tempdir, 'rsconnect-python', 'notebook.ipynb.json')
         self.assertFalse(exists(path))
         self.app_store.save()
         self.assertTrue(exists(path))
