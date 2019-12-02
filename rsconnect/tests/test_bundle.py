@@ -7,7 +7,7 @@ from unittest import TestCase
 from os.path import dirname, exists, join
 
 from rsconnect.environment import detect_environment
-from rsconnect.bundle import list_files, make_html_bundle, make_source_bundle
+from rsconnect.bundle import list_files, make_notebook_html_bundle, make_notebook_source_bundle
 
 
 class TestBundle(TestCase):
@@ -30,7 +30,7 @@ class TestBundle(TestCase):
         # runs in the notebook server. We need the introspection to run in
         # the kernel environment and not the notebook server environment.
         environment = detect_environment(dir)
-        with make_source_bundle(nb_path, environment) as bundle, \
+        with make_notebook_source_bundle(nb_path, environment) as bundle, \
             tarfile.open(mode='r:gz', fileobj=bundle) as tar:
 
             names = sorted(tar.getnames())
@@ -88,7 +88,7 @@ class TestBundle(TestCase):
         # the kernel environment and not the notebook server environment.
         environment = detect_environment(dir)
 
-        with make_source_bundle(nb_path, environment, extra_files=['data.csv']) as bundle, \
+        with make_notebook_source_bundle(nb_path, environment, extra_files=['data.csv']) as bundle, \
             tarfile.open(mode='r:gz', fileobj=bundle) as tar:
 
             names = sorted(tar.getnames())
@@ -185,7 +185,7 @@ class TestBundle(TestCase):
         self.maxDiff = 5000
         nb_path = join(dir, 'dummy.ipynb')
 
-        bundle = make_html_bundle(nb_path, "a title", sys.executable)
+        bundle = make_notebook_html_bundle(nb_path, sys.executable)
 
         tar = tarfile.open(mode='r:gz', fileobj=bundle)
 

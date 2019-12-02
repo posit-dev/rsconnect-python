@@ -16,7 +16,7 @@ from six.moves.urllib_parse import urlparse
 
 from . import api
 from .environment import EnvironmentException
-from .bundle import make_html_bundle, make_source_bundle
+from .bundle import make_manifest_bundle, make_notebook_html_bundle, make_notebook_source_bundle
 from .metadata import ServerStore, AppStore
 
 line_width = 45
@@ -270,8 +270,24 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
         if not uri.netloc:
             raise api.RSConnectException('Invalid server URL: "%s"' % server)
 
-        if not file.endswith('.ipynb'):
-            raise api.RSConnectException('Only Jupyter notebooks (.ipynb files) can be deployed.')
+        if basename(file) == 'manifest.json':
+            with open(file, 'r') as f:
+                manifest = json.load(f)
+
+            if static:
+                raise api.RSConnectException('Cannot specify --static when deploying a manifest.')
+
+            if title:
+                raise api.RSConnectException('Cannot specify --title when deploying a manifest.')
+
+            if python:
+                raise api.RSConnectException('Cannot specify --python when deploying a manifest.')
+        else:
+            manifest = None
+            if not file.endswith('.ipynb'):
+                raise api.RSConnectException(
+                    'Only Jupyter notebook (.ipynb) and RStudio Connect '
+                    'manifest.json files can be deployed.')
 
         # we check the extra files ourselves, since they are paths relative to the base file
         for extra in extra_files:
@@ -282,7 +298,12 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
         if not title:
             title = default_title(file)
 
-        app_mode = 'static' if static else 'jupyter-static'
+        if manifest:
+            app_mode = manifest.get('app-mode', 'static')
+        elif static:
+            app_mode = 'static'
+        else:
+            app_mode = 'jupyter-static'
 
         if new:
             if app_id is not None:
@@ -322,10 +343,12 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
             click.echo('Environment: %s' % pformat(environment))
 
     with CLIFeedback('Creating deployment bundle'):
-        if app_mode == 'static':
-            bundle = make_html_bundle(file, title, python)
+        if manifest:
+            bundle = make_manifest_bundle(file)
+        elif app_mode == 'static':
+            bundle = make_notebook_html_bundle(file, python)
         else:
-            bundle = make_source_bundle(file, environment, extra_files)
+            bundle = make_notebook_source_bundle(file, environment, extra_files)
 
     with CLIFeedback('Uploading bundle'):
         app = api.deploy(uri, api_key, app_id, deployment_name, title, bundle, insecure, cacert)

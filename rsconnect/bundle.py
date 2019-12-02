@@ -166,7 +166,7 @@ def list_files(base_dir, include_subdirs, walk=os.walk):
     return list(iter_files())
 
 
-def make_source_bundle(file, environment, extra_files=[]):
+def make_notebook_source_bundle(file, environment, extra_files=[]):
     """Create a bundle containing the specified notebook and python environment.
 
     Returns a file-like object containing the bundle tarball.
@@ -231,7 +231,7 @@ def make_html_manifest(filename):
     }
 
 
-def make_html_bundle(filename, nb_title, python, check_output=subprocess.check_output):
+def make_notebook_html_bundle(filename, python, check_output=subprocess.check_output):
     cmd = [
         python, '-m', 'jupyter',
         'nbconvert', '--execute', '--stdout', 
@@ -255,5 +255,33 @@ def make_html_bundle(filename, nb_title, python, check_output=subprocess.check_o
         bundle_add_buffer(bundle, 'manifest.json', json.dumps(manifest))
 
     # rewind file pointer
+    bundle_file.seek(0)
+    return bundle_file
+
+
+def make_manifest_bundle(manifest_path):
+    """Create a bundle, given a manifest.
+
+    Returns a file-like object containing the bundle tarball.
+    """
+    with open(manifest_path, 'r') as f:
+        raw_manifest = f.read()
+        manifest = json.loads(raw_manifest)
+
+    base_dir = dirname(manifest_path)
+    files = list(manifest.get('files', {}).keys())
+
+    if 'manifest.json' in files:
+        # this will be created
+        files.remove('manifest.json')
+
+    bundle_file = tempfile.TemporaryFile(prefix='rsc_bundle')
+    with tarfile.open(mode='w:gz', fileobj=bundle_file) as bundle:
+        # add the manifest first in case we want to partially untar the bundle for inspection
+        bundle_add_buffer(bundle, 'manifest.json', raw_manifest)
+
+        for rel_path in files:
+            bundle_add_file(bundle, rel_path, base_dir)
+
     bundle_file.seek(0)
     return bundle_file
