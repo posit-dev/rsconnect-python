@@ -25,6 +25,11 @@ server_store = ServerStore()
 server_store.load()
 
 
+def vecho(*args, **kw):
+    if verbose:
+        click.secho(*args, **kw)
+
+
 @contextlib.contextmanager
 def CLIFeedback(label):
     """Context manager for OK/ERROR feedback from the CLI.
@@ -306,8 +311,7 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
             app = api.app_get(uri, api_key, app_id, insecure, cacert)
             app_mode = api.app_modes.get(app.get('app_mode', 0), 'unknown')
 
-            if verbose:
-                click.echo('Using app mode from app %s: %s' % (app_id, app_mode))
+            vecho('Using app mode from app %s: %s' % (app_id, app_mode))
         elif static:
             app_mode = 'static'
         else:
@@ -321,18 +325,15 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
             # Use the saved app information unless overridden by the user.
             metadata = app_store.get(server)
             if metadata is not None:
-                if verbose:
-                    click.echo('Found previous deployment data in %s' % app_store.get_path())
+                vecho('Found previous deployment data in %s' % app_store.get_path())
 
                 if app_id is None:
                     app_id = metadata.get('app_guid') or metadata.get('app_id')
-                    if verbose:
-                        click.echo('Using saved app ID: %s' % app_id)
+                    vecho('Using saved app ID: %s' % app_id)
 
                 if title is None:
                     title = metadata.get('title')
-                    if verbose:
-                        click.echo('Using saved title: "%s"' % title)
+                    vecho('Using saved title: "%s"' % title)
 
                 # app mode cannot be changed on redeployment
                 app_mode = metadata.get('app_mode')
@@ -341,15 +342,13 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
                                                  'Use --new to create a new deployment.')
 
             else:
-                if verbose:
-                    click.echo('No previous deployment to this server was found; this will be a new deployment.')
+                vecho('No previous deployment to this server was found; this will be a new deployment.')
 
     with CLIFeedback('Inspecting python environment'):
         python = which_python(python)
         environment = inspect_environment(python, dirname(file))
-        if verbose:
-            click.echo('Python: %s' % python)
-            click.echo('Environment: %s' % pformat(environment))
+        vecho('Python: %s' % python)
+        vecho('Environment: %s' % pformat(environment))
 
     with CLIFeedback('Creating deployment bundle'):
         if manifest:
