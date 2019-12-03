@@ -299,15 +299,7 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
             title = default_title(file)
 
         if manifest:
-            app_mode = manifest.get('app-mode', 'static')
-        elif static:
-            app_mode = 'static'
-        else:
-            app_mode = 'jupyter-static'
-
-        if new:
-            if app_id is not None:
-                raise api.RSConnectException('Cannot specify both --new and --app-id.')
+            app_mode = manifest['metadata']['appmode']
         elif app_id is not None:
             # Don't read app metadata if app-id is specified. Instead, we need
             # to get this from Connect.
@@ -316,8 +308,17 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
 
             if verbose:
                 click.echo('Using app mode from app %s: %s' % (app_id, app_mode))
+        elif static:
+            app_mode = 'static'
         else:
-            # Redeployment. Use the saved app information unless overridden by the user.
+            app_mode = 'jupyter-static'
+
+        if new:
+            if app_id is not None:
+                raise api.RSConnectException('Cannot specify both --new and --app-id.')
+        elif app_id is None:
+            # Possible redeployment - check for saved metadata.
+            # Use the saved app information unless overridden by the user.
             metadata = app_store.get(server)
             if metadata is not None:
                 if verbose:
