@@ -128,7 +128,7 @@ def sha1(s):
     if hasattr(s, 'encode'):
         s = s.encode('utf-8')
     m.update(s)
-    return base64.b64encode(m.digest()).decode('utf-8').rstrip('=')
+    return base64.urlsafe_b64encode(m.digest()).decode('utf-8').rstrip('=')
 
 
 class AppStore(object):
