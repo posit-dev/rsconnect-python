@@ -130,7 +130,7 @@ class TestAppMetadata(TestCase):
     def test_global_save_load(self):
         def mockOpen(path, mode, *args, **kw):
             if path.startswith(self.tempdir) and 'w' in mode:
-                raise OSError('Mock: this directory is not writable')
+                raise OSError('Mock: path %s in directory %s is not writable' % (path, self.tempdir))
             return open(path, mode, *args, **kw)
 
         path = join(self.tempdir, 'rsconnect-python', 'notebook.ipynb')
