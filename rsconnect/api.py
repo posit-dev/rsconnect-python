@@ -294,12 +294,26 @@ def verify_api_key(uri, api_key, disable_tls_check, cadata):
         except RSConnectException:
             return False
 
-APP_MODE_STATIC = 4
-APP_MODE_JUPYTER_STATIC = 7
+
+(   UnknownMode,
+    ShinyMode,
+    ShinyRmdMode,
+    StaticRmdMode,
+    StaticMode,
+    APIMode,
+    TensorFlowModelAPI,
+    StaticJupyterMode,
+) = range(8)
 
 app_modes = {
-    APP_MODE_STATIC: 'static',
-    APP_MODE_JUPYTER_STATIC: 'jupyter-static',
+    UnknownMode: 'unknown',
+    ShinyMode: 'shiny',
+    ShinyRmdMode: 'rmd-shiny',
+    StaticRmdMode: 'rmd-static',
+    StaticMode: 'static',
+    APIMode: 'api',
+    TensorFlowModelAPI: 'tensorflow-saved-model',
+    StaticJupyterMode: 'jupyter-static',
 }
 
 
@@ -324,7 +338,7 @@ def app_search(uri, api_key, app_title, app_id, disable_tls_check, cadata):
             }
 
         for app in apps or []:
-            if app['app_mode'] in (APP_MODE_STATIC, APP_MODE_JUPYTER_STATIC):
+            if app['app_mode'] in (StaticMode, StaticJupyterMode):
                 data.append(app_data(app))
                 if app['id'] == app_id:
                     found = True
@@ -333,7 +347,7 @@ def app_search(uri, api_key, app_title, app_id, disable_tls_check, cadata):
             try:
                 # offer the current location as an option
                 app = api.app_get(app_id)
-                if app['app_mode'] in (APP_MODE_STATIC, APP_MODE_JUPYTER_STATIC):
+                if app['app_mode'] in (StaticMode, StaticJupyterMode):
                     data.append(app_data(app))
             except RSConnectException:
                 logger.exception('Error getting info for previous app_id "%s", skipping', app_id)

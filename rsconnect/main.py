@@ -308,6 +308,14 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
         if new:
             if app_id is not None:
                 raise api.RSConnectException('Cannot specify both --new and --app-id.')
+        elif app_id is not None:
+            # Don't read app metadata if app-id is specified. Instead, we need
+            # to get this from Connect.
+            app = api.app_get(uri, api_key, app_id, insecure, cacert)
+            app_mode = api.app_modes.get(app.get('app_mode', 0), 'unknown')
+
+            if verbose:
+                click.echo('Using app mode from app %s: %s' % (app_id, app_mode))
         else:
             # Redeployment. Use the saved app information unless overridden by the user.
             metadata = app_store.get(server)
