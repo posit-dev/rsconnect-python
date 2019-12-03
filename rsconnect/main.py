@@ -46,15 +46,11 @@ def CLIFeedback(label):
 
     def passed():
         if label:
-            click.secho('[', nl=False, fg='bright_white')
-            click.secho('OK', fg='bright_green', nl=False)
-            click.secho(']', fg='bright_white')
+            click.secho('[OK]', fg='bright_green')
 
     def failed(err):
         if label:
-            click.secho('[', nl=False, fg='bright_white')
-            click.secho('ERROR', fg='red', nl=False)
-            click.secho(']', fg='bright_white')
+            click.secho('[ERROR]', fg='red')
         click.secho(str(err), fg='bright_red')
         sys.exit(1)
 
