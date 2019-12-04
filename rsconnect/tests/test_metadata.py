@@ -82,12 +82,13 @@ class TestAppMetadata(TestCase):
             pass
 
         self.app_store = AppStore(self.nb_path)
-        self.app_store.set('http://dev', 123, 'shouldBeAGuid', 'Important Title', 'static')
-        self.app_store.set('http://prod', 456, 'anotherFakeGuid', 'Untitled', 'jupyter-static')
+        self.app_store.set('http://dev', 'http://dev/apps/123', 123, 'shouldBeAGuid', 'Important Title', 'static')
+        self.app_store.set('http://prod','http://prod/apps/456', 456, 'anotherFakeGuid', 'Untitled', 'jupyter-static')
 
     def test_get(self):
         self.assertEqual(self.app_store.get('http://dev'), dict(
             server_url='http://dev',
+            app_url='http://dev/apps/123',
             app_id=123,
             app_guid='shouldBeAGuid',
             title='Important Title',
@@ -96,6 +97,7 @@ class TestAppMetadata(TestCase):
 
         self.assertEqual(self.app_store.get('http://prod'), dict(
             server_url='http://prod',
+            app_url='http://prod/apps/456',
             app_id=456,
             app_guid='anotherFakeGuid',
             title='Untitled',
@@ -112,12 +114,14 @@ class TestAppMetadata(TestCase):
             data = f.read()
 
         self.assertIn('http://dev', data)
+        self.assertIn('http://dev/apps/123', data)
         self.assertIn('123', data)
         self.assertIn('shouldBeAGuid', data)
         self.assertIn('Important Title', data)
         self.assertIn('static', data)
 
         self.assertIn('http://prod', data)
+        self.assertIn('http://prod/apps/456', data)
         self.assertIn('456', data)
         self.assertIn('anotherFakeGuid', data)
         self.assertIn('Untitled', data)
