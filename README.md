@@ -69,6 +69,28 @@ rsconnect test \
 
 ### Deployment Options
 
+#### Including Extra Files
+You can include extra files in the deployment bundle to make them available when your notebook is run by the Connect server. Just specify them on the command line after the notebook file:
+
+```
+rsconnect deploy my-notebook.ipynb data.csv
+```
+
+#### Package Dependencies
+If a `requirements.txt` file exists in the same directory as the notebook file, it will be included in the bundle. It must specify the package dependencies needed to execute the notebook. RStudio Connect will reconstruct the python environment using the specified package list.
+
+If there is no `requirements.txt` file, the package dependencies will be determined from the current Python environment, or from an alternative Python executable specified in the `--python` option or via the `RETICULATE_PYTHON` environment variable.
+
+```
+rsconnect deploy --python /path/to/python my-notebook.ipynb
+```
+
+You can see the packages list that will be included by running `pip freeze` yourself, ensuring that you use the same Python that you use to run your Jupyter Notebook:
+
+```
+/path/to/python -m pip freeze
+```
+
 #### Static (Snapshot) Deployment
 By default, `rsconnect` deploys the original notebook with source code. This enables the RStudio Connect server to re-run the notebook upon request or on a schedule.
 
@@ -85,6 +107,25 @@ Note that in this case, the existing content is deployed as-is. Python environme
 
 ```
 rsconnect deploy /path/to/manifest.json
+```
+
+If you have R content but don't have a `manifest.json` file, you can use the RStudio IDE to create the manifest. See the help for the `rsconnect::writeManifest` R function:
+
+```
+install.packages('rsconnect')
+library(rsconnect)
+?rsconnect::writeManifest
+```
+
+#### Creating a Manifest for Future Deployment
+You can create a `manifest.json` file for a Jupyter Notebook, then use that manifest in a later deployment. 
+
+The `manifest` command will also create a `requirements.txt` file, if it does not already exist. It will contain the package dependencies from the current Python environment, or from an alternative Python executable specified in the `--python` option or via the `RETICULATE_PYTHON` environment variable.
+
+Note: manifests for static (pre-rendered) notebooks cannot be created.
+
+```
+rsconnect manifest my-notebook.ipynb
 ```
 
 #### Title
@@ -107,7 +148,7 @@ rsconnect deploy --new my-notebook.ipynb
 ```
 
 #### Updating a Different Deployment
-If you want to update an existing deployment but don't have the saved metadata, you can provide the app's numeric ID or GUID on the command line:
+If you want to update an existing deployment but don't have the saved deployment data, you can provide the app's numeric ID or GUID on the command line:
 
 ```
 rsconnect deploy --app-id 123456 my-notebook.ipynb
@@ -117,7 +158,7 @@ You must be the owner of the target deployment, or a collaborator with permissio
 
 Note: there is no confirmation required to update a deployment. If you do so accidentally, use the "Source Versions" dialog in the Connect dashboard to activate the previous version and remove the erroneous one.
 
-### Showing the Deployment Information
+#### Showing the Deployment Information
 You can see the information that rsconnect-python has saved for the most recent deployment
 with the `info` command:
 
@@ -144,4 +185,4 @@ After a deployment is completed, information about the deployment is saved
 to enable later redeployment. This data is stored alongside the deployed file,
 in an `rsconnect-python` subdirectory,
 if possible. If that location is not writable during deployment, then
-the metadata will be stored in the global configuration directory specified above.
+the deployment data will be stored in the global configuration directory specified above.
