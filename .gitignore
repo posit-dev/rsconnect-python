@@ -11,3 +11,4 @@
 /*.eggs
 .DS_Store
 .vagrant
+rsconnect/tests/testdata/**/rsconnect-python/
