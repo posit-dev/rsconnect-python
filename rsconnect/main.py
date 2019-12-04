@@ -164,97 +164,99 @@ def cli():
 @click.option('--cacert', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed error messages on failure.')
 def add(name, server, api_key, insecure, cacert, verbose):
-    old_server = server_store.get(name)
+    with CLIFeedback(''):
+        old_server = server_store.get(name)
 
-    # server must be pingable to be added
-    do_ping(server, api_key, insecure, cacert)
-    server_store.add(name, server, api_key, insecure, cacert)
-    server_store.save()
-    
-    if old_server is None:
-        click.echo('Added server "%s" with URL %s' % (name, server))
-    else:
-        click.echo('Replaced server "%s" with URL %s' % (name, server))
+        # server must be pingable to be added
+        do_ping(server, api_key, insecure, cacert)
+        server_store.add(name, server, api_key, insecure, cacert)
+        server_store.save()
+
+        if old_server is None:
+            click.echo('Added server "%s" with URL %s' % (name, server))
+        else:
+            click.echo('Replaced server "%s" with URL %s' % (name, server))
 
 
 @cli.command(help='Remove a server')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed error messages on failure.')
 @click.argument('server')
 def remove(server, verbose):
-    old_server = server_store.get(server)
-
-    server_store.remove(server)
-    server_store.save()
-    
-    if old_server is None:
-        click.echo('Server "%s" was not found' % server)
-    else:
-        click.echo('Removed server "%s"' % server)
+    with CLIFeedback(''):
+        if server_store.get(server) is None:
+            click.echo('Server "%s" was not found' % server)
+        else:
+            server_store.remove(server)
+            server_store.save()
+            click.echo('Removed server "%s"' % server)
 
 
 @cli.command('list', help='List saved servers')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed error messages on failure.')
 def list_servers(verbose):
-    servers = server_store.list()
+    with CLIFeedback(''):
+        servers = server_store.list()
 
-    click.echo('Server information from %s' % server_store.get_path())
+        click.echo('Server information from %s' % server_store.get_path())
 
-    if not servers:
-        click.echo('No servers are saved. To save a server, see `rsconnect save --help`.')
-    else:
-        click.echo()
-        for server in servers:
-            click.echo('Server "%s"' % server['name'])
-            click.echo('    URL: %s' % server['url'])
-            if server['api_key']:
-                click.echo('    API key is saved')
-            if server['insecure']:
-                click.echo('    Insecure mode (TLS certificate validation disabled)')
-            if server['ca_cert']:
-                click.echo('    TLS certificate file: %s' % server['ca_cert'])
+        if not servers:
+            click.echo('No servers are saved. To save a server, see `rsconnect save --help`.')
+        else:
             click.echo()
+            for server in servers:
+                click.echo('Server "%s"' % server['name'])
+                click.echo('    URL: %s' % server['url'])
+                if server['api_key']:
+                    click.echo('    API key is saved')
+                if server['insecure']:
+                    click.echo('    Insecure mode (TLS certificate validation disabled)')
+                if server['ca_cert']:
+                    click.echo('    TLS certificate file: %s' % server['ca_cert'])
+                click.echo()
 
 
 @cli.command(help='Show saved information about the specified deployment')
 @click.argument('file', type=click.Path(exists=True))
 def info(file):
-    app_store = AppStore(file)
-    app_store.load()
-    deployments = app_store.get_all()
+    with CLIFeedback(''):
+        app_store = AppStore(file)
+        app_store.load()
+        deployments = app_store.get_all()
 
-    user_app_modes = {
-        'unknown': 'unknown',
-        'shiny': 'Shiny App',
-        'rmd-shiny': 'Shiny App (Rmd)',
-        'rmd-static': 'R Markdown',
-        'static': 'Static HTML',
-        'api': 'API',
-        'tensorflow-saved-model': 'TensorFlow Model',
-        'jupyter-static': 'Jupyter Notebook',
-    }
+        user_app_modes = {
+            'unknown': 'unknown',
+            'shiny': 'Shiny App',
+            'rmd-shiny': 'Shiny App (Rmd)',
+            'rmd-static': 'R Markdown',
+            'static': 'Static HTML',
+            'api': 'API',
+            'tensorflow-saved-model': 'TensorFlow Model',
+            'jupyter-static': 'Jupyter Notebook',
+        }
 
-    if deployments:
-        click.echo('Loaded deployment information from %s' % app_store.get_path())
+        if deployments:
+            click.echo('Loaded deployment information from %s' % app_store.get_path())
 
-        for deployment in deployments:
-            click.echo()
-            click.echo('Server URL: %s' % deployment.get('server_url'))
-            click.echo('App URL:    %s' % deployment.get('app_url'))
-            click.echo('App ID:     %s' % deployment.get('app_id'))
-            click.echo('App GUID:   %s' % deployment.get('app_guid'))
-            click.echo('Title:      "%s"' % deployment.get('title'))
-            click.echo('Filename:   %s' % deployment.get('filename'))
-            click.echo('Type:       %s' % user_app_modes.get(deployment.get('app_mode')))
-    else:
-        click.echo('No saved deployment information was found.')
+            for deployment in deployments:
+                click.echo()
+                click.echo('Server URL: %s' % deployment.get('server_url'))
+                click.echo('App URL:    %s' % deployment.get('app_url'))
+                click.echo('App ID:     %s' % deployment.get('app_id'))
+                click.echo('App GUID:   %s' % deployment.get('app_guid'))
+                click.echo('Title:      "%s"' % deployment.get('title'))
+                click.echo('Filename:   %s' % deployment.get('filename'))
+                click.echo('Type:       %s' % user_app_modes.get(deployment.get('app_mode')))
+        else:
+            click.echo('No saved deployment information was found.')
 
 
 @cli.command(help='Show the version of rsconnect-python')
 def version():
-    version_file = join(dirname(__file__), 'version.txt')
-    with open(version_file, 'r') as f:
-        version = f.read().strip()
-        click.echo(version)
+    with CLIFeedback(''):
+        version_file = join(dirname(__file__), 'version.txt')
+        with open(version_file, 'r') as f:
+            version = f.read().strip()
+            click.echo(version)
 
 
 @cli.command(help='Verify a Connect server URL')
