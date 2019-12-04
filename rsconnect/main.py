@@ -8,7 +8,7 @@ import subprocess
 import time
 import traceback
 from datetime import datetime
-from os.path import basename, dirname, exists, join
+from os.path import basename, dirname, exists, join, splitext
 from pprint import pformat
 
 import click
@@ -271,6 +271,8 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
         if not uri.netloc:
             raise api.RSConnectException('Invalid server URL: "%s"' % server)
 
+        file_suffix = splitext(file)[1].lower()
+
         if basename(file) == 'manifest.json':
             with open(file, 'r') as f:
                 manifest = json.load(f)
@@ -283,9 +285,27 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
 
             if python:
                 raise api.RSConnectException('Cannot specify --python when deploying a manifest.')
+        elif file_suffix in ('.r', '.rmd'):
+            manifest_path = join(dirname(file), 'manifest.json')
+
+            if exists(manifest_path):
+                suggested_args = ' '.join([manifest_path if arg == file else arg for arg in sys.argv])
+
+                raise api.RSConnectException(
+                    'Shiny apps and R Markdown documents cannot be deployed using this tool.\n'
+                    'There is an existing manifest.json file in the same directory. If that is\n'
+                    'the correct manifest for this application, you can deploy it with\n'
+                    '%s'
+                    % suggested_args)
+            else:
+                raise api.RSConnectException(
+                    'Shiny apps and R Markdown documents cannot be deployed using this tool.\n'
+                    'Deploy them using the rsconnect package in the RStudio IDE, or\n'
+                    'use rsconnect::writeManifest to create a manifest.json file and\n'
+                    'deploy that instead.')
         else:
             manifest = None
-            if not file.endswith('.ipynb'):
+            if file_suffix != '.ipynb':
                 raise api.RSConnectException(
                     'Only Jupyter notebook (.ipynb) and RStudio Connect '
                     'manifest.json files can be deployed.')
