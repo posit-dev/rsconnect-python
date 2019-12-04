@@ -117,6 +117,16 @@ You must be the owner of the target deployment, or a collaborator with permissio
 
 Note: there is no confirmation required to update a deployment. If you do so accidentally, use the "Source Versions" dialog in the Connect dashboard to activate the previous version and remove the erroneous one.
 
+### Showing the Deployment Information
+You can see the information that rsconnect-python has saved for the most recent deployment
+with the `info` command:
+
+```
+rsconnect info my-notebook.ipynb
+```
+
+If you have deployed to multiple servers, the most recent deployment information for each server will be shown. This command also displays the path to the file where the deployment data is stored.
+
 
 ## Configuration Files
 Configuration files are stored in a platform-specific directory:
@@ -129,7 +139,7 @@ Configuration files are stored in a platform-specific directory:
 
 Server information is stored in the `servers.json` file in that directory.
 
-### Deployment Metadata
+### Deployment Data
 After a deployment is completed, information about the deployment is saved
 to enable later redeployment. This data is stored alongside the deployed file,
 in an `rsconnect-python` subdirectory,
