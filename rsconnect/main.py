@@ -215,6 +215,39 @@ def list_servers(verbose):
             click.echo()
 
 
+@cli.command(help='Show saved information about the specified deployment')
+@click.argument('file', type=click.Path(exists=True))
+def info(file):
+    app_store = AppStore(file)
+    app_store.load()
+    deployments = app_store.get_all()
+
+    user_app_modes = {
+        'unknown': 'unknown',
+        'shiny': 'Shiny App',
+        'rmd-shiny': 'Shiny App (Rmd)',
+        'rmd-static': 'R Markdown',
+        'static': 'Static HTML',
+        'api': 'API',
+        'tensorflow-saved-model': 'TensorFlow Model',
+        'jupyter-static': 'Jupyter Notebook',
+    }
+
+    if deployments:
+        click.echo('Loaded deployment information from %s' % app_store.get_path())
+
+        for deployment in deployments:
+            click.echo()
+            click.echo('Server URL: %s' % deployment.get('server_url'))
+            click.echo('App URL:    %s' % deployment.get('app_url'))
+            click.echo('App ID:     %s' % deployment.get('app_id'))
+            click.echo('App GUID:   %s' % deployment.get('app_guid'))
+            click.echo('Title:      "%s"' % deployment.get('title'))
+            click.echo('Type:       %s' % user_app_modes.get(deployment.get('app_mode')))
+    else:
+        click.echo('No saved deployment information was found.')
+
+
 @cli.command(help='Show the version of rsconnect-python')
 def version():
     version_file = join(dirname(__file__), 'version.txt')
@@ -369,7 +402,7 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
         task_id = app['task_id']
 
     with CLIFeedback('Saving deployment data'):
-        app_store.set(server, app['app_id'], None, title, app_mode)
+        app_store.set(server, app['app_url'], app['app_id'], app['app_guid'], title, app_mode)
         app_store.save()
 
     click.secho('\nDeployment log:', fg='bright_white')
@@ -384,8 +417,14 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
 
             if task_status['finished']:
                 app_config = api.app_config(uri, api_key, app['app_id'], insecure, cacert)
+
                 app_url = app_config['config_url']
                 click.secho('App URL: %s' % app_url, fg='bright_white')
+
+                # save the config URL, replacing the old app URL we got during deployment
+                # (which is the Open Solo URL).
+                app_store.set(server, app_url, app['app_id'], app['app_guid'], title, app_mode)
+                app_store.save()
                 break
 
 

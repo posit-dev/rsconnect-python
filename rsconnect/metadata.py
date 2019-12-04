@@ -152,10 +152,11 @@ class AppStore(object):
         self.data = {}
         self.filepath = None
 
-    def set(self, server_url, app_id, app_guid, title, app_mode):
+    def set(self, server_url, app_url, app_id, app_guid, title, app_mode):
         """Set the metadata for this app on a specific server."""
         self.data[server_url] = dict(
             server_url=server_url,
+            app_url=app_url,
             app_id=app_id,
             app_guid=app_guid,
             title=title,
@@ -163,8 +164,12 @@ class AppStore(object):
         )
 
     def get(self, server_url):
-        """Set the metadata for this app on a specific server."""
+        """Get the metadata for this app on a specific server."""
         return self.data.get(server_url)
+
+    def get_all(self):
+        """Get all metadata for this app."""
+        return sorted(self.data.values(), key=lambda entry: entry.get('server_url'))
 
     def load_from(self, path):
         """Load the data from the specified path.

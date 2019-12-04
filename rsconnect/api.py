@@ -272,6 +272,8 @@ def deploy(uri, api_key, app_id, app_name, app_title, tarball, disable_tls_check
         return {
             'task_id': task_id,
             'app_id': app['id'],
+            'app_guid': app['guid'],
+            'app_url': app['url'],
             'cookies': api.cookies,
         }
 
