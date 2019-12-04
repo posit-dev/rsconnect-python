@@ -20,13 +20,13 @@ from .bundle import make_manifest_bundle, make_notebook_html_bundle, make_notebo
 from .metadata import ServerStore, AppStore
 
 line_width = 45
-verbose = False
 server_store = ServerStore()
 server_store.load()
 
 
 def vecho(*args, **kw):
-    if verbose:
+    """Echo the specified arguments only if the --verbose flag is set."""
+    if click.get_current_context().params.get('verbose'):
         click.secho(*args, **kw)
 
 
@@ -62,7 +62,7 @@ def CLIFeedback(label):
     except EnvironmentException as exc:
         failed('Error: ' + str(exc))
     except Exception as exc:
-        if verbose:
+        if click.get_current_context('verbose'):
             traceback.print_exc()
         failed('Internal error: ' + str(exc))
 
@@ -88,7 +88,7 @@ def inspect_environment(python, dir, check_output=subprocess.check_output):
     """Run the environment inspector using the specified python binary.
 
     Returns a dictionary of information about the environment,
-    or containing an "error" field an an error occurred.
+    or containing an "error" field if an error occurred.
     """
     environment_json = check_output([python, '-m', 'rsconnect.environment', dir], universal_newlines=True)
     environment = json.loads(environment_json)
@@ -134,6 +134,11 @@ def output_task_log(task_status, last_status):
 
 
 def do_ping(server, api_key, insecure, cacert):
+    """Test the given server URL to see if it's running Connect.
+
+    If api_key is set, also validate the API key.
+    Raises an exception on failure, otherwise returns None.
+    """
     with CLIFeedback('Checking %s' % server):
         uri = urlparse(server)
         if not uri.netloc:
@@ -157,11 +162,8 @@ def cli():
 @click.option('--api-key','-k',required=True, help='Connect server API key')
 @click.option('--insecure', is_flag=True, help='Disable TLS certification validation.')
 @click.option('--cacert', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
-@click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
-def add(name, server, api_key, insecure, cacert, _verbose):
-    global verbose
-    verbose = _verbose
-
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed error messages on failure.')
+def add(name, server, api_key, insecure, cacert, verbose):
     old_server = server_store.get(name)
 
     # server must be pingable to be added
@@ -176,12 +178,9 @@ def add(name, server, api_key, insecure, cacert, _verbose):
 
 
 @cli.command(help='Remove a server')
-@click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed error messages on failure.')
 @click.argument('server')
-def remove(server, _verbose):
-    global verbose
-    verbose = _verbose
-
+def remove(server, verbose):
     old_server = server_store.get(server)
 
     server_store.remove(server)
@@ -194,11 +193,8 @@ def remove(server, _verbose):
 
 
 @cli.command('list', help='List saved servers')
-@click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
-def list_servers( _verbose):
-    global verbose
-    verbose = _verbose
-
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed error messages on failure.')
+def list_servers(verbose):
     servers = server_store.list()
 
     click.echo('Server information from %s' % server_store.get_path())
@@ -232,11 +228,8 @@ def version():
 @click.option('--api-key','-k', envvar='CONNECT_API_KEY', help='Connect server API key')
 @click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
 @click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
-@click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
-def test(server, api_key, insecure, cacert, _verbose):
-    global verbose
-    verbose = _verbose
-
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed error messages on failure.')
+def test(server, api_key, insecure, cacert, verbose):
     do_ping(server, api_key, insecure, cacert)
 
 
@@ -250,13 +243,10 @@ def test(server, api_key, insecure, cacert, _verbose):
 @click.option('--python', type=click.Path(exists=True), help='Path to python interpreter whose environment should be used. The python environment must have the rsconnect package installed.')
 @click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
 @click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
-@click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed error messages on failure.')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
-def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert, _verbose, file, extra_files):
-    global verbose
-    verbose = _verbose
-
+def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert, verbose, file, extra_files):
     if server:
         click.secho('Deploying %s to server "%s"' % (file, server), fg='bright_white')
     else:
