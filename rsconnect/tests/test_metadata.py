@@ -82,8 +82,8 @@ class TestAppMetadata(TestCase):
             pass
 
         self.app_store = AppStore(self.nb_path)
-        self.app_store.set('http://dev', 'http://dev/apps/123', 123, 'shouldBeAGuid', 'Important Title', 'static')
-        self.app_store.set('http://prod','http://prod/apps/456', 456, 'anotherFakeGuid', 'Untitled', 'jupyter-static')
+        self.app_store.set('http://dev', '/path/to/file', 'http://dev/apps/123', 123, 'shouldBeAGuid', 'Important Title', 'static')
+        self.app_store.set('http://prod', '/path/to/file', 'http://prod/apps/456', 456, 'anotherFakeGuid', 'Untitled', 'jupyter-static')
 
     def test_get(self):
         self.assertEqual(self.app_store.get('http://dev'), dict(
@@ -93,6 +93,7 @@ class TestAppMetadata(TestCase):
             app_guid='shouldBeAGuid',
             title='Important Title',
             app_mode='static',
+            filename='/path/to/file',
         ))
 
         self.assertEqual(self.app_store.get('http://prod'), dict(
@@ -102,6 +103,7 @@ class TestAppMetadata(TestCase):
             app_guid='anotherFakeGuid',
             title='Untitled',
             app_mode='jupyter-static',
+            filename='/path/to/file',
         ))
 
     def test_local_save_load(self):
@@ -119,6 +121,7 @@ class TestAppMetadata(TestCase):
         self.assertIn('shouldBeAGuid', data)
         self.assertIn('Important Title', data)
         self.assertIn('static', data)
+        self.assertIn('/path/to/file', data)
 
         self.assertIn('http://prod', data)
         self.assertIn('http://prod/apps/456', data)

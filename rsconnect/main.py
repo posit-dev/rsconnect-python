@@ -8,7 +8,7 @@ import subprocess
 import time
 import traceback
 from datetime import datetime
-from os.path import basename, dirname, exists, join, splitext
+from os.path import abspath, basename, dirname, exists, join, splitext
 from pprint import pformat
 
 import click
@@ -243,6 +243,7 @@ def info(file):
             click.echo('App ID:     %s' % deployment.get('app_id'))
             click.echo('App GUID:   %s' % deployment.get('app_guid'))
             click.echo('Title:      "%s"' % deployment.get('title'))
+            click.echo('Filename:   %s' % deployment.get('filename'))
             click.echo('Type:       %s' % user_app_modes.get(deployment.get('app_mode')))
     else:
         click.echo('No saved deployment information was found.')
@@ -402,7 +403,7 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
         task_id = app['task_id']
 
     with CLIFeedback('Saving deployment data'):
-        app_store.set(server, app['app_url'], app['app_id'], app['app_guid'], title, app_mode)
+        app_store.set(server, abspath(file), app['app_url'], app['app_id'], app['app_guid'], title, app_mode)
         app_store.save()
 
     click.secho('\nDeployment log:', fg='bright_white')
@@ -423,7 +424,7 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
 
                 # save the config URL, replacing the old app URL we got during deployment
                 # (which is the Open Solo URL).
-                app_store.set(server, app_url, app['app_id'], app['app_guid'], title, app_mode)
+                app_store.set(server, abspath(file), app_url, app['app_id'], app['app_guid'], title, app_mode)
                 app_store.save()
                 break
 

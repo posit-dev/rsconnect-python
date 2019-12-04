@@ -152,10 +152,11 @@ class AppStore(object):
         self.data = {}
         self.filepath = None
 
-    def set(self, server_url, app_url, app_id, app_guid, title, app_mode):
+    def set(self, server_url, filename, app_url, app_id, app_guid, title, app_mode):
         """Set the metadata for this app on a specific server."""
         self.data[server_url] = dict(
             server_url=server_url,
+            filename=filename,
             app_url=app_url,
             app_id=app_id,
             app_guid=app_guid,
