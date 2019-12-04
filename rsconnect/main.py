@@ -16,7 +16,13 @@ from six.moves.urllib_parse import urlparse
 
 from . import api
 from .environment import EnvironmentException
-from .bundle import make_manifest_bundle, make_notebook_html_bundle, make_notebook_source_bundle
+from .bundle import (
+    make_manifest_bundle,
+    make_notebook_html_bundle,
+    make_notebook_source_bundle,
+    make_source_manifest,
+    manifest_add_buffer,
+    manifest_add_file)
 from .metadata import ServerStore, AppStore
 
 line_width = 45
@@ -435,6 +441,55 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
                 app_store.set(server, abspath(file), app_url, app['app_id'], app['app_guid'], title, app_mode)
                 app_store.save()
                 break
+
+
+@cli.command(help='Create a manifest.json file for a notebook, for later deployment')
+@click.option('--force', '-f', is_flag=True, help='Replace manifest.json, if it exists.')
+@click.option('--python', type=click.Path(exists=True), help='Path to python interpreter whose environment should be used. The python environment must have the rsconnect package installed.')
+@click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
+@click.argument('file', type=click.Path(exists=True))
+@click.argument('extra_files', nargs=-1, type=click.Path())
+def manifest(force, python, _verbose, file, extra_files):
+    global verbose
+    verbose = _verbose
+
+    with CLIFeedback('Checking arguments'):
+        if not file.endswith('.ipynb'):
+            raise api.RSConnectException('Can only create a manifest for a Jupyter Notebook (.ipynb file).')
+
+        base_dir = dirname(file)
+
+        manifest_path = join(base_dir, 'manifest.json')
+        if exists(manifest_path) and not force:
+            raise api.RSConnectException('manifest.json already exists. Use --force to overwrite.')
+
+    with CLIFeedback('Inspecting python environment'):
+        python = which_python(python)
+        environment = inspect_environment(python, dirname(file))
+        environment_filename = environment['filename']
+        if verbose:
+            click.echo('Python: %s' % python)
+            click.echo('Environment: %s' % pformat(environment))
+
+    with CLIFeedback('Creating manifest.json'):
+        notebook_filename = basename(file)
+        manifest = make_source_manifest(notebook_filename, environment, 'jupyter-static')
+        manifest_add_file(manifest, notebook_filename, base_dir)
+        manifest_add_buffer(manifest, environment_filename, environment['contents'])
+
+        for rel_path in extra_files:
+            manifest_add_file(manifest, rel_path, base_dir)
+
+        with open(manifest_path, 'w') as f:
+            json.dump(manifest, f, indent=2)
+
+    requirements_path = join(base_dir, environment_filename)
+    if exists(requirements_path):
+        click.echo('requirements.txt already exists and will not be overwritten.')
+    else:
+        with CLIFeedback('Creating %s' % environment_filename):
+            with open(requirements_path, 'w') as f:
+                f.write(environment['contents'])
 
 
 cli()
