@@ -397,7 +397,12 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
         if manifest:
             bundle = make_manifest_bundle(file)
         elif app_mode == 'static':
-            bundle = make_notebook_html_bundle(file, python)
+            try:
+                bundle = make_notebook_html_bundle(file, python)
+            except subprocess.CalledProcessError as exc:
+                # Jupyter rendering failures are often due to 
+                # user code failing, vs. an internal failure of rsconnect-python.
+                raise api.RSConnectException(str(exc))
         else:
             bundle = make_notebook_source_bundle(file, environment, extra_files)
 
