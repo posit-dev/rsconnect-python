@@ -262,10 +262,10 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
     else:
         click.secho('Deploying %s' % file, fg='bright_white')
 
-    app_store = AppStore(file)
-    app_store.load()
-
     with CLIFeedback('Checking arguments'):
+        app_store = AppStore(file)
+        app_store.load()
+
         server, api_key, insecure, cacert = server_store.resolve(server, api_key, insecure, cacert)
         uri = urlparse(server)
         if not uri.netloc:
@@ -358,8 +358,9 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
         app = api.deploy(uri, api_key, app_id, deployment_name, title, bundle, insecure, cacert)
         task_id = app['task_id']
 
-    app_store.set(server, app['app_id'], None, title, app_mode)
-    app_store.save()
+    with CLIFeedback('Saving deployment data'):
+        app_store.set(server, app['app_id'], None, title, app_mode)
+        app_store.save()
 
     click.secho('\nDeployment log:', fg='bright_white')
     last_status = None
