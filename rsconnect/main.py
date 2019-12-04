@@ -386,11 +386,12 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
             else:
                 vecho('No previous deployment to this server was found; this will be a new deployment.')
 
-    with CLIFeedback('Inspecting python environment'):
-        python = which_python(python)
-        environment = inspect_environment(python, dirname(file))
-        vecho('Python: %s' % python)
-        vecho('Environment: %s' % pformat(environment))
+    if not manifest:
+        with CLIFeedback('Inspecting python environment'):
+            python = which_python(python)
+            environment = inspect_environment(python, dirname(file))
+            vecho('Python: %s' % python)
+            vecho('Environment: %s' % pformat(environment))
 
     with CLIFeedback('Creating deployment bundle'):
         if manifest:
