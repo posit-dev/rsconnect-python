@@ -5,7 +5,7 @@ pipeline {
     agent { node('docker') }
     parameters {
         string(name: 'RELEASE_VERSION', description: 'The release version (maj.min.patch.build) to promote.')
-        booleanParam(name: 'S3_SYNC', description: 'When checked, push artifacts to S3')
+        booleanParam(name: 'DOCS_RELEASE', description: 'When checked, push artifacts to S3')
         booleanParam(name: 'PYPI_RELEASE', description: 'When checked, push the wheel and sdist to PyPI')
     }
     stages {
@@ -20,7 +20,7 @@ pipeline {
         stage('Promote Docs (Dry Run)') {
             when {
                 allOf {
-                    expression { return !params.S3_SYNC }
+                    expression { return !params.DOCS_RELEASE }
                     expression { return params.RELEASE_VERSION != "" }
                 }
             }
@@ -32,7 +32,7 @@ pipeline {
         stage('Promote Docs') {
             when {
                 allOf {
-                    expression { return params.S3_SYNC }
+                    expression { return params.DOCS_RELEASE }
                     expression { return params.RELEASE_VERSION != "" }
                 }
             }
