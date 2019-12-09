@@ -139,7 +139,7 @@ def output_task_log(task_status, last_status):
     return new_last_status
 
 
-def do_ping(server, api_key, insecure, cacert):
+def do_ping(server, api_key, insecure, cadata):
     """Test the given server URL to see if it's running Connect.
 
     If api_key is set, also validate the API key.
@@ -149,12 +149,12 @@ def do_ping(server, api_key, insecure, cacert):
         uri = urlparse(server)
         if not uri.netloc:
             raise api.RSConnectException('Invalid server URL: "%s"' % server)
-        api.verify_server(server, insecure, cacert)
+        api.verify_server(server, insecure, cadata)
     
     if api_key:
         with CLIFeedback('Verifying API key'):
             uri = urlparse(server)
-            api.verify_api_key(uri, api_key, insecure, cacert)
+            api.verify_api_key(uri, api_key, insecure, cadata)
 
 
 @click.group(no_args_is_help=True)
@@ -167,15 +167,16 @@ def cli():
 @click.option('--server', '-s', required=True, help='Connect server URL')
 @click.option('--api-key','-k',required=True, help='Connect server API key')
 @click.option('--insecure', is_flag=True, help='Disable TLS certification validation.')
-@click.option('--cacert', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
+@click.option('--cacert', type=click.File(), help='Path to trusted TLS CA certificate.')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed error messages on failure.')
 def add(name, server, api_key, insecure, cacert, verbose):
     with CLIFeedback(''):
         old_server = server_store.get(name)
 
         # server must be pingable to be added
-        do_ping(server, api_key, insecure, cacert)
-        server_store.add(name, server, api_key, insecure, cacert)
+        cadata = cacert and cacert.read()
+        do_ping(server, api_key, insecure, cadata)
+        server_store.add(name, server, api_key, insecure, cadata)
         server_store.save()
 
         if old_server is None:
@@ -269,10 +270,10 @@ def version():
 @click.option('--server', '-s', required=True, envvar='CONNECT_SERVER', help='Connect server URL')
 @click.option('--api-key','-k', envvar='CONNECT_API_KEY', help='Connect server API key')
 @click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
-@click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
+@click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File(), help='Path to trusted TLS CA certificate.')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed error messages on failure.')
 def test(server, api_key, insecure, cacert, verbose):
-    do_ping(server, api_key, insecure, cacert)
+    do_ping(server, api_key, insecure, cacert and cacert.read())
 
 
 @cli.command(help='Deploy content to RStudio Connect')
@@ -284,7 +285,7 @@ def test(server, api_key, insecure, cacert, verbose):
 @click.option('--title', '-t', help='Title of the content (default is the same as the filename)')
 @click.option('--python', type=click.Path(exists=True), help='Path to python interpreter whose environment should be used. The python environment must have the rsconnect package installed.')
 @click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
-@click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File('rb'), help='Path to trusted TLS CA certificate.')
+@click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File(), help='Path to trusted TLS CA certificate.')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed error messages on failure.')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
@@ -298,7 +299,7 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
         app_store = AppStore(file)
         app_store.load()
 
-        server, api_key, insecure, cacert = server_store.resolve(server, api_key, insecure, cacert)
+        server, api_key, insecure, cadata = server_store.resolve(server, api_key, insecure, cacert and cacert.read())
         uri = urlparse(server)
         if not uri.netloc:
             raise api.RSConnectException('Invalid server URL: "%s"' % server)
@@ -356,7 +357,7 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
         elif app_id is not None:
             # Don't read app metadata if app-id is specified. Instead, we need
             # to get this from Connect.
-            app = api.app_get(uri, api_key, app_id, insecure, cacert)
+            app = api.app_get(uri, api_key, app_id, insecure, cadata)
             app_mode = api.app_modes.get(app.get('app_mode', 0), 'unknown')
 
             vecho('Using app mode from app %s: %s' % (app_id, app_mode))
@@ -413,7 +414,7 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
             bundle = make_notebook_source_bundle(file, environment, extra_files)
 
     with CLIFeedback('Uploading bundle'):
-        app = api.deploy(uri, api_key, app_id, deployment_name, title, bundle, insecure, cacert)
+        app = api.deploy(uri, api_key, app_id, deployment_name, title, bundle, insecure, cadata)
         task_id = app['task_id']
 
     with CLIFeedback('Saving deployment data'):
@@ -427,11 +428,11 @@ def deploy(server, api_key, static, new, app_id, title, python, insecure, cacert
         time.sleep(0.5)
 
         with CLIFeedback(''):
-            task_status = api.task_get(uri, api_key, task_id, last_status, app['cookies'], insecure, cacert)
+            task_status = api.task_get(uri, api_key, task_id, last_status, app['cookies'], insecure, cadata)
             last_status = output_task_log(task_status, last_status)
 
             if task_status['finished']:
-                app_config = api.app_config(uri, api_key, app['app_id'], insecure, cacert)
+                app_config = api.app_config(uri, api_key, app['app_id'], insecure, cadata)
 
                 app_url = app_config['config_url']
                 click.secho('App URL: %s' % app_url, fg='bright_white')

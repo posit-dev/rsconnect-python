@@ -175,7 +175,6 @@ class RSConnect:
         raw = response.read().decode('utf-8')
 
         if response.status >= 500:
-            logger.error('Received HTTP 500: %s', raw)
             try:
                 message = json.loads(raw)['error']
             except:
@@ -290,11 +289,7 @@ def app_config(uri, api_key, app_id, disable_tls_check, cadata):
 
 def verify_api_key(uri, api_key, disable_tls_check, cadata):
     with RSConnect(uri, api_key, disable_tls_check=disable_tls_check, cadata=cadata) as api:
-        try:
-            api.me()
-            return True
-        except RSConnectException:
-            return False
+        api.me()
 
 
 (   UnknownMode,
