@@ -135,6 +135,41 @@ The title of the deployed content is derived from the filename. For example, if 
 rsconnect deploy --title "My Notebook" my-notebook.ipynb
 ```
 
+### Network Options
+
+#### TLS/SSL Certificates
+
+RStudio Connect servers can be configured to use TLS/SSL. If your server's certificate is trusted by your Jupyter Notebook server, then you don't need to do anything special. Just provide the URL and API Key:
+
+```
+rsconnect add \
+	--api-key my-api-key \
+	--server https://my.connect.server:3939 \
+	--name my-server
+```
+
+If this fails with a TLS Certificate Validation error, then you have two options.
+
+1. Provide the Root CA certificate that is at the root of the signing chain for your RStudio Connect server. This will enable `rsconnect` to securely validate the server's TLS certificate.
+
+```
+rsconnect add \
+	--api-key my-api-key \
+	--server https://my.connect.server:3939 \
+	--cacert /path/to/certificate.pem \
+	--name my-server
+```
+
+1. Connect in "insecure mode". This disables TLS certificate verification, which results in a less secure connection.
+
+```
+rsconnect add \
+	--api-key my-api-key \
+	--server https://my.connect.server:3939 \
+	--insecure \
+	--name my-server
+```
+
 
 ### Updating a Deployment
 
