@@ -231,60 +231,62 @@ class RSConnect:
             url += '?first_status=%d' % first_status
         return self.request('GET', url, None, self.http_headers)
 
-
-def wait_for_task(api, task_id, timeout, period=1.0):
-    last_status = None
-    ending = time.time() + timeout
-
-    while time.time() < ending:
-        task_status = api.task_get(task_id, first_status=last_status)
-
-        if task_status['last_status'] != last_status:
-            # we've gotten an updated status, reset timer
-            logger.info('Deployment status: %s', task_status['status'])
-            ending = time.time() + timeout
-            last_status = task_status['last_status']
-
-        if task_status['finished']:
-            return task_status
-
-        time.sleep(period)
-    return None
-
-
-def deploy(uri, api_key, app_id, app_name, app_title, tarball, disable_tls_check, cadata):
-    with RSConnect(uri, api_key, disable_tls_check=disable_tls_check, cadata=cadata) as api:
+    def deploy(self, app_id, app_name, app_title, tarball):
         if app_id is None:
             # create an app if id is not provided
-            app = api.app_create(app_name)
+            app = self.app_create(app_name)
         else:
             # assume app exists. if it was deleted then Connect will
             # raise an error
-            app = api.app_get(app_id)
+            app = self.app_get(app_id)
 
         if app['title'] != app_title:
-            api.app_update(app['id'], {'title': app_title})
+            self.app_update(app['id'], {'title': app_title})
 
-        app_bundle = api.app_upload(app['id'], tarball)
-        task_id = api.app_deploy(app['id'], app_bundle['id'])['id']
+        app_bundle = self.app_upload(app['id'], tarball)
+        task_id = self.app_deploy(app['id'], app_bundle['id'])['id']
 
         return {
             'task_id': task_id,
             'app_id': app['id'],
             'app_guid': app['guid'],
             'app_url': app['url'],
-            'cookies': api.cookies,
         }
 
+    def wait_for_task(self, app_id, task_id, log_callback):
+        last_status = None
 
-def task_get(uri, api_key, task_id, last_status, cookies, disable_tls_check, cadata):
-    with RSConnect(uri, api_key, cookies, disable_tls_check=disable_tls_check, cadata=cadata) as api:
-        return api.task_get(task_id, first_status=last_status)
+        while True:
+            time.sleep(0.5)
 
+            task_status = self.task_get(task_id, last_status)
+            last_status = self.output_task_log(task_status, last_status, log_callback)
 
-def app_config(uri, api_key, app_id, disable_tls_check, cadata):
-    with RSConnect(uri, api_key, disable_tls_check=disable_tls_check, cadata=cadata) as api:
-        return api.app_config(app_id)
+            if task_status['finished']:
+                app_config = self.app_config(app_id)
+                app_url = app_config.get('config_url')
+                return app_url
+
+    def output_task_log(self, task_status, last_status, log_callback):
+        """Pipe any new output through the log_callback.
+
+        Returns an updated last_status which should be passed into
+        the next call to output_task_log.
+
+        Raises RSConnectException on task failure.
+        """
+        new_last_status = last_status
+        if task_status['last_status'] != last_status:
+            for line in task_status['status']:
+                log_callback(line)
+                new_last_status = task_status['last_status']
+
+        if task_status['finished']:
+            exit_code = task_status['code']
+            if exit_code != 0:
+                raise RSConnectException('Task exited with status %d.' % exit_code)
+
+        return new_last_status
 
 
 def verify_api_key(uri, api_key, disable_tls_check, cadata):
@@ -350,8 +352,3 @@ def app_search(uri, api_key, app_title, app_id, disable_tls_check, cadata):
                 logger.exception('Error getting info for previous app_id "%s", skipping', app_id)
 
         return data
-
-
-def app_get(uri, api_key, app_id, disable_tls_check, cadata):
-    with RSConnect(uri, api_key, disable_tls_check=disable_tls_check, cadata=cadata) as api:
-        return api.app_get(app_id)

@@ -6,6 +6,8 @@ import os
 import sys
 from os.path import abspath, basename, dirname, exists, join
 
+from .utils import vecho
+
 
 def config_dirname(platform=sys.platform, env=os.environ):
     """Get the user's configuration directory path for this platform."""
@@ -215,3 +217,23 @@ class AppStore(object):
 
     def get_path(self):
         return self.filepath
+
+    def resolve(self, server, app_id, title, app_mode):
+        metadata = self.get(server)
+        if metadata is None:
+            vecho('No previous deployment to this server was found; this will be a new deployment.')
+            return app_id, title, app_mode
+
+        vecho('Found previous deployment data in %s' % self.get_path())
+
+        if app_id is None:
+            app_id = metadata.get('app_guid') or metadata.get('app_id')
+            vecho('Using saved app ID: %s' % app_id)
+
+        if title is None:
+            title = metadata.get('title')
+            vecho('Using saved title: "%s"' % title)
+
+        # app mode cannot be changed on redeployment
+        app_mode = metadata.get('app_mode')
+        return app_id, title, app_mode
