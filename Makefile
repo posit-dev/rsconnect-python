@@ -25,6 +25,9 @@ shell-%:
 test-%:
 	$(RUNNER) 'python setup.py install --user && python -m unittest discover'
 
+coverage-%:
+	$(RUNNER) 'python setup.py install --user && pytest --cov=rsconnect --cov-report=html --no-cov-on-fail rsconnect/tests/'
+
 lint-%:
 	$(RUNNER) 'pyflakes ./rsconnect/'
 

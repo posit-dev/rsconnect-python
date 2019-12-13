@@ -12,3 +12,5 @@
 .DS_Store
 .vagrant
 rsconnect/tests/testdata/**/rsconnect-python/
+.coverage
+htmlcov

@@ -1,8 +1,10 @@
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
-# base requirements
-RUN python -m pip install six click pyflakes
-
-# extended requirements to enable static notebook deployments
-RUN python -m pip install nbconvert jupyter_client ipykernel
+RUN python -m pip install \
+	# base requirements
+	six click  \
+	# extended requirements to render notebooks to static HTML
+	nbconvert jupyter_client ipykernel \
+	# dev dependencies
+	pyflakes pytest pytest-cov
