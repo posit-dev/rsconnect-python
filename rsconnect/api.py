@@ -126,9 +126,9 @@ class RSConnect:
         }
         self.cookies = cookies
         self._inject_cookies(cookies)
+        self.conn = self.mk_conn()
 
     def __enter__(self):
-        self.conn = self.mk_conn()
         return self
 
     def __exit__(self, *args):

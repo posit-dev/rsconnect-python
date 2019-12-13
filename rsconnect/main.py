@@ -111,6 +111,16 @@ def default_title(filename):
     return basename(filename).rsplit('.')[0]
 
 
+def default_title_for_manifest(manifest):
+    """Produce a default content title from the contents of a manifest"""
+    filename = None
+
+    metadata = manifest.get('metadata')
+    if metadata:
+        filename = metadata.get('entrypoint') or metadata.get('primary_rmd') or metadata.get('primary_html')
+    return default_title(filename or 'manifest.json')
+
+
 def do_ping(server, api_key, insecure, cadata):
     """Test the given server URL to see if it's running Connect.
 
@@ -347,22 +357,13 @@ def deploy_notebook(server, api_key, static, new, app_id, title, python, insecur
 
     with CLIFeedback(''):
         click.secho('\nDeployment log:', fg='bright_white')
-        app_url = api_client.wait_for_task(app['app_id'], app['task_id'])
+        app_url = api_client.wait_for_task(app['app_id'], app['task_id'], click.echo)
         click.secho('Deployment completed successfully.\nApp URL: %s' % app_url, fg='bright_white')
 
         # save the config URL, replacing the old app URL we got during deployment
         # (which is the Open Solo URL).
         app_store.set(server, abspath(file), app_url, app['app_id'], app['app_guid'], title, app_mode)
         app_store.save()
-
-
-def default_title_for_manifest(manifest):
-    filename = 'manifest.json'
-
-    metadata = manifest.get('metadata')
-    if metadata:
-        filename = metadata.get('entrypoint') or metadata.get('primary_rmd') or metadata.get('primary_html')
-    return default_title(filename)
 
 
 @deploy.command(name='manifest', help='Deploy content to RStudio Connect using an existing manifest.json file')
@@ -485,12 +486,12 @@ def manifest(force, python, _verbose, file, extra_files):
         with open(manifest_path, 'w') as f:
             json.dump(manifest, f, indent=2)
 
-    requirements_path = join(base_dir, environment_filename)
-    if exists(requirements_path):
-        click.echo('requirements.txt already exists and will not be overwritten.')
+    environment_file_path = join(base_dir, environment_filename)
+    if exists(environment_file_path):
+        click.echo('%s already exists and will not be overwritten.' % environment_filename)
     else:
         with CLIFeedback('Creating %s' % environment_filename):
-            with open(requirements_path, 'w') as f:
+            with open(environment_file_path, 'w') as f:
                 f.write(environment['contents'])
 
 
