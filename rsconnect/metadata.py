@@ -68,7 +68,7 @@ class ServerStore(object):
             del self.servers[name_or_url]
             return True
         else:
-            for name, server in self.servers:
+            for name, server in self.servers.items():
                 if server['url'] == name_or_url:
                     del self.servers[name]
                     return True
