@@ -30,10 +30,30 @@ class TestServerMetadata(TestCase):
             ca_cert=None,
         ))
 
-    def test_remove(self):
+    def test_remove_by_name(self):
         self.server_store.remove('foo')
         self.assertIsNone(self.server_store.get('foo'))
+        self.assertIsNone(self.server_store.get('http://connect.local'))
         self.assertIsNotNone(self.server_store.get('bar'))
+        self.assertIsNotNone(self.server_store.get('http://connect.remote'))
+
+    def test_remove_by_url(self):
+        self.server_store.remove('http://connect.local')
+        self.assertIsNone(self.server_store.get('foo'))
+        self.assertIsNone(self.server_store.get('http://connect.local'))
+        self.assertIsNotNone(self.server_store.get('bar'))
+        self.assertIsNotNone(self.server_store.get('http://connect.remote'))
+
+    def test_remove_not_found(self):
+        self.assertFalse(self.server_store.remove('frazzle'))
+        self.assertEqual(len(self.server_store.list()), 2)
+
+    def test_list(self):
+        servers = self.server_store.list()
+        self.assertEqual(servers[0]['name'], 'bar')
+        self.assertEqual(servers[0]['url'], 'http://connect.remote')
+        self.assertEqual(servers[1]['name'], 'foo')
+        self.assertEqual(servers[1]['url'], 'http://connect.local')
 
     def test_resolve_by_name(self):
         server, api_key, insecure, cacert = 'foo', None, None, None
@@ -53,7 +73,21 @@ class TestServerMetadata(TestCase):
         self.assertEqual(insecure, False)
         self.assertEqual(cacert, '/certs/connect')
 
-    def test_load_save(self):
+    def test_resolve_by_default(self):
+        # with multiple entries, server None will not resolve by default
+        server, api_key, insecure, cacert = None, None, None, None
+        server, api_key, insecure, cacert = self.server_store.resolve(server, api_key, insecure, cacert)
+        self.assertEqual(server, None)
+
+        # with only a single entry, server None will resolve to that entry
+        self.server_store.remove('http://connect.remote')
+        server, api_key, insecure, cacert = self.server_store.resolve(server, api_key, insecure, cacert)
+        self.assertEqual(server, 'http://connect.local')
+        self.assertEqual(api_key, 'notReallyAnApiKey')
+        self.assertEqual(insecure, False)
+        self.assertEqual(cacert, '/certs/connect')
+
+    def test_save_and_load(self):
         temp = tempfile.mkdtemp()
         server_store = ServerStore(base_dir=temp)
         server_store.add('foo', 'http://connect.local', 'notReallyAnApiKey', ca_cert='/certs/connect')
@@ -71,6 +105,13 @@ class TestServerMetadata(TestCase):
         self.assertIn('http://connect.local', data)
         self.assertIn('notReallyAnApiKey', data)
         self.assertIn('/certs/connect', data)
+
+        server_store2 = ServerStore(base_dir=temp)
+        server_store2.load()
+        self.assertEqual(server_store.list(), server_store2.list())
+
+    def test_get_path(self):
+        self.assertIn('rsconnect-python', self.server_store.get_path())
 
 
 class TestAppMetadata(TestCase):

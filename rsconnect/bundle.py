@@ -202,25 +202,6 @@ def make_notebook_source_bundle(file, environment, extra_files=[]):
     return bundle_file
 
 
-def get_exporter(**kwargs):
-    """get an exporter, raising appropriate errors"""
-    # if this fails, will raise 500
-    try:
-        from nbconvert.exporters.base import get_exporter
-    except ImportError as e:
-        raise Exception("Could not import nbconvert: %s" % e)
-
-    try:
-        Exporter = get_exporter('html')
-    except KeyError:
-        raise Exception("No exporter for format: html")
-
-    try:
-        return Exporter(**kwargs)
-    except Exception as e:
-        raise Exception("Could not construct Exporter: %s" % e)
-
-
 def make_html_manifest(filename):
     return {
         "version": 1,
