@@ -253,10 +253,11 @@ class RSConnect:
             'app_url': app['url'],
         }
 
-    def wait_for_task(self, app_id, task_id, log_callback):
+    def wait_for_task(self, app_id, task_id, log_callback, timeout=None):
         last_status = None
+        ending = time.time() + timeout if timeout else 999999999999
 
-        while True:
+        while time.time() < ending:
             time.sleep(0.5)
 
             task_status = self.task_get(task_id, last_status)
@@ -266,6 +267,8 @@ class RSConnect:
                 app_config = self.app_config(app_id)
                 app_url = app_config.get('config_url')
                 return app_url
+
+        raise RSConnectException('Task timed out after %d seconds' % timeout)
 
     def output_task_log(self, task_status, last_status, log_callback):
         """Pipe any new output through the log_callback.
