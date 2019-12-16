@@ -17,13 +17,13 @@ python setup.py install
 ### Using the rsconnect CLI
 
 ```
-rsconnect deploy \
+rsconnect deploy notebook \
 	--server https://my.connect.server:3939 \
 	--api-key my-api-key \
 	my-notebook.ipynb
 ```
 
-Note: the examples here use long command line options, but there are short options (`-s`, `-k`, etc.) available. Run `rsconnect deploy --help` for details.
+Note: the examples here use long command line options, but there are short options (`-s`, `-k`, etc.) available. Run `rsconnect deploy notebook --help` for details.
 
 ### Saving Server Information
 To avoid having to provide your server information at each deployment, you can optionally save server information:
@@ -38,13 +38,13 @@ rsconnect add \
 Once the server is saved, you can refer to it by name:
 
 ```
-rsconnect deploy --server myserver my-notebook.ipynb
+rsconnect deploy notebook --server myserver my-notebook.ipynb
 ```
 
 If there is only one server saved, this will work too:
 
 ```
-rsconnect deploy my-notebook.ipynb
+rsconnect deploy notebook my-notebook.ipynb
 ```
 
 You can see the list of saved servers with:
@@ -67,13 +67,13 @@ rsconnect test \
 	--api-key my-api-key
 ```
 
-### Deployment Options
+## Notebook Deployment Options
 
 #### Including Extra Files
 You can include extra files in the deployment bundle to make them available when your notebook is run by the Connect server. Just specify them on the command line after the notebook file:
 
 ```
-rsconnect deploy my-notebook.ipynb data.csv
+rsconnect deploy notebook my-notebook.ipynb data.csv
 ```
 
 #### Package Dependencies
@@ -82,7 +82,7 @@ If a `requirements.txt` file exists in the same directory as the notebook file, 
 If there is no `requirements.txt` file, the package dependencies will be determined from the current Python environment, or from an alternative Python executable specified in the `--python` option or via the `RETICULATE_PYTHON` environment variable.
 
 ```
-rsconnect deploy --python /path/to/python my-notebook.ipynb
+rsconnect deploy notebook --python /path/to/python my-notebook.ipynb
 ```
 
 You can see the packages list that will be included by running `pip freeze` yourself, ensuring that you use the same Python that you use to run your Jupyter Notebook:
@@ -97,24 +97,7 @@ By default, `rsconnect` deploys the original notebook with source code. This ena
 If you just want to publish an HTML snapshot of the notebook, you can use the `--static` option. This will cause `rsconnect` to execute your notebook locally to produce the HTML file, then publish the HTML file to the Connect server.
 
 ```
-rsconnect deploy --static my-notebook.ipynb
-```
-
-#### Deploying R or Other Content
-You can deploy other content that has an existing RStudio Connect `manifest.json` file. For example, if you download and unpack a source bundle from Connect, you can deploy the resulting directory.
-
-Note that in this case, the existing content is deployed as-is. Python environment inspection and notebook pre-rendering, if needed, are assumed to be already done and represented in the manifest.
-
-```
-rsconnect deploy /path/to/manifest.json
-```
-
-If you have R content but don't have a `manifest.json` file, you can use the RStudio IDE to create the manifest. See the help for the `rsconnect::writeManifest` R function:
-
-```
-install.packages('rsconnect')
-library(rsconnect)
-?rsconnect::writeManifest
+rsconnect deploy notebook --static my-notebook.ipynb
 ```
 
 #### Creating a Manifest for Future Deployment
@@ -128,12 +111,33 @@ Note: manifests for static (pre-rendered) notebooks cannot be created.
 rsconnect manifest my-notebook.ipynb
 ```
 
-#### Title
+### Deploying R or Other Content
+You can deploy other content that has an existing RStudio Connect `manifest.json` file. For example, if you download and unpack a source bundle from Connect, you can deploy the resulting directory. The options are similar to notebook deployment; see `rsconnect deploy manifest --help`.
+
+Note that in this case, the existing content is deployed as-is. Python environment inspection and notebook pre-rendering, if needed, are assumed to be already done and represented in the manifest.
+
+```
+rsconnect deploy manifest /path/to/manifest.json
+```
+
+If you have R content but don't have a `manifest.json` file, you can use the RStudio IDE to create the manifest. See the help for the `rsconnect::writeManifest` R function:
+
+```
+install.packages('rsconnect')
+library(rsconnect)
+?rsconnect::writeManifest
+```
+
+## Options for All Types of Deployments
+
+### Title
 The title of the deployed content is derived from the filename. For example, if you deploy `my-notebook.ipynb`, the title will be `my-notebook`. To change this, use the `--title` option:
 
 ```
-rsconnect deploy --title "My Notebook" my-notebook.ipynb
+rsconnect deploy notebook --title "My Notebook" my-notebook.ipynb
 ```
+
+When using `rsconnect deploy manifest`, the title is derived from the primary filename referenced in the manifest.
 
 ### Network Options
 
@@ -173,20 +177,20 @@ If this fails with a TLS Certificate Validation error, then you have two options
 
 ### Updating a Deployment
 
-If you deploy a file again to the same server, `rsconnect` will update the previous deployment by default. This means that you can keep running `rsconnect deploy my-notebook.ipynb` as you develop new versions of your notebook.
+If you deploy a file again to the same server, `rsconnect` will update the previous deployment by default. This means that you can keep running `rsconnect deploy notebook my-notebook.ipynb` as you develop new versions of your notebook.
 
 #### Forcing a New Deployment
 To bypass this behavior and force a new deployment, use the `--new` option:
 
 ```
-rsconnect deploy --new my-notebook.ipynb
+rsconnect deploy notebook --new my-notebook.ipynb
 ```
 
 #### Updating a Different Deployment
 If you want to update an existing deployment but don't have the saved deployment data, you can provide the app's numeric ID or GUID on the command line:
 
 ```
-rsconnect deploy --app-id 123456 my-notebook.ipynb
+rsconnect deploy notebook --app-id 123456 my-notebook.ipynb
 ```
 
 You must be the owner of the target deployment, or a collaborator with permission to change the content. The type of content (static notebook, or notebook with source code) must match the existing deployment.
