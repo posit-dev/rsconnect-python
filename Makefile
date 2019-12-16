@@ -20,13 +20,13 @@ image-%:
 	docker build -t rsconnect-python:$* --build-arg BASE_IMAGE=python:$* .
 
 shell-%:
-	$(RUNNER) 'python setup.py install --user && bash'
+	$(RUNNER) 'python setup.py develop --user && bash'
 
 test-%:
-	$(RUNNER) 'python setup.py install --user && python -m unittest discover'
+	$(RUNNER) 'python setup.py develop --user && python -m unittest discover'
 
 coverage-%:
-	$(RUNNER) 'python setup.py install --user && pytest --cov=rsconnect --cov-report=html --no-cov-on-fail rsconnect/tests/'
+	$(RUNNER) 'python setup.py develop --user && pytest --cov=rsconnect --cov-report=html --no-cov-on-fail rsconnect/tests/'
 
 lint-%:
 	$(RUNNER) 'pyflakes ./rsconnect/'
