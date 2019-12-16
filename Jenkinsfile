@@ -77,7 +77,7 @@ def buildAndTest(pyVersion) {
 
 def publishArtifacts() {
     // Promote master builds to S3
-    sh 'rm dist/*.egg'
+    sh 'rm -f dist/*.egg'
     cmd = "aws s3 sync dist s3://rstudio-rsconnect-jupyter/"
 
     if (isUserBranch) {
