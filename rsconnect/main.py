@@ -189,7 +189,7 @@ def list_servers(verbose):
         click.echo('Server information from %s' % server_store.get_path())
 
         if not servers:
-            click.echo('No servers are saved. To save a server, see `rsconnect save --help`.')
+            click.echo('No servers are saved. To add a server, see `rsconnect add --help`.')
         else:
             click.echo()
             for server in servers:
