@@ -4,6 +4,7 @@
 /.conda/
 /.jupyter/
 /.local/
+/.idea/
 /node_modules/
 /notebooks*/
 /*.egg-info
