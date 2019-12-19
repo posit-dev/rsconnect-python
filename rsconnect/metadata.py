@@ -221,7 +221,7 @@ class AppStore(object):
     def resolve(self, server, app_id, title, app_mode):
         metadata = self.get(server)
         if metadata is None:
-            logger.debug('No previous deployment to this server was found; this will be a new deployment.')
+            logger.info('No previous deployment to this server was found; this will be a new deployment.')
             return app_id, title, app_mode
 
         logger.debug('Found previous deployment data in %s' % self.get_path())
