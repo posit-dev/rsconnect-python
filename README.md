@@ -23,7 +23,33 @@ rsconnect deploy notebook \
 	my-notebook.ipynb
 ```
 
-Note: the examples here use long command line options, but there are short options (`-s`, `-k`, etc.) available. Run `rsconnect deploy notebook --help` for details.
+Note: the examples here use long command line options, but there are short options 
+(`-s`, `-k`, etc.) available. Run `rsconnect deploy notebook --help` for details.
+
+### Setting up rsconnect CLI autocompletion
+
+#### `bash`
+
+```
+#~/.bashrc
+eval "$(_RSCONNECT_COMPLETION=source rsconnect)"
+```
+
+#### `zsh`
+
+```
+#~/.zshrc
+eval "$(_RSCONNECT_COMPLETION=source_zsh rsconnect)"
+```
+
+If you get `command not found: compdef`, you need to add the following lines to your 
+`.zshrc` before the completion setup:
+
+```
+#~/.zshrc
+autoload -Uz compinit
+compinit
+```
 
 ### Saving Server Information
 To avoid having to provide your server information at each deployment, you can optionally save server information:
