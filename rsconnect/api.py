@@ -17,7 +17,6 @@ class RSConnectException(Exception):
 
 
 logger = logging.getLogger('rsconnect')
-logger.setLevel(logging.INFO)
 
 
 def url_path_join(*parts):

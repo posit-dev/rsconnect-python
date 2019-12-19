@@ -1,6 +1,7 @@
 
 import contextlib
 import json
+import logging
 import os
 import random
 import sys
@@ -24,11 +25,11 @@ from .bundle import (
     manifest_add_buffer,
     manifest_add_file)
 from .metadata import ServerStore, AppStore
-from .utils import vecho
 
 line_width = 45
 server_store = ServerStore()
 server_store.load()
+logging.basicConfig()
 
 
 @contextlib.contextmanager
@@ -67,6 +68,17 @@ def CLIFeedback(label):
             traceback.print_exc()
         failed('Internal error: ' + str(exc))
 
+
+def set_verbosity(verbose):
+    """Set the verbosity level based on a passed flag
+
+    :param verbose: boolean specifying verbose or not
+    """
+    logger = logging.getLogger('rsconnect')
+    if verbose:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.WARN)
 
 def which_python(python, env=os.environ):
     """Determine which python binary should be used.
@@ -150,8 +162,9 @@ def cli():
 @click.option('--api-key','-k',required=True, help='Connect server API key')
 @click.option('--insecure', is_flag=True, help='Disable TLS certification validation.')
 @click.option('--cacert', type=click.File(), help='Path to trusted TLS CA certificate.')
-@click.option('--verbose', '-v', is_flag=True, help='Print detailed error messages on failure.')
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages')
 def add(name, server, api_key, insecure, cacert, verbose):
+    set_verbosity(verbose)
     with CLIFeedback(''):
         old_server = server_store.get(name)
 
@@ -168,9 +181,10 @@ def add(name, server, api_key, insecure, cacert, verbose):
 
 
 @cli.command(help='Remove a server')
-@click.option('--verbose', '-v', is_flag=True, help='Print detailed error messages on failure.')
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages')
 @click.argument('server')
 def remove(server, verbose):
+    set_verbosity(verbose)
     with CLIFeedback(''):
         if server_store.get(server) is None:
             click.echo('Server "%s" was not found' % server)
@@ -181,8 +195,9 @@ def remove(server, verbose):
 
 
 @cli.command('list', help='List saved servers')
-@click.option('--verbose', '-v', is_flag=True, help='Print detailed error messages on failure.')
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages')
 def list_servers(verbose):
+    set_verbosity(verbose)
     with CLIFeedback(''):
         servers = server_store.list()
 
@@ -250,11 +265,12 @@ def version():
 
 @cli.command(help='Verify a Connect server URL')
 @click.option('--server', '-s', required=True, envvar='CONNECT_SERVER', help='Connect server URL')
-@click.option('--api-key','-k', envvar='CONNECT_API_KEY', help='Connect server API key')
+@click.option('--api-key', '-k', envvar='CONNECT_API_KEY', help='Connect server API key')
 @click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
 @click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File(), help='Path to trusted TLS CA certificate.')
-@click.option('--verbose', '-v', is_flag=True, help='Print detailed error messages on failure.')
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages')
 def test(server, api_key, insecure, cacert, verbose):
+    set_verbosity(verbose)
     do_ping(server, api_key, insecure, cacert and cacert.read())
 
 
@@ -264,8 +280,8 @@ def deploy():
 
 
 @deploy.command(name='notebook', help='Deploy content to RStudio Connect')
-@click.option('--server', '-s', envvar='CONNECT_SERVER', help='Connect server URL')
-@click.option('--api-key','-k', envvar='CONNECT_API_KEY', help='Connect server API key')
+@click.option('--server', '-s', envvar='CONNECT_SERVER', help='Connect server URL or saved server name')
+@click.option('--api-key', '-k', envvar='CONNECT_API_KEY', help='Connect server API key')
 @click.option('--static', is_flag=True, help='Deployed a static, pre-rendered notebook. Static notebooks cannot be re-run on the server.')
 @click.option('--new', '-n', is_flag=True, help='Force a new deployment, even if there is saved metadata from a previous deployment.')
 @click.option('--app-id', help='Existing app ID or GUID to replace. Cannot be used with --new.')
@@ -273,10 +289,12 @@ def deploy():
 @click.option('--python', type=click.Path(exists=True), help='Path to python interpreter whose environment should be used. The python environment must have the rsconnect package installed.')
 @click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
 @click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File(), help='Path to trusted TLS CA certificate.')
-@click.option('--verbose', '-v', is_flag=True, help='Print detailed error messages on failure.')
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
 def deploy_notebook(server, api_key, static, new, app_id, title, python, insecure, cacert, verbose, file, extra_files):
+    set_verbosity(verbose)
+    logger = logging.getLogger('rsconnect')
     if server:
         click.secho('Deploying %s to server "%s"' % (file, server), fg='bright_white')
     else:
@@ -314,7 +332,7 @@ def deploy_notebook(server, api_key, static, new, app_id, title, python, insecur
             app = api_client.app_get(app_id)
             app_mode = api.app_modes.get(app.get('app_mode', 0), 'unknown')
 
-            vecho('Using app mode from app %s: %s' % (app_id, app_mode))
+            logger.debug('Using app mode from app %s: %s' % (app_id, app_mode))
         elif static:
             app_mode = 'static'
         else:
@@ -333,9 +351,9 @@ def deploy_notebook(server, api_key, static, new, app_id, title, python, insecur
 
     with CLIFeedback('Inspecting python environment'):
         python = which_python(python)
-        vecho('Python: %s' % python)
+        logger.debug('Python: %s' % python)
         environment = inspect_environment(python, dirname(file))
-        vecho('Environment: %s' % pformat(environment))
+        logger.debug('Environment: %s' % pformat(environment))
 
     with CLIFeedback('Creating deployment bundle'):
         if app_mode == 'static':
@@ -367,16 +385,21 @@ def deploy_notebook(server, api_key, static, new, app_id, title, python, insecur
 
 
 @deploy.command(name='manifest', help='Deploy content to RStudio Connect using an existing manifest.json file')
-@click.option('--server', '-s', envvar='CONNECT_SERVER', help='Connect server URL')
-@click.option('--api-key','-k', envvar='CONNECT_API_KEY', help='Connect server API key')
-@click.option('--new', '-n', is_flag=True, help='Force a new deployment, even if there is saved metadata from a previous deployment.')
+@click.option('--server', '-s', envvar='CONNECT_SERVER', help='Connect server URL or saved server name')
+@click.option('--api-key', '-k', envvar='CONNECT_API_KEY', help='Connect server API key')
+@click.option('--new', '-n', is_flag=True,
+              help='Force a new deployment, even if there is saved metadata from a previous deployment.'
+              )
 @click.option('--app-id', help='Existing app ID or GUID to replace. Cannot be used with --new.')
 @click.option('--title', '-t', help='Title of the content (default is the same as the filename)')
 @click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
-@click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File(), help='Path to trusted TLS CA certificate.')
-@click.option('--verbose', '-v', is_flag=True, help='Print detailed error messages on failure.')
+@click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
+              help='Path to trusted TLS CA certificate.'
+              )
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages')
 @click.argument('file', type=click.Path(exists=True))
 def deploy_manifest(server, api_key, new, app_id, title, insecure, cacert, verbose, file):
+    set_verbosity(verbose)
     if server:
         click.secho('Deploying %s to server "%s"' % (file, server), fg='bright_white')
     else:
@@ -448,14 +471,15 @@ def deploy_help():
 
 @cli.command(help='Create a manifest.json file for a notebook, for later deployment')
 @click.option('--force', '-f', is_flag=True, help='Replace manifest.json, if it exists.')
-@click.option('--python', type=click.Path(exists=True), help='Path to python interpreter whose environment should be used. The python environment must have the rsconnect package installed.')
-@click.option('--verbose', '-v', '_verbose', is_flag=True, help='Print detailed error messages on failure.')
+@click.option('--python', type=click.Path(exists=True),
+              help='Path to python interpreter whose environment should be used. ' +
+                   'The python environment must have the rsconnect package installed.'
+              )
+@click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
-def manifest(force, python, _verbose, file, extra_files):
-    global verbose
-    verbose = _verbose
-
+def manifest(force, python, verbose, file, extra_files):
+    set_verbosity(verbose)
     with CLIFeedback('Checking arguments'):
         if not file.endswith('.ipynb'):
             raise api.RSConnectException('Can only create a manifest for a Jupyter Notebook (.ipynb file).')

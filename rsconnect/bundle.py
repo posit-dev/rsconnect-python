@@ -11,7 +11,6 @@ import tempfile
 from os.path import basename, dirname, exists, join, relpath, splitext
 
 log = logging.getLogger('rsconnect')
-log.setLevel(logging.DEBUG)
 
 
 def make_source_manifest(entrypoint, environment, appmode):
