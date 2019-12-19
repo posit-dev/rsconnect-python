@@ -43,23 +43,27 @@ def wait_until(predicate, timeout, period=0.1):
 settings_path = '__api__/server_settings'
 max_redirects = 5
 
-def https_helper(hostname, port, disable_tls_check, cadata):
-    if cadata is not None and disable_tls_check:
+
+def https_helper(hostname, port, disable_tls_check, ca_data):
+    if ca_data is not None and disable_tls_check:
         raise Exception("Cannot both disable TLS checking and provide a custom certificate")
-    if cadata is not None:
+    if ca_data is not None:
         return http.HTTPSConnection(hostname, port=(port or http.HTTPS_PORT), timeout=10,
-                                    context=ssl.create_default_context(cadata=cadata))
+                                    context=ssl.create_default_context(cadata=ca_data))
     elif disable_tls_check:
+        # noinspection PyProtectedMember
         return http.HTTPSConnection(hostname, port=(port or http.HTTPS_PORT), timeout=10,
                                     context=ssl._create_unverified_context())
     else:
         return http.HTTPSConnection(hostname, port=(port or http.HTTPS_PORT), timeout=10)
 
-def verify_server(server_address, disable_tls_check, cadata):
-    server_url = urljoin(server_address, settings_path)
-    return _verify_server(server_url, max_redirects, disable_tls_check, cadata)
 
-def _verify_server(server_address, max_redirects, disable_tls_check, cadata):
+def verify_server(server_address, disable_tls_check, ca_data):
+    server_url = urljoin(server_address, settings_path)
+    return _verify_server(server_url, max_redirects, disable_tls_check, ca_data)
+
+
+def _verify_server(server_address, maximum_redirects, disable_tls_check, ca_data):
     """
     Verifies that a server is present at the given address.
     Assumes that `__api__/server_settings` is accessible from the jupyter server.
@@ -72,7 +76,7 @@ def _verify_server(server_address, max_redirects, disable_tls_check, cadata):
         if r.scheme == 'http':
             conn = http.HTTPConnection(r.hostname, port=(r.port or http.HTTP_PORT), timeout=10)
         else:
-            conn = https_helper(r.hostname, r.port, disable_tls_check, cadata)
+            conn = https_helper(r.hostname, r.port, disable_tls_check, ca_data)
 
         conn.request('GET', server_address)
         response = conn.getresponse()
@@ -87,8 +91,9 @@ def _verify_server(server_address, max_redirects, disable_tls_check, cadata):
             target = response.getheader('Location')
             logger.warning('Redirected to: %s' % target)
 
-            if max_redirects > 0:
-                return _verify_server(urljoin(server_address, target), max_redirects - 1, disable_tls_check, cadata)
+            if maximum_redirects > 0:
+                return _verify_server(urljoin(server_address, target), maximum_redirects - 1, disable_tls_check,
+                                      ca_data)
             else:
                 err = 'Too many redirects'
                 raise Exception(err)
@@ -111,15 +116,17 @@ def _verify_server(server_address, max_redirects, disable_tls_check, cadata):
 
 
 class RSConnect:
-    def __init__(self, uri, api_key, cookies=[], disable_tls_check=False, cadata=None):
-        if disable_tls_check and (cadata is not None):
+    def __init__(self, uri, api_key, cookies=None, disable_tls_check=False, ca_data=None):
+        if cookies is None:
+            cookies = []
+        if disable_tls_check and (ca_data is not None):
             raise Exception("Cannot both disable TLS checking and provide custom certificate data")
         self.path_prefix = uri.path or '/'
         self.api_key = api_key
         self.conn = None
         self.mk_conn = lambda: http.HTTPConnection(uri.hostname, port=uri.port, timeout=10)
         if uri.scheme == 'https':
-            self.mk_conn = lambda: https_helper(uri.hostname, uri.port, disable_tls_check, cadata)
+            self.mk_conn = lambda: https_helper(uri.hostname, uri.port, disable_tls_check, ca_data)
         self.http_headers = {
             'Authorization': 'Key %s' % self.api_key,
         }
@@ -174,10 +181,11 @@ class RSConnect:
         raw = response.read().decode('utf-8')
 
         if response.status >= 500:
+            # noinspection PyBroadException
             try:
                 message = json.loads(raw)['error']
-            except:
-                message = 'Unexpected response code: %d' % (response.status)
+            except Exception:
+                message = 'Unexpected response code: %d' % response.status
             raise RSConnectException(message)
         elif response.status >= 400:
             data = json.loads(raw)
@@ -209,7 +217,7 @@ class RSConnect:
         params = json.dumps(updates)
         return self.request('POST', '__api__/applications/%s' % app_id, params, self.http_headers)
 
-    def app_deploy(self, app_id, bundle_id = None):
+    def app_deploy(self, app_id, bundle_id=None):
         params = json.dumps({'bundle': bundle_id})
         return self.request('POST', '__api__/applications/%s/deploy' % app_id, params, self.http_headers)
 
@@ -269,7 +277,8 @@ class RSConnect:
 
         raise RSConnectException('Task timed out after %d seconds' % timeout)
 
-    def output_task_log(self, task_status, last_status, log_callback):
+    @staticmethod
+    def output_task_log(task_status, last_status, log_callback):
         """Pipe any new output through the log_callback.
 
         Returns an updated last_status which should be passed into
@@ -292,11 +301,12 @@ class RSConnect:
 
 
 def verify_api_key(uri, api_key, disable_tls_check, cadata):
-    with RSConnect(uri, api_key, disable_tls_check=disable_tls_check, cadata=cadata) as api:
+    with RSConnect(uri, api_key, disable_tls_check=disable_tls_check, ca_data=cadata) as api:
         api.me()
 
 
-(   UnknownMode,
+(
+    UnknownMode,
     ShinyMode,
     ShinyRmdMode,
     StaticRmdMode,
@@ -318,8 +328,8 @@ app_modes = {
 }
 
 
-def app_search(uri, api_key, app_title, app_id, disable_tls_check, cadata):
-    with RSConnect(uri, api_key, disable_tls_check=disable_tls_check, cadata=cadata) as api:
+def app_search(uri, api_key, app_title, app_id, disable_tls_check, ca_data):
+    with RSConnect(uri, api_key, disable_tls_check=disable_tls_check, ca_data=ca_data) as api:
         data = []
 
         filters = [('count', 5),
@@ -329,13 +339,13 @@ def app_search(uri, api_key, app_title, app_id, disable_tls_check, cadata):
         apps = api.app_find(filters)
         found = False
 
-        def app_data(app):
+        def app_data(app_info):
             return {
-                'id': app['id'],
-                'name': app['name'],
-                'title': app['title'],
-                'app_mode': app_modes.get(app['app_mode']),
-                'config_url': api.app_config(app['id'])['config_url'],
+                'id': app_info['id'],
+                'name': app_info['name'],
+                'title': app_info['title'],
+                'app_mode': app_modes.get(app_info['app_mode']),
+                'config_url': api.app_config(app_info['id'])['config_url'],
             }
 
         for app in apps or []:

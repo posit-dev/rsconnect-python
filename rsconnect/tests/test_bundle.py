@@ -1,4 +1,3 @@
-
 import json
 import sys
 import tarfile
@@ -13,25 +12,27 @@ from rsconnect.bundle import list_files, make_manifest_bundle, make_notebook_htm
 class TestBundle(TestCase):
     def get_dir(self, name):
         py_version = 'py%d' % sys.version_info[0]
+        # noinspection SpellCheckingInspection
         path = join(dirname(__file__), 'testdata', py_version, name)
         self.assertTrue(exists(path))
         return path
 
-    def python_version(self):
+    @staticmethod
+    def python_version():
         return u'.'.join(map(str, sys.version_info[:3]))
 
     def test_source_bundle1(self):
         self.maxDiff = 5000
-        dir = self.get_dir('pip1')
-        nb_path = join(dir, 'dummy.ipynb')
+        directory = self.get_dir('pip1')
+        nb_path = join(directory, 'dummy.ipynb')
 
         # Note that here we are introspecting the environment from within
         # the test environment. Don't do this in the production code, which
         # runs in the notebook server. We need the introspection to run in
         # the kernel environment and not the notebook server environment.
-        environment = detect_environment(dir)
+        environment = detect_environment(directory)
         with make_notebook_source_bundle(nb_path, environment) as bundle, \
-            tarfile.open(mode='r:gz', fileobj=bundle) as tar:
+                tarfile.open(mode='r:gz', fileobj=bundle) as tar:
 
             names = sorted(tar.getnames())
             self.assertEqual(names, [
@@ -54,6 +55,7 @@ class TestBundle(TestCase):
             else:
                 ipynb_hash = u"36873800b48ca5ab54760d60ba06703a"
 
+            # noinspection SpellCheckingInspection
             self.assertEqual(manifest, {
                 u"version": 1,
                 u"metadata": {
@@ -79,17 +81,17 @@ class TestBundle(TestCase):
 
     def test_source_bundle2(self):
         self.maxDiff = 5000
-        dir = self.get_dir('pip2')
-        nb_path = join(dir, 'dummy.ipynb')
+        directory = self.get_dir('pip2')
+        nb_path = join(directory, 'dummy.ipynb')
 
         # Note that here we are introspecting the environment from within
         # the test environment. Don't do this in the production code, which
         # runs in the notebook server. We need the introspection to run in
         # the kernel environment and not the notebook server environment.
-        environment = detect_environment(dir)
+        environment = detect_environment(directory)
 
         with make_notebook_source_bundle(nb_path, environment, extra_files=['data.csv']) as bundle, \
-            tarfile.open(mode='r:gz', fileobj=bundle) as tar:
+                tarfile.open(mode='r:gz', fileobj=bundle) as tar:
 
             names = sorted(tar.getnames())
             self.assertEqual(names, [
@@ -118,6 +120,7 @@ class TestBundle(TestCase):
             else:
                 ipynb_hash = u"36873800b48ca5ab54760d60ba06703a"
 
+            # noinspection SpellCheckingInspection
             self.assertEqual(manifest, {
                 u"version": 1,
                 u"metadata": {
@@ -142,6 +145,7 @@ class TestBundle(TestCase):
             })
 
     def test_list_files(self):
+        # noinspection SpellCheckingInspection
         paths = [
             'notebook.ipynb',
             'somedata.csv',
@@ -152,22 +156,22 @@ class TestBundle(TestCase):
         ]
 
         def walk(base_dir):
-            dirnames = []
-            filenames = []
+            dir_names = []
+            file_names = []
 
             for path in paths:
                 if '/' in path:
-                    dirname, filename = path.split('/', 1)
-                    dirnames.append(dirname)
+                    dir_name, file_name = path.split('/', 1)
+                    dir_names.append(dir_name)
                 else:
-                    filenames.append(path)
+                    file_names.append(path)
 
-            yield (base_dir, dirnames, filenames)
+            yield base_dir, dir_names, file_names
 
-            for subdir in dirnames:
+            for subdir in dir_names:
                 for path in paths:
                     if path.startswith(subdir + '/'):
-                        yield (base_dir + '/' + subdir, [], [path.split('/', 1)[1]])
+                        yield base_dir + '/' + subdir, [], [path.split('/', 1)[1]]
 
         files = list_files('/', True, walk=walk)
         self.assertEqual(files, paths[:4])
@@ -181,9 +185,9 @@ class TestBundle(TestCase):
     def test_html_bundle2(self):
         self.do_test_html_bundle(self.get_dir('pip2'))
 
-    def do_test_html_bundle(self, dir):
+    def do_test_html_bundle(self, directory):
         self.maxDiff = 5000
-        nb_path = join(dir, 'dummy.ipynb')
+        nb_path = join(directory, 'dummy.ipynb')
 
         bundle = make_notebook_html_bundle(nb_path, sys.executable)
 
@@ -198,6 +202,7 @@ class TestBundle(TestCase):
 
             manifest = json.loads(tar.extractfile('manifest.json').read().decode('utf-8'))
 
+            # noinspection SpellCheckingInspection
             self.assertEqual(manifest, {
                 u"version": 1,
                 u"metadata": {
@@ -211,11 +216,11 @@ class TestBundle(TestCase):
 
     def test_manifest_bundle(self):
         self.maxDiff = 5000
+        # noinspection SpellCheckingInspection
         manifest_path = join(dirname(__file__), 'testdata', 'R', 'shinyapp', 'manifest.json')
 
         with make_manifest_bundle(manifest_path) as bundle, \
-            tarfile.open(mode='r:gz', fileobj=bundle) as tar:
-
+                tarfile.open(mode='r:gz', fileobj=bundle) as tar:
             tar_names = sorted(tar.getnames())
             manifest = json.loads(tar.extractfile('manifest.json').read().decode('utf-8'))
             manifest_names = sorted(manifest['files'].keys())

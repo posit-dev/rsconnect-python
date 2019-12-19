@@ -9,15 +9,18 @@ from os.path import abspath, basename, dirname, exists, join
 
 logger = logging.getLogger('rsconnect')
 
+
 def config_dirname(platform=sys.platform, env=os.environ):
     """Get the user's configuration directory path for this platform."""
     home = env.get('HOME', '~')
+    base_dir = home
 
     if platform.startswith('linux'):
         base_dir = env.get('XDG_CONFIG_HOME', home)
     elif platform == 'darwin':
         base_dir = join(home, 'Library', 'Application Support')
     elif platform == 'win32':
+        # noinspection SpellCheckingInspection
         base_dir = env.get('APPDATA', home)
 
     if base_dir == home:
@@ -26,6 +29,7 @@ def config_dirname(platform=sys.platform, env=os.environ):
         return join(base_dir, 'rsconnect-python')
 
 
+# noinspection SpellCheckingInspection
 def makedirs(filepath):
     """Create the parent directories of filepath.
 
@@ -42,7 +46,7 @@ class ServerStore(object):
     """Defines a metadata store for server information.
 
     Servers consist of a user-supplied name, URL, and API key.
-    Data is stored in the customary platform-specific location 
+    Data is stored in the customary platform-specific location
     (typically a subdirectory of the user's home directory).
     """
     def __init__(self, base_dir=config_dirname()):
@@ -72,7 +76,7 @@ class ServerStore(object):
                 if server['url'] == name_or_url:
                     del self.servers[name]
                     return True
-            return False 
+            return False
 
     def get(self, name_or_url):
         if name_or_url in self.servers:
@@ -83,7 +87,7 @@ class ServerStore(object):
                     return self.servers[name]
 
     def list(self):
-        return sorted(self.servers.values(), key=lambda s:s['name'])
+        return sorted(self.servers.values(), key=lambda s: s['name'])
 
     def resolve(self, name_or_url, api_key, insecure, ca_cert):
         if name_or_url:
@@ -144,12 +148,13 @@ class AppStore(object):
     * Title
 
     The metadata file for an app is written in the same directory
-    as the app's entrypoint file, if that directory is writable.
+    as the app's entry point file, if that directory is writable.
     Otherwise, it is stored in the user's config directory
     under applications/{hash}.json.
     """
     def __init__(self, app_file):
-        self.app_path = join(dirname(app_file), 'rsconnect-python', basename(app_file).rsplit('.', 1)[0] + '.json')
+        base_name = str(basename(app_file).rsplit('.', 1)[0]) + '.json'
+        self.app_path = join(dirname(app_file), 'rsconnect-python', base_name)
         self.global_path = join(config_dirname(), 'applications', sha1(abspath(app_file)) + '.json')
         self.data = {}
         self.filepath = None
@@ -189,20 +194,20 @@ class AppStore(object):
     def load(self):
         """Load the data from file.
 
-        The app directory is checked first, 
+        The app directory is checked first,
         then the global config location.
         """
         if not self.load_from(self.app_path):
             self.load_from(self.global_path)
 
-    def save_to(self, path, open=open):
+    def save_to(self, path, open_func=open):
         """Save the data to the specified file."""
         data = json.dumps(self.data, indent=4)
-        with open(path, 'wb') as f:
+        with open_func(path, 'wb') as f:
             f.write(data.encode('utf-8'))
             self.filepath = path
 
-    def save(self, open=open):
+    def save(self, open_func=open):
         """Save the data to file.
 
         The app directory is tried first. If that fails,
@@ -210,10 +215,10 @@ class AppStore(object):
         """
         try:
             makedirs(self.app_path)
-            self.save_to(self.app_path, open)
+            self.save_to(self.app_path, open_func)
         except OSError:
             makedirs(self.global_path)
-            self.save_to(self.global_path, open)
+            self.save_to(self.global_path, open_func)
 
     def get_path(self):
         return self.filepath
