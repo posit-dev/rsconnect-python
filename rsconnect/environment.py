@@ -23,15 +23,15 @@ def detect_environment(dirname):
     and contents if successful, or a dictionary containing 'error'
     on failure.
     """
-    answer = (output_file(dirname, 'requirements.txt', 'pip') or
+    result = (output_file(dirname, 'requirements.txt', 'pip') or
               pip_freeze())
 
-    if answer is not None:
-        answer['python'] = get_python_version()
-        answer['pip'] = get_version('pip')
-        answer['locale'] = get_default_locale()
+    if result is not None:
+        result['python'] = get_python_version()
+        result['pip'] = get_version('pip')
+        result['locale'] = get_default_locale()
 
-    return answer
+    return result
 
 
 def get_python_version():
@@ -118,13 +118,17 @@ def pip_freeze():
     }
 
 
-if __name__ == '__main__':
+def main():
     try:
         if len(sys.argv) < 2:
             raise EnvironmentException('Usage: %s DIRECTORY' % sys.argv[0])
 
         result = detect_environment(sys.argv[1])
-    except EnvironmentException as exc:
-        result = dict(error=str(exc))
+    except EnvironmentException as exception:
+        result = dict(error=str(exception))
 
     json.dump(result, sys.stdout, indent=4)
+
+
+if __name__ == '__main__':
+    main()
