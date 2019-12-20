@@ -124,11 +124,11 @@ def default_title(filename):
     return basename(filename).rsplit('.')[0]
 
 
-def default_title_for_manifest(source_manifest):
+def default_title_for_manifest(the_manifest):
     """Produce a default content title from the contents of a manifest"""
     filename = None
 
-    metadata = source_manifest.get('metadata')
+    metadata = the_manifest.get('metadata')
     if metadata:
         # noinspection SpellCheckingInspection
         filename = metadata.get('entrypoint') or metadata.get('primary_rmd') or metadata.get('primary_html')
@@ -294,8 +294,8 @@ def deploy():
 @click.option('--app-id', help='Existing app ID or GUID to replace. Cannot be used with --new.')
 @click.option('--title', '-t', help='Title of the content (default is the same as the filename)')
 @click.option('--python', type=click.Path(exists=True),
-              help='Path to python interpreter whose environment should be used. The python environment must have the '
-                   'rsconnect package installed.')
+              help='Path to python interpreter whose environment should be used. '
+                   'The python environment must have the rsconnect package installed.')
 @click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
 @click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
               help='Path to trusted TLS CA certificate.')

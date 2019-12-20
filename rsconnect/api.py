@@ -328,6 +328,16 @@ app_modes = {
 }
 
 
+def app_data(api, app):
+    return {
+        'id': app['id'],
+        'name': app['name'],
+        'title': app['title'],
+        'app_mode': app_modes.get(app['app_mode']),
+        'config_url': api.app_config(app['id'])['config_url'],
+    }
+
+
 def app_search(uri, api_key, app_title, app_id, disable_tls_check, ca_data):
     with RSConnect(uri, api_key, disable_tls_check=disable_tls_check, ca_data=ca_data) as api:
         data = []
@@ -339,18 +349,9 @@ def app_search(uri, api_key, app_title, app_id, disable_tls_check, ca_data):
         apps = api.app_find(filters)
         found = False
 
-        def app_data(app_info):
-            return {
-                'id': app_info['id'],
-                'name': app_info['name'],
-                'title': app_info['title'],
-                'app_mode': app_modes.get(app_info['app_mode']),
-                'config_url': api.app_config(app_info['id'])['config_url'],
-            }
-
         for app in apps or []:
             if app['app_mode'] in (StaticMode, StaticJupyterMode):
-                data.append(app_data(app))
+                data.append(app_data(api, app))
                 if app['id'] == app_id:
                     found = True
 
@@ -359,7 +360,7 @@ def app_search(uri, api_key, app_title, app_id, disable_tls_check, ca_data):
                 # offer the current location as an option
                 app = api.app_get(app_id)
                 if app['app_mode'] in (StaticMode, StaticJupyterMode):
-                    data.append(app_data(app))
+                    data.append(app_data(api, app))
             except RSConnectException:
                 logger.exception('Error getting info for previous app_id "%s", skipping', app_id)
 

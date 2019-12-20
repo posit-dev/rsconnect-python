@@ -13,7 +13,8 @@ from os.path import basename, dirname, exists, join, relpath, splitext
 log = logging.getLogger('rsconnect')
 
 
-def make_source_manifest(entry_point, environment, app_mode):
+# noinspection SpellCheckingInspection
+def make_source_manifest(entrypoint, environment, app_mode):
     package_manager = environment['package_manager']
 
     # noinspection SpellCheckingInspection
@@ -21,7 +22,7 @@ def make_source_manifest(entry_point, environment, app_mode):
         "version": 1,
         "metadata": {
             "appmode": app_mode,
-            "entrypoint": entry_point
+            "entrypoint": entrypoint
         },
         "locale": environment['locale'],
         "python": {
