@@ -33,7 +33,7 @@ logging.basicConfig()
 
 
 @contextlib.contextmanager
-def CLIFeedback(label):
+def cli_feedback(label):
     """Context manager for OK/ERROR feedback from the CLI.
 
     If the enclosed block succeeds, OK will be emitted.
@@ -80,6 +80,7 @@ def set_verbosity(verbose):
     else:
         logger.setLevel(logging.WARN)
 
+
 def which_python(python, env=os.environ):
     """Determine which python binary should be used.
 
@@ -97,13 +98,13 @@ def which_python(python, env=os.environ):
     return sys.executable
 
 
-def inspect_environment(python, dir, check_output=subprocess.check_output):
+def inspect_environment(python, directory, check_output=subprocess.check_output):
     """Run the environment inspector using the specified python binary.
 
     Returns a dictionary of information about the environment,
     or containing an "error" field if an error occurred.
     """
-    environment_json = check_output([python, '-m', 'rsconnect.environment', dir], universal_newlines=True)
+    environment_json = check_output([python, '-m', 'rsconnect.environment', directory], universal_newlines=True)
     environment = json.loads(environment_json)
     return environment
 
@@ -123,32 +124,33 @@ def default_title(filename):
     return basename(filename).rsplit('.')[0]
 
 
-def default_title_for_manifest(manifest):
+def default_title_for_manifest(the_manifest):
     """Produce a default content title from the contents of a manifest"""
     filename = None
 
-    metadata = manifest.get('metadata')
+    metadata = the_manifest.get('metadata')
     if metadata:
+        # noinspection SpellCheckingInspection
         filename = metadata.get('entrypoint') or metadata.get('primary_rmd') or metadata.get('primary_html')
     return default_title(filename or 'manifest.json')
 
 
-def do_ping(server, api_key, insecure, cadata):
+def do_ping(server, api_key, insecure, ca_data):
     """Test the given server URL to see if it's running Connect.
 
     If api_key is set, also validate the API key.
     Raises an exception on failure, otherwise returns None.
     """
-    with CLIFeedback('Checking %s' % server):
+    with cli_feedback('Checking %s' % server):
         uri = urlparse(server)
         if not uri.netloc:
             raise api.RSConnectException('Invalid server URL: "%s"' % server)
-        api.verify_server(server, insecure, cadata)
-    
+        api.verify_server(server, insecure, ca_data)
+
     if api_key:
-        with CLIFeedback('Verifying API key'):
+        with cli_feedback('Verifying API key'):
             uri = urlparse(server)
-            api.verify_api_key(uri, api_key, insecure, cadata)
+            api.verify_api_key(uri, api_key, insecure, ca_data)
 
 
 @click.group(no_args_is_help=True)
@@ -156,22 +158,23 @@ def cli():
     pass
 
 
+# noinspection SpellCheckingInspection
 @cli.command(help='Add a server')
 @click.option('--name', '-n', required=True, help='Server nickname')
 @click.option('--server', '-s', required=True, help='Connect server URL')
-@click.option('--api-key','-k',required=True, help='Connect server API key')
+@click.option('--api-key', '-k', required=True, help='Connect server API key')
 @click.option('--insecure', is_flag=True, help='Disable TLS certification validation.')
 @click.option('--cacert', type=click.File(), help='Path to trusted TLS CA certificate.')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages')
 def add(name, server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
-    with CLIFeedback(''):
+    with cli_feedback(''):
         old_server = server_store.get(name)
 
         # server must be pingable to be added
-        cadata = cacert and cacert.read()
-        do_ping(server, api_key, insecure, cadata)
-        server_store.add(name, server, api_key, insecure, cadata)
+        ca_data = cacert and cacert.read()
+        do_ping(server, api_key, insecure, ca_data)
+        server_store.add(name, server, api_key, insecure, ca_data)
         server_store.save()
 
         if old_server is None:
@@ -185,7 +188,7 @@ def add(name, server, api_key, insecure, cacert, verbose):
 @click.argument('server')
 def remove(server, verbose):
     set_verbosity(verbose)
-    with CLIFeedback(''):
+    with cli_feedback(''):
         if server_store.get(server) is None:
             click.echo('Server "%s" was not found' % server)
         else:
@@ -198,7 +201,7 @@ def remove(server, verbose):
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages')
 def list_servers(verbose):
     set_verbosity(verbose)
-    with CLIFeedback(''):
+    with cli_feedback(''):
         servers = server_store.list()
 
         click.echo('Server information from %s' % server_store.get_path())
@@ -222,7 +225,7 @@ def list_servers(verbose):
 @cli.command(help='Show saved information about the specified deployment')
 @click.argument('file', type=click.Path(exists=True))
 def info(file):
-    with CLIFeedback(''):
+    with cli_feedback(''):
         app_store = AppStore(file)
         app_store.load()
         deployments = app_store.get_all()
@@ -256,18 +259,19 @@ def info(file):
 
 @cli.command(help='Show the version of rsconnect-python')
 def version():
-    with CLIFeedback(''):
+    with cli_feedback(''):
         version_file = join(dirname(__file__), 'version.txt')
         with open(version_file, 'r') as f:
-            version = f.read().strip()
-            click.echo(version)
+            click.echo(f.read().strip())
 
 
+# noinspection SpellCheckingInspection
 @cli.command(help='Verify a Connect server URL')
 @click.option('--server', '-s', required=True, envvar='CONNECT_SERVER', help='Connect server URL')
 @click.option('--api-key', '-k', envvar='CONNECT_API_KEY', help='Connect server API key')
 @click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
-@click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File(), help='Path to trusted TLS CA certificate.')
+@click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
+              help='Path to trusted TLS CA certificate.')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages')
 def test(server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
@@ -279,16 +283,22 @@ def deploy():
     pass
 
 
+# noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(name='notebook', help='Deploy content to RStudio Connect')
 @click.option('--server', '-s', envvar='CONNECT_SERVER', help='Connect server URL or saved server name')
 @click.option('--api-key', '-k', envvar='CONNECT_API_KEY', help='Connect server API key')
-@click.option('--static', is_flag=True, help='Deployed a static, pre-rendered notebook. Static notebooks cannot be re-run on the server.')
-@click.option('--new', '-n', is_flag=True, help='Force a new deployment, even if there is saved metadata from a previous deployment.')
+@click.option('--static', is_flag=True,
+              help='Deployed a static, pre-rendered notebook. Static notebooks cannot be re-run on the server.')
+@click.option('--new', '-n', is_flag=True,
+              help='Force a new deployment, even if there is saved metadata from a previous deployment.')
 @click.option('--app-id', help='Existing app ID or GUID to replace. Cannot be used with --new.')
 @click.option('--title', '-t', help='Title of the content (default is the same as the filename)')
-@click.option('--python', type=click.Path(exists=True), help='Path to python interpreter whose environment should be used. The python environment must have the rsconnect package installed.')
+@click.option('--python', type=click.Path(exists=True),
+              help='Path to python interpreter whose environment should be used. '
+                   'The python environment must have the rsconnect package installed.')
 @click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
-@click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File(), help='Path to trusted TLS CA certificate.')
+@click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
+              help='Path to trusted TLS CA certificate.')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
@@ -300,7 +310,7 @@ def deploy_notebook(server, api_key, static, new, app_id, title, python, insecur
     else:
         click.secho('Deploying %s' % file, fg='bright_white')
 
-    with CLIFeedback('Checking arguments'):
+    with cli_feedback('Checking arguments'):
         app_store = AppStore(file)
         app_store.load()
 
@@ -349,31 +359,31 @@ def deploy_notebook(server, api_key, static, new, app_id, title, python, insecur
                 raise api.RSConnectException('Cannot change app mode to "static" once deployed. '
                                              'Use --new to create a new deployment.')
 
-    with CLIFeedback('Inspecting python environment'):
+    with cli_feedback('Inspecting python environment'):
         python = which_python(python)
         logger.debug('Python: %s' % python)
         environment = inspect_environment(python, dirname(file))
         logger.debug('Environment: %s' % pformat(environment))
 
-    with CLIFeedback('Creating deployment bundle'):
+    with cli_feedback('Creating deployment bundle'):
         if app_mode == 'static':
             try:
                 bundle = make_notebook_html_bundle(file, python)
             except subprocess.CalledProcessError as exc:
-                # Jupyter rendering failures are often due to 
+                # Jupyter rendering failures are often due to
                 # user code failing, vs. an internal failure of rsconnect-python.
                 raise api.RSConnectException(str(exc))
         else:
             bundle = make_notebook_source_bundle(file, environment, extra_files)
 
-    with CLIFeedback('Uploading bundle'):
+    with cli_feedback('Uploading bundle'):
         app = api_client.deploy(app_id, deployment_name, title, bundle)
 
-    with CLIFeedback('Saving deployment data'):
+    with cli_feedback('Saving deployment data'):
         app_store.set(server, abspath(file), app['app_url'], app['app_id'], app['app_guid'], title, app_mode)
         app_store.save()
 
-    with CLIFeedback(''):
+    with cli_feedback(''):
         click.secho('\nDeployment log:', fg='bright_white')
         app_url = api_client.wait_for_task(app['app_id'], app['task_id'], click.echo)
         click.secho('Deployment completed successfully.\nApp URL: %s' % app_url, fg='bright_white')
@@ -384,6 +394,7 @@ def deploy_notebook(server, api_key, static, new, app_id, title, python, insecur
         app_store.save()
 
 
+# noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(name='manifest', help='Deploy content to RStudio Connect using an existing manifest.json file')
 @click.option('--server', '-s', envvar='CONNECT_SERVER', help='Connect server URL or saved server name')
 @click.option('--api-key', '-k', envvar='CONNECT_API_KEY', help='Connect server API key')
@@ -405,7 +416,7 @@ def deploy_manifest(server, api_key, new, app_id, title, insecure, cacert, verbo
     else:
         click.secho('Deploying %s' % file, fg='bright_white')
 
-    with CLIFeedback('Checking arguments'):
+    with cli_feedback('Checking arguments'):
         app_store = AppStore(file)
         app_store.load()
 
@@ -420,13 +431,13 @@ def deploy_manifest(server, api_key, new, app_id, title, insecure, cacert, verbo
                 'manifest.json file to be provided on the command line.')
 
         with open(file, 'r') as f:
-            manifest = json.load(f)
+            source_manifest = json.load(f)
 
         deployment_name = make_deployment_name()
         if not title:
-            title = default_title_for_manifest(manifest)
+            title = default_title_for_manifest(source_manifest)
 
-        app_mode = manifest['metadata']['appmode']
+        app_mode = source_manifest['metadata']['appmode']
 
         if new:
             if app_id is not None:
@@ -435,20 +446,20 @@ def deploy_manifest(server, api_key, new, app_id, title, insecure, cacert, verbo
             # Possible redeployment - check for saved metadata.
             # Use the saved app information unless overridden by the user.
             app_id, title, app_mode = app_store.resolve(server, app_id, title, app_mode)
-    
+
         api_client = api.RSConnect(uri, api_key, [], insecure, cadata)
 
-    with CLIFeedback('Creating deployment bundle'):
+    with cli_feedback('Creating deployment bundle'):
         bundle = make_manifest_bundle(file)
 
-    with CLIFeedback('Uploading bundle'):
+    with cli_feedback('Uploading bundle'):
         app = api_client.deploy(app_id, deployment_name, title, bundle)
 
-    with CLIFeedback('Saving deployment data'):
+    with cli_feedback('Saving deployment data'):
         app_store.set(server, abspath(file), app['app_url'], app['app_id'], app['app_guid'], title, app_mode)
         app_store.save()
 
-    with CLIFeedback(''):
+    with cli_feedback(''):
         click.secho('\nDeployment log:', fg='bright_white')
         app_url = api_client.wait_for_task(app['app_id'], app['task_id'], click.echo)
         click.secho('Deployment completed successfully.\nApp URL: %s' % app_url, fg='bright_white')
@@ -480,7 +491,7 @@ def deploy_help():
 @click.argument('extra_files', nargs=-1, type=click.Path())
 def manifest(force, python, verbose, file, extra_files):
     set_verbosity(verbose)
-    with CLIFeedback('Checking arguments'):
+    with cli_feedback('Checking arguments'):
         if not file.endswith('.ipynb'):
             raise api.RSConnectException('Can only create a manifest for a Jupyter Notebook (.ipynb file).')
 
@@ -490,7 +501,7 @@ def manifest(force, python, verbose, file, extra_files):
         if exists(manifest_path) and not force:
             raise api.RSConnectException('manifest.json already exists. Use --force to overwrite.')
 
-    with CLIFeedback('Inspecting python environment'):
+    with cli_feedback('Inspecting python environment'):
         python = which_python(python)
         environment = inspect_environment(python, dirname(file))
         environment_filename = environment['filename']
@@ -498,23 +509,23 @@ def manifest(force, python, verbose, file, extra_files):
             click.echo('Python: %s' % python)
             click.echo('Environment: %s' % pformat(environment))
 
-    with CLIFeedback('Creating manifest.json'):
+    with cli_feedback('Creating manifest.json'):
         notebook_filename = basename(file)
-        manifest = make_source_manifest(notebook_filename, environment, 'jupyter-static')
-        manifest_add_file(manifest, notebook_filename, base_dir)
-        manifest_add_buffer(manifest, environment_filename, environment['contents'])
+        manifest_data = make_source_manifest(notebook_filename, environment, 'jupyter-static')
+        manifest_add_file(manifest_data, notebook_filename, base_dir)
+        manifest_add_buffer(manifest_data, environment_filename, environment['contents'])
 
         for rel_path in extra_files:
-            manifest_add_file(manifest, rel_path, base_dir)
+            manifest_add_file(manifest_data, rel_path, base_dir)
 
         with open(manifest_path, 'w') as f:
-            json.dump(manifest, f, indent=2)
+            json.dump(manifest_data, f, indent=2)
 
     environment_file_path = join(base_dir, environment_filename)
     if exists(environment_file_path):
         click.echo('%s already exists and will not be overwritten.' % environment_filename)
     else:
-        with CLIFeedback('Creating %s' % environment_filename):
+        with cli_feedback('Creating %s' % environment_filename):
             with open(environment_file_path, 'w') as f:
                 f.write(environment['contents'])
 

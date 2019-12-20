@@ -21,7 +21,7 @@ class TestServerMetadata(TestCase):
             insecure=False,
             ca_cert='/certs/connect',
         ))
-        
+
         self.assertEqual(self.server_store.get('bar'), dict(
             name='bar',
             url='http://connect.remote',
@@ -56,36 +56,36 @@ class TestServerMetadata(TestCase):
         self.assertEqual(servers[1]['url'], 'http://connect.local')
 
     def test_resolve_by_name(self):
-        server, api_key, insecure, cacert = 'foo', None, None, None
-        server, api_key, insecure, cacert = self.server_store.resolve(server, api_key, insecure, cacert)
+        server, api_key, insecure, ca_cert = 'foo', None, None, None
+        server, api_key, insecure, ca_cert = self.server_store.resolve(server, api_key, insecure, ca_cert)
 
         self.assertEqual(server, 'http://connect.local')
         self.assertEqual(api_key, 'notReallyAnApiKey')
         self.assertEqual(insecure, False)
-        self.assertEqual(cacert, '/certs/connect')
+        self.assertEqual(ca_cert, '/certs/connect')
 
     def test_resolve_by_url(self):
-        server, api_key, insecure, cacert = 'http://connect.local', None, None, None
-        server, api_key, insecure, cacert = self.server_store.resolve(server, api_key, insecure, cacert)
+        server, api_key, insecure, ca_cert = 'http://connect.local', None, None, None
+        server, api_key, insecure, ca_cert = self.server_store.resolve(server, api_key, insecure, ca_cert)
 
         self.assertEqual(server, 'http://connect.local')
         self.assertEqual(api_key, 'notReallyAnApiKey')
         self.assertEqual(insecure, False)
-        self.assertEqual(cacert, '/certs/connect')
+        self.assertEqual(ca_cert, '/certs/connect')
 
     def test_resolve_by_default(self):
         # with multiple entries, server None will not resolve by default
-        server, api_key, insecure, cacert = None, None, None, None
-        server, api_key, insecure, cacert = self.server_store.resolve(server, api_key, insecure, cacert)
+        server, api_key, insecure, ca_cert = None, None, None, None
+        server, api_key, insecure, ca_cert = self.server_store.resolve(server, api_key, insecure, ca_cert)
         self.assertEqual(server, None)
 
         # with only a single entry, server None will resolve to that entry
         self.server_store.remove('http://connect.remote')
-        server, api_key, insecure, cacert = self.server_store.resolve(server, api_key, insecure, cacert)
+        server, api_key, insecure, ca_cert = self.server_store.resolve(server, api_key, insecure, ca_cert)
         self.assertEqual(server, 'http://connect.local')
         self.assertEqual(api_key, 'notReallyAnApiKey')
         self.assertEqual(insecure, False)
-        self.assertEqual(cacert, '/certs/connect')
+        self.assertEqual(ca_cert, '/certs/connect')
 
     def test_save_and_load(self):
         temp = tempfile.mkdtemp()
@@ -123,8 +123,10 @@ class TestAppMetadata(TestCase):
             pass
 
         self.app_store = AppStore(self.nb_path)
-        self.app_store.set('http://dev', '/path/to/file', 'http://dev/apps/123', 123, 'shouldBeAGuid', 'Important Title', 'static')
-        self.app_store.set('http://prod', '/path/to/file', 'http://prod/apps/456', 456, 'anotherFakeGuid', 'Untitled', 'jupyter-static')
+        self.app_store.set('http://dev', '/path/to/file', 'http://dev/apps/123', 123, 'shouldBeAGuid',
+                           'Important Title', 'static')
+        self.app_store.set('http://prod', '/path/to/file', 'http://prod/apps/456', 456, 'anotherFakeGuid', 'Untitled',
+                           'jupyter-static')
 
     def test_get(self):
         self.assertEqual(self.app_store.get('http://dev'), dict(
@@ -176,14 +178,14 @@ class TestAppMetadata(TestCase):
         self.assertEqual(new_app_store.data, self.app_store.data)
 
     def test_global_save_load(self):
-        def mockOpen(path, mode, *args, **kw):
-            if path.startswith(self.tempdir) and 'w' in mode:
-                raise OSError('Mock: path %s in directory %s is not writable' % (path, self.tempdir))
-            return open(path, mode, *args, **kw)
+        def mock_open(path_to_open, mode, *args, **kw):
+            if path_to_open.startswith(self.tempdir) and 'w' in mode:
+                raise OSError('Mock: path %s in directory %s is not writable' % (path_to_open, self.tempdir))
+            return open(path_to_open, mode, *args, **kw)
 
         path = join(self.tempdir, 'rsconnect-python', 'notebook.ipynb')
         self.assertFalse(exists(path))
-        self.app_store.save(mockOpen)
+        self.app_store.save(mock_open)
         self.assertFalse(exists(path))
 
         new_app_store = AppStore(self.nb_path)

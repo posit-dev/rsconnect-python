@@ -6,7 +6,6 @@ import re
 import subprocess
 import sys
 
-
 version_re = re.compile(r'\d+\.\d+(\.\d+)?')
 exec_dir = os.path.dirname(sys.executable)
 
@@ -25,7 +24,7 @@ def detect_environment(dirname):
     on failure.
     """
     result = (output_file(dirname, 'requirements.txt', 'pip') or
-              pip_freeze(dirname))
+              pip_freeze())
 
     if result is not None:
         result['python'] = get_python_version()
@@ -55,8 +54,8 @@ def get_version(module):
 
         msg = "Failed to get version of '%s' from the output of: %s" % (module, ' '.join(args))
         raise EnvironmentException(msg)
-    except Exception as exc:
-        raise EnvironmentException("Error getting '%s' version: %s" % (module, str(exc)))
+    except Exception as exception:
+        raise EnvironmentException("Error getting '%s' version: %s" % (module, str(exception)))
 
 
 def output_file(dirname, filename, package_manager):
@@ -75,7 +74,7 @@ def output_file(dirname, filename, package_manager):
             data = f.read()
 
         data = '\n'.join([line for line in data.split('\n')
-                                if 'rsconnect' not in line])
+                          if 'rsconnect' not in line])
 
         return {
             'filename': filename,
@@ -83,11 +82,11 @@ def output_file(dirname, filename, package_manager):
             'source': 'file',
             'package_manager': package_manager,
         }
-    except Exception as exc:
-        raise EnvironmentException('Error reading %s: %s' % (filename, str(exc)))
+    except Exception as exception:
+        raise EnvironmentException('Error reading %s: %s' % (filename, str(exception)))
 
 
-def pip_freeze(dirname):
+def pip_freeze():
     """Inspect the environment using `pip freeze`.
 
     Returns a dictionary containing the filename
@@ -101,8 +100,8 @@ def pip_freeze(dirname):
 
         pip_stdout, pip_stderr = proc.communicate()
         pip_status = proc.returncode
-    except Exception as exc:
-        raise EnvironmentException('Error during pip freeze: %s' % str(exc))
+    except Exception as exception:
+        raise EnvironmentException('Error during pip freeze: %s' % str(exception))
 
     if pip_status != 0:
         msg = pip_stderr or ('exited with code %d' % pip_status)
@@ -119,13 +118,17 @@ def pip_freeze(dirname):
     }
 
 
-if __name__ == '__main__':
+def main():
     try:
         if len(sys.argv) < 2:
             raise EnvironmentException('Usage: %s DIRECTORY' % sys.argv[0])
 
         result = detect_environment(sys.argv[1])
-    except EnvironmentException as exc:
-        result = dict(error=str(exc))
+    except EnvironmentException as exception:
+        result = dict(error=str(exception))
 
     json.dump(result, sys.stdout, indent=4)
+
+
+if __name__ == '__main__':
+    main()

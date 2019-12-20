@@ -13,13 +13,15 @@ from os.path import basename, dirname, exists, join, relpath, splitext
 log = logging.getLogger('rsconnect')
 
 
-def make_source_manifest(entrypoint, environment, appmode):
+# noinspection SpellCheckingInspection
+def make_source_manifest(entrypoint, environment, app_mode):
     package_manager = environment['package_manager']
 
+    # noinspection SpellCheckingInspection
     manifest = {
         "version": 1,
         "metadata": {
-            "appmode": appmode,
+            "appmode": app_mode,
             "entrypoint": entrypoint
         },
         "locale": environment['locale'],
@@ -97,15 +99,15 @@ def bundle_add_buffer(bundle, filename, contents):
     `contents` may be a string or bytes object
     """
     buf = io.BytesIO(to_bytes(contents))
-    fileinfo = tarfile.TarInfo(filename)
-    fileinfo.size = len(buf.getvalue())
-    bundle.addfile(fileinfo, buf)
+    file_info = tarfile.TarInfo(filename)
+    file_info.size = len(buf.getvalue())
+    bundle.addfile(file_info, buf)
     log.debug('added buffer: %s', filename)
 
 
 def write_manifest(relative_dir, nb_name, environment, output_dir):
     """Create a manifest for source publishing the specified notebook.
-    
+
     The manifest will be written to `manifest.json` in the output directory..
     A requirements.txt file will be created if one does not exist.
 
@@ -116,34 +118,34 @@ def write_manifest(relative_dir, nb_name, environment, output_dir):
     manifest_file = join(output_dir, manifest_filename)
     created = []
     skipped = []
-    
-    manifest_relpath = join(relative_dir, manifest_filename)
+
+    manifest_relative_path = join(relative_dir, manifest_filename)
     if exists(manifest_file):
-        skipped.append(manifest_relpath)
+        skipped.append(manifest_relative_path)
     else:
         with open(manifest_file, 'w') as f:
             f.write(json.dumps(manifest, indent=2))
-            created.append(manifest_relpath)
+            created.append(manifest_relative_path)
             log.debug('wrote manifest file: %s', manifest_file)
 
     environment_filename = environment['filename']
     environment_file = join(output_dir, environment_filename)
-    environment_relpath = join(relative_dir, environment_filename)
+    environment_relative_path = join(relative_dir, environment_filename)
     if exists(environment_file):
-        skipped.append(environment_relpath)
+        skipped.append(environment_relative_path)
     else:
         with open(environment_file, 'w') as f:
             f.write(environment['contents'])
-            created.append(environment_relpath)
+            created.append(environment_relative_path)
             log.debug('wrote environment file: %s', environment_file)
 
     return created, skipped
 
 
-def list_files(base_dir, include_subdirs, walk=os.walk):
+def list_files(base_dir, include_sub_dirs, walk=os.walk):
     """List the files in the directory at path.
 
-    If include_subdirs is True, recursively list
+    If include_sub_dirs is True, recursively list
     files in subdirectories.
 
     Returns an iterable of file paths relative to base_dir.
@@ -151,25 +153,27 @@ def list_files(base_dir, include_subdirs, walk=os.walk):
     skip_dirs = ['.ipynb_checkpoints', '.git']
 
     def iter_files():
-        for root, subdirs, files in walk(base_dir):
-            if include_subdirs:
+        for root, sub_dirs, files in walk(base_dir):
+            if include_sub_dirs:
                 for skip in skip_dirs:
-                    if skip in subdirs:
-                        subdirs.remove(skip)
+                    if skip in sub_dirs:
+                        sub_dirs.remove(skip)
             else:
-                # tell walk not to traverse any subdirs
-                subdirs[:] = []
+                # tell walk not to traverse any subdirectories
+                sub_dirs[:] = []
 
             for filename in files:
                 yield relpath(join(root, filename), base_dir)
     return list(iter_files())
 
 
-def make_notebook_source_bundle(file, environment, extra_files=[]):
+def make_notebook_source_bundle(file, environment, extra_files=None):
     """Create a bundle containing the specified notebook and python environment.
 
     Returns a file-like object containing the bundle tarball.
     """
+    if extra_files is None:
+        extra_files = []
     base_dir = dirname(file)
     nb_name = basename(file)
 
@@ -202,6 +206,7 @@ def make_notebook_source_bundle(file, environment, extra_files=[]):
 
 
 def make_html_manifest(filename):
+    # noinspection SpellCheckingInspection
     return {
         "version": 1,
         "metadata": {
@@ -212,9 +217,10 @@ def make_html_manifest(filename):
 
 
 def make_notebook_html_bundle(filename, python, check_output=subprocess.check_output):
+    # noinspection SpellCheckingInspection
     cmd = [
         python, '-m', 'jupyter',
-        'nbconvert', '--execute', '--stdout', 
+        'nbconvert', '--execute', '--stdout',
         '--log-level', 'ERROR', filename
     ]
     try:

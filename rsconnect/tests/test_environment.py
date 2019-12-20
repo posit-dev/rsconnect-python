@@ -8,15 +8,18 @@ from rsconnect.environment import detect_environment
 
 version_re = re.compile(r'\d+\.\d+(\.\d+)?')
 
+
 class TestEnvironment(TestCase):
     def get_dir(self, name):
         py_version = 'py%d' % sys.version_info[0]
+        # noinspection SpellCheckingInspection
         path = join(dirname(__file__), 'testdata', py_version, name)
         self.assertTrue(exists(path))
         return path
 
-    def python_version(self):
-    	return '.'.join(map(str, sys.version_info[:3]))
+    @staticmethod
+    def python_version():
+        return '.'.join(map(str, sys.version_info[:3]))
 
     def test_file(self):
         result = detect_environment(self.get_dir('pip1'))
