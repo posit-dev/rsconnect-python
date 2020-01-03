@@ -46,14 +46,14 @@ def add(name, server, api_key, insecure, cacert, verbose):
 
         # server must be pingable to be added
         ca_data = cacert and cacert.read()
-        do_ping(server, api_key, insecure, ca_data)
-        server_store.add(name, server, api_key, insecure, ca_data)
+        real_server = do_ping(server, api_key, insecure, ca_data)
+        server_store.add(name, real_server, api_key, insecure, ca_data)
         server_store.save()
 
         if old_server is None:
-            click.echo('Added server "%s" with URL %s' % (name, server))
+            click.echo('Added server "%s" with URL %s' % (name, real_server))
         else:
-            click.echo('Replaced server "%s" with URL %s' % (name, server))
+            click.echo('Replaced server "%s" with URL %s' % (name, real_server))
 
 
 @cli.command(help='Remove a server')
