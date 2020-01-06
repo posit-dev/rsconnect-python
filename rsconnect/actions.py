@@ -147,11 +147,11 @@ def do_ping(server, api_key, insecure, ca_data):
             try:
                 verify_server('https://'+server, insecure, ca_data)
                 server = 'https://'+server
-            except Exception:
+            except api.RSConnectException:
                 try:
                     verify_server('http://'+server, insecure, ca_data)
                     server = 'http://'+server
-                except Exception as e2:
+                except api.RSConnectException as e2:
                     raise api.RSConnectException('Invalid server URL: "%s" - %s' % (server, e2))
         else:
             verify_server(server, insecure, ca_data)
