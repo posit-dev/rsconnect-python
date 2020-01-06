@@ -122,6 +122,18 @@ def default_title_for_manifest(the_manifest):
     return default_title(filename or 'manifest.json')
 
 
+def verify_server(server, insecure, ca_data):
+    uri = urlparse(server)
+    if not uri.netloc:
+        raise api.RSConnectException('Invalid server URL: "%s"' % server)
+    api.verify_server(server, insecure, ca_data)
+
+
+def verify_api_key(server, api_key, insecure, ca_data):
+    uri = urlparse(server)
+    api.verify_api_key(uri, api_key, insecure, ca_data)
+
+
 def do_ping(server, api_key, insecure, ca_data):
     """Test the given server URL to see if it's running Connect.
 
@@ -130,12 +142,20 @@ def do_ping(server, api_key, insecure, ca_data):
     """
     with cli_feedback('Checking %s' % server):
         uri = urlparse(server)
-        if not uri.netloc:
-            raise api.RSConnectException('Invalid server URL: "%s"' % server)
-        api.verify_server(server, insecure, ca_data)
+        if not uri.scheme:
+            try:
+                verify_server('https://'+server, insecure, ca_data)
+                server = 'https://'+server
+            except api.RSConnectException:
+                try:
+                    verify_server('http://'+server, insecure, ca_data)
+                    server = 'http://'+server
+                except api.RSConnectException as e2:
+                    raise api.RSConnectException('Invalid server URL: "%s" - %s' % (server, e2))
+        else:
+            verify_server(server, insecure, ca_data)
 
     if api_key:
         with cli_feedback('Verifying API key'):
-            uri = urlparse(server)
-            api.verify_api_key(uri, api_key, insecure, ca_data)
-
+            verify_api_key(server, api_key, insecure, ca_data)
+    return server
