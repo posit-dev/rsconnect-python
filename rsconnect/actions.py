@@ -134,7 +134,6 @@ def verify_api_key(server, api_key, insecure, ca_data):
     api.verify_api_key(uri, api_key, insecure, ca_data)
 
 
-# noinspection PyBroadException
 def do_ping(server, api_key, insecure, ca_data):
     """Test the given server URL to see if it's running Connect.
 
@@ -143,7 +142,7 @@ def do_ping(server, api_key, insecure, ca_data):
     """
     with cli_feedback('Checking %s' % server):
         uri = urlparse(server)
-        if not uri.netloc:
+        if not uri.scheme:
             try:
                 verify_server('https://'+server, insecure, ca_data)
                 server = 'https://'+server
