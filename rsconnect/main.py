@@ -352,8 +352,11 @@ def deploy_help():
         'and deploy that using this tool with the command\n'
         '"rsconnect deploy manifest".')
 
+@cli.group(no_args_is_help=True)
+def manifest():
+    pass
 
-@cli.command(help='Create a manifest.json file for a notebook, for later deployment')
+@manifest.command(name="notebook", help='Create a manifest.json file for a notebook, for later deployment')
 @click.option('--force', '-f', is_flag=True, help='Replace manifest.json, if it exists.')
 @click.option('--python', type=click.Path(exists=True),
               help='Path to python interpreter whose environment should be used. ' +
@@ -362,7 +365,7 @@ def deploy_help():
 @click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
-def manifest(force, python, verbose, file, extra_files):
+def manifest_notebook(force, python, verbose, file, extra_files):
     set_verbosity(verbose)
     with cli_feedback('Checking arguments'):
         if not file.endswith('.ipynb'):
