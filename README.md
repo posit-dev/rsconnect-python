@@ -6,12 +6,18 @@ There is also a CLI deployment tool which can be used directly to deploy Jupyter
 
 ### Installation
 
-Eventually this will be pip-installable. For now:
+To install from this repository:
 
 ```
 git clone https://github.com/rstudio/rsconnect-python
 cd rsconnect-python
 python setup.py install
+```
+
+To install a version directly from pip:
+
+```
+pip install rsconnect-python
 ```
 
 ### Using the rsconnect CLI
@@ -134,7 +140,7 @@ The `manifest` command will also create a `requirements.txt` file, if it does no
 Note: manifests for static (pre-rendered) notebooks cannot be created.
 
 ```
-rsconnect manifest my-notebook.ipynb
+rsconnect manifest notebook my-notebook.ipynb
 ```
 
 ### Deploying R or Other Content
