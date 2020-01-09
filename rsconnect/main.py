@@ -352,7 +352,7 @@ def deploy_help():
         'and deploy that using this tool with the command\n'
         '"rsconnect deploy manifest".')
 
-@cli.group(no_args_is_help=True)
+@cli.group(name="write-manifest", no_args_is_help=True)
 def manifest():
     pass
 
