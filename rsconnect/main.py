@@ -151,7 +151,7 @@ def test(server, api_key, insecure, cacert, verbose):
     do_ping(server, api_key, insecure, cacert and cacert.read())
 
 
-@cli.group(no_args_is_help=True)
+@cli.group(no_args_is_help=True, help="Deploy content to RStudio Connect")
 def deploy():
     pass
 
@@ -352,9 +352,12 @@ def deploy_help():
         'and deploy that using this tool with the command\n'
         '"rsconnect deploy manifest".')
 
-@cli.group(name="write-manifest", no_args_is_help=True)
+
+@cli.group(name="write-manifest", no_args_is_help=True,
+           help="Create a manifest.json file for later deployment from git")
 def manifest():
     pass
+
 
 @manifest.command(name="notebook", help='Create a manifest.json file for a notebook, for later deployment')
 @click.option('--force', '-f', is_flag=True, help='Replace manifest.json, if it exists.')
