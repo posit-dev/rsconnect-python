@@ -268,7 +268,7 @@ def deploy_notebook(server, api_key, static, new, app_id, title, python, insecur
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
-@deploy.command(name='manifest', help='Deploy content to RStudio Connect using an existing manifest.json file')
+@deploy.command(name='manifest', short_help='Deploy content to RStudio Connect using an existing manifest.json file')
 @click.option('--server', '-s', envvar='CONNECT_SERVER', help='Connect server URL or saved server name')
 @click.option('--api-key', '-k', envvar='CONNECT_API_KEY', help='Connect server API key')
 @click.option('--new', '-n', is_flag=True,
