@@ -28,6 +28,8 @@ setup(name='rsconnect_python',
       author_email='mike@rstudio.com',
       license='GPL-2.0',
       packages=['rsconnect'],
+      package_data={'': ['version.txt']},
+      include_package_data=True,
       zip_safe=False,
       install_requires=[
           'six',
