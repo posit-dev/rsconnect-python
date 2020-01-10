@@ -5,9 +5,13 @@ import socket
 import time
 import ssl
 
+from os.path import join, dirname
 from six.moves import http_client as http
 from six.moves.urllib_parse import urlparse, urlencode, urljoin
 from six.moves.http_cookies import SimpleCookie
+
+VERSION = open(join(dirname(__file__), 'version.txt'), 'r').read().strip()
+USER_AGENT = "rsconnect-python/%s" % VERSION
 
 
 class RSConnectException(Exception):
@@ -78,7 +82,7 @@ def _verify_server(server_address, maximum_redirects, disable_tls_check, ca_data
         else:
             conn = https_helper(r.hostname, r.port, disable_tls_check, ca_data)
 
-        conn.request('GET', server_address)
+        conn.request('GET', server_address, headers={'User-Agent': USER_AGENT})
         response = conn.getresponse()
 
         if response.status == 404:
@@ -144,6 +148,7 @@ class RSConnect:
     def request(self, method, path, *args, **kwargs):
         request_path = url_path_join(self.path_prefix, path)
         logger.debug('Performing: %s %s' % (method, request_path))
+        kwargs['headers']['User-Agent'] = USER_AGENT
         try:
             self.conn.request(method, request_path, *args, **kwargs)
             return self.json_response()
@@ -195,31 +200,31 @@ class RSConnect:
             return data
 
     def me(self):
-        return self.request('GET', '__api__/me', None, self.http_headers)
+        return self.request('GET', '__api__/me', None, headers=self.http_headers)
 
     def app_find(self, filters):
         params = urlencode(filters)
-        data = self.request('GET', '__api__/applications?' + params, None, self.http_headers)
+        data = self.request('GET', '__api__/applications?' + params, None, headers=self.http_headers)
         if data['count'] > 0:
             return data['applications']
 
     def app_create(self, name):
         params = json.dumps({'name': name})
-        return self.request('POST', '__api__/applications', params, self.http_headers)
+        return self.request('POST', '__api__/applications', params, headers=self.http_headers)
 
     def app_get(self, app_id):
-        return self.request('GET', '__api__/applications/%s' % app_id, None, self.http_headers)
+        return self.request('GET', '__api__/applications/%s' % app_id, None, headers=self.http_headers)
 
     def app_upload(self, app_id, tarball):
-        return self.request('POST', '__api__/applications/%s/upload' % app_id, tarball, self.http_headers)
+        return self.request('POST', '__api__/applications/%s/upload' % app_id, tarball, headers=self.http_headers)
 
     def app_update(self, app_id, updates):
         params = json.dumps(updates)
-        return self.request('POST', '__api__/applications/%s' % app_id, params, self.http_headers)
+        return self.request('POST', '__api__/applications/%s' % app_id, params, headers=self.http_headers)
 
     def app_deploy(self, app_id, bundle_id=None):
         params = json.dumps({'bundle': bundle_id})
-        return self.request('POST', '__api__/applications/%s/deploy' % app_id, params, self.http_headers)
+        return self.request('POST', '__api__/applications/%s/deploy' % app_id, params, headers=self.http_headers)
 
     def app_publish(self, app_id, access):
         params = json.dumps({
@@ -227,16 +232,16 @@ class RSConnect:
             'id': app_id,
             'needs_config': False
         })
-        return self.request('POST', '__api__/applications/%s' % app_id, params, self.http_headers)
+        return self.request('POST', '__api__/applications/%s' % app_id, params, headers=self.http_headers)
 
     def app_config(self, app_id):
-        return self.request('GET', '__api__/applications/%s/config' % app_id, None, self.http_headers)
+        return self.request('GET', '__api__/applications/%s/config' % app_id, None, headers=self.http_headers)
 
     def task_get(self, task_id, first_status=None):
         url = '__api__/tasks/%s' % task_id
         if first_status is not None:
             url += '?first_status=%d' % first_status
-        return self.request('GET', url, None, self.http_headers)
+        return self.request('GET', url, None, headers=self.http_headers)
 
     def deploy(self, app_id, app_name, app_title, tarball):
         if app_id is None:
