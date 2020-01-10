@@ -132,10 +132,7 @@ def info(file):
 
 @cli.command(help='Show the version of rsconnect-python')
 def version():
-    with cli_feedback(''):
-        version_file = join(dirname(__file__), 'version.txt')
-        with open(version_file, 'r') as f:
-            click.echo(f.read().strip())
+    click.echo(api.VERSION)
 
 
 # noinspection SpellCheckingInspection
