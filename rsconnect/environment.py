@@ -15,7 +15,7 @@ class EnvironmentException(Exception):
     pass
 
 
-def detect_environment(dirname):
+def detect_environment(dirname, force_generate = False, compatibility_mode = False):
     """Determine the python dependencies in the environment.
 
     `pip freeze` will be used to introspect the environment.
@@ -23,21 +23,66 @@ def detect_environment(dirname):
     Returns a dictionary containing the package spec filename
     and contents if successful, or a dictionary containing 'error'
     on failure.
+    :param: dirname Directory name
+    :param: force_generate Force the generation of an environment
+    :param: compatibility_mode Force the usage of `pip freeze` for older
+    connect versions which do not support conda.
     """
-    result = (output_file(dirname, 'requirements.txt', 'pip') or
-              pip_freeze())
+    conda = None
+    if not compatibility_mode:
+        conda = get_conda()
+    if conda:
+        if force_generate:
+            result = conda_env_export(conda)
+        else:
+            result = (output_file(dirname, 'environment.yml', 'conda')
+                      or conda_env_export(conda))
+    else:
+        if force_generate:
+            result = pip_freeze()
+        else:
+            result = (output_file(dirname, 'requirements.txt', 'pip')
+                      or pip_freeze())
 
     if result is not None:
         result['python'] = get_python_version()
         result['pip'] = get_version('pip')
+        if conda:
+            result['conda'] = get_conda_version(conda)
         result['locale'] = get_default_locale()
 
     return result
 
 
+def get_conda():
+    """get_conda tries to find the conda executable if we're in
+    a conda environment. If not, or if we cannot find the executable,
+    return None.
+    :returns: conda string path to conda or None.
+    """
+    if os.environ.get('CONDA_PREFIX', None) is None:
+        return None
+    else:
+        return os.environ.get('CONDA_EXE', None)
+
+
 def get_python_version():
     v = sys.version_info
     return "%d.%d.%d" % (v[0], v[1], v[2])
+
+
+def get_conda_version(conda):
+    try:
+        args = [conda, '-V']
+        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        stdout, stderr = proc.communicate()
+        match = version_re.search(stdout)
+        if match:
+            return match.group()
+        msg = "Failed to get version of conda from the output of: %s" % (' '.join(args))
+        raise EnvironmentException(msg)
+    except Exception as exception:
+        raise EnvironmentException("Error getting conda version: %s" % str(exception))
 
 
 def get_default_locale():
@@ -121,12 +166,47 @@ def pip_freeze():
     }
 
 
+def conda_env_export(conda):
+    """Inspect the environment using `conda env export`
+    :param: conda path to the `conda` tool
+    :return: dictionary containing the key "environment.yml" and the data inside
+    """
+    try:
+        proc = subprocess.Popen(
+            [conda, 'env', 'export'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        conda_stdout, conda_stderr = proc.communicate()
+        conda_status = proc.returncode
+    except Exception as exception:
+        raise EnvironmentException('Error during conda env export: %s' % str(exception))
+
+    if conda_status != 0:
+        msg = conda_stderr or ('exited with code %d' % conda_status)
+        raise EnvironmentException('Error during conda env export: %s' % msg)
+
+    return {
+        'filename': 'environment.yml',
+        'contents': conda_stdout,
+        'source': 'conda_env_export',
+        'package_manager': 'conda'
+    }
+
+
 def main():
     try:
         if len(sys.argv) < 2:
-            raise EnvironmentException('Usage: %s DIRECTORY' % sys.argv[0])
-
-        result = detect_environment(sys.argv[1])
+            raise EnvironmentException('Usage: %s [-fc] DIRECTORY' % sys.argv[0])
+        # directory is always the last argument
+        directory = sys.argv[len(sys.argv)-1]
+        flags = ''
+        force_generate = False
+        compatibility_mode = False
+        if len(sys.argv) > 2:
+            flags = sys.argv[1]
+        if 'f' in flags:
+            force_generate = True
+        if 'c' in flags:
+            compatibility_mode = True
+        result = detect_environment(directory, force_generate, compatibility_mode)
     except EnvironmentException as exception:
         result = dict(error=str(exception))
 
