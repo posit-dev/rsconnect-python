@@ -4,6 +4,7 @@ import re
 import socket
 import time
 import ssl
+from json import JSONDecodeError
 
 from os.path import join, dirname
 from six.moves import http_client as http
@@ -185,18 +186,23 @@ class RSConnect:
         self._handle_set_cookie(response)
         raw = response.read().decode('utf-8')
 
+        try:
+            data = json.loads(raw)
+        except JSONDecodeError:
+            data = {
+                'error': str(raw)
+            }
+
         if response.status >= 500:
             # noinspection PyBroadException
             try:
-                message = json.loads(raw)['error']
+                message = data['error']
             except Exception:
                 message = 'Unexpected response code: %d' % response.status
             raise RSConnectException(message)
         elif response.status >= 400:
-            data = json.loads(raw)
             raise RSConnectException(data['error'])
         else:
-            data = json.loads(raw)
             return data
 
     def me(self):
