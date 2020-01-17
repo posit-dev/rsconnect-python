@@ -102,6 +102,11 @@ class ServerStore(object):
         if entry:
             return entry['url'], entry['api_key'], entry['insecure'], entry['ca_cert']
         else:
+            # Here we know we're dealing with a URL and not a name, so make sure it has
+            # the requisite trailing slash.
+            if not name_or_url.endswith('/'):
+                name_or_url += '/'
+
             return name_or_url, api_key, insecure, ca_cert
 
     def load(self):
