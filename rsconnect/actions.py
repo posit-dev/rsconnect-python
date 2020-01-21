@@ -85,13 +85,23 @@ def which_python(python, env=os.environ):
     return sys.executable
 
 
-def inspect_environment(python, directory, check_output=subprocess.check_output):
+def inspect_environment(python, directory, compatibility_mode=False, force_generate=False,
+                        check_output=subprocess.check_output):
     """Run the environment inspector using the specified python binary.
 
     Returns a dictionary of information about the environment,
     or containing an "error" field if an error occurred.
     """
-    environment_json = check_output([python, '-m', 'rsconnect.environment', directory], universal_newlines=True)
+    flags = []
+    if compatibility_mode:
+        flags.append('c')
+    if force_generate:
+        flags.append('f')
+    args = [python, '-m', 'rsconnect.environment']
+    if len(flags) > 0:
+        args.append('-'+''.join(flags))
+    args.append(directory)
+    environment_json = check_output(args, universal_newlines=True)
     environment = json.loads(environment_json)
     return environment
 

@@ -60,3 +60,6 @@ class TestEnvironment(TestCase):
             'filename': 'requirements.txt',
             'python': self.python_version(),
         })
+
+    def test_conda_env_export(self):
+        result = detect_environment(self.get_dir('conda1'), compatibility_mode=False, force_generate=True)
