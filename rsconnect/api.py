@@ -4,7 +4,6 @@ import re
 import socket
 import time
 import ssl
-from json import JSONDecodeError
 
 from os.path import join, dirname
 from six.moves import http_client as http
@@ -188,7 +187,7 @@ class RSConnect:
 
         try:
             data = json.loads(raw)
-        except JSONDecodeError:
+        except ValueError:
             data = {
                 'error': str(raw)
             }
