@@ -6,7 +6,6 @@ import os
 import re
 import subprocess
 import sys
-import time
 
 version_re = re.compile(r'\d+\.\d+(\.\d+)?')
 exec_dir = os.path.dirname(sys.executable)
