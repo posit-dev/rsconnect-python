@@ -12,6 +12,13 @@ ifneq (${JOB_NAME},)
 	RUNNER=bash -c
 endif
 
+ifneq (${CONNECT_SERVER},)
+    TEST_ENV1=CONNECT_SERVER=${CONNECT_SERVER}
+endif
+ifneq (${CONNECT_API_KEY},)
+    TEST_ENV2=CONNECT_API_KEY=${CONNECT_API_KEY}
+endif
+
 all-tests: all-images test-2.7 test-3.5 test-3.6 test-3.7 test-3.8
 
 all-images: image-2.7 image-3.5 image-3.6 image-3.7 image-3.8
@@ -23,7 +30,7 @@ shell-%:
 	$(RUNNER) 'python setup.py develop --user && bash'
 
 test-%:
-	$(RUNNER) 'python setup.py develop --user && python -m unittest discover'
+	$(RUNNER) 'python setup.py develop --user && ${TEST_ENV1} ${TEST_ENV2} python -m unittest discover'
 
 coverage-%:
 	$(RUNNER) 'python setup.py develop --user && pytest --cov=rsconnect --cov-report=html --no-cov-on-fail rsconnect/tests/'

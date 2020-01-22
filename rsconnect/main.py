@@ -406,5 +406,6 @@ def manifest_notebook(force, python, verbose, file, extra_files):
                 f.write(environment['contents'])
 
 
-cli()
-click.echo()
+if __name__ == '__main__':
+    cli()
+    click.echo()
