@@ -38,6 +38,28 @@ def make_source_manifest(entrypoint, environment, app_mode):
     return manifest
 
 
+def make_app_manifest(entrypoint, environment, app_mode):
+    package_manager = environment['package_manager']
+
+    manifest = {
+        "version": 1,
+        "metadata": {
+            "appmode": app_mode,
+            "entrypoint": entrypoint
+        },
+        "locale": environment['locale'],
+        "python": {
+            "version": environment['python'],
+            "package_manager": {
+                "name": package_manager,
+                "version": environment[package_manager],
+                "package_file": environment['filename']
+            }
+        }
+    }
+    return manifest
+
+
 def manifest_add_file(manifest, rel_path, base_dir):
     """Add the specified file to the manifest files section
 
@@ -271,3 +293,37 @@ def make_manifest_bundle(manifest_path):
 
     bundle_file.seek(0)
     return bundle_file
+
+
+def make_app_bundle(directory, manifest):
+    """Create an app bundle, given a directory path and a manifest
+
+    Returns a file-like object containing the bundle tarball.
+    """
+    bundle_file = tempfile.TemporaryFile(prefix='rsc_bundle')
+
+    with tarfile.open(mode='w:gz', fileobj=bundle_file) as bundle:
+        bundle_add_buffer(bundle, 'manifest.json', json.dumps(manifest, indent=2))
+
+        # TODO: It would be nice to use some dotfile ignoring
+        for subdir, dirs, files in os.walk(directory):
+            for file in files:
+                abs_path = os.path.join(subdir, file)
+                rel_path = os.path.relpath(abs_path, directory)
+                bundle.add(abs_path, arcname=rel_path)
+
+    # rewind file pointer
+    bundle_file.seek(0)
+
+    return bundle_file
+
+
+def inspect_bundle_file(bundle):
+    tar = tarfile.open(fileobj=bundle)
+    members = list(map(lambda o: o.name, tar.getmembers()))
+    tar.close()
+
+    # rewind file pointer
+    bundle.seek(0)
+
+    return members

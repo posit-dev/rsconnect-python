@@ -13,10 +13,13 @@ from rsconnect.actions import set_verbosity, cli_feedback, which_python, inspect
     make_deployment_name, default_title, default_title_for_manifest
 from . import api
 from .bundle import (
+    inspect_bundle_file,
+    make_app_bundle,
     make_manifest_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
     make_source_manifest,
+    make_app_manifest,
     manifest_add_buffer,
     manifest_add_file)
 from .metadata import ServerStore, AppStore
@@ -341,6 +344,78 @@ def deploy_manifest(server, api_key, new, app_id, title, insecure, cacert, verbo
         # (which is the Open Solo URL).
         app_store.set(server, abspath(file), app_url, app['app_id'], app['app_guid'], title, app_mode)
         app_store.save()
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@deploy.command(name='app', help='Deploy app to RStudio Connect')
+@click.option('--server', '-s', envvar='CONNECT_SERVER', help='Connect server URL or saved server name')
+@click.option('--api-key', '-k', envvar='CONNECT_API_KEY', help='Connect server API key')
+@click.option('--title', '-t', help='Title of the content (default is the path directory)')
+@click.option('--entrypoint', '-m', help='The app module which serves as the entry point for Gunicorn (default: app)')
+@click.option('--python', type=click.Path(exists=True),
+              help='Path to python interpreter whose environment should be used. '
+                   'The python environment must have the rsconnect package installed.')
+@click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
+@click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
+              help='Path to trusted TLS CA certificate.')
+@click.option('--dry-run', '-d', is_flag=True, help='Dry-run only; do not actually run the deployment')
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages')
+@click.argument('path', type=click.Path(exists=True))
+def deploy_app(server, api_key, title, entrypoint, python, insecure, cacert, dry_run, verbose, path):
+    set_verbosity(verbose)
+    logger = logging.getLogger('rsconnect')
+
+    with cli_feedback('Checking arguments'):
+        # TODO: should probably verify that it's a directory
+        path = os.path.abspath(path)
+
+        server, api_key, insecure, cadata = server_store.resolve(server, api_key, insecure, cacert and cacert.read())
+        uri = urlparse(server)
+        if not uri.netloc:
+            raise api.RSConnectException('Invalid server URL: "%s"' % server)
+
+        if not title:
+            title = default_title(path)
+
+        if not entrypoint:
+            entrypoint = 'app'
+
+        if verbose:
+            click.echo('app.path: %s' % path)
+            click.echo('app.title: %s' % title)
+            click.echo('server.uri: %s' % uri.geturl())
+            click.echo('server.api_key: %s' % api_key)
+
+        api_client = api.RSConnect(uri, api_key, [], insecure, cadata)
+
+    with cli_feedback('Inspecting python environment'):
+        python = which_python(python)
+        environment = inspect_environment(python, path)
+        if verbose:
+            click.echo('Python: %s' % python)
+            click.echo('Environment: %s' % pformat(environment))
+
+    with cli_feedback('Creating manifest'):
+        manifest = make_app_manifest(entrypoint, environment, 'python')
+        if verbose:
+            click.echo('Manifest: %s' % pformat(manifest))
+
+    with cli_feedback('Creating deployment bundle'):
+        bundle = make_app_bundle(path, manifest)
+        if verbose:
+            bundle_details = inspect_bundle_file(bundle)
+            click.echo('Bundle details: %s' % pformat(bundle_details))
+
+    if not dry_run:
+        with cli_feedback('Deploying bundle'):
+            deployment_name = make_deployment_name()
+            app = api_client.deploy(None, deployment_name, title, bundle)
+            if verbose:
+                click.echo('Deploy: %s' % pformat(app))
+
+        with cli_feedback(''):
+            click.secho('\nDeployment log:', fg='bright_white')
+            app_url = api_client.wait_for_task(app['app_id'], app['task_id'], click.echo)
+            click.secho('Deployment completed successfully.\nApp URL: %s' % app_url, fg='bright_white')
 
 
 @deploy.command(name='help', help='Show help on how to deploy other content to RStudio Connect')

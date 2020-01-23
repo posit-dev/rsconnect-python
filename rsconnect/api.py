@@ -295,7 +295,7 @@ class RSConnect:
         if task_status['finished']:
             exit_code = task_status['code']
             if exit_code != 0:
-                raise RSConnectException('Task exited with status %d.' % exit_code)
+                raise RSConnectException('Task exited with status %d (%s).' % (exit_code, task_status['error']))
 
         return new_last_status
 
@@ -314,7 +314,8 @@ def verify_api_key(uri, api_key, disable_tls_check, cadata):
     APIMode,
     TensorFlowModelAPI,
     StaticJupyterMode,
-) = range(8)
+    PythonMode,
+) = range(9)
 
 app_modes = {
     UnknownMode: 'unknown',
@@ -325,6 +326,7 @@ app_modes = {
     APIMode: 'api',
     TensorFlowModelAPI: 'tensorflow-saved-model',
     StaticJupyterMode: 'jupyter-static',
+    PythonMode: 'python',
 }
 
 
