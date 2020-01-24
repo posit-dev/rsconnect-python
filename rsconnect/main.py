@@ -115,7 +115,7 @@ def info(file):
         }
 
         if deployments:
-            click.echo('Loaded deployment information from %s' % app_store.get_path())
+            click.echo('Loaded deployment information from %s' % abspath(app_store.get_path()))
 
             for deployment in deployments:
                 click.echo()
