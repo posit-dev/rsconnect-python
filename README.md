@@ -11,8 +11,6 @@ In addition to various kinds of R content, RStudio Connect also supports the dep
 
 - RStudio Connect insists on matching <MAJOR.MINOR> versions of Python. For example, a server with only Python 3.5 installed will fail to match content deployed with Python 3.4. Your administrator may also enable exact Python version matching which will be stricter and require matching major, minor, and patch versions. For more information see the [RStudio Connect Admin Guide chapter titled Python Version Matching](https://docs.rstudio.com/connect/admin/python.html#python-version-matching).
 
-- 
-
 ### Installation
 
 To install from this repository:
