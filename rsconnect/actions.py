@@ -140,9 +140,6 @@ def do_ping(server, api_key, insecure, ca_data):
     If api_key is set, also validate the API key.
     Raises an exception on failure, otherwise returns None.
     """
-    if not server.endswith('/'):
-        server += '/'
-
     with cli_feedback('Checking %s' % server):
         uri = urlparse(server)
         if not uri.scheme:
