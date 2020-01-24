@@ -51,10 +51,10 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data):
                                     context=ssl.create_default_context(cadata=ca_data))
     elif disable_tls_check:
         # noinspection PyProtectedMember
-        return http.HTTPSConnection(hostname, port=(port or http.HTTPS_PORT), timeout=10,
+        return http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=10,
                                     context=ssl._create_unverified_context())
     else:
-        return http.HTTPSConnection(hostname, port=(port or http.HTTPS_PORT), timeout=10)
+        return http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=10)
 
 
 def append_to_url(url, path):
