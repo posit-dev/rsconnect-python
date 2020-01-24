@@ -2,7 +2,16 @@
 
 This package is a library used by the rsconnect-jupyter package to deploy Jupyter notebooks to RStudio Connect. It can also be used by other Python-based deployment tools.
 
-There is also a CLI deployment tool which can be used directly to deploy Jupyter notebooks. Other content types can be deployed if they include a prepared `manifest.json` file.
+There is also a CLI deployment tool which can be used directly to deploy Jupyter notebooks. Other content types can be deployed if they include a prepared `manifest.json` file. See 
+["Creating a Manifest for Future Deployment"](#creating-a-manifest-for-future-deployment) for details
+
+## Deploying Python Content to RStudio Connect
+
+In addition to various kinds of R content, RStudio Connect also supports the deployment of Jupyter notebooks. Much like deploying R content to RStudio Connect, there are some caveats to understand when replicating your environment on the RStudio Connect server:
+
+- RStudio Connect insists on matching <MAJOR.MINOR> versions of Python. For example, a server with only Python 3.5 installed will fail to match content deployed with Python 3.4. Your administrator may also enable exact Python version matching which will be stricter and require matching major, minor, and patch versions. For more information see the [RStudio Connect Admin Guide chapter titled Python Version Matching](https://docs.rstudio.com/connect/admin/python.html#python-version-matching).
+
+- 
 
 ### Installation
 
@@ -228,6 +237,13 @@ rsconnect deploy notebook --app-id 123456 my-notebook.ipynb
 You must be the owner of the target deployment, or a collaborator with permission to change the content. The type of content (static notebook, or notebook with source code) must match the existing deployment.
 
 Note: there is no confirmation required to update a deployment. If you do so accidentally, use the "Source Versions" dialog in the Connect dashboard to activate the previous version and remove the erroneous one.
+
+
+##### Finding the App ID
+
+The App ID associated with a piece of content you have previously deployed from the `rsconnect` command line interface can be found easily by querying the deployment information using the `info` command. For more information, see [Showing the Deployment Information](#showing-the-deployment-information).
+
+If the content was deployed elsewhere or `info` does not return the correct App ID, but you can open the content on RStudio Connect, find the content and open it in a browser. The URL in your browser's location bar will contain `#/apps/NNN` where `NNN` is your App ID.
 
 #### Showing the Deployment Information
 You can see the information that rsconnect-python has saved for the most recent deployment
