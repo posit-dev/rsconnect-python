@@ -188,6 +188,9 @@ def deploy_notebook(server, api_key, static, new, app_id, title, python, insecur
         uri = urlparse(server)
         if not uri.netloc:
             raise api.RSConnectException('Invalid server URL: "%s"' % server)
+        if not api_key:
+            raise api.RSConnectException('No API Key available for "%s": specify an API key on the command line' %
+                                         server)
 
         file_suffix = splitext(file)[1].lower()
         if file_suffix != '.ipynb':
@@ -294,6 +297,9 @@ def deploy_manifest(server, api_key, new, app_id, title, insecure, cacert, verbo
         uri = urlparse(server)
         if not uri.netloc:
             raise api.RSConnectException('Invalid server URL: "%s"' % server)
+        if not api_key:
+            raise api.RSConnectException('No API Key available for "%s": specify an API key on the command line' %
+                                         server)
 
         if basename(file) != 'manifest.json':
             raise api.RSConnectException(
