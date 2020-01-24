@@ -1,17 +1,7 @@
-import json
 import logging
-import re
-import socket
 import time
-import ssl
 
-from os.path import join, dirname
-from six.moves import http_client as http
-from six.moves.urllib_parse import urlparse, urlencode, urljoin
-from six.moves.http_cookies import SimpleCookie
-
-VERSION = open(join(dirname(__file__), 'version.txt'), 'r').read().strip()
-USER_AGENT = "rsconnect-python/%s" % VERSION
+from rsconnect.http_support import HTTPResponse, HTTPServer, append_to_url
 
 
 class RSConnectException(Exception):
@@ -23,230 +13,60 @@ class RSConnectException(Exception):
 logger = logging.getLogger('rsconnect')
 
 
-def url_path_join(*parts):
-    joined = '/'.join(parts)
-    return re.sub('/+', '/', joined)
+class RSConnect(HTTPServer):
+    def __init__(self, url, api_key, disable_tls_check=False, ca_data=None, cookies=None):
+        super(RSConnect, self).__init__(append_to_url(url, '__api__'), disable_tls_check, ca_data, cookies)
 
+        if api_key:
+            self.key_authorization(api_key)
 
-def wait_until(predicate, timeout, period=0.1):
-    """
-    Run <predicate> every <period> seconds until it returns True or until
-    <timeout> seconds have passed.
-
-    Returns True if <predicate> returns True before <timeout> elapses, False
-    otherwise.
-    """
-    ending = time.time() + timeout
-    while time.time() < ending:
-        if predicate():
-            return True
-        time.sleep(period)
-    return False
-
-
-settings_path = '__api__/server_settings'
-max_redirects = 5
-
-
-def https_helper(hostname, port, disable_tls_check, ca_data):
-    if ca_data is not None and disable_tls_check:
-        raise Exception("Cannot both disable TLS checking and provide a custom certificate")
-    if ca_data is not None:
-        return http.HTTPSConnection(hostname, port=(port or http.HTTPS_PORT), timeout=10,
-                                    context=ssl.create_default_context(cadata=ca_data))
-    elif disable_tls_check:
-        # noinspection PyProtectedMember
-        return http.HTTPSConnection(hostname, port=(port or http.HTTPS_PORT), timeout=10,
-                                    context=ssl._create_unverified_context())
-    else:
-        return http.HTTPSConnection(hostname, port=(port or http.HTTPS_PORT), timeout=10)
-
-
-def verify_server(server_address, disable_tls_check, ca_data):
-    server_url = urljoin(server_address, settings_path)
-    return _verify_server(server_url, max_redirects, disable_tls_check, ca_data)
-
-
-def _verify_server(server_address, maximum_redirects, disable_tls_check, ca_data):
-    """
-    Verifies that a server is present at the given address.
-    Assumes that `__api__/server_settings` is accessible from the jupyter server.
-    :returns address
-    :raises Base Exception with string error, or errors from HTTP(S)Connection
-    """
-    r = urlparse(server_address)
-    conn = None
-    try:
-        if r.scheme == 'http':
-            conn = http.HTTPConnection(r.hostname, port=(r.port or http.HTTP_PORT), timeout=10)
-        else:
-            conn = https_helper(r.hostname, r.port, disable_tls_check, ca_data)
-
-        conn.request('GET', server_address, headers={'User-Agent': USER_AGENT})
-        response = conn.getresponse()
-
-        if response.status == 404:
-            raise RSConnectException('The specified server does not appear to be running RStudio Connect')
-        elif response.status >= 400:
-            err = 'Response from Connect server: %s %s' % (response.status, response.reason)
-            raise Exception(err)
-        elif response.status >= 300:
-            # process redirects now so we don't have to later
-            target = response.getheader('Location')
-            logger.warning('Redirected to: %s' % target)
-
-            if maximum_redirects > 0:
-                return _verify_server(urljoin(server_address, target), maximum_redirects - 1, disable_tls_check,
-                                      ca_data)
-            else:
-                err = 'Too many redirects'
-                raise Exception(err)
-        else:
-            content_type = response.getheader('Content-Type')
-            if not content_type.startswith('application/json'):
-                err = 'Unexpected Content-Type %s from %s' % (content_type, server_address)
-                raise Exception(err)
-
-    except (http.HTTPException, OSError, socket.error) as exc:
-        raise RSConnectException(str(exc))
-    finally:
-        if conn is not None:
-            conn.close()
-
-    if server_address.endswith(settings_path):
-        return server_address[:-len(settings_path)]
-    else:
-        return server_address
-
-
-class RSConnect:
-    def __init__(self, uri, api_key, cookies=None, disable_tls_check=False, ca_data=None):
-        if cookies is None:
-            cookies = []
-        if disable_tls_check and (ca_data is not None):
-            raise Exception("Cannot both disable TLS checking and provide custom certificate data")
-        self.path_prefix = uri.path or '/'
-        self.api_key = api_key
-        self.conn = None
-        self.mk_conn = lambda: http.HTTPConnection(uri.hostname, port=uri.port, timeout=10)
-        if uri.scheme == 'https':
-            self.mk_conn = lambda: https_helper(uri.hostname, uri.port, disable_tls_check, ca_data)
-        self.http_headers = {
-            'Authorization': 'Key %s' % self.api_key,
-        }
-        self.cookies = cookies
-        self._inject_cookies(cookies)
-        self.conn = self.mk_conn()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        self.conn.close()
-        self.conn = None
-
-    def request(self, method, path, *args, **kwargs):
-        request_path = url_path_join(self.path_prefix, path)
-        logger.debug('Performing: %s %s' % (method, request_path))
-        kwargs['headers']['User-Agent'] = USER_AGENT
-        try:
-            self.conn.request(method, request_path, *args, **kwargs)
-            return self.json_response()
-        except http.HTTPException as e:
-            raise RSConnectException(str(e))
-        except (IOError, OSError) as e:
-            raise RSConnectException(str(e))
-        except (socket.error, socket.herror, socket.gaierror) as e:
-            raise RSConnectException(str(e))
-        except socket.timeout:
-            raise RSConnectException('Connection timed out')
-
-    def _handle_set_cookie(self, response):
-        headers = filter(lambda h: h[0].lower() == 'set-cookie', response.getheaders())
-        values = []
-
-        for header in headers:
-            cookie = SimpleCookie(header[1])
-            for morsel in cookie.values():
-                values.append((dict(key=morsel.key, value=morsel.value)))
-
-        self.cookies = values
-        self._inject_cookies(values)
-
-    def _inject_cookies(self, cookies):
-        if cookies:
-            self.http_headers['Cookie'] = '; '.join(['%s="%s"' % (kv['key'], kv['value']) for kv in cookies])
-        elif 'Cookie' in self.http_headers:
-            del self.http_headers['Cookie']
-
-    def json_response(self):
-        response = self.conn.getresponse()
-
-        self._handle_set_cookie(response)
-        raw = response.read().decode('utf-8')
-
-        try:
-            data = json.loads(raw)
-        except ValueError:
-            data = {
-                'error': str(raw)
-            }
-
-        if response.status >= 500:
-            # noinspection PyBroadException
-            try:
-                message = data['error']
-            except Exception:
-                message = 'Unexpected response code: %d' % response.status
-            raise RSConnectException(message)
-        elif response.status >= 400:
-            raise RSConnectException(data['error'])
-        else:
-            return data
+    def _tweak_response(self, response):
+        return response.json_data if response.json_data else response
 
     def me(self):
-        return self.request('GET', '__api__/me', None, headers=self.http_headers)
+        return self.get('me')
+
+    def server_settings(self):
+        return self.get('server_settings')
 
     def app_find(self, filters):
-        params = urlencode(filters)
-        data = self.request('GET', '__api__/applications?' + params, None, headers=self.http_headers)
-        if data['count'] > 0:
-            return data['applications']
+        response = self.get('applications', query_params=filters)
+
+        if response.json_data and response.json_data['count'] > 0:
+            return response.json_data['applications']
+
+        return response
 
     def app_create(self, name):
-        params = json.dumps({'name': name})
-        return self.request('POST', '__api__/applications', params, headers=self.http_headers)
+        return self.post('applications', body={'name': name})
 
     def app_get(self, app_id):
-        return self.request('GET', '__api__/applications/%s' % app_id, None, headers=self.http_headers)
+        return self.get('applications/%s' % app_id)
 
     def app_upload(self, app_id, tarball):
-        return self.request('POST', '__api__/applications/%s/upload' % app_id, tarball, headers=self.http_headers)
+        return self.post('applications/%s/upload' % app_id, body=tarball)
 
     def app_update(self, app_id, updates):
-        params = json.dumps(updates)
-        return self.request('POST', '__api__/applications/%s' % app_id, params, headers=self.http_headers)
+        return self.post('applications/%s' % app_id, body=updates)
 
     def app_deploy(self, app_id, bundle_id=None):
-        params = json.dumps({'bundle': bundle_id})
-        return self.request('POST', '__api__/applications/%s/deploy' % app_id, params, headers=self.http_headers)
+        return self.post('applications/%s/deploy' % app_id, body={'bundle': bundle_id})
 
     def app_publish(self, app_id, access):
-        params = json.dumps({
+        return self.post('applications/%s' % app_id, body={
             'access_type': access,
             'id': app_id,
             'needs_config': False
         })
-        return self.request('POST', '__api__/applications/%s' % app_id, params, headers=self.http_headers)
 
     def app_config(self, app_id):
-        return self.request('GET', '__api__/applications/%s/config' % app_id, None, headers=self.http_headers)
+        return self.get('applications/%s/config' % app_id)
 
     def task_get(self, task_id, first_status=None):
-        url = '__api__/tasks/%s' % task_id
+        params = None
         if first_status is not None:
-            url += '?first_status=%d' % first_status
-        return self.request('GET', url, None, headers=self.http_headers)
+            params = {'first_status': first_status}
+        return self.get('tasks/%s' % task_id, query_params=params)
 
     def deploy(self, app_id, app_name, app_title, tarball):
         if app_id is None:
@@ -258,14 +78,14 @@ class RSConnect:
             app = self.app_get(app_id)
 
         if app['title'] != app_title:
-            self.app_update(app['id'], {'title': app_title})
+            self.app_update(app_id, {'title': app_title})
 
-        app_bundle = self.app_upload(app['id'], tarball)
-        task_id = self.app_deploy(app['id'], app_bundle['id'])['id']
+        app_bundle = self.app_upload(app_id, tarball)
+        task_id = self.app_deploy(app_id, app_bundle['id'])['id']
 
         return {
             'task_id': task_id,
-            'app_id': app['id'],
+            'app_id': app_id,
             'app_guid': app['guid'],
             'app_url': app['url'],
         }
@@ -310,8 +130,19 @@ class RSConnect:
         return new_last_status
 
 
-def verify_api_key(uri, api_key, disable_tls_check, cadata):
-    with RSConnect(uri, api_key, disable_tls_check=disable_tls_check, ca_data=cadata) as api:
+def verify_server(server_address, disable_tls_check, ca_data):
+    with RSConnect(server_address, None, disable_tls_check, ca_data) as server:
+        result = server.server_settings()
+
+        if isinstance(result, HTTPResponse):
+            if result.status == 404:
+                raise RSConnectException('The specified server does not appear to be running RStudio Connect')
+            elif result.status >= 400:
+                raise RSConnectException('Response from Connect server: %s %s' % (result.status, result.reason))
+
+
+def verify_api_key(uri, api_key, disable_tls_check, ca_data):
+    with RSConnect(uri, api_key, disable_tls_check=disable_tls_check, ca_data=ca_data) as api:
         api.me()
 
 
@@ -351,7 +182,6 @@ def app_data(api, app):
 def app_search(uri, api_key, app_title, app_id, disable_tls_check, ca_data):
     with RSConnect(uri, api_key, disable_tls_check=disable_tls_check, ca_data=ca_data) as api:
         data = []
-
         filters = [('count', 5),
                    ('filter', 'min_role:editor'),
                    ('search', app_title)]

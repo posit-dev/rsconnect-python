@@ -3,7 +3,7 @@ import os
 from unittest import TestCase
 from click.testing import CliRunner
 from ..main import cli
-from ..api import VERSION
+from rsconnect import VERSION
 
 
 class TestMain(TestCase):

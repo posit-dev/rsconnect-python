@@ -9,6 +9,7 @@ from pprint import pformat
 import click
 from six.moves.urllib_parse import urlparse
 
+from rsconnect import VERSION
 from rsconnect.actions import set_verbosity, cli_feedback, which_python, inspect_environment, do_ping, \
     make_deployment_name, default_title, default_title_for_manifest
 from . import api
@@ -132,7 +133,7 @@ def info(file):
 
 @cli.command(help='Show the version of rsconnect-python')
 def version():
-    click.echo(api.VERSION)
+    click.echo(VERSION)
 
 
 # noinspection SpellCheckingInspection

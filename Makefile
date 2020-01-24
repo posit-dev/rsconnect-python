@@ -38,6 +38,10 @@ coverage-%:
 lint-%:
 	$(RUNNER) 'pyflakes ./rsconnect/'
 
+.PHONY: clean
+clean:
+	@rm -rf build dist rsconnect_python.egg-info
+
 .PHONY: docs
 docs:
 	docker run --rm \
