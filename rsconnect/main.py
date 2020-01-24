@@ -137,9 +137,11 @@ def version():
 
 
 # noinspection SpellCheckingInspection
-@cli.command(help='Verify a Connect server URL')
+@cli.command(help='Verify a Connect server URL without adding the server. If API key is provided, verify that the '
+                  'given API key is valid for the server; otherwise, verify that the server is running RStudio '
+                  'Connect.')
 @click.option('--server', '-s', required=True, envvar='CONNECT_SERVER', help='Connect server URL')
-@click.option('--api-key', '-k', envvar='CONNECT_API_KEY', help='Connect server API key')
+@click.option('--api-key', '-k', envvar='CONNECT_API_KEY', help='Connect server API key (Optional if server is saved)')
 @click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
 @click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
               help='Path to trusted TLS CA certificate.')
@@ -157,9 +159,10 @@ def deploy():
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(name='notebook', help='Deploy content to RStudio Connect')
 @click.option('--server', '-s', envvar='CONNECT_SERVER', help='Connect server URL or saved server name')
-@click.option('--api-key', '-k', envvar='CONNECT_API_KEY', help='Connect server API key')
+@click.option('--api-key', '-k', envvar='CONNECT_API_KEY', help='Connect server API key (Optional if server is saved)')
 @click.option('--static', is_flag=True,
-              help='Deployed a static, pre-rendered notebook. Static notebooks cannot be re-run on the server.')
+              help='Render a notebook locally and deploy the result as a static notebook. Will not include the notebook source. Static notebooks '
+                   'cannot be re-run on the server.')
 @click.option('--new', '-n', is_flag=True,
               help='Force a new deployment, even if there is saved metadata from a previous deployment.')
 @click.option('--app-id', help='Existing app ID or GUID to replace. Cannot be used with --new.')
@@ -271,7 +274,7 @@ def deploy_notebook(server, api_key, static, new, app_id, title, python, insecur
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(name='manifest', short_help='Deploy content to RStudio Connect using an existing manifest.json file')
 @click.option('--server', '-s', envvar='CONNECT_SERVER', help='Connect server URL or saved server name')
-@click.option('--api-key', '-k', envvar='CONNECT_API_KEY', help='Connect server API key')
+@click.option('--api-key', '-k', envvar='CONNECT_API_KEY', help='Connect server API key (Optional if server is saved)')
 @click.option('--new', '-n', is_flag=True,
               help='Force a new deployment, even if there is saved metadata from a previous deployment.'
               )
@@ -347,7 +350,7 @@ def deploy_manifest(server, api_key, new, app_id, title, insecure, cacert, verbo
         app_store.save()
 
 
-@deploy.command(name='help', help='Show help on how to deploy other content to RStudio Connect')
+@deploy.command(name='other-content', help='Show help on how to deploy other content to RStudio Connect')
 def deploy_help():
     print(
         'To deploy a Shiny app or R Markdown document,\n'
@@ -363,7 +366,9 @@ def manifest():
     pass
 
 
-@manifest.command(name="notebook", help='Create a manifest.json file for a notebook, for later deployment')
+@manifest.command(name="notebook", help='Create a manifest.json file for a notebook, for later deployment. '
+                                        'Creates an environment file (requirements.txt) if one does not exist. '
+                                        'All files are created in the same directory as the notebook file.')
 @click.option('--force', '-f', is_flag=True, help='Replace manifest.json, if it exists.')
 @click.option('--python', type=click.Path(exists=True),
               help='Path to python interpreter whose environment should be used. ' +
