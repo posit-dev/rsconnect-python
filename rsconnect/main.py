@@ -160,7 +160,7 @@ def deploy():
 @click.option('--server', '-s', envvar='CONNECT_SERVER', help='Connect server URL or saved server name')
 @click.option('--api-key', '-k', envvar='CONNECT_API_KEY', help='Connect server API key (Optional if server is saved)')
 @click.option('--static', is_flag=True,
-              help='Deploy a static, pre-rendered notebook and do not include the notebook source. Static notebooks '
+              help='Render a notebook locally and deploy the result as a static notebook. Will not include the notebook source. Static notebooks '
                    'cannot be re-run on the server.')
 @click.option('--new', '-n', is_flag=True,
               help='Force a new deployment, even if there is saved metadata from a previous deployment.')
