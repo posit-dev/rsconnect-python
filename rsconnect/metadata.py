@@ -7,6 +7,8 @@ import os
 import sys
 from os.path import abspath, basename, dirname, exists, join
 
+from rsconnect import api
+
 logger = logging.getLogger('rsconnect')
 
 
@@ -89,9 +91,13 @@ class ServerStore(object):
     def list(self):
         return sorted(self.servers.values(), key=lambda s: s['name'])
 
-    def resolve(self, name_or_url, api_key, insecure, ca_cert):
-        if name_or_url:
-            entry = self.get(name_or_url)
+    def resolve(self, name, url, api_key, insecure, ca_cert):
+        if name:
+            entry = self.get(name)
+            if not entry:
+                raise api.RSConnectException('The nickname, "%s", does not exist.' % name)
+        elif url:
+            entry = self.get(url)
         else:
             # if there is a single server, default to it
             if len(self.servers) == 1:
@@ -102,12 +108,7 @@ class ServerStore(object):
         if entry:
             return entry['url'], entry['api_key'], entry['insecure'], entry['ca_cert']
         else:
-            # Here we know we're dealing with a URL and not a name, so make sure it has
-            # the requisite trailing slash.
-            if name_or_url and not name_or_url.endswith('/'):
-                name_or_url += '/'
-
-            return name_or_url, api_key, insecure, ca_cert
+            return url, api_key, insecure, ca_cert
 
     def load(self):
         """Load the server list.

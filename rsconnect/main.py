@@ -29,17 +29,53 @@ logging.basicConfig()
 
 @click.group(no_args_is_help=True)
 def cli():
+    """
+    This command line tool may be used to deploy Jupyter notebooks to RStudio
+    Connect.  Support for deploying other content types is also provided.
+
+    The tool supports the notion of a simple nickname that represents information
+    RStudio Connect instances.  Use the add, test, list and remove commands to
+    manage these nicknames.
+
+    The information about an instance of RStudio Connect includes its URL, the
+    API key needed to authenticate against that instance, a flag that notes whether
+    TLS certificate/host verification should be disabled and a path to a trusted CA
+    certificate file to use for TLS.  The last two items are only relevant if the
+    URL specifies the "https" protocol.
+    """
     pass
 
 
+@cli.command(help='Show the version of rsconnect-python.')
+def version():
+    click.echo(VERSION)
+
+
 # noinspection SpellCheckingInspection
-@cli.command(help='Add a server')
-@click.option('--name', '-n', required=True, help='Server nickname')
-@click.option('--server', '-s', required=True, help='Connect server URL')
-@click.option('--api-key', '-k', required=True, help='Connect server API key')
-@click.option('--insecure', is_flag=True, help='Disable TLS certification validation.')
-@click.option('--cacert', type=click.File(), help='Path to trusted TLS CA certificate.')
-@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages')
+@cli.command(help='Verify an RStudio Connect server URL without creating a nickname for it.  This involves making '
+                  'sure that the URL is both accessible and running RStudio Connect.   If an API key is provided, it '
+                  'is checked to make sure it can be used to authenticate against the RStudio Connect instance.')
+@click.option('--server', '-s', envvar='CONNECT_SERVER', required=True, help='The URL for the RStudio Connect server.')
+@click.option('--api-key', '-k', envvar='CONNECT_API_KEY',
+              help='The API key to use to authenticate with RStudio Connect.')
+@click.option('--insecure', '-i', envvar='CONNECT_INSECURE', is_flag=True,
+              help='Disable TLS certification/host validation.')
+@click.option('--cacert', '-c', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
+              help='The path to trusted TLS CA certificates.')
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
+def test(server, api_key, insecure, cacert, verbose):
+    set_verbosity(verbose)
+    do_ping(server, api_key, insecure, cacert and cacert.read())
+
+
+# noinspection SpellCheckingInspection
+@cli.command(help='Create a nickname for an RStudio Connect instance.')
+@click.option('--name', '-n', required=True, help='The nickname to assign to the instance.')
+@click.option('--server', '-s', required=True, help='The URL for the RStudio Connect server.')
+@click.option('--api-key', '-k', required=True, help='The API key to use to authenticate with RStudio Connect.')
+@click.option('--insecure', '-i', is_flag=True, help='Disable TLS certification/host validation.')
+@click.option('--cacert', '-c', type=click.File(), help='The path to trusted TLS CA certificates.')
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
 def add(name, server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
     with cli_feedback(''):
@@ -57,22 +93,33 @@ def add(name, server, api_key, insecure, cacert, verbose):
             click.echo('Replaced server "%s" with URL %s' % (name, real_server))
 
 
-@cli.command(help='Remove a server')
-@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages')
-@click.argument('server')
-def remove(server, verbose):
+@cli.command(help='Remove the information about an RStudio Connect instance by nickname or URL.  '
+                  'One of --name or --server is required.')
+@click.option('--name', '-n', help='The nickname of the RStudio Connect instance to remove.')
+@click.option('--server', '-s',  help='The URL of the RStudio Connect instance to remove.')
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
+def remove(name, server, verbose):
     set_verbosity(verbose)
     with cli_feedback(''):
-        if server_store.get(server) is None:
-            click.echo('Server "%s" was not found' % server)
-        else:
-            server_store.remove(server)
-            server_store.save()
-            click.echo('Removed server "%s"' % server)
+        if (name and server) or not (name or server):
+            raise api.RSConnectException('You must specify one of -n/--name or -s/--server.  See --help for details.')
+
+        if name:
+            if server_store.remove(name):
+                server_store.save()
+                click.echo('Removed nickname "%s"' % name)
+            else:
+                click.secho('Nickname "%s" was not found.' % name, fg='bright_red')
+        else:  # the user specified -s/--server
+            if server_store.remove(server):
+                server_store.save()
+                click.echo('Removed URL "%s"' % server)
+            else:
+                click.secho('URL "%s" was not found.' % server, fg='bright_red')
 
 
-@cli.command('list', help='List saved servers')
-@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages')
+@cli.command('list', help='List the known RStudio Connect instances.')
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
 def list_servers(verbose):
     set_verbosity(verbose)
     with cli_feedback(''):
@@ -85,18 +132,17 @@ def list_servers(verbose):
         else:
             click.echo()
             for server in servers:
-                click.echo('Server "%s"' % server['name'])
+                click.echo('Nickname: "%s"' % server['name'])
                 click.echo('    URL: %s' % server['url'])
-                if server['api_key']:
-                    click.echo('    API key is saved')
+                click.echo('    API key is saved')
                 if server['insecure']:
                     click.echo('    Insecure mode (TLS certificate validation disabled)')
                 if server['ca_cert']:
-                    click.echo('    TLS certificate file: %s' % server['ca_cert'])
+                    click.echo('    Client TLS certificate data provided')
                 click.echo()
 
 
-@cli.command(help='Show saved information about the specified deployment')
+@cli.command(help='Show saved information about the specified deployment.')
 @click.argument('file', type=click.Path(exists=True))
 def info(file):
     with cli_feedback(''):
@@ -131,56 +177,40 @@ def info(file):
             click.echo('No saved deployment information was found.')
 
 
-@cli.command(help='Show the version of rsconnect-python')
-def version():
-    click.echo(VERSION)
-
-
-# noinspection SpellCheckingInspection
-@cli.command(help='Verify a Connect server URL without adding the server. If API key is provided, verify that the '
-                  'given API key is valid for the server; otherwise, verify that the server is running RStudio '
-                  'Connect.')
-@click.option('--server', '-s', required=True, envvar='CONNECT_SERVER', help='Connect server URL')
-@click.option('--api-key', '-k', envvar='CONNECT_API_KEY', help='Connect server API key (Optional if server is saved)')
-@click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
-@click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
-              help='Path to trusted TLS CA certificate.')
-@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages')
-def test(server, api_key, insecure, cacert, verbose):
-    set_verbosity(verbose)
-    do_ping(server, api_key, insecure, cacert and cacert.read())
-
-
-@cli.group(no_args_is_help=True, help="Deploy content to RStudio Connect")
+@cli.group(no_args_is_help=True, help="Deploy content to RStudio Connect.")
 def deploy():
     pass
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
-@deploy.command(name='notebook', help='Deploy content to RStudio Connect')
-@click.option('--server', '-s', envvar='CONNECT_SERVER', help='Connect server URL or saved server name')
-@click.option('--api-key', '-k', envvar='CONNECT_API_KEY', help='Connect server API key (Optional if server is saved)')
-@click.option('--static', is_flag=True,
-              help='Render a notebook locally and deploy the result as a static notebook. Will not include the notebook source. Static notebooks '
-                   'cannot be re-run on the server.')
-@click.option('--new', '-n', is_flag=True,
+@deploy.command(name='notebook', help='Deploy content to RStudio Connect.')
+@click.option('--name', '-n', help='The nickname of the RStudio Connect instance to deploy to.')
+@click.option('--server', '-s', envvar='CONNECT_SERVER',  help='The URL for the RStudio Connect server to deploy to.')
+@click.option('--api-key', '-k', envvar='CONNECT_API_KEY',
+              help='The API key to use to authenticate with RStudio Connect.')
+@click.option('--static', '-S', is_flag=True,
+              help='Render a notebook locally and deploy the result as a static notebook. '
+                   'Will not include the notebook source. Static notebooks cannot be re-run on the server.')
+@click.option('--new', '-N', is_flag=True,
               help='Force a new deployment, even if there is saved metadata from a previous deployment.')
-@click.option('--app-id', help='Existing app ID or GUID to replace. Cannot be used with --new.')
-@click.option('--title', '-t', help='Title of the content (default is the same as the filename)')
-@click.option('--python', type=click.Path(exists=True),
+@click.option('--app-id', '-a', help='Existing app ID or GUID to replace. Cannot be used with --new.')
+@click.option('--title', '-t', help='Title of the content (default is the same as the filename).')
+@click.option('--python', '-p', type=click.Path(exists=True),
               help='Path to python interpreter whose environment should be used. '
                    'The python environment must have the rsconnect package installed.')
-@click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
-@click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
-              help='Path to trusted TLS CA certificate.')
-@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages')
+@click.option('--insecure', '-i', envvar='CONNECT_INSECURE', is_flag=True,
+              help='Disable TLS certification/host validation.')
+@click.option('--cacert', '-c', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
+              help='The path to trusted TLS CA certificates.')
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
-def deploy_notebook(server, api_key, static, new, app_id, title, python, insecure, cacert, verbose, file, extra_files):
+def deploy_notebook(name, server, api_key, static, new, app_id, title, python, insecure, cacert, verbose, file,
+                    extra_files):
     set_verbosity(verbose)
     logger = logging.getLogger('rsconnect')
-    if server:
-        click.secho('Deploying %s to server "%s"' % (file, server), fg='bright_white')
+    if name or server:
+        click.secho('Deploying %s to server "%s"' % (file, name or server), fg='bright_white')
     else:
         click.secho('Deploying %s' % file, fg='bright_white')
 
@@ -188,13 +218,16 @@ def deploy_notebook(server, api_key, static, new, app_id, title, python, insecur
         app_store = AppStore(file)
         app_store.load()
 
-        server, api_key, insecure, cadata = server_store.resolve(server, api_key, insecure, cacert and cacert.read())
+        if (name and server) or not (name or server):
+            raise api.RSConnectException('You must specify one of -n/--name or -s/--server.  See --help for details.')
+
+        server, api_key, insecure, cadata = server_store.resolve(name, server, api_key, insecure,
+                                                                 cacert and cacert.read())
         uri = urlparse(server)
         if not uri.netloc:
             raise api.RSConnectException('Invalid server URL: "%s"' % server)
         if not api_key:
-            raise api.RSConnectException('No API Key available for "%s": specify an API key on the command line' %
-                                         server)
+            raise api.RSConnectException('An API key must be specified for "%s".' % server)
 
         file_suffix = splitext(file)[1].lower()
         if file_suffix != '.ipynb':
@@ -272,24 +305,25 @@ def deploy_notebook(server, api_key, static, new, app_id, title, python, insecur
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
-@deploy.command(name='manifest', short_help='Deploy content to RStudio Connect using an existing manifest.json file')
-@click.option('--server', '-s', envvar='CONNECT_SERVER', help='Connect server URL or saved server name')
-@click.option('--api-key', '-k', envvar='CONNECT_API_KEY', help='Connect server API key (Optional if server is saved)')
-@click.option('--new', '-n', is_flag=True,
-              help='Force a new deployment, even if there is saved metadata from a previous deployment.'
-              )
-@click.option('--app-id', help='Existing app ID or GUID to replace. Cannot be used with --new.')
-@click.option('--title', '-t', help='Title of the content (default is the same as the filename)')
-@click.option('--insecure', envvar='CONNECT_INSECURE', is_flag=True, help='Disable TLS certification validation.')
-@click.option('--cacert', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
-              help='Path to trusted TLS CA certificate.'
-              )
-@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages')
+@deploy.command(name='manifest', short_help='Deploy content to RStudio Connect using an existing manifest.json file.')
+@click.option('--name', '-n', help='The nickname of the RStudio Connect instance to deploy to.')
+@click.option('--server', '-s', envvar='CONNECT_SERVER',  help='The URL for the RStudio Connect server to deploy to.')
+@click.option('--api-key', '-k', envvar='CONNECT_API_KEY',
+              help='The API key to use to authenticate with RStudio Connect.')
+@click.option('--new', '-N', is_flag=True,
+              help='Force a new deployment, even if there is saved metadata from a previous deployment.')
+@click.option('--app-id', '-a', help='Existing app ID or GUID to replace. Cannot be used with --new.')
+@click.option('--title', '-t', help='Title of the content (default is the same as the filename).')
+@click.option('--insecure', '-i', envvar='CONNECT_INSECURE', is_flag=True,
+              help='Disable TLS certification/host validation.')
+@click.option('--cacert', '-c', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
+              help='The path to trusted TLS CA certificates.')
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
 @click.argument('file', type=click.Path(exists=True))
-def deploy_manifest(server, api_key, new, app_id, title, insecure, cacert, verbose, file):
+def deploy_manifest(name, server, api_key, new, app_id, title, insecure, cacert, verbose, file):
     set_verbosity(verbose)
-    if server:
-        click.secho('Deploying %s to server "%s"' % (file, server), fg='bright_white')
+    if name or server:
+        click.secho('Deploying %s to server "%s"' % (file, name or server), fg='bright_white')
     else:
         click.secho('Deploying %s' % file, fg='bright_white')
 
@@ -297,13 +331,16 @@ def deploy_manifest(server, api_key, new, app_id, title, insecure, cacert, verbo
         app_store = AppStore(file)
         app_store.load()
 
-        server, api_key, insecure, cadata = server_store.resolve(server, api_key, insecure, cacert and cacert.read())
+        if (name and server) or not (name or server):
+            raise api.RSConnectException('You must specify one of -n/--name or -s/--server.  See --help for details.')
+
+        server, api_key, insecure, cadata = server_store.resolve(name, server, api_key, insecure,
+                                                                 cacert and cacert.read())
         uri = urlparse(server)
         if not uri.netloc:
             raise api.RSConnectException('Invalid server URL: "%s"' % server)
         if not api_key:
-            raise api.RSConnectException('No API Key available for "%s": specify an API key on the command line' %
-                                         server)
+            raise api.RSConnectException('An API key must be specified for "%s".' % server)
 
         if basename(file) != 'manifest.json':
             raise api.RSConnectException(
@@ -370,7 +407,7 @@ def manifest():
                                         'Creates an environment file (requirements.txt) if one does not exist. '
                                         'All files are created in the same directory as the notebook file.')
 @click.option('--force', '-f', is_flag=True, help='Replace manifest.json, if it exists.')
-@click.option('--python', type=click.Path(exists=True),
+@click.option('--python', '-p', type=click.Path(exists=True),
               help='Path to python interpreter whose environment should be used. ' +
                    'The python environment must have the rsconnect package installed.'
               )
