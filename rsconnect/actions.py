@@ -130,8 +130,7 @@ def verify_server(server, insecure, ca_data):
 
 
 def verify_api_key(server, api_key, insecure, ca_data):
-    uri = urlparse(server)
-    api.verify_api_key(uri, api_key, insecure, ca_data)
+    api.verify_api_key(server, api_key, insecure, ca_data)
 
 
 def do_ping(server, api_key, insecure, ca_data):

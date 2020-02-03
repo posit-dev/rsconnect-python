@@ -56,8 +56,8 @@ class TestServerMetadata(TestCase):
         self.assertEqual(servers[1]['url'], 'http://connect.local')
 
     def test_resolve_by_name(self):
-        server, api_key, insecure, ca_cert = 'foo', None, None, None
-        server, api_key, insecure, ca_cert = self.server_store.resolve(server, api_key, insecure, ca_cert)
+        name, server, api_key, insecure, ca_cert = 'foo', None, None, None, None
+        server, api_key, insecure, ca_cert = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
 
         self.assertEqual(server, 'http://connect.local')
         self.assertEqual(api_key, 'notReallyAnApiKey')
@@ -65,8 +65,8 @@ class TestServerMetadata(TestCase):
         self.assertEqual(ca_cert, '/certs/connect')
 
     def test_resolve_by_url(self):
-        server, api_key, insecure, ca_cert = 'http://connect.local', None, None, None
-        server, api_key, insecure, ca_cert = self.server_store.resolve(server, api_key, insecure, ca_cert)
+        name, server, api_key, insecure, ca_cert = None, 'http://connect.local', None, None, None
+        server, api_key, insecure, ca_cert = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
 
         self.assertEqual(server, 'http://connect.local')
         self.assertEqual(api_key, 'notReallyAnApiKey')
@@ -75,13 +75,13 @@ class TestServerMetadata(TestCase):
 
     def test_resolve_by_default(self):
         # with multiple entries, server None will not resolve by default
-        server, api_key, insecure, ca_cert = None, None, None, None
-        server, api_key, insecure, ca_cert = self.server_store.resolve(server, api_key, insecure, ca_cert)
+        name, server, api_key, insecure, ca_cert = None, None, None, None, None
+        server, api_key, insecure, ca_cert = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
         self.assertEqual(server, None)
 
         # with only a single entry, server None will resolve to that entry
         self.server_store.remove('http://connect.remote')
-        server, api_key, insecure, ca_cert = self.server_store.resolve(server, api_key, insecure, ca_cert)
+        server, api_key, insecure, ca_cert = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
         self.assertEqual(server, 'http://connect.local')
         self.assertEqual(api_key, 'notReallyAnApiKey')
         self.assertEqual(insecure, False)
