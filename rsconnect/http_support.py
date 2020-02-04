@@ -57,22 +57,22 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data):
         return http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=10)
 
 
-def append_to_url(url, path):
+def append_to_path(uri, path):
     """
-    This is a helper function for appending a path to a URL.  The main purpose is to make sure
-    one and only one slash ends up between them.
+    This is a helper function for appending a path to a URI (i.e, just the path portion
+    of a full URL).  The main purpose is to make sure one and only one slash ends up between them.
 
-    :param url: the URL to append the path to.
+    :param uri: the URI to append the path to.
     :param path: the path to append.
     :return: the result of the append.
     """
-    if url.endswith('/') and path.startswith('/'):
-        url += path[1:]
-    elif not (url.endswith('/') or path.startswith('/')):
-        url = url + '/' + path
+    if uri.endswith('/') and path.startswith('/'):
+        uri += path[1:]
+    elif not (uri.endswith('/') or path.startswith('/')):
+        uri = uri + '/' + path
     else:
-        url += path
-    return url
+        uri += path
+    return uri
 
 
 class HTTPResponse(object):
@@ -139,8 +139,8 @@ class HTTPServer(object):
     def key_authorization(self, api_key):
         self.authorization('Key %s' % api_key)
 
-    def _get_full_url(self, uri):
-        return append_to_url(self._url, uri)
+    def _get_full_path(self, path):
+        return append_to_path(self._url.path, path)
 
     def __enter__(self):
         factory = _connection_factory[self._url.scheme]
@@ -149,8 +149,8 @@ class HTTPServer(object):
 
     def __exit__(self, *args):
         if self._conn is not None:
-            self.conn.close()
-            self.conn = None
+            self._conn.close()
+            self._conn = None
 
     def get(self, path, query_params=None):
         return self.request('GET', path, query_params)
@@ -159,30 +159,27 @@ class HTTPServer(object):
         return self.request('POST', path, query_params, body)
 
     def request(self, method, path, query_params=None, body=None, maximum_redirects=5):
-        url = self._get_full_url(path)
+        path = self._get_full_path(path)
         extra_headers = None
         if isinstance(body, dict):
             body = json.dumps(body).encode('utf-8')
             extra_headers = {'Content-Type': 'application/json; charset=utf-8'}
-        return self._do_request(method, url, query_params, body, maximum_redirects, extra_headers)
+        return self._do_request(method, path, query_params, body, maximum_redirects, extra_headers)
 
-    def _do_request(self, method, url, query_params, body, maximum_redirects, extra_headers=None):
-        full_url = url
+    def _do_request(self, method, path, query_params, body, maximum_redirects, extra_headers=None):
+        full_uri = path
         if query_params is not None:
-            full_url = '%s?%s' % (url, urlencode(query_params))
+            full_uri = '%s?%s' % (path, urlencode(query_params))
         headers = self._headers.copy()
         if extra_headers is not None:
             headers.update(extra_headers)
-        conn = None
 
         try:
-            conn = _connection_factory[self._url.scheme](self._url.hostname, self._url.port)
+            logger.debug('Performing: %s %s' % (method, full_uri))
 
-            logger.debug('Performing: %s %s' % (method, full_url))
+            self._conn.request(method, full_uri, body, headers)
 
-            conn.request(method, full_url, body, headers)
-
-            response = conn.getresponse()
+            response = self._conn.getresponse()
 
             # Handle any redirects.
             if 300 <= response.status < 400:
@@ -190,9 +187,9 @@ class HTTPServer(object):
                     raise http.CannotSendRequest('Too many redirects')
 
                 location = response.getheader('Location')
-                next_url = urljoin(self._url, location)
+                next_url = urljoin(self._url.geturl(), location)
 
-                logger.warning('Redirected to: %s' % next_url)
+                logger.debug('Redirected to: %s' % next_url)
 
                 return self._do_request(method, next_url, query_params, body, maximum_redirects - 1)
 
@@ -202,9 +199,6 @@ class HTTPServer(object):
         except (http.HTTPException, IOError, OSError, socket.error, socket.herror, socket.gaierror,
                 socket.timeout) as exception:
             return HTTPResponse(exception=exception)
-        finally:
-            if conn is not None:
-                conn.close()
 
     # noinspection PyMethodMayBeStatic
     def _tweak_response(self, response):

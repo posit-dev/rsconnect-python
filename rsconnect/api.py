@@ -1,7 +1,7 @@
 import logging
 import time
 
-from rsconnect.http_support import HTTPResponse, HTTPServer, append_to_url
+from rsconnect.http_support import HTTPResponse, HTTPServer, append_to_path
 
 
 class RSConnectException(Exception):
@@ -15,13 +15,13 @@ logger = logging.getLogger('rsconnect')
 
 class RSConnect(HTTPServer):
     def __init__(self, url, api_key, disable_tls_check=False, ca_data=None, cookies=None):
-        super(RSConnect, self).__init__(append_to_url(url, '__api__'), disable_tls_check, ca_data, cookies)
+        super(RSConnect, self).__init__(append_to_path(url, '__api__'), disable_tls_check, ca_data, cookies)
 
         if api_key:
             self.key_authorization(api_key)
 
     def _tweak_response(self, response):
-        return response.json_data if response.json_data else response
+        return response.json_data if response.status and response.status == 200 and response.json_data else response
 
     def me(self):
         return self.get('me')
@@ -131,19 +131,47 @@ class RSConnect(HTTPServer):
 
 
 def verify_server(server_address, disable_tls_check, ca_data):
+    """
+    Verify than a server URL is reachable, active and appears to be running an RStudio Connect
+    server.
+
+    :param server_address: the URL of the target Connect server.
+    :param disable_tls_check: a flag to disable TLS verification.
+    :param ca_data: client side certificate data to use for TLS.
+    :return: the server settings from the Connect server.
+    """
     with RSConnect(server_address, None, disable_tls_check, ca_data) as server:
         result = server.server_settings()
 
         if isinstance(result, HTTPResponse):
-            if result.status == 404:
+            if result.exception:
+                raise RSConnectException('Exception trying to connect to %s - %s' % (server_address, result.exception))
+            elif 400 <= result.status < 500:
                 raise RSConnectException('The specified server does not appear to be running RStudio Connect')
-            elif result.status >= 400:
+            elif result.status >= 500:
                 raise RSConnectException('Response from Connect server: %s %s' % (result.status, result.reason))
 
+        return result
 
-def verify_api_key(uri, api_key, disable_tls_check, ca_data):
-    with RSConnect(uri, api_key, disable_tls_check=disable_tls_check, ca_data=ca_data) as api:
-        api.me()
+
+def verify_api_key(server_address, api_key, disable_tls_check, ca_data):
+    """
+    Verify that an API Key may be used to authenticate with the given RStudio Connect server.
+    If the API key verifies, we return the username of the associated user.
+
+    :param server_address: the URL of the target Connect server.
+    :param api_key: the API key to verify.
+    :param disable_tls_check: a flag to disable TLS verification.
+    :param ca_data: client side certificate data to use for TLS.
+    :return: the username of the user to whom the API key belongs.
+    """
+    with RSConnect(server_address, api_key, disable_tls_check=disable_tls_check, ca_data=ca_data) as api:
+        result = api.me()
+        if isinstance(result, HTTPResponse):
+            if result.json_data and 'code' in result.json_data and result.json_data['code'] == 30:
+                raise RSConnectException('The specified API key is not valid.')
+            raise RSConnectException('Could not verify the API key: %s %s' % (result.status, result.reason))
+        return result['username']
 
 
 (
