@@ -193,30 +193,3 @@ def test_server(server, insecure, ca_data):
 
     # If we're here, nothing worked.
     raise api.RSConnectException('\n'.join(failures))
-
-
-def do_ping(server, api_key, insecure, ca_data):
-    """Test the given server URL to see if it's running Connect.
-
-    If an API key is provided, also validate that it works to authenticate against Connect.
-    Raises an exception on failure, otherwise returns None.
-    """
-    with cli_feedback('Checking %s' % server):
-        uri = urlparse(server)
-        if not uri.scheme:
-            try:
-                _verify_server('https://' + server, insecure, ca_data)
-                server = 'https://'+server
-            except api.RSConnectException:
-                try:
-                    _verify_server('http://' + server, insecure, ca_data)
-                    server = 'http://'+server
-                except api.RSConnectException as e2:
-                    raise api.RSConnectException('Invalid server URL: "%s" - %s' % (server, e2))
-        else:
-            _verify_server(server, insecure, ca_data)
-
-    if api_key:
-        with cli_feedback('Verifying API key'):
-            test_api_key(server, api_key, insecure, ca_data)
-    return server

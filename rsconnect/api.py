@@ -146,6 +146,10 @@ def verify_server(server_address, disable_tls_check, ca_data):
         if isinstance(result, HTTPResponse):
             if result.exception:
                 raise RSConnectException('Exception trying to connect to %s - %s' % (server_address, result.exception))
+            # Sometimes an ISP will respond to an unknown server name by returning a friendly search page so
+            # trap that since we know we're expecting JSON from Connect
+            elif result.status == 200 and not result.content_type.startswith('application/json'):
+                raise RSConnectException('The specified server does not appear to be running RStudio Connect')
             elif 400 <= result.status < 500:
                 raise RSConnectException('The specified server does not appear to be running RStudio Connect')
             elif result.status >= 500:
