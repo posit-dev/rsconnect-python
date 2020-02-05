@@ -122,39 +122,101 @@ def default_title_for_manifest(the_manifest):
     return default_title(filename or 'manifest.json')
 
 
-def verify_server(server, insecure, ca_data):
+def _verify_server(server, insecure, ca_data):
+    """
+    Test whether the server identified by the given full URL can be reached and is
+    running Connect.
+
+    :param server: the full URL of the server to test.
+    :param insecure: a flag to disable TLS verification.
+    :param ca_data: client side certificate data to use for TLS.
+    :return: the server settings from the Connect server.
+    """
     uri = urlparse(server)
     if not uri.netloc:
         raise api.RSConnectException('Invalid server URL: "%s"' % server)
-    api.verify_server(server, insecure, ca_data)
+    return api.verify_server(server, insecure, ca_data)
 
 
-def verify_api_key(server, api_key, insecure, ca_data):
-    api.verify_api_key(server, api_key, insecure, ca_data)
+def test_api_key(server, api_key, insecure, ca_data):
+    """
+    Test that an API Key may be used to authenticate with the given RStudio Connect server.
+    If the API key verifies, we return the username of the associated user.
+
+    :param server: the full URL of the target Connect server.
+    :param api_key: the API key to verify.
+    :param insecure: a flag to disable TLS verification.
+    :param ca_data: client side certificate data to use for TLS.
+    :return: the username of the user to whom the API key belongs.
+    """
+    return api.verify_api_key(server, api_key, insecure, ca_data)
+
+
+def _to_server_check_list(server):
+    """
+    Build a list of servers to check from the given one.  If the specified server
+    appears not to have a scheme, then we'll provide https and http variants to test.
+
+    :param server: the server text to start with.
+    :return: a list of server strings to test.
+    """
+    # urlparse will end up with an empty netloc in this case.
+    if '//' not in server:
+        items = ['https://%s', 'http://%s']
+    # urlparse would parse this correctly and end up with an empty scheme.
+    elif server.startswith('//'):
+        items = ['https:%s', 'http:%s']
+    else:
+        items = ['%s']
+
+    return [item % server for item in items]
+
+
+def test_server(server, insecure, ca_data):
+    """
+    Test whether the given server can be reached and is running Connect.  The server
+    may be provided with or without a scheme.  If a scheme is omitted, the server will
+    be tested with both `https` and `http` until one of them works.
+
+    :param server: the server to test.
+    :param insecure: a flag to disable TLS verification.
+    :param ca_data: client side certificate data to use for TLS.
+    :return: the full server URL.
+    """
+    failures = ['Invalid server URL: %s' % server]
+    for test in _to_server_check_list(server):
+        try:
+            result = _verify_server(test, insecure, ca_data)
+            return test, result
+        except api.RSConnectException as e:
+            failures.append('    %s - %s' % (test, e))
+
+    # If we're here, nothing worked.
+    raise api.RSConnectException('\n'.join(failures))
 
 
 def do_ping(server, api_key, insecure, ca_data):
     """Test the given server URL to see if it's running Connect.
 
-    If api_key is set, also validate the API key.
+    If an API key is provided, also validate that it works to authenticate against Connect.
     Raises an exception on failure, otherwise returns None.
     """
     with cli_feedback('Checking %s' % server):
         uri = urlparse(server)
         if not uri.scheme:
             try:
-                verify_server('https://'+server, insecure, ca_data)
+                _verify_server('https://' + server, insecure, ca_data)
                 server = 'https://'+server
             except api.RSConnectException:
                 try:
-                    verify_server('http://'+server, insecure, ca_data)
+                    _verify_server('http://' + server, insecure, ca_data)
                     server = 'http://'+server
                 except api.RSConnectException as e2:
                     raise api.RSConnectException('Invalid server URL: "%s" - %s' % (server, e2))
         else:
-            verify_server(server, insecure, ca_data)
+            _verify_server(server, insecure, ca_data)
 
     if api_key:
         with cli_feedback('Verifying API key'):
-            verify_api_key(server, api_key, insecure, ca_data)
+            test_api_key(server, api_key, insecure, ca_data)
     return server
