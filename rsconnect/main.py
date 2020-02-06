@@ -462,7 +462,7 @@ def deploy_help():
            'this tool with the command, '
     click.echo('\n'.join(textwrap.wrap(text, 79)))
     click.echo()
-    click.echo('    rsconnect deploy manifest <manifest-file>')
+    click.echo('    rsconnect deploy manifest [-n <name>|-s <url> -k <key>] <manifest-file>')
     click.echo()
 
 
