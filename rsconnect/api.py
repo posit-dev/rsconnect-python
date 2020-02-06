@@ -1,5 +1,6 @@
 import logging
 import time
+from _ssl import SSLError
 
 from rsconnect.http_support import HTTPResponse, HTTPServer, append_to_path
 
@@ -140,19 +141,22 @@ def verify_server(server_address, disable_tls_check, ca_data):
     :param ca_data: client side certificate data to use for TLS.
     :return: the server settings from the Connect server.
     """
-    with RSConnect(server_address, None, disable_tls_check, ca_data) as server:
-        result = server.server_settings()
+    try:
+        with RSConnect(server_address, None, disable_tls_check, ca_data) as server:
+            result = server.server_settings()
 
-        if isinstance(result, HTTPResponse):
-            if result.exception:
-                raise RSConnectException('Exception trying to connect to %s - %s' % (server_address, result.exception))
-            # Sometimes an ISP will respond to an unknown server name by returning a friendly
-            # search page so trap that since we know we're expecting JSON from Connect.  This
-            # also catches all error conditions which we will report as "not running Connect".
-            else:
-                raise RSConnectException('The specified server does not appear to be running RStudio Connect')
+            if isinstance(result, HTTPResponse):
+                if result.exception:
+                    raise RSConnectException('Exception trying to connect to %s - %s' % (server_address, result.exception))
+                # Sometimes an ISP will respond to an unknown server name by returning a friendly
+                # search page so trap that since we know we're expecting JSON from Connect.  This
+                # also catches all error conditions which we will report as "not running Connect".
+                else:
+                    raise RSConnectException('The specified server does not appear to be running RStudio Connect')
 
-        return result
+            return result
+    except SSLError as ssl_error:
+        raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
 
 
 def verify_api_key(server_address, api_key, disable_tls_check, ca_data):

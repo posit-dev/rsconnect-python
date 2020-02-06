@@ -99,7 +99,7 @@ class HTTPResponse(object):
             self.content_type = response.getheader('Content-Type')
             self.response_body = response.read().decode('utf-8')
 
-            if self.content_type.startswith('application/json'):
+            if self.content_type and self.content_type.startswith('application/json'):
                 self.json_data = json.loads(self.response_body)
 
 

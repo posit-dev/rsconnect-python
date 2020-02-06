@@ -191,5 +191,9 @@ def test_server(server, insecure, ca_data):
         except api.RSConnectException as e:
             failures.append('    %s - %s' % (test, e))
 
+    # In case the user may need https instead of http...
+    if len(failures) == 2 and server.startswith('http://'):
+        failures.append('    Do you need to use "https://%s?"' % server[7:])
+
     # If we're here, nothing worked.
     raise api.RSConnectException('\n'.join(failures))
