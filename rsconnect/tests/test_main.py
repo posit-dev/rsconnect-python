@@ -23,10 +23,10 @@ class TestMain(TestCase):
         return connect_api_key
 
     def optional_target(self, default):
-        return os.environ.get('TARGET', default)
+        return os.environ.get('CONNECT_DEPLOY_TARGET', default)
 
     def optional_cadata(self, default=None):
-        return os.environ.get('CADATA_FILE', default)
+        return os.environ.get('CONNECT_CADATA_FILE', default)
 
     def test_version(self):
         runner = CliRunner()
