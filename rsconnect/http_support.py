@@ -79,7 +79,7 @@ class HTTPResponse(object):
     """
     This class represents the result of executing an HTTP request.
     """
-    def __init__(self, response=None, exception=None):
+    def __init__(self, response=None, body=None, exception=None):
         """
         This constructs an HTTPResponse object.  One and only one of the arguments will
         be None.
@@ -91,15 +91,14 @@ class HTTPResponse(object):
         self.exception = exception
         self.content_type = None
         self.json_data = None
-        self.response_body = None
+        self.response_body = body
 
         if response is not None:
             self.status = response.status
             self.reason = response.reason
             self.content_type = response.getheader('Content-Type')
-            self.response_body = response.read().decode('utf-8')
 
-            if self.content_type and self.content_type.startswith('application/json'):
+            if self.content_type and self.content_type.startswith('application/json') and len(self.response_body) > 0:
                 self.json_data = json.loads(self.response_body)
 
 
@@ -188,6 +187,7 @@ class HTTPServer(object):
                 self._conn.request(method, full_uri, body, headers)
 
                 response = self._conn.getresponse()
+                response_body = response.read().decode('utf-8').strip()
             finally:
                 if local_connection:
                     self.__exit__()
@@ -206,7 +206,7 @@ class HTTPServer(object):
 
             self._handle_set_cookie(response)
 
-            return self._tweak_response(HTTPResponse(response=response))
+            return self._tweak_response(HTTPResponse(response=response, body=response_body))
         except (http.HTTPException, IOError, OSError, socket.error, socket.herror, socket.gaierror,
                 socket.timeout) as exception:
             return HTTPResponse(exception=exception)

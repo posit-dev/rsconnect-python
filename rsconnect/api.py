@@ -76,6 +76,7 @@ class RSConnect(HTTPServer):
         if app_id is None:
             # create an app if id is not provided
             app = self.app_create(app_name)
+            app_id = app['id']
         else:
             # assume app exists. if it was deleted then Connect will
             # raise an error

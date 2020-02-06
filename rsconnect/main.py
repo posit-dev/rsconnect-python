@@ -89,7 +89,7 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
 
 
 # noinspection SpellCheckingInspection
-@cli.command(help='Associate a simple nickname with the information needed to interact with an RStudio Connect server')
+@cli.command(help='Associate a simple nickname with the information needed to interact with an RStudio Connect server.')
 @click.option('--name', '-n', required=True, help='The nickname to associate with the server.')
 @click.option('--server', '-s', required=True, help='The URL for the RStudio Connect server.')
 @click.option('--api-key', '-k', required=True, help='The API key to use to authenticate with RStudio Connect.')
@@ -341,9 +341,9 @@ def deploy_notebook(name, server, api_key, static, new, app_id, title, python, i
                                              'Use --new to create a new deployment.')
 
     if name or server:
-        click.secho('Deploying %s to server "%s"' % (file, name or server), fg='bright_white')
+        click.secho('    Deploying %s to server "%s"' % (file, server), fg='white')
     else:
-        click.secho('Deploying %s' % file, fg='bright_white')
+        click.secho('    Deploying %s' % file, fg='white')
 
     with cli_feedback('Inspecting python environment'):
         python = which_python(python)
@@ -429,9 +429,9 @@ def deploy_manifest(name, server, api_key, new, app_id, title, insecure, cacert,
         api_client = api.RSConnect(server, api_key, [], insecure, ca_data)
 
     if name or server:
-        click.secho('Deploying %s to server "%s"' % (file, name or server), fg='bright_white')
+        click.secho('    Deploying %s to server "%s"' % (file, server), fg='white')
     else:
-        click.secho('Deploying %s' % file, fg='bright_white')
+        click.secho('    Deploying %s' % file, fg='white')
 
     with cli_feedback('Creating deployment bundle'):
         bundle = make_manifest_bundle(file)
