@@ -7,6 +7,7 @@ from os.path import abspath, basename, dirname, exists, join, splitext
 from pprint import pformat
 
 import click
+from six import text_type
 from six.moves.urllib_parse import urlparse
 
 from rsconnect import VERSION
@@ -75,7 +76,7 @@ def test(server, api_key, insecure, cacert, verbose):
 
 
 def _test_server_and_api(server, api_key, insecure, ca_cert):
-    ca_data = ca_cert and unicode(ca_cert.read())
+    ca_data = ca_cert and text_type(ca_cert.read())
     me = None
 
     with cli_feedback('Checking %s' % server):
@@ -241,7 +242,7 @@ def deploy():
 
 
 def _validate_deploy_to_args(name, server, api_key, insecure, ca_cert):
-    ca_data = ca_cert and unicode(ca_cert.read())
+    ca_data = ca_cert and text_type(ca_cert.read())
 
     if name and server:
         raise api.RSConnectException('You must specify only one of -n/--name or -s/--server, not both.')
