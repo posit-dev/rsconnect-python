@@ -65,13 +65,10 @@ def version():
 def test(server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
 
-    real_server, connect_version, me, _ = _test_server_and_api(server, api_key, insecure, cacert)
+    real_server, me, _ = _test_server_and_api(server, api_key, insecure, cacert)
 
     if real_server:
-        text = '    RStudio Connect URL: %s' % real_server
-        if len(connect_version) > 0:
-            text = '%s, version: %s' % (text, connect_version)
-        click.echo(text)
+        click.echo('    RStudio Connect URL: %s' % real_server)
 
     if me:
         click.echo('    Username: %s' % me)
@@ -79,20 +76,16 @@ def test(server, api_key, insecure, cacert, verbose):
 
 def _test_server_and_api(server, api_key, insecure, ca_cert):
     ca_data = ca_cert and ca_cert.read()
-    connect_version = None
     me = None
 
     with cli_feedback('Checking %s' % server):
-        real_server, settings = test_server(server, insecure, ca_data)
-
-        if settings:
-            connect_version = settings['version']
+        real_server, _ = test_server(server, insecure, ca_data)
 
     if real_server and api_key:
         with cli_feedback('Checking API key'):
             me = test_api_key(real_server, api_key, insecure, ca_data)
 
-    return real_server, connect_version, me, ca_data
+    return real_server, me, ca_data
 
 
 # noinspection SpellCheckingInspection
@@ -109,7 +102,7 @@ def add(name, server, api_key, insecure, cacert, verbose):
     old_server = server_store.get_by_name(name)
 
     # Server must be pingable and the API key must work to be added.
-    real_server, connect_version, me, ca_data = _test_server_and_api(server, api_key, insecure, cacert)
+    real_server, _, ca_data = _test_server_and_api(server, api_key, insecure, cacert)
 
     server_store.set(name, real_server, api_key, insecure, ca_data)
 

@@ -181,7 +181,7 @@ def test_server(server, insecure, ca_data):
     :param server: the server to test.
     :param insecure: a flag to disable TLS verification.
     :param ca_data: client side certificate data to use for TLS.
-    :return: the full server URL.
+    :return: the full server URL and the server settings from the server.
     """
     failures = ['Invalid server URL: %s' % server]
     for test in _to_server_check_list(server):
