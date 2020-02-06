@@ -40,17 +40,19 @@ def _make_json_ready(thing):
     return thing
 
 
-def endpoint(authenticated: bool = False, cls=None, writes_json: bool = False):
+def endpoint(authenticated: bool = False, auth_optional: bool = False, cls=None, writes_json: bool = False):
     def decorator(function):
         @wraps(function)
         def wrapper(object_id=None, *args, **kwargs):
             if authenticated:
                 auth = request.headers.get('Authorization')
-                if auth is None or not auth.startswith('Key '):
+                user = None
+                if auth is not None and auth.startswith('Key '):
+                    user = User.get_user_by_api_key(auth[4:])
+
+                if user is None and not auth_optional:
                     abort(401)
-                user = User.get_user_by_api_key(auth[4:])
-                if user is None:
-                    abort(401)
+
                 g.user = user
 
             if cls is None:

@@ -2,9 +2,11 @@
 This is the main file, run via `flask run`, for the mock Connect server.
 """
 # noinspection PyPackageRequirements
+import sys
+
 from flask import Flask, Blueprint, g, request, url_for
 
-from .data import Application, AppMode, Bundle, Task, get_data_dump
+from .data import Application, AppMode, Bundle, Task, get_data_dump, default_server_settings
 from .http_helpers import endpoint, error
 
 app = Flask(__name__)
@@ -113,10 +115,28 @@ def get_task(task):
 
 
 @api.route('server_settings')
-@endpoint(writes_json=True)
+@endpoint(authenticated=True, auth_optional=True, writes_json=True)
 def server_settings():
-    # for our purposes, any non-error response will do
-    return {}
+    settings = default_server_settings.copy()
+
+    # If the endpoint was hit with a valid user, fill in some extra stuff.
+    if g.user is not None:
+        settings['version'] = '1.8.1-9999'
+        settings['build'] = '"9709a0fd93"'
+        settings['about'] = 'RStudio Connect v1.8.1-9999'
+
+    return settings
+
+
+@api.route('v1/server_settings/python')
+@endpoint(authenticated=True, writes_json=True)
+def python_settings():
+    v = sys.version_info
+    v = "%d.%d.%d" % (v[0], v[1], v[2])
+
+    return {
+        "installations": [{"version": v}]
+    }
 
 
 # noinspection PyUnresolvedReferences
