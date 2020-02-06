@@ -3,27 +3,21 @@ import sys
 import tarfile
 
 from unittest import TestCase
-from os.path import dirname, exists, join
+from os.path import dirname, join
 
 from rsconnect.environment import detect_environment
 from rsconnect.bundle import list_files, make_manifest_bundle, make_notebook_html_bundle, make_notebook_source_bundle
+from rsconnect.tests.test_data_util import get_dir
 
 
 class TestBundle(TestCase):
-    def get_dir(self, name):
-        py_version = 'py%d' % sys.version_info[0]
-        # noinspection SpellCheckingInspection
-        path = join(dirname(__file__), 'testdata', py_version, name)
-        self.assertTrue(exists(path))
-        return path
-
     @staticmethod
     def python_version():
         return u'.'.join(map(str, sys.version_info[:3]))
 
     def test_source_bundle1(self):
         self.maxDiff = 5000
-        directory = self.get_dir('pip1')
+        directory = get_dir('pip1')
         nb_path = join(directory, 'dummy.ipynb')
 
         # Note that here we are introspecting the environment from within
@@ -81,7 +75,7 @@ class TestBundle(TestCase):
 
     def test_source_bundle2(self):
         self.maxDiff = 5000
-        directory = self.get_dir('pip2')
+        directory = get_dir('pip2')
         nb_path = join(directory, 'dummy.ipynb')
 
         # Note that here we are introspecting the environment from within
@@ -180,10 +174,10 @@ class TestBundle(TestCase):
         self.assertEqual(files, paths[:2])
 
     def test_html_bundle1(self):
-        self.do_test_html_bundle(self.get_dir('pip1'))
+        self.do_test_html_bundle(get_dir('pip1'))
 
     def test_html_bundle2(self):
-        self.do_test_html_bundle(self.get_dir('pip2'))
+        self.do_test_html_bundle(get_dir('pip2'))
 
     def do_test_html_bundle(self, directory):
         self.maxDiff = 5000
