@@ -30,6 +30,9 @@ class RSConnect(HTTPServer):
     def server_settings(self):
         return self.get('server_settings')
 
+    def python_settings(self):
+        return self.get('v1/server_settings/python')
+
     def app_find(self, filters):
         response = self.get('applications', query_params=filters)
 
@@ -131,29 +134,32 @@ class RSConnect(HTTPServer):
         return new_last_status
 
 
-def verify_server(server_address, disable_tls_check, ca_data):
+def _handle_bad_response(server_address, response):
+    if isinstance(response, HTTPResponse):
+        if response.exception:
+            raise RSConnectException('Exception trying to connect to %s - %s' % (server_address, response.exception))
+        # Sometimes an ISP will respond to an unknown server name by returning a friendly
+        # search page so trap that since we know we're expecting JSON from Connect.  This
+        # also catches all error conditions which we will report as "not running Connect".
+        else:
+            raise RSConnectException('The specified server does not appear to be running RStudio Connect')
+
+
+def verify_server(server_address, api_key, disable_tls_check, ca_data):
     """
     Verify than a server URL is reachable, active and appears to be running an RStudio Connect
     server.
 
     :param server_address: the URL of the target Connect server.
+    :param api_key: the API key to pass, if any, for authentication.
     :param disable_tls_check: a flag to disable TLS verification.
     :param ca_data: client side certificate data to use for TLS.
     :return: the server settings from the Connect server.
     """
     try:
-        with RSConnect(server_address, None, disable_tls_check, ca_data) as server:
+        with RSConnect(server_address, api_key, disable_tls_check, ca_data) as server:
             result = server.server_settings()
-
-            if isinstance(result, HTTPResponse):
-                if result.exception:
-                    raise RSConnectException('Exception trying to connect to %s - %s' % (server_address, result.exception))
-                # Sometimes an ISP will respond to an unknown server name by returning a friendly
-                # search page so trap that since we know we're expecting JSON from Connect.  This
-                # also catches all error conditions which we will report as "not running Connect".
-                else:
-                    raise RSConnectException('The specified server does not appear to be running RStudio Connect')
-
+            _handle_bad_response(server_address, result)
             return result
     except SSLError as ssl_error:
         raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
@@ -177,6 +183,23 @@ def verify_api_key(server_address, api_key, disable_tls_check, ca_data):
                 raise RSConnectException('The specified API key is not valid.')
             raise RSConnectException('Could not verify the API key: %s %s' % (result.status, result.reason))
         return result['username']
+
+
+def get_python_info(server_address, api_key, disable_tls_check, ca_data):
+    """
+    Return information about versions of Python that are installed on the indicated
+    Connect server.
+
+    :param server_address: the URL of the target Connect server.
+    :param api_key: the API key to authenticate with..
+    :param disable_tls_check: a flag to disable TLS verification.
+    :param ca_data: client side certificate data to use for TLS.
+    :return: the Python installation information from Connect.
+    """
+    with RSConnect(server_address, api_key, disable_tls_check=disable_tls_check, ca_data=ca_data) as api:
+        result = api.python_settings()
+        _handle_bad_response(server_address, result)
+        return result
 
 
 (

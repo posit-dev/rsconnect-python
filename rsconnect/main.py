@@ -11,7 +11,7 @@ from six.moves.urllib_parse import urlparse
 
 from rsconnect import VERSION
 from rsconnect.actions import set_verbosity, cli_feedback, which_python, inspect_environment, make_deployment_name, \
-    default_title, default_title_for_manifest, test_server, test_api_key
+    default_title, default_title_for_manifest, test_server, test_api_key, gather_server_details
 from . import api
 from .bundle import (
     make_manifest_bundle,
@@ -134,6 +134,39 @@ def list_servers(verbose):
                 if server['ca_cert']:
                     click.echo('    Client TLS certificate data provided')
                 click.echo()
+
+
+# noinspection SpellCheckingInspection
+@cli.command(help='Show version details about an RStudio Connect server and the versions of Python installed.')
+@click.option('--name', '-n', help='The nickname of the RStudio Connect server to get details for.')
+@click.option('--server', '-s', envvar='CONNECT_SERVER',
+              help='The URL for the RStudio Connect server to get details for.')
+@click.option('--api-key', '-k', envvar='CONNECT_API_KEY',
+              help='The API key to use to authenticate with RStudio Connect.')
+@click.option('--insecure', '-i', envvar='CONNECT_INSECURE', is_flag=True,
+              help='Disable TLS certification/host validation.')
+@click.option('--cacert', '-c', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
+              help='The path to trusted TLS CA certificates.')
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
+def details(name, server, api_key, insecure, cacert, verbose):
+    set_verbosity(verbose)
+
+    with cli_feedback('Checking arguments'):
+        server, api_key, insecure, ca_data = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+
+    with cli_feedback('Gathering details'):
+        server_details = gather_server_details(server, api_key, insecure, ca_data)
+
+    if server_details:
+        python_versions = server_details['python']
+        click.echo('    RStudio Connect version: %s' % server_details['connect'])
+
+        if len(python_versions) == 0:
+            click.echo('    No versions of Python are installed.')
+        else:
+            click.echo('    Installed versions of Python:')
+            for python_version in python_versions:
+                click.echo('        %s' % python_version)
 
 
 @cli.command(help='Remove the information about an RStudio Connect server by nickname or URL.  '

@@ -135,21 +135,7 @@ def _verify_server(server, insecure, ca_data):
     uri = urlparse(server)
     if not uri.netloc:
         raise api.RSConnectException('Invalid server URL: "%s"' % server)
-    return api.verify_server(server, insecure, ca_data)
-
-
-def test_api_key(server, api_key, insecure, ca_data):
-    """
-    Test that an API Key may be used to authenticate with the given RStudio Connect server.
-    If the API key verifies, we return the username of the associated user.
-
-    :param server: the full URL of the target Connect server.
-    :param api_key: the API key to verify.
-    :param insecure: a flag to disable TLS verification.
-    :param ca_data: client side certificate data to use for TLS.
-    :return: the username of the user to whom the API key belongs.
-    """
-    return api.verify_api_key(server, api_key, insecure, ca_data)
+    return api.verify_server(server, None, insecure, ca_data)
 
 
 def _to_server_check_list(server):
@@ -197,3 +183,43 @@ def test_server(server, insecure, ca_data):
 
     # If we're here, nothing worked.
     raise api.RSConnectException('\n'.join(failures))
+
+
+def test_api_key(server, api_key, insecure, ca_data):
+    """
+    Test that an API Key may be used to authenticate with the given RStudio Connect server.
+    If the API key verifies, we return the username of the associated user.
+
+    :param server: the full URL of the target Connect server.
+    :param api_key: the API key to verify.
+    :param insecure: a flag to disable TLS verification.
+    :param ca_data: client side certificate data to use for TLS.
+    :return: the username of the user to whom the API key belongs.
+    """
+    return api.verify_api_key(server, api_key, insecure, ca_data)
+
+
+def gather_server_details(server, api_key, insecure, ca_data):
+    """
+    Builds a dictionary containing the version of RStudio Connect that is running
+    and the versions of Python installed there.
+
+    :param server: the full URL of the target Connect server.
+    :param api_key: the API key to authenticate with.
+    :param insecure: a flag to disable TLS verification.
+    :param ca_data: client side certificate data to use for TLS.
+    :return: a two-entry dictionary.  The key 'connect' will refer to the version
+    of Connect that was found.  The key `python` will refer to a sequence of version
+    strings for all the versions of Python that are installed.
+    """
+    def _to_sort_key(text):
+        parts = [part.zfill(5) for part in text.split('.')]
+        return ''.join(parts)
+
+    server_settings = api.verify_server(server, api_key, insecure, ca_data)
+    python_settings = api.get_python_info(server, api_key, insecure, ca_data)
+    python_versions = sorted([item['version'] for item in python_settings['installations']], key=_to_sort_key)
+    return {
+        'connect': server_settings['version'],
+        'python': python_versions
+    }
