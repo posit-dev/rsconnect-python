@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import subprocess
+import textwrap
 
 from os.path import abspath, basename, dirname, exists, join, splitext
 from pprint import pformat
@@ -454,14 +455,15 @@ def deploy_manifest(name, server, api_key, new, app_id, title, insecure, cacert,
         app_store.save()
 
 
-@deploy.command(name='other-content', help='Show help on how to deploy other content to RStudio Connect')
+@deploy.command(name='other-content', help='Show help on how to deploy other content to RStudio Connect.')
 def deploy_help():
-    print(
-        'To deploy a Shiny app or R Markdown document,\n'
-        'use the rsconnect package in the RStudio IDE. Or,\n'
-        'use rsconnect::writeManifest to create a manifest.json file\n'
-        'and deploy that using this tool with the command\n'
-        '"rsconnect deploy manifest".')
+    text = 'To deploy a Shiny application or R Markdown document, use the rsconnect R package in the RStudio IDE.  ' \
+           'Or, use rsconnect::writeManifest (again in the IDE) to create a manifest.json file and deploy that using ' \
+           'this tool with the command, '
+    click.echo('\n'.join(textwrap.wrap(text, 79)))
+    click.echo()
+    click.echo('    rsconnect deploy manifest <manifest-file>')
+    click.echo()
 
 
 @cli.group(name="write-manifest", no_args_is_help=True,
