@@ -213,7 +213,7 @@ def _validate_deploy_to_args(name, server, api_key, insecure, ca_cert):
     if name and server:
         raise api.RSConnectException('You must specify only one of -n/--name or -s/--server, not both.')
 
-    real_server, api_key, insecure, ca_data = server_store.resolve(name, server, api_key, insecure, ca_data)
+    real_server, api_key, insecure, ca_data, from_store = server_store.resolve(name, server, api_key, insecure, ca_data)
 
     # This can happen if the user specifies neither --name or --server and there's not
     # a single default to go with.
@@ -225,6 +225,11 @@ def _validate_deploy_to_args(name, server, api_key, insecure, ca_cert):
 
     if not api_key:
         raise api.RSConnectException('An API key must be specified for "%s".' % real_server)
+
+    # If our info came from the command line, we really should test it out first.
+    if not from_store:
+        real_server, _ = test_server(real_server, insecure, ca_data)
+        _ = test_api_key(real_server, api_key, insecure, ca_data)
 
     return real_server, api_key, insecure, ca_data
 

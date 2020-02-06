@@ -59,7 +59,7 @@ class TestServerMetadata(TestCase):
 
     def test_resolve_by_name(self):
         name, server, api_key, insecure, ca_cert = 'foo', None, None, None, None
-        server, api_key, insecure, ca_cert = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
+        server, api_key, insecure, ca_cert, _ = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
 
         self.assertEqual(server, 'http://connect.local')
         self.assertEqual(api_key, 'notReallyAnApiKey')
@@ -68,7 +68,7 @@ class TestServerMetadata(TestCase):
 
     def test_resolve_by_url(self):
         name, server, api_key, insecure, ca_cert = None, 'http://connect.local', None, None, None
-        server, api_key, insecure, ca_cert = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
+        server, api_key, insecure, ca_cert, _ = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
 
         self.assertEqual(server, 'http://connect.local')
         self.assertEqual(api_key, 'notReallyAnApiKey')
@@ -78,12 +78,12 @@ class TestServerMetadata(TestCase):
     def test_resolve_by_default(self):
         # with multiple entries, server None will not resolve by default
         name, server, api_key, insecure, ca_cert = None, None, None, None, None
-        server, api_key, insecure, ca_cert = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
+        server, api_key, insecure, ca_cert, _ = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
         self.assertEqual(server, None)
 
         # with only a single entry, server None will resolve to that entry
         self.server_store.remove_by_url('http://connect.remote')
-        server, api_key, insecure, ca_cert = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
+        server, api_key, insecure, ca_cert, _ = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
         self.assertEqual(server, 'http://connect.local')
         self.assertEqual(api_key, 'notReallyAnApiKey')
         self.assertEqual(insecure, False)

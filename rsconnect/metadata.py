@@ -293,7 +293,8 @@ class ServerStore(DataStore):
         :param api_key: the API key provided on the command line.
         :param insecure: the insecure flag provided on the command line.
         :param ca_data: the CA certification data provided on the command line.
-        :return: the information needed to interact with the resolved server.
+        :return: the information needed to interact with the resolved server and whether
+        it came from the store or the arguments.
         """
         if name:
             entry = self.get_by_name(name)
@@ -309,9 +310,9 @@ class ServerStore(DataStore):
                 entry = None
 
         if entry:
-            return entry['url'], entry['api_key'], entry['insecure'], entry['ca_cert']
+            return entry['url'], entry['api_key'], entry['insecure'], entry['ca_cert'], True
         else:
-            return url, api_key, insecure, ca_data
+            return url, api_key, insecure, ca_data, False
 
 
 def sha1(s):
