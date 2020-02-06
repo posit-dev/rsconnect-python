@@ -173,13 +173,24 @@ class HTTPServer(object):
         headers = self._headers.copy()
         if extra_headers is not None:
             headers.update(extra_headers)
+        local_connection = False
 
         try:
             logger.debug('Performing: %s %s' % (method, full_uri))
 
-            self._conn.request(method, full_uri, body, headers)
+            # if we weren't called under a `with` statement, we'll need to manage the
+            # connection here.
+            if self._conn is None:
+                self.__enter__()
+                local_connection = True
 
-            response = self._conn.getresponse()
+            try:
+                self._conn.request(method, full_uri, body, headers)
+
+                response = self._conn.getresponse()
+            finally:
+                if local_connection:
+                    self.__exit__()
 
             # Handle any redirects.
             if 300 <= response.status < 400:
