@@ -333,7 +333,8 @@ default_server_settings = {
     "vue_content_list": False,
     "git_enabled": True,
     "git_available": True,
-    "documentation_dashboard": False
+    "documentation_dashboard": False,
+    "conda_supported": False
 }
 tag_map = {
     'apps': Application,
