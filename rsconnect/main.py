@@ -161,6 +161,7 @@ def details(name, server, api_key, insecure, cacert, verbose):
 
     if server_details:
         python_versions = server_details['python']
+        conda_details = server_details['conda']
         click.echo('    RStudio Connect version: %s' % server_details['connect'])
 
         if len(python_versions) == 0:
@@ -169,6 +170,9 @@ def details(name, server, api_key, insecure, cacert, verbose):
             click.echo('    Installed versions of Python:')
             for python_version in python_versions:
                 click.echo('        %s' % python_version)
+
+        click.echo('    Conda: %ssupported' % ('' if conda_details['supported'] else 'not '))
+
 
 
 @cli.command(help='Remove the information about an RStudio Connect server by nickname or URL.  '
@@ -250,13 +254,13 @@ def _validate_deploy_to_args(name, server, api_key, insecure, ca_cert):
 
     real_server, api_key, insecure, ca_data, from_store = server_store.resolve(name, server, api_key, insecure, ca_data)
 
-    if not from_store:
-        real_server, _ = test_server(real_server, insecure, ca_data)
-
     # This can happen if the user specifies neither --name or --server and there's not
     # a single default to go with.
     if not real_server:
         raise api.RSConnectException('You must specify one of -n/--name or -s/--server.')
+
+    if not from_store:
+        real_server, _ = test_server(real_server, insecure, ca_data)
 
     if not urlparse(real_server).netloc:
         raise api.RSConnectException('Invalid server URL: "%s".' % real_server)
@@ -430,7 +434,7 @@ def deploy_manifest(name, server, api_key, new, app_id, title, insecure, cacert,
             # Use the saved app information unless overridden by the user.
             app_id, title, app_mode = app_store.resolve(server, app_id, title, app_mode)
 
-        api_client = api.RSConnect(server, api_key, [], insecure, ca_data)
+        api_client = api.RSConnect(server, api_key, insecure, ca_data)
 
     if name or server:
         click.secho('    Deploying %s to server "%s"' % (file, server), fg='white')

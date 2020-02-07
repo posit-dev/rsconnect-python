@@ -334,7 +334,6 @@ default_server_settings = {
     "git_enabled": True,
     "git_available": True,
     "documentation_dashboard": False,
-    "conda_supported": False
 }
 tag_map = {
     'apps': Application,

@@ -135,7 +135,8 @@ def python_settings():
     v = "%d.%d.%d" % (v[0], v[1], v[2])
 
     return {
-        "installations": [{"version": v}]
+        "installations": [{"version": v}],
+        "conda_supported": False
     }
 
 

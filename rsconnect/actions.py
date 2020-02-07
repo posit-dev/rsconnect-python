@@ -208,9 +208,10 @@ def gather_server_details(server, api_key, insecure, ca_data):
     :param api_key: the API key to authenticate with.
     :param insecure: a flag to disable TLS verification.
     :param ca_data: client side certificate data to use for TLS.
-    :return: a two-entry dictionary.  The key 'connect' will refer to the version
+    :return: a three-entry dictionary.  The key 'connect' will refer to the version
     of Connect that was found.  The key `python` will refer to a sequence of version
-    strings for all the versions of Python that are installed.
+    strings for all the versions of Python that are installed.  The key `conda` will
+    refer to data about whether Connect is configured to support Conda environments.
     """
     def _to_sort_key(text):
         parts = [part.zfill(5) for part in text.split('.')]
@@ -219,7 +220,11 @@ def gather_server_details(server, api_key, insecure, ca_data):
     server_settings = api.verify_server(server, api_key, insecure, ca_data)
     python_settings = api.get_python_info(server, api_key, insecure, ca_data)
     python_versions = sorted([item['version'] for item in python_settings['installations']], key=_to_sort_key)
+    conda_settings = {
+        'supported': python_settings['conda_supported'] if 'conda_supported' in python_settings else False
+    }
     return {
         'connect': server_settings['version'],
-        'python': python_versions
+        'python': python_versions,
+        'conda': conda_settings
     }
