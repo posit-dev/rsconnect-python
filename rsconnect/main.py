@@ -161,6 +161,7 @@ def details(name, server, api_key, insecure, cacert, verbose):
 
     if server_details:
         python_versions = server_details['python']
+        conda_details = server_details['conda']
         click.echo('    RStudio Connect version: %s' % server_details['connect'])
 
         if len(python_versions) == 0:
@@ -169,6 +170,9 @@ def details(name, server, api_key, insecure, cacert, verbose):
             click.echo('    Installed versions of Python:')
             for python_version in python_versions:
                 click.echo('        %s' % python_version)
+
+        click.echo('    Conda: %ssupported' % ('' if conda_details['supported'] else 'not '))
+
 
 
 @cli.command(help='Remove the information about an RStudio Connect server by nickname or URL.  '
