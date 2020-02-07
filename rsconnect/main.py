@@ -434,7 +434,7 @@ def deploy_manifest(name, server, api_key, new, app_id, title, insecure, cacert,
             # Use the saved app information unless overridden by the user.
             app_id, title, app_mode = app_store.resolve(server, app_id, title, app_mode)
 
-        api_client = api.RSConnect(server, api_key, [], insecure, ca_data)
+        api_client = api.RSConnect(server, api_key, insecure, ca_data)
 
     if name or server:
         click.secho('    Deploying %s to server "%s"' % (file, server), fg='white')
