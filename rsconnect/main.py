@@ -254,13 +254,13 @@ def _validate_deploy_to_args(name, server, api_key, insecure, ca_cert):
 
     real_server, api_key, insecure, ca_data, from_store = server_store.resolve(name, server, api_key, insecure, ca_data)
 
-    if not from_store:
-        real_server, _ = test_server(real_server, insecure, ca_data)
-
     # This can happen if the user specifies neither --name or --server and there's not
     # a single default to go with.
     if not real_server:
         raise api.RSConnectException('You must specify one of -n/--name or -s/--server.')
+
+    if not from_store:
+        real_server, _ = test_server(real_server, insecure, ca_data)
 
     if not urlparse(real_server).netloc:
         raise api.RSConnectException('Invalid server URL: "%s".' % real_server)
