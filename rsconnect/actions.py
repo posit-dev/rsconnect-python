@@ -12,9 +12,9 @@ from os.path import basename, exists, dirname
 from pprint import pformat
 
 from rsconnect import api
-from .api import RSConnectServer, get_app_info
 from .bundle import make_notebook_html_bundle, make_notebook_source_bundle
 from .environment import EnvironmentException
+from .metadata import AppStore
 
 import click
 from six.moves.urllib_parse import urlparse
@@ -163,7 +163,7 @@ def test_server(connect_server):
     failures = ['Invalid server URL: %s' % url]
     for test in _to_server_check_list(url):
         try:
-            connect_server = RSConnectServer(test, key, insecure, ca_data)
+            connect_server = api.RSConnectServer(test, key, insecure, ca_data)
             result = _verify_server(connect_server)
             return connect_server, result
         except api.RSConnectException as e:
@@ -236,6 +236,38 @@ def default_title(file_name):
     :return: the derived title.
     """
     return basename(file_name).rsplit('.')[0]
+
+
+def deploy_jupyter_notebook(connect_server, file_name, extra_files, new=False, app_id=None, title=None, static=False,
+                            python=None, log_callback=None):
+    """
+    A function to deploy a Jupyter notebook to Connect.  Depending on the files involved
+    and network latency, this may take a bit of time.
+
+    :param connect_server: the Connect server information.
+    :param file_name: the Jupyter notebook file to deploy.
+    :param extra_files: any extra files that should be included in the deploy.
+    :param new: a flag to force this as a new deploy.
+    :param app_id: the ID of an existing application to deploy new files for.
+    :param title: an optional title for the deploy.  If this is not provided, ne will
+    be generated.
+    :param static: a flag noting whether the notebook should be deployed as a static
+    HTML page or as a render-able document with sources.
+    :param python: the optional name of a Python executable.
+    :param log_callback: the callback to use to write the log to.  If this is None
+    (the default) the lines from the deployment log will be returned as a sequence.
+    If a log callback is provided, then None will be returned for the log lines part
+    of the return tuple.
+    :return: the ultimate URL where the deployed app may be accessed and the sequence
+    of log lines.  The log lines value will be None if a log callback was provided.
+    """
+    app_store = AppStore(file_name)
+    app_id, deployment_name, deployment_title, app_mode = \
+        gather_basic_deployment_info(connect_server, app_store, file_name, new, app_id, title, static)
+    python, environment = get_python_env_info(file_name, python)
+    bundle = create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, environment)
+    app = deploy_bundle(connect_server, app_id, deployment_name, deployment_title, bundle)
+    return spool_deployment_log(connect_server, app, log_callback)
 
 
 def gather_basic_deployment_info(connect_server, app_store, file_name, new, app_id, title, static):
@@ -339,7 +371,11 @@ def spool_deployment_log(connect_server, app, log_callback):
 
     :param connect_server: the Connect server information.
     :param app: the app that was returned by the deploy_bundle function.
-    :param log_callback: the callback to use to write the log to.
-    :return: the ultimate URL where the deployed app may be accessed.
+    :param log_callback: the callback to use to write the log to.  If this is None
+    (the default) the lines from the deployment log will be returned as a sequence.
+    If a log callback is provided, then None will be returned for the log lines part
+    of the return tuple.
+    :return: the ultimate URL where the deployed app may be accessed and the sequence
+    of log lines.  The log lines value will be None if a log callback was provided.
     """
     return api.emit_task_log(connect_server, app['app_id'], app['task_id'], log_callback)
