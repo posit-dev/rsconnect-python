@@ -15,7 +15,7 @@ class EnvironmentException(Exception):
     pass
 
 
-def detect_environment(dirname, force_generate = False, compatibility_mode = False):
+def detect_environment(dirname, force_generate=False, compatibility_mode=False, conda=None):
     """Determine the python dependencies in the environment.
 
     `pip freeze` will be used to introspect the environment.
@@ -28,9 +28,8 @@ def detect_environment(dirname, force_generate = False, compatibility_mode = Fal
     :param: compatibility_mode Force the usage of `pip freeze` for older
     connect versions which do not support conda.
     """
-    conda = None
     if not compatibility_mode:
-        conda = get_conda()
+        conda = get_conda(conda)
     if conda:
         if force_generate:
             result = conda_env_export(conda)
@@ -54,16 +53,16 @@ def detect_environment(dirname, force_generate = False, compatibility_mode = Fal
     return result
 
 
-def get_conda():
+def get_conda(conda=None):
     """get_conda tries to find the conda executable if we're in
     a conda environment. If not, or if we cannot find the executable,
     return None.
     :returns: conda string path to conda or None.
     """
-    if os.environ.get('CONDA_PREFIX', None) is None:
+    if os.environ.get('CONDA_PREFIX', None) is None and conda is None:
         return None
     else:
-        return os.environ.get('CONDA_EXE', None)
+        return conda or os.environ.get('CONDA_EXE', None)
 
 
 def get_python_version():

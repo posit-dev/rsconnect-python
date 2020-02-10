@@ -174,7 +174,6 @@ def details(name, server, api_key, insecure, cacert, verbose):
         click.echo('    Conda: %ssupported' % ('' if conda_details['supported'] else 'not '))
 
 
-
 @cli.command(help='Remove the information about an RStudio Connect server by nickname or URL.  '
                   'One of --name or --server is required.')
 @click.option('--name', '-n', help='The nickname of the RStudio Connect server to remove.')
