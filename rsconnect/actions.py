@@ -221,7 +221,7 @@ def gather_server_details(server, api_key, insecure, ca_data):
     python_settings = api.get_python_info(server, api_key, insecure, ca_data)
     python_versions = sorted([item['version'] for item in python_settings['installations']], key=_to_sort_key)
     conda_settings = {
-        'supported': python_settings['conda_supported'] if 'conda_supported' in python_settings else False
+        'supported': python_settings['conda_enabled'] if 'conda_enabled' in python_settings else False
     }
     return {
         'connect': server_settings['version'],
