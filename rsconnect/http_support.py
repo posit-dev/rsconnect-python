@@ -202,7 +202,7 @@ class HTTPServer(object):
 
                 logger.debug('Redirected to: %s' % next_url)
 
-                return self._do_request(method, next_url, query_params, body, maximum_redirects - 1)
+                return self._do_request(method, next_url, query_params, body, maximum_redirects - 1, extra_headers)
 
             self._handle_set_cookie(response)
 

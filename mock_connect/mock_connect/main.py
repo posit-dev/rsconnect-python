@@ -136,7 +136,7 @@ def python_settings():
 
     return {
         "installations": [{"version": v}],
-        "conda_supported": False
+        "conda_enabled": False
     }
 
 
