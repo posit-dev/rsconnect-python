@@ -128,6 +128,12 @@ class RSConnect(HTTPServer):
         last_status = None
         ending = time.time() + timeout if timeout else 999999999999
 
+        if log_callback is None:
+            log_lines = []
+            log_callback = log_lines.append
+        else:
+            log_lines = None
+
         while time.time() < ending:
             time.sleep(0.5)
 
@@ -137,7 +143,7 @@ class RSConnect(HTTPServer):
             if task_status['finished']:
                 app_config = self.app_config(app_id)
                 app_url = app_config.get('config_url')
-                return app_url
+                return app_url, log_lines
 
         raise RSConnectException('Task timed out after %d seconds' % timeout)
 
@@ -154,7 +160,7 @@ class RSConnect(HTTPServer):
         if task_status['last_status'] != last_status:
             for line in task_status['status']:
                 log_callback(line)
-                new_last_status = task_status['last_status']
+            new_last_status = task_status['last_status']
 
         if task_status['finished']:
             exit_code = task_status['code']
@@ -252,9 +258,13 @@ def emit_task_log(connect_server, app_id, task_id, log_callback, timeout=None):
     :param connect_server: the Connect server information.
     :param app_id: the ID of the app that was deployed.
     :param task_id: the ID of the task that is tracking the deployment of the app..
-    :param log_callback: the callback to use to write the log to.
+    :param log_callback: the callback to use to write the log to.  If this is None
+    (the default) the lines from the deployment log will be returned as a sequence.
+    If a log callback is provided, then None will be returned for the log lines part
+    of the return tuple.
     :param timeout: an optional timeout for the wait operation.
-    :return: the ultimate URL where the deployed app may be accessed.
+    :return: the ultimate URL where the deployed app may be accessed and the sequence
+    of log lines.  The log lines value will be None if a log callback was provided.
     """
     with RSConnect(connect_server) as client:
         result = client.wait_for_task(app_id, task_id, log_callback, timeout)

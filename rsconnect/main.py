@@ -371,7 +371,7 @@ def deploy_notebook(name, server, api_key, static, new, app_id, title, python, c
 
     with cli_feedback(''):
         click.secho('\nDeployment log:', fg='bright_white')
-        app_url = spool_deployment_log(connect_server, app, click.echo)
+        app_url, _ = spool_deployment_log(connect_server, app, click.echo)
         click.secho('Deployment completed successfully.\nApp URL: %s' % app_url, fg='bright_white')
 
         # save the config URL, replacing the old app URL we got during deployment
