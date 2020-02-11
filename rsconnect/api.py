@@ -14,12 +14,36 @@ class RSConnectException(Exception):
 logger = logging.getLogger('rsconnect')
 
 
-class RSConnect(HTTPServer):
-    def __init__(self, url, api_key, disable_tls_check=False, ca_data=None, cookies=None):
-        super(RSConnect, self).__init__(append_to_path(url, '__api__'), disable_tls_check, ca_data, cookies)
+class RSConnectServer(object):
+    """
+    A simple class to encapsulate the information needed to interact with an
+    instance of the Connect server.
+    """
+    def __init__(self, url, api_key, insecure=False, ca_data=None):
+        self.url = url
+        self.api_key = api_key
+        self.insecure = insecure
+        self.ca_data = ca_data
 
-        if api_key:
-            self.key_authorization(api_key)
+    def handle_bad_response(self, response):
+        if isinstance(response, HTTPResponse):
+            if response.exception:
+                raise RSConnectException('Exception trying to connect to %s - %s' % (self.url, response.exception))
+            # Sometimes an ISP will respond to an unknown server name by returning a friendly
+            # search page so trap that since we know we're expecting JSON from Connect.  This
+            # also catches all error conditions which we will report as "not running Connect".
+            else:
+                if response.json_data and 'error' in response.json_data:
+                    raise RSConnectException('The Connect server reported an error: %s' % response.json_data['error'])
+                raise RSConnectException('The specified server does not appear to be running RStudio Connect')
+
+
+class RSConnect(HTTPServer):
+    def __init__(self, server, cookies=None):
+        super(RSConnect, self).__init__(append_to_path(server.url, '__api__'), server.insecure, server.ca_data, cookies)
+
+        if server.api_key:
+            self.key_authorization(server.api_key)
 
     def _tweak_response(self, response):
         return response.json_data if response.status and response.status == 200 and response.json_data else response
@@ -82,11 +106,21 @@ class RSConnect(HTTPServer):
             # raise an error
             app = self.app_get(app_id)
 
+        if isinstance(app, HTTPResponse):
+            return app
+
         if app['title'] != app_title:
             self.app_update(app_id, {'title': app_title})
 
         app_bundle = self.app_upload(app_id, tarball)
+
+        if isinstance(app_bundle, HTTPResponse):
+            return app
+
         task_id = self.app_deploy(app_id, app_bundle['id'])['id']
+
+        if isinstance(task_id, HTTPResponse):
+            return task_id
 
         return {
             'task_id': task_id,
@@ -99,6 +133,12 @@ class RSConnect(HTTPServer):
         last_status = None
         ending = time.time() + timeout if timeout else 999999999999
 
+        if log_callback is None:
+            log_lines = []
+            log_callback = log_lines.append
+        else:
+            log_lines = None
+
         while time.time() < ending:
             time.sleep(0.5)
 
@@ -108,7 +148,7 @@ class RSConnect(HTTPServer):
             if task_status['finished']:
                 app_config = self.app_config(app_id)
                 app_url = app_config.get('config_url')
-                return app_url
+                return app_url, log_lines
 
         raise RSConnectException('Task timed out after %d seconds' % timeout)
 
@@ -125,7 +165,7 @@ class RSConnect(HTTPServer):
         if task_status['last_status'] != last_status:
             for line in task_status['status']:
                 log_callback(line)
-                new_last_status = task_status['last_status']
+            new_last_status = task_status['last_status']
 
         if task_status['finished']:
             exit_code = task_status['code']
@@ -135,50 +175,34 @@ class RSConnect(HTTPServer):
         return new_last_status
 
 
-def _handle_bad_response(server_address, response):
-    if isinstance(response, HTTPResponse):
-        if response.exception:
-            raise RSConnectException('Exception trying to connect to %s - %s' % (server_address, response.exception))
-        # Sometimes an ISP will respond to an unknown server name by returning a friendly
-        # search page so trap that since we know we're expecting JSON from Connect.  This
-        # also catches all error conditions which we will report as "not running Connect".
-        else:
-            raise RSConnectException('The specified server does not appear to be running RStudio Connect')
-
-
-def verify_server(server_address, api_key, disable_tls_check, ca_data):
+def verify_server(connect_server):
     """
-    Verify than a server URL is reachable, active and appears to be running an RStudio Connect
-    server.
+    Verify that the given server information represents a Connect instance that is
+    reachable, active and appears to be actually running RStudio Connect.  If the
+    check is successful, the server settings for the Connect server is returned.
 
-    :param server_address: the URL of the target Connect server.
-    :param api_key: the API key to pass, if any, for authentication.
-    :param disable_tls_check: a flag to disable TLS verification.
-    :param ca_data: client side certificate data to use for TLS.
+    :param connect_server: the Connect server information.
     :return: the server settings from the Connect server.
     """
     try:
-        with RSConnect(server_address, api_key, disable_tls_check, ca_data) as server:
-            result = server.server_settings()
-            _handle_bad_response(server_address, result)
+        with RSConnect(connect_server) as client:
+            result = client.server_settings()
+            connect_server.handle_bad_response(result)
             return result
     except SSLError as ssl_error:
         raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
 
 
-def verify_api_key(server_address, api_key, disable_tls_check, ca_data):
+def verify_api_key(connect_server):
     """
     Verify that an API Key may be used to authenticate with the given RStudio Connect server.
     If the API key verifies, we return the username of the associated user.
 
-    :param server_address: the URL of the target Connect server.
-    :param api_key: the API key to verify.
-    :param disable_tls_check: a flag to disable TLS verification.
-    :param ca_data: client side certificate data to use for TLS.
+    :param connect_server: the Connect server information, including the API key to test.
     :return: the username of the user to whom the API key belongs.
     """
-    with RSConnect(server_address, api_key, disable_tls_check=disable_tls_check, ca_data=ca_data) as api:
-        result = api.me()
+    with RSConnect(connect_server) as client:
+        result = client.me()
         if isinstance(result, HTTPResponse):
             if result.json_data and 'code' in result.json_data and result.json_data['code'] == 30:
                 raise RSConnectException('The specified API key is not valid.')
@@ -186,20 +210,70 @@ def verify_api_key(server_address, api_key, disable_tls_check, ca_data):
         return result['username']
 
 
-def get_python_info(server_address, api_key, disable_tls_check, ca_data):
+def get_python_info(connect_server):
     """
     Return information about versions of Python that are installed on the indicated
     Connect server.
 
-    :param server_address: the URL of the target Connect server.
-    :param api_key: the API key to authenticate with..
-    :param disable_tls_check: a flag to disable TLS verification.
-    :param ca_data: client side certificate data to use for TLS.
+    :param connect_server: the Connect server information.
     :return: the Python installation information from Connect.
     """
-    with RSConnect(server_address, api_key, disable_tls_check=disable_tls_check, ca_data=ca_data) as api:
-        result = api.python_settings()
-        _handle_bad_response(server_address, result)
+    with RSConnect(connect_server) as client:
+        result = client.python_settings()
+        connect_server.handle_bad_response(result)
+        return result
+
+
+def get_app_info(connect_server, app_id):
+    """
+    Return information about an application that has been created in Connect.
+
+    :param connect_server: the Connect server information.
+    :param app_id: the ID (numeric or GUID) of the application to get info for.
+    :return: the Python installation information from Connect.
+    """
+    with RSConnect(connect_server) as client:
+        result = client.app_get(app_id)
+        connect_server.handle_bad_response(result)
+        return result
+
+
+def do_bundle_deploy(connect_server, app_id, name, title, bundle):
+    """
+    Deploys the specified bundle.
+
+    :param connect_server: the Connect server information.
+    :param app_id: the ID of the app to deploy, if this is a redeploy.
+    :param name: the name for the deploy.
+    :param title: the title for the deploy.
+    :param bundle: the bundle to deploy.
+    :return: application information about the deploy.  This includes the ID of the
+    task that may be queried for deployment progress.
+    """
+    with RSConnect(connect_server) as client:
+        result = client.deploy(app_id, name, title, bundle)
+        connect_server.handle_bad_response(result)
+        return result
+
+
+def emit_task_log(connect_server, app_id, task_id, log_callback, timeout=None):
+    """
+    Helper for spooling the deployment log for an app.
+
+    :param connect_server: the Connect server information.
+    :param app_id: the ID of the app that was deployed.
+    :param task_id: the ID of the task that is tracking the deployment of the app..
+    :param log_callback: the callback to use to write the log to.  If this is None
+    (the default) the lines from the deployment log will be returned as a sequence.
+    If a log callback is provided, then None will be returned for the log lines part
+    of the return tuple.
+    :param timeout: an optional timeout for the wait operation.
+    :return: the ultimate URL where the deployed app may be accessed and the sequence
+    of log lines.  The log lines value will be None if a log callback was provided.
+    """
+    with RSConnect(connect_server) as client:
+        result = client.wait_for_task(app_id, task_id, log_callback, timeout)
+        connect_server.handle_bad_response(result)
         return result
 
 
@@ -236,28 +310,28 @@ def app_data(api, app):
     }
 
 
-def app_search(uri, api_key, app_title, app_id, disable_tls_check, ca_data):
-    with RSConnect(uri, api_key, disable_tls_check=disable_tls_check, ca_data=ca_data) as api:
+def app_search(connect_server, app_id, app_title):
+    with RSConnect(connect_server) as server:
         data = []
         filters = [('count', 5),
                    ('filter', 'min_role:editor'),
                    ('search', app_title)]
 
-        apps = api.app_find(filters)
+        apps = server.app_find(filters)
         found = False
 
         for app in apps or []:
             if app['app_mode'] in (StaticMode, StaticJupyterMode):
-                data.append(app_data(api, app))
+                data.append(app_data(server, app))
                 if app['id'] == app_id:
                     found = True
 
         if app_id and not found:
             try:
                 # offer the current location as an option
-                app = api.app_get(app_id)
+                app = server.app_get(app_id)
                 if app['app_mode'] in (StaticMode, StaticJupyterMode):
-                    data.append(app_data(api, app))
+                    data.append(app_data(server, app))
             except RSConnectException:
                 logger.exception('Error getting info for previous app_id "%s", skipping', app_id)
 

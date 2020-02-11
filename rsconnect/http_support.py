@@ -79,15 +79,18 @@ class HTTPResponse(object):
     """
     This class represents the result of executing an HTTP request.
     """
-    def __init__(self, response=None, body=None, exception=None):
+    def __init__(self, full_uri, response=None, body=None, exception=None):
         """
         This constructs an HTTPResponse object.  One and only one of the arguments will
         be None.
 
+        :param full_uri: the URI being accessed.
         :param response: the response object, if no exception occurred.
+        :param body: the body of the response, as a string.
         :param exception: the exception, if one occurred.
         """
         self._response = response
+        self.full_uri = full_uri
         self.exception = exception
         self.content_type = None
         self.json_data = None
@@ -188,6 +191,9 @@ class HTTPServer(object):
 
                 response = self._conn.getresponse()
                 response_body = response.read().decode('utf-8').strip()
+
+                logger.debug("Response: %s %s" % (response.status, response.reason))
+                logger.debug("--> %s" % response_body)
             finally:
                 if local_connection:
                     self.__exit__()
@@ -200,16 +206,17 @@ class HTTPServer(object):
                 location = response.getheader('Location')
                 next_url = urljoin(self._url.geturl(), location)
 
-                logger.debug('Redirected to: %s' % next_url)
+                logger.debug('--> Redirected to: %s' % next_url)
 
-                return self._do_request(method, next_url, query_params, body, maximum_redirects - 1)
+                return self._do_request(method, next_url, query_params, body, maximum_redirects - 1, extra_headers)
 
             self._handle_set_cookie(response)
 
-            return self._tweak_response(HTTPResponse(response=response, body=response_body))
+            return self._tweak_response(HTTPResponse(full_uri, response=response, body=response_body))
         except (http.HTTPException, IOError, OSError, socket.error, socket.herror, socket.gaierror,
                 socket.timeout) as exception:
-            return HTTPResponse(exception=exception)
+            logger.debug('An exception occurred processing the HTTP request.', exc_info=True)
+            return HTTPResponse(full_uri, exception=exception)
 
     # noinspection PyMethodMayBeStatic
     def _tweak_response(self, response):

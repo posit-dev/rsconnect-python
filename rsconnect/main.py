@@ -1,7 +1,5 @@
 import json
 import logging
-import os
-import subprocess
 import textwrap
 
 from os.path import abspath, basename, dirname, exists, join, splitext
@@ -13,12 +11,13 @@ from six.moves.urllib_parse import urlparse
 
 from rsconnect import VERSION
 from rsconnect.actions import set_verbosity, cli_feedback, which_python, inspect_environment, make_deployment_name, \
-    default_title, default_title_for_manifest, test_server, test_api_key, gather_server_details
+    default_title_for_manifest, test_server, test_api_key, gather_server_details, \
+    gather_basic_deployment_info, get_python_env_info, create_notebook_deployment_bundle, deploy_bundle, \
+    spool_deployment_log
+from rsconnect.api import RSConnectServer
 from . import api
 from .bundle import (
     make_manifest_bundle,
-    make_notebook_html_bundle,
-    make_notebook_source_bundle,
     make_source_manifest,
     manifest_add_buffer,
     manifest_add_file)
@@ -67,27 +66,37 @@ def version():
 def test(server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
 
-    real_server, me, _ = _test_server_and_api(server, api_key, insecure, cacert)
+    real_server, me = _test_server_and_api(server, api_key, insecure, cacert)
 
-    if real_server:
-        click.echo('    RStudio Connect URL: %s' % real_server)
+    click.echo('    RStudio Connect URL: %s' % real_server.url)
 
     if me:
         click.echo('    Username: %s' % me)
 
 
 def _test_server_and_api(server, api_key, insecure, ca_cert):
+    """
+    Test the specified server information to make sure it works.  If so, a
+    ConnectServer object is returned with the potentially expanded URL.
+
+    :param server: the server URL, which is allowed to be missing its scheme.
+    :param api_key: an optional API key to validate.
+    :param insecure: a flag noting whether TLS host/validation should be skipped.
+    :param ca_cert: the name of a CA certs file containing certificates to use.
+    :return: a tuple containing an appropriate ConnectServer object and the username
+    of the user the API key represents (or None, if no key was provided).
+    """
     ca_data = ca_cert and text_type(ca_cert.read())
     me = None
 
     with cli_feedback('Checking %s' % server):
-        real_server, _ = test_server(server, insecure, ca_data)
+        real_server, _ = test_server(RSConnectServer(server, api_key, insecure, ca_data))
 
-    if real_server and api_key:
+    if api_key:
         with cli_feedback('Checking API key'):
-            me = test_api_key(real_server, api_key, insecure, ca_data)
+            me = test_api_key(real_server)
 
-    return real_server, me, ca_data
+    return real_server, me
 
 
 # noinspection SpellCheckingInspection
@@ -104,14 +113,14 @@ def add(name, server, api_key, insecure, cacert, verbose):
     old_server = server_store.get_by_name(name)
 
     # Server must be pingable and the API key must work to be added.
-    real_server, _, ca_data = _test_server_and_api(server, api_key, insecure, cacert)
+    real_server, _ = _test_server_and_api(server, api_key, insecure, cacert)
 
-    server_store.set(name, real_server, api_key, insecure, ca_data)
+    server_store.set(name, real_server.url, real_server.api_key, real_server.insecure, real_server.ca_data)
 
     if old_server:
-        click.echo('Updated server "%s" with URL %s' % (name, real_server))
+        click.echo('Updated server "%s" with URL %s' % (name, real_server.url))
     else:
-        click.echo('Added server "%s" with URL %s' % (name, real_server))
+        click.echo('Added server "%s" with URL %s' % (name, real_server.url))
 
 
 @cli.command('list', help='List the known RStudio Connect servers.')
@@ -132,7 +141,7 @@ def list_servers(verbose):
                 click.echo('    URL: %s' % server['url'])
                 click.echo('    API key is saved')
                 if server['insecure']:
-                    click.echo('    Insecure mode (TLS certificate validation disabled)')
+                    click.echo('    Insecure mode (TLS host/certificate validation disabled)')
                 if server['ca_cert']:
                     click.echo('    Client TLS certificate data provided')
                 click.echo()
@@ -154,24 +163,23 @@ def details(name, server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
 
     with cli_feedback('Checking arguments'):
-        server, api_key, insecure, ca_data = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
 
     with cli_feedback('Gathering details'):
-        server_details = gather_server_details(server, api_key, insecure, ca_data)
+        server_details = gather_server_details(connect_server)
 
-    if server_details:
-        python_versions = server_details['python']
-        conda_details = server_details['conda']
-        click.echo('    RStudio Connect version: %s' % server_details['connect'])
+    python_versions = server_details['python']
+    conda_details = server_details['conda']
+    click.echo('    RStudio Connect version: %s' % server_details['connect'])
 
-        if len(python_versions) == 0:
-            click.echo('    No versions of Python are installed.')
-        else:
-            click.echo('    Installed versions of Python:')
-            for python_version in python_versions:
-                click.echo('        %s' % python_version)
+    if len(python_versions) == 0:
+        click.echo('    No versions of Python are installed.')
+    else:
+        click.echo('    Installed versions of Python:')
+        for python_version in python_versions:
+            click.echo('        %s' % python_version)
 
-        click.echo('    Conda: %ssupported' % ('' if conda_details['supported'] else 'not '))
+    click.echo('    Conda: %ssupported' % ('' if conda_details['supported'] else 'not '))
 
 
 @cli.command(help='Remove the information about an RStudio Connect server by nickname or URL.  '
@@ -245,33 +253,46 @@ def deploy():
     pass
 
 
-def _validate_deploy_to_args(name, server, api_key, insecure, ca_cert):
+def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert):
+    """
+    Validate that the user gave us enough information to talk to a Connect server.
+
+    :param name: the nickname, if any, specified by the user.
+    :param url: the URL, if any, specified by the user.
+    :param api_key: the API key, if any, specified by the user.
+    :param insecure: a flag noting whether TLS host/validation should be skipped.
+    :param ca_cert: the name of a CA certs file containing certificates to use.
+    :return: a ConnectServer object that carries all the right info.
+    """
     ca_data = ca_cert and text_type(ca_cert.read())
 
-    if name and server:
+    if name and url:
         raise api.RSConnectException('You must specify only one of -n/--name or -s/--server, not both.')
 
-    real_server, api_key, insecure, ca_data, from_store = server_store.resolve(name, server, api_key, insecure, ca_data)
+    real_server, api_key, insecure, ca_data, from_store = server_store.resolve(name, url, api_key, insecure, ca_data)
 
     # This can happen if the user specifies neither --name or --server and there's not
     # a single default to go with.
     if not real_server:
         raise api.RSConnectException('You must specify one of -n/--name or -s/--server.')
 
-    if not from_store:
-        real_server, _ = test_server(real_server, insecure, ca_data)
-
     if not urlparse(real_server).netloc:
         raise api.RSConnectException('Invalid server URL: "%s".' % real_server)
 
-    if not api_key:
-        raise api.RSConnectException('An API key must be specified for "%s".' % real_server)
+    connect_server = RSConnectServer(real_server, api_key, insecure, ca_data)
 
-    # If our info came from the command line, we really should test it out first.
+    # If our info came from the command line, make sure the URL really works.
     if not from_store:
-        _ = test_api_key(real_server, api_key, insecure, ca_data)
+        connect_server, _ = test_server(connect_server)
 
-    return real_server, api_key, insecure, ca_data
+    if not connect_server.api_key:
+        raise api.RSConnectException('An API key must be specified for "%s".' % connect_server.url)
+
+    # If our info came from the command line, make sure the key really works.
+    if not from_store:
+        _ = test_api_key(connect_server)
+
+    return connect_server
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -281,20 +302,21 @@ def _validate_deploy_to_args(name, server, api_key, insecure, ca_cert):
 @click.option('--api-key', '-k', envvar='CONNECT_API_KEY',
               help='The API key to use to authenticate with RStudio Connect.')
 @click.option('--static', '-S', is_flag=True,
-              help='Render a notebook locally and deploy the result as a static notebook. '
+              help='Render the notebook locally and deploy the result as a static document. '
                    'Will not include the notebook source. Static notebooks cannot be re-run on the server.')
 @click.option('--new', '-N', is_flag=True,
-              help='Force a new deployment, even if there is saved metadata from a previous deployment.')
+              help='Force a new deployment, even if there is saved metadata from a previous deployment. '
+                   'Cannot be used with --app-id.')
 @click.option('--app-id', '-a', help='Existing app ID or GUID to replace. Cannot be used with --new.')
 @click.option('--title', '-t', help='Title of the content (default is the same as the filename).')
 @click.option('--python', '-p', type=click.Path(exists=True),
               help='Path to python interpreter whose environment should be used. '
                    'The python environment must have the rsconnect package installed.')
-@click.option('--compatibility-mode', is_flag=True, help='Force freezing the current environment using pip instead ' +
-                                                         'of conda, when conda is not supported on RStudio Connect ' +
-                                                         '(version<=1.8.0)')
-@click.option('--force-generate', is_flag=True, help='Force generating "requirements.txt" or "environment.yml", ' +
-                                                     'even if it already exists')
+@click.option('--compatibility-mode', '-C', is_flag=True,
+              help='Force freezing the current environment using pip instead of conda, when conda is not supported on '
+                   'RStudio Connect (version<=1.8.0).')
+@click.option('--force-generate', '-g', is_flag=True,
+              help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
 @click.option('--insecure', '-i', envvar='CONNECT_INSECURE', is_flag=True,
               help='Disable TLS certification/host validation.')
 @click.option('--cacert', '-c', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
@@ -302,95 +324,55 @@ def _validate_deploy_to_args(name, server, api_key, insecure, ca_cert):
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
-def deploy_notebook(name, server, api_key, static, new, app_id, title, python, compatibility_mode, force_generate, insecure, cacert, verbose, file,
-                    extra_files):
+def deploy_notebook(name, server, api_key, static, new, app_id, title, python, compatibility_mode, force_generate,
+                    insecure, cacert, verbose, file, extra_files):
     set_verbosity(verbose)
-    logger = logging.getLogger('rsconnect')
 
     with cli_feedback('Checking arguments'):
         app_store = AppStore(file)
 
-        server, api_key, insecure, ca_data = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+
+        if new and app_id:
+            raise api.RSConnectException('Specify either --new/-N or --app-id/-a but not both.')
 
         file_suffix = splitext(file)[1].lower()
         if file_suffix != '.ipynb':
             raise api.RSConnectException(
-                'Only Jupyter notebook (.ipynb) files can be deployed with "deploy notebook".'
-                'Run "deploy help" for more information.')
+                'Only Jupyter notebook (.ipynb) files can be deployed with "deploy notebook". '
+                'Run "deploy notebook --help" or "deploy --help" for more information.')
 
         # we check the extra files ourselves, since they are paths relative to the base file
         for extra in extra_files:
             if not exists(join(dirname(file), extra)):
-                raise api.RSConnectException('Could not find file %s in %s' % (extra, os.getcwd()))
+                raise api.RSConnectException('Could not find file %s in %s' % (extra, dirname(file)))
 
-        deployment_name = make_deployment_name()
-        if not title:
-            title = default_title(file)
+        app_id, deployment_name, title, app_mode = \
+            gather_basic_deployment_info(connect_server, app_store, file, new, app_id, title, static)
 
-        api_client = api.RSConnect(server, api_key, insecure, ca_data)
-
-        if app_id is not None:
-            # Don't read app metadata if app-id is specified. Instead, we need
-            # to get this from Connect.
-            app = api_client.app_get(app_id)
-            app_mode = api.app_modes.get(app.get('app_mode', 0), 'unknown')
-
-            logger.debug('Using app mode from app %s: %s' % (app_id, app_mode))
-        elif static:
-            app_mode = 'static'
-        else:
-            app_mode = 'jupyter-static'
-
-        if new:
-            if app_id is not None:
-                raise api.RSConnectException('Cannot specify both --new and --app-id.')
-        elif app_id is None:
-            # Possible redeployment - check for saved metadata.
-            # Use the saved app information unless overridden by the user.
-            app_id, title, app_mode = app_store.resolve(server, app_id, title, app_mode)
-            if static and app_mode != 'static':
-                raise api.RSConnectException('Cannot change app mode to "static" once deployed. '
-                                             'Use --new to create a new deployment.')
-
-    if name or server:
-        click.secho('    Deploying %s to server "%s"' % (file, server), fg='white')
-    else:
-        click.secho('    Deploying %s' % file, fg='white')
+    click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg='white')
 
     with cli_feedback('Inspecting python environment'):
-        python = which_python(python)
-        logger.debug('Python: %s' % python)
-        environment = inspect_environment(python, dirname(file), compatibility_mode=compatibility_mode,
-                                          force_generate=force_generate)
-        logger.debug('Environment: %s' % pformat(environment))
+        python, environment = get_python_env_info(file, python, compatibility_mode, force_generate)
 
     with cli_feedback('Creating deployment bundle'):
-        if app_mode == 'static':
-            try:
-                bundle = make_notebook_html_bundle(file, python)
-            except subprocess.CalledProcessError as exc:
-                # Jupyter rendering failures are often due to
-                # user code failing, vs. an internal failure of rsconnect-python.
-                raise api.RSConnectException(str(exc))
-        else:
-            bundle = make_notebook_source_bundle(file, environment, extra_files)
+        bundle = create_notebook_deployment_bundle(file, extra_files, app_mode, python, environment)
 
     with cli_feedback('Uploading bundle'):
-        app = api_client.deploy(app_id, deployment_name, title, bundle)
+        app = deploy_bundle(connect_server, app_id, deployment_name, title, bundle)
 
     with cli_feedback('Saving deployment data'):
-        app_store.set(server, abspath(file), app['app_url'], app['app_id'], app['app_guid'], title, app_mode)
-        app_store.save()
+        app_store.set(connect_server.url, abspath(file), app['app_url'], app['app_id'], app['app_guid'], title,
+                      app_mode)
 
     with cli_feedback(''):
         click.secho('\nDeployment log:', fg='bright_white')
-        app_url = api_client.wait_for_task(app['app_id'], app['task_id'], click.echo)
+        app_url, _ = spool_deployment_log(connect_server, app, click.echo)
         click.secho('Deployment completed successfully.\nApp URL: %s' % app_url, fg='bright_white')
 
         # save the config URL, replacing the old app URL we got during deployment
         # (which is the Open Solo URL).
-        app_store.set(server, abspath(file), app_url, app['app_id'], app['app_guid'], title, app_mode)
-        app_store.save()
+        app_store.set(connect_server.url, abspath(file), app_url, app['app_id'], app['app_guid'], title, app_mode)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -415,7 +397,10 @@ def deploy_manifest(name, server, api_key, new, app_id, title, insecure, cacert,
     with cli_feedback('Checking arguments'):
         app_store = AppStore(file)
 
-        server, api_key, insecure, ca_data = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+
+        if new and app_id:
+            raise api.RSConnectException('Specify either --new/-N or --app-id/-a but not both.')
 
         if basename(file) != 'manifest.json':
             raise api.RSConnectException(
@@ -439,7 +424,7 @@ def deploy_manifest(name, server, api_key, new, app_id, title, insecure, cacert,
             # Use the saved app information unless overridden by the user.
             app_id, title, app_mode = app_store.resolve(server, app_id, title, app_mode)
 
-        api_client = api.RSConnect(server, api_key, insecure, ca_data)
+        api_client = api.RSConnect(connect_server)
 
     if name or server:
         click.secho('    Deploying %s to server "%s"' % (file, server), fg='white')
@@ -490,13 +475,12 @@ def manifest():
 @click.option('--force', '-f', is_flag=True, help='Replace manifest.json, if it exists.')
 @click.option('--python', '-p', type=click.Path(exists=True),
               help='Path to python interpreter whose environment should be used. ' +
-                   'The python environment must have the rsconnect package installed.'
-              )
-@click.option('--compatibility-mode', is_flag=True, help='Force freezing the current environment using pip instead ' +
-                                                         'of conda, when conda is not supported on RStudio Connect ' +
-                                                         '(version<=1.8.0)')
-@click.option('--force-generate', is_flag=True, help='Force generating "requirements.txt" or "environment.yml", ' +
-                                                     'even if it already exists')
+                   'The python environment must have the rsconnect package installed.')
+@click.option('--compatibility-mode', '-C', is_flag=True,
+              help='Force freezing the current environment using pip instead of conda, when conda is not supported on '
+                   'RStudio Connect (version<=1.8.0).')
+@click.option('--force-generate', '-g', is_flag=True,
+              help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
 @click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
