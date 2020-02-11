@@ -7,7 +7,6 @@ from pprint import pformat
 
 import click
 from six import text_type
-from six.moves.urllib_parse import urlparse
 
 from rsconnect import VERSION
 from rsconnect.actions import set_verbosity, cli_feedback, which_python, inspect_environment, make_deployment_name, \
@@ -49,29 +48,6 @@ def cli():
 @cli.command(help='Show the version of rsconnect-python.')
 def version():
     click.echo(VERSION)
-
-
-# noinspection SpellCheckingInspection
-@cli.command(help='Verify that a URL refers to a running RStudio Connect server.  This involves making sure that the '
-                  'URL is both accessible and running RStudio Connect.   If an API key is provided, it is checked to '
-                  'make sure it can be used to authenticate against the RStudio Connect server.')
-@click.option('--server', '-s', envvar='CONNECT_SERVER', required=True, help='The URL for the RStudio Connect server.')
-@click.option('--api-key', '-k', envvar='CONNECT_API_KEY',
-              help='The API key to use to authenticate with RStudio Connect.')
-@click.option('--insecure', '-i', envvar='CONNECT_INSECURE', is_flag=True,
-              help='Disable TLS certification/host validation.')
-@click.option('--cacert', '-c', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
-              help='The path to trusted TLS CA certificates.')
-@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
-def test(server, api_key, insecure, cacert, verbose):
-    set_verbosity(verbose)
-
-    real_server, me = _test_server_and_api(server, api_key, insecure, cacert)
-
-    click.echo('    RStudio Connect URL: %s' % real_server.url)
-
-    if me:
-        click.echo('    Username: %s' % me)
 
 
 def _test_server_and_api(server, api_key, insecure, ca_cert):
@@ -163,7 +139,12 @@ def details(name, server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
 
     with cli_feedback('Checking arguments'):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert, api_key_is_required=False)
+
+    click.echo('    RStudio Connect URL: %s' % connect_server.url)
+
+    if not connect_server.api_key:
+        return
 
     with cli_feedback('Gathering details'):
         server_details = gather_server_details(connect_server)
@@ -253,7 +234,7 @@ def deploy():
     pass
 
 
-def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert):
+def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_required=True):
     """
     Validate that the user gave us enough information to talk to a Connect server.
 
@@ -262,6 +243,8 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert):
     :param api_key: the API key, if any, specified by the user.
     :param insecure: a flag noting whether TLS host/validation should be skipped.
     :param ca_cert: the name of a CA certs file containing certificates to use.
+    :param api_key_is_required: a flag that notes whether the API key is required or may
+    be omitted.
     :return: a ConnectServer object that carries all the right info.
     """
     ca_data = ca_cert and text_type(ca_cert.read())
@@ -276,9 +259,6 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert):
     if not real_server:
         raise api.RSConnectException('You must specify one of -n/--name or -s/--server.')
 
-    if not urlparse(real_server).netloc:
-        raise api.RSConnectException('Invalid server URL: "%s".' % real_server)
-
     connect_server = RSConnectServer(real_server, api_key, insecure, ca_data)
 
     # If our info came from the command line, make sure the URL really works.
@@ -286,7 +266,9 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert):
         connect_server, _ = test_server(connect_server)
 
     if not connect_server.api_key:
-        raise api.RSConnectException('An API key must be specified for "%s".' % connect_server.url)
+        if api_key_is_required:
+            raise api.RSConnectException('An API key must be specified for "%s".' % connect_server.url)
+        return connect_server
 
     # If our info came from the command line, make sure the key really works.
     if not from_store:
