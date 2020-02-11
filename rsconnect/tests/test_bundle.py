@@ -6,7 +6,8 @@ from unittest import TestCase
 from os.path import dirname, join
 
 from rsconnect.environment import detect_environment
-from rsconnect.bundle import list_files, make_manifest_bundle, make_notebook_html_bundle, make_notebook_source_bundle
+from rsconnect.bundle import list_files, make_manifest_bundle, make_notebook_html_bundle, make_notebook_source_bundle, \
+    keep_manifest_specified_file
 from rsconnect.tests.test_data_util import get_dir
 
 
@@ -208,6 +209,14 @@ class TestBundle(TestCase):
             tar.close()
             bundle.close()
 
+    def test_keep_manifest_specified_file(self):
+        self.assertTrue(keep_manifest_specified_file('app.R'))
+        self.assertFalse(keep_manifest_specified_file('packrat/packrat.lock'))
+        self.assertTrue(keep_manifest_specified_file('rsconnect'))
+        self.assertFalse(keep_manifest_specified_file('rsconnect/bogus.file'))
+        self.assertFalse(keep_manifest_specified_file('.svn/bogus.file'))
+        self.assertFalse(keep_manifest_specified_file('.Rproj.user/bogus.file'))
+
     def test_manifest_bundle(self):
         self.maxDiff = 5000
         # noinspection SpellCheckingInspection
@@ -217,5 +226,5 @@ class TestBundle(TestCase):
                 tarfile.open(mode='r:gz', fileobj=bundle) as tar:
             tar_names = sorted(tar.getnames())
             manifest = json.loads(tar.extractfile('manifest.json').read().decode('utf-8'))
-            manifest_names = sorted(manifest['files'].keys())
+            manifest_names = sorted(filter(keep_manifest_specified_file, manifest['files'].keys()))
             self.assertEqual(tar_names, manifest_names)
