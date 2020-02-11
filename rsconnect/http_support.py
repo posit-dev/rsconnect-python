@@ -193,7 +193,7 @@ class HTTPServer(object):
                 response_body = response.read().decode('utf-8').strip()
 
                 logger.debug("Response: %s %s" % (response.status, response.reason))
-                logger.debug("--> %s" % self.response_body)
+                logger.debug("--> %s" % response_body)
             finally:
                 if local_connection:
                     self.__exit__()

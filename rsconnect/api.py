@@ -105,17 +105,22 @@ class RSConnect(HTTPServer):
             # assume app exists. if it was deleted then Connect will
             # raise an error
             app = self.app_get(app_id)
-            print()
-            print(app_id)
-            print(app.status)
-            print(app.reason)
-            print(app.json_data)
+
+        if isinstance(app, HTTPResponse):
+            return app
 
         if app['title'] != app_title:
             self.app_update(app_id, {'title': app_title})
 
         app_bundle = self.app_upload(app_id, tarball)
+
+        if isinstance(app_bundle, HTTPResponse):
+            return app
+
         task_id = self.app_deploy(app_id, app_bundle['id'])['id']
+
+        if isinstance(task_id, HTTPResponse):
+            return task_id
 
         return {
             'task_id': task_id,

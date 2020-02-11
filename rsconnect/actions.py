@@ -340,7 +340,6 @@ def get_python_env_info(file_name, python, compatibility_mode, force_generate):
     """
     python = which_python(python)
     logger.debug('Python: %s' % python)
-    environment = inspect_environment(python, dirname(file_name))
     environment = inspect_environment(python, dirname(file_name), compatibility_mode=compatibility_mode,
                                       force_generate=force_generate)
     logger.debug('Environment: %s' % pformat(environment))
