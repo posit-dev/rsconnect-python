@@ -11,6 +11,8 @@ import tempfile
 from os.path import basename, dirname, exists, join, relpath, splitext
 
 log = logging.getLogger('rsconnect')
+# From https://github.com/rstudio/rsconnect/blob/485e05a26041ab8183a220da7a506c9d3a41f1ff/R/bundle.R#L85-L88
+directories_to_ignore = ['rsconnect/', 'packrat/', '.svn/', '.git/', '.Rproj.user/']
 
 
 # noinspection SpellCheckingInspection
@@ -245,6 +247,20 @@ def make_notebook_html_bundle(filename, python, check_output=subprocess.check_ou
     return bundle_file
 
 
+def keep_manifest_specified_file(relative_path):
+    """
+    A helper to see if the relative path given, which is assumed to have come
+    from a manifest.json file, should be kept or ignored.
+
+    :param relative_path: the relative path name to check.
+    :return: True, if the path should kept or False, if it should be ignored.
+    """
+    for ignore_me in directories_to_ignore:
+        if relative_path.startswith(ignore_me):
+            return False
+    return True
+
+
 def make_manifest_bundle(manifest_path):
     """Create a bundle, given a manifest.
 
@@ -255,7 +271,7 @@ def make_manifest_bundle(manifest_path):
         manifest = json.loads(raw_manifest)
 
     base_dir = dirname(manifest_path)
-    files = list(manifest.get('files', {}).keys())
+    files = list(filter(keep_manifest_specified_file, manifest.get('files', {}).keys()))
 
     if 'manifest.json' in files:
         # this will be created
