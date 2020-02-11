@@ -124,7 +124,7 @@ def list_servers(verbose):
 
 
 # noinspection SpellCheckingInspection
-@cli.command(help='Show version details about an RStudio Connect server and the versions of Python installed.')
+@cli.command(help='Show version details about an RStudio Connect server and installed Python/Conda information.')
 @click.option('--name', '-n', help='The nickname of the RStudio Connect server to get details for.')
 @click.option('--server', '-s', envvar='CONNECT_SERVER',
               help='The URL for the RStudio Connect server to get details for.')
