@@ -312,11 +312,11 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert):
 @click.option('--python', '-p', type=click.Path(exists=True),
               help='Path to python interpreter whose environment should be used. '
                    'The python environment must have the rsconnect package installed.')
-@click.option('--compatibility-mode', is_flag=True, help='Force freezing the current environment using pip instead ' +
-                                                         'of conda, when conda is not supported on RStudio Connect ' +
-                                                         '(version<=1.8.0)')
-@click.option('--force-generate', is_flag=True, help='Force generating "requirements.txt" or "environment.yml", ' +
-                                                     'even if it already exists')
+@click.option('--compatibility-mode', '-C', is_flag=True,
+              help='Force freezing the current environment using pip instead of conda, when conda is not supported on '
+                   'RStudio Connect (version<=1.8.0).')
+@click.option('--force-generate', '-g', is_flag=True,
+              help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
 @click.option('--insecure', '-i', envvar='CONNECT_INSECURE', is_flag=True,
               help='Disable TLS certification/host validation.')
 @click.option('--cacert', '-c', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
@@ -324,8 +324,8 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert):
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
-def deploy_notebook(name, server, api_key, static, new, app_id, title, python, compatibility_mode, force_generate, insecure, cacert, verbose, file,
-                    extra_files):
+def deploy_notebook(name, server, api_key, static, new, app_id, title, python, compatibility_mode, force_generate,
+                    insecure, cacert, verbose, file, extra_files):
     set_verbosity(verbose)
 
     with cli_feedback('Checking arguments'):
@@ -353,11 +353,7 @@ def deploy_notebook(name, server, api_key, static, new, app_id, title, python, c
     click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg='white')
 
     with cli_feedback('Inspecting python environment'):
-        python = which_python(python)
-        logger.debug('Python: %s' % python)
-        environment = inspect_environment(python, dirname(file), compatibility_mode=compatibility_mode,
-                                          force_generate=force_generate)
-        logger.debug('Environment: %s' % pformat(environment))
+        python, environment = get_python_env_info(file, python, compatibility_mode, force_generate)
 
     with cli_feedback('Creating deployment bundle'):
         bundle = create_notebook_deployment_bundle(file, extra_files, app_mode, python, environment)
@@ -479,13 +475,12 @@ def manifest():
 @click.option('--force', '-f', is_flag=True, help='Replace manifest.json, if it exists.')
 @click.option('--python', '-p', type=click.Path(exists=True),
               help='Path to python interpreter whose environment should be used. ' +
-                   'The python environment must have the rsconnect package installed.'
-              )
-@click.option('--compatibility-mode', is_flag=True, help='Force freezing the current environment using pip instead ' +
-                                                         'of conda, when conda is not supported on RStudio Connect ' +
-                                                         '(version<=1.8.0)')
-@click.option('--force-generate', is_flag=True, help='Force generating "requirements.txt" or "environment.yml", ' +
-                                                     'even if it already exists')
+                   'The python environment must have the rsconnect package installed.')
+@click.option('--compatibility-mode', '-C', is_flag=True,
+              help='Force freezing the current environment using pip instead of conda, when conda is not supported on '
+                   'RStudio Connect (version<=1.8.0).')
+@click.option('--force-generate', '-g', is_flag=True,
+              help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
 @click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
