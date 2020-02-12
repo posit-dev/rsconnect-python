@@ -9,10 +9,9 @@ import click
 from six import text_type
 
 from rsconnect import VERSION
-from rsconnect.actions import set_verbosity, cli_feedback, which_python, inspect_environment, make_deployment_name, \
-    default_title_for_manifest, test_server, test_api_key, gather_server_details, \
-    gather_basic_deployment_info, get_python_env_info, create_notebook_deployment_bundle, deploy_bundle, \
-    spool_deployment_log
+from rsconnect.actions import set_verbosity, cli_feedback, which_python, inspect_environment, test_server,\
+    test_api_key, gather_server_details, gather_basic_deployment_info_for_notebook, get_python_env_info,\
+    create_notebook_deployment_bundle, deploy_bundle, spool_deployment_log, gather_basic_deployment_info_from_manifest
 from rsconnect.api import RSConnectServer
 from . import api
 from .bundle import (
@@ -330,7 +329,7 @@ def deploy_notebook(name, server, api_key, static, new, app_id, title, python, c
                 raise api.RSConnectException('Could not find file %s in %s' % (extra, dirname(file)))
 
         app_id, deployment_name, title, app_mode = \
-            gather_basic_deployment_info(connect_server, app_store, file, new, app_id, title, static)
+            gather_basic_deployment_info_for_notebook(connect_server, app_store, file, new, app_id, title, static)
 
     click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg='white')
 
@@ -385,53 +384,32 @@ def deploy_manifest(name, server, api_key, new, app_id, title, insecure, cacert,
             raise api.RSConnectException('Specify either --new/-N or --app-id/-a but not both.')
 
         if basename(file) != 'manifest.json':
-            raise api.RSConnectException(
-                'The deploy manifest command requires an existing '
-                'manifest.json file to be provided on the command line.')
+            raise api.RSConnectException('The deploy manifest command requires an existing manifest.json file to be '
+                                         'provided on the command line.')
 
-        with open(file, 'r') as f:
-            source_manifest = json.load(f)
+        app_id, deployment_name, title, app_mode = \
+            gather_basic_deployment_info_from_manifest(connect_server, app_store, file, new, app_id, title)
 
-        deployment_name = make_deployment_name()
-        if not title:
-            title = default_title_for_manifest(source_manifest)
-
-        app_mode = source_manifest['metadata']['appmode']
-
-        if new:
-            if app_id is not None:
-                raise api.RSConnectException('Cannot specify both --new and --app-id.')
-        elif app_id is None:
-            # Possible redeployment - check for saved metadata.
-            # Use the saved app information unless overridden by the user.
-            app_id, title, app_mode = app_store.resolve(server, app_id, title, app_mode)
-
-        api_client = api.RSConnect(connect_server)
-
-    if name or server:
-        click.secho('    Deploying %s to server "%s"' % (file, server), fg='white')
-    else:
-        click.secho('    Deploying %s' % file, fg='white')
+    click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg='white')
 
     with cli_feedback('Creating deployment bundle'):
         bundle = make_manifest_bundle(file)
 
     with cli_feedback('Uploading bundle'):
-        app = api_client.deploy(app_id, deployment_name, title, bundle)
+        app = deploy_bundle(connect_server, app_id, deployment_name, title, bundle)
 
     with cli_feedback('Saving deployment data'):
-        app_store.set(server, abspath(file), app['app_url'], app['app_id'], app['app_guid'], title, app_mode)
-        app_store.save()
+        app_store.set(connect_server.url, abspath(file), app['app_url'], app['app_id'], app['app_guid'], title,
+                      app_mode)
 
     with cli_feedback(''):
         click.secho('\nDeployment log:', fg='bright_white')
-        app_url = api_client.wait_for_task(app['app_id'], app['task_id'], click.echo)
+        app_url, _ = spool_deployment_log(connect_server, app, click.echo)
         click.secho('Deployment completed successfully.\nApp URL: %s' % app_url, fg='bright_white')
 
         # save the config URL, replacing the old app URL we got during deployment
         # (which is the Open Solo URL).
-        app_store.set(server, abspath(file), app_url, app['app_id'], app['app_guid'], title, app_mode)
-        app_store.save()
+        app_store.set(connect_server.url, abspath(file), app_url, app['app_id'], app['app_guid'], title, app_mode)
 
 
 @deploy.command(name='other-content', help='Show help on how to deploy other content to RStudio Connect.')
