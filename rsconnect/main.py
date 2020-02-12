@@ -395,7 +395,7 @@ def deploy_app(server, api_key, title, entrypoint, python, insecure, cacert, dry
             click.echo('Environment: %s' % pformat(environment))
 
     with cli_feedback('Creating manifest'):
-        manifest = make_app_manifest(entrypoint, environment, 'python')
+        manifest = make_app_manifest(entrypoint, environment, 'python-api')
         if verbose:
             click.echo('Manifest: %s' % pformat(manifest))
 
