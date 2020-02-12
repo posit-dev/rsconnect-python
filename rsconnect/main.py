@@ -44,7 +44,7 @@ def cli():
     pass
 
 
-@cli.command(help='Show the version of rsconnect-python.')
+@cli.command(help='Show the version of the rsconnect-python package.')
 def version():
     click.echo(VERSION)
 
@@ -75,7 +75,10 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
 
 
 # noinspection SpellCheckingInspection
-@cli.command(help='Associate a simple nickname with the information needed to interact with an RStudio Connect server.')
+@cli.command(short_help='Define a nickname for an RStuio Connect server.',
+             help='Associate a simple nickname with the information needed to interact with an RStudio Connect server. '
+                  'Specifying an existing nickname will cause its stored information to be replaced by what is given '
+                  'on the command line.')
 @click.option('--name', '-n', required=True, help='The nickname to associate with the server.')
 @click.option('--server', '-s', required=True, help='The URL for the RStudio Connect server.')
 @click.option('--api-key', '-k', required=True, help='The API key to use to authenticate with RStudio Connect.')
@@ -98,7 +101,8 @@ def add(name, server, api_key, insecure, cacert, verbose):
         click.echo('Added server "%s" with URL %s' % (name, real_server.url))
 
 
-@cli.command('list', help='List the known RStudio Connect servers.')
+@cli.command('list', short_help='List the known RStudio Connect servers.',
+             help='Show the stored information about each known server nickname.')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
 def list_servers(verbose):
     set_verbosity(verbose)
@@ -123,7 +127,11 @@ def list_servers(verbose):
 
 
 # noinspection SpellCheckingInspection
-@cli.command(help='Show version details about an RStudio Connect server and installed Python/Conda information.')
+@cli.command(short_help='Show details about an RStudio Connect server.',
+             help='Show details about an RStudio Connect server and installed Python/Conda information. '
+                  'Use this command to verify that a URL refers to an RStudio Connect server, optionally, that an '
+                  'API key is valid for authentication for that server.  It may also be used to verify that the '
+                  'information stored as a nickname is still valid.')
 @click.option('--name', '-n', help='The nickname of the RStudio Connect server to get details for.')
 @click.option('--server', '-s', envvar='CONNECT_SERVER',
               help='The URL for the RStudio Connect server to get details for.')
@@ -162,7 +170,8 @@ def details(name, server, api_key, insecure, cacert, verbose):
     click.echo('    Conda: %ssupported' % ('' if conda_details['supported'] else 'not '))
 
 
-@cli.command(help='Remove the information about an RStudio Connect server by nickname or URL.  '
+@cli.command(short_help='Remove the information about an RStudio Connect server.',
+             help='Remove the information about an RStudio Connect server by nickname or URL. '
                   'One of --name or --server is required.')
 @click.option('--name', '-n', help='The nickname of the RStudio Connect server to remove.')
 @click.option('--server', '-s',  help='The URL of the RStudio Connect server to remove.')
@@ -277,7 +286,10 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_r
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
-@deploy.command(name='notebook', help='Deploy content to RStudio Connect.')
+@deploy.command(name='notebook', short_help='Deploy Jupyter notebook to RStudio Connect.',
+                help='Deploy a Jupyter noteboo to RStudio Connect. This may be done by source or as a static HTML '
+                     'page. If the notebook is deployed as a static HTML page (--static), it cannot be scheduled or '
+                     'rerun on the Connect server.')
 @click.option('--name', '-n', help='The nickname of the RStudio Connect server to deploy to.')
 @click.option('--server', '-s', envvar='CONNECT_SERVER',  help='The URL for the RStudio Connect server to deploy to.')
 @click.option('--api-key', '-k', envvar='CONNECT_API_KEY',
@@ -357,7 +369,8 @@ def deploy_notebook(name, server, api_key, static, new, app_id, title, python, c
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
-@deploy.command(name='manifest', short_help='Deploy content to RStudio Connect using an existing manifest.json file.')
+@deploy.command(name='manifest', short_help='Deploy content to RStudio Connect by manifest.',
+                help='Deploy content to RStudio Connect using an existing manifest.json file.')
 @click.option('--name', '-n', help='The nickname of the RStudio Connect server to deploy to.')
 @click.option('--server', '-s', envvar='CONNECT_SERVER',  help='The URL for the RStudio Connect server to deploy to.')
 @click.option('--api-key', '-k', envvar='CONNECT_API_KEY',
@@ -412,7 +425,8 @@ def deploy_manifest(name, server, api_key, new, app_id, title, insecure, cacert,
         app_store.set(connect_server.url, abspath(file), app_url, app['app_id'], app['app_guid'], title, app_mode)
 
 
-@deploy.command(name='other-content', help='Show help on how to deploy other content to RStudio Connect.')
+@deploy.command(name='other-content', short_help='Describe deploying other content to RStudio Connect.',
+                help='Show help on how to deploy other content to RStudio Connect.')
 def deploy_help():
     text = 'To deploy a Shiny application or R Markdown document, use the rsconnect R package in the RStudio IDE.  ' \
            'Or, use rsconnect::writeManifest (again in the IDE) to create a manifest.json file and deploy that using ' \
