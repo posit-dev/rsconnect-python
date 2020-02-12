@@ -354,7 +354,7 @@ def deploy_notebook(name, server, api_key, static, new, app_id, title, python, c
 
     with cli_feedback('Inspecting python environment'):
         python, environment = get_python_env_info(file, python, compatibility_mode, force_generate)
-        if environment.get('error', None) is not None:
+        if 'error' in environment:
             raise api.RSConnectException(environment['error'])
 
     with cli_feedback('Creating deployment bundle'):
