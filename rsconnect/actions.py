@@ -374,7 +374,6 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
     :return: the app ID, name, title and mode for the deployment.
     """
     source_manifest, _ = read_manifest_file(file_name)
-
     deployment_name = make_deployment_name()
     deployment_title = title or default_title_from_manifest(source_manifest)
     # noinspection SpellCheckingInspection
