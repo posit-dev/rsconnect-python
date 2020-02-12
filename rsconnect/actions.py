@@ -279,8 +279,6 @@ def deploy_jupyter_notebook(connect_server, file_name, extra_files, new=False, a
     app_id, deployment_name, deployment_title, app_mode = \
         gather_basic_deployment_info(connect_server, app_store, file_name, new, app_id, title, static)
     python, environment = get_python_env_info(file_name, python, compatibility_mode, force_generate)
-    if 'error' in environment:
-        raise api.RSConnectException(environment['error'])
     bundle = create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, environment)
     app = deploy_bundle(connect_server, app_id, deployment_name, deployment_title, bundle)
     return spool_deployment_log(connect_server, app, log_callback)
@@ -344,6 +342,8 @@ def get_python_env_info(file_name, python, compatibility_mode, force_generate):
     logger.debug('Python: %s' % python)
     environment = inspect_environment(python, dirname(file_name), compatibility_mode=compatibility_mode,
                                       force_generate=force_generate)
+    if 'error' in environment:
+        raise api.RSConnectException(environment['error'])
     logger.debug('Environment: %s' % pformat(environment))
 
     return python, environment
