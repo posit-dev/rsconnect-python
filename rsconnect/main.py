@@ -500,6 +500,8 @@ def manifest_notebook(force, python, compatibility_mode, force_generate, verbose
         python = which_python(python)
         environment = inspect_environment(python, dirname(file), compatibility_mode=compatibility_mode,
                                           force_generate=force_generate)
+        if 'error' in environment:
+            raise api.RSConnectException(environment['error'])
         environment_filename = environment['filename']
         if verbose:
             click.echo('Python: %s' % python)

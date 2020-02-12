@@ -342,6 +342,8 @@ def get_python_env_info(file_name, python, compatibility_mode, force_generate):
     logger.debug('Python: %s' % python)
     environment = inspect_environment(python, dirname(file_name), compatibility_mode=compatibility_mode,
                                       force_generate=force_generate)
+    if 'error' in environment:
+        raise api.RSConnectException(environment['error'])
     logger.debug('Environment: %s' % pformat(environment))
 
     return python, environment
