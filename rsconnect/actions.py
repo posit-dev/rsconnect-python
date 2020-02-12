@@ -240,12 +240,15 @@ def make_deployment_name():
 
 def default_title(file_name):
     """
-    Produce a default content title from the given file path.
+    Produce a default content title from the given file path.  The result is
+    guaranteed to be between 3 and 1024 characters long, as required by RStudio
+    Connect.
 
     :param file_name: the name from which the title will be derived.
     :return: the derived title.
     """
-    return basename(file_name).rsplit('.')[0]
+    # noinspection PyTypeChecker
+    return basename(file_name).rsplit('.', 1)[0][:1024].rjust(3, '0')
 
 
 def deploy_jupyter_notebook(connect_server, file_name, extra_files, new=False, app_id=None, title=None, static=False,
