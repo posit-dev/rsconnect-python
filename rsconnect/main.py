@@ -354,6 +354,8 @@ def deploy_notebook(name, server, api_key, static, new, app_id, title, python, c
 
     with cli_feedback('Inspecting python environment'):
         python, environment = get_python_env_info(file, python, compatibility_mode, force_generate)
+        if environment.get('error', None) is not None:
+            raise api.RSConnectException(environment['error'])
 
     with cli_feedback('Creating deployment bundle'):
         bundle = create_notebook_deployment_bundle(file, extra_files, app_mode, python, environment)
@@ -500,6 +502,8 @@ def manifest_notebook(force, python, compatibility_mode, force_generate, verbose
         python = which_python(python)
         environment = inspect_environment(python, dirname(file), compatibility_mode=compatibility_mode,
                                           force_generate=force_generate)
+        if environment.get('error', None) is not None:
+            raise api.RSConnectException(environment['error'])
         environment_filename = environment['filename']
         if verbose:
             click.echo('Python: %s' % python)
