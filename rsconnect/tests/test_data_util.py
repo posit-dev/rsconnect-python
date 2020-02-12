@@ -9,3 +9,11 @@ def get_dir(name):
     if not exists(path):
         raise AssertionError('%s does not exist' % path)
     return path
+
+
+def get_manifest_path(name, parent='R'):
+    # noinspection SpellCheckingInspection
+    path = join(dirname(__file__), 'testdata', parent, name, 'manifest.json')
+    if not exists(path):
+        raise AssertionError('%s does not exist' % path)
+    return path

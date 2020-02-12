@@ -4,7 +4,7 @@ from os.path import join
 from unittest import TestCase
 from click.testing import CliRunner
 
-from .test_data_util import get_dir
+from .test_data_util import get_dir, get_manifest_path
 from ..main import cli
 from rsconnect import VERSION
 
@@ -22,11 +22,25 @@ class TestMain(TestCase):
             self.skipTest('Set CONNECT_API_KEY to test this function.')
         return connect_api_key
 
-    def optional_target(self, default):
+    @staticmethod
+    def optional_target(default):
         return os.environ.get('CONNECT_DEPLOY_TARGET', default)
 
-    def optional_cadata(self, default=None):
+    @staticmethod
+    def optional_ca_data(default=None):
+        # noinspection SpellCheckingInspection
         return os.environ.get('CONNECT_CADATA_FILE', default)
+
+    # noinspection SpellCheckingInspection
+    def create_deploy_args(self, deploy_command, target):
+        connect_server = self.require_connect()
+        api_key = self.require_api_key()
+        cadata_file = self.optional_ca_data(None)
+        args = ['deploy', deploy_command, '-s', connect_server, '-k', api_key]
+        if cadata_file is not None:
+            args.extend(['--cacert', cadata_file])
+        args.append(target)
+        return args
 
     def test_version(self):
         runner = CliRunner()
@@ -37,7 +51,7 @@ class TestMain(TestCase):
     def test_ping(self):
         connect_server = self.require_connect()
         runner = CliRunner()
-        result = runner.invoke(cli, ['test', '-s', connect_server])
+        result = runner.invoke(cli, ['details', '-s', connect_server])
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("OK", result.output)
 
@@ -45,22 +59,23 @@ class TestMain(TestCase):
         connect_server = self.require_connect()
         api_key = self.require_api_key()
         runner = CliRunner()
-        result = runner.invoke(cli, ['test', '-s', connect_server, '-k', api_key])
+        result = runner.invoke(cli, ['details', '-s', connect_server, '-k', api_key])
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("OK", result.output)
 
     def test_deploy(self):
-        connect_server = self.require_connect()
-        api_key = self.require_api_key()
         target = self.optional_target(get_dir(join('pip1', 'dummy.ipynb')))
-        cadata_file = self.optional_cadata(None)
         runner = CliRunner()
-        args = ['deploy', 'notebook', '-s', connect_server, '-k', api_key]
-        if cadata_file is not None:
-            args.append(['--cacert', cadata_file])
-        args.append(target)
+        args = self.create_deploy_args('notebook', target)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("OK", result.output)
 
-
+    # noinspection SpellCheckingInspection
+    def test_deploy_manifest(self):
+        target = self.optional_target(get_manifest_path('shinyapp'))
+        runner = CliRunner()
+        args = self.create_deploy_args('manifest', target)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("OK", result.output)
