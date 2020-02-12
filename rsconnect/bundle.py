@@ -261,14 +261,27 @@ def keep_manifest_specified_file(relative_path):
     return True
 
 
+def read_manifest_file(manifest_path):
+    """
+    Read a manifest's content from its file.  The content is provided as both a
+    raw string and a parsed dictionary.
+
+    :param manifest_path: the path to the file to read.
+    :return: the parsed manifest data and the raw file content as a string.
+    """
+    with open(manifest_path, 'rb') as f:
+        raw_manifest = f.read().decode('utf-8')
+        manifest = json.loads(raw_manifest)
+
+    return manifest, raw_manifest
+
+
 def make_manifest_bundle(manifest_path):
     """Create a bundle, given a manifest.
 
     Returns a file-like object containing the bundle tarball.
     """
-    with open(manifest_path, 'rb') as f:
-        raw_manifest = f.read().decode('utf-8')
-        manifest = json.loads(raw_manifest)
+    manifest, raw_manifest = read_manifest_file(manifest_path)
 
     base_dir = dirname(manifest_path)
     files = list(filter(keep_manifest_specified_file, manifest.get('files', {}).keys()))

@@ -12,7 +12,7 @@ from os.path import basename, exists, dirname, abspath
 from pprint import pformat
 
 from rsconnect import api
-from .bundle import make_notebook_html_bundle, make_notebook_source_bundle, make_manifest_bundle
+from .bundle import make_notebook_html_bundle, make_notebook_source_bundle, make_manifest_bundle, read_manifest_file
 from .environment import EnvironmentException
 from .metadata import AppStore
 
@@ -373,8 +373,7 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
     be generated.
     :return: the app ID, name, title and mode for the deployment.
     """
-    with open(file_name, 'r') as f:
-        source_manifest = json.load(f)
+    source_manifest, _ = read_manifest_file(file_name)
 
     deployment_name = make_deployment_name()
     deployment_title = title or default_title_from_manifest(source_manifest)
