@@ -8,11 +8,11 @@ from datetime import datetime
 import random
 import sys
 import subprocess
-from os.path import basename, exists, dirname
+from os.path import basename, exists, dirname, abspath
 from pprint import pformat
 
 from rsconnect import api
-from .bundle import make_notebook_html_bundle, make_notebook_source_bundle
+from .bundle import make_notebook_html_bundle, make_notebook_source_bundle, make_manifest_bundle, read_manifest_file
 from .environment import EnvironmentException
 from .metadata import AppStore
 
@@ -109,17 +109,6 @@ def inspect_environment(python, directory, compatibility_mode=False, force_gener
     environment_json = check_output(args, universal_newlines=True)
     environment = json.loads(environment_json)
     return environment
-
-
-def default_title_for_manifest(the_manifest):
-    """Produce a default content title from the contents of a manifest"""
-    filename = None
-
-    metadata = the_manifest.get('metadata')
-    if metadata:
-        # noinspection SpellCheckingInspection
-        filename = metadata.get('entrypoint') or metadata.get('primary_rmd') or metadata.get('primary_html')
-    return default_title(filename or 'manifest.json')
 
 
 def _verify_server(connect_server):
@@ -251,6 +240,19 @@ def default_title(file_name):
     return basename(file_name).rsplit('.', 1)[0][:1024].rjust(3, '0')
 
 
+def default_title_from_manifest(the_manifest):
+    """
+    Produce a default content title from the contents of a manifest.
+    """
+    filename = None
+
+    metadata = the_manifest.get('metadata')
+    if metadata:
+        # noinspection SpellCheckingInspection
+        filename = metadata.get('entrypoint') or metadata.get('primary_rmd') or metadata.get('primary_html')
+    return default_title(filename or 'manifest.json')
+
+
 def deploy_jupyter_notebook(connect_server, file_name, extra_files, new=False, app_id=None, title=None, static=False,
                             python=None, compatibility_mode=False, force_generate=False, log_callback=None):
     """
@@ -280,14 +282,45 @@ def deploy_jupyter_notebook(connect_server, file_name, extra_files, new=False, a
     """
     app_store = AppStore(file_name)
     app_id, deployment_name, deployment_title, app_mode = \
-        gather_basic_deployment_info(connect_server, app_store, file_name, new, app_id, title, static)
+        gather_basic_deployment_info_for_notebook(connect_server, app_store, file_name, new, app_id, title, static)
     python, environment = get_python_env_info(file_name, python, compatibility_mode, force_generate)
     bundle = create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, environment)
     app = deploy_bundle(connect_server, app_id, deployment_name, deployment_title, bundle)
-    return spool_deployment_log(connect_server, app, log_callback)
+    app_url, log_lines = spool_deployment_log(connect_server, app, log_callback)
+    app_store.set(connect_server.url, abspath(file_name), app_url, app['app_id'], app['app_guid'], title, app_mode)
+    return app_url, log_lines
 
 
-def gather_basic_deployment_info(connect_server, app_store, file_name, new, app_id, title, static):
+def deploy_by_manifest(connect_server, manifest_file_name, new=False, app_id=None, title=None, log_callback=None):
+    """
+    A function to deploy a Jupyter notebook to Connect.  Depending on the files involved
+    and network latency, this may take a bit of time.
+
+    :param connect_server: the Connect server information.
+    :param manifest_file_name: the manifest file to deploy.
+    :param new: a flag to force this as a new deploy.
+    :param app_id: the ID of an existing application to deploy new files for.
+    :param title: an optional title for the deploy.  If this is not provided, ne will
+    be generated.
+    :param log_callback: the callback to use to write the log to.  If this is None
+    (the default) the lines from the deployment log will be returned as a sequence.
+    If a log callback is provided, then None will be returned for the log lines part
+    of the return tuple.
+    :return: the ultimate URL where the deployed app may be accessed and the sequence
+    of log lines.  The log lines value will be None if a log callback was provided.
+    """
+    app_store = AppStore(manifest_file_name)
+    app_id, deployment_name, deployment_title, app_mode = \
+        gather_basic_deployment_info_from_manifest(connect_server, app_store, manifest_file_name, new, app_id, title)
+    bundle = make_manifest_bundle(manifest_file_name)
+    app = deploy_bundle(connect_server, app_id, deployment_name, deployment_title, bundle)
+    app_url, log_lines = spool_deployment_log(connect_server, app, log_callback)
+    app_store.set(connect_server.url, abspath(manifest_file_name), app_url, app['app_id'], app['app_guid'], title,
+                  app_mode)
+    return app_url, log_lines
+
+
+def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_name, new, app_id, title, static):
     """
     Helps to gather the necessary info for performing a deployment.
 
@@ -323,6 +356,33 @@ def gather_basic_deployment_info(connect_server, app_store, file_name, new, app_
         if static and app_mode != 'static':
             raise api.RSConnectException('Cannot change app mode to "static" once deployed. '
                                          'Use --new to create a new deployment.')
+
+    return app_id, deployment_name, deployment_title, app_mode
+
+
+def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_name, new, app_id, title):
+    """
+    Helps to gather the necessary info for performing a deployment.
+
+    :param connect_server: the Connect server information.
+    :param app_store: the store for the specified file
+    :param file_name: the primary file being deployed.
+    :param new: a flag noting whether we should force a new deployment.
+    :param app_id: the ID of the app to redeploy.
+    :param title: an optional title.  If this isn't specified, a default title will
+    be generated.
+    :return: the app ID, name, title and mode for the deployment.
+    """
+    source_manifest, _ = read_manifest_file(file_name)
+    deployment_name = make_deployment_name()
+    deployment_title = title or default_title_from_manifest(source_manifest)
+    # noinspection SpellCheckingInspection
+    app_mode = source_manifest['metadata']['appmode']
+
+    if not new and app_id is None:
+        # Possible redeployment - check for saved metadata.
+        # Use the saved app information unless overridden by the user.
+        app_id, title, app_mode = app_store.resolve(connect_server.url, app_id, title, app_mode)
 
     return app_id, deployment_name, deployment_title, app_mode
 
