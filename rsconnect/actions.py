@@ -8,13 +8,14 @@ from datetime import datetime
 import random
 import sys
 import subprocess
-from os.path import basename, exists, dirname, abspath
+from os.path import basename, exists, dirname, abspath, join, splitext
 from pprint import pformat
 
 from rsconnect import api
-from .bundle import make_notebook_html_bundle, make_notebook_source_bundle, make_manifest_bundle, read_manifest_file
+from .bundle import make_notebook_html_bundle, make_notebook_source_bundle, make_manifest_bundle, read_manifest_file, \
+    make_source_manifest, manifest_add_file, manifest_add_buffer
 from .environment import EnvironmentException
-from .metadata import AppStore
+from .metadata import AppStore, AppModes
 
 import click
 from six.moves.urllib_parse import urlparse
@@ -341,19 +342,19 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
         # Don't read app metadata if app-id is specified. Instead, we need
         # to get this from Connect.
         app = api.get_app_info(connect_server, app_id)
-        app_mode = api.app_modes.get(app.get('app_mode', 0), 'unknown')
+        app_mode = AppModes.get_by_ordinal(app.get('app_mode', 0), True)
 
         logger.debug('Using app mode from app %s: %s' % (app_id, app_mode))
     elif static:
-        app_mode = 'static'
+        app_mode = AppModes.STATIC
     else:
-        app_mode = 'jupyter-static'
+        app_mode = AppModes.JUPYTER_NOTEBOOK
 
     if not new and app_id is None:
         # Possible redeployment - check for saved metadata.
         # Use the saved app information unless overridden by the user.
         app_id, title, app_mode = app_store.resolve(connect_server.url, app_id, title, app_mode)
-        if static and app_mode != 'static':
+        if static and app_mode != AppModes.STATIC:
             raise api.RSConnectException('Cannot change app mode to "static" once deployed. '
                                          'Use --new to create a new deployment.')
 
@@ -377,7 +378,7 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
     deployment_name = make_deployment_name()
     deployment_title = title or default_title_from_manifest(source_manifest)
     # noinspection SpellCheckingInspection
-    app_mode = source_manifest['metadata']['appmode']
+    app_mode = AppModes.get_by_name(source_manifest['metadata']['appmode'])
 
     if not new and app_id is None:
         # Possible redeployment - check for saved metadata.
@@ -407,6 +408,7 @@ def get_python_env_info(file_name, python, compatibility_mode, force_generate):
                                       force_generate=force_generate)
     if 'error' in environment:
         raise api.RSConnectException(environment['error'])
+    logger.debug('Python: %s' % python)
     logger.debug('Environment: %s' % pformat(environment))
 
     return python, environment
@@ -423,7 +425,7 @@ def create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, 
     :param environment: environmental information.
     :return: the bundle.
     """
-    if app_mode == 'static':
+    if app_mode == AppModes.STATIC:
         try:
             return make_notebook_html_bundle(file_name, python)
         except subprocess.CalledProcessError as exc:
@@ -463,3 +465,78 @@ def spool_deployment_log(connect_server, app, log_callback):
     of log lines.  The log lines value will be None if a log callback was provided.
     """
     return api.emit_task_log(connect_server, app['app_id'], app['task_id'], log_callback)
+
+
+def create_manifest_and_environment_file(entry_point_file, environment, app_mode=None, extra_files=None, force=True):
+    """
+    Creates and writes a manifest.json file for the given entry point file.  If the
+    related environment file (requirements.txt, environment.yml, etc.) doesn't exist
+    (or force is set to True), the environment file will also be written.
+
+    :param entry_point_file: the entry point file (Jupyter notebook, etc.) to build
+    the manifest for.
+    :param environment: the Python environment to start with.  This should be what's
+    returned by the inspect_environment() function.
+    :param app_mode: the application mode to assume.  If this is None, the extension
+    portion of the entry point file name will be used to derive one.
+    :param extra_files: any extra files that should be included in the manifest.
+    :param force: if True, forces the environment file to be written. even if it
+    already exists.
+    :return:
+    """
+    if not write_manifest_json(entry_point_file, environment, app_mode, extra_files) or force:
+        write_environment_file(environment, dirname(entry_point_file))
+
+
+def write_manifest_json(entry_point_file, environment, app_mode=None, extra_files=None):
+    """
+    Creates and writes a manifest.json file for the given entry point file.  If
+    the application mode is not provided, an attempt will be made to resolve one
+    based on the extension portion of the entry point file.
+
+    :param entry_point_file: the entry point file (Jupyter notebook, etc.) to build
+    the manifest for.
+    :param environment: the Python environment to start with.  This should be what's
+    returned by the inspect_environment() function.
+    :param app_mode: the application mode to assume.  If this is None, the extension
+    portion of the entry point file name will be used to derive one.
+    :param extra_files: any extra files that should be included in the manifest.
+    :return: whether or not the environment file (requirements.txt, environment.yml,
+    etc.) that goes along with the manifest exists.
+    """
+    extra_files = extra_files or []
+    directory = dirname(entry_point_file)
+    file_name = basename(entry_point_file)
+    manifest_path = join(directory, 'manifest.json')
+
+    if app_mode is None:
+        _, extension = splitext(file_name)
+        app_mode = AppModes.get_by_extension(extension, True)
+        if app_mode == AppModes.UNKNOWN:
+            raise api.RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
+
+    manifest_data = make_source_manifest(file_name, environment, app_mode.name())
+    manifest_add_file(manifest_data, file_name, directory)
+    manifest_add_buffer(manifest_data, environment['filename'], environment['contents'])
+
+    for rel_path in extra_files:
+        manifest_add_file(manifest_data, rel_path, directory)
+
+    with open(manifest_path, 'w') as f:
+        json.dump(manifest_data, f, indent=2)
+
+    return exists(join(directory, environment['filename']))
+
+
+def write_environment_file(environment, directory):
+    """
+    Writes the environment file (requirements.txt, environment.yml, etc.) to the
+    specified directory.
+
+    :param environment: the Python environment to start with.  This should be what's
+    returned by the inspect_environment() function.
+    :param directory: the directory where the file should be written.
+    """
+    environment_file_path = join(directory, environment['filename'])
+    with open(environment_file_path, 'w') as f:
+        f.write(environment['contents'])
