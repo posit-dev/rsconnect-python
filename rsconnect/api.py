@@ -3,6 +3,7 @@ import time
 from _ssl import SSLError
 
 from rsconnect.http_support import HTTPResponse, HTTPServer, append_to_path
+from rsconnect.models import AppModes
 
 
 class RSConnectException(Exception):
@@ -277,35 +278,12 @@ def emit_task_log(connect_server, app_id, task_id, log_callback, timeout=None):
         return result
 
 
-(
-    UnknownMode,
-    ShinyMode,
-    ShinyRmdMode,
-    StaticRmdMode,
-    StaticMode,
-    APIMode,
-    TensorFlowModelAPI,
-    StaticJupyterMode,
-) = range(8)
-
-app_modes = {
-    UnknownMode: 'unknown',
-    ShinyMode: 'shiny',
-    ShinyRmdMode: 'rmd-shiny',
-    StaticRmdMode: 'rmd-static',
-    StaticMode: 'static',
-    APIMode: 'api',
-    TensorFlowModelAPI: 'tensorflow-saved-model',
-    StaticJupyterMode: 'jupyter-static',
-}
-
-
 def app_data(api, app):
     return {
         'id': app['id'],
         'name': app['name'],
         'title': app['title'],
-        'app_mode': app_modes.get(app['app_mode']),
+        'app_mode': AppModes.get_by_ordinal(app['app_mode']),
         'config_url': api.app_config(app['id'])['config_url'],
     }
 
@@ -321,7 +299,7 @@ def app_search(connect_server, app_id, app_title):
         found = False
 
         for app in apps or []:
-            if app['app_mode'] in (StaticMode, StaticJupyterMode):
+            if app['app_mode'] in (AppModes.STATIC.ordinal(), AppModes.JUPYTER_NOTEBOOK.ordinal()):
                 data.append(app_data(server, app))
                 if app['id'] == app_id:
                     found = True
@@ -330,7 +308,7 @@ def app_search(connect_server, app_id, app_title):
             try:
                 # offer the current location as an option
                 app = server.app_get(app_id)
-                if app['app_mode'] in (StaticMode, StaticJupyterMode):
+                if app['app_mode'] in (AppModes.STATIC.ordinal(), AppModes.JUPYTER_NOTEBOOK.ordinal()):
                     data.append(app_data(server, app))
             except RSConnectException:
                 logger.exception('Error getting info for previous app_id "%s", skipping', app_id)

@@ -8,6 +8,7 @@ import sys
 from os.path import abspath, basename, dirname, exists, join
 
 from rsconnect import api
+from rsconnect.models import AppMode, AppModes
 
 logger = logging.getLogger('rsconnect')
 
@@ -385,7 +386,7 @@ class AppStore(DataStore):
             app_id=app_id,
             app_guid=app_guid,
             title=title,
-            app_mode=app_mode,
+            app_mode=app_mode.name() if isinstance(app_mode, AppMode) else app_mode,
         ))
 
     def resolve(self, server, app_id, title, app_mode):
@@ -405,5 +406,5 @@ class AppStore(DataStore):
             logger.debug('Using saved title: "%s"' % title)
 
         # app mode cannot be changed on redeployment
-        app_mode = metadata.get('app_mode')
+        app_mode = AppModes.get_by_name(metadata.get('app_mode'))
         return app_id, title, app_mode
