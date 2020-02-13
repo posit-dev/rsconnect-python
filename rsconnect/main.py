@@ -305,9 +305,8 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_r
 @click.option('--python', '-p', type=click.Path(exists=True),
               help='Path to python interpreter whose environment should be used. '
                    'The python environment must have the rsconnect package installed.')
-@click.option('--compatibility-mode', '-C', is_flag=True,
-              help='Force freezing the current environment using pip instead of conda, when conda is not supported on '
-                   'RStudio Connect (version<=1.8.0).')
+@click.option('--conda', '-C', is_flag=True,
+              help='Use conda to deploy (unsupported for versions <=1.8.0)')
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
 @click.option('--insecure', '-i', envvar='CONNECT_INSECURE', is_flag=True,
@@ -317,7 +316,7 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_r
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
-def deploy_notebook(name, server, api_key, static, new, app_id, title, python, compatibility_mode, force_generate,
+def deploy_notebook(name, server, api_key, static, new, app_id, title, python, conda_enabled, force_generate,
                     insecure, cacert, verbose, file, extra_files):
     set_verbosity(verbose)
 
@@ -346,7 +345,7 @@ def deploy_notebook(name, server, api_key, static, new, app_id, title, python, c
     click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg='white')
 
     with cli_feedback('Inspecting python environment'):
-        python, environment = get_python_env_info(file, python, compatibility_mode, force_generate)
+        python, environment = get_python_env_info(file, python, not conda_enabled, force_generate)
 
     with cli_feedback('Creating deployment bundle'):
         bundle = create_notebook_deployment_bundle(file, extra_files, app_mode, python, environment)
@@ -450,7 +449,7 @@ def manifest():
 @click.option('--python', '-p', type=click.Path(exists=True),
               help='Path to python interpreter whose environment should be used. ' +
                    'The python environment must have the rsconnect package installed.')
-@click.option('--compatibility-mode', '-C', is_flag=True,
+@click.option('--conda', '-C', is_flag=True,
               help='Force freezing the current environment using pip instead of conda, when conda is not supported on '
                    'RStudio Connect (version<=1.8.0).')
 @click.option('--force-generate', '-g', is_flag=True,
@@ -458,7 +457,7 @@ def manifest():
 @click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
-def manifest_notebook(force, python, compatibility_mode, force_generate, verbose, file, extra_files):
+def manifest_notebook(force, python, conda_enabled, force_generate, verbose, file, extra_files):
     set_verbosity(verbose)
     with cli_feedback('Checking arguments'):
         if not file.endswith('.ipynb'):
@@ -472,7 +471,7 @@ def manifest_notebook(force, python, compatibility_mode, force_generate, verbose
 
     with cli_feedback('Inspecting python environment'):
         python = which_python(python)
-        environment = inspect_environment(python, dirname(file), compatibility_mode=compatibility_mode,
+        environment = inspect_environment(python, dirname(file), compatibility_mode=not conda_enabled,
                                           force_generate=force_generate)
         if 'error' in environment:
             raise api.RSConnectException(environment['error'])
