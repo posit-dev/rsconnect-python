@@ -1,25 +1,18 @@
-import json
 import logging
 import textwrap
 
 from os.path import abspath, basename, dirname, exists, join, splitext
-from pprint import pformat
 
 import click
 from six import text_type
 
 from rsconnect import VERSION
-from rsconnect.actions import set_verbosity, cli_feedback, which_python, inspect_environment, test_server,\
-    test_api_key, gather_server_details, gather_basic_deployment_info_for_notebook, get_python_env_info,\
-    create_notebook_deployment_bundle, deploy_bundle, spool_deployment_log, gather_basic_deployment_info_from_manifest
-from rsconnect.api import RSConnectServer
+from rsconnect.actions import set_verbosity, cli_feedback, test_server, test_api_key, gather_server_details,\
+    gather_basic_deployment_info_for_notebook, get_python_env_info, create_notebook_deployment_bundle, deploy_bundle,\
+    spool_deployment_log, gather_basic_deployment_info_from_manifest, write_manifest_json, write_environment_file
 from . import api
-from .bundle import (
-    make_manifest_bundle,
-    make_source_manifest,
-    manifest_add_buffer,
-    manifest_add_file)
-from .metadata import ServerStore, AppStore
+from .bundle import make_manifest_bundle
+from .metadata import ServerStore, AppStore, AppModes
 
 server_store = ServerStore()
 logging.basicConfig()
@@ -65,7 +58,7 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
     me = None
 
     with cli_feedback('Checking %s' % server):
-        real_server, _ = test_server(RSConnectServer(server, api_key, insecure, ca_data))
+        real_server, _ = test_server(api.RSConnectServer(server, api_key, insecure, ca_data))
 
     if api_key:
         with cli_feedback('Checking API key'):
@@ -203,25 +196,16 @@ def remove(name, server, verbose):
         click.echo(message)
 
 
-@cli.command(help='Show saved information about the specified deployment.')
+@cli.command(short_help='Show saved information about the specified deployment.',
+             help='Display information about the deployment of a Jupyter notebook or manifest. For any given file, '
+                  'information about it''s deployments are saved on a per-server basis.')
 @click.argument('file', type=click.Path(exists=True))
 def info(file):
     with cli_feedback(''):
         app_store = AppStore(file)
         deployments = app_store.get_all()
 
-        user_app_modes = {
-            'unknown': 'unknown',
-            'shiny': 'Shiny App',
-            'rmd-shiny': 'Shiny App (Rmd)',
-            'rmd-static': 'R Markdown',
-            'static': 'Static HTML',
-            'api': 'API',
-            'tensorflow-saved-model': 'TensorFlow Model',
-            'jupyter-static': 'Jupyter Notebook',
-        }
-
-        if deployments:
+        if len(deployments) > 0:
             click.echo('Loaded deployment information from %s' % abspath(app_store.get_path()))
 
             for deployment in deployments:
@@ -232,9 +216,9 @@ def info(file):
                 click.echo('App GUID:   %s' % deployment.get('app_guid'))
                 click.echo('Title:      "%s"' % deployment.get('title'))
                 click.echo('Filename:   %s' % deployment.get('filename'))
-                click.echo('Type:       %s' % user_app_modes.get(deployment.get('app_mode')))
+                click.echo('Type:       %s' % AppModes.get_by_name(deployment.get('app_mode')), True).desc()
         else:
-            click.echo('No saved deployment information was found.')
+            click.echo('No saved deployment information was found for %s.' % file)
 
 
 @cli.group(no_args_is_help=True, help="Deploy content to RStudio Connect.")
@@ -267,7 +251,7 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_r
     if not real_server:
         raise api.RSConnectException('You must specify one of -n/--name or -s/--server.')
 
-    connect_server = RSConnectServer(real_server, api_key, insecure, ca_data)
+    connect_server = api.RSConnectServer(real_server, api_key, insecure, ca_data)
 
     # If our info came from the command line, make sure the URL really works.
     if not from_store:
@@ -316,7 +300,7 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_r
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
-def deploy_notebook(name, server, api_key, static, new, app_id, title, python, conda_enabled, force_generate,
+def deploy_notebook(name, server, api_key, static, new, app_id, title, python, conda, force_generate,
                     insecure, cacert, verbose, file, extra_files):
     set_verbosity(verbose)
 
@@ -345,7 +329,7 @@ def deploy_notebook(name, server, api_key, static, new, app_id, title, python, c
     click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg='white')
 
     with cli_feedback('Inspecting python environment'):
-        python, environment = get_python_env_info(file, python, not conda_enabled, force_generate)
+        python, environment = get_python_env_info(file, python, not conda, force_generate)
 
     with cli_feedback('Creating deployment bundle'):
         bundle = create_notebook_deployment_bundle(file, extra_files, app_mode, python, environment)
@@ -437,14 +421,17 @@ def deploy_help():
 
 
 @cli.group(name="write-manifest", no_args_is_help=True,
-           help="Create a manifest.json file for later deployment from git")
-def manifest():
+           short_help='Create a manifest.json file for later deployment.',
+           help='Create a manifest.json file for later deployment. This may be used with the git support provided by '
+                'RStudio Connect or by using the "deploy manifest" command in this tool.')
+def write_manifest():
     pass
 
 
-@manifest.command(name="notebook", help='Create a manifest.json file for a notebook, for later deployment. '
-                                        'Creates an environment file (requirements.txt) if one does not exist. '
-                                        'All files are created in the same directory as the notebook file.')
+@write_manifest.command(name="notebook", short_help='Create a manifest.json file for a Jupyter notebook.',
+                        help='Create a manifest.json file for a Jupyter notebook for later deployment. This will '
+                             'creates an environment file (requirements.txt) if one does not exist. All files are '
+                             'created in the same directory as the notebook file.')
 @click.option('--force', '-f', is_flag=True, help='Replace manifest.json, if it exists.')
 @click.option('--python', '-p', type=click.Path(exists=True),
               help='Path to python interpreter whose environment should be used. ' +
@@ -457,7 +444,7 @@ def manifest():
 @click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
 @click.argument('file', type=click.Path(exists=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
-def manifest_notebook(force, python, conda_enabled, force_generate, verbose, file, extra_files):
+def write_manifest_notebook(force, python, conda, force_generate, verbose, file, extra_files):
     set_verbosity(verbose)
     with cli_feedback('Checking arguments'):
         if not file.endswith('.ipynb'):
@@ -470,35 +457,16 @@ def manifest_notebook(force, python, conda_enabled, force_generate, verbose, fil
             raise api.RSConnectException('manifest.json already exists. Use --force to overwrite.')
 
     with cli_feedback('Inspecting python environment'):
-        python = which_python(python)
-        environment = inspect_environment(python, dirname(file), compatibility_mode=not conda_enabled,
-                                          force_generate=force_generate)
-        if 'error' in environment:
-            raise api.RSConnectException(environment['error'])
-        environment_filename = environment['filename']
-        if verbose:
-            click.echo('Python: %s' % python)
-            click.echo('Environment: %s' % pformat(environment))
+        python, environment = get_python_env_info(file, python, not conda, force_generate)
 
     with cli_feedback('Creating manifest.json'):
-        notebook_filename = basename(file)
-        manifest_data = make_source_manifest(notebook_filename, environment, 'jupyter-static')
-        manifest_add_file(manifest_data, notebook_filename, base_dir)
-        manifest_add_buffer(manifest_data, environment_filename, environment['contents'])
+        environment_file_exists = write_manifest_json(file, environment, 'jupyter-static', extra_files)
 
-        for rel_path in extra_files:
-            manifest_add_file(manifest_data, rel_path, base_dir)
-
-        with open(manifest_path, 'w') as f:
-            json.dump(manifest_data, f, indent=2)
-
-    environment_file_path = join(base_dir, environment_filename)
-    if exists(environment_file_path):
-        click.echo('%s already exists and will not be overwritten.' % environment_filename)
+    if environment_file_exists and not force_generate:
+        click.echo('%s already exists and will not be overwritten.' % environment['filename'])
     else:
-        with cli_feedback('Creating %s' % environment_filename):
-            with open(environment_file_path, 'w') as f:
-                f.write(environment['contents'])
+        with cli_feedback('Creating %s' % environment['filename']):
+            write_environment_file(environment, base_dir)
 
 
 if __name__ == '__main__':
