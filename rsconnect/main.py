@@ -12,7 +12,8 @@ from rsconnect.actions import set_verbosity, cli_feedback, test_server, test_api
     spool_deployment_log, gather_basic_deployment_info_from_manifest, write_manifest_json, write_environment_file
 from . import api
 from .bundle import make_manifest_bundle
-from .metadata import ServerStore, AppStore, AppModes
+from .metadata import ServerStore, AppStore
+from .models import AppModes
 
 server_store = ServerStore()
 logging.basicConfig()

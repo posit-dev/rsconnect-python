@@ -3,7 +3,7 @@ import time
 from _ssl import SSLError
 
 from rsconnect.http_support import HTTPResponse, HTTPServer, append_to_path
-from rsconnect.metadata import AppModes
+from rsconnect.models import AppModes
 
 
 class RSConnectException(Exception):

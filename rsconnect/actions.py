@@ -15,7 +15,8 @@ from rsconnect import api
 from .bundle import make_notebook_html_bundle, make_notebook_source_bundle, make_manifest_bundle, read_manifest_file, \
     make_source_manifest, manifest_add_file, manifest_add_buffer
 from .environment import EnvironmentException
-from .metadata import AppStore, AppModes
+from .metadata import AppStore
+from .models import AppModes
 
 import click
 from six.moves.urllib_parse import urlparse
