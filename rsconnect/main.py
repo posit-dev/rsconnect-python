@@ -217,7 +217,7 @@ def info(file):
                 click.echo('App GUID:   %s' % deployment.get('app_guid'))
                 click.echo('Title:      "%s"' % deployment.get('title'))
                 click.echo('Filename:   %s' % deployment.get('filename'))
-                click.echo('Type:       %s' % AppModes.get_by_name(deployment.get('app_mode')), True).desc()
+                click.echo('Type:       %s' % AppModes.get_by_name(deployment.get('app_mode'), True)).desc()
         else:
             click.echo('No saved deployment information was found for %s.' % file)
 
@@ -461,7 +461,7 @@ def write_manifest_notebook(force, python, conda, force_generate, verbose, file,
         python, environment = get_python_env_info(file, python, not conda, force_generate)
 
     with cli_feedback('Creating manifest.json'):
-        environment_file_exists = write_manifest_json(file, environment, 'jupyter-static', extra_files)
+        environment_file_exists = write_manifest_json(file, environment, AppModes.JUPYTER_NOTEBOOK, extra_files)
 
     if environment_file_exists and not force_generate:
         click.echo('%s already exists and will not be overwritten.' % environment['filename'])
