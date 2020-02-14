@@ -85,7 +85,8 @@ def get_conda_version(conda):
 
 
 def get_default_locale():
-    return '.'.join(locale.getdefaultlocale())
+    result = '.'.join([item or '' for item in locale.getdefaultlocale()])
+    return '' if result == '.' else result
 
 
 def get_version(module):
