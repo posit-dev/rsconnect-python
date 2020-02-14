@@ -4,9 +4,9 @@ This file defines some support data models.
 
 
 class AppMode(object):
-    def __init__(self, ordinal, symbol, text, ext=None):
+    def __init__(self, ordinal, name, text, ext=None):
         self._ordinal = ordinal
-        self._symbol = symbol
+        self._name = name
         self._text = text
         self._ext = ext
 
@@ -14,7 +14,7 @@ class AppMode(object):
         return self._ordinal
 
     def name(self):
-        return self._symbol
+        return self._name
 
     def desc(self):
         return self._text
@@ -43,7 +43,7 @@ class AppModes(object):
 
     @classmethod
     def get_by_ordinal(cls, ordinal, return_unknown=False):
-        return cls._find_by(lambda mode: mode.ordinal() == ordinal, 'with ordinal %d' % ordinal, return_unknown)
+        return cls._find_by(lambda mode: mode.ordinal() == ordinal, 'with ordinal %s' % ordinal, return_unknown)
 
     @classmethod
     def get_by_name(cls, name, return_unknown=False):
@@ -51,6 +51,12 @@ class AppModes(object):
 
     @classmethod
     def get_by_extension(cls, extension, return_unknown=False):
+        # We can't allow a lookup by None since some modes have that for an extension.
+        if extension is None:
+            if return_unknown:
+                return cls.UNKNOWN
+            raise ValueError('No app mode with extension %s' % extension)
+
         return cls._find_by(lambda mode: mode.extension() == extension, 'with extension: %s' % extension,
                             return_unknown)
 

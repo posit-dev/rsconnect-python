@@ -217,7 +217,7 @@ def info(file):
                 click.echo('App GUID:   %s' % deployment.get('app_guid'))
                 click.echo('Title:      "%s"' % deployment.get('title'))
                 click.echo('Filename:   %s' % deployment.get('filename'))
-                click.echo('Type:       %s' % AppModes.get_by_name(deployment.get('app_mode'), True)).desc()
+                click.echo('Type:       %s' % AppModes.get_by_name(deployment.get('app_mode'), True).desc())
         else:
             click.echo('No saved deployment information was found for %s.' % file)
 
@@ -291,7 +291,7 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_r
               help='Path to python interpreter whose environment should be used. '
                    'The python environment must have the rsconnect package installed.')
 @click.option('--conda', '-C', is_flag=True,
-              help='Use conda to deploy (unsupported for versions <=1.8.0)')
+              help='Use conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
 @click.option('--insecure', '-i', envvar='CONNECT_INSECURE', is_flag=True,
@@ -438,8 +438,7 @@ def write_manifest():
               help='Path to python interpreter whose environment should be used. ' +
                    'The python environment must have the rsconnect package installed.')
 @click.option('--conda', '-C', is_flag=True,
-              help='Force freezing the current environment using pip instead of conda, when conda is not supported on '
-                   'RStudio Connect (version<=1.8.0).')
+              help='Use conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
 @click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
