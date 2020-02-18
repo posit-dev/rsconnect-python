@@ -272,7 +272,7 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_r
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(name='notebook', short_help='Deploy Jupyter notebook to RStudio Connect.',
-                help='Deploy a Jupyter noteboo to RStudio Connect. This may be done by source or as a static HTML '
+                help='Deploy a Jupyter notebook to RStudio Connect. This may be done by source or as a static HTML '
                      'page. If the notebook is deployed as a static HTML page (--static), it cannot be scheduled or '
                      'rerun on the Connect server.')
 @click.option('--name', '-n', help='The nickname of the RStudio Connect server to deploy to.')
