@@ -7,7 +7,7 @@ by this package.
 
 A command-line deployment tool is also provided that can be used directly to deploy
 Jupyter notebooks. Other content types can be deployed if they include a prepared
-`manifest.json` file. See ["Creating a Manifest for Future Deployment"](#creating-a-manifest-for-future-deployment)
+`manifest.json` file. See ["Deploying R or Other Content"](#deploying-r-or-other-content)
 for details.
 
 ## Deploying Python Content to RStudio Connect
