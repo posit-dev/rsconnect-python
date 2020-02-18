@@ -270,6 +270,12 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_r
     return connect_server
 
 
+def _validate_title(title):
+    if title:
+        if not (3 <= len(title) <= 1024):
+            raise api.RSConnectException('A title must be between 3-1024 characters long.')
+
+
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(name='notebook', short_help='Deploy Jupyter notebook to RStudio Connect.',
                 help='Deploy a Jupyter notebook to RStudio Connect. This may be done by source or as a static HTML '
@@ -312,6 +318,8 @@ def deploy_notebook(name, server, api_key, static, new, app_id, title, python, c
 
         if new and app_id:
             raise api.RSConnectException('Specify either --new/-N or --app-id/-a but not both.')
+
+        _validate_title(title)
 
         file_suffix = splitext(file)[1].lower()
         if file_suffix != '.ipynb':
@@ -379,6 +387,8 @@ def deploy_manifest(name, server, api_key, new, app_id, title, insecure, cacert,
 
         if new and app_id:
             raise api.RSConnectException('Specify either --new/-N or --app-id/-a but not both.')
+
+        _validate_title(title)
 
         if basename(file) != 'manifest.json':
             raise api.RSConnectException('The deploy manifest command requires an existing manifest.json file to be '
