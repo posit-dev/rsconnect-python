@@ -14,14 +14,17 @@ class TestMain(TestCase):
     def test_validate_deploy_to_args(self):
         server_store.set('fake', 'http://example.com', None)
 
-        with self.assertRaises(RSConnectException):
-            _validate_deploy_to_args('name', 'url', None, False, None)
+        try:
+            with self.assertRaises(RSConnectException):
+                _validate_deploy_to_args('name', 'url', None, False, None)
 
-        with self.assertRaises(RSConnectException):
-            _validate_deploy_to_args(None, None, None, False, None)
+            with self.assertRaises(RSConnectException):
+                _validate_deploy_to_args(None, None, None, False, None)
 
-        with self.assertRaises(RSConnectException):
-            _validate_deploy_to_args('fake', None, None, False, None)
+            with self.assertRaises(RSConnectException):
+                _validate_deploy_to_args('fake', None, None, False, None)
+        finally:
+            server_store.remove_by_name('fake')
 
     def test_validate_title(self):
         with self.assertRaises(RSConnectException):
