@@ -213,8 +213,8 @@ class HTTPServer(object):
             self._handle_set_cookie(response)
 
             return self._tweak_response(HTTPResponse(full_uri, response=response, body=response_body))
-        except (http.HTTPException, IOError, OSError, socket.error, socket.herror, socket.gaierror,
-                socket.timeout) as exception:
+        except (http.HTTPException, ssl.CertificateError, IOError, OSError, socket.error, socket.herror,
+                socket.gaierror, socket.timeout) as exception:
             logger.debug('An exception occurred processing the HTTP request.', exc_info=True)
             return HTTPResponse(full_uri, exception=exception)
 
