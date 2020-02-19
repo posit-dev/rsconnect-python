@@ -5,11 +5,34 @@ from unittest import TestCase
 from click.testing import CliRunner
 
 from .test_data_util import get_dir, get_manifest_path
-from ..main import cli
+from ..api import RSConnectException
+from ..main import cli, _validate_deploy_to_args, _validate_title, server_store
 from rsconnect import VERSION
 
 
 class TestMain(TestCase):
+    def test_validate_deploy_to_args(self):
+        server_store.set('fake', 'http://example.com', None)
+
+        with self.assertRaises(RSConnectException):
+            _validate_deploy_to_args('name', 'url', None, False, None)
+
+        with self.assertRaises(RSConnectException):
+            _validate_deploy_to_args(None, None, None, False, None)
+
+        with self.assertRaises(RSConnectException):
+            _validate_deploy_to_args('fake', None, None, False, None)
+
+    def test_validate_title(self):
+        with self.assertRaises(RSConnectException):
+            _validate_title('12')
+
+        with self.assertRaises(RSConnectException):
+            _validate_title('1' * 1025)
+
+        _validate_title('123')
+        _validate_title('1' * 1024)
+
     def require_connect(self):
         connect_server = os.environ.get('CONNECT_SERVER', None)
         if connect_server is None:
