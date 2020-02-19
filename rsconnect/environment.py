@@ -84,8 +84,8 @@ def get_conda_version(conda):
         raise EnvironmentException("Error getting conda version: %s" % str(exception))
 
 
-def get_default_locale():
-    result = '.'.join([item or '' for item in locale.getdefaultlocale()])
+def get_default_locale(locale_source=locale.getdefaultlocale):
+    result = '.'.join([item or '' for item in locale_source()])
     return '' if result == '.' else result
 
 
