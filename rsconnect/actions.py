@@ -340,7 +340,6 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
     :return: the app ID, name, title and mode for the deployment.
     """
     deployment_name = make_deployment_name()
-    deployment_title = title or default_title(file_name)
 
     if app_id is not None:
         # Don't read app metadata if app-id is specified. Instead, we need
@@ -362,7 +361,7 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
             raise api.RSConnectException('Cannot change app mode to "static" once deployed. '
                                          'Use --new to create a new deployment.')
 
-    return app_id, deployment_name, deployment_title, app_mode
+    return app_id, deployment_name, title or default_title(file_name), app_mode
 
 
 def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_name, new, app_id, title):
@@ -380,7 +379,6 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
     """
     source_manifest, _ = read_manifest_file(file_name)
     deployment_name = make_deployment_name()
-    deployment_title = title or default_title_from_manifest(source_manifest)
     # noinspection SpellCheckingInspection
     app_mode = AppModes.get_by_name(source_manifest['metadata']['appmode'])
 
@@ -389,7 +387,7 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
         # Use the saved app information unless overridden by the user.
         app_id, title, app_mode = app_store.resolve(connect_server.url, app_id, title, app_mode)
 
-    return app_id, deployment_name, deployment_title, app_mode
+    return app_id, deployment_name, title or default_title_from_manifest(source_manifest), app_mode
 
 
 def get_python_env_info(file_name, python, compatibility_mode, force_generate):
