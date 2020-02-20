@@ -1,6 +1,7 @@
 """
 This provides some low-level things to make our HTTP life easier.
 """
+import re
 from functools import wraps
 
 from typing import Dict, List
@@ -9,6 +10,8 @@ from typing import Dict, List
 from flask import abort, after_this_request, g, jsonify, request
 
 from .data import DBObject, User
+
+digits = re.compile(r'\d+')
 
 
 def error(code, reason):
@@ -58,7 +61,9 @@ def endpoint(authenticated: bool = False, auth_optional: bool = False, cls=None,
             if cls is None:
                 result = _make_json_ready(function(*args, **kwargs))
             else:
-                item = cls.get_object(int(object_id))
+                if digits.match(object_id):
+                    object_id = int(object_id)
+                item = cls.get_object(object_id)
                 if item is None:
                     result = error(404, '%s with ID %s not found.' % (cls.__name__, object_id))
                 else:

@@ -12,6 +12,7 @@ from enum import Enum
 from json import JSONDecodeError
 from os import environ
 from os.path import isfile
+from typing import Union
 
 
 def timestamp():
@@ -43,7 +44,7 @@ class DBObject(object):
         return new_id
 
     @classmethod
-    def get_object(cls, db_id: int):
+    def get_object(cls, db_id: Union[int, str]):
         name = cls.__name__
         if name in cls.instances and db_id in cls.instances[name]:
             return cls.instances[name][db_id]
@@ -78,6 +79,8 @@ class DBObject(object):
         if name not in cls.instances:
             cls.instances[name] = {}
         cls.instances[name][instance.id] = instance
+        if 'guid' in instance.attrs:
+            cls.instances[name][instance.guid] = instance
 
     @classmethod
     def get_table_headers(cls):

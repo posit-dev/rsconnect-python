@@ -1,9 +1,9 @@
 """
 This is the main file, run via `flask run`, for the mock Connect server.
 """
-# noinspection PyPackageRequirements
 import sys
 
+# noinspection PyPackageRequirements
 from flask import Flask, Blueprint, g, request, url_for
 
 from .data import Application, AppMode, Bundle, Task, get_data_dump, default_server_settings

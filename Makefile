@@ -1,5 +1,6 @@
 
 VERSION=$(shell cat rsconnect/version.txt).$(shell printenv BUILD_NUMBER || echo 9999)
+HOSTNAME?=$(shell hostname)
 
 RUNNER=docker run -it --rm \
 		-v $(PWD):/rsconnect \
@@ -31,6 +32,13 @@ shell-%:
 
 test-%:
 	$(RUNNER) 'python setup.py develop --user && ${TEST_ENV1} ${TEST_ENV2} python -m unittest discover'
+
+mock-test-%:
+	@find . -name "rsconnect-python" | xargs rm -rf
+	@${MAKE} -C mock_connect image up
+	@sleep 1
+	CONNECT_SERVER=http://${HOSTNAME}:3939 CONNECT_API_KEY=0123456789abcdef0123456789abcdef ${MAKE} test-$*
+	@${MAKE} -C mock_connect down
 
 coverage-%:
 	$(RUNNER) 'python setup.py develop --user && pytest --cov=rsconnect --cov-report=html --no-cov-on-fail rsconnect/tests/'
