@@ -7,9 +7,10 @@ import click
 from six import text_type
 
 from rsconnect import VERSION
-from rsconnect.actions import set_verbosity, cli_feedback, test_server, test_api_key, gather_server_details,\
-    gather_basic_deployment_info_for_notebook, get_python_env_info, create_notebook_deployment_bundle, deploy_bundle,\
-    spool_deployment_log, gather_basic_deployment_info_from_manifest, write_manifest_json, write_environment_file
+from rsconnect.actions import set_verbosity, cli_feedback, test_server, test_api_key, gather_server_details, \
+    gather_basic_deployment_info_for_notebook, get_python_env_info, create_notebook_deployment_bundle, deploy_bundle, \
+    spool_deployment_log, gather_basic_deployment_info_from_manifest, write_manifest_json, write_environment_file, \
+    is_conda_supported_on_server
 from . import api
 from .bundle import make_manifest_bundle
 from .metadata import ServerStore, AppStore
@@ -337,6 +338,12 @@ def deploy_notebook(name, server, api_key, static, new, app_id, title, python, c
 
     click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg='white')
 
+    if conda:
+        with cli_feedback('Ensuring conda is supported'):
+            if not is_conda_supported_on_server(connect_server):
+                raise api.RSConnectException('Conda is not supported on the target server. Please try deploying '
+                                             'again without conda enabled (remove the --conda/-C flag).')
+
     with cli_feedback('Inspecting python environment'):
         python, environment = get_python_env_info(file, python, not conda, force_generate)
 
@@ -394,10 +401,16 @@ def deploy_manifest(name, server, api_key, new, app_id, title, insecure, cacert,
             raise api.RSConnectException('The deploy manifest command requires an existing manifest.json file to be '
                                          'provided on the command line.')
 
-        app_id, deployment_name, title, app_mode = \
+        app_id, deployment_name, title, app_mode, package_manager = \
             gather_basic_deployment_info_from_manifest(connect_server, app_store, file, new, app_id, title)
 
     click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg='white')
+
+    if package_manager == 'conda':
+        with cli_feedback('Ensuring conda is supported'):
+            if not is_conda_supported_on_server(connect_server):
+                raise api.RSConnectException('Conda is not supported on the target server. Please try creating this '
+                                             'manifest again without conda enabled (no --conda/-C flag).')
 
     with cli_feedback('Creating deployment bundle'):
         bundle = make_manifest_bundle(file)

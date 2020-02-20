@@ -315,7 +315,7 @@ def deploy_by_manifest(connect_server, manifest_file_name, new=False, app_id=Non
     of log lines.  The log lines value will be None if a log callback was provided.
     """
     app_store = AppStore(manifest_file_name)
-    app_id, deployment_name, deployment_title, app_mode = \
+    app_id, deployment_name, deployment_title, app_mode, package_manager = \
         gather_basic_deployment_info_from_manifest(connect_server, app_store, manifest_file_name, new, app_id, title)
     bundle = make_manifest_bundle(manifest_file_name)
     app = deploy_bundle(connect_server, app_id, deployment_name, deployment_title, bundle)
@@ -375,7 +375,7 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
     :param app_id: the ID of the app to redeploy.
     :param title: an optional title.  If this isn't specified, a default title will
     be generated.
-    :return: the app ID, name, title and mode for the deployment.
+    :return: the app ID, name, title, mode, and package manager for the deployment.
     """
     source_manifest, _ = read_manifest_file(file_name)
     deployment_name = make_deployment_name()
@@ -387,7 +387,9 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
         # Use the saved app information unless overridden by the user.
         app_id, title, app_mode = app_store.resolve(connect_server.url, app_id, title, app_mode)
 
-    return app_id, deployment_name, title or default_title_from_manifest(source_manifest), app_mode
+    package_manager = source_manifest.get('python', {}).get('package_manager', {}).get('name', None)
+
+    return app_id, deployment_name, title or default_title_from_manifest(source_manifest), app_mode, package_manager
 
 
 def get_python_env_info(file_name, python, compatibility_mode, force_generate):
@@ -414,6 +416,17 @@ def get_python_env_info(file_name, python, compatibility_mode, force_generate):
     logger.debug('Environment: %s' % pformat(environment))
 
     return python, environment
+
+
+def is_conda_supported_on_server(connect_server):
+    """
+    Returns True when conda is supported on a target server and False otherwise
+    Makes network calls.
+    :param connect_server: Connect server URL as passed to gather_server_details
+    :return: boolean True if supported, False otherwise
+    """
+    details = gather_server_details(connect_server)
+    return details.get('conda', {}).get('supported', False)
 
 
 def create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, environment):
