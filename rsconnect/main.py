@@ -340,8 +340,7 @@ def deploy_notebook(name, server, api_key, static, new, app_id, title, python, c
 
     if conda:
         with cli_feedback('Ensuring conda is supported'):
-            if not is_conda_supported_on_server(connect_server.url):
-                conda = False
+            if not is_conda_supported_on_server(connect_server):
                 raise api.RSConnectException('Conda is not supported on the target server. Please try deploying '
                                              'again without conda enabled (remove the --conda/-C flag).')
 
