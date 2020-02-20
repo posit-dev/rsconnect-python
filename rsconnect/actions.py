@@ -108,7 +108,10 @@ def inspect_environment(python, directory, compatibility_mode=False, force_gener
     if len(flags) > 0:
         args.append('-'+''.join(flags))
     args.append(directory)
-    environment_json = check_output(args, universal_newlines=True)
+    try:
+        environment_json = check_output(args, universal_newlines=True)
+    except subprocess.CalledProcessError as e:
+        raise api.RSConnectException("Error inspecting environment: %s" % e.output)
     environment = json.loads(environment_json)
     return environment
 
