@@ -11,7 +11,7 @@ from flask import abort, after_this_request, g, jsonify, request
 
 from .data import DBObject, User
 
-digits = re.compile(r'\d+')
+digits = re.compile(r'^\d+$')
 
 
 def error(code, reason):
