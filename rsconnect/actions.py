@@ -13,10 +13,10 @@ from pprint import pformat
 
 from rsconnect import api
 from .bundle import make_notebook_html_bundle, make_notebook_source_bundle, make_manifest_bundle, read_manifest_file, \
-    make_source_manifest, manifest_add_file, manifest_add_buffer
+    make_source_manifest, manifest_add_file, manifest_add_buffer, make_api_bundle
 from .environment import EnvironmentException
 from .metadata import AppStore
-from .models import AppModes
+from .models import AppModes, Version
 
 import click
 from six.moves.urllib_parse import urlparse
@@ -220,6 +220,56 @@ def gather_server_details(connect_server):
     }
 
 
+def is_version_1_8_2_or_higher(connect_details):
+    """
+    Returns whether or not the Connect server is at least 1.8.2.
+
+    :param connect_details: details about a Connect server as returned by gather_server_details()
+    :return: boolean True if the Connect server is at least at version 1.8.2 or False if not.
+    :error: The RStudio Connect server must be at least v1.8.2.
+    """
+    return Version(connect_details['connect']) >= Version('1.8.1-1')
+
+
+def is_conda_supported_on_server(connect_details):
+    """
+    Returns whether or not conda is supported on a Connect server.
+
+    :param connect_details: details about a Connect server as returned by gather_server_details()
+    :return: boolean True if supported, False otherwise
+    :error: Conda is not supported on the target server.  Try deploying without requesting Conda.
+    """
+    return connect_details.get('conda', {}).get('supported', False)
+
+
+def check_server_capabilities(connect_server, capability_functions, details_source=gather_server_details):
+    """
+    Uses a sequence of functions that check for capabilities in a Connect server.  The
+    server settings data is retrieved by the gather_server_details() function.
+
+    Each function provided must accept one dictionary argument which will be the server
+    settings data returned by the gather_server_details() function.  That function must
+    return a boolean value.  It must also contain a docstring which itself must contain
+    an ":error:" tag as the last thing in the docstring.  If the function returns False,
+    an exception is raised with the function's ":error:" text as its message.
+
+    :param connect_server: the information needed to interact with the Connect server.
+    :param capability_functions: a sequence of functions that will be called.
+    :param details_source: the source for obtaining server details, gather_server_details(),
+    by default.
+    """
+    details = details_source(connect_server)
+
+    for function in capability_functions:
+        if not function(details):
+            index = function.__doc__.find(':error:') if function.__doc__ else -1
+            if index >= 0:
+                message = function.__doc__[index + 7:].strip()
+            else:
+                message = 'The server does not satisfy the %s capability check.' % function.__name__
+            raise api.RSConnectException(message)
+
+
 def make_deployment_name():
     """Produce a unique name for this deployment as required by the Connect API.
 
@@ -293,6 +343,44 @@ def deploy_jupyter_notebook(connect_server, file_name, extra_files, new=False, a
     app = deploy_bundle(connect_server, app_id, deployment_name, deployment_title, bundle)
     app_url, log_lines = spool_deployment_log(connect_server, app, log_callback)
     app_store.set(connect_server.url, abspath(file_name), app_url, app['app_id'], app['app_guid'], title, app_mode)
+    return app_url, log_lines
+
+
+def deploy_python_api(connect_server, directory, extra_files, excludes, entry_point, new=False, app_id=None, title=None,
+                      python=None, compatibility_mode=False, force_generate=False, log_callback=None):
+    """
+    A function to deploy a Python WSGi API module to Connect.  Depending on the files involved
+    and network latency, this may take a bit of time.
+
+    :param connect_server: the Connect server information.
+    :param directory: the Jupyter notebook file to deploy.
+    :param extra_files: any extra files that should be included in the deploy.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param entry_point: the module/executable object for the WSGi framework.
+    :param new: a flag to force this as a new deploy.
+    :param app_id: the ID of an existing application to deploy new files for.
+    :param title: an optional title for the deploy.  If this is not provided, ne will
+    be generated.
+    :param python: the optional name of a Python executable.
+    :param compatibility_mode: force freezing the current environment using pip
+    instead of conda, when conda is not supported on RStudio Connect (version<=1.8.0).
+    :param force_generate: force generating "requirements.txt" or "environment.yml",
+    even if it already exists.
+    :param log_callback: the callback to use to write the log to.  If this is None
+    (the default) the lines from the deployment log will be returned as a sequence.
+    If a log callback is provided, then None will be returned for the log lines part
+    of the return tuple.
+    :return: the ultimate URL where the deployed app may be accessed and the sequence
+    of log lines.  The log lines value will be None if a log callback was provided.
+    """
+    app_store = AppStore(directory)
+    app_id, deployment_name, deployment_title, app_mode = \
+        gather_basic_deployment_info_for_api(connect_server, app_store, directory, new, app_id, title)
+    _, environment = get_python_env_info(directory, python, compatibility_mode, force_generate)
+    bundle = create_api_deployment_bundle(directory, extra_files, excludes, entry_point, app_mode, environment)
+    app = deploy_bundle(connect_server, app_id, deployment_name, deployment_title, bundle)
+    app_url, log_lines = spool_deployment_log(connect_server, app, log_callback)
+    app_store.set(connect_server.url, abspath(directory), app_url, app['app_id'], app['app_guid'], title, app_mode)
     return app_url, log_lines
 
 
@@ -392,6 +480,39 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
     return app_id, deployment_name, title or default_title_from_manifest(source_manifest), app_mode, package_manager
 
 
+def gather_basic_deployment_info_for_api(connect_server, app_store, directory, new, app_id, title):
+    """
+    Helps to gather the necessary info for performing a deployment.
+
+    :param connect_server: the Connect server information.
+    :param app_store: the store for the specified directory.
+    :param directory: the primary file being deployed.
+    :param new: a flag noting whether we should force a new deployment.
+    :param app_id: the ID of the app to redeploy.
+    :param title: an optional title.  If this isn't specified, a default title will
+    be generated.
+    :return: the app ID, name, title and mode for the deployment.
+    """
+    deployment_name = make_deployment_name()
+
+    if app_id is not None:
+        # Don't read app metadata if app-id is specified. Instead, we need
+        # to get this from Connect.
+        app = api.get_app_info(connect_server, app_id)
+        app_mode = AppModes.get_by_ordinal(app.get('app_mode', 0), True)
+
+        logger.debug('Using app mode from app %s: %s' % (app_id, app_mode))
+    else:
+        app_mode = AppModes.PYTHON_API
+
+    if not new and app_id is None:
+        # Possible redeployment - check for saved metadata.
+        # Use the saved app information unless overridden by the user.
+        app_id, title, app_mode = app_store.resolve(connect_server.url, app_id, title, app_mode)
+
+    return app_id, deployment_name, title or default_title(directory), app_mode
+
+
 def get_python_env_info(file_name, python, compatibility_mode, force_generate):
     """
     Gathers the python and environment information relating to the specified file
@@ -418,17 +539,6 @@ def get_python_env_info(file_name, python, compatibility_mode, force_generate):
     return python, environment
 
 
-def is_conda_supported_on_server(connect_server):
-    """
-    Returns True when conda is supported on a target server and False otherwise
-    Makes network calls.
-    :param connect_server: Connect server URL as passed to gather_server_details
-    :return: boolean True if supported, False otherwise
-    """
-    details = gather_server_details(connect_server)
-    return details.get('conda', {}).get('supported', False)
-
-
 def create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, environment):
     """
     Create an in-memory bundle, ready to deploy.
@@ -449,6 +559,21 @@ def create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, 
             raise api.RSConnectException(str(exc))
     else:
         return make_notebook_source_bundle(file_name, environment, extra_files)
+
+
+def create_api_deployment_bundle(directory, extra_files, excludes, entry_point, app_mode, environment):
+    """
+    Create an in-memory bundle, ready to deploy.
+
+    :param directory: the directory that contains the code being deployed.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param entry_point: the module/executable object for the WSGi framework.
+    :param app_mode: the mode of the app being deployed.
+    :param environment: environmental information.
+    :return: the bundle.
+    """
+    return make_api_bundle(directory, entry_point, app_mode, environment, extra_files, excludes)
 
 
 def deploy_bundle(connect_server, app_id, name, title, bundle):
@@ -530,7 +655,7 @@ def write_manifest_json(entry_point_file, environment, app_mode=None, extra_file
         if app_mode == AppModes.UNKNOWN:
             raise api.RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
 
-    manifest_data = make_source_manifest(file_name, environment, app_mode.name())
+    manifest_data = make_source_manifest(file_name, environment, app_mode)
     manifest_add_file(manifest_data, file_name, directory)
     manifest_add_buffer(manifest_data, environment['filename'], environment['contents'])
 

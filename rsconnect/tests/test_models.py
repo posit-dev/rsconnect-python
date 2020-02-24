@@ -1,9 +1,31 @@
 from unittest import TestCase
 
-from rsconnect.models import AppMode, AppModes
+from rsconnect.models import AppMode, AppModes, Version
 
 
 class TestModels(TestCase):
+    def test_version_class(self):
+        self.assertTrue(Version('1.8.1') > Version('0.7.1'))
+        self.assertTrue(Version('1.8.1') >= Version('0.7.1'))
+        self.assertTrue(Version('1.8.1') < Version('2.7.1'))
+        self.assertTrue(Version('1.8.1') <= Version('2.7.1'))
+        self.assertTrue(Version('1.8.1') != Version('2.7.1'))
+
+        self.assertTrue(Version('1.8.1') > Version('1.7.1'))
+        self.assertTrue(Version('1.8.1') >= Version('1.7.1'))
+        self.assertTrue(Version('1.8.1') < Version('1.9.1'))
+        self.assertTrue(Version('1.8.1') <= Version('1.9.1'))
+        self.assertTrue(Version('1.8.1') != Version('1.9.1'))
+        self.assertTrue(Version('1.8.1') == Version('1.8.1'))
+
+        self.assertTrue(Version('1.8.1') != Version('1.8.1-9999'))
+        self.assertTrue(Version('1.8.1') <= Version('1.8.1-9999'))
+        self.assertTrue(Version('1.8.1') < Version('1.8.1-9999'))
+
+        self.assertTrue(Version('1.8.1') != Version('1.8.2-1'))
+        self.assertTrue(Version('1.8.1') <= Version('1.8.2-1'))
+        self.assertTrue(Version('1.8.1') < Version('1.8.2-1'))
+
     def test_app_mode_class(self):
         mode = AppMode(1, 'test', 'Testing')
 
@@ -29,8 +51,8 @@ class TestModels(TestCase):
         descriptions = []
         extensions = []
 
-        self.assertEqual(len(defined), 8)
-        self.assertEqual(len(modes), 8)
+        self.assertEqual(len(defined), 9)
+        self.assertEqual(len(modes), 9)
 
         # This makes sure all named mode constants appear in the modes list.
         for name in defined:

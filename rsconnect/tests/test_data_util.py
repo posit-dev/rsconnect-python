@@ -17,3 +17,11 @@ def get_manifest_path(name, parent='R'):
     if not exists(path):
         raise AssertionError('%s does not exist' % path)
     return path
+
+
+def get_api_path(name, parent='api'):
+    # noinspection SpellCheckingInspection
+    path = join(dirname(__file__), 'testdata', parent, name)
+    if not exists(path):
+        raise AssertionError('%s does not exist' % path)
+    return path
