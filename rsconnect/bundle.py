@@ -1,4 +1,4 @@
-
+import glob
 import hashlib
 import io
 import json
@@ -8,10 +8,13 @@ import subprocess
 import tarfile
 import tempfile
 
-from os.path import basename, dirname, exists, join, relpath, splitext
+from os.path import abspath, basename, dirname, exists, join, relpath, splitext
+
+from rsconnect.models import AppModes
 
 log = logging.getLogger('rsconnect')
 # From https://github.com/rstudio/rsconnect/blob/485e05a26041ab8183a220da7a506c9d3a41f1ff/R/bundle.R#L85-L88
+# noinspection SpellCheckingInspection
 directories_to_ignore = ['rsconnect/', 'packrat/', '.svn/', '.git/', '.Rproj.user/']
 
 
@@ -23,7 +26,7 @@ def make_source_manifest(entrypoint, environment, app_mode):
     manifest = {
         "version": 1,
         "metadata": {
-            "appmode": app_mode,
+            "appmode": app_mode.name(),
             "entrypoint": entrypoint
         },
         "locale": environment['locale'],
@@ -116,7 +119,7 @@ def write_manifest(relative_dir, nb_name, environment, output_dir):
     Returns the list of filenames written.
     """
     manifest_filename = 'manifest.json'
-    manifest = make_source_manifest(nb_name, environment, 'jupyter-static')
+    manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
     manifest_file = join(output_dir, manifest_filename)
     created = []
     skipped = []
@@ -179,7 +182,7 @@ def make_notebook_source_bundle(file, environment, extra_files=None):
     base_dir = dirname(file)
     nb_name = basename(file)
 
-    manifest = make_source_manifest(nb_name, environment, 'jupyter-static')
+    manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
     manifest_add_file(manifest, nb_name, base_dir)
     manifest_add_buffer(manifest, environment['filename'], environment['contents'])
 
@@ -279,7 +282,7 @@ def read_manifest_file(manifest_path):
 def make_manifest_bundle(manifest_path):
     """Create a bundle, given a manifest.
 
-    Returns a file-like object containing the bundle tarball.
+    :return: a file-like object containing the bundle tarball.
     """
     manifest, raw_manifest = read_manifest_file(manifest_path)
 
@@ -298,5 +301,65 @@ def make_manifest_bundle(manifest_path):
         for rel_path in files:
             bundle_add_file(bundle, rel_path, base_dir)
 
+    # rewind file pointer
     bundle_file.seek(0)
+
+    return bundle_file
+
+
+def _expand_globs(directory, excludes):
+    work = []
+    if excludes:
+        directory = abspath(directory)
+        for pattern in excludes:
+            file_pattern = join(directory, pattern)
+            work.extend(glob.glob(file_pattern))
+
+    # Remove unnecessary duplicates.
+    return sorted(list(set(work)))
+
+
+def make_api_bundle(directory, entry_point, app_mode, environment, extra_files=None, excludes=None):
+    """
+    Create an API bundle, given a directory path and a manifest.
+
+    :param directory: the directory containing the files to deploy.
+    :param entry_point: the main entry point for the API.
+    :param app_mode: the app mode to use.
+    :param environment: the Python environment information.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :return: a file-like object containing the bundle tarball.
+    """
+    if extra_files is None:
+        extra_files = []
+
+    manifest = make_source_manifest(entry_point, environment, app_mode)
+    bundle_file = tempfile.TemporaryFile(prefix='rsc_bundle')
+    excludes = _expand_globs(directory, excludes)
+
+    if extra_files:
+        skip = [environment['filename'], 'manifest.json']
+        extra_files = sorted(list(set(extra_files) - set(skip)))
+
+    for rel_path in extra_files:
+        manifest_add_file(manifest, rel_path, directory)
+
+    with tarfile.open(mode='w:gz', fileobj=bundle_file) as bundle:
+        bundle_add_buffer(bundle, 'manifest.json', json.dumps(manifest, indent=2))
+
+        for subdir, dirs, files in os.walk(directory):
+            for file in files:
+                abs_path = os.path.join(subdir, file)
+                rel_path = os.path.relpath(abs_path, directory)
+
+                if keep_manifest_specified_file(rel_path) and abs_path not in excludes:
+                    bundle.add(abs_path, arcname=rel_path)
+
+        for rel_path in extra_files:
+            bundle_add_file(bundle, rel_path, directory)
+
+    # rewind file pointer
+    bundle_file.seek(0)
+
     return bundle_file

@@ -4,9 +4,9 @@ from os.path import join
 from unittest import TestCase
 from click.testing import CliRunner
 
-from .test_data_util import get_dir, get_manifest_path
+from .test_data_util import get_dir, get_manifest_path, get_api_path
 from ..api import RSConnectException
-from ..main import cli, _validate_deploy_to_args, _validate_title, server_store
+from ..main import cli, _validate_deploy_to_args, _validate_title, _validate_entry_point, server_store
 from rsconnect import VERSION
 
 
@@ -35,6 +35,21 @@ class TestMain(TestCase):
 
         _validate_title('123')
         _validate_title('1' * 1024)
+
+    def test_validate_entry_point(self):
+        directory = self.optional_target(get_api_path('flask'))
+
+        self.assertEqual(_validate_entry_point(directory, None), 'app:app')
+        self.assertEqual(_validate_entry_point(directory, 'app'), 'app:app')
+
+        with self.assertRaises(RSConnectException):
+            _validate_entry_point(directory, 'x:y:z')
+
+        with self.assertRaises(RSConnectException):
+            _validate_entry_point(directory, 'bob:app')
+
+        with self.assertRaises(RSConnectException):
+            _validate_entry_point(directory, 'app:bogus_app')
 
     def require_connect(self):
         connect_server = os.environ.get('CONNECT_SERVER', None)
@@ -102,6 +117,15 @@ class TestMain(TestCase):
         target = self.optional_target(get_manifest_path('shinyapp'))
         runner = CliRunner()
         args = self.create_deploy_args('manifest', target)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("OK", result.output)
+
+    def test_deploy_api(self):
+        target = self.optional_target(get_api_path('flask'))
+        runner = CliRunner()
+        args = self.create_deploy_args('api', target)
+        print(args)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("OK", result.output)

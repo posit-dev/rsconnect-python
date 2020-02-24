@@ -1,8 +1,10 @@
 import sys
 from unittest import TestCase
 
-from rsconnect.actions import default_title, default_title_from_manifest, which_python, _to_server_check_list,\
-    _verify_server
+from rsconnect import api
+
+from rsconnect.actions import default_title, default_title_from_manifest, which_python, _to_server_check_list, \
+    _verify_server, check_server_capabilities, is_version_1_8_2_or_higher, is_conda_supported_on_server
 from rsconnect.api import RSConnectException, RSConnectServer
 
 
@@ -23,17 +25,60 @@ class TestActions(TestCase):
             _verify_server(RSConnectServer('fake-url', None))
 
     def test_to_server_check_list(self):
-        l = _to_server_check_list('no-scheme')
+        a_list = _to_server_check_list('no-scheme')
 
-        self.assertEqual(l, ['https://no-scheme', 'http://no-scheme'])
+        self.assertEqual(a_list, ['https://no-scheme', 'http://no-scheme'])
 
-        l = _to_server_check_list('//no-scheme')
+        a_list = _to_server_check_list('//no-scheme')
 
-        self.assertEqual(l, ['https://no-scheme', 'http://no-scheme'])
+        self.assertEqual(a_list, ['https://no-scheme', 'http://no-scheme'])
 
-        l = _to_server_check_list('scheme://no-scheme')
+        a_list = _to_server_check_list('scheme://no-scheme')
 
-        self.assertEqual(l, ['scheme://no-scheme'])
+        self.assertEqual(a_list, ['scheme://no-scheme'])
+
+    def test_check_server_capabilities(self):
+        old_connect = {'connect': '1.8.0-42'}
+        new_connect = {'connect': '1.8.1-1'}
+
+        with self.assertRaises(api.RSConnectException) as context:
+            check_server_capabilities(None, (is_version_1_8_2_or_higher,), lambda x: old_connect)
+        self.assertEqual(str(context.exception), 'The RStudio Connect server must be at least v1.8.2.')
+
+        check_server_capabilities(None, (is_version_1_8_2_or_higher,), lambda x: new_connect)
+
+        no_conda = new_connect
+        conda_not_supported = {'conda': {'supported': False}}
+        conda_supported = {'conda': {'supported': True}}
+
+        with self.assertRaises(api.RSConnectException) as context:
+            check_server_capabilities(None, (is_conda_supported_on_server,), lambda x: no_conda)
+        self.assertEqual(str(context.exception),
+                         'Conda is not supported on the target server.  Try deploying without requesting Conda.')
+
+        with self.assertRaises(api.RSConnectException) as context:
+            check_server_capabilities(None, (is_conda_supported_on_server,), lambda x: conda_not_supported)
+        self.assertEqual(str(context.exception),
+                         'Conda is not supported on the target server.  Try deploying without requesting Conda.')
+
+        check_server_capabilities(None, (is_conda_supported_on_server,), lambda x: conda_supported)
+
+        # noinspection PyUnusedLocal
+        def fake_cap(details):
+            return False
+
+        # noinspection PyUnusedLocal
+        def fake_cap_with_doc(details):
+            """A docstring."""
+            return False
+
+        with self.assertRaises(api.RSConnectException) as context:
+            check_server_capabilities(None, (fake_cap,), lambda x: None)
+        self.assertEqual(str(context.exception), 'The server does not satisfy the fake_cap capability check.')
+
+        with self.assertRaises(api.RSConnectException) as context:
+            check_server_capabilities(None, (fake_cap_with_doc,), lambda x: None)
+        self.assertEqual(str(context.exception), 'The server does not satisfy the fake_cap_with_doc capability check.')
 
     def test_default_title(self):
         self.assertEqual(default_title('testing.txt'), 'testing')
@@ -43,6 +88,7 @@ class TestActions(TestCase):
 
     def test_default_title_from_manifest(self):
         self.assertEqual(default_title_from_manifest({}), 'manifest')
+        # noinspection SpellCheckingInspection
         m = {'metadata': {'entrypoint': 'point'}}
         self.assertEqual(default_title_from_manifest(m), 'point')
         m = {'metadata': {'primary_rmd': 'file.Rmd'}}

@@ -3,6 +3,47 @@ This file defines some support data models.
 """
 
 
+class Version(object):
+    def __init__(self, text):
+        self._parts = [int(part) for part in text.replace('-', '.').split('.')]
+
+    def __eq__(self, other):
+        if not isinstance(other, Version):
+            raise NotImplemented()
+        return self._parts == other._parts
+
+    def __ne__(self, other):
+        if not isinstance(other, Version):
+            raise NotImplemented()
+        return self._parts != other._parts
+
+    def __lt__(self, other):
+        if not isinstance(other, Version):
+            raise NotImplemented()
+        return self._parts < other._parts
+
+    def __le__(self, other):
+        if not isinstance(other, Version):
+            raise NotImplemented()
+        return self._parts <= other._parts
+
+    def __gt__(self, other):
+        if not isinstance(other, Version):
+            raise NotImplemented()
+        return self._parts > other._parts
+
+    def __ge__(self, other):
+        if not isinstance(other, Version):
+            raise NotImplemented()
+        return self._parts >= other._parts
+
+    def __repr__(self):
+        text = '%d.%d.%d' % (self._parts[0], self._parts[1], self._parts[2])
+        if len(self._parts) > 3:
+            text = '%s-%d' % (text, self._parts[3])
+        return text
+
+
 class AppMode(object):
     def __init__(self, ordinal, name, text, ext=None):
         self._ordinal = ordinal
@@ -35,11 +76,12 @@ class AppModes(object):
     RMD = AppMode(3, 'rmd-static', 'R Markdown', '.Rmd')
     SHINY_RMD = AppMode(2, 'rmd-shiny', 'Shiny App (Rmd)')
     STATIC = AppMode(4, 'static', 'Static HTML', '.html')
-    API = AppMode(5, 'api', 'API')
+    PLUMBER = AppMode(5, 'api', 'API')
     TENSORFLOW = AppMode(6, 'tensorflow-saved-model', 'TensorFlow Model')
     JUPYTER_NOTEBOOK = AppMode(7, 'jupyter-static', 'Jupyter Notebook', '.ipynb')
+    PYTHON_API = AppMode(8, 'python-api', 'Python API')
 
-    _modes = [UNKNOWN, SHINY, RMD, SHINY_RMD, STATIC, API, TENSORFLOW, JUPYTER_NOTEBOOK]
+    _modes = [UNKNOWN, SHINY, RMD, SHINY_RMD, STATIC, PLUMBER, TENSORFLOW, JUPYTER_NOTEBOOK, PYTHON_API]
 
     @classmethod
     def get_by_ordinal(cls, ordinal, return_unknown=False):

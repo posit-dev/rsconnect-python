@@ -1,4 +1,5 @@
 import logging
+import re
 import textwrap
 
 from os.path import abspath, basename, dirname, exists, join, splitext
@@ -10,7 +11,8 @@ from rsconnect import VERSION
 from rsconnect.actions import set_verbosity, cli_feedback, test_server, test_api_key, gather_server_details, \
     gather_basic_deployment_info_for_notebook, get_python_env_info, create_notebook_deployment_bundle, deploy_bundle, \
     spool_deployment_log, gather_basic_deployment_info_from_manifest, write_manifest_json, write_environment_file, \
-    is_conda_supported_on_server
+    is_conda_supported_on_server, check_server_capabilities, is_version_1_8_2_or_higher, \
+    gather_basic_deployment_info_for_api, create_api_deployment_bundle
 from . import api
 from .bundle import make_manifest_bundle
 from .metadata import ServerStore, AppStore
@@ -201,7 +203,7 @@ def remove(name, server, verbose):
 @cli.command(short_help='Show saved information about the specified deployment.',
              help='Display information about the deployment of a Jupyter notebook or manifest. For any given file, '
                   'information about it''s deployments are saved on a per-server basis.')
-@click.argument('file', type=click.Path(exists=True))
+@click.argument('file', type=click.Path(exists=True, dir_okay=True, file_okay=True))
 def info(file):
     with cli_feedback(''):
         app_store = AppStore(file)
@@ -272,9 +274,48 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_r
 
 
 def _validate_title(title):
+    """
+    If the user specified a title on the command line, validate that it meets Connect's
+    length requirements.  If the validation fails, an exception is raised.
+
+    :param title: the title to validate.
+    """
     if title:
         if not (3 <= len(title) <= 1024):
             raise api.RSConnectException('A title must be between 3-1024 characters long.')
+
+
+def _deploy_bundle(connect_server, app_store, primary_path, app_id, app_mode, name, title, bundle):
+    """
+    Does the work of uploading a prepared bundle.
+
+    :param connect_server: the Connect server information.
+    :param app_store: the store where data is saved about deployments.
+    :param primary_path: the base path (file or directory) that's being deployed.
+    :param app_id: the ID of the app.
+    :param app_mode: the mode of the app.
+    :param name: the name of the app.
+    :param title: the title of the app.
+    :param bundle: the bundle to deploy.
+    """
+    with cli_feedback('Uploading bundle'):
+        app = deploy_bundle(connect_server, app_id, name, title, bundle)
+
+    with cli_feedback('Saving deployment data'):
+        app_store.set(connect_server.url, abspath(primary_path), app['app_url'], app['app_id'], app['app_guid'], title,
+                      app_mode)
+
+    with cli_feedback(''):
+        click.secho('\nDeployment log:', fg='bright_white')
+        app_url, _ = spool_deployment_log(connect_server, app, click.echo)
+        click.secho('Deployment completed successfully.', fg='bright_white')
+        click.secho('    Dashboard content URL: %s' % app_url, fg='bright_white')
+        click.secho('    Direct content URL: %s' % app['app_url'], fg='bright_white')
+
+        # save the config URL, replacing the old app URL we got during deployment
+        # (which is the Open Solo URL).
+        app_store.set(connect_server.url, abspath(primary_path), app_url, app['app_id'], app['app_guid'], title,
+                      app_mode)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -286,6 +327,10 @@ def _validate_title(title):
 @click.option('--server', '-s', envvar='CONNECT_SERVER',  help='The URL for the RStudio Connect server to deploy to.')
 @click.option('--api-key', '-k', envvar='CONNECT_API_KEY',
               help='The API key to use to authenticate with RStudio Connect.')
+@click.option('--insecure', '-i', envvar='CONNECT_INSECURE', is_flag=True,
+              help='Disable TLS certification/host validation.')
+@click.option('--cacert', '-c', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
+              help='The path to trusted TLS CA certificates.')
 @click.option('--static', '-S', is_flag=True,
               help='Render the notebook locally and deploy the result as a static document. '
                    'Will not include the notebook source. Static notebooks cannot be re-run on the server.')
@@ -301,20 +346,15 @@ def _validate_title(title):
               help='Use conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
-@click.option('--insecure', '-i', envvar='CONNECT_INSECURE', is_flag=True,
-              help='Disable TLS certification/host validation.')
-@click.option('--cacert', '-c', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
-              help='The path to trusted TLS CA certificates.')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
-@click.argument('file', type=click.Path(exists=True))
-@click.argument('extra_files', nargs=-1, type=click.Path())
-def deploy_notebook(name, server, api_key, static, new, app_id, title, python, conda, force_generate,
-                    insecure, cacert, verbose, file, extra_files):
+@click.argument('file', type=click.Path(exists=True, dir_okay=False, file_okay=True))
+@click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))
+def deploy_notebook(name, server, api_key, insecure, cacert, static, new, app_id, title, python, conda, force_generate,
+                    verbose, file, extra_files):
     set_verbosity(verbose)
 
     with cli_feedback('Checking arguments'):
         app_store = AppStore(file)
-
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
 
         if new and app_id:
@@ -340,9 +380,7 @@ def deploy_notebook(name, server, api_key, static, new, app_id, title, python, c
 
     if conda:
         with cli_feedback('Ensuring conda is supported'):
-            if not is_conda_supported_on_server(connect_server):
-                raise api.RSConnectException('Conda is not supported on the target server. Please try deploying '
-                                             'again without conda enabled (remove the --conda/-C flag).')
+            check_server_capabilities(connect_server, [is_version_1_8_2_or_higher, is_conda_supported_on_server])
 
     with cli_feedback('Inspecting python environment'):
         python, environment = get_python_env_info(file, python, not conda, force_generate)
@@ -350,21 +388,7 @@ def deploy_notebook(name, server, api_key, static, new, app_id, title, python, c
     with cli_feedback('Creating deployment bundle'):
         bundle = create_notebook_deployment_bundle(file, extra_files, app_mode, python, environment)
 
-    with cli_feedback('Uploading bundle'):
-        app = deploy_bundle(connect_server, app_id, deployment_name, title, bundle)
-
-    with cli_feedback('Saving deployment data'):
-        app_store.set(connect_server.url, abspath(file), app['app_url'], app['app_id'], app['app_guid'], title,
-                      app_mode)
-
-    with cli_feedback(''):
-        click.secho('\nDeployment log:', fg='bright_white')
-        app_url, _ = spool_deployment_log(connect_server, app, click.echo)
-        click.secho('Deployment completed successfully.\nApp URL: %s' % app_url, fg='bright_white')
-
-        # save the config URL, replacing the old app URL we got during deployment
-        # (which is the Open Solo URL).
-        app_store.set(connect_server.url, abspath(file), app_url, app['app_id'], app['app_guid'], title, app_mode)
+    _deploy_bundle(connect_server, app_store, file, app_id, app_mode, deployment_name, title, bundle)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -374,22 +398,21 @@ def deploy_notebook(name, server, api_key, static, new, app_id, title, python, c
 @click.option('--server', '-s', envvar='CONNECT_SERVER',  help='The URL for the RStudio Connect server to deploy to.')
 @click.option('--api-key', '-k', envvar='CONNECT_API_KEY',
               help='The API key to use to authenticate with RStudio Connect.')
-@click.option('--new', '-N', is_flag=True,
-              help='Force a new deployment, even if there is saved metadata from a previous deployment.')
-@click.option('--app-id', '-a', help='Existing app ID or GUID to replace. Cannot be used with --new.')
-@click.option('--title', '-t', help='Title of the content (default is the same as the filename).')
 @click.option('--insecure', '-i', envvar='CONNECT_INSECURE', is_flag=True,
               help='Disable TLS certification/host validation.')
 @click.option('--cacert', '-c', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
               help='The path to trusted TLS CA certificates.')
+@click.option('--new', '-N', is_flag=True,
+              help='Force a new deployment, even if there is saved metadata from a previous deployment.')
+@click.option('--app-id', '-a', help='Existing app ID or GUID to replace. Cannot be used with --new.')
+@click.option('--title', '-t', help='Title of the content (default is the same as the filename).')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
-@click.argument('file', type=click.Path(exists=True))
-def deploy_manifest(name, server, api_key, new, app_id, title, insecure, cacert, verbose, file):
+@click.argument('file', type=click.Path(exists=True, dir_okay=False, file_okay=True))
+def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title, verbose, file):
     set_verbosity(verbose)
 
     with cli_feedback('Checking arguments'):
         app_store = AppStore(file)
-
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
 
         if new and app_id:
@@ -408,28 +431,118 @@ def deploy_manifest(name, server, api_key, new, app_id, title, insecure, cacert,
 
     if package_manager == 'conda':
         with cli_feedback('Ensuring conda is supported'):
-            if not is_conda_supported_on_server(connect_server):
-                raise api.RSConnectException('Conda is not supported on the target server. Please try creating this '
-                                             'manifest again without conda enabled (no --conda/-C flag).')
+            check_server_capabilities(connect_server, [is_version_1_8_2_or_higher, is_conda_supported_on_server])
 
     with cli_feedback('Creating deployment bundle'):
         bundle = make_manifest_bundle(file)
 
-    with cli_feedback('Uploading bundle'):
-        app = deploy_bundle(connect_server, app_id, deployment_name, title, bundle)
+    _deploy_bundle(connect_server, app_store, file, app_id, app_mode, deployment_name, title, bundle)
 
-    with cli_feedback('Saving deployment data'):
-        app_store.set(connect_server.url, abspath(file), app['app_url'], app['app_id'], app['app_guid'], title,
-                      app_mode)
 
-    with cli_feedback(''):
-        click.secho('\nDeployment log:', fg='bright_white')
-        app_url, _ = spool_deployment_log(connect_server, app, click.echo)
-        click.secho('Deployment completed successfully.\nApp URL: %s' % app_url, fg='bright_white')
+def _validate_entry_point(directory, entry_point):
+    """
+    Validates the entry point specified by the user, expanding as necessary.  If the
+    user specifies nothing, a module of "app" is assumed.  If the user specifies a
+    module only, the object is assumed to be the same name as the module.
 
-        # save the config URL, replacing the old app URL we got during deployment
-        # (which is the Open Solo URL).
-        app_store.set(connect_server.url, abspath(file), app_url, app['app_id'], app['app_guid'], title, app_mode)
+    Once we have a module and object name, the module is validated by checking for the
+    existence of a "<module>.py" file in the given directory.  If found, it is scanned
+    for an assignment to the named object.
+
+    :param directory: the directory to look in.
+    :param entry_point: the entry point as specified by the user.
+    :return: the fully expanded and validated entry point.
+    """
+    if not entry_point:
+        entry_point = 'app'
+
+    if ':' not in entry_point:
+        entry_point = '%s:%s' % (entry_point, entry_point)
+
+    parts = entry_point.split(':')
+
+    if len(parts) > 2:
+        raise api.RSConnectException('Entry point is not in "module:object" format.')
+
+    file_name = join(directory, '%s.py' % parts[0])
+
+    if not exists(file_name):
+        raise api.RSConnectException('Could not find module file %s.' % file_name)
+
+    with open(file_name) as fd:
+        content = fd.read()
+
+    if not re.search('^%s = ' % parts[1], content, re.MULTILINE):
+        raise api.RSConnectException('The file, %s, does not contain an assignment to "%s".' % (file_name, parts[1]))
+
+    return entry_point
+
+
+# noinspection SpellCheckingInspection
+@deploy.command(name='api', short_help='Deploy a Python API to RStudio Connect.',
+                help='Deploy a WSGi-based API module to RStudio Connect. The "directory" argument must refer to an '
+                     'existing directory that contains the API code.')
+@click.option('--name', '-n', help='The nickname of the RStudio Connect server to deploy to.')
+@click.option('--server', '-s', envvar='CONNECT_SERVER',  help='The URL for the RStudio Connect server to deploy to.')
+@click.option('--api-key', '-k', envvar='CONNECT_API_KEY',
+              help='The API key to use to authenticate with RStudio Connect.')
+@click.option('--insecure', '-i', envvar='CONNECT_INSECURE', is_flag=True,
+              help='Disable TLS certification/host validation.')
+@click.option('--cacert', '-c', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
+              help='The path to trusted TLS CA certificates.')
+@click.option('--entrypoint', '-e', help='The module and executable object which serves as the entry point for the '
+                                         'WSGi framework of choice (defaults to app:app)')
+@click.option('--exclude', '-x', multiple=True,
+              help='Specify a glob pattern for ignoring files when building the bundle.')
+@click.option('--new', '-N', is_flag=True,
+              help='Force a new deployment, even if there is saved metadata from a previous deployment. '
+                   'Cannot be used with --app-id.')
+@click.option('--app-id', '-a', help='Existing app ID or GUID to replace. Cannot be used with --new.')
+@click.option('--title', '-t', help='Title of the content (default is the same as the directory).')
+@click.option('--python', '-p', type=click.Path(exists=True),
+              help='Path to python interpreter whose environment should be used. '
+                   'The python environment must have the rsconnect package installed.')
+@click.option('--conda', '-C', is_flag=True, help='Use conda to deploy.')
+@click.option('--force-generate', '-g', is_flag=True,
+              help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
+@click.argument('directory', type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))
+def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new, app_id, title, python, conda,
+               force_generate, verbose, directory, extra_files):
+    set_verbosity(verbose)
+
+    with cli_feedback('Checking arguments'):
+        app_store = AppStore(directory)
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+        entrypoint = _validate_entry_point(directory, entrypoint)
+
+        if new and app_id:
+            raise api.RSConnectException('Specify either --new/-N or --app-id/-a but not both.')
+
+        _validate_title(title)
+
+        if not entrypoint:
+            entrypoint = 'app:app'
+
+        app_id, deployment_name, title, app_mode = \
+            gather_basic_deployment_info_for_api(connect_server, app_store, directory, new, app_id, title)
+
+    click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url), fg='white')
+
+    with cli_feedback('Checking server capabilities'):
+        check = [is_version_1_8_2_or_higher]
+        if conda:
+            check.append(is_conda_supported_on_server)
+        check_server_capabilities(connect_server, check)
+
+    with cli_feedback('Inspecting python environment'):
+        _, environment = get_python_env_info(directory, python, not conda, force_generate)
+
+    with cli_feedback('Creating deployment bundle'):
+        bundle = create_api_deployment_bundle(directory, extra_files, exclude, entrypoint, app_mode, environment)
+
+    _deploy_bundle(connect_server, app_store, directory, app_id, app_mode, deployment_name, title, bundle)
 
 
 @deploy.command(name='other-content', short_help='Describe deploying other content to RStudio Connect.',
@@ -465,7 +578,7 @@ def write_manifest():
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
 @click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
-@click.argument('file', type=click.Path(exists=True))
+@click.argument('file', type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument('extra_files', nargs=-1, type=click.Path())
 def write_manifest_notebook(force, python, conda, force_generate, verbose, file, extra_files):
     set_verbosity(verbose)
