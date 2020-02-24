@@ -11,7 +11,7 @@ from rsconnect import VERSION
 from rsconnect.actions import set_verbosity, cli_feedback, test_server, test_api_key, gather_server_details, \
     gather_basic_deployment_info_for_notebook, get_python_env_info, create_notebook_deployment_bundle, deploy_bundle, \
     spool_deployment_log, gather_basic_deployment_info_from_manifest, write_manifest_json, write_environment_file, \
-    is_conda_supported_on_server, check_server_capabilities, is_version_1_8_2_or_higher, \
+    is_conda_supported_on_server, check_server_capabilities, are_apis_supported_on_server, \
     gather_basic_deployment_info_for_api, create_api_deployment_bundle
 from . import api
 from .bundle import make_manifest_bundle
@@ -153,9 +153,11 @@ def details(name, server, api_key, insecure, cacert, verbose):
     with cli_feedback('Gathering details'):
         server_details = gather_server_details(connect_server)
 
-    python_versions = server_details['python']
+    connect_version = server_details['connect']
+    apis_allowed = server_details['python']['api_enabled']
+    python_versions = server_details['python']['versions']
     conda_details = server_details['conda']
-    click.echo('    RStudio Connect version: %s' % server_details['connect'])
+    click.echo('    RStudio Connect version: %s' % ('<redacted>' if len(connect_version) == 0 else connect_version))
 
     if len(python_versions) == 0:
         click.echo('    No versions of Python are installed.')
@@ -164,6 +166,7 @@ def details(name, server, api_key, insecure, cacert, verbose):
         for python_version in python_versions:
             click.echo('        %s' % python_version)
 
+    click.echo('    APIs: %sallowed' % ('' if apis_allowed else 'not '))
     click.echo('    Conda: %ssupported' % ('' if conda_details['supported'] else 'not '))
 
 
@@ -380,7 +383,7 @@ def deploy_notebook(name, server, api_key, insecure, cacert, static, new, app_id
 
     if conda:
         with cli_feedback('Ensuring conda is supported'):
-            check_server_capabilities(connect_server, [is_version_1_8_2_or_higher, is_conda_supported_on_server])
+            check_server_capabilities(connect_server, [is_conda_supported_on_server])
 
     with cli_feedback('Inspecting python environment'):
         python, environment = get_python_env_info(file, python, not conda, force_generate)
@@ -431,7 +434,7 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
 
     if package_manager == 'conda':
         with cli_feedback('Ensuring conda is supported'):
-            check_server_capabilities(connect_server, [is_version_1_8_2_or_higher, is_conda_supported_on_server])
+            check_server_capabilities(connect_server, [is_conda_supported_on_server])
 
     with cli_feedback('Creating deployment bundle'):
         bundle = make_manifest_bundle(file)
@@ -531,10 +534,10 @@ def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new
     click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url), fg='white')
 
     with cli_feedback('Checking server capabilities'):
-        check = [is_version_1_8_2_or_higher]
+        checks = [are_apis_supported_on_server]
         if conda:
-            check.append(is_conda_supported_on_server)
-        check_server_capabilities(connect_server, check)
+            checks.append(is_conda_supported_on_server)
+        check_server_capabilities(connect_server, checks)
 
     with cli_feedback('Inspecting python environment'):
         _, environment = get_python_env_info(directory, python, not conda, force_generate)

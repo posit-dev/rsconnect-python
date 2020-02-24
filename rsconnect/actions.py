@@ -215,20 +215,24 @@ def gather_server_details(connect_server):
     }
     return {
         'connect': server_settings['version'],
-        'python': python_versions,
+        'python': {
+            'api_enabled': python_settings['api_enabled'] if 'api_enabled' in python_settings else False,
+            'versions': python_versions
+        },
         'conda': conda_settings
     }
 
 
-def is_version_1_8_2_or_higher(connect_details):
+def are_apis_supported_on_server(connect_details):
     """
-    Returns whether or not the Connect server is at least 1.8.2.
+    Returns whether or not the Connect server has Python itself enabled and its license allows
+    for API usage.  This controls whether APIs may be deployed..
 
     :param connect_details: details about a Connect server as returned by gather_server_details()
-    :return: boolean True if the Connect server is at least at version 1.8.2 or False if not.
-    :error: The RStudio Connect server must be at least v1.8.2.
+    :return: boolean True if the Connect server supports Python APIs or not or False if not.
+    :error: The RStudio Connect does not allow for Python APIs.
     """
-    return Version(connect_details['connect']) >= Version('1.8.1-1')
+    return connect_details['python']['api_enabled']
 
 
 def is_conda_supported_on_server(connect_details):

@@ -4,7 +4,7 @@ from unittest import TestCase
 from rsconnect import api
 
 from rsconnect.actions import default_title, default_title_from_manifest, which_python, _to_server_check_list, \
-    _verify_server, check_server_capabilities, is_version_1_8_2_or_higher, is_conda_supported_on_server
+    _verify_server, check_server_capabilities, are_apis_supported_on_server, is_conda_supported_on_server
 from rsconnect.api import RSConnectException, RSConnectServer
 
 
@@ -38,16 +38,16 @@ class TestActions(TestCase):
         self.assertEqual(a_list, ['scheme://no-scheme'])
 
     def test_check_server_capabilities(self):
-        old_connect = {'connect': '1.8.0-42'}
-        new_connect = {'connect': '1.8.1-1'}
+        no_api_support = {'python': {'api_enabled': False}}
+        api_support = {'python': {'api_enabled': True}}
 
         with self.assertRaises(api.RSConnectException) as context:
-            check_server_capabilities(None, (is_version_1_8_2_or_higher,), lambda x: old_connect)
-        self.assertEqual(str(context.exception), 'The RStudio Connect server must be at least v1.8.2.')
+            check_server_capabilities(None, (are_apis_supported_on_server,), lambda x: no_api_support)
+        self.assertEqual(str(context.exception), 'The RStudio Connect does not allow for Python APIs.')
 
-        check_server_capabilities(None, (is_version_1_8_2_or_higher,), lambda x: new_connect)
+        check_server_capabilities(None, (are_apis_supported_on_server,), lambda x: api_support)
 
-        no_conda = new_connect
+        no_conda = api_support
         conda_not_supported = {'conda': {'supported': False}}
         conda_supported = {'conda': {'supported': True}}
 
