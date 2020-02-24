@@ -9,32 +9,32 @@ class Version(object):
 
     def __eq__(self, other):
         if not isinstance(other, Version):
-            raise NotImplemented()
+            raise NotImplementedError()
         return self._parts == other._parts
 
     def __ne__(self, other):
         if not isinstance(other, Version):
-            raise NotImplemented()
+            raise NotImplementedError()
         return self._parts != other._parts
 
     def __lt__(self, other):
         if not isinstance(other, Version):
-            raise NotImplemented()
+            raise NotImplementedError()
         return self._parts < other._parts
 
     def __le__(self, other):
         if not isinstance(other, Version):
-            raise NotImplemented()
+            raise NotImplementedError()
         return self._parts <= other._parts
 
     def __gt__(self, other):
         if not isinstance(other, Version):
-            raise NotImplemented()
+            raise NotImplementedError()
         return self._parts > other._parts
 
     def __ge__(self, other):
         if not isinstance(other, Version):
-            raise NotImplemented()
+            raise NotImplementedError()
         return self._parts >= other._parts
 
     def __repr__(self):
