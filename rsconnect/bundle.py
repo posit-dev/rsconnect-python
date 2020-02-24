@@ -353,7 +353,7 @@ def make_api_bundle(directory, entry_point, app_mode, environment, extra_files=N
                 abs_path = os.path.join(subdir, file)
                 rel_path = os.path.relpath(abs_path, directory)
 
-                if keep_manifest_specified_file(rel_path) and abs_path not in excludes:
+                if keep_manifest_specified_file(rel_path) and (rel_path in extra_files or abs_path not in excludes):
                     bundle.add(abs_path, arcname=rel_path)
 
         for rel_path in extra_files:
