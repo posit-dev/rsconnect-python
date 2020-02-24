@@ -1,31 +1,9 @@
 from unittest import TestCase
 
-from rsconnect.models import AppMode, AppModes, Version
+from rsconnect.models import AppMode, AppModes
 
 
 class TestModels(TestCase):
-    def test_version_class(self):
-        self.assertTrue(Version('1.8.1') > Version('0.7.1'))
-        self.assertTrue(Version('1.8.1') >= Version('0.7.1'))
-        self.assertTrue(Version('1.8.1') < Version('2.7.1'))
-        self.assertTrue(Version('1.8.1') <= Version('2.7.1'))
-        self.assertTrue(Version('1.8.1') != Version('2.7.1'))
-
-        self.assertTrue(Version('1.8.1') > Version('1.7.1'))
-        self.assertTrue(Version('1.8.1') >= Version('1.7.1'))
-        self.assertTrue(Version('1.8.1') < Version('1.9.1'))
-        self.assertTrue(Version('1.8.1') <= Version('1.9.1'))
-        self.assertTrue(Version('1.8.1') != Version('1.9.1'))
-        self.assertTrue(Version('1.8.1') == Version('1.8.1'))
-
-        self.assertTrue(Version('1.8.1') != Version('1.8.1-9999'))
-        self.assertTrue(Version('1.8.1') <= Version('1.8.1-9999'))
-        self.assertTrue(Version('1.8.1') < Version('1.8.1-9999'))
-
-        self.assertTrue(Version('1.8.1') != Version('1.8.2-1'))
-        self.assertTrue(Version('1.8.1') <= Version('1.8.2-1'))
-        self.assertTrue(Version('1.8.1') < Version('1.8.2-1'))
-
     def test_app_mode_class(self):
         mode = AppMode(1, 'test', 'Testing')
 

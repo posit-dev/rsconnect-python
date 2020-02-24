@@ -16,7 +16,7 @@ from .bundle import make_notebook_html_bundle, make_notebook_source_bundle, make
     make_source_manifest, manifest_add_file, manifest_add_buffer, make_api_bundle
 from .environment import EnvironmentException
 from .metadata import AppStore
-from .models import AppModes, Version
+from .models import AppModes
 
 import click
 from six.moves.urllib_parse import urlparse

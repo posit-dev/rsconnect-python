@@ -3,47 +3,6 @@ This file defines some support data models.
 """
 
 
-class Version(object):
-    def __init__(self, text):
-        self._parts = [int(part) for part in text.replace('-', '.').split('.')]
-
-    def __eq__(self, other):
-        if not isinstance(other, Version):
-            raise NotImplementedError()
-        return self._parts == other._parts
-
-    def __ne__(self, other):
-        if not isinstance(other, Version):
-            raise NotImplementedError()
-        return self._parts != other._parts
-
-    def __lt__(self, other):
-        if not isinstance(other, Version):
-            raise NotImplementedError()
-        return self._parts < other._parts
-
-    def __le__(self, other):
-        if not isinstance(other, Version):
-            raise NotImplementedError()
-        return self._parts <= other._parts
-
-    def __gt__(self, other):
-        if not isinstance(other, Version):
-            raise NotImplementedError()
-        return self._parts > other._parts
-
-    def __ge__(self, other):
-        if not isinstance(other, Version):
-            raise NotImplementedError()
-        return self._parts >= other._parts
-
-    def __repr__(self):
-        text = '%d.%d.%d' % (self._parts[0], self._parts[1], self._parts[2])
-        if len(self._parts) > 3:
-            text = '%s-%d' % (text, self._parts[3])
-        return text
-
-
 class AppMode(object):
     def __init__(self, ordinal, name, text, ext=None):
         self._ordinal = ordinal
