@@ -493,7 +493,7 @@ def _validate_entry_point(directory, entry_point):
 @click.option('--entrypoint', '-e', help='The module and executable object which serves as the entry point for the '
                                          'WSGi framework of choice (defaults to app:app)')
 @click.option('--exclude', '-x', multiple=True,
-              help='Specify a glob pattern for ignoring files when building the bundle.')
+              help='Specify a glob pattern for ignoring files when building the bundle. This option may be repeated/')
 @click.option('--new', '-N', is_flag=True,
               help='Force a new deployment, even if there is saved metadata from a previous deployment. '
                    'Cannot be used with --app-id.')
