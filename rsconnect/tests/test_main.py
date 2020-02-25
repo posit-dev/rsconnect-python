@@ -39,8 +39,8 @@ class TestMain(TestCase):
     def test_validate_entry_point(self):
         directory = self.optional_target(get_api_path('flask'))
 
-        self.assertEqual(_validate_entry_point(directory, None), 'app:app')
-        self.assertEqual(_validate_entry_point(directory, 'app'), 'app:app')
+        self.assertEqual(_validate_entry_point(directory, None)[0], 'app:app')
+        self.assertEqual(_validate_entry_point(directory, 'app')[0], 'app:app')
 
         with self.assertRaises(RSConnectException):
             _validate_entry_point(directory, 'x:y:z')
