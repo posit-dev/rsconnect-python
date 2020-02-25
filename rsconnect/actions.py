@@ -516,6 +516,9 @@ def gather_basic_deployment_info_for_api(connect_server, app_store, directory, n
         # Use the saved app information unless overridden by the user.
         app_id, title, app_mode = app_store.resolve(connect_server.url, app_id, title, app_mode)
 
+    if directory[-1] == '/':
+        directory = directory[:-1]
+
     return app_id, deployment_name, title or default_title(directory), app_mode
 
 
