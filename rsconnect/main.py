@@ -10,9 +10,10 @@ from six import text_type
 from rsconnect import VERSION
 from rsconnect.actions import set_verbosity, cli_feedback, test_server, test_api_key, gather_server_details, \
     gather_basic_deployment_info_for_notebook, get_python_env_info, create_notebook_deployment_bundle, deploy_bundle, \
-    spool_deployment_log, gather_basic_deployment_info_from_manifest, write_manifest_json, write_environment_file, \
+    spool_deployment_log, gather_basic_deployment_info_from_manifest, write_notebook_manifest_json, \
+    write_environment_file, \
     is_conda_supported_on_server, check_server_capabilities, are_apis_supported_on_server, \
-    gather_basic_deployment_info_for_api, create_api_deployment_bundle
+    gather_basic_deployment_info_for_api, create_api_deployment_bundle, write_api_manifest_json
 from . import api
 from .bundle import make_manifest_bundle
 from .metadata import ServerStore, AppStore
@@ -343,8 +344,8 @@ def _deploy_bundle(connect_server, app_store, primary_path, app_id, app_mode, na
 @click.option('--app-id', '-a', help='Existing app ID or GUID to replace. Cannot be used with --new.')
 @click.option('--title', '-t', help='Title of the content (default is the same as the filename).')
 @click.option('--python', '-p', type=click.Path(exists=True),
-              help='Path to python interpreter whose environment should be used. '
-                   'The python environment must have the rsconnect package installed.')
+              help='Path to Python interpreter whose environment should be used. '
+                   'The Python environment must have the rsconnect package installed.')
 @click.option('--conda', '-C', is_flag=True,
               help='Use conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
@@ -385,7 +386,7 @@ def deploy_notebook(name, server, api_key, insecure, cacert, static, new, app_id
         with cli_feedback('Ensuring conda is supported'):
             check_server_capabilities(connect_server, [is_conda_supported_on_server])
 
-    with cli_feedback('Inspecting python environment'):
+    with cli_feedback('Inspecting Python environment'):
         python, environment = get_python_env_info(file, python, not conda, force_generate)
 
     with cli_feedback('Creating deployment bundle'):
@@ -454,7 +455,7 @@ def _validate_entry_point(directory, entry_point):
 
     :param directory: the directory to look in.
     :param entry_point: the entry point as specified by the user.
-    :return: the fully expanded and validated entry point.
+    :return: the fully expanded and validated entry point and the module file name..
     """
     if not entry_point:
         entry_point = 'app'
@@ -478,7 +479,7 @@ def _validate_entry_point(directory, entry_point):
     if not re.search('^%s = ' % parts[1], content, re.MULTILINE):
         raise api.RSConnectException('The file, %s, does not contain an assignment to "%s".' % (file_name, parts[1]))
 
-    return entry_point
+    return entry_point, file_name
 
 
 # noinspection SpellCheckingInspection
@@ -503,8 +504,8 @@ def _validate_entry_point(directory, entry_point):
 @click.option('--app-id', '-a', help='Existing app ID or GUID to replace. Cannot be used with --new.')
 @click.option('--title', '-t', help='Title of the content (default is the same as the directory).')
 @click.option('--python', '-p', type=click.Path(exists=True),
-              help='Path to python interpreter whose environment should be used. '
-                   'The python environment must have the rsconnect package installed.')
+              help='Path to Python interpreter whose environment should be used. '
+                   'The Python environment must have the rsconnect package installed.')
 @click.option('--conda', '-C', is_flag=True, help='Use conda to deploy.')
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
@@ -516,17 +517,14 @@ def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new
     set_verbosity(verbose)
 
     with cli_feedback('Checking arguments'):
-        app_store = AppStore(directory)
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        entrypoint = _validate_entry_point(directory, entrypoint)
+        entrypoint, module_file = _validate_entry_point(directory, entrypoint)
+        app_store = AppStore(module_file)
 
         if new and app_id:
             raise api.RSConnectException('Specify either --new/-N or --app-id/-a but not both.')
 
         _validate_title(title)
-
-        if not entrypoint:
-            entrypoint = 'app:app'
 
         app_id, deployment_name, title, app_mode = \
             gather_basic_deployment_info_for_api(connect_server, app_store, directory, new, app_id, title)
@@ -539,7 +537,7 @@ def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new
             checks.append(is_conda_supported_on_server)
         check_server_capabilities(connect_server, checks)
 
-    with cli_feedback('Inspecting python environment'):
+    with cli_feedback('Inspecting Python environment'):
         _, environment = get_python_env_info(directory, python, not conda, force_generate)
 
     with cli_feedback('Creating deployment bundle'):
@@ -569,20 +567,20 @@ def write_manifest():
 
 
 @write_manifest.command(name="notebook", short_help='Create a manifest.json file for a Jupyter notebook.',
-                        help='Create a manifest.json file for a Jupyter notebook for later deployment. This will '
-                             'creates an environment file (requirements.txt) if one does not exist. All files are '
-                             'created in the same directory as the notebook file.')
+                        help="Create a manifest.json file for a Jupyter notebook for later deployment. This will "
+                             "create an environment file (requirements.txt or environment.yml) if one does not exist. "
+                             "All files are created in the same directory as the notebook file.")
 @click.option('--force', '-f', is_flag=True, help='Replace manifest.json, if it exists.')
 @click.option('--python', '-p', type=click.Path(exists=True),
-              help='Path to python interpreter whose environment should be used. ' +
-                   'The python environment must have the rsconnect package installed.')
+              help='Path to Python interpreter whose environment should be used. ' +
+                   'The Python environment must have the rsconnect package installed.')
 @click.option('--conda', '-C', is_flag=True,
               help='Use conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
 @click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
 @click.argument('file', type=click.Path(exists=True, dir_okay=False, file_okay=True))
-@click.argument('extra_files', nargs=-1, type=click.Path())
+@click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))
 def write_manifest_notebook(force, python, conda, force_generate, verbose, file, extra_files):
     set_verbosity(verbose)
     with cli_feedback('Checking arguments'):
@@ -595,17 +593,63 @@ def write_manifest_notebook(force, python, conda, force_generate, verbose, file,
         if exists(manifest_path) and not force:
             raise api.RSConnectException('manifest.json already exists. Use --force to overwrite.')
 
-    with cli_feedback('Inspecting python environment'):
+    with cli_feedback('Inspecting Python environment'):
         python, environment = get_python_env_info(file, python, not conda, force_generate)
 
     with cli_feedback('Creating manifest.json'):
-        environment_file_exists = write_manifest_json(file, environment, AppModes.JUPYTER_NOTEBOOK, extra_files)
+        environment_file_exists = write_notebook_manifest_json(
+            file, environment, AppModes.JUPYTER_NOTEBOOK, extra_files
+        )
 
     if environment_file_exists and not force_generate:
         click.echo('%s already exists and will not be overwritten.' % environment['filename'])
     else:
         with cli_feedback('Creating %s' % environment['filename']):
             write_environment_file(environment, base_dir)
+
+
+# noinspection SpellCheckingInspection
+@write_manifest.command(name="api", short_help='Create a manifest.json file for a Python API.',
+                        help='Create a manifest.json file for a Python API for later deployment. This will create an '
+                             'environment file (requirements.txt or environment.yml) if one does not exist. All files '
+                             'are created in the same directory as the API code.')
+@click.option('--force', '-f', is_flag=True, help='Replace manifest.json, if it exists.')
+@click.option('--entrypoint', '-e', help='The module and executable object which serves as the entry point for the '
+                                         'WSGi framework of choice (defaults to app:app)')
+@click.option('--exclude', '-x', multiple=True,
+              help='Specify a glob pattern for ignoring files when building the bundle. This option may be repeated/')
+@click.option('--python', '-p', type=click.Path(exists=True),
+              help='Path to Python interpreter whose environment should be used. ' +
+                   'The Python environment must have the rsconnect-python package installed.')
+@click.option('--conda', '-C', is_flag=True,
+              help='Use conda to deploy (requires Connect version 1.8.2 or later)')
+@click.option('--force-generate', '-g', is_flag=True,
+              help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
+@click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
+@click.argument('directory', type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))
+def write_manifest_api(force, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files):
+    set_verbosity(verbose)
+    with cli_feedback('Checking arguments'):
+        entrypoint, _ = _validate_entry_point(directory, entrypoint)
+
+        manifest_path = join(directory, 'manifest.json')
+        if exists(manifest_path) and not force:
+            raise api.RSConnectException('manifest.json already exists. Use --force to overwrite.')
+
+    with cli_feedback('Inspecting Python environment'):
+        _, environment = get_python_env_info(directory, python, not conda, force_generate)
+
+    with cli_feedback('Creating manifest.json'):
+        environment_file_exists = write_api_manifest_json(
+            directory, entrypoint, environment, AppModes.JUPYTER_NOTEBOOK, extra_files, exclude
+        )
+
+    if environment_file_exists and not force_generate:
+        click.echo('%s already exists and will not be overwritten.' % environment['filename'])
+    else:
+        with cli_feedback('Creating %s' % environment['filename']):
+            write_environment_file(environment, directory)
 
 
 if __name__ == '__main__':
