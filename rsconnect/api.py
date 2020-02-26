@@ -42,6 +42,7 @@ class RSConnectServer(object):
 class RSConnect(HTTPServer):
     def __init__(self, server, cookies=None):
         super(RSConnect, self).__init__(append_to_path(server.url, '__api__'), server.insecure, server.ca_data, cookies)
+        self._server = server
 
         if server.api_key:
             self.key_authorization(server.api_key)
@@ -101,27 +102,24 @@ class RSConnect(HTTPServer):
         if app_id is None:
             # create an app if id is not provided
             app = self.app_create(app_name)
+            self._server.handle_bad_response(app)
             app_id = app['id']
         else:
             # assume app exists. if it was deleted then Connect will
             # raise an error
             app = self.app_get(app_id)
-
-        if isinstance(app, HTTPResponse):
-            return app
+            self._server.handle_bad_response(app)
 
         if app['title'] != app_title:
-            self.app_update(app_id, {'title': app_title})
+            self._server.handle_bad_response(self.app_update(app_id, {'title': app_title}))
 
         app_bundle = self.app_upload(app_id, tarball)
 
-        if isinstance(app_bundle, HTTPResponse):
-            return app
+        self._server.handle_bad_response(app_bundle)
 
         task_id = self.app_deploy(app_id, app_bundle['id'])['id']
 
-        if isinstance(task_id, HTTPResponse):
-            return task_id
+        self._server.handle_bad_response(task_id)
 
         return {
             'task_id': task_id,

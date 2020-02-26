@@ -13,7 +13,8 @@ from pprint import pformat
 
 from rsconnect import api
 from .bundle import make_notebook_html_bundle, make_notebook_source_bundle, make_manifest_bundle, read_manifest_file, \
-    make_source_manifest, manifest_add_file, manifest_add_buffer, make_api_bundle
+    make_source_manifest, manifest_add_file, manifest_add_buffer, make_api_bundle, expand_globs, \
+    keep_manifest_specified_file
 from .environment import EnvironmentException
 from .metadata import AppStore
 from .models import AppModes
@@ -377,7 +378,8 @@ def deploy_python_api(connect_server, directory, extra_files, excludes, entry_po
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    app_store = AppStore(directory)
+    module_file = join(directory, entry_point.split[':'][0] + '.py')
+    app_store = AppStore(module_file)
     app_id, deployment_name, deployment_title, app_mode = \
         gather_basic_deployment_info_for_api(connect_server, app_store, directory, new, app_id, title)
     _, environment = get_python_env_info(directory, python, compatibility_mode, force_generate)
@@ -514,6 +516,9 @@ def gather_basic_deployment_info_for_api(connect_server, app_store, directory, n
         # Use the saved app information unless overridden by the user.
         app_id, title, app_mode = app_store.resolve(connect_server.url, app_id, title, app_mode)
 
+    if directory[-1] == '/':
+        directory = directory[:-1]
+
     return app_id, deployment_name, title or default_title(directory), app_mode
 
 
@@ -611,11 +616,12 @@ def spool_deployment_log(connect_server, app, log_callback):
     return api.emit_task_log(connect_server, app['app_id'], app['task_id'], log_callback)
 
 
-def create_manifest_and_environment_file(entry_point_file, environment, app_mode=None, extra_files=None, force=True):
+def create_notebook_manifest_and_environment_file(entry_point_file, environment, app_mode=None, extra_files=None,
+                                                  force=True):
     """
-    Creates and writes a manifest.json file for the given entry point file.  If the
-    related environment file (requirements.txt, environment.yml, etc.) doesn't exist
-    (or force is set to True), the environment file will also be written.
+    Creates and writes a manifest.json file for the given notebook entry point file.
+    If the related environment file (requirements.txt, environment.yml, etc.) doesn't
+    exist (or force is set to True), the environment file will also be written.
 
     :param entry_point_file: the entry point file (Jupyter notebook, etc.) to build
     the manifest for.
@@ -628,11 +634,11 @@ def create_manifest_and_environment_file(entry_point_file, environment, app_mode
     already exists.
     :return:
     """
-    if not write_manifest_json(entry_point_file, environment, app_mode, extra_files) or force:
+    if not write_notebook_manifest_json(entry_point_file, environment, app_mode, extra_files) or force:
         write_environment_file(environment, dirname(entry_point_file))
 
 
-def write_manifest_json(entry_point_file, environment, app_mode=None, extra_files=None):
+def write_notebook_manifest_json(entry_point_file, environment, app_mode=None, extra_files=None):
     """
     Creates and writes a manifest.json file for the given entry point file.  If
     the application mode is not provided, an attempt will be made to resolve one
@@ -662,6 +668,72 @@ def write_manifest_json(entry_point_file, environment, app_mode=None, extra_file
     manifest_data = make_source_manifest(file_name, environment, app_mode)
     manifest_add_file(manifest_data, file_name, directory)
     manifest_add_buffer(manifest_data, environment['filename'], environment['contents'])
+
+    for rel_path in extra_files:
+        manifest_add_file(manifest_data, rel_path, directory)
+
+    with open(manifest_path, 'w') as f:
+        json.dump(manifest_data, f, indent=2)
+
+    return exists(join(directory, environment['filename']))
+
+
+def create_api_manifest_and_environment_file(directory, entry_point, environment, app_mode=AppModes.PYTHON_API,
+                                             extra_files=None, excludes=None, force=True):
+    """
+    Creates and writes a manifest.json file for the given Python API entry point.  If
+    the related environment file (requirements.txt, environment.yml, etc.) doesn't
+    exist (or force is set to True), the environment file will also be written.
+
+    :param directory: the root directory of the Python API.
+    :param entry_point: the module/executable object for the WSGi framework.
+    :param environment: the Python environment to start with.  This should be what's
+    returned by the inspect_environment() function.
+    :param app_mode: the application mode to assume.
+    :param extra_files: any extra files that should be included in the manifest.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param force: if True, forces the environment file to be written. even if it
+    already exists.
+    :return:
+    """
+    if not write_api_manifest_json(directory, entry_point, environment, app_mode, extra_files, excludes) or force:
+        write_environment_file(environment, directory)
+
+
+def write_api_manifest_json(directory, entry_point, environment, app_mode=AppModes.PYTHON_API, extra_files=None,
+                            excludes=None):
+    """
+    Creates and writes a manifest.json file for the given entry point file.  If
+    the application mode is not provided, an attempt will be made to resolve one
+    based on the extension portion of the entry point file.
+
+    :param directory: the root directory of the Python API.
+    :param entry_point: the module/executable object for the WSGi framework.
+    :param environment: the Python environment to start with.  This should be what's
+    returned by the inspect_environment() function.
+    :param app_mode: the application mode to assume.
+    :param extra_files: any extra files that should be included in the manifest.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :return: whether or not the environment file (requirements.txt, environment.yml,
+    etc.) that goes along with the manifest exists.
+    """
+    extra_files = extra_files or []
+    excludes = expand_globs(directory, excludes)
+    manifest_path = join(directory, 'manifest.json')
+
+    manifest_data = make_source_manifest(entry_point, environment, app_mode)
+    manifest_add_buffer(manifest_data, environment['filename'], environment['contents'])
+
+    for subdir, dirs, files in os.walk(directory):
+        for file in files:
+            abs_path = os.path.join(subdir, file)
+            rel_path = os.path.relpath(abs_path, directory)
+
+            if keep_manifest_specified_file(rel_path) and (rel_path in extra_files or abs_path not in excludes):
+                manifest_add_file(manifest_data, rel_path, directory)
+                # Don't add extra files more than once.
+                if rel_path in extra_files:
+                    extra_files.remove(rel_path)
 
     for rel_path in extra_files:
         manifest_add_file(manifest_data, rel_path, directory)

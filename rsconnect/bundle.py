@@ -307,7 +307,16 @@ def make_manifest_bundle(manifest_path):
     return bundle_file
 
 
-def _expand_globs(directory, excludes):
+def expand_globs(directory, excludes):
+    """
+    Takes a list of glob strings, joins each one in turn to the specified directory
+    and produce a list of matching files.  The list returned is sorted and will not
+    contain duplicates.
+
+    :param directory: the directory the globs are relative to.
+    :param excludes: the list of globs to expand.
+    :return: a sorted list of unique file names.
+    """
     work = []
     if excludes:
         directory = abspath(directory)
@@ -336,7 +345,9 @@ def make_api_bundle(directory, entry_point, app_mode, environment, extra_files=N
 
     manifest = make_source_manifest(entry_point, environment, app_mode)
     bundle_file = tempfile.TemporaryFile(prefix='rsc_bundle')
-    excludes = _expand_globs(directory, excludes)
+    excludes = expand_globs(directory, excludes)
+
+    manifest_add_buffer(manifest, environment['filename'], environment['contents'])
 
     if extra_files:
         skip = [environment['filename'], 'manifest.json']
@@ -355,6 +366,9 @@ def make_api_bundle(directory, entry_point, app_mode, environment, extra_files=N
 
                 if keep_manifest_specified_file(rel_path) and (rel_path in extra_files or abs_path not in excludes):
                     bundle.add(abs_path, arcname=rel_path)
+                    # Don't add extra files more than once.
+                    if rel_path in extra_files:
+                        extra_files.remove(rel_path)
 
         for rel_path in extra_files:
             bundle_add_file(bundle, rel_path, directory)
