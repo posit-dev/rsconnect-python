@@ -22,6 +22,7 @@ from six.moves.urllib_parse import urlparse
 
 line_width = 45
 logger = logging.getLogger('rsconnect')
+_module_pattern = re.compile(r'^[A-Za-z0-9_]+:[A-Za-z0-9_]+$')
 _name_sub_pattern = re.compile(r'[^A-Za-z0-9_ -]+')
 _repeating_sub_pattern = re.compile(r'_+')
 
@@ -316,6 +317,9 @@ def _default_title_from_manifest(the_manifest, manifest_file):
     if metadata:
         # noinspection SpellCheckingInspection
         filename = metadata.get('entrypoint') or metadata.get('primary_rmd') or metadata.get('primary_html')
+        # If the manifest is for an API, revert to using the parent directory.
+        if filename and _module_pattern.match(filename):
+            filename = None
     return _default_title(filename or dirname(manifest_file))
 
 

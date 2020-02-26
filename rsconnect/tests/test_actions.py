@@ -110,3 +110,6 @@ class TestActions(TestCase):
         self.assertEqual(_default_title_from_manifest(m, 'dir/to/manifest.json'), 'page')
         m = {'metadata': {'primary_wat?': 'my-cool-thing.wat'}}
         self.assertEqual(_default_title_from_manifest(m, 'dir/to/manifest.json'), '0to')
+        # noinspection SpellCheckingInspection
+        m = {'metadata': {'entrypoint': 'module:object'}}
+        self.assertEqual(_default_title_from_manifest(m, 'dir/to/manifest.json'), '0to')
