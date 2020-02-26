@@ -3,8 +3,9 @@ from unittest import TestCase
 
 from rsconnect import api
 
-from rsconnect.actions import default_title, default_title_from_manifest, which_python, _to_server_check_list, \
-    _verify_server, check_server_capabilities, are_apis_supported_on_server, is_conda_supported_on_server
+from rsconnect.actions import _default_title, _default_title_from_manifest, which_python, _to_server_check_list, \
+    _verify_server, check_server_capabilities, are_apis_supported_on_server, is_conda_supported_on_server, \
+    _make_deployment_name
 from rsconnect.api import RSConnectException, RSConnectServer
 
 
@@ -80,20 +81,32 @@ class TestActions(TestCase):
             check_server_capabilities(None, (fake_cap_with_doc,), lambda x: None)
         self.assertEqual(str(context.exception), 'The server does not satisfy the fake_cap_with_doc capability check.')
 
+    def test_make_deployment_name(self):
+        self.assertEqual(_make_deployment_name('title'), 'title')
+        self.assertEqual(_make_deployment_name('Title'), 'title')
+        self.assertEqual(_make_deployment_name('My Title'), 'my_title')
+        self.assertEqual(_make_deployment_name('My  Title'), 'my_title')
+        self.assertEqual(_make_deployment_name('My _ Title'), 'my_title')
+        self.assertEqual(_make_deployment_name('My-Title'), 'my-title')
+        # noinspection SpellCheckingInspection
+        self.assertEqual(_make_deployment_name(u'M\ry\n \tT\u2103itle'), 'my_title')
+        self.assertEqual(_make_deployment_name(u'\r\n\t\u2103'), '___')
+        self.assertEqual(_make_deployment_name(u'\r\n\tR\u2103'), '__r')
+
     def test_default_title(self):
-        self.assertEqual(default_title('testing.txt'), 'testing')
-        self.assertEqual(default_title('this.is.a.test.ext'), 'this.is.a.test')
-        self.assertEqual(default_title('1.ext'), '001')
-        self.assertEqual(default_title('%s.ext' % ('n' * 2048)), 'n' * 1024)
+        self.assertEqual(_default_title('testing.txt'), 'testing')
+        self.assertEqual(_default_title('this.is.a.test.ext'), 'this.is.a.test')
+        self.assertEqual(_default_title('1.ext'), '001')
+        self.assertEqual(_default_title('%s.ext' % ('n' * 2048)), 'n' * 1024)
 
     def test_default_title_from_manifest(self):
-        self.assertEqual(default_title_from_manifest({}), 'manifest')
+        self.assertEqual(_default_title_from_manifest({}, 'dir/to/manifest.json'), '0to')
         # noinspection SpellCheckingInspection
         m = {'metadata': {'entrypoint': 'point'}}
-        self.assertEqual(default_title_from_manifest(m), 'point')
+        self.assertEqual(_default_title_from_manifest(m, 'dir/to/manifest.json'), 'point')
         m = {'metadata': {'primary_rmd': 'file.Rmd'}}
-        self.assertEqual(default_title_from_manifest(m), 'file')
+        self.assertEqual(_default_title_from_manifest(m, 'dir/to/manifest.json'), 'file')
         m = {'metadata': {'primary_html': 'page.html'}}
-        self.assertEqual(default_title_from_manifest(m), 'page')
+        self.assertEqual(_default_title_from_manifest(m, 'dir/to/manifest.json'), 'page')
         m = {'metadata': {'primary_wat?': 'my-cool-thing.wat'}}
-        self.assertEqual(default_title_from_manifest(m), 'manifest')
+        self.assertEqual(_default_title_from_manifest(m, 'dir/to/manifest.json'), '0to')
