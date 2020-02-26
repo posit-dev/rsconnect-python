@@ -6,13 +6,13 @@ import re
 import traceback
 import sys
 import subprocess
-from os.path import basename, exists, dirname, abspath, join, splitext
+from os.path import abspath, basename, dirname, exists, isdir, join, splitext
 from pprint import pformat
 
 from rsconnect import api
-from .bundle import make_notebook_html_bundle, make_notebook_source_bundle, make_manifest_bundle, read_manifest_file, \
-    make_source_manifest, manifest_add_file, manifest_add_buffer, make_api_bundle, expand_globs, \
-    keep_manifest_specified_file
+from .bundle import expand_globs, keep_manifest_specified_file, make_api_bundle, make_manifest_bundle,\
+    make_notebook_html_bundle, make_notebook_source_bundle, make_source_manifest, manifest_add_buffer,\
+    manifest_add_file, read_manifest_file
 from .environment import EnvironmentException
 from .metadata import AppStore
 from .models import AppModes
@@ -294,6 +294,18 @@ def _make_deployment_name(title):
     return _repeating_sub_pattern.sub('_', name)[:64].rjust(3, '_')
 
 
+def _validate_title(title):
+    """
+    If the user specified a title, validate that it meets Connect's length requirements.
+    If the validation fails, an exception is raised.  Otherwise,
+
+    :param title: the title to validate.
+    """
+    if title:
+        if not (3 <= len(title) <= 1024):
+            raise api.RSConnectException('A title must be between 3-1024 characters long.')
+
+
 def _default_title(file_name):
     """
     Produce a default content title from the given file path.  The result is
@@ -321,6 +333,90 @@ def _default_title_from_manifest(the_manifest, manifest_file):
         if filename and _module_pattern.match(filename):
             filename = None
     return _default_title(filename or dirname(manifest_file))
+
+
+def validate_file_is_notebook(file_name):
+    """
+    Validate that the given file is a Jupyter Notebook. If it isn't, an exception is
+    thrown.  A file must exist and have the '.ipynb' extension.
+
+    :param file_name: the name of the file to validate.
+    """
+    file_suffix = splitext(file_name)[1].lower()
+    if file_suffix != '.ipynb' or not exists(file_name):
+        raise api.RSConnectException('A Jupyter notebook (.ipynb) file is required here.')
+
+
+def validate_extra_files(directory, extra_files):
+    """
+    If the user specified a list of extra files, validate that they all exist and, if
+    so, return a list of them qualified by the specified directory.
+
+    :param directory: the directory that the extra files must be relative to.
+    :param extra_files: the list of extra files to qualify and validate.
+    :return: the extra files qualified by the directory.
+    """
+    result = []
+    for extra in extra_files:
+        extra_file = join(directory, extra)
+        if not exists(extra_file):
+            raise api.RSConnectException('Could not find file %s in %s' % (extra, directory))
+        result.append(extra_file)
+    return result
+
+
+def validate_manifest_file(file_or_directory):
+    """
+    Validates that the name given represents either an existing manifest.json file or
+    a directory that contains one.  If not, an exception is raised.
+
+    :param file_or_directory: the name of the manifest file or directory that contains it.
+    :return: the real path to the manifest file.
+    """
+    if isdir(file_or_directory):
+        file_or_directory = join(file_or_directory, 'manifest.json')
+    elif basename(file_or_directory) != 'manifest.json' or not exists(file_or_directory):
+        raise api.RSConnectException('A manifest.json file or a directory containing one is required here.')
+    return file_or_directory
+
+
+def validate_entry_point(directory, entry_point):
+    """
+    Validates the entry point specified by the user, expanding as necessary.  If the
+    user specifies nothing, a module of "app" is assumed.  If the user specifies a
+    module only, the object is assumed to be the same name as the module.
+
+    Once we have a module and object name, the module is validated by checking for the
+    existence of a "<module>.py" file in the given directory.  If found, it is scanned
+    for an assignment to the named object.
+
+    :param directory: the directory to look in.
+    :param entry_point: the entry point as specified by the user.
+    :return: the fully expanded and validated entry point and the module file name..
+    """
+    if not entry_point:
+        entry_point = 'app'
+
+    if ':' not in entry_point:
+        entry_point = '%s:%s' % (entry_point, entry_point)
+
+    parts = entry_point.split(':')
+
+    if len(parts) > 2:
+        raise api.RSConnectException('Entry point is not in "module:object" format.')
+
+    file_name = join(directory, '%s.py' % parts[0])
+
+    if not exists(file_name):
+        raise api.RSConnectException('Could not find module file %s.' % file_name)
+
+    with open(file_name) as fd:
+        content = fd.read()
+
+    if not re.search('^%s = ' % parts[1], content, re.MULTILINE):
+        raise api.RSConnectException('The file, %s, does not contain an assignment to "%s".' % (file_name, parts[1]))
+
+    return entry_point, file_name
 
 
 def deploy_jupyter_notebook(connect_server, file_name, extra_files, new=False, app_id=None, title=None, static=False,
@@ -388,10 +484,10 @@ def deploy_python_api(connect_server, directory, extra_files, excludes, entry_po
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    module_file = join(directory, entry_point.split[':'][0] + '.py')
+    entry_point, module_file = validate_entry_point(directory, entry_point)
     app_store = AppStore(module_file)
-    app_id, deployment_name, deployment_title, app_mode = \
-        gather_basic_deployment_info_for_api(connect_server, app_store, directory, new, app_id, title)
+    _, _, app_id, deployment_name, deployment_title, app_mode = \
+        gather_basic_deployment_info_for_api(connect_server, app_store, directory, entry_point, new, app_id, title)
     _, environment = get_python_env_info(directory, python, compatibility_mode, force_generate)
     bundle = create_api_deployment_bundle(directory, extra_files, excludes, entry_point, app_mode, environment)
     app = deploy_bundle(connect_server, app_id, deployment_name, deployment_title, bundle)
@@ -443,6 +539,12 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
     :param static: a flag to note whether a static document should be deployed.
     :return: the app ID, name, title and mode for the deployment.
     """
+    validate_file_is_notebook(file_name)
+    _validate_title(title)
+
+    if new and app_id:
+        raise api.RSConnectException('Specify either a new deploy or an app ID but not both.')
+
     if app_id is not None:
         # Don't read app metadata if app-id is specified. Instead, we need
         # to get this from Connect.
@@ -481,6 +583,13 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
     be generated.
     :return: the app ID, name, title, mode, and package manager for the deployment.
     """
+    file_name = validate_manifest_file(file_name)
+
+    _validate_title(title)
+
+    if new and app_id:
+        raise api.RSConnectException('Specify either a new deploy or an app ID but not both.')
+
     source_manifest, _ = read_manifest_file(file_name)
     # noinspection SpellCheckingInspection
     app_mode = AppModes.get_by_name(source_manifest['metadata']['appmode'])
@@ -491,25 +600,34 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
         app_id, title, app_mode = app_store.resolve(connect_server.url, app_id, title, app_mode)
 
     package_manager = source_manifest.get('python', {}).get('package_manager', {}).get('name', None)
-
     title = title or _default_title_from_manifest(source_manifest, file_name)
 
     return app_id, _make_deployment_name(title), title, app_mode, package_manager
 
 
-def gather_basic_deployment_info_for_api(connect_server, app_store, directory, new, app_id, title):
+def gather_basic_deployment_info_for_api(connect_server, app_store, directory, entry_point, new, app_id, title):
     """
     Helps to gather the necessary info for performing a deployment.
 
     :param connect_server: the Connect server information.
     :param app_store: the store for the specified directory.
     :param directory: the primary file being deployed.
+    :param entry_point: the entry point for the API in '<module>:<object> format.  if
+    the object name is omitted, it defaults to the module name.  If nothing is specified,
+    it defaults to 'app:app'.
     :param new: a flag noting whether we should force a new deployment.
     :param app_id: the ID of the app to redeploy.
     :param title: an optional title.  If this isn't specified, a default title will
     be generated.
-    :return: the app ID, name, title and mode for the deployment.
+    :return: the entry point, module file, app ID, name, title and mode for the deployment.
     """
+    entry_point, module_file = validate_entry_point(directory, entry_point)
+
+    _validate_title(title)
+
+    if new and app_id:
+        raise api.RSConnectException('Specify either a new deploy or an app ID but not both.')
+
     if app_id is not None:
         # Don't read app metadata if app-id is specified. Instead, we need
         # to get this from Connect.
@@ -530,7 +648,7 @@ def gather_basic_deployment_info_for_api(connect_server, app_store, directory, n
 
     title = title or _default_title(directory)
 
-    return app_id, _make_deployment_name(title), title, app_mode
+    return entry_point, module_file, app_id, _make_deployment_name(title), title, app_mode
 
 
 def get_python_env_info(file_name, python, compatibility_mode, force_generate):
@@ -559,17 +677,27 @@ def get_python_env_info(file_name, python, compatibility_mode, force_generate):
     return python, environment
 
 
-def create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, environment):
+def create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, environment,
+                                      extra_files_need_validating=True):
     """
     Create an in-memory bundle, ready to deploy.
 
-    :param file_name: the primary file being deployed.
+    :param file_name: the Jupyter notebook being deployed.
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param app_mode: the mode of the app being deployed.
     :param python: information about the version of Python being used.
     :param environment: environmental information.
+    :param extra_files_need_validating: a flag indicating whether the list of extra
+    files should be validated or not.  Part of validating includes qualifying each
+    with the parent directory of the notebook file.  If you provide False here, make
+    sure the names are properly qualified first.
     :return: the bundle.
     """
+    validate_file_is_notebook(file_name)
+
+    if extra_files_need_validating:
+        extra_files = validate_extra_files(dirname(file_name), extra_files)
+
     if app_mode == AppModes.STATIC:
         try:
             return make_notebook_html_bundle(file_name, python)
@@ -581,7 +709,8 @@ def create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, 
         return make_notebook_source_bundle(file_name, environment, extra_files)
 
 
-def create_api_deployment_bundle(directory, extra_files, excludes, entry_point, app_mode, environment):
+def create_api_deployment_bundle(directory, extra_files, excludes, entry_point, app_mode, environment,
+                                 extra_files_need_validating=True):
     """
     Create an in-memory bundle, ready to deploy.
 
@@ -591,8 +720,20 @@ def create_api_deployment_bundle(directory, extra_files, excludes, entry_point, 
     :param entry_point: the module/executable object for the WSGi framework.
     :param app_mode: the mode of the app being deployed.
     :param environment: environmental information.
+    :param extra_files_need_validating: a flag indicating whether the list of extra
+    files should be validated or not.  Part of validating includes qualifying each
+    with the specified directory.  If you provide False here, make sure the names
+    are properly qualified first.
     :return: the bundle.
     """
+    entry_point, _ = validate_entry_point(directory, entry_point)
+
+    if extra_files_need_validating:
+        extra_files = validate_extra_files(directory, extra_files)
+
+    if app_mode is None:
+        app_mode = AppModes.PYTHON_API
+
     return make_api_bundle(directory, entry_point, app_mode, environment, extra_files, excludes)
 
 
