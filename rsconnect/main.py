@@ -1,19 +1,19 @@
 import logging
-import re
 import textwrap
-
-from os.path import abspath, basename, dirname, exists, join, splitext
+from os.path import abspath, dirname, exists, join
 
 import click
 from six import text_type
 
 from rsconnect import VERSION
-from rsconnect.actions import set_verbosity, cli_feedback, test_server, test_api_key, gather_server_details, \
-    gather_basic_deployment_info_for_notebook, get_python_env_info, create_notebook_deployment_bundle, deploy_bundle, \
-    spool_deployment_log, gather_basic_deployment_info_from_manifest, write_notebook_manifest_json, \
-    write_environment_file, \
-    is_conda_supported_on_server, check_server_capabilities, are_apis_supported_on_server, \
-    gather_basic_deployment_info_for_api, create_api_deployment_bundle, write_api_manifest_json
+from rsconnect.actions import are_apis_supported_on_server, check_server_capabilities, cli_feedback,\
+    create_api_deployment_bundle, create_notebook_deployment_bundle, deploy_bundle,\
+    gather_basic_deployment_info_for_api, gather_basic_deployment_info_for_notebook,\
+    gather_basic_deployment_info_from_manifest, gather_server_details, get_python_env_info,\
+    is_conda_supported_on_server, set_verbosity, spool_deployment_log, test_api_key, test_server, validate_entry_point,\
+    validate_extra_files, validate_file_is_notebook, validate_manifest_file, write_api_manifest_json,\
+    write_environment_file, write_notebook_manifest_json
+
 from . import api
 from .bundle import make_manifest_bundle
 from .metadata import ServerStore, AppStore
@@ -277,18 +277,6 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_r
     return connect_server
 
 
-def _validate_title(title):
-    """
-    If the user specified a title on the command line, validate that it meets Connect's
-    length requirements.  If the validation fails, an exception is raised.
-
-    :param title: the title to validate.
-    """
-    if title:
-        if not (3 <= len(title) <= 1024):
-            raise api.RSConnectException('A title must be between 3-1024 characters long.')
-
-
 def _deploy_bundle(connect_server, app_store, primary_path, app_id, app_mode, name, title, bundle):
     """
     Does the work of uploading a prepared bundle.
@@ -360,23 +348,7 @@ def deploy_notebook(name, server, api_key, insecure, cacert, static, new, app_id
     with cli_feedback('Checking arguments'):
         app_store = AppStore(file)
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-
-        if new and app_id:
-            raise api.RSConnectException('Specify either --new/-N or --app-id/-a but not both.')
-
-        _validate_title(title)
-
-        file_suffix = splitext(file)[1].lower()
-        if file_suffix != '.ipynb':
-            raise api.RSConnectException(
-                'Only Jupyter notebook (.ipynb) files can be deployed with "deploy notebook". '
-                'Run "deploy notebook --help" or "deploy --help" for more information.')
-
-        # we check the extra files ourselves, since they are paths relative to the base file
-        for extra in extra_files:
-            if not exists(join(dirname(file), extra)):
-                raise api.RSConnectException('Could not find file %s in %s' % (extra, dirname(file)))
-
+        extra_files = validate_extra_files(dirname(file), extra_files)
         app_id, deployment_name, title, app_mode = \
             gather_basic_deployment_info_for_notebook(connect_server, app_store, file, new, app_id, title, static)
 
@@ -390,14 +362,16 @@ def deploy_notebook(name, server, api_key, insecure, cacert, static, new, app_id
         python, environment = get_python_env_info(file, python, not conda, force_generate)
 
     with cli_feedback('Creating deployment bundle'):
-        bundle = create_notebook_deployment_bundle(file, extra_files, app_mode, python, environment)
+        bundle = create_notebook_deployment_bundle(file, extra_files, app_mode, python, environment, False)
 
     _deploy_bundle(connect_server, app_store, file, app_id, app_mode, deployment_name, title, bundle)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(name='manifest', short_help='Deploy content to RStudio Connect by manifest.',
-                help='Deploy content to RStudio Connect using an existing manifest.json file.')
+                help='Deploy content to RStudio Connect using an existing manifest.json file.  The specified file must '
+                     'either be named "manifest.json" or refer to a directory that contains a file named '
+                     '"manifest.json".')
 @click.option('--name', '-n', help='The nickname of the RStudio Connect server to deploy to.')
 @click.option('--server', '-s', envvar='CONNECT_SERVER',  help='The URL for the RStudio Connect server to deploy to.')
 @click.option('--api-key', '-k', envvar='CONNECT_API_KEY',
@@ -418,15 +392,7 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
     with cli_feedback('Checking arguments'):
         app_store = AppStore(file)
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-
-        if new and app_id:
-            raise api.RSConnectException('Specify either --new/-N or --app-id/-a but not both.')
-
-        _validate_title(title)
-
-        if basename(file) != 'manifest.json':
-            raise api.RSConnectException('The deploy manifest command requires an existing manifest.json file to be '
-                                         'provided on the command line.')
+        file = validate_manifest_file(file)
 
         app_id, deployment_name, title, app_mode, package_manager = \
             gather_basic_deployment_info_from_manifest(connect_server, app_store, file, new, app_id, title)
@@ -441,45 +407,6 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
         bundle = make_manifest_bundle(file)
 
     _deploy_bundle(connect_server, app_store, file, app_id, app_mode, deployment_name, title, bundle)
-
-
-def _validate_entry_point(directory, entry_point):
-    """
-    Validates the entry point specified by the user, expanding as necessary.  If the
-    user specifies nothing, a module of "app" is assumed.  If the user specifies a
-    module only, the object is assumed to be the same name as the module.
-
-    Once we have a module and object name, the module is validated by checking for the
-    existence of a "<module>.py" file in the given directory.  If found, it is scanned
-    for an assignment to the named object.
-
-    :param directory: the directory to look in.
-    :param entry_point: the entry point as specified by the user.
-    :return: the fully expanded and validated entry point and the module file name..
-    """
-    if not entry_point:
-        entry_point = 'app'
-
-    if ':' not in entry_point:
-        entry_point = '%s:%s' % (entry_point, entry_point)
-
-    parts = entry_point.split(':')
-
-    if len(parts) > 2:
-        raise api.RSConnectException('Entry point is not in "module:object" format.')
-
-    file_name = join(directory, '%s.py' % parts[0])
-
-    if not exists(file_name):
-        raise api.RSConnectException('Could not find module file %s.' % file_name)
-
-    with open(file_name) as fd:
-        content = fd.read()
-
-    if not re.search('^%s = ' % parts[1], content, re.MULTILINE):
-        raise api.RSConnectException('The file, %s, does not contain an assignment to "%s".' % (file_name, parts[1]))
-
-    return entry_point, file_name
 
 
 # noinspection SpellCheckingInspection
@@ -518,16 +445,11 @@ def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new
 
     with cli_feedback('Checking arguments'):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        entrypoint, module_file = _validate_entry_point(directory, entrypoint)
+        entrypoint, module_file = validate_entry_point(directory, entrypoint)
+        extra_files = validate_extra_files(directory, extra_files)
         app_store = AppStore(module_file)
-
-        if new and app_id:
-            raise api.RSConnectException('Specify either --new/-N or --app-id/-a but not both.')
-
-        _validate_title(title)
-
-        app_id, deployment_name, title, app_mode = \
-            gather_basic_deployment_info_for_api(connect_server, app_store, directory, new, app_id, title)
+        _, _, app_id, deployment_name, title, app_mode = \
+            gather_basic_deployment_info_for_api(connect_server, app_store, directory, entrypoint, new, app_id, title)
 
     click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url), fg='white')
 
@@ -541,7 +463,7 @@ def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new
         _, environment = get_python_env_info(directory, python, not conda, force_generate)
 
     with cli_feedback('Creating deployment bundle'):
-        bundle = create_api_deployment_bundle(directory, extra_files, exclude, entrypoint, app_mode, environment)
+        bundle = create_api_deployment_bundle(directory, extra_files, exclude, entrypoint, app_mode, environment, False)
 
     _deploy_bundle(connect_server, app_store, directory, app_id, app_mode, deployment_name, title, bundle)
 
@@ -584,8 +506,7 @@ def write_manifest():
 def write_manifest_notebook(force, python, conda, force_generate, verbose, file, extra_files):
     set_verbosity(verbose)
     with cli_feedback('Checking arguments'):
-        if not file.endswith('.ipynb'):
-            raise api.RSConnectException('Can only create a manifest for a Jupyter Notebook (.ipynb file).')
+        validate_file_is_notebook(file)
 
         base_dir = dirname(file)
 
@@ -631,7 +552,7 @@ def write_manifest_notebook(force, python, conda, force_generate, verbose, file,
 def write_manifest_api(force, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files):
     set_verbosity(verbose)
     with cli_feedback('Checking arguments'):
-        entrypoint, _ = _validate_entry_point(directory, entrypoint)
+        entrypoint, _ = validate_entry_point(directory, entrypoint)
 
         manifest_path = join(directory, 'manifest.json')
         if exists(manifest_path) and not force:

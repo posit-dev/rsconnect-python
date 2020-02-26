@@ -1,3 +1,4 @@
+import os
 import sys
 from unittest import TestCase
 
@@ -5,11 +6,16 @@ from rsconnect import api
 
 from rsconnect.actions import _default_title, _default_title_from_manifest, which_python, _to_server_check_list, \
     _verify_server, check_server_capabilities, are_apis_supported_on_server, is_conda_supported_on_server, \
-    _make_deployment_name
+    _make_deployment_name, _validate_title, validate_entry_point
 from rsconnect.api import RSConnectException, RSConnectServer
+from rsconnect.tests.test_data_util import get_api_path
 
 
 class TestActions(TestCase):
+    @staticmethod
+    def optional_target(default):
+        return os.environ.get('CONNECT_DEPLOY_TARGET', default)
+
     def test_which_python(self):
         with self.assertRaises(RSConnectException):
             which_python('fake.file')
@@ -80,6 +86,31 @@ class TestActions(TestCase):
         with self.assertRaises(api.RSConnectException) as context:
             check_server_capabilities(None, (fake_cap_with_doc,), lambda x: None)
         self.assertEqual(str(context.exception), 'The server does not satisfy the fake_cap_with_doc capability check.')
+
+    def test_validate_title(self):
+        with self.assertRaises(RSConnectException):
+            _validate_title('12')
+
+        with self.assertRaises(RSConnectException):
+            _validate_title('1' * 1025)
+
+        _validate_title('123')
+        _validate_title('1' * 1024)
+
+    def test_validate_entry_point(self):
+        directory = self.optional_target(get_api_path('flask'))
+
+        self.assertEqual(validate_entry_point(directory, None)[0], 'app:app')
+        self.assertEqual(validate_entry_point(directory, 'app')[0], 'app:app')
+
+        with self.assertRaises(RSConnectException):
+            validate_entry_point(directory, 'x:y:z')
+
+        with self.assertRaises(RSConnectException):
+            validate_entry_point(directory, 'bob:app')
+
+        with self.assertRaises(RSConnectException):
+            validate_entry_point(directory, 'app:bogus_app')
 
     def test_make_deployment_name(self):
         self.assertEqual(_make_deployment_name('title'), 'title')
