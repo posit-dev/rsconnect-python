@@ -2,10 +2,8 @@ import contextlib
 import json
 import logging
 import os
-import time
+import re
 import traceback
-from datetime import datetime
-import random
 import sys
 import subprocess
 from os.path import basename, exists, dirname, abspath, join, splitext
@@ -24,6 +22,9 @@ from six.moves.urllib_parse import urlparse
 
 line_width = 45
 logger = logging.getLogger('rsconnect')
+_module_pattern = re.compile(r'^[A-Za-z0-9_]+:[A-Za-z0-9_]+$')
+_name_sub_pattern = re.compile(r'[^A-Za-z0-9_ -]+')
+_repeating_sub_pattern = re.compile(r'_+')
 
 
 @contextlib.contextmanager
@@ -275,19 +276,25 @@ def check_server_capabilities(connect_server, capability_functions, details_sour
             raise api.RSConnectException(message)
 
 
-def make_deployment_name():
-    """Produce a unique name for this deployment as required by the Connect API.
-
-    This is based on the current unix timestamp. Since the millisecond portion
-    is zero on some systems, we add some jitter.
-
-    :return: a default name for a deployment based on the current time.
+def _make_deployment_name(title):
     """
-    timestamp = int(1000 * time.mktime(datetime.now().timetuple())) + random.randint(0, 999)
-    return 'deployment-%d' % timestamp
+    Produce a name for a deployment based on its title.  It is assumed that title
+    detfaulting/validation has already taken place (meaning the title isn't None
+    or empty).
+
+    We follow the same rules for doing this as the R rsconnect package does.  See
+    the title.R code in https://github.com/rstudio/rsconnect/R with the exception
+    that we collapse repeating underscores and, if the name is too short, it is
+    padded to the left with underscores.
+
+    :param title: the title to start with.
+    :return: a name for a deployment based on its title.
+    """
+    name = _name_sub_pattern.sub('', title.lower()).replace(' ', '_')
+    return _repeating_sub_pattern.sub('_', name)[:64].rjust(3, '_')
 
 
-def default_title(file_name):
+def _default_title(file_name):
     """
     Produce a default content title from the given file path.  The result is
     guaranteed to be between 3 and 1024 characters long, as required by RStudio
@@ -300,7 +307,7 @@ def default_title(file_name):
     return basename(file_name).rsplit('.', 1)[0][:1024].rjust(3, '0')
 
 
-def default_title_from_manifest(the_manifest):
+def _default_title_from_manifest(the_manifest, manifest_file):
     """
     Produce a default content title from the contents of a manifest.
     """
@@ -310,7 +317,10 @@ def default_title_from_manifest(the_manifest):
     if metadata:
         # noinspection SpellCheckingInspection
         filename = metadata.get('entrypoint') or metadata.get('primary_rmd') or metadata.get('primary_html')
-    return default_title(filename or 'manifest.json')
+        # If the manifest is for an API, revert to using the parent directory.
+        if filename and _module_pattern.match(filename):
+            filename = None
+    return _default_title(filename or dirname(manifest_file))
 
 
 def deploy_jupyter_notebook(connect_server, file_name, extra_files, new=False, app_id=None, title=None, static=False,
@@ -433,8 +443,6 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
     :param static: a flag to note whether a static document should be deployed.
     :return: the app ID, name, title and mode for the deployment.
     """
-    deployment_name = make_deployment_name()
-
     if app_id is not None:
         # Don't read app metadata if app-id is specified. Instead, we need
         # to get this from Connect.
@@ -455,7 +463,9 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
             raise api.RSConnectException('Cannot change app mode to "static" once deployed. '
                                          'Use --new to create a new deployment.')
 
-    return app_id, deployment_name, title or default_title(file_name), app_mode
+    title = title or _default_title(file_name)
+
+    return app_id, _make_deployment_name(title), title, app_mode
 
 
 def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_name, new, app_id, title):
@@ -464,7 +474,7 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
 
     :param connect_server: the Connect server information.
     :param app_store: the store for the specified file
-    :param file_name: the primary file being deployed.
+    :param file_name: the manifest file being deployed.
     :param new: a flag noting whether we should force a new deployment.
     :param app_id: the ID of the app to redeploy.
     :param title: an optional title.  If this isn't specified, a default title will
@@ -472,7 +482,6 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
     :return: the app ID, name, title, mode, and package manager for the deployment.
     """
     source_manifest, _ = read_manifest_file(file_name)
-    deployment_name = make_deployment_name()
     # noinspection SpellCheckingInspection
     app_mode = AppModes.get_by_name(source_manifest['metadata']['appmode'])
 
@@ -483,7 +492,9 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
 
     package_manager = source_manifest.get('python', {}).get('package_manager', {}).get('name', None)
 
-    return app_id, deployment_name, title or default_title_from_manifest(source_manifest), app_mode, package_manager
+    title = title or _default_title_from_manifest(source_manifest, file_name)
+
+    return app_id, _make_deployment_name(title), title, app_mode, package_manager
 
 
 def gather_basic_deployment_info_for_api(connect_server, app_store, directory, new, app_id, title):
@@ -499,8 +510,6 @@ def gather_basic_deployment_info_for_api(connect_server, app_store, directory, n
     be generated.
     :return: the app ID, name, title and mode for the deployment.
     """
-    deployment_name = make_deployment_name()
-
     if app_id is not None:
         # Don't read app metadata if app-id is specified. Instead, we need
         # to get this from Connect.
@@ -519,7 +528,9 @@ def gather_basic_deployment_info_for_api(connect_server, app_store, directory, n
     if directory[-1] == '/':
         directory = directory[:-1]
 
-    return app_id, deployment_name, title or default_title(directory), app_mode
+    title = title or _default_title(directory)
+
+    return app_id, _make_deployment_name(title), title, app_mode
 
 
 def get_python_env_info(file_name, python, compatibility_mode, force_generate):
