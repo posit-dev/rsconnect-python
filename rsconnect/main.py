@@ -369,7 +369,9 @@ def deploy_notebook(name, server, api_key, insecure, cacert, static, new, app_id
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(name='manifest', short_help='Deploy content to RStudio Connect by manifest.',
-                help='Deploy content to RStudio Connect using an existing manifest.json file.')
+                help='Deploy content to RStudio Connect using an existing manifest.json file.  The specified file must '
+                     'either be named "manifest.json" or refer to a directory that contains a file named '
+                     '"manifest.json".')
 @click.option('--name', '-n', help='The nickname of the RStudio Connect server to deploy to.')
 @click.option('--server', '-s', envvar='CONNECT_SERVER',  help='The URL for the RStudio Connect server to deploy to.')
 @click.option('--api-key', '-k', envvar='CONNECT_API_KEY',
@@ -444,7 +446,7 @@ def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new
     with cli_feedback('Checking arguments'):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         entrypoint, module_file = validate_entry_point(directory, entrypoint)
-        extra_files = validate_extra_files(dirname(file), extra_files)
+        extra_files = validate_extra_files(directory, extra_files)
         app_store = AppStore(module_file)
         _, _, app_id, deployment_name, title, app_mode = \
             gather_basic_deployment_info_for_api(connect_server, app_store, directory, entrypoint, new, app_id, title)
