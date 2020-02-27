@@ -8,7 +8,7 @@ import subprocess
 import tarfile
 import tempfile
 
-from os.path import abspath, basename, dirname, exists, join, relpath, splitext
+from os.path import basename, dirname, exists, join, relpath, splitext
 
 from rsconnect.models import AppModes
 
