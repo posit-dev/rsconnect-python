@@ -113,16 +113,16 @@ class TestActions(TestCase):
             validate_entry_point(directory, 'app:bogus_app')
 
     def test_make_deployment_name(self):
-        self.assertEqual(_make_deployment_name('title'), 'title')
-        self.assertEqual(_make_deployment_name('Title'), 'title')
-        self.assertEqual(_make_deployment_name('My Title'), 'my_title')
-        self.assertEqual(_make_deployment_name('My  Title'), 'my_title')
-        self.assertEqual(_make_deployment_name('My _ Title'), 'my_title')
-        self.assertEqual(_make_deployment_name('My-Title'), 'my-title')
+        self.assertEqual(_make_deployment_name(None, 'title', False), 'title')
+        self.assertEqual(_make_deployment_name(None, 'Title', False), 'title')
+        self.assertEqual(_make_deployment_name(None, 'My Title', False), 'my_title')
+        self.assertEqual(_make_deployment_name(None, 'My  Title', False), 'my_title')
+        self.assertEqual(_make_deployment_name(None, 'My _ Title', False), 'my_title')
+        self.assertEqual(_make_deployment_name(None, 'My-Title', False), 'my-title')
         # noinspection SpellCheckingInspection
-        self.assertEqual(_make_deployment_name(u'M\ry\n \tT\u2103itle'), 'my_title')
-        self.assertEqual(_make_deployment_name(u'\r\n\t\u2103'), '___')
-        self.assertEqual(_make_deployment_name(u'\r\n\tR\u2103'), '__r')
+        self.assertEqual(_make_deployment_name(None, u'M\ry\n \tT\u2103itle', False), 'my_title')
+        self.assertEqual(_make_deployment_name(None, u'\r\n\t\u2103', False), '___')
+        self.assertEqual(_make_deployment_name(None, u'\r\n\tR\u2103', False), '__r')
 
     def test_default_title(self):
         self.assertEqual(_default_title('testing.txt'), 'testing')
