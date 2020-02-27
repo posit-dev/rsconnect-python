@@ -15,7 +15,7 @@ from rsconnect.models import AppModes
 log = logging.getLogger('rsconnect')
 # From https://github.com/rstudio/rsconnect/blob/485e05a26041ab8183a220da7a506c9d3a41f1ff/R/bundle.R#L85-L88
 # noinspection SpellCheckingInspection
-directories_to_ignore = ['rsconnect/', 'packrat/', '.svn/', '.git/', '.Rproj.user/']
+directories_to_ignore = ['rsconnect-python/', 'packrat/', '.svn/', '.git/', '.Rproj.user/']
 
 
 # noinspection SpellCheckingInspection
@@ -319,7 +319,6 @@ def expand_globs(directory, excludes):
     """
     work = []
     if excludes:
-        directory = abspath(directory)
         for pattern in excludes:
             file_pattern = join(directory, pattern)
             work.extend(glob.glob(file_pattern))

@@ -59,13 +59,8 @@ class RSConnect(HTTPServer):
     def python_settings(self):
         return self.get('v1/server_settings/python')
 
-    def app_find(self, filters):
-        response = self.get('applications', query_params=filters)
-
-        if response.json_data and response.json_data['count'] > 0:
-            return response.json_data['applications']
-
-        return response
+    def app_search(self, filters):
+        return self.get('applications', query_params=filters)
 
     def app_create(self, name):
         return self.post('applications', body={'name': name})
@@ -276,39 +271,59 @@ def emit_task_log(connect_server, app_id, task_id, log_callback, timeout=None):
         return result
 
 
-def app_data(api, app):
-    return {
-        'id': app['id'],
-        'name': app['name'],
-        'title': app['title'],
-        'app_mode': AppModes.get_by_ordinal(app['app_mode']),
-        'config_url': api.app_config(app['id'])['config_url'],
-    }
+def _gather_existing_app_names(connect_server, name):
+    """
+    Retrieves all the app names that start with the given default name.
+
+    :param connect_server: the Connect server information.
+    :param name: the default name for an app.
+    :return: the list of existing names that start with the proposed one.
+    """
+    with RSConnect(connect_server) as client:
+        filters = {
+            'search': name,
+            'count': 100
+        }
+        existing_names = []
+        count = 0
+        finished = False
+
+        # First, we need to gather all the names that are similar to what our default is.
+        while not finished:
+            result = client.app_search(filters)
+            connect_server.handle_bad_response(result)
+            count = count + result['count']
+            existing_names.extend([app['name'] for app in result['applications']])
+
+            if count < result['total']:
+                filters = {
+                    'start': count,
+                    'count': 100,
+                    'cont': result['continuation']
+                }
+            else:
+                finished = True
+
+    return existing_names
 
 
-def app_search(connect_server, app_id, app_title):
-    with RSConnect(connect_server) as server:
-        data = []
-        filters = [('count', 5),
-                   ('filter', 'min_role:editor'),
-                   ('search', app_title)]
+def find_unique_name(connect_server, name):
+    """
+    Poll through existing apps to see if anything with a similar name exists.
+    If so, start appending numbers until a unique name is found.
 
-        apps = server.app_find(filters)
-        found = False
+    :param connect_server: the Connect server information.
+    :param name: the default name for an app.
+    :return: the name, potentially with a suffixed number to guarantee uniqueness.
+    """
+    existing_names = _gather_existing_app_names(connect_server, name)
 
-        for app in apps or []:
-            if app['app_mode'] in (AppModes.STATIC.ordinal(), AppModes.JUPYTER_NOTEBOOK.ordinal()):
-                data.append(app_data(server, app))
-                if app['id'] == app_id:
-                    found = True
+    if name in existing_names:
+        suffix = 1
+        test = '%s%d' % (name, suffix)
+        while test in existing_names:
+            suffix = suffix + 1
+            test = '%s%d' % (name, suffix)
+        name = test
 
-        if app_id and not found:
-            try:
-                # offer the current location as an option
-                app = server.app_get(app_id)
-                if app['app_mode'] in (AppModes.STATIC.ordinal(), AppModes.JUPYTER_NOTEBOOK.ordinal()):
-                    data.append(app_data(server, app))
-            except RSConnectException:
-                logger.exception('Error getting info for previous app_id "%s", skipping', app_id)
-
-        return data
+    return name
