@@ -276,7 +276,7 @@ def check_server_capabilities(connect_server, capability_functions, details_sour
             raise api.RSConnectException(message)
 
 
-def _make_deployment_name(title):
+def _make_deployment_name(connect_server, title, force_unique):
     """
     Produce a name for a deployment based on its title.  It is assumed that title
     detfaulting/validation has already taken place (meaning the title isn't None
@@ -287,11 +287,21 @@ def _make_deployment_name(title):
     that we collapse repeating underscores and, if the name is too short, it is
     padded to the left with underscores.
 
+    :param connect_server: the information needed to interact with the Connect server.
     :param title: the title to start with.
+    :param force_unique: a flag noting whether the generated name must be forced to be
+    unique.
     :return: a name for a deployment based on its title.
     """
+    # First, Generate a default name from the given title.
     name = _name_sub_pattern.sub('', title.lower()).replace(' ', '_')
-    return _repeating_sub_pattern.sub('_', name)[:64].rjust(3, '_')
+    name = _repeating_sub_pattern.sub('_', name)[:64].rjust(3, '_')
+
+    # Now, make sure it's unique, if needed.
+    if force_unique:
+        name = api.find_unique_name(connect_server, name)
+
+    return name
 
 
 def _validate_title(title):
@@ -315,6 +325,8 @@ def _default_title(file_name):
     :param file_name: the name from which the title will be derived.
     :return: the derived title.
     """
+    # Make sure we have enough of a path to derive text from.
+    file_name = abspath(file_name)
     # noinspection PyTypeChecker
     return basename(file_name).rsplit('.', 1)[0][:1024].rjust(3, '0')
 
@@ -567,7 +579,7 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
 
     title = title or _default_title(file_name)
 
-    return app_id, _make_deployment_name(title), title, app_mode
+    return app_id, _make_deployment_name(connect_server, title, app_id is None), title, app_mode
 
 
 def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_name, new, app_id, title):
@@ -602,7 +614,7 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
     package_manager = source_manifest.get('python', {}).get('package_manager', {}).get('name', None)
     title = title or _default_title_from_manifest(source_manifest, file_name)
 
-    return app_id, _make_deployment_name(title), title, app_mode, package_manager
+    return app_id, _make_deployment_name(connect_server, title, app_id is None), title, app_mode, package_manager
 
 
 def gather_basic_deployment_info_for_api(connect_server, app_store, directory, entry_point, new, app_id, title):
@@ -648,7 +660,8 @@ def gather_basic_deployment_info_for_api(connect_server, app_store, directory, e
 
     title = title or _default_title(directory)
 
-    return entry_point, module_file, app_id, _make_deployment_name(title), title, app_mode
+    return\
+        entry_point, module_file, app_id, _make_deployment_name(connect_server, title, app_id is None), title, app_mode
 
 
 def get_python_env_info(file_name, python, compatibility_mode, force_generate):

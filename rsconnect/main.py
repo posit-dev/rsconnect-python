@@ -563,7 +563,7 @@ def write_manifest_api(force, entrypoint, exclude, python, conda, force_generate
 
     with cli_feedback('Creating manifest.json'):
         environment_file_exists = write_api_manifest_json(
-            directory, entrypoint, environment, AppModes.JUPYTER_NOTEBOOK, extra_files, exclude
+            directory, entrypoint, environment, AppModes.PYTHON_API, extra_files, exclude
         )
 
     if environment_file_exists and not force_generate:
