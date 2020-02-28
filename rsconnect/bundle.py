@@ -357,13 +357,16 @@ def make_api_bundle(directory, entry_point, app_mode, environment, extra_files=N
 
     with tarfile.open(mode='w:gz', fileobj=bundle_file) as bundle:
         bundle_add_buffer(bundle, 'manifest.json', json.dumps(manifest, indent=2))
+        bundle_add_buffer(bundle, environment['filename'], environment['contents'])
 
         for subdir, dirs, files in os.walk(directory):
             for file in files:
                 abs_path = os.path.join(subdir, file)
                 rel_path = os.path.relpath(abs_path, directory)
 
-                if keep_manifest_specified_file(rel_path) and (rel_path in extra_files or abs_path not in excludes):
+                if keep_manifest_specified_file(rel_path) and \
+                        (rel_path in extra_files or abs_path not in excludes) and \
+                        rel_path is not environment['filename']:
                     bundle.add(abs_path, arcname=rel_path)
                     # Don't add extra files more than once.
                     if rel_path in extra_files:
