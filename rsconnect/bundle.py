@@ -366,7 +366,7 @@ def make_api_bundle(directory, entry_point, app_mode, environment, extra_files=N
 
                 if keep_manifest_specified_file(rel_path) and \
                         (rel_path in extra_files or abs_path not in excludes) and \
-                        rel_path is not environment['filename']:
+                        rel_path != environment['filename']:
                     bundle.add(abs_path, arcname=rel_path)
                     # Don't add extra files more than once.
                     if rel_path in extra_files:
