@@ -109,9 +109,6 @@ class TestActions(TestCase):
         with self.assertRaises(RSConnectException):
             validate_entry_point(directory, 'bob:app')
 
-        with self.assertRaises(RSConnectException):
-            validate_entry_point(directory, 'app:bogus_app')
-
     def test_make_deployment_name(self):
         self.assertEqual(_make_deployment_name(None, 'title', False), 'title')
         self.assertEqual(_make_deployment_name(None, 'Title', False), 'title')
