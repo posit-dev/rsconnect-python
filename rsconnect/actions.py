@@ -462,7 +462,7 @@ def fake_module_file_from_directory(directory):
     :return: the directory plus the (potentially) fake module file.
     """
     app_name = abspath(directory)
-    app_name = dirname(app_name) if app_name.endswith('/') else basename(app_name)
+    app_name = dirname(app_name) if app_name.endswith(os.path.sep) else basename(app_name)
     return join(directory, app_name + '.py')
 
 

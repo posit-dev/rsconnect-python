@@ -460,10 +460,7 @@ def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new
         check_server_capabilities(connect_server, checks)
 
     with cli_feedback('Inspecting Python environment'):
-        root = directory
-        if not root.endswith('/'):
-            root = root + '/'
-        _, environment = get_python_env_info(root, python, not conda, force_generate)
+        _, environment = get_python_env_info(module_file, python, not conda, force_generate)
 
     with cli_feedback('Creating deployment bundle'):
         bundle = create_api_deployment_bundle(directory, extra_files, exclude, entrypoint, app_mode, environment, False)
