@@ -392,17 +392,12 @@ def validate_manifest_file(file_or_directory):
     return file_or_directory
 
 
-def validate_entry_point(directory, entry_point):
+def validate_entry_point(entry_point):
     """
     Validates the entry point specified by the user, expanding as necessary.  If the
     user specifies nothing, a module of "app" is assumed.  If the user specifies a
     module only, the object is assumed to be the same name as the module.
 
-    Once we have a module and object name, the module is validated by checking for the
-    existence of a "<module>.py" file in the given directory.  If found, it is scanned
-    for an assignment to the named object.
-
-    :param directory: the directory to look in.
     :param entry_point: the entry point as specified by the user.
     :return: the fully expanded and validated entry point and the module file name..
     """
@@ -417,12 +412,7 @@ def validate_entry_point(directory, entry_point):
     if len(parts) > 2:
         raise api.RSConnectException('Entry point is not in "module:object" format.')
 
-    file_name = join(directory, '%s.py' % parts[0])
-
-    if not exists(file_name):
-        raise api.RSConnectException('Could not find module file %s.' % file_name)
-
-    return entry_point, file_name
+    return entry_point
 
 
 def deploy_jupyter_notebook(connect_server, file_name, extra_files, new=False, app_id=None, title=None, static=False,
@@ -463,6 +453,19 @@ def deploy_jupyter_notebook(connect_server, file_name, extra_files, new=False, a
     return app_url, log_lines
 
 
+def fake_module_file_from_directory(directory):
+    """
+    Takes a directory and invents a properly named file that though possibly fake,
+    can be used for other name/title derivation.
+
+    :param directory: the directory to start with.
+    :return: the directory plus the (potentially) fake module file.
+    """
+    app_name = abspath(directory)
+    app_name = dirname(app_name) if app_name.endswith(os.path.sep) else basename(app_name)
+    return join(directory, app_name + '.py')
+
+
 def deploy_python_api(connect_server, directory, extra_files, excludes, entry_point, new=False, app_id=None, title=None,
                       python=None, compatibility_mode=False, force_generate=False, log_callback=None):
     """
@@ -490,9 +493,9 @@ def deploy_python_api(connect_server, directory, extra_files, excludes, entry_po
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    entry_point, module_file = validate_entry_point(directory, entry_point)
+    module_file = fake_module_file_from_directory(directory)
     app_store = AppStore(module_file)
-    _, _, app_id, deployment_name, deployment_title, app_mode = \
+    entry_point, app_id, deployment_name, deployment_title, app_mode = \
         gather_basic_deployment_info_for_api(connect_server, app_store, directory, entry_point, new, app_id, title)
     _, environment = get_python_env_info(directory, python, compatibility_mode, force_generate)
     bundle = create_api_deployment_bundle(directory, extra_files, excludes, entry_point, app_mode, environment)
@@ -625,9 +628,9 @@ def gather_basic_deployment_info_for_api(connect_server, app_store, directory, e
     :param app_id: the ID of the app to redeploy.
     :param title: an optional title.  If this isn't specified, a default title will
     be generated.
-    :return: the entry point, module file, app ID, name, title and mode for the deployment.
+    :return: the entry point, app ID, name, title and mode for the deployment.
     """
-    entry_point, module_file = validate_entry_point(directory, entry_point)
+    entry_point = validate_entry_point(entry_point)
 
     _validate_title(title)
 
@@ -655,7 +658,7 @@ def gather_basic_deployment_info_for_api(connect_server, app_store, directory, e
     title = title or _default_title(directory)
 
     return\
-        entry_point, module_file, app_id, _make_deployment_name(connect_server, title, app_id is None), title, app_mode
+        entry_point, app_id, _make_deployment_name(connect_server, title, app_id is None), title, app_mode
 
 
 def get_python_env_info(file_name, python, compatibility_mode, force_generate):
@@ -733,7 +736,7 @@ def create_api_deployment_bundle(directory, extra_files, excludes, entry_point, 
     are properly qualified first.
     :return: the bundle.
     """
-    entry_point, _ = validate_entry_point(directory, entry_point)
+    entry_point = validate_entry_point(entry_point)
 
     if extra_files_need_validating:
         extra_files = validate_extra_files(directory, extra_files)

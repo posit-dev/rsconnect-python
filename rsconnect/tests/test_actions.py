@@ -8,7 +8,6 @@ from rsconnect.actions import _default_title, _default_title_from_manifest, whic
     _verify_server, check_server_capabilities, are_apis_supported_on_server, is_conda_supported_on_server, \
     _make_deployment_name, _validate_title, validate_entry_point
 from rsconnect.api import RSConnectException, RSConnectServer
-from rsconnect.tests.test_data_util import get_api_path
 
 
 class TestActions(TestCase):
@@ -98,16 +97,11 @@ class TestActions(TestCase):
         _validate_title('1' * 1024)
 
     def test_validate_entry_point(self):
-        directory = self.optional_target(get_api_path('flask'))
-
-        self.assertEqual(validate_entry_point(directory, None)[0], 'app:app')
-        self.assertEqual(validate_entry_point(directory, 'app')[0], 'app:app')
+        self.assertEqual(validate_entry_point(None), 'app:app')
+        self.assertEqual(validate_entry_point('app'), 'app:app')
 
         with self.assertRaises(RSConnectException):
-            validate_entry_point(directory, 'x:y:z')
-
-        with self.assertRaises(RSConnectException):
-            validate_entry_point(directory, 'bob:app')
+            validate_entry_point('x:y:z')
 
     def test_make_deployment_name(self):
         self.assertEqual(_make_deployment_name(None, 'title', False), 'title')
