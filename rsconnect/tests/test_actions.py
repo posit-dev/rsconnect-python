@@ -8,7 +8,6 @@ from rsconnect.actions import _default_title, _default_title_from_manifest, whic
     _verify_server, check_server_capabilities, are_apis_supported_on_server, is_conda_supported_on_server, \
     _make_deployment_name, _validate_title, validate_entry_point
 from rsconnect.api import RSConnectException, RSConnectServer
-from rsconnect.tests.test_data_util import get_api_path
 
 
 class TestActions(TestCase):
