@@ -98,8 +98,6 @@ class TestActions(TestCase):
         _validate_title('1' * 1024)
 
     def test_validate_entry_point(self):
-        directory = self.optional_target(get_api_path('flask'))
-
         self.assertEqual(validate_entry_point(None), 'app:app')
         self.assertEqual(validate_entry_point('app'), 'app:app')
 
