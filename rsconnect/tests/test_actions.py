@@ -100,14 +100,11 @@ class TestActions(TestCase):
     def test_validate_entry_point(self):
         directory = self.optional_target(get_api_path('flask'))
 
-        self.assertEqual(validate_entry_point(directory, None)[0], 'app:app')
-        self.assertEqual(validate_entry_point(directory, 'app')[0], 'app:app')
+        self.assertEqual(validate_entry_point(None), 'app:app')
+        self.assertEqual(validate_entry_point('app'), 'app:app')
 
         with self.assertRaises(RSConnectException):
-            validate_entry_point(directory, 'x:y:z')
-
-        with self.assertRaises(RSConnectException):
-            validate_entry_point(directory, 'bob:app')
+            validate_entry_point('x:y:z')
 
     def test_make_deployment_name(self):
         self.assertEqual(_make_deployment_name(None, 'title', False), 'title')

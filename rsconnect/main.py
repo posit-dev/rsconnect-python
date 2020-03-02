@@ -6,13 +6,13 @@ import click
 from six import text_type
 
 from rsconnect import VERSION
-from rsconnect.actions import are_apis_supported_on_server, check_server_capabilities, cli_feedback,\
-    create_api_deployment_bundle, create_notebook_deployment_bundle, deploy_bundle,\
-    gather_basic_deployment_info_for_api, gather_basic_deployment_info_for_notebook,\
-    gather_basic_deployment_info_from_manifest, gather_server_details, get_python_env_info,\
-    is_conda_supported_on_server, set_verbosity, spool_deployment_log, test_api_key, test_server, validate_entry_point,\
-    validate_extra_files, validate_file_is_notebook, validate_manifest_file, write_api_manifest_json,\
-    write_environment_file, write_notebook_manifest_json
+from rsconnect.actions import are_apis_supported_on_server, check_server_capabilities, cli_feedback, \
+    create_api_deployment_bundle, create_notebook_deployment_bundle, deploy_bundle, \
+    gather_basic_deployment_info_for_api, gather_basic_deployment_info_for_notebook, \
+    gather_basic_deployment_info_from_manifest, gather_server_details, get_python_env_info, \
+    is_conda_supported_on_server, set_verbosity, spool_deployment_log, test_api_key, test_server, validate_entry_point, \
+    validate_extra_files, validate_file_is_notebook, validate_manifest_file, write_api_manifest_json, \
+    write_environment_file, write_notebook_manifest_json, fake_module_file_from_directory
 
 from . import api
 from .bundle import make_manifest_bundle
@@ -445,10 +445,10 @@ def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new
 
     with cli_feedback('Checking arguments'):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        entrypoint, module_file = validate_entry_point(directory, entrypoint)
+        module_file = fake_module_file_from_directory(directory)
         extra_files = validate_extra_files(directory, extra_files)
         app_store = AppStore(module_file)
-        _, _, app_id, deployment_name, title, app_mode = \
+        entrypoint, app_id, deployment_name, title, app_mode = \
             gather_basic_deployment_info_for_api(connect_server, app_store, directory, entrypoint, new, app_id, title)
 
     click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url), fg='white')
@@ -460,7 +460,10 @@ def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new
         check_server_capabilities(connect_server, checks)
 
     with cli_feedback('Inspecting Python environment'):
-        _, environment = get_python_env_info(module_file, python, not conda, force_generate)
+        root = directory
+        if not root.endswith('/'):
+            root = root + '/'
+        _, environment = get_python_env_info(root, python, not conda, force_generate)
 
     with cli_feedback('Creating deployment bundle'):
         bundle = create_api_deployment_bundle(directory, extra_files, exclude, entrypoint, app_mode, environment, False)
@@ -552,7 +555,7 @@ def write_manifest_notebook(force, python, conda, force_generate, verbose, file,
 def write_manifest_api(force, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files):
     set_verbosity(verbose)
     with cli_feedback('Checking arguments'):
-        entrypoint, _ = validate_entry_point(directory, entrypoint)
+        entrypoint = validate_entry_point(entrypoint)
 
         manifest_path = join(directory, 'manifest.json')
         if exists(manifest_path) and not force:
