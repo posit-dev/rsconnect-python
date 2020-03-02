@@ -422,12 +422,6 @@ def validate_entry_point(directory, entry_point):
     if not exists(file_name):
         raise api.RSConnectException('Could not find module file %s.' % file_name)
 
-    with open(file_name) as fd:
-        content = fd.read()
-
-    if not re.search('^%s = ' % parts[1], content, re.MULTILINE):
-        raise api.RSConnectException('The file, %s, does not contain an assignment to "%s".' % (file_name, parts[1]))
-
     return entry_point, file_name
 
 
