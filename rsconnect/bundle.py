@@ -136,7 +136,7 @@ def write_manifest(relative_dir, nb_name, environment, output_dir):
     environment_filename = environment['filename']
     environment_file = join(output_dir, environment_filename)
     environment_relative_path = join(relative_dir, environment_filename)
-    if exists(environment_file):
+    if environment['source'] == 'file':
         skipped.append(environment_relative_path)
     else:
         with open(environment_file, 'w') as f:
