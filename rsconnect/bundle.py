@@ -1,3 +1,4 @@
+import ctypes
 import glob
 import hashlib
 import io
@@ -8,7 +9,7 @@ import subprocess
 import tarfile
 import tempfile
 
-from os.path import basename, dirname, exists, join, relpath, splitext
+from os.path import basename, dirname, exists, isdir, join, relpath, splitext
 
 from rsconnect.models import AppModes
 
@@ -16,6 +17,22 @@ log = logging.getLogger('rsconnect')
 # From https://github.com/rstudio/rsconnect/blob/485e05a26041ab8183a220da7a506c9d3a41f1ff/R/bundle.R#L85-L88
 # noinspection SpellCheckingInspection
 directories_to_ignore = ['rsconnect-python/', 'packrat/', '.svn/', '.git/', '.Rproj.user/']
+
+
+# Special hidden check for Windows systems.
+def has_hidden_attribute(filepath):
+    try:
+        attrs = ctypes.windll.kernel32.GetFileAttributesW(filepath)
+        assert attrs != -1
+        result = bool(attrs & 2)
+    except (AttributeError, AssertionError):
+        result = False
+    return result
+
+
+def is_hidden(filepath):
+    name = os.path.basename(os.path.abspath(filepath))
+    return name.startswith('.') or has_hidden_attribute(filepath)
 
 
 # noinspection SpellCheckingInspection
@@ -307,6 +324,28 @@ def make_manifest_bundle(manifest_path):
     return bundle_file
 
 
+def _get_hidden_files(directory):
+    """
+    Look in a directory for hidden files.  The result will be a sequence of
+    those files.  If a hidden directory is found, then **all** files under
+    that directory are also considered hidden and returned in the result.
+
+    :param directory: the directory to search.
+    :return: the list of hidden files in that directory.
+    """
+    result = []
+    for name in os.listdir(directory):
+        path = join(directory, name)
+        if is_hidden(path):
+            if isdir(path):
+                for subdir, dirs, files in os.walk(path):
+                    for file in files:
+                        result.append(join(subdir, file))
+            else:
+                result.append(path)
+    return result
+
+
 def expand_globs(directory, excludes):
     """
     Takes a list of glob strings, joins each one in turn to the specified directory
@@ -321,7 +360,18 @@ def expand_globs(directory, excludes):
     if excludes:
         for pattern in excludes:
             file_pattern = join(directory, pattern)
-            work.extend(glob.glob(file_pattern))
+            # Special handling, if they gave us just a dir then "do the right thing".
+            if isdir(file_pattern):
+                file_pattern = join(file_pattern, '/**/*')
+            files = glob.glob(file_pattern, recursive=True)
+            hidden = []
+            # Since glob doesn't see hidden files, look for any hidden files/dirs under
+            # an excluded directory.
+            for file in files:
+                if isdir(file):
+                    hidden.extend(_get_hidden_files(file))
+            work.extend(files)
+            work.extend(hidden)
 
     # Remove unnecessary duplicates.
     return sorted(list(set(work)))
