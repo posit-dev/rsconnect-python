@@ -3,6 +3,7 @@ import time
 from _ssl import SSLError
 
 from rsconnect.http_support import HTTPResponse, HTTPServer, append_to_path
+from rsconnect.models import AppModes
 
 
 class RSConnectException(Exception):
@@ -231,6 +232,21 @@ def get_app_info(connect_server, app_id):
         return result
 
 
+def get_app_config(connect_server, app_id):
+    """
+    Return the configuration information for an application that has been created
+    in Connect.
+
+    :param connect_server: the Connect server information.
+    :param app_id: the ID (numeric or GUID) of the application to get the info for.
+    :return: the Python installation information from Connect.
+    """
+    with RSConnect(connect_server) as client:
+        result = client.app_config(app_id)
+        connect_server.handle_bad_response(result)
+        return result
+
+
 def do_bundle_deploy(connect_server, app_id, name, title, bundle):
     """
     Deploys the specified bundle.
@@ -270,40 +286,138 @@ def emit_task_log(connect_server, app_id, task_id, log_callback, timeout=None):
         return result
 
 
-def _gather_existing_app_names(connect_server, name):
+def retrieve_matching_apps(connect_server, filters=None, limit=None, mapping_function=None):
     """
-    Retrieves all the app names that start with the given default name.
+    Retrieves all the app names that start with the given default name.  The main
+    point for this function is that it handles all the necessary paging logic.
+
+    If a mapping function is provided, it must be a callable that accepts 2
+    arguments.  The first will be an `RSConnect` client, in the event extra calls
+    per app are required.  The second will be the current app.  If the function
+    returns None, then the app will be discarded and not appear in the result.
 
     :param connect_server: the Connect server information.
-    :param name: the default name for an app.
+    :param filters: the filters to use for isolating the set of desired apps.
+    :param limit: the maximum number of apps to retrieve.  If this is None,
+    then all matching apps are returned.
+    :param mapping_function: an optional function that may transform or filter
+    each app to return to something the caller wants.
     :return: the list of existing names that start with the proposed one.
     """
+    page_size = 100
+    result = []
+    search_filters = filters.copy() if filters else {}
+    search_filters['count'] = min(limit, page_size) if limit else page_size
+    total_returned = 0
+    maximum = limit
+    finished = False
+
     with RSConnect(connect_server) as client:
-        filters = {
-            'search': name,
-            'count': 100
-        }
-        existing_names = []
-        count = 0
-        finished = False
-
-        # First, we need to gather all the names that are similar to what our default is.
         while not finished:
-            result = client.app_search(filters)
-            connect_server.handle_bad_response(result)
-            count = count + result['count']
-            existing_names.extend([app['name'] for app in result['applications']])
+            response = client.app_search(search_filters)
+            connect_server.handle_bad_response(response)
 
-            if count < result['total']:
-                filters = {
-                    'start': count,
-                    'count': 100,
-                    'cont': result['continuation']
+            if not maximum:
+                maximum = response['total']
+
+            applications = response['applications']
+            returned = response['count']
+            delta = maximum - (total_returned + returned)
+            # If more came back than we need, drop the rest.
+            if delta < 0:
+                applications = applications[:abs(delta)]
+            total_returned = total_returned + len(applications)
+
+            if mapping_function:
+                applications = [mapping_function(client, app) for app in applications]
+                # Now filter out the None values that represent the apps the
+                # function told us to drop.
+                applications = [app for app in applications if app is not None]
+
+            result.extend(applications)
+
+            if total_returned < maximum:
+                search_filters = {
+                    'start': total_returned,
+                    'count': page_size,
+                    'cont': response['continuation']
                 }
             else:
                 finished = True
 
-    return existing_names
+    return result
+
+
+def override_title_search(connect_server, app_id, app_title):
+    """
+    Returns a list of abbreviated app data that contains apps with a title
+    that matches the given one and/or the specific app noted by its ID.
+
+    :param connect_server: the Connect server information.
+    :param app_id: the ID of a specific app to look for, if any.
+    :param app_title: the title to search for.
+    :return: the list of matching apps, each trimmed to ID, name, title, mode
+    URL and dashboard URL.
+    """
+
+    def map_app(app, config):
+        """
+        Creates the abbreviated data dictionary for the specified app and config
+        information.
+
+        :param app: the raw app data to start with.
+        :param config: the configuration data to use.
+        :return: the abbreviated app data dictionary.
+        """
+        return {
+            'id': app['id'],
+            'name': app['name'],
+            'title': app['title'],
+            'app_mode': AppModes.get_by_ordinal(app['app_mode']).name(),
+            'url': app['url'],
+            'config_url': config['config_url']
+        }
+
+    def mapping_filter(client, app):
+        """
+        Mapping/filter function for retrieving apps.  We only keep apps
+        that have an app mode of static or Jupyter notebook.  The data
+        for the apps we keep is an abbreviated subset.
+
+        :param client: the client object to use for RStudio Connect calls.
+        :param app: the current app from Connect.
+        :return: the abbreviated data for the app or None.
+        """
+        # Only keep apps that match our app modes.
+        app_mode = AppModes.get_by_ordinal(app['app_mode'])
+        if app_mode not in (AppModes.STATIC, AppModes.JUPYTER_NOTEBOOK):
+            return None
+
+        config = client.app_config(app['id'])
+        connect_server.handle_bad_response(config)
+
+        return map_app(app, config)
+
+    apps = retrieve_matching_apps(
+        connect_server, filters={
+            'filter': 'min_role:editor',
+            'search': app_title
+        }, mapping_function=mapping_filter, limit=5
+    )
+
+    if app_id:
+        found = next((app for app in apps if app['id'] == app_id), None)
+
+        if not found:
+            try:
+                app = get_app_info(connect_server, app_id)
+                mode = AppModes.get_by_ordinal(app['app_mode'])
+                if mode in (AppModes.STATIC, AppModes.JUPYTER_NOTEBOOK):
+                    apps.append(map_app(app, get_app_config(connect_server, app_id)))
+            except RSConnectException:
+                logger.debug('Error getting info for previous app_id "%s", skipping.', app_id)
+
+    return apps
 
 
 def find_unique_name(connect_server, name):
@@ -315,7 +429,9 @@ def find_unique_name(connect_server, name):
     :param name: the default name for an app.
     :return: the name, potentially with a suffixed number to guarantee uniqueness.
     """
-    existing_names = _gather_existing_app_names(connect_server, name)
+    existing_names = retrieve_matching_apps(
+        connect_server, filters={'search': name}, mapping_function=lambda client, app: app['name']
+    )
 
     if name in existing_names:
         suffix = 1
