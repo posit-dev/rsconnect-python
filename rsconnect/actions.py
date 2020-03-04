@@ -10,7 +10,7 @@ from os.path import abspath, basename, dirname, exists, isdir, join, splitext
 from pprint import pformat
 
 from rsconnect import api
-from .bundle import expand_globs, keep_manifest_specified_file, make_api_bundle, make_manifest_bundle,\
+from .bundle import create_glob_set, keep_manifest_specified_file, make_api_bundle, make_manifest_bundle,\
     make_notebook_html_bundle, make_notebook_source_bundle, make_source_manifest, manifest_add_buffer,\
     manifest_add_file, read_manifest_file
 from .environment import EnvironmentException
@@ -880,7 +880,7 @@ def write_api_manifest_json(directory, entry_point, environment, app_mode=AppMod
     etc.) that goes along with the manifest exists.
     """
     extra_files = extra_files or []
-    excludes = expand_globs(directory, excludes)
+    glob_set = create_glob_set(directory, excludes)
     manifest_path = join(directory, 'manifest.json')
 
     manifest_data = make_source_manifest(entry_point, environment, app_mode)
@@ -891,7 +891,7 @@ def write_api_manifest_json(directory, entry_point, environment, app_mode=AppMod
             abs_path = os.path.join(subdir, file)
             rel_path = os.path.relpath(abs_path, directory)
 
-            if keep_manifest_specified_file(rel_path) and (rel_path in extra_files or abs_path not in excludes):
+            if keep_manifest_specified_file(rel_path) and (rel_path in extra_files or not glob_set.matches(abs_path)):
                 manifest_add_file(manifest_data, rel_path, directory)
                 # Don't add extra files more than once.
                 if rel_path in extra_files:

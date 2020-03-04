@@ -1,6 +1,11 @@
 """
 This file defines some support data models.
 """
+import fnmatch
+import os
+import re
+
+import six
 
 
 class AppMode(object):
@@ -69,3 +74,93 @@ class AppModes(object):
         if return_unknown:
             return cls.UNKNOWN
         raise ValueError('No app mode %s' % message)
+
+
+class GlobMatcher(object):
+    """
+    A simplified means of matching a path against a glob pattern.  The key
+    limitation is that we support at most one occurrence of the `**` pattern.
+    """
+    def __init__(self, pattern):
+        if pattern.endswith("/**/*"):
+            # Note: the index used here makes sure the pattern has a trailing
+            # slash.  We want that.
+            self._pattern = pattern[:-4]
+            self.matches = self._match_with_starts_with
+        else:
+            self._pattern_parts, self._wildcard_index = self._to_parts_list(pattern)
+            self.matches = self._match_with_list_parts
+
+    @staticmethod
+    def _to_parts_list(pattern):
+        """
+        Converts a glob expression into a list, with an entry for each directory
+        level.  Each entry will be either a string, in which case an equality
+        check for that directory entry, or a regular expression, in which case
+        matching will be used.  The string, '**', is special but we don't alter
+        it here.  We do return its index.
+
+        :param pattern: the glob pattern to pull apart.
+        :return: a list of pattern pieces and the index of the special '**' pattern.
+        The index will be None if `**` is never found.
+        """
+        parts = pattern.split(os.path.sep)
+        depth_wildcard_index = None
+        for index, name in enumerate(parts):
+            if name == '**':
+                if depth_wildcard_index is not None:
+                    raise ValueError('Only one occurrence of the "**" pattern is allowed.')
+                depth_wildcard_index = index
+            elif any(ch in name for ch in '*?['):
+                parts[index] = re.compile(r'\A' + fnmatch.translate(name))
+        return parts, depth_wildcard_index
+
+    def _match_with_starts_with(self, path):
+        return path.startswith(self._pattern)
+
+    def _match_with_list_parts(self, path):
+        parts = path.split(os.path.sep)
+
+        def items_match(i1, i2):
+            if i2 >= len(parts):
+                return False
+            if isinstance(self._pattern_parts[i1], six.string_types):
+                return self._pattern_parts[i1] == parts[i2]
+            return self._pattern_parts[i1].match(parts[i2]) is not None
+
+        wildcard_index = len(self._pattern_parts) if self._wildcard_index is None else self._wildcard_index
+
+        # Top-down...
+        for index in range(wildcard_index):
+            if not items_match(index, index):
+                return False
+
+        if self._wildcard_index is None:
+            return len(self._pattern_parts) == len(parts)
+
+        # Now, bottom-up...
+        pattern_index = len(self._pattern_parts) - 1
+        part_index = len(parts) - 1
+
+        while pattern_index > wildcard_index and part_index >= 0:
+            if not items_match(pattern_index, part_index):
+                return False
+            pattern_index = pattern_index - 1
+            part_index = part_index - 1
+
+        return pattern_index == wildcard_index
+
+
+class GlobSet(object):
+    def __init__(self, patterns):
+        self._matchers = [GlobMatcher(pattern) for pattern in patterns]
+
+    def matches(self, path):
+        """
+        Determines whether the given path is matched by any of our glob
+        expressions.
+
+        :param path: the path to test.
+        :return: True, if the given path matches any of our glob patterns.
+        """
+        return any(matcher.matches(path) for matcher in self._matchers)

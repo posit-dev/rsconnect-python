@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from rsconnect.models import AppMode, AppModes
+from rsconnect.models import AppMode, AppModes, GlobMatcher
 
 
 class TestModels(TestCase):
@@ -82,3 +82,31 @@ class TestModels(TestCase):
 
         with self.assertRaises(ValueError):
             AppModes.get_by_extension(None)
+
+    def test_glob_matcher(self):
+        cases = [
+            ('dir', 'dir', True),
+            ('dir', 'file', False),
+            ('dir', 'dir/file', False),
+            ('dir/*.txt', 'file', False),
+            ('dir/*.txt', 'dir/file', False),
+            ('dir/*.txt', 'dir/file.txt', True),
+            ('dir/*.txt', 'dir/.txt', True),
+            ('dir/**/*.txt', 'dir/a.txt', True),
+            ('dir/**/*.txt', 'dir/sub/a.txt', True),
+            ('dir/**/*.txt', 'dir/sub/sub/a.txt', True),
+            ('dir/**/*.txt', 'dir/sub/sub/a.obj', False),
+            ('dir/**/*', 'dir/sub/sub/sub/a.txt', True),
+            ('dir/**/*', 'dir/sub/sub/a.bob', True),
+            ('dir/**/*', 'dir/sub/z.o', True),
+            ('dir/**/*', 'dir/abc', True),
+        ]
+
+        for case in cases:
+            matcher = GlobMatcher(case[0])
+            msg = 'Pattern: %s, Path: %s, expected: %s, got: %s' % (case[0], case[1], case[2], not case[2])
+            self.assertEqual(matcher.matches(case[1]), case[2], msg)
+
+        with self.assertRaises(ValueError):
+            GlobMatcher('./blah/**/blah/**/*.txt')
+

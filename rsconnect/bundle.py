@@ -1,5 +1,4 @@
 import ctypes
-import glob
 import hashlib
 import io
 import json
@@ -11,7 +10,7 @@ import tempfile
 
 from os.path import basename, dirname, exists, isdir, join, relpath, splitext
 
-from rsconnect.models import AppModes
+from rsconnect.models import AppModes, GlobSet
 
 log = logging.getLogger('rsconnect')
 # From https://github.com/rstudio/rsconnect/blob/485e05a26041ab8183a220da7a506c9d3a41f1ff/R/bundle.R#L85-L88
@@ -324,37 +323,17 @@ def make_manifest_bundle(manifest_path):
     return bundle_file
 
 
-def _get_hidden_files(directory):
+def create_glob_set(directory, excludes):
     """
-    Look in a directory for hidden files.  The result will be a sequence of
-    those files.  If a hidden directory is found, then **all** files under
-    that directory are also considered hidden and returned in the result.
+    Takes a list of glob strings and produces a GlobSet for path matching.
 
-    :param directory: the directory to search.
-    :return: the list of hidden files in that directory.
-    """
-    result = []
-    for name in os.listdir(directory):
-        path = join(directory, name)
-        if is_hidden(path):
-            if isdir(path):
-                for subdir, dirs, files in os.walk(path):
-                    for file in files:
-                        result.append(join(subdir, file))
-            else:
-                result.append(path)
-    return result
-
-
-def expand_globs(directory, excludes):
-    """
-    Takes a list of glob strings, joins each one in turn to the specified directory
-    and produce a list of matching files.  The list returned is sorted and will not
-    contain duplicates.
+    **Note:** we don't use Python's glob support because it takes way too
+    long to run when large file trees are involved in conjunction with the
+    '**' pattern.
 
     :param directory: the directory the globs are relative to.
     :param excludes: the list of globs to expand.
-    :return: a sorted list of unique file names.
+    :return: a GlobSet ready for path matching.
     """
     work = []
     if excludes:
@@ -362,19 +341,10 @@ def expand_globs(directory, excludes):
             file_pattern = join(directory, pattern)
             # Special handling, if they gave us just a dir then "do the right thing".
             if isdir(file_pattern):
-                file_pattern = join(file_pattern, '/**/*')
-            files = glob.glob(file_pattern, recursive=True)
-            hidden = []
-            # Since glob doesn't see hidden files, look for any hidden files/dirs under
-            # an excluded directory.
-            for file in files:
-                if isdir(file):
-                    hidden.extend(_get_hidden_files(file))
-            work.extend(files)
-            work.extend(hidden)
+                file_pattern = join(file_pattern, '**/*')
+            work.append(file_pattern)
 
-    # Remove unnecessary duplicates.
-    return sorted(list(set(work)))
+    return GlobSet(work)
 
 
 def make_api_bundle(directory, entry_point, app_mode, environment, extra_files=None, excludes=None):
@@ -394,7 +364,7 @@ def make_api_bundle(directory, entry_point, app_mode, environment, extra_files=N
 
     manifest = make_source_manifest(entry_point, environment, app_mode)
     bundle_file = tempfile.TemporaryFile(prefix='rsc_bundle')
-    excludes = expand_globs(directory, excludes)
+    glob_set = create_glob_set(directory, excludes)
 
     manifest_add_buffer(manifest, environment['filename'], environment['contents'])
 
@@ -415,7 +385,7 @@ def make_api_bundle(directory, entry_point, app_mode, environment, extra_files=N
                 rel_path = os.path.relpath(abs_path, directory)
 
                 if keep_manifest_specified_file(rel_path) and \
-                        (rel_path in extra_files or abs_path not in excludes) and \
+                        (rel_path in extra_files or not glob_set.matches(abs_path)) and \
                         rel_path != environment['filename']:
                     bundle.add(abs_path, arcname=rel_path)
                     # Don't add extra files more than once.
