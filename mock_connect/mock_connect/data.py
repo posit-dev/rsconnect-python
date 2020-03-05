@@ -124,7 +124,7 @@ class Application(DBObject):
     attrs = ['id', 'guid', 'name', 'url', 'owner_username', 'owner_first_name', 'owner_last_name', 'owner_email',
              'owner_locked', 'bundle_id', 'needs_config', 'access_type', 'description', 'app_mode', 'created_time',
              'title', 'last_deployed_time']
-    show = ['id', 'name', 'title', 'url']
+    show = ['id', 'guid', 'name', 'title', 'url']
 
     @classmethod
     def get_app_by_name(cls, name: str):
@@ -165,7 +165,7 @@ class Application(DBObject):
 class User(DBObject):
     attrs = ['id', 'guid', 'username', 'first_name', 'last_name', 'email', 'user_role', 'password', 'confirmed',
              'locked', 'created_time', 'updated_time', 'active_time', 'privileges']
-    show = ['id', 'username', 'first_name', 'last_name']
+    show = ['id', 'guid', 'username', 'first_name', 'last_name']
 
     @classmethod
     def get_user_by_api_key(cls, key: str):

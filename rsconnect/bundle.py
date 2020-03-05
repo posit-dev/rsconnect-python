@@ -347,6 +347,72 @@ def create_glob_set(directory, excludes):
     return GlobSet(work)
 
 
+def create_api_file_list(directory, requirements_file_name, extra_files=None, excludes=None):
+    """
+    Builds a full list of files under the given directory that should be included
+    in a manifest or bundle.  Extra files and excludes are relative to the given
+    directory and work as you'd expect.
+
+    :param directory: the directory to walk for files.
+    :param requirements_file_name: the name of the requirements file for the current
+    Python environment.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :return: the list of relevant files.
+    """
+    # Don't let these top-level files be added via the extra files list.
+    extra_files = extra_files or []
+    skip = [requirements_file_name, 'manifest.json']
+    extra_files = sorted(list(set(extra_files) - set(skip)))
+
+    # Don't include these top-level files.
+    excludes = excludes or []
+    excludes.append('manifest.json')
+    excludes.append(requirements_file_name)
+    glob_set = create_glob_set(directory, excludes)
+
+    file_list = []
+
+    for subdir, dirs, files in os.walk(directory):
+        for file in files:
+            abs_path = os.path.join(subdir, file)
+            rel_path = os.path.relpath(abs_path, directory)
+
+            if keep_manifest_specified_file(rel_path) and (rel_path in extra_files or not glob_set.matches(abs_path)):
+                file_list.append((abs_path, rel_path))
+                # Don't add extra files more than once.
+                if rel_path in extra_files:
+                    extra_files.remove(rel_path)
+
+    for rel_path in extra_files:
+        file_list.append((None, rel_path))
+
+    return sorted(file_list)
+
+
+def make_api_manifest(directory, entry_point, app_mode, environment, extra_files=None, excludes=None):
+    """
+    Makes a manifest for an API.
+
+    :param directory: the directory containing the files to deploy.
+    :param entry_point: the main entry point for the API.
+    :param app_mode: the app mode to use.
+    :param environment: the Python environment information.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :return: the manifest and a list of the files involved.
+    """
+    relevant_files = create_api_file_list(directory, environment['filename'], extra_files, excludes)
+    manifest = make_source_manifest(entry_point, environment, app_mode)
+
+    manifest_add_buffer(manifest, environment['filename'], environment['contents'])
+
+    for _, rel_path in relevant_files:
+        manifest_add_file(manifest, rel_path, directory)
+
+    return manifest, relevant_files
+
+
 def make_api_bundle(directory, entry_point, app_mode, environment, extra_files=None, excludes=None):
     """
     Create an API bundle, given a directory path and a manifest.
@@ -359,41 +425,18 @@ def make_api_bundle(directory, entry_point, app_mode, environment, extra_files=N
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :return: a file-like object containing the bundle tarball.
     """
-    if extra_files is None:
-        extra_files = []
-
-    manifest = make_source_manifest(entry_point, environment, app_mode)
+    manifest, relevant_files = make_api_manifest(directory, entry_point, app_mode, environment, extra_files, excludes)
     bundle_file = tempfile.TemporaryFile(prefix='rsc_bundle')
-    glob_set = create_glob_set(directory, excludes)
-
-    manifest_add_buffer(manifest, environment['filename'], environment['contents'])
-
-    if extra_files:
-        skip = [environment['filename'], 'manifest.json']
-        extra_files = sorted(list(set(extra_files) - set(skip)))
-
-    for rel_path in extra_files:
-        manifest_add_file(manifest, rel_path, directory)
 
     with tarfile.open(mode='w:gz', fileobj=bundle_file) as bundle:
         bundle_add_buffer(bundle, 'manifest.json', json.dumps(manifest, indent=2))
         bundle_add_buffer(bundle, environment['filename'], environment['contents'])
 
-        for subdir, dirs, files in os.walk(directory):
-            for file in files:
-                abs_path = os.path.join(subdir, file)
-                rel_path = os.path.relpath(abs_path, directory)
-
-                if keep_manifest_specified_file(rel_path) and \
-                        (rel_path in extra_files or not glob_set.matches(abs_path)) and \
-                        rel_path != environment['filename']:
-                    bundle.add(abs_path, arcname=rel_path)
-                    # Don't add extra files more than once.
-                    if rel_path in extra_files:
-                        extra_files.remove(rel_path)
-
-        for rel_path in extra_files:
-            bundle_add_file(bundle, rel_path, directory)
+        for abs_path, rel_path in relevant_files:
+            if abs_path:
+                bundle.add(abs_path, arcname=rel_path)
+            else:
+                bundle_add_file(bundle, rel_path, directory)
 
     # rewind file pointer
     bundle_file.seek(0)

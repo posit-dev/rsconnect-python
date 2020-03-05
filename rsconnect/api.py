@@ -112,12 +112,12 @@ class RSConnect(HTTPServer):
 
         self._server.handle_bad_response(app_bundle)
 
-        task_id = self.app_deploy(app_id, app_bundle['id'])['id']
+        task = self.app_deploy(app_id, app_bundle['id'])
 
-        self._server.handle_bad_response(task_id)
+        self._server.handle_bad_response(task)
 
         return {
-            'task_id': task_id,
+            'task_id': task['id'],
             'app_id': app_id,
             'app_guid': app['guid'],
             'app_url': app['url'],
