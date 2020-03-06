@@ -454,7 +454,9 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
 @click.option('--entrypoint', '-e', help='The module and executable object which serves as the entry point for the '
                                          'WSGi framework of choice (defaults to app:app)')
 @click.option('--exclude', '-x', multiple=True,
-              help='Specify a glob pattern for ignoring files when building the bundle. This option may be repeated/')
+              help='Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try '
+                   'to expand this which will not do what you expect. Generally, it\'s safest to quote the pattern. '
+                   'This option may be repeated.')
 @click.option('--new', '-N', is_flag=True,
               help='Force a new deployment, even if there is saved metadata from a previous deployment. '
                    'Cannot be used with --app-id.')
@@ -575,7 +577,9 @@ def write_manifest_notebook(force, python, conda, force_generate, verbose, file,
 @click.option('--entrypoint', '-e', help='The module and executable object which serves as the entry point for the '
                                          'WSGi framework of choice (defaults to app:app)')
 @click.option('--exclude', '-x', multiple=True,
-              help='Specify a glob pattern for ignoring files when building the bundle. This option may be repeated/')
+              help='Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try '
+                   'to expand this which will not do what you expect. Generally, it\'s safest to quote the pattern. '
+                   'This option may be repeated.')
 @click.option('--python', '-p', type=click.Path(exists=True),
               help='Path to Python interpreter whose environment should be used. ' +
                    'The Python environment must have the rsconnect-python package installed.')
