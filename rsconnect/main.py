@@ -297,7 +297,7 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
     :param requirements_file_name: the name of the requirements file.
     """
     if exists(join(directory, requirements_file_name)):
-        click.secho('    Warning: the existing $s file will not be used or considered.' % requirements_file_name,
+        click.secho('    Warning: the existing %s file will not be used or considered.' % requirements_file_name,
                     fg='yellow')
 
 
