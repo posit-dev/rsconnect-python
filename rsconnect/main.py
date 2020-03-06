@@ -1,5 +1,6 @@
 import logging
 import textwrap
+import threading
 from os.path import abspath, dirname, exists, join
 
 import click
@@ -39,7 +40,7 @@ def cli():
     certificate file to use for TLS.  The last two items are only relevant if the
     URL specifies the "https" protocol.
     """
-    pass
+    threading.local().is_cli = True
 
 
 @cli.command(help='Show the version of the rsconnect-python package.')
@@ -453,7 +454,9 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
 @click.option('--entrypoint', '-e', help='The module and executable object which serves as the entry point for the '
                                          'WSGi framework of choice (defaults to app:app)')
 @click.option('--exclude', '-x', multiple=True,
-              help='Specify a glob pattern for ignoring files when building the bundle. This option may be repeated/')
+              help='Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try '
+                   'to expand this which will not do what you expect. Generally, it\'s safest to quote the pattern. '
+                   'This option may be repeated.')
 @click.option('--new', '-N', is_flag=True,
               help='Force a new deployment, even if there is saved metadata from a previous deployment. '
                    'Cannot be used with --app-id.')
@@ -543,8 +546,9 @@ def write_manifest_notebook(force, python, conda, force_generate, verbose, file,
         validate_file_is_notebook(file)
 
         base_dir = dirname(file)
-
+        extra_files = validate_extra_files(base_dir, extra_files)
         manifest_path = join(base_dir, 'manifest.json')
+
         if exists(manifest_path) and not force:
             raise api.RSConnectException('manifest.json already exists. Use --force to overwrite.')
 
@@ -557,7 +561,8 @@ def write_manifest_notebook(force, python, conda, force_generate, verbose, file,
         )
 
     if environment_file_exists and not force_generate:
-        click.echo('%s already exists and will not be overwritten.' % environment['filename'])
+        click.secho('    Warning: %s already exists and will not be overwritten.' % environment['filename'],
+                    fg='yellow')
     else:
         with cli_feedback('Creating %s' % environment['filename']):
             write_environment_file(environment, base_dir)
@@ -572,7 +577,9 @@ def write_manifest_notebook(force, python, conda, force_generate, verbose, file,
 @click.option('--entrypoint', '-e', help='The module and executable object which serves as the entry point for the '
                                          'WSGi framework of choice (defaults to app:app)')
 @click.option('--exclude', '-x', multiple=True,
-              help='Specify a glob pattern for ignoring files when building the bundle. This option may be repeated/')
+              help='Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try '
+                   'to expand this which will not do what you expect. Generally, it\'s safest to quote the pattern. '
+                   'This option may be repeated.')
 @click.option('--python', '-p', type=click.Path(exists=True),
               help='Path to Python interpreter whose environment should be used. ' +
                    'The Python environment must have the rsconnect-python package installed.')
@@ -587,8 +594,9 @@ def write_manifest_api(force, entrypoint, exclude, python, conda, force_generate
     set_verbosity(verbose)
     with cli_feedback('Checking arguments'):
         entrypoint = validate_entry_point(entrypoint)
-
+        extra_files = validate_extra_files(directory, extra_files)
         manifest_path = join(directory, 'manifest.json')
+
         if exists(manifest_path) and not force:
             raise api.RSConnectException('manifest.json already exists. Use --force to overwrite.')
 
@@ -601,7 +609,8 @@ def write_manifest_api(force, entrypoint, exclude, python, conda, force_generate
         )
 
     if environment_file_exists and not force_generate:
-        click.echo('%s already exists and will not be overwritten.' % environment['filename'])
+        click.secho('    Warning: %s already exists and will not be overwritten.' % environment['filename'],
+                    fg='yellow')
     else:
         with cli_feedback('Creating %s' % environment['filename']):
             write_environment_file(environment, directory)

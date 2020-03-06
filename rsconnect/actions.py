@@ -6,7 +6,7 @@ import re
 import traceback
 import sys
 import subprocess
-from os.path import abspath, basename, dirname, exists, isdir, join, splitext
+from os.path import abspath, basename, dirname, exists, isdir, join, relpath, splitext
 from pprint import pformat
 
 from rsconnect import api
@@ -277,9 +277,9 @@ def check_server_capabilities(connect_server, capability_functions, details_sour
 
 def _make_deployment_name(connect_server, title, force_unique):
     """
-    Produce a name for a deployment based on its title.  It is assumed that title
-    detfaulting/validation has already taken place (meaning the title isn't None
-    or empty).
+    Produce a name for a deployment based on its title.  It is assumed that the
+    title is already defaulted and validated as appropriate (meaning the title
+    isn't None or empty).
 
     We follow the same rules for doing this as the R rsconnect package does.  See
     the title.R code in https://github.com/rstudio/rsconnect/R with the exception
@@ -360,19 +360,25 @@ def validate_file_is_notebook(file_name):
 
 def validate_extra_files(directory, extra_files):
     """
-    If the user specified a list of extra files, validate that they all exist and, if
-    so, return a list of them qualified by the specified directory.
+    If the user specified a list of extra files, validate that they all exist and are
+    beneath the given directory and, if so, return a list of them made relative to that
+    directory.
 
     :param directory: the directory that the extra files must be relative to.
     :param extra_files: the list of extra files to qualify and validate.
     :return: the extra files qualified by the directory.
     """
     result = []
-    for extra in extra_files:
-        extra_file = join(directory, extra)
-        if not exists(extra_file):
-            raise api.RSConnectException('Could not find file %s in %s' % (extra, directory))
-        result.append(extra_file)
+    if extra_files:
+        for extra in extra_files:
+            extra_file = relpath(directory, extra)
+            # It's an error if we have to leave the given dir to get to the extra
+            # file.
+            if extra_file.startswith('../'):
+                raise api.RSConnectException('%s must be under %s.' % (extra_file, directory))
+            if not exists(join(directory, extra_file)):
+                raise api.RSConnectException('Could not find file %s under %s' % (extra, directory))
+            result.append(extra_file)
     return result
 
 
@@ -815,7 +821,7 @@ def write_notebook_manifest_json(entry_point_file, environment, app_mode=None, e
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
     """
-    extra_files = extra_files or []
+    extra_files = validate_extra_files(dirname(entry_point_file), extra_files)
     directory = dirname(entry_point_file)
     file_name = basename(entry_point_file)
     manifest_path = join(directory, 'manifest.json')
@@ -878,6 +884,7 @@ def write_api_manifest_json(directory, entry_point, environment, app_mode=AppMod
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
     """
+    extra_files = validate_extra_files(directory, extra_files)
     manifest, _ = make_api_manifest(directory, entry_point, app_mode, environment, extra_files, excludes)
     manifest_path = join(directory, 'manifest.json')
 
