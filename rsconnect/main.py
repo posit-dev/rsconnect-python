@@ -10,9 +10,9 @@ from rsconnect.actions import are_apis_supported_on_server, check_server_capabil
     create_api_deployment_bundle, create_notebook_deployment_bundle, deploy_bundle, \
     gather_basic_deployment_info_for_api, gather_basic_deployment_info_for_notebook, \
     gather_basic_deployment_info_from_manifest, gather_server_details, get_python_env_info, \
-    is_conda_supported_on_server, set_verbosity, spool_deployment_log, test_api_key, test_server, validate_entry_point, \
-    validate_extra_files, validate_file_is_notebook, validate_manifest_file, write_api_manifest_json, \
-    write_environment_file, write_notebook_manifest_json, fake_module_file_from_directory
+    is_conda_supported_on_server, set_verbosity, spool_deployment_log, test_api_key, test_server, \
+    validate_entry_point, validate_extra_files, validate_file_is_notebook, validate_manifest_file, \
+    write_api_manifest_json, write_environment_file, write_notebook_manifest_json, fake_module_file_from_directory
 
 from . import api
 from .bundle import make_manifest_bundle
@@ -277,6 +277,30 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_r
     return connect_server
 
 
+def _warn_on_ignored_manifest(directory):
+    """
+    Checks for the existence of a file called manifest.json in the given directory.
+    If it's there, a warning noting that it will be ignored will be printed.
+
+    :param directory: the directory to check in.
+    """
+    if exists(join(directory, 'manifest.json')):
+        click.secho('    Warning: the existing manifest.json file will not be used or considered.', fg='yellow')
+
+
+def _warn_on_ignored_requirements(directory, requirements_file_name):
+    """
+    Checks for the existence of a file called manifest.json in the given directory.
+    If it's there, a warning noting that it will be ignored will be printed.
+
+    :param directory: the directory to check in.
+    :param requirements_file_name: the name of the requirements file.
+    """
+    if exists(join(directory, requirements_file_name)):
+        click.secho('    Warning: the existing %s file will not be used or considered.' % requirements_file_name,
+                    fg='yellow')
+
+
 def _deploy_bundle(connect_server, app_store, primary_path, app_id, app_mode, name, title, bundle):
     """
     Does the work of uploading a prepared bundle.
@@ -354,12 +378,17 @@ def deploy_notebook(name, server, api_key, insecure, cacert, static, new, app_id
 
     click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg='white')
 
+    _warn_on_ignored_manifest(dirname(file))
+
     if conda:
         with cli_feedback('Ensuring conda is supported'):
             check_server_capabilities(connect_server, [is_conda_supported_on_server])
 
     with cli_feedback('Inspecting Python environment'):
         python, environment = get_python_env_info(file, python, not conda, force_generate)
+
+    if force_generate:
+        _warn_on_ignored_requirements(dirname(file), environment['filename'])
 
     with cli_feedback('Creating deployment bundle'):
         bundle = create_notebook_deployment_bundle(file, extra_files, app_mode, python, environment, False)
@@ -453,6 +482,8 @@ def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new
 
     click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url), fg='white')
 
+    _warn_on_ignored_manifest(directory)
+
     with cli_feedback('Checking server capabilities'):
         checks = [are_apis_supported_on_server]
         if conda:
@@ -461,6 +492,9 @@ def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new
 
     with cli_feedback('Inspecting Python environment'):
         _, environment = get_python_env_info(module_file, python, not conda, force_generate)
+
+    if force_generate:
+        _warn_on_ignored_requirements(directory, environment['filename'])
 
     with cli_feedback('Creating deployment bundle'):
         bundle = create_api_deployment_bundle(directory, extra_files, exclude, entrypoint, app_mode, environment, False)

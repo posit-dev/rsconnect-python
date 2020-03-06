@@ -10,9 +10,8 @@ from os.path import abspath, basename, dirname, exists, isdir, join, splitext
 from pprint import pformat
 
 from rsconnect import api
-from .bundle import create_glob_set, keep_manifest_specified_file, make_api_bundle, make_manifest_bundle,\
-    make_notebook_html_bundle, make_notebook_source_bundle, make_source_manifest, manifest_add_buffer,\
-    manifest_add_file, read_manifest_file
+from .bundle import make_api_bundle, make_api_manifest, make_manifest_bundle,  make_notebook_html_bundle, \
+    make_notebook_source_bundle, make_source_manifest, manifest_add_buffer, manifest_add_file, read_manifest_file
 from .environment import EnvironmentException
 from .metadata import AppStore
 from .models import AppModes
@@ -879,29 +878,11 @@ def write_api_manifest_json(directory, entry_point, environment, app_mode=AppMod
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
     """
-    extra_files = extra_files or []
-    glob_set = create_glob_set(directory, excludes)
+    manifest, _ = make_api_manifest(directory, entry_point, app_mode, environment, extra_files, excludes)
     manifest_path = join(directory, 'manifest.json')
 
-    manifest_data = make_source_manifest(entry_point, environment, app_mode)
-    manifest_add_buffer(manifest_data, environment['filename'], environment['contents'])
-
-    for subdir, dirs, files in os.walk(directory):
-        for file in files:
-            abs_path = os.path.join(subdir, file)
-            rel_path = os.path.relpath(abs_path, directory)
-
-            if keep_manifest_specified_file(rel_path) and (rel_path in extra_files or not glob_set.matches(abs_path)):
-                manifest_add_file(manifest_data, rel_path, directory)
-                # Don't add extra files more than once.
-                if rel_path in extra_files:
-                    extra_files.remove(rel_path)
-
-    for rel_path in extra_files:
-        manifest_add_file(manifest_data, rel_path, directory)
-
     with open(manifest_path, 'w') as f:
-        json.dump(manifest_data, f, indent=2)
+        json.dump(manifest, f, indent=2)
 
     return exists(join(directory, environment['filename']))
 
