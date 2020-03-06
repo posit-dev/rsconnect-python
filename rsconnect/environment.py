@@ -78,7 +78,8 @@ def get_conda_version(conda):
         match = version_re.search(stdout)
         if match:
             return match.group()
-        msg = "Failed to get version of conda from the output of: %s - output was: %s" % (' '.join(args), stdout)
+        msg = "Failed to get version of conda from the output of: %s - standard output: %s; standard error: %s" % \
+              (' '.join(args), stdout, stderr)
         raise EnvironmentException(msg)
     except Exception as exception:
         raise EnvironmentException("Error getting conda version: %s" % str(exception))
