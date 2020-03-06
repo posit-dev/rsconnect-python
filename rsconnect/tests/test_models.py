@@ -29,8 +29,8 @@ class TestModels(TestCase):
         descriptions = []
         extensions = []
 
-        self.assertEqual(len(defined), 9)
-        self.assertEqual(len(modes), 9)
+        self.assertEqual(len(defined), 10)
+        self.assertEqual(len(modes), 10)
 
         # This makes sure all named mode constants appear in the modes list.
         for name in defined:
