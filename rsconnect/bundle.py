@@ -360,7 +360,7 @@ def create_api_file_list(directory, requirements_file_name, extra_files=None, ex
     extra_files = sorted(list(set(extra_files) - set(skip)))
 
     # Don't include these top-level files.
-    excludes = excludes or []
+    excludes = list(excludes) if excludes else []
     excludes.append('manifest.json')
     excludes.append(requirements_file_name)
     glob_set = create_glob_set(directory, excludes)
