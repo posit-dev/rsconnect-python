@@ -22,5 +22,14 @@ class RSLogger(LoggerAdapter):
             msg = click.style(' %s' % msg, fg='green')
         return msg, kwargs
 
+    def setLevel(self, level):
+        """
+        Set the specified level on the underlying logger.
+
+        **Note:** This is present in newer Python versions but since it's missing
+        from 2.7, we replicate it here.
+        """
+        self.logger.setLevel(level)
+
 
 logger = RSLogger()
