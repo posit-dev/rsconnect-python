@@ -8,9 +8,9 @@ from six import text_type
 from rsconnect import VERSION
 from rsconnect.actions import are_apis_supported_on_server, check_server_capabilities, cli_feedback, \
     create_api_deployment_bundle, create_notebook_deployment_bundle, deploy_bundle, \
-    gather_basic_deployment_info_for_api, gather_basic_deployment_info_for_notebook, \
-    gather_basic_deployment_info_from_manifest, gather_server_details, get_python_env_info, \
-    is_conda_supported_on_server, set_verbosity, spool_deployment_log, test_api_key, test_server, \
+    gather_basic_deployment_info_for_api, gather_basic_deployment_info_for_dash, \
+    gather_basic_deployment_info_for_notebook, gather_basic_deployment_info_from_manifest, gather_server_details, \
+    get_python_env_info, is_conda_supported_on_server, set_verbosity, spool_deployment_log, test_api_key, test_server, \
     validate_entry_point, validate_extra_files, validate_file_is_notebook, validate_manifest_file, \
     write_api_manifest_json, write_environment_file, write_notebook_manifest_json, fake_module_file_from_directory
 
@@ -472,6 +472,77 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
 @click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))
 def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new, app_id, title, python, conda,
                force_generate, verbose, directory, extra_files):
+    _deploy_by_framework(
+        name, server, api_key, insecure, cacert, entrypoint, exclude, new, app_id, title, python, conda, force_generate,
+        verbose, directory, extra_files, gather_basic_deployment_info_for_api
+    )
+
+
+# noinspection SpellCheckingInspection
+@deploy.command(name='dash', short_help='Deploy a Python Dash app to RStudio Connect.',
+                help='Deploy a Dash application module to RStudio Connect. The "directory" argument must refer to an '
+                     'existing directory that contains the application code.',
+                hidden=True)
+@click.option('--name', '-n', help='The nickname of the RStudio Connect server to deploy to.')
+@click.option('--server', '-s', envvar='CONNECT_SERVER',  help='The URL for the RStudio Connect server to deploy to.')
+@click.option('--api-key', '-k', envvar='CONNECT_API_KEY',
+              help='The API key to use to authenticate with RStudio Connect.')
+@click.option('--insecure', '-i', envvar='CONNECT_INSECURE', is_flag=True,
+              help='Disable TLS certification/host validation.')
+@click.option('--cacert', '-c', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
+              help='The path to trusted TLS CA certificates.')
+@click.option('--entrypoint', '-e', help='The module and executable object which serves as the entry point for the '
+                                         'Dash application (defaults to app:app)')
+@click.option('--exclude', '-x', multiple=True,
+              help='Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try '
+                   'to expand this which will not do what you expect. Generally, it\'s safest to quote the pattern. '
+                   'This option may be repeated.')
+@click.option('--new', '-N', is_flag=True,
+              help='Force a new deployment, even if there is saved metadata from a previous deployment. '
+                   'Cannot be used with --app-id.')
+@click.option('--app-id', '-a', help='Existing app ID or GUID to replace. Cannot be used with --new.')
+@click.option('--title', '-t', help='Title of the content (default is the same as the directory).')
+@click.option('--python', '-p', type=click.Path(exists=True),
+              help='Path to Python interpreter whose environment should be used. '
+                   'The Python environment must have the rsconnect package installed.')
+@click.option('--conda', '-C', is_flag=True, help='Use conda to deploy.')
+@click.option('--force-generate', '-g', is_flag=True,
+              help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
+@click.argument('directory', type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))
+def deploy_dash_app(name, server, api_key, insecure, cacert, entrypoint, exclude, new, app_id, title, python, conda,
+               force_generate, verbose, directory, extra_files):
+    _deploy_by_framework(
+        name, server, api_key, insecure, cacert, entrypoint, exclude, new, app_id, title, python, conda, force_generate,
+        verbose, directory, extra_files, gather_basic_deployment_info_for_dash
+    )
+
+
+# noinspection SpellCheckingInspection
+def _deploy_by_framework(name, server, api_key, insecure, cacert, entrypoint, exclude, new, app_id, title, python,
+                         conda, force_generate, verbose, directory, extra_files, gatherer):
+    """
+    A common function for deploying APIs, Dash apps, etc.
+
+    :param name: the nickname of the Connect server to use.
+    :param server: the URL of the Connect server to use.
+    :param api_key: the API key to use to authenticate with Connect.
+    :param insecure: a flag noting whether insecure TLS should be used.
+    :param cacert: a path to a CA certificates file to use with TLS.
+    :param entrypoint: the entry point for the thing being deployed.
+    :param exclude: a sequence of exclude glob patterns to exclude files from the deploy.
+    :param new: a flag to force the deploy to be new.
+    :param app_id: the ID of the app to redeploy.
+    :param title: the title to use for the app.
+    :param python: a path to the Python executable to use.
+    :param conda: a flag to note whether Conda should be used/assumed..
+    :param force_generate: a flag to force the generation of manifest and requirements file.
+    :param verbose: a flag to produce more (debugging) output.
+    :param directory: the directory of the thing to deploy.
+    :param extra_files: any extra files that should be included.
+    :param gatherer: the function to use to gather basic information.
+    """
     set_verbosity(verbose)
 
     with cli_feedback('Checking arguments'):
@@ -480,7 +551,7 @@ def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new
         extra_files = validate_extra_files(directory, extra_files)
         app_store = AppStore(module_file)
         entrypoint, app_id, deployment_name, title, app_mode = \
-            gather_basic_deployment_info_for_api(connect_server, app_store, directory, entrypoint, new, app_id, title)
+            gatherer(connect_server, app_store, directory, entrypoint, new, app_id, title)
 
     click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url), fg='white')
 
@@ -590,7 +661,59 @@ def write_manifest_notebook(force, python, conda, force_generate, verbose, file,
 @click.argument('directory', type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))
 def write_manifest_api(force, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files):
+    _write_framework_manifest(
+        force, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files, AppModes.PYTHON_API,
+    )
+
+
+# noinspection SpellCheckingInspection
+@write_manifest.command(name="dash", short_help='Create a manifest.json file for a Python API.',
+                        help='Create a manifest.json file for a Dash app for later deployment. This will create an '
+                             'environment file (requirements.txt or environment.yml) if one does not exist. All files '
+                             'are created in the same directory as the API code.',
+                        hidden=True)
+@click.option('--force', '-f', is_flag=True, help='Replace manifest.json, if it exists.')
+@click.option('--entrypoint', '-e', help='The module and executable object which serves as the entry point for the '
+                                         'Dash application (defaults to app:app)')
+@click.option('--exclude', '-x', multiple=True,
+              help='Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try '
+                   'to expand this which will not do what you expect. Generally, it\'s safest to quote the pattern. '
+                   'This option may be repeated.')
+@click.option('--python', '-p', type=click.Path(exists=True),
+              help='Path to Python interpreter whose environment should be used. ' +
+                   'The Python environment must have the rsconnect-python package installed.')
+@click.option('--conda', '-C', is_flag=True,
+              help='Use conda to deploy (requires Connect version 1.8.2 or later)')
+@click.option('--force-generate', '-g', is_flag=True,
+              help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
+@click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
+@click.argument('directory', type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))
+def write_manifest_dash(force, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files):
+    _write_framework_manifest(
+        force, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files, AppModes.DASH_APP,
+    )
+
+
+# noinspection SpellCheckingInspection
+def _write_framework_manifest(force, entrypoint, exclude, python, conda, force_generate, verbose, directory,
+                              extra_files, app_mode):
+    """
+    A common function for writing manifests for APIs, Dash apps, etc.
+
+    :param force: replace the manifest.json, if it exists.
+    :param entrypoint: the entry point for the thing being deployed.
+    :param exclude: a sequence of exclude glob patterns to exclude files from the deploy.
+    :param python: a path to the Python executable to use.
+    :param conda: a flag to note whether Conda should be used/assumed..
+    :param force_generate: a flag to force the generation of manifest and requirements file.
+    :param verbose: a flag to produce more (debugging) output.
+    :param directory: the directory of the thing to deploy.
+    :param extra_files: any extra files that should be included.
+    :param app_mode: the app mode to use.
+    """
     set_verbosity(verbose)
+
     with cli_feedback('Checking arguments'):
         entrypoint = validate_entry_point(entrypoint)
         extra_files = validate_extra_files(directory, extra_files)
@@ -604,7 +727,7 @@ def write_manifest_api(force, entrypoint, exclude, python, conda, force_generate
 
     with cli_feedback('Creating manifest.json'):
         environment_file_exists = write_api_manifest_json(
-            directory, entrypoint, environment, AppModes.PYTHON_API, extra_files, exclude
+            directory, entrypoint, environment, app_mode, extra_files, exclude
         )
 
     if environment_file_exists and not force_generate:
