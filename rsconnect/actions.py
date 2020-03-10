@@ -13,6 +13,7 @@ from rsconnect import api
 from .bundle import make_api_bundle, make_api_manifest, make_manifest_bundle,  make_notebook_html_bundle, \
     make_notebook_source_bundle, make_source_manifest, manifest_add_buffer, manifest_add_file, read_manifest_file
 from .environment import EnvironmentException
+from .log import logger
 from .metadata import AppStore
 from .models import AppModes
 
@@ -20,7 +21,6 @@ import click
 from six.moves.urllib_parse import urlparse
 
 line_width = 45
-logger = logging.getLogger('rsconnect')
 _module_pattern = re.compile(r'^[A-Za-z0-9_]+:[A-Za-z0-9_]+$')
 _name_sub_pattern = re.compile(r'[^A-Za-z0-9_ -]+')
 _repeating_sub_pattern = re.compile(r'_+')
@@ -39,6 +39,7 @@ def cli_feedback(label):
     if label:
         pad = line_width - len(label)
         click.secho(label + '... ' + ' ' * pad, nl=False, fg='bright_white')
+        logger.set_in_feedback(True)
 
     def passed():
         if label:
@@ -61,6 +62,8 @@ def cli_feedback(label):
         if click.get_current_context('verbose'):
             traceback.print_exc()
         failed('Internal error: ' + str(exc))
+    finally:
+        logger.set_in_feedback(False)
 
 
 def set_verbosity(verbose):

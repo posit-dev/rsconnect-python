@@ -1,20 +1,16 @@
 import hashlib
 import io
 import json
-import logging
 import os
 import subprocess
 import tarfile
 import tempfile
-import threading
 
 from os.path import basename, dirname, exists, isdir, join, relpath, splitext
 
-import click
-
+from rsconnect.log import logger
 from rsconnect.models import AppModes, GlobSet
 
-log = logging.getLogger('rsconnect')
 # From https://github.com/rstudio/rsconnect/blob/485e05a26041ab8183a220da7a506c9d3a41f1ff/R/bundle.R#L85-L88
 # noinspection SpellCheckingInspection
 directories_to_ignore = ['rsconnect/', 'rsconnect-python/', 'packrat/', '.svn/', '.git/', '.Rproj.user/']
@@ -90,20 +86,12 @@ def to_bytes(s):
     return s
 
 
-def _log_adding_file(rel_path):
-    if log.isEnabledFor(logging.DEBUG):
-        if threading.local().is_cli:
-            click.secho('\n    %s ' % rel_path, nl=False, fg='white')
-        else:
-            log.debug('adding file: %s', rel_path)
-
-
 def bundle_add_file(bundle, rel_path, base_dir):
     """Add the specified file to the tarball.
 
     The file path is relative to the notebook directory.
     """
-    _log_adding_file(rel_path)
+    logger.debug('adding file: %s', rel_path)
     path = join(base_dir, rel_path)
     bundle.add(path, arcname=rel_path)
 
@@ -113,7 +101,7 @@ def bundle_add_buffer(bundle, filename, contents):
 
     `contents` may be a string or bytes object
     """
-    _log_adding_file(filename)
+    logger.debug('adding file: %s', filename)
     buf = io.BytesIO(to_bytes(contents))
     file_info = tarfile.TarInfo(filename)
     file_info.size = len(buf.getvalue())
@@ -141,7 +129,7 @@ def write_manifest(relative_dir, nb_name, environment, output_dir):
         with open(manifest_file, 'w') as f:
             f.write(json.dumps(manifest, indent=2))
             created.append(manifest_relative_path)
-            log.debug('wrote manifest file: %s', manifest_file)
+            logger.debug('wrote manifest file: %s', manifest_file)
 
     environment_filename = environment['filename']
     environment_file = join(output_dir, environment_filename)
@@ -152,7 +140,7 @@ def write_manifest(relative_dir, nb_name, environment, output_dir):
         with open(environment_file, 'w') as f:
             f.write(environment['contents'])
             created.append(environment_relative_path)
-            log.debug('wrote environment file: %s', environment_file)
+            logger.debug('wrote environment file: %s', environment_file)
 
     return created, skipped
 
@@ -203,7 +191,7 @@ def make_notebook_source_bundle(file, environment, extra_files=None):
     for rel_path in extra_files:
         manifest_add_file(manifest, rel_path, base_dir)
 
-    log.debug('manifest: %r', manifest)
+    logger.debug('manifest: %r', manifest)
 
     bundle_file = tempfile.TemporaryFile(prefix='rsc_bundle')
     with tarfile.open(mode='w:gz', fileobj=bundle_file) as bundle:

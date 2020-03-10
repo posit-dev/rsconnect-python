@@ -40,7 +40,7 @@ def cli():
     certificate file to use for TLS.  The last two items are only relevant if the
     URL specifies the "https" protocol.
     """
-    threading.local().is_cli = True
+    pass
 
 
 @cli.command(help='Show the version of the rsconnect-python package.')
