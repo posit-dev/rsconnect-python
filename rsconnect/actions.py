@@ -371,7 +371,7 @@ def validate_extra_files(directory, extra_files):
     result = []
     if extra_files:
         for extra in extra_files:
-            extra_file = relpath(directory, extra)
+            extra_file = relpath(extra, directory)
             # It's an error if we have to leave the given dir to get to the extra
             # file.
             if extra_file.startswith('../'):
@@ -392,7 +392,7 @@ def validate_manifest_file(file_or_directory):
     """
     if isdir(file_or_directory):
         file_or_directory = join(file_or_directory, 'manifest.json')
-    elif basename(file_or_directory) != 'manifest.json' or not exists(file_or_directory):
+    if basename(file_or_directory) != 'manifest.json' or not exists(file_or_directory):
         raise api.RSConnectException('A manifest.json file or a directory containing one is required here.')
     return file_or_directory
 

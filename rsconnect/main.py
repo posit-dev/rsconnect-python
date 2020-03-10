@@ -415,14 +415,14 @@ def deploy_notebook(name, server, api_key, insecure, cacert, static, new, app_id
 @click.option('--app-id', '-a', help='Existing app ID or GUID to replace. Cannot be used with --new.')
 @click.option('--title', '-t', help='Title of the content (default is the same as the filename).')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
-@click.argument('file', type=click.Path(exists=True, dir_okay=False, file_okay=True))
+@click.argument('file', type=click.Path(exists=True, dir_okay=True, file_okay=True))
 def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title, verbose, file):
     set_verbosity(verbose)
 
     with cli_feedback('Checking arguments'):
-        app_store = AppStore(file)
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         file = validate_manifest_file(file)
+        app_store = AppStore(file)
 
         app_id, deployment_name, title, app_mode, package_manager = \
             gather_basic_deployment_info_from_manifest(connect_server, app_store, file, new, app_id, title)

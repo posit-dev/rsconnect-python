@@ -17,7 +17,7 @@ from rsconnect.models import AppModes, GlobSet
 log = logging.getLogger('rsconnect')
 # From https://github.com/rstudio/rsconnect/blob/485e05a26041ab8183a220da7a506c9d3a41f1ff/R/bundle.R#L85-L88
 # noinspection SpellCheckingInspection
-directories_to_ignore = ['rsconnect-python/', 'packrat/', '.svn/', '.git/', '.Rproj.user/']
+directories_to_ignore = ['rsconnect/', 'rsconnect-python/', 'packrat/', '.svn/', '.git/', '.Rproj.user/']
 
 
 # noinspection SpellCheckingInspection
@@ -381,7 +381,7 @@ def create_api_file_list(directory, requirements_file_name, extra_files=None, ex
     for rel_path in extra_files:
         file_list.append((None, rel_path))
 
-    return sorted(file_list)
+    return sorted(file_list, key=lambda paths: paths[1])
 
 
 def make_api_manifest(directory, entry_point, app_mode, environment, extra_files=None, excludes=None):
