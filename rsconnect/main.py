@@ -1,6 +1,5 @@
 import logging
 import textwrap
-import threading
 from os.path import abspath, dirname, exists, join
 
 import click
