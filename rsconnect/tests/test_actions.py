@@ -1,13 +1,15 @@
 import os
 import sys
+from os.path import dirname, join
 from unittest import TestCase
 
 from rsconnect import api
 
 from rsconnect.actions import _default_title, _default_title_from_manifest, which_python, _to_server_check_list, \
     _verify_server, check_server_capabilities, are_apis_supported_on_server, is_conda_supported_on_server, \
-    _make_deployment_name, _validate_title, validate_entry_point
+    _make_deployment_name, _validate_title, validate_entry_point, validate_extra_files
 from rsconnect.api import RSConnectException, RSConnectServer
+from rsconnect.tests.test_data_util import get_manifest_path
 
 
 class TestActions(TestCase):
@@ -135,3 +137,17 @@ class TestActions(TestCase):
         # noinspection SpellCheckingInspection
         m = {'metadata': {'entrypoint': 'module:object'}}
         self.assertEqual(_default_title_from_manifest(m, 'dir/to/manifest.json'), '0to')
+
+    def test_validate_extra_files(self):
+        # noinspection SpellCheckingInspection
+        directory = dirname(get_manifest_path('shinyapp'))
+
+        with self.assertRaises(RSConnectException):
+            validate_extra_files(directory, ['../other_dir/file.txt'])
+
+        with self.assertRaises(RSConnectException):
+            validate_extra_files(directory, ['not_a_file.txt'])
+
+        self.assertEqual(validate_extra_files(directory, None), [])
+        self.assertEqual(validate_extra_files(directory, []), [])
+        self.assertEqual(validate_extra_files(directory, [join(directory, 'index.htm')]), ['index.htm'])
