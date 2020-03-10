@@ -3,17 +3,16 @@ This file provides an HTTP API (wrapped around the standard library via six) tai
 our needs.
 """
 import json
-import logging
 import socket
 import ssl
 
 from rsconnect import VERSION
+from rsconnect.log import logger
 from six.moves import http_client as http
 from six.moves.http_cookies import SimpleCookie
 from six.moves.urllib_parse import urlparse, urlencode, urljoin
 
 
-logger = logging.getLogger('rsconnect')
 _user_agent = "rsconnect-python/%s" % VERSION
 
 

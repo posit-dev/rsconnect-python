@@ -1,8 +1,8 @@
-import logging
 import time
 from _ssl import SSLError
 
 from rsconnect.http_support import HTTPResponse, HTTPServer, append_to_path
+from rsconnect.log import logger
 from rsconnect.models import AppModes
 
 
@@ -10,9 +10,6 @@ class RSConnectException(Exception):
     def __init__(self, message):
         super(RSConnectException, self).__init__(message)
         self.message = message
-
-
-logger = logging.getLogger('rsconnect')
 
 
 class RSConnectServer(object):

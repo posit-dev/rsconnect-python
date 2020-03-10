@@ -2,15 +2,13 @@
 import base64
 import hashlib
 import json
-import logging
 import os
 import sys
 from os.path import abspath, basename, dirname, exists, join
 
 from rsconnect import api
+from rsconnect.log import logger
 from rsconnect.models import AppMode, AppModes
-
-logger = logging.getLogger('rsconnect')
 
 
 def config_dirname(platform=sys.platform, env=os.environ):
