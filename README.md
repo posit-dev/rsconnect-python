@@ -1,21 +1,22 @@
 # The rsconnect-python Library
 
-This package is a library used by the rsconnect-jupyter package to deploy Jupyter
-notebooks to RStudio Connect. It contains a full deployment API so can also be used
-by other Python-based deployment tools. Other types of content may also be deployed
-by this package.
+This package is a library used by the [`rsconnect-jupyter`](https://github.com/rstudio/rsconnect-jupyter)
+package to deploy Jupyter notebooks to RStudio Connect. It contains a full deployment
+API so can also be used by other Python-based deployment tools. Other types of content
+supported by RStudio Connect may also be deployed by this package, including WSGi-style
+APIs and Dash-style applications.
 
 A command-line deployment tool is also provided that can be used directly to deploy
-Jupyter notebooks. Other content types can be deployed if they include a prepared
-`manifest.json` file. See ["Deploying R or Other Content"](#deploying-r-or-other-content)
-for details.
+Jupyter notebooks, Python APIs and apps. Content types not directly supported by the
+CLI can also be deployed if they include a prepared `manifest.json` file. See
+["Deploying R or Other Content"](#deploying-r-or-other-content) for details.
 
 ## Deploying Python Content to RStudio Connect
 
 In addition to various kinds of R content, RStudio Connect also supports the
-deployment of Jupyter notebooks. Much like deploying R content to RStudio Connect,
-there are some caveats to understand when replicating your environment on the RStudio
-Connect server:
+deployment of Jupyter notebooks, Python APIs (such as `flask`-based) and apps (such
+as Dash-based). Much like deploying R content to RStudio Connect, there are some
+caveats to understand when replicating your environment on the RStudio Connect server:
 
 RStudio Connect insists on matching <MAJOR.MINOR> versions of Python. For example,
 a server with only Python 3.5 installed will fail to match content deployed with
@@ -26,7 +27,7 @@ Matching](https://docs.rstudio.com/connect/admin/python.html#python-version-matc
 
 ### Installation
 
-To install from this repository:
+To install `rsconnect-python` from this repository:
 
 ```bash
 git clone https://github.com/rstudio/rsconnect-python
@@ -52,10 +53,10 @@ rsconnect deploy notebook \
 ```
 
 > **Note:** the examples here use long command line options, but there are short
-> options (`-s`, `-k`, etc.) available. Run `rsconnect deploy notebook --help`
+> options (`-s`, `-k`, etc.) available also. Run `rsconnect deploy notebook --help`
 > for details.
 
-### Setting up rsconnect CLI auto-completion
+### Setting up `rsconnect` CLI auto-completion
 
 If you would like to use your shell's tab completion support with the `rsconnect`
 command, use the command below for the shell you are using.
@@ -139,7 +140,7 @@ Once the server's information is saved, you can refer to it by its nickname:
 rsconnect deploy notebook --name myserver my-notebook.ipynb
 ```
 
-If there is only one set of server information saved, this will work too:
+If there is information for only one server saved, this will work too:
 
 ```bash
 rsconnect deploy notebook my-notebook.ipynb
@@ -161,6 +162,8 @@ You can remove information about a server with:
 rsconnect remove --name myserver
 ```
 
+Removing may be done by its nickname (`--name`) or URL (`--server`).
+
 ### Verifying Server Information
 
 You can verify that a URL refers to a running instance of RStudio Connect by using
@@ -171,7 +174,7 @@ rsconnect details --server https://my.connect.server:3939
 ```
 
 In this form, `rsconnect` will only tell you whether the URL given does, in fact, refer
-to a running RStudio Conenct instance.  If you include a valid API key:
+to a running RStudio Connect instance.  If you include a valid API key:
 
 ```bash
 rsconnect details --server https://my.connect.server:3939 --api-key my-api-key
@@ -190,6 +193,7 @@ There are a variety of options available to you when deploying a Jupyter noteboo
 RStudio Connect.
 
 #### Including Extra Files
+
 You can include extra files in the deployment bundle to make them available when your
 notebook is run by the RStudio Connect server. Just specify them on the command line
 after the notebook file:
@@ -199,6 +203,7 @@ rsconnect deploy notebook my-notebook.ipynb data.csv
 ```
 
 #### Package Dependencies
+
 If a `requirements.txt` file exists in the same directory as the notebook file, it will
 be included in the bundle. It must specify the package dependencies needed to execute
 the notebook. RStudio Connect will reconstruct the Python environment using the
@@ -235,7 +240,7 @@ rsconnect deploy notebook --static my-notebook.ipynb
 ### Creating a Manifest for Future Deployment
 
 You can create a `manifest.json` file for a Jupyter Notebook, then use that manifest
-in a later deployment.  Use the `write-manifest` to do this.
+in a later deployment.  Use the `write-manifest` command to do this.
 
 The `write-manifest` command will also create a `requirements.txt` file, if it does
 not already exist. It will contain the package dependencies from the current Python
@@ -250,12 +255,80 @@ rsconnect write-manifest notebook my-notebook.ipynb
 
 > **Note:** manifests for static (pre-rendered) notebooks cannot be created.
 
+### API/Application Deployment Options
+
+There are a variety of options available to you when deploying a Python WSGi-style
+API or a Dash-style application.  All options below apply equally to `api` and `dash`
+sub-commands.
+
+#### Including Extra Files
+
+You can include extra files in the deployment bundle to make them available when your
+notebook is run by the RStudio Connect server. Just specify them on the command line
+after the notebook file:
+
+```bash
+rsconnect deploy api flask-api/ data.csv
+```
+
+Since deploying an API or application starts at a directory level, there will be times
+when some files under that directory subtree should not be included in the deployment
+or manifest.  Use the `--exclude` option to specify files to exclude.  An exclusion may
+be a glob pattern and the `--exclude` option may be repeated.
+
+```bash
+rsconnect deploy dash --exclude "workfiles/*" dash-app/ data.csv
+```
+
+You should always quote a glob pattern so that it will be passed to `rsconnect` as-is
+instead of letting the shell expand it.  If a file is specifically listed as an extra
+file that also matches an exclusion pattern, the file will still be included in the
+deployment (i.e., extra files trumps exclusions).
+
+#### Package Dependencies
+
+If a `requirements.txt` file exists in the API/application directory, it will be
+included in the bundle. It must specify the package dependencies needed to execute
+the API or application. RStudio Connect will reconstruct the Python environment using
+the specified package list.
+
+If there is no `requirements.txt` file, the package dependencies will be determined
+from the current Python environment, or from an alternative Python executable specified
+via the `--python` option or via the `RETICULATE_PYTHON` environment variable:
+
+```bash
+rsconnect deploy api --python /path/to/python my-api/
+```
+
+You can see the packages list that will be included by running `pip freeze` yourself,
+ensuring that you use the same Python that you use to run your Jupyter Notebook:
+
+```bash
+/path/to/python -m pip freeze
+```
+
+### Creating a Manifest for Future Deployment
+
+You can create a `manifest.json` file for an API or application, then use that
+manifest in a later deployment.  Use the `write-manifest` command to do this.
+
+The `write-manifest` command will also create a `requirements.txt` file, if it does
+not already exist. It will contain the package dependencies from the current Python
+environment, or from an alternative Python executable specified in the `--python`
+option or via the `RETICULATE_PYTHON` environment variable.
+
+Here is an example of the `write-manifest` command:
+
+```bash
+rsconnect write-manifest api my-api/
+```
+
 ### Deploying R or Other Content
 
 You can deploy other content that has an existing RStudio Connect `manifest.json`
 file. For example, if you download and unpack a source bundle from RStudio Connect,
-you can deploy the resulting directory. The options are similar to notebook
-deployment; see `rsconnect deploy manifest --help` for details.
+you can deploy the resulting directory. The options are similar to notebook or
+API/application deployment; see `rsconnect deploy manifest --help` for details.
 
 Here is an example of the `deploy manifest` command:
 
@@ -264,8 +337,11 @@ rsconnect deploy manifest /path/to/manifest.json
 ```
 
 > **Note:** In this case, the existing content is deployed as-is. Python environment
-> inspection and notebook pre-rendering, if needed, are assumed to be already done
+> inspection and notebook pre-rendering, if needed, are assumed to be done already
 > and represented in the manifest.
+
+The argument to `deploy manifest` may also be a directory so long as that directory
+contains a `manifest.json` file.
 
 If you have R content but don't have a `manifest.json` file, you can use the RStudio
 IDE to create the manifest. See the help for the `rsconnect::writeManifest` R function:
@@ -339,14 +415,14 @@ an instance of RStudio Connect, you'll probably want to use the `add` command to
 
 If you deploy a file again to the same server, `rsconnect` will update the previous
 deployment. This means that you can keep running `rsconnect deploy notebook my-notebook.ipynb`
-as you develop new versions of your notebook.
+as you develop new versions of your notebook or other Python content.
 
 #### Forcing a New Deployment
 
 To bypass this behavior and force a new deployment, use the `--new` option:
 
 ```bash
-rsconnect deploy notebook --new my-notebook.ipynb
+rsconnect deploy dash --new my-app/
 ```
 
 #### Updating a Different Deployment
@@ -359,8 +435,8 @@ rsconnect deploy notebook --app-id 123456 my-notebook.ipynb
 ```
 
 You must be the owner of the target deployment, or a collaborator with permission to
-change the content. The type of content (static notebook, or notebook with source code)
-must match the existing deployment.
+change the content. The type of content (static notebook, notebook with source code,
+API, or application) must match the existing deployment.
 
 > **Note:** There is no confirmation required to update a deployment. If you do so
 > accidentally, use the "Source Versions" dialog in the RStudio Connect dashboard to
@@ -370,8 +446,8 @@ must match the existing deployment.
 
 The App ID associated with a piece of content you have previously deployed from the
 `rsconnect` command line interface can be found easily by querying the deployment
-information using the `info` command. For more information, see
-the [Showing the Deployment Information](#showing-the-deployment-information) section.
+information using the `info` command. For more information, see the
+[Showing the Deployment Information](#showing-the-deployment-information) section.
 
 If the content was deployed elsewhere or `info` does not return the correct App ID,
 but you can open the content on RStudio Connect, find the content and open it in a
