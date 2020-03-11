@@ -316,6 +316,8 @@ def retrieve_matching_apps(connect_server, filters=None, limit=None, mapping_fun
 
             if not maximum:
                 maximum = response['total']
+            else:
+                maximum = min(maximum, response['total'])
 
             applications = response['applications']
             returned = response['count']
