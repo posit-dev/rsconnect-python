@@ -126,7 +126,7 @@ def list_servers(verbose):
 
 # noinspection SpellCheckingInspection
 @cli.command(short_help='Show details about an RStudio Connect server.',
-             help='Show details about an RStudio Connect server and installed Python/Conda information. '
+             help='Show details about an RStudio Connect server and installed Python information. '
                   'Use this command to verify that a URL refers to an RStudio Connect server, optionally, that an '
                   'API key is valid for authentication for that server.  It may also be used to verify that the '
                   'information stored as a nickname is still valid.')
@@ -157,7 +157,8 @@ def details(name, server, api_key, insecure, cacert, verbose):
     connect_version = server_details['connect']
     apis_allowed = server_details['python']['api_enabled']
     python_versions = server_details['python']['versions']
-    conda_details = server_details['conda']
+    # We will want this back eventually...
+    # conda_details = server_details['caonda']
     click.echo('    RStudio Connect version: %s' % ('<redacted>' if len(connect_version) == 0 else connect_version))
 
     if len(python_versions) == 0:
@@ -168,7 +169,8 @@ def details(name, server, api_key, insecure, cacert, verbose):
             click.echo('        %s' % python_version)
 
     click.echo('    APIs: %sallowed' % ('' if apis_allowed else 'not '))
-    click.echo('    Conda: %ssupported' % ('' if conda_details['supported'] else 'not '))
+    # We will want this back eventually...
+    # click.echo('    Conda: %ssupported' % ('' if conda_details['supported'] else 'not '))
 
 
 @cli.command(short_help='Remove the information about an RStudio Connect server.',
@@ -358,7 +360,7 @@ def _deploy_bundle(connect_server, app_store, primary_path, app_id, app_mode, na
 @click.option('--python', '-p', type=click.Path(exists=True),
               help='Path to Python interpreter whose environment should be used. '
                    'The Python environment must have the rsconnect package installed.')
-@click.option('--conda', '-C', is_flag=True,
+@click.option('--conda', '-C', is_flag=True, hidden=True,
               help='Use conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
@@ -380,9 +382,10 @@ def deploy_notebook(name, server, api_key, insecure, cacert, static, new, app_id
 
     _warn_on_ignored_manifest(dirname(file))
 
+    # Ww will want this back eventually...
     if conda:
-        with cli_feedback('Ensuring conda is supported'):
-            check_server_capabilities(connect_server, [is_conda_supported_on_server])
+        # with cli_feedback('Ensuring conda is supported'):
+        check_server_capabilities(connect_server, [is_conda_supported_on_server])
 
     with cli_feedback('Inspecting Python environment'):
         python, environment = get_python_env_info(file, python, not conda, force_generate)
@@ -429,8 +432,9 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
     click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg='white')
 
     if package_manager == 'conda':
-        with cli_feedback('Ensuring conda is supported'):
-            check_server_capabilities(connect_server, [is_conda_supported_on_server])
+        # Ww will want this back eventually...
+        # with cli_feedback('Ensuring conda is supported'):
+        check_server_capabilities(connect_server, [is_conda_supported_on_server])
 
     with cli_feedback('Creating deployment bundle'):
         bundle = make_manifest_bundle(file)
@@ -464,7 +468,8 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
 @click.option('--python', '-p', type=click.Path(exists=True),
               help='Path to Python interpreter whose environment should be used. '
                    'The Python environment must have the rsconnect package installed.')
-@click.option('--conda', '-C', is_flag=True, help='Use conda to deploy.')
+@click.option('--conda', '-C', is_flag=True, hidden=True,
+              help='Use conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
@@ -504,7 +509,8 @@ def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new
 @click.option('--python', '-p', type=click.Path(exists=True),
               help='Path to Python interpreter whose environment should be used. '
                    'The Python environment must have the rsconnect package installed.')
-@click.option('--conda', '-C', is_flag=True, help='Use conda to deploy.')
+@click.option('--conda', '-C', is_flag=True, hidden=True,
+              help='Use conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
@@ -602,7 +608,7 @@ def write_manifest():
 @click.option('--python', '-p', type=click.Path(exists=True),
               help='Path to Python interpreter whose environment should be used. ' +
                    'The Python environment must have the rsconnect package installed.')
-@click.option('--conda', '-C', is_flag=True,
+@click.option('--conda', '-C', is_flag=True, hidden=True,
               help='Use conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
@@ -652,7 +658,7 @@ def write_manifest_notebook(force, python, conda, force_generate, verbose, file,
 @click.option('--python', '-p', type=click.Path(exists=True),
               help='Path to Python interpreter whose environment should be used. ' +
                    'The Python environment must have the rsconnect-python package installed.')
-@click.option('--conda', '-C', is_flag=True,
+@click.option('--conda', '-C', is_flag=True, hidden=True,
               help='Use conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
@@ -680,7 +686,7 @@ def write_manifest_api(force, entrypoint, exclude, python, conda, force_generate
 @click.option('--python', '-p', type=click.Path(exists=True),
               help='Path to Python interpreter whose environment should be used. ' +
                    'The Python environment must have the rsconnect-python package installed.')
-@click.option('--conda', '-C', is_flag=True,
+@click.option('--conda', '-C', is_flag=True, hidden=True,
               help='Use conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')

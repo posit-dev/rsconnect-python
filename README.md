@@ -185,7 +185,7 @@ rsconnect details --server https://my.connect.server:3939 --api-key my-api-key
 
 the tool will provide the version of RStudio Connect (if the server is configured to
 divulge that information) and environmental information including versions of Python
-that are installed on the server and Conda support information.
+that are installed on the server.
 
 You can also use nicknames with the `details` command if you want to verify that the
 stored information is still valid.
