@@ -481,8 +481,7 @@ def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new
 # noinspection SpellCheckingInspection
 @deploy.command(name='dash', short_help='Deploy a Python Dash app to RStudio Connect.',
                 help='Deploy a Dash application module to RStudio Connect. The "directory" argument must refer to an '
-                     'existing directory that contains the application code.',
-                hidden=True)
+                     'existing directory that contains the application code.')
 @click.option('--name', '-n', help='The nickname of the RStudio Connect server to deploy to.')
 @click.option('--server', '-s', envvar='CONNECT_SERVER',  help='The URL for the RStudio Connect server to deploy to.')
 @click.option('--api-key', '-k', envvar='CONNECT_API_KEY',
@@ -670,8 +669,7 @@ def write_manifest_api(force, entrypoint, exclude, python, conda, force_generate
 @write_manifest.command(name="dash", short_help='Create a manifest.json file for a Python API.',
                         help='Create a manifest.json file for a Dash app for later deployment. This will create an '
                              'environment file (requirements.txt or environment.yml) if one does not exist. All files '
-                             'are created in the same directory as the API code.',
-                        hidden=True)
+                             'are created in the same directory as the API code.')
 @click.option('--force', '-f', is_flag=True, help='Replace manifest.json, if it exists.')
 @click.option('--entrypoint', '-e', help='The module and executable object which serves as the entry point for the '
                                          'Dash application (defaults to app:app)')
