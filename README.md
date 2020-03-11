@@ -4,7 +4,10 @@ This package is a library used by the [`rsconnect-jupyter`](https://github.com/r
 package to deploy Jupyter notebooks to RStudio Connect. It contains a full deployment
 API so can also be used by other Python-based deployment tools. Other types of content
 supported by RStudio Connect may also be deployed by this package, including WSGi-style
-APIs and Dash-style applications.
+APIs and Dash applications.
+
+> **Important:** Dash support in RStudio Connect is currently in beta. You should not
+> rely on it for deployments in production.
 
 A command-line deployment tool is also provided that can be used directly to deploy
 Jupyter notebooks, Python APIs and apps. Content types not directly supported by the
@@ -15,7 +18,7 @@ CLI can also be deployed if they include a prepared `manifest.json` file. See
 
 In addition to various kinds of R content, RStudio Connect also supports the
 deployment of Jupyter notebooks, Python APIs (such as `flask`-based) and apps (such
-as Dash-based). Much like deploying R content to RStudio Connect, there are some
+as Dash). Much like deploying R content to RStudio Connect, there are some
 caveats to understand when replicating your environment on the RStudio Connect server:
 
 RStudio Connect insists on matching <MAJOR.MINOR> versions of Python. For example,
@@ -258,14 +261,14 @@ rsconnect write-manifest notebook my-notebook.ipynb
 ### API/Application Deployment Options
 
 There are a variety of options available to you when deploying a Python WSGi-style
-API or a Dash-style application.  All options below apply equally to `api` and `dash`
+API or a Dash application.  All options below apply equally to `api` and `dash`
 sub-commands.
 
 #### Including Extra Files
 
 You can include extra files in the deployment bundle to make them available when your
-notebook is run by the RStudio Connect server. Just specify them on the command line
-after the notebook file:
+API or application is run by the RStudio Connect server. Just specify them on the
+command line after the API or application directory:
 
 ```bash
 rsconnect deploy api flask-api/ data.csv
@@ -301,7 +304,7 @@ rsconnect deploy api --python /path/to/python my-api/
 ```
 
 You can see the packages list that will be included by running `pip freeze` yourself,
-ensuring that you use the same Python that you use to run your Jupyter Notebook:
+ensuring that you use the same Python that you use to run your API or application:
 
 ```bash
 /path/to/python -m pip freeze
@@ -377,8 +380,8 @@ Connect, you can tailor how transport layer security is performed.
 #### TLS/SSL Certificates
 
 RStudio Connect servers can be configured to use TLS/SSL. If your server's certificate
-is trusted by your Jupyter Notebook server, then you don't need to do anything special.
-You can test this out with the `details` command:
+is trusted by your Jupyter Notebook server, API client or user's browser, then you
+don't need to do anything special. You can test this out with the `details` command:
 
 ```bash
 rsconnect details --api-key my-api-key --server https://my.connect.server:3939
