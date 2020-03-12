@@ -20,11 +20,13 @@ from .metadata import ServerStore, AppStore
 from .models import AppModes
 
 server_store = ServerStore()
+future_enabled = False
 logging.basicConfig()
 
 
 @click.group(no_args_is_help=True)
-def cli():
+@click.option('--future', '-u', is_flag=True, hidden=True, help='Enables future functionality.')
+def cli(future):
     """
     This command line tool may be used to deploy Jupyter notebooks to RStudio
     Connect.  Support for deploying other content types is also provided.
@@ -39,7 +41,8 @@ def cli():
     certificate file to use for TLS.  The last two items are only relevant if the
     URL specifies the "https" protocol.
     """
-    pass
+    global future_enabled
+    future_enabled = future
 
 
 @cli.command(help='Show the version of the rsconnect-python package.')
@@ -157,8 +160,8 @@ def details(name, server, api_key, insecure, cacert, verbose):
     connect_version = server_details['connect']
     apis_allowed = server_details['python']['api_enabled']
     python_versions = server_details['python']['versions']
-    # We will want this back eventually...
-    # conda_details = server_details['caonda']
+    conda_details = server_details['conda']
+
     click.echo('    RStudio Connect version: %s' % ('<redacted>' if len(connect_version) == 0 else connect_version))
 
     if len(python_versions) == 0:
@@ -169,8 +172,9 @@ def details(name, server, api_key, insecure, cacert, verbose):
             click.echo('        %s' % python_version)
 
     click.echo('    APIs: %sallowed' % ('' if apis_allowed else 'not '))
-    # We will want this back eventually...
-    # click.echo('    Conda: %ssupported' % ('' if conda_details['supported'] else 'not '))
+
+    if future_enabled:
+        click.echo('    Conda: %ssupported' % ('' if conda_details['supported'] else 'not '))
 
 
 @cli.command(short_help='Remove the information about an RStudio Connect server.',
