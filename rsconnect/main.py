@@ -611,7 +611,7 @@ def write_manifest():
                         help="Create a manifest.json file for a Jupyter notebook for later deployment. This will "
                              "create an environment file (requirements.txt or environment.yml) if one does not exist. "
                              "All files are created in the same directory as the notebook file.")
-@click.option('--force', '-f', is_flag=True, help='Replace manifest.json, if it exists.')
+@click.option('--overwrite', '-o', is_flag=True, help='Overwrite manifest.json, if it exists.')
 @click.option('--python', '-p', type=click.Path(exists=True),
               help='Path to Python interpreter whose environment should be used. ' +
                    'The Python environment must have the rsconnect package installed.')
@@ -622,7 +622,7 @@ def write_manifest():
 @click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
 @click.argument('file', type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))
-def write_manifest_notebook(force, python, conda, force_generate, verbose, file, extra_files):
+def write_manifest_notebook(overwrite, python, conda, force_generate, verbose, file, extra_files):
     set_verbosity(verbose)
     with cli_feedback('Checking arguments'):
         validate_file_is_notebook(file)
@@ -631,8 +631,8 @@ def write_manifest_notebook(force, python, conda, force_generate, verbose, file,
         extra_files = validate_extra_files(base_dir, extra_files)
         manifest_path = join(base_dir, 'manifest.json')
 
-        if exists(manifest_path) and not force:
-            raise api.RSConnectException('manifest.json already exists. Use --force to overwrite.')
+        if exists(manifest_path) and not overwrite:
+            raise api.RSConnectException('manifest.json already exists. Use --overwrite to overwrite.')
 
     with cli_feedback('Inspecting Python environment'):
         python, environment = get_python_env_info(file, python, not conda, force_generate)
@@ -655,7 +655,7 @@ def write_manifest_notebook(force, python, conda, force_generate, verbose, file,
                         help='Create a manifest.json file for a Python API for later deployment. This will create an '
                              'environment file (requirements.txt or environment.yml) if one does not exist. All files '
                              'are created in the same directory as the API code.')
-@click.option('--force', '-f', is_flag=True, help='Replace manifest.json, if it exists.')
+@click.option('--overwrite', '-o', is_flag=True, help='Overwrite manifest.json, if it exists.')
 @click.option('--entrypoint', '-e', help='The module and executable object which serves as the entry point for the '
                                          'WSGi framework of choice (defaults to app:app)')
 @click.option('--exclude', '-x', multiple=True,
@@ -672,9 +672,9 @@ def write_manifest_notebook(force, python, conda, force_generate, verbose, file,
 @click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
 @click.argument('directory', type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))
-def write_manifest_api(force, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files):
+def write_manifest_api(overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files):
     _write_framework_manifest(
-        force, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files, AppModes.PYTHON_API,
+        overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files, AppModes.PYTHON_API,
     )
 
 
@@ -683,7 +683,7 @@ def write_manifest_api(force, entrypoint, exclude, python, conda, force_generate
                         help='Create a manifest.json file for a Dash app for later deployment. This will create an '
                              'environment file (requirements.txt or environment.yml) if one does not exist. All files '
                              'are created in the same directory as the API code.')
-@click.option('--force', '-f', is_flag=True, help='Replace manifest.json, if it exists.')
+@click.option('--overwrite', '-o', is_flag=True, help='Overwrite manifest.json, if it exists.')
 @click.option('--entrypoint', '-e', help='The module and executable object which serves as the entry point for the '
                                          'Dash application (defaults to app:app)')
 @click.option('--exclude', '-x', multiple=True,
@@ -700,19 +700,19 @@ def write_manifest_api(force, entrypoint, exclude, python, conda, force_generate
 @click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
 @click.argument('directory', type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))
-def write_manifest_dash(force, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files):
+def write_manifest_dash(overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files):
     _write_framework_manifest(
-        force, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files, AppModes.DASH_APP,
+        overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files, AppModes.DASH_APP,
     )
 
 
 # noinspection SpellCheckingInspection
-def _write_framework_manifest(force, entrypoint, exclude, python, conda, force_generate, verbose, directory,
+def _write_framework_manifest(overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory,
                               extra_files, app_mode):
     """
     A common function for writing manifests for APIs, Dash apps, etc.
 
-    :param force: replace the manifest.json, if it exists.
+    :param overwrite: overwrite the manifest.json, if it exists.
     :param entrypoint: the entry point for the thing being deployed.
     :param exclude: a sequence of exclude glob patterns to exclude files from the deploy.
     :param python: a path to the Python executable to use.
@@ -730,8 +730,8 @@ def _write_framework_manifest(force, entrypoint, exclude, python, conda, force_g
         extra_files = validate_extra_files(directory, extra_files)
         manifest_path = join(directory, 'manifest.json')
 
-        if exists(manifest_path) and not force:
-            raise api.RSConnectException('manifest.json already exists. Use --force to overwrite.')
+        if exists(manifest_path) and not overwrite:
+            raise api.RSConnectException('manifest.json already exists. Use --overwrite to overwrite.')
 
     with cli_feedback('Inspecting Python environment'):
         _, environment = get_python_env_info(directory, python, not conda, force_generate)
