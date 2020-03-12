@@ -677,7 +677,8 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
             raise api.RSConnectException('Cannot change app mode to "static" once deployed. '
                                          'Use --new to create a new deployment.')
 
-    title, default_title = (title, False) if title else (_default_title(file_name), True)
+    default_title = not bool(title)
+    title = title or _default_title(file_name)
 
     return app_id, _make_deployment_name(connect_server, title, app_id is None), title, default_title, app_mode
 
@@ -713,7 +714,8 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
         app_id, title, app_mode = app_store.resolve(connect_server.url, app_id, title, app_mode)
 
     package_manager = source_manifest.get('python', {}).get('package_manager', {}).get('name', None)
-    title, default_title = (title, False) if title else (_default_title_from_manifest(source_manifest, file_name), True)
+    default_title = not bool(title)
+    title = title or _default_title_from_manifest(source_manifest, file_name)
 
     return app_id, _make_deployment_name(connect_server, title, app_id is None), title, default_title, app_mode,\
         package_manager
@@ -802,7 +804,8 @@ def _gather_basic_deployment_info_for_framework(connect_server, app_store, direc
     if directory[-1] == '/':
         directory = directory[:-1]
 
-    title, default_title = (title, False) if title else (_default_title(directory), True)
+    default_title = not bool(title)
+    title = title or _default_title(directory)
 
     return entry_point, app_id, _make_deployment_name(connect_server, title, app_id is None), title, default_title,\
         app_mode
