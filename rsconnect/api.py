@@ -90,19 +90,21 @@ class RSConnect(HTTPServer):
             params = {'first_status': first_status}
         return self.get('tasks/%s' % task_id, query_params=params)
 
-    def deploy(self, app_id, app_name, app_title, tarball):
+    def deploy(self, app_id, app_name, app_title, title_is_default, tarball):
         if app_id is None:
             # create an app if id is not provided
             app = self.app_create(app_name)
             self._server.handle_bad_response(app)
             app_id = app['id']
+            # Force the title to update.
+            title_is_default = False
         else:
             # assume app exists. if it was deleted then Connect will
             # raise an error
             app = self.app_get(app_id)
             self._server.handle_bad_response(app)
 
-        if app['title'] != app_title:
+        if app['title'] != app_title and not title_is_default:
             self._server.handle_bad_response(self.app_update(app_id, {'title': app_title}))
 
         app_bundle = self.app_upload(app_id, tarball)
@@ -244,7 +246,7 @@ def get_app_config(connect_server, app_id):
         return result
 
 
-def do_bundle_deploy(connect_server, app_id, name, title, bundle):
+def do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bundle):
     """
     Deploys the specified bundle.
 
@@ -252,12 +254,13 @@ def do_bundle_deploy(connect_server, app_id, name, title, bundle):
     :param app_id: the ID of the app to deploy, if this is a redeploy.
     :param name: the name for the deploy.
     :param title: the title for the deploy.
+    :param title_is_default: a flag noting whether the title carries a defaulted value.
     :param bundle: the bundle to deploy.
     :return: application information about the deploy.  This includes the ID of the
     task that may be queried for deployment progress.
     """
     with RSConnect(connect_server) as client:
-        result = client.deploy(app_id, name, title, bundle)
+        result = client.deploy(app_id, name, title, title_is_default, bundle)
         connect_server.handle_bad_response(result)
         return result
 

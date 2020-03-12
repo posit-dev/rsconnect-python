@@ -307,7 +307,7 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
                     fg='yellow')
 
 
-def _deploy_bundle(connect_server, app_store, primary_path, app_id, app_mode, name, title, bundle):
+def _deploy_bundle(connect_server, app_store, primary_path, app_id, app_mode, name, title, title_is_default, bundle):
     """
     Does the work of uploading a prepared bundle.
 
@@ -318,10 +318,11 @@ def _deploy_bundle(connect_server, app_store, primary_path, app_id, app_mode, na
     :param app_mode: the mode of the app.
     :param name: the name of the app.
     :param title: the title of the app.
+    :param title_is_default: a flag noting whether the title carries a defaulted value.
     :param bundle: the bundle to deploy.
     """
     with cli_feedback('Uploading bundle'):
-        app = deploy_bundle(connect_server, app_id, name, title, bundle)
+        app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle)
 
     with cli_feedback('Saving deployment data'):
         app_store.set(connect_server.url, abspath(primary_path), app['app_url'], app['app_id'], app['app_guid'], title,
@@ -379,7 +380,7 @@ def deploy_notebook(name, server, api_key, insecure, cacert, static, new, app_id
         app_store = AppStore(file)
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         extra_files = validate_extra_files(dirname(file), extra_files)
-        app_id, deployment_name, title, app_mode = \
+        app_id, deployment_name, title, default_title, app_mode = \
             gather_basic_deployment_info_for_notebook(connect_server, app_store, file, new, app_id, title, static)
 
     click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg='white')
@@ -400,7 +401,7 @@ def deploy_notebook(name, server, api_key, insecure, cacert, static, new, app_id
     with cli_feedback('Creating deployment bundle'):
         bundle = create_notebook_deployment_bundle(file, extra_files, app_mode, python, environment, False)
 
-    _deploy_bundle(connect_server, app_store, file, app_id, app_mode, deployment_name, title, bundle)
+    _deploy_bundle(connect_server, app_store, file, app_id, app_mode, deployment_name, title, default_title, bundle)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -430,7 +431,7 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
         file = validate_manifest_file(file)
         app_store = AppStore(file)
 
-        app_id, deployment_name, title, app_mode, package_manager = \
+        app_id, deployment_name, title, default_title, app_mode, package_manager = \
             gather_basic_deployment_info_from_manifest(connect_server, app_store, file, new, app_id, title)
 
     click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg='white')
@@ -443,7 +444,7 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
     with cli_feedback('Creating deployment bundle'):
         bundle = make_manifest_bundle(file)
 
-    _deploy_bundle(connect_server, app_store, file, app_id, app_mode, deployment_name, title, bundle)
+    _deploy_bundle(connect_server, app_store, file, app_id, app_mode, deployment_name, title, default_title, bundle)
 
 
 # noinspection SpellCheckingInspection
@@ -559,7 +560,7 @@ def _deploy_by_framework(name, server, api_key, insecure, cacert, entrypoint, ex
         module_file = fake_module_file_from_directory(directory)
         extra_files = validate_extra_files(directory, extra_files)
         app_store = AppStore(module_file)
-        entrypoint, app_id, deployment_name, title, app_mode = \
+        entrypoint, app_id, deployment_name, title, default_title, app_mode = \
             gatherer(connect_server, app_store, directory, entrypoint, new, app_id, title)
 
     click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url), fg='white')
@@ -581,7 +582,9 @@ def _deploy_by_framework(name, server, api_key, insecure, cacert, entrypoint, ex
     with cli_feedback('Creating deployment bundle'):
         bundle = create_api_deployment_bundle(directory, extra_files, exclude, entrypoint, app_mode, environment, False)
 
-    _deploy_bundle(connect_server, app_store, directory, app_id, app_mode, deployment_name, title, bundle)
+    _deploy_bundle(
+        connect_server, app_store, directory, app_id, app_mode, deployment_name, title, default_title, bundle
+    )
 
 
 @deploy.command(name='other-content', short_help='Describe deploying other content to RStudio Connect.',
