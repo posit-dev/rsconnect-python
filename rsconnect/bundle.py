@@ -329,7 +329,7 @@ def create_glob_set(directory, excludes):
     return GlobSet(work)
 
 
-def create_api_file_list(directory, requirements_file_name, extra_files=None, excludes=None):
+def _create_api_file_list(directory, requirements_file_name, extra_files=None, excludes=None):
     """
     Builds a full list of files under the given directory that should be included
     in a manifest or bundle.  Extra files and excludes are relative to the given
@@ -340,7 +340,7 @@ def create_api_file_list(directory, requirements_file_name, extra_files=None, ex
     Python environment.
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param excludes: a sequence of glob patterns that will exclude matched files.
-    :return: the list of relevant files.
+    :return: the list of relevant files, relative to the given directory.
     """
     # Don't let these top-level files be added via the extra files list.
     extra_files = extra_files or []
@@ -361,15 +361,15 @@ def create_api_file_list(directory, requirements_file_name, extra_files=None, ex
             rel_path = os.path.relpath(abs_path, directory)
 
             if keep_manifest_specified_file(rel_path) and (rel_path in extra_files or not glob_set.matches(abs_path)):
-                file_list.append((abs_path, rel_path))
+                file_list.append(rel_path)
                 # Don't add extra files more than once.
                 if rel_path in extra_files:
                     extra_files.remove(rel_path)
 
     for rel_path in extra_files:
-        file_list.append((None, rel_path))
+        file_list.append(rel_path)
 
-    return sorted(file_list, key=lambda paths: paths[1])
+    return sorted(file_list)
 
 
 def make_api_manifest(directory, entry_point, app_mode, environment, extra_files=None, excludes=None):
@@ -384,12 +384,12 @@ def make_api_manifest(directory, entry_point, app_mode, environment, extra_files
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :return: the manifest and a list of the files involved.
     """
-    relevant_files = create_api_file_list(directory, environment['filename'], extra_files, excludes)
+    relevant_files = _create_api_file_list(directory, environment['filename'], extra_files, excludes)
     manifest = make_source_manifest(entry_point, environment, app_mode)
 
     manifest_add_buffer(manifest, environment['filename'], environment['contents'])
 
-    for _, rel_path in relevant_files:
+    for rel_path in relevant_files:
         manifest_add_file(manifest, rel_path, directory)
 
     return manifest, relevant_files
@@ -414,11 +414,8 @@ def make_api_bundle(directory, entry_point, app_mode, environment, extra_files=N
         bundle_add_buffer(bundle, 'manifest.json', json.dumps(manifest, indent=2))
         bundle_add_buffer(bundle, environment['filename'], environment['contents'])
 
-        for abs_path, rel_path in relevant_files:
-            if abs_path:
-                bundle.add(abs_path, arcname=rel_path)
-            else:
-                bundle_add_file(bundle, rel_path, directory)
+        for rel_path in relevant_files:
+            bundle_add_file(bundle, rel_path, directory)
 
     # rewind file pointer
     bundle_file.seek(0)
