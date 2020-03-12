@@ -106,6 +106,7 @@ class RSConnect(HTTPServer):
 
         if app['title'] != app_title and not title_is_default:
             self._server.handle_bad_response(self.app_update(app_id, {'title': app_title}))
+            app['title'] = app_title
 
         app_bundle = self.app_upload(app_id, tarball)
 
@@ -120,6 +121,7 @@ class RSConnect(HTTPServer):
             'app_id': app_id,
             'app_guid': app['guid'],
             'app_url': app['url'],
+            'title': app['title'],
         }
 
     def wait_for_task(self, app_id, task_id, log_callback, timeout=None):

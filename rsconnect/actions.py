@@ -672,7 +672,7 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
     if not new and app_id is None:
         # Possible redeployment - check for saved metadata.
         # Use the saved app information unless overridden by the user.
-        app_id, title, app_mode = app_store.resolve(connect_server.url, app_id, title, app_mode)
+        app_id, app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
         if static and app_mode != AppModes.STATIC:
             raise api.RSConnectException('Cannot change app mode to "static" once deployed. '
                                          'Use --new to create a new deployment.')
@@ -711,7 +711,7 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
     if not new and app_id is None:
         # Possible redeployment - check for saved metadata.
         # Use the saved app information unless overridden by the user.
-        app_id, title, app_mode = app_store.resolve(connect_server.url, app_id, title, app_mode)
+        app_id, app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
 
     package_manager = source_manifest.get('python', {}).get('package_manager', {}).get('name', None)
     default_title = not bool(title)
@@ -799,7 +799,7 @@ def _gather_basic_deployment_info_for_framework(connect_server, app_store, direc
     if not new and app_id is None:
         # Possible redeployment - check for saved metadata.
         # Use the saved app information unless overridden by the user.
-        app_id, title, app_mode = app_store.resolve(connect_server.url, app_id, title, app_mode)
+        app_id, app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
 
     if directory[-1] == '/':
         directory = directory[:-1]
