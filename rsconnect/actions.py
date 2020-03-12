@@ -451,11 +451,39 @@ def deploy_jupyter_notebook(connect_server, file_name, extra_files, new=False, a
     of log lines.  The log lines value will be None if a log callback was provided.
     """
     app_store = AppStore(file_name)
-    app_id, deployment_name, deployment_title, app_mode = \
+    app_id, deployment_name, deployment_title, default_title, app_mode = \
         gather_basic_deployment_info_for_notebook(connect_server, app_store, file_name, new, app_id, title, static)
     python, environment = get_python_env_info(file_name, python, compatibility_mode, force_generate)
     bundle = create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, environment)
-    app = deploy_bundle(connect_server, app_id, deployment_name, deployment_title, bundle)
+    return _finalize_deploy(
+        connect_server, app_store, file_name, app_id, app_mode, deployment_name, deployment_title, default_title,
+        bundle, log_callback
+    )
+
+
+def _finalize_deploy(connect_server, app_store, file_name, app_id, app_mode, name, title, title_is_default, bundle,
+                     log_callback):
+    """
+    A common function to finish up the deploy process once all the data (bundle
+    included) has been resolved.
+
+    :param connect_server: the Connect server information.
+    :param app_store: the store for the specified file
+    :param file_name: the primary file or directory being deployed.
+    :param app_id: the ID of an existing application to deploy new files for.
+    :param app_mode: the app mode to use.
+    :param name: the name to use for the deploy.
+    :param title: the title to use for the deploy.
+    :param title_is_default: a flag noting whether the title carries a defaulted value.
+    :param bundle: the bundle to deploy.
+    :param log_callback: the callback to use to write the log to.  If this is None
+    (the default) the lines from the deployment log will be returned as a sequence.
+    If a log callback is provided, then None will be returned for the log lines part
+    of the return tuple.
+    :return: the ultimate URL where the deployed app may be accessed and the sequence
+    of log lines.  The log lines value will be None if a log callback was provided.
+    """
+    app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle)
     app_url, log_lines = spool_deployment_log(connect_server, app, log_callback)
     app_store.set(connect_server.url, abspath(file_name), app_url, app['app_id'], app['app_guid'], title, app_mode)
     return app_url, log_lines
@@ -571,14 +599,14 @@ def _deploy_by_python_framework(connect_server, directory, extra_files, excludes
     """
     module_file = fake_module_file_from_directory(directory)
     app_store = AppStore(module_file)
-    entry_point, app_id, deployment_name, deployment_title, app_mode = \
+    entry_point, app_id, deployment_name, deployment_title, default_title, app_mode = \
         gatherer(connect_server, app_store, directory, entry_point, new, app_id, title)
     _, environment = get_python_env_info(directory, python, compatibility_mode, force_generate)
     bundle = create_api_deployment_bundle(directory, extra_files, excludes, entry_point, app_mode, environment)
-    app = deploy_bundle(connect_server, app_id, deployment_name, deployment_title, bundle)
-    app_url, log_lines = spool_deployment_log(connect_server, app, log_callback)
-    app_store.set(connect_server.url, abspath(directory), app_url, app['app_id'], app['app_guid'], title, app_mode)
-    return app_url, log_lines
+    return _finalize_deploy(
+        connect_server, app_store, directory, app_id, app_mode, deployment_name, deployment_title, default_title,
+        bundle, log_callback
+    )
 
 
 def deploy_by_manifest(connect_server, manifest_file_name, new=False, app_id=None, title=None, log_callback=None):
@@ -600,14 +628,13 @@ def deploy_by_manifest(connect_server, manifest_file_name, new=False, app_id=Non
     of log lines.  The log lines value will be None if a log callback was provided.
     """
     app_store = AppStore(manifest_file_name)
-    app_id, deployment_name, deployment_title, app_mode, package_manager = \
+    app_id, deployment_name, deployment_title, default_title, app_mode, package_manager = \
         gather_basic_deployment_info_from_manifest(connect_server, app_store, manifest_file_name, new, app_id, title)
     bundle = make_manifest_bundle(manifest_file_name)
-    app = deploy_bundle(connect_server, app_id, deployment_name, deployment_title, bundle)
-    app_url, log_lines = spool_deployment_log(connect_server, app, log_callback)
-    app_store.set(connect_server.url, abspath(manifest_file_name), app_url, app['app_id'], app['app_guid'], title,
-                  app_mode)
-    return app_url, log_lines
+    return _finalize_deploy(
+        connect_server, app_store, manifest_file_name, app_id, app_mode, deployment_name, deployment_title,
+        default_title, bundle, log_callback
+    )
 
 
 def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_name, new, app_id, title, static):
@@ -622,7 +649,7 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
     :param title: an optional title.  If this isn't specified, a default title will
     be generated.
     :param static: a flag to note whether a static document should be deployed.
-    :return: the app ID, name, title and mode for the deployment.
+    :return: the app ID, name, title information and mode for the deployment.
     """
     validate_file_is_notebook(file_name)
     _validate_title(title)
@@ -650,9 +677,9 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
             raise api.RSConnectException('Cannot change app mode to "static" once deployed. '
                                          'Use --new to create a new deployment.')
 
-    title = title or _default_title(file_name)
+    title, default_title = (title, False) if title else (_default_title(file_name), True)
 
-    return app_id, _make_deployment_name(connect_server, title, app_id is None), title, app_mode
+    return app_id, _make_deployment_name(connect_server, title, app_id is None), title, default_title, app_mode
 
 
 def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_name, new, app_id, title):
@@ -666,7 +693,8 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
     :param app_id: the ID of the app to redeploy.
     :param title: an optional title.  If this isn't specified, a default title will
     be generated.
-    :return: the app ID, name, title, mode, and package manager for the deployment.
+    :return: the app ID, name, title information, mode, and package manager for the
+    deployment.
     """
     file_name = validate_manifest_file(file_name)
 
@@ -685,9 +713,10 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
         app_id, title, app_mode = app_store.resolve(connect_server.url, app_id, title, app_mode)
 
     package_manager = source_manifest.get('python', {}).get('package_manager', {}).get('name', None)
-    title = title or _default_title_from_manifest(source_manifest, file_name)
+    title, default_title = (title, False) if title else (_default_title_from_manifest(source_manifest, file_name), True)
 
-    return app_id, _make_deployment_name(connect_server, title, app_id is None), title, app_mode, package_manager
+    return app_id, _make_deployment_name(connect_server, title, app_id is None), title, default_title, app_mode,\
+        package_manager
 
 
 def gather_basic_deployment_info_for_api(connect_server, app_store, directory, entry_point, new, app_id, title):
@@ -773,10 +802,10 @@ def _gather_basic_deployment_info_for_framework(connect_server, app_store, direc
     if directory[-1] == '/':
         directory = directory[:-1]
 
-    title = title or _default_title(directory)
+    title, default_title = (title, False) if title else (_default_title(directory), True)
 
-    return\
-        entry_point, app_id, _make_deployment_name(connect_server, title, app_id is None), title, app_mode
+    return entry_point, app_id, _make_deployment_name(connect_server, title, app_id is None), title, default_title,\
+        app_mode
 
 
 def get_python_env_info(file_name, python, compatibility_mode, force_generate):
@@ -865,7 +894,7 @@ def create_api_deployment_bundle(directory, extra_files, excludes, entry_point, 
     return make_api_bundle(directory, entry_point, app_mode, environment, extra_files, excludes)
 
 
-def deploy_bundle(connect_server, app_id, name, title, bundle):
+def deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle):
     """
     Deploys the specified bundle.
 
@@ -873,11 +902,12 @@ def deploy_bundle(connect_server, app_id, name, title, bundle):
     :param app_id: the ID of the app to deploy, if this is a redeploy.
     :param name: the name for the deploy.
     :param title: the title for the deploy.
+    :param title_is_default: a flag noting whether the title carries a defaulted value.
     :param bundle: the bundle to deploy.
     :return: application information about the deploy.  This includes the ID of the
     task that may be queried for deployment progress.
     """
-    return api.do_bundle_deploy(connect_server, app_id, name, title, bundle)
+    return api.do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bundle)
 
 
 def spool_deployment_log(connect_server, app, log_callback):
