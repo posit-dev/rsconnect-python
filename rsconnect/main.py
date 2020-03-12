@@ -1,6 +1,6 @@
 import logging
 import textwrap
-from os.path import abspath, dirname, exists, join
+from os.path import abspath, dirname, exists, isdir, join
 
 import click
 from six import text_type
@@ -219,18 +219,25 @@ def info(file):
         app_store = AppStore(file)
         deployments = app_store.get_all()
 
+        # If we were handed a dir that's not tracked but it contains a manifest, try that.
+        if len(deployments) == 0 and isdir(file):
+            name = join(file, 'manifest.json')
+            if exists(name):
+                app_store = AppStore(name)
+                deployments = app_store.get_all()
+
         if len(deployments) > 0:
             click.echo('Loaded deployment information from %s' % abspath(app_store.get_path()))
 
             for deployment in deployments:
                 click.echo()
-                click.echo('Server URL: %s' % deployment.get('server_url'))
-                click.echo('App URL:    %s' % deployment.get('app_url'))
-                click.echo('App ID:     %s' % deployment.get('app_id'))
-                click.echo('App GUID:   %s' % deployment.get('app_guid'))
-                click.echo('Title:      "%s"' % deployment.get('title'))
-                click.echo('Filename:   %s' % deployment.get('filename'))
-                click.echo('Type:       %s' % AppModes.get_by_name(deployment.get('app_mode'), True).desc())
+                click.echo('Server URL: %s' % click.style(deployment.get('server_url'), fg='white'))
+                click.echo('    App URL:    %s' % deployment.get('app_url'))
+                click.echo('    App ID:     %s' % deployment.get('app_id'))
+                click.echo('    App GUID:   %s' % deployment.get('app_guid'))
+                click.echo('    Title:      "%s"' % deployment.get('title'))
+                click.echo('    Filename:   %s' % deployment.get('filename'))
+                click.echo('    Type:       %s' % AppModes.get_by_name(deployment.get('app_mode'), True).desc())
         else:
             click.echo('No saved deployment information was found for %s.' % file)
 
@@ -337,7 +344,7 @@ def _deploy_bundle(connect_server, app_store, primary_path, app_id, app_mode, na
 
         # save the config URL, replacing the old app URL we got during deployment
         # (which is the Open Solo URL).
-        app_store.set(connect_server.url, abspath(primary_path), app_url, app['app_id'], app['app_guid'], title,
+        app_store.set(connect_server.url, abspath(primary_path), app_url, app['app_id'], app['app_guid'], app['title'],
                       app_mode)
 
 
@@ -674,7 +681,8 @@ def write_manifest_notebook(overwrite, python, conda, force_generate, verbose, f
 @click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))
 def write_manifest_api(overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files):
     _write_framework_manifest(
-        overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files, AppModes.PYTHON_API,
+        overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files,
+        AppModes.PYTHON_API,
     )
 
 
@@ -702,7 +710,8 @@ def write_manifest_api(overwrite, entrypoint, exclude, python, conda, force_gene
 @click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))
 def write_manifest_dash(overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files):
     _write_framework_manifest(
-        overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files, AppModes.DASH_APP,
+        overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files,
+        AppModes.DASH_APP,
     )
 
 

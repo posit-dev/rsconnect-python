@@ -387,11 +387,11 @@ class AppStore(DataStore):
             app_mode=app_mode.name() if isinstance(app_mode, AppMode) else app_mode,
         ))
 
-    def resolve(self, server, app_id, title, app_mode):
+    def resolve(self, server, app_id, app_mode):
         metadata = self.get(server)
         if metadata is None:
             logger.debug('No previous deployment to this server was found; this will be a new deployment.')
-            return app_id, title, app_mode
+            return app_id, app_mode
 
         logger.debug('Found previous deployment data in %s' % self.get_path())
 
@@ -399,10 +399,6 @@ class AppStore(DataStore):
             app_id = metadata.get('app_guid') or metadata.get('app_id')
             logger.debug('Using saved app ID: %s' % app_id)
 
-        if title is None:
-            title = metadata.get('title')
-            logger.debug('Using saved title: "%s"' % title)
-
         # app mode cannot be changed on redeployment
         app_mode = AppModes.get_by_name(metadata.get('app_mode'))
-        return app_id, title, app_mode
+        return app_id, app_mode
