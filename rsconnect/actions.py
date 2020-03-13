@@ -1052,3 +1052,22 @@ def write_environment_file(environment, directory):
     environment_file_path = join(directory, environment['filename'])
     with open(environment_file_path, 'w') as f:
         f.write(environment['contents'])
+
+
+def describe_manifest(file_name):
+    """
+    Determine the entry point and/or primary file from the given manifest file.
+    If no entry point is recorded in the manifest, then None will be returned for
+    that.  The same is true for the primary document.  None will be returned for
+    both if the file doesn't exist or doesn't look like a manifest file.
+
+    :param file_name: the name of the manifest file to read.
+    :return: the entry point and primary document from the manifest.
+    """
+    if basename(file_name) == 'manifest.json' and exists(file_name):
+        manifest, _ = read_manifest_file(file_name)
+        metadata = manifest.get('metadata')
+        if metadata:
+            # noinspection SpellCheckingInspection
+            return metadata.get('entrypoint'), metadata.get('primary_rmd') or metadata.get('primary_html')
+    return None, None

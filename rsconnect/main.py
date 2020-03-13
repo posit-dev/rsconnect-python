@@ -7,7 +7,7 @@ from six import text_type
 
 from rsconnect import VERSION
 from rsconnect.actions import are_apis_supported_on_server, check_server_capabilities, cli_feedback, \
-    create_api_deployment_bundle, create_notebook_deployment_bundle, deploy_bundle, \
+    create_api_deployment_bundle, create_notebook_deployment_bundle, deploy_bundle, describe_manifest, \
     gather_basic_deployment_info_for_api, gather_basic_deployment_info_for_dash, \
     gather_basic_deployment_info_for_notebook, gather_basic_deployment_info_from_manifest, gather_server_details, \
     get_python_env_info, is_conda_supported_on_server, set_verbosity, spool_deployment_log, test_api_key, test_server, \
@@ -210,34 +210,54 @@ def remove(name, server, verbose):
         click.echo(message)
 
 
+def _get_names_to_check(file_or_directory):
+    """
+    A function to determine a set files to look for in getting information about a
+    deployment.
+
+    :param file_or_directory: the file or directory to start with.
+    :return: a sequence of file names to try.
+    """
+    result = [file_or_directory]
+
+    if isdir(file_or_directory):
+        result.append(join(file_or_directory, 'manifest.json'))
+        result.append(fake_module_file_from_directory(file_or_directory))
+
+    return result
+
+
 @cli.command(short_help='Show saved information about the specified deployment.',
              help='Display information about the deployment of a Jupyter notebook or manifest. For any given file, '
                   'information about it''s deployments are saved on a per-server basis.')
 @click.argument('file', type=click.Path(exists=True, dir_okay=True, file_okay=True))
 def info(file):
     with cli_feedback(''):
-        app_store = AppStore(file)
-        deployments = app_store.get_all()
+        for file_name in _get_names_to_check(file):
+            app_store = AppStore(file_name)
+            deployments = app_store.get_all()
 
-        # If we were handed a dir that's not tracked but it contains a manifest, try that.
-        if len(deployments) == 0 and isdir(file):
-            name = join(file, 'manifest.json')
-            if exists(name):
-                app_store = AppStore(name)
-                deployments = app_store.get_all()
+            if len(deployments) > 0:
+                break
 
         if len(deployments) > 0:
             click.echo('Loaded deployment information from %s' % abspath(app_store.get_path()))
 
             for deployment in deployments:
+                # If this deployment was via a manifest, this will get us extra stuff about that.
+                entry_point, primary_document = describe_manifest(deployment.get('filename'))
                 click.echo()
                 click.echo('Server URL: %s' % click.style(deployment.get('server_url'), fg='white'))
-                click.echo('    App URL:    %s' % deployment.get('app_url'))
-                click.echo('    App ID:     %s' % deployment.get('app_id'))
-                click.echo('    App GUID:   %s' % deployment.get('app_guid'))
-                click.echo('    Title:      "%s"' % deployment.get('title'))
-                click.echo('    Filename:   %s' % deployment.get('filename'))
-                click.echo('    Type:       %s' % AppModes.get_by_name(deployment.get('app_mode'), True).desc())
+                click.echo('    App URL:     %s' % deployment.get('app_url'))
+                click.echo('    App ID:      %s' % deployment.get('app_id'))
+                click.echo('    App GUID:    %s' % deployment.get('app_guid'))
+                click.echo('    Title:       "%s"' % deployment.get('title'))
+                click.echo('    Filename:    %s' % deployment.get('filename'))
+                if entry_point:
+                    click.echo('    Entry point: %s' % entry_point)
+                if primary_document:
+                    click.echo('    Primary doc: %s' % primary_document)
+                click.echo('    Type:        %s' % AppModes.get_by_name(deployment.get('app_mode'), True).desc())
         else:
             click.echo('No saved deployment information was found for %s.' % file)
 
