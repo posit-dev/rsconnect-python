@@ -221,8 +221,8 @@ def _get_names_to_check(file_or_directory):
     result = [file_or_directory]
 
     if isdir(file_or_directory):
-        result.append(join(file_or_directory, 'manifest.json'))
         result.append(fake_module_file_from_directory(file_or_directory))
+        result.append(join(file_or_directory, 'manifest.json'))
 
     return result
 
