@@ -245,14 +245,16 @@ def info(file):
 
             for deployment in deployments:
                 # If this deployment was via a manifest, this will get us extra stuff about that.
-                entry_point, primary_document = describe_manifest(deployment.get('filename'))
+                file_name = deployment.get('filename')
+                entry_point, primary_document = describe_manifest(file_name)
+                label = 'Directory:' if isdir(file_name) else 'Filename: '
                 click.echo()
                 click.echo('Server URL: %s' % click.style(deployment.get('server_url'), fg='white'))
                 click.echo('    App URL:     %s' % deployment.get('app_url'))
                 click.echo('    App ID:      %s' % deployment.get('app_id'))
                 click.echo('    App GUID:    %s' % deployment.get('app_guid'))
                 click.echo('    Title:       "%s"' % deployment.get('title'))
-                click.echo('    Filename:    %s' % deployment.get('filename'))
+                click.echo('    %s   %s' % (label, file_name))
                 if entry_point:
                     click.echo('    Entry point: %s' % entry_point)
                 if primary_document:
