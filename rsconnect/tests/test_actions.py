@@ -7,9 +7,10 @@ from rsconnect import api
 
 from rsconnect.actions import _default_title, _default_title_from_manifest, which_python, _to_server_check_list, \
     _verify_server, check_server_capabilities, are_apis_supported_on_server, is_conda_supported_on_server, \
-    _make_deployment_name, _validate_title, validate_entry_point, validate_extra_files
+    _make_deployment_name, _validate_title, validate_entry_point, validate_extra_files, deploy_python_api, \
+    gather_basic_deployment_info_for_api, create_notebook_deployment_bundle, create_api_deployment_bundle
 from rsconnect.api import RSConnectException, RSConnectServer
-from rsconnect.tests.test_data_util import get_manifest_path
+from rsconnect.tests.test_data_util import get_manifest_path, get_api_path, get_dir
 
 
 class TestActions(TestCase):
@@ -151,3 +152,32 @@ class TestActions(TestCase):
         self.assertEqual(validate_extra_files(directory, None), [])
         self.assertEqual(validate_extra_files(directory, []), [])
         self.assertEqual(validate_extra_files(directory, [join(directory, 'index.htm')]), ['index.htm'])
+
+    def test_deploy_python_api_validates(self):
+        directory = get_api_path('flask')
+        server = RSConnectServer('https://www.bogus.com', 'bogus')
+        with self.assertRaises(RSConnectException):
+            deploy_python_api(server, directory, [], [], 'bogus')
+
+    def test_gather_basic_deployment_info_for_api_validates(self):
+        directory = get_api_path('flask')
+        server = RSConnectServer('https://www.bogus.com', 'bogus')
+        with self.assertRaises(RSConnectException):
+            gather_basic_deployment_info_for_api(server, None, directory, "bogus:bogus:bogus", False, 0, "bogus")
+        with self.assertRaises(RSConnectException):
+            gather_basic_deployment_info_for_api(server, None, directory, "app:app", False, 0, "")
+
+    def test_create_notebook_deployment_bundle_validates(self):
+        file_name = get_dir(join('pip1', 'requirements.txt'))
+        with self.assertRaises(RSConnectException):
+            create_notebook_deployment_bundle(file_name, [], None, None, None)
+        file_name = get_dir(join('pip1', 'dummy.ipynb'))
+        with self.assertRaises(RSConnectException):
+            create_notebook_deployment_bundle(file_name, ['bogus'], None, None, None)
+
+    def test_create_api_deployment_bundle_validates(self):
+        directory = get_api_path('flask')
+        with self.assertRaises(RSConnectException):
+            create_api_deployment_bundle(directory, [], [], "bogus:bogus:bogus", None, None)
+        with self.assertRaises(RSConnectException):
+            create_api_deployment_bundle(directory, ["bogus"], [], "app:app", None, None)
