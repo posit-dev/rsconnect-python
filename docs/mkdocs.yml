@@ -1,0 +1,24 @@
+site_name: 'RStudio Connect: rsconnect-python Library'
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - attr_list: {}
+  - def_list: {}
+  - tables: {}
+  - admonition
+  - pymdownx.superfences: {}
+  - codehilite:
+      guess_lang: false
+
+plugins:
+  - macros
+
+theme:
+  name: material
+  logo: 'images/rstudio-logo.png'
+  palette:
+    primary: 'white'
+
+extra_css:
+  - css/custom.css

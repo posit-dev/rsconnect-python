@@ -38,7 +38,7 @@ cd rsconnect-python
 python setup.py install
 ```
 
-To install a version directly from pip:
+To install the current version directly from pip:
 
 ```bash
 pip install rsconnect-python
@@ -55,7 +55,7 @@ rsconnect deploy notebook \
 	my-notebook.ipynb
 ```
 
-> **Note:** the examples here use long command line options, but there are short
+> **Note:** The examples here use long command line options, but there are short
 > options (`-s`, `-k`, etc.) available also. Run `rsconnect deploy notebook --help`
 > for details.
 
@@ -97,7 +97,7 @@ The information used by the `rsconnect` command to communicate with an RStudio C
 server can be tedious to repeat on every command.  To help, the CLI supports the idea
 of saving this information, making it usable by a simple nickname.
 
-> **Note:** One item of information saved is the API key used to authenticate with
+> **Important:** One item of information saved is the API key used to authenticate with
 > RStudio Connect.  Although the file where this information is saved is marked as
 > accessible by the owner only, it's important to remember that the key is present
 > in the file as plain text so care must be taken to prevent any unauthorized access
@@ -130,7 +130,7 @@ rsconnect add \
 	--name myserver
 ```
 
-> **Note**: The `rsconnect` CLI will verify that the serve URL and API key
+> **Note:** The `rsconnect` CLI will verify that the serve URL and API key
 > are valid.  If either is found not to be, no information will be saved.
 
 If any of the access information for the server changes, simply rerun the
@@ -212,9 +212,10 @@ be included in the bundle. It must specify the package dependencies needed to ex
 the notebook. RStudio Connect will reconstruct the Python environment using the
 specified package list.
 
-If there is no `requirements.txt` file, the package dependencies will be determined
-from the current Python environment, or from an alternative Python executable specified
-via the `--python` option or via the `RETICULATE_PYTHON` environment variable:
+If there is no `requirements.txt` file or the `--force-generate` option is specified,
+the package dependencies will be determined from the current Python environment, or
+from an alternative Python executable specified via the `--python` option or via the
+`RETICULATE_PYTHON` environment variable:
 
 ```bash
 rsconnect deploy notebook --python /path/to/python my-notebook.ipynb
@@ -246,9 +247,10 @@ You can create a `manifest.json` file for a Jupyter Notebook, then use that mani
 in a later deployment.  Use the `write-manifest` command to do this.
 
 The `write-manifest` command will also create a `requirements.txt` file, if it does
-not already exist. It will contain the package dependencies from the current Python
-environment, or from an alternative Python executable specified in the `--python`
-option or via the `RETICULATE_PYTHON` environment variable.
+not already exist or the `--force-generate` option is specified. It will contain the
+package dependencies from the current Python environment, or from an alternative
+Python executable specified in the `--python` option or via the `RETICULATE_PYTHON`
+environment variable.
 
 Here is an example of the `write-manifest` command:
 
@@ -256,12 +258,12 @@ Here is an example of the `write-manifest` command:
 rsconnect write-manifest notebook my-notebook.ipynb
 ```
 
-> **Note:** manifests for static (pre-rendered) notebooks cannot be created.
+> **Note:** Manifests for static (pre-rendered) notebooks cannot be created.
 
 ### API/Application Deployment Options
 
 There are a variety of options available to you when deploying a Python WSGi-style
-API or a Dash application.  All options below apply equally to `api` and `dash`
+API or Dash application.  All options below apply equally to `api` and `dash`
 sub-commands.
 
 #### Including Extra Files
@@ -295,9 +297,10 @@ included in the bundle. It must specify the package dependencies needed to execu
 the API or application. RStudio Connect will reconstruct the Python environment using
 the specified package list.
 
-If there is no `requirements.txt` file, the package dependencies will be determined
-from the current Python environment, or from an alternative Python executable specified
-via the `--python` option or via the `RETICULATE_PYTHON` environment variable:
+If there is no `requirements.txt` file or the `--force-generate` option is specified,
+the package dependencies will be determined from the current Python environment, or
+from an alternative Python executable specified via the `--python` option or via the
+`RETICULATE_PYTHON` environment variable:
 
 ```bash
 rsconnect deploy api --python /path/to/python my-api/
@@ -316,9 +319,10 @@ You can create a `manifest.json` file for an API or application, then use that
 manifest in a later deployment.  Use the `write-manifest` command to do this.
 
 The `write-manifest` command will also create a `requirements.txt` file, if it does
-not already exist. It will contain the package dependencies from the current Python
-environment, or from an alternative Python executable specified in the `--python`
-option or via the `RETICULATE_PYTHON` environment variable.
+not already exist or the `--force-generate` option is specified. It will contain
+the package dependencies from the current Python environment, or from an alternative
+Python executable specified in the `--python` option or via the `RETICULATE_PYTHON`
+environment variable.
 
 Here is an example of the `write-manifest` command:
 
@@ -369,6 +373,9 @@ this, use the `--title` option:
 rsconnect deploy notebook --title "My Notebook" my-notebook.ipynb
 ```
 
+When using `rsconnect deploy api` or `rsconnect deploy dash`, the title is derived
+from the directory containing the API or application.
+
 When using `rsconnect deploy manifest`, the title is derived from the primary
 filename referenced in the manifest.
 
@@ -418,7 +425,8 @@ an instance of RStudio Connect, you'll probably want to use the `add` command to
 
 If you deploy a file again to the same server, `rsconnect` will update the previous
 deployment. This means that you can keep running `rsconnect deploy notebook my-notebook.ipynb`
-as you develop new versions of your notebook or other Python content.
+as you develop new versions of your notebook. The same applies to other Python content
+types.
 
 #### Forcing a New Deployment
 

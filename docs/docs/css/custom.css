@@ -1,0 +1,12 @@
+.md-typeset dl dt {
+    font-style: italic;
+    font-weight: bold;
+}
+
+.md-typeset dl dd {
+    margin-top: 0;
+}
+
+.md-typeset dd p:first-child {
+    margin-top: 0;
+}
