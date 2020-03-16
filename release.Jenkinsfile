@@ -25,8 +25,7 @@ pipeline {
                 }
             }
             steps {
-                sh "aws s3 cp s3://rstudio-rsconnect-jupyter/rsconnect_python-${RELEASE_VERSION}.html s3://docs.rstudio.com/rsconnect-python/ --dryrun"
-                sh "aws s3 cp s3://rstudio-rsconnect-jupyter/rsconnect_python-${RELEASE_VERSION}.html s3://docs.rstudio.com/rsconnect-python/index.html --dryrun"
+                sh "aws s3 sync s3://rstudio-rsconnect-jupyter/rsconnect-python-preview/ s3://docs.rstudio.com/rsconnect-python/ --dryrun"
             }
         }
         stage('Promote Docs') {
@@ -37,8 +36,7 @@ pipeline {
                 }
             }
             steps {
-                sh "aws s3 cp s3://rstudio-rsconnect-jupyter/rsconnect_python-${RELEASE_VERSION}.html s3://docs.rstudio.com/rsconnect-python/"
-                sh "aws s3 cp s3://rstudio-rsconnect-jupyter/rsconnect_python-${RELEASE_VERSION}.html s3://docs.rstudio.com/rsconnect-python/index.html"
+                sh "aws s3 sync s3://rstudio-rsconnect-jupyter/rsconnect-python-preview/ s3://docs.rstudio.com/rsconnect-python/"
             }
         }
         stage('Release to PyPI (dry run)') {

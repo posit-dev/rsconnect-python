@@ -397,7 +397,7 @@ def _deploy_bundle(connect_server, app_store, primary_path, app_id, app_mode, na
 @click.option('--conda', '-C', is_flag=True, hidden=True,
               help='Use conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
-              help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
+              help='Force generating "requirements.txt", even if it already exists.')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
 @click.argument('file', type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))
@@ -505,7 +505,7 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
 @click.option('--conda', '-C', is_flag=True, hidden=True,
               help='Use conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
-              help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
+              help='Force generating "requirements.txt", even if it already exists.')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
 @click.argument('directory', type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))
@@ -546,7 +546,7 @@ def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new
 @click.option('--conda', '-C', is_flag=True, hidden=True,
               help='Use conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
-              help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
+              help='Force generating "requirements.txt", even if it already exists.')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
 @click.argument('directory', type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))
@@ -638,7 +638,7 @@ def write_manifest():
 
 @write_manifest.command(name="notebook", short_help='Create a manifest.json file for a Jupyter notebook.',
                         help="Create a manifest.json file for a Jupyter notebook for later deployment. This will "
-                             "create an environment file (requirements.txt or environment.yml) if one does not exist. "
+                             "create an environment file (\"requirements.txt\") if one does not exist. "
                              "All files are created in the same directory as the notebook file.")
 @click.option('--overwrite', '-o', is_flag=True, help='Overwrite manifest.json, if it exists.')
 @click.option('--python', '-p', type=click.Path(exists=True),
@@ -647,7 +647,7 @@ def write_manifest():
 @click.option('--conda', '-C', is_flag=True, hidden=True,
               help='Use conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
-              help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
+              help='Force generating "requirements.txt", even if it already exists.')
 @click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
 @click.argument('file', type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))
@@ -682,7 +682,7 @@ def write_manifest_notebook(overwrite, python, conda, force_generate, verbose, f
 # noinspection SpellCheckingInspection
 @write_manifest.command(name="api", short_help='Create a manifest.json file for a Python API.',
                         help='Create a manifest.json file for a Python API for later deployment. This will create an '
-                             'environment file (requirements.txt or environment.yml) if one does not exist. All files '
+                             'environment file (\"requirements.txt\") if one does not exist. All files '
                              'are created in the same directory as the API code.')
 @click.option('--overwrite', '-o', is_flag=True, help='Overwrite manifest.json, if it exists.')
 @click.option('--entrypoint', '-e', help='The module and executable object which serves as the entry point for the '
@@ -697,7 +697,7 @@ def write_manifest_notebook(overwrite, python, conda, force_generate, verbose, f
 @click.option('--conda', '-C', is_flag=True, hidden=True,
               help='Use conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
-              help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
+              help='Force generating "requirements.txt", even if it already exists.')
 @click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
 @click.argument('directory', type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))
@@ -711,7 +711,7 @@ def write_manifest_api(overwrite, entrypoint, exclude, python, conda, force_gene
 # noinspection SpellCheckingInspection
 @write_manifest.command(name="dash", short_help='Create a manifest.json file for a Python API.',
                         help='Create a manifest.json file for a Dash app for later deployment. This will create an '
-                             'environment file (requirements.txt or environment.yml) if one does not exist. All files '
+                             'environment file (\"requirements.txt\") if one does not exist. All files '
                              'are created in the same directory as the API code.')
 @click.option('--overwrite', '-o', is_flag=True, help='Overwrite manifest.json, if it exists.')
 @click.option('--entrypoint', '-e', help='The module and executable object which serves as the entry point for the '
@@ -726,7 +726,7 @@ def write_manifest_api(overwrite, entrypoint, exclude, python, conda, force_gene
 @click.option('--conda', '-C', is_flag=True, hidden=True,
               help='Use conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
-              help='Force generating "requirements.txt" or "environment.yml", even if it already exists.')
+              help='Force generating "requirements.txt", even if it already exists.')
 @click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
 @click.argument('directory', type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @click.argument('extra_files', nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True))

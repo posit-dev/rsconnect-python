@@ -33,7 +33,9 @@ class RSConnectServer(object):
             else:
                 if response.json_data and 'error' in response.json_data:
                     raise RSConnectException('The Connect server reported an error: %s' % response.json_data['error'])
-                raise RSConnectException('The specified server does not appear to be running RStudio Connect')
+                raise RSConnectException(
+                    'Received and unexpected response from RStudio Connect: %s %s' % (response.status, response.reason)
+                )
 
 
 class RSConnect(HTTPServer):

@@ -54,12 +54,7 @@ clean-stores:
 
 .PHONY: docs
 docs:
-	docker run --rm \
-		-v ${PWD}:/rsconnect-python \
-		-w /rsconnect-python \
-		-e VERSION="${VERSION}" \
-		pandoc/latex:2.8.0.1 \
-		docs/build-doc.sh
+	${MAKE} -C docs
 
 .PHONY: dist
 dist:
