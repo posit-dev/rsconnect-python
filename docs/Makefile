@@ -1,6 +1,5 @@
 # Our make file for the docs.
 MKDOCS_IMAGE?="rstudio/rsconnect:mkdocs"
-BUILD_RUNNER=
 
 ## Specify that Docker runs with the calling user's uid/gid to avoid file
 ## permission issues on Linux dev hosts.
@@ -9,14 +8,11 @@ ifeq (Linux,$(shell uname))
 	DOCKER_RUN_AS=-u $(shell id -u):$(shell id -g)
 endif
 
-# See if we're runing in Jenkins (direct execution) or need to use our docker image.
-ifeq (${JOB_NAME},)
-	BUILD_RUNNER=docker run --rm --name mkdocs \
-		${DOCKER_RUN_AS} \
-		-v $(CURDIR):/mkdocs \
-		-w /mkdocs \
-		${MKDOCS_IMAGE}
-endif
+BUILD_RUNNER=docker run --rm --name mkdocs \
+	${DOCKER_RUN_AS} \
+	-v $(CURDIR):/mkdocs \
+	-w /mkdocs \
+	${MKDOCS_IMAGE}
 
 # Do everything,
 all: clean image build
