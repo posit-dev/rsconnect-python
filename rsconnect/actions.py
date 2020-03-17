@@ -412,9 +412,6 @@ def validate_entry_point(entry_point):
     if not entry_point:
         entry_point = 'app'
 
-    if ':' not in entry_point:
-        entry_point = '%s:%s' % (entry_point, entry_point)
-
     parts = entry_point.split(':')
 
     if len(parts) > 2:
@@ -730,7 +727,7 @@ def gather_basic_deployment_info_for_api(connect_server, app_store, directory, e
     :param directory: the primary file being deployed.
     :param entry_point: the entry point for the API in '<module>:<object> format.  if
     the object name is omitted, it defaults to the module name.  If nothing is specified,
-    it defaults to 'app:app'.
+    it defaults to 'app'.
     :param new: a flag noting whether we should force a new deployment.
     :param app_id: the ID of the app to redeploy.
     :param title: an optional title.  If this isn't specified, a default title will
@@ -751,7 +748,7 @@ def gather_basic_deployment_info_for_dash(connect_server, app_store, directory, 
     :param directory: the primary file being deployed.
     :param entry_point: the entry point for the API in '<module>:<object> format.  if
     the object name is omitted, it defaults to the module name.  If nothing is specified,
-    it defaults to 'app:app'.
+    it defaults to 'app'.
     :param new: a flag noting whether we should force a new deployment.
     :param app_id: the ID of the app to redeploy.
     :param title: an optional title.  If this isn't specified, a default title will
@@ -773,7 +770,7 @@ def _gather_basic_deployment_info_for_framework(connect_server, app_store, direc
     :param directory: the primary file being deployed.
     :param entry_point: the entry point for the API in '<module>:<object> format.  if
     the object name is omitted, it defaults to the module name.  If nothing is specified,
-    it defaults to 'app:app'.
+    it defaults to 'app'.
     :param new: a flag noting whether we should force a new deployment.
     :param app_id: the ID of the app to redeploy.
     :param app_mode: the app mode to use.
