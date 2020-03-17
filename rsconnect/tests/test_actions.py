@@ -100,8 +100,9 @@ class TestActions(TestCase):
         _validate_title('1' * 1024)
 
     def test_validate_entry_point(self):
-        self.assertEqual(validate_entry_point(None), 'app:app')
-        self.assertEqual(validate_entry_point('app'), 'app:app')
+        self.assertEqual(validate_entry_point(None), 'app')
+        self.assertEqual(validate_entry_point('app'), 'app')
+        self.assertEqual(validate_entry_point('app:app'), 'app:app')
 
         with self.assertRaises(RSConnectException):
             validate_entry_point('x:y:z')

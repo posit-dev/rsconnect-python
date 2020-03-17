@@ -489,7 +489,7 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
 @click.option('--cacert', '-c', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
               help='The path to trusted TLS CA certificates.')
 @click.option('--entrypoint', '-e', help='The module and executable object which serves as the entry point for the '
-                                         'WSGi framework of choice (defaults to app:app)')
+                                         'WSGi framework of choice (defaults to app)')
 @click.option('--exclude', '-x', multiple=True,
               help='Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try '
                    'to expand this which will not do what you expect. Generally, it\'s safest to quote the pattern. '
@@ -530,7 +530,7 @@ def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new
 @click.option('--cacert', '-c', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
               help='The path to trusted TLS CA certificates.')
 @click.option('--entrypoint', '-e', help='The module and executable object which serves as the entry point for the '
-                                         'Dash application (defaults to app:app)')
+                                         'Dash application (defaults to app)')
 @click.option('--exclude', '-x', multiple=True,
               help='Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try '
                    'to expand this which will not do what you expect. Generally, it\'s safest to quote the pattern. '
@@ -686,7 +686,7 @@ def write_manifest_notebook(overwrite, python, conda, force_generate, verbose, f
                              'are created in the same directory as the API code.')
 @click.option('--overwrite', '-o', is_flag=True, help='Overwrite manifest.json, if it exists.')
 @click.option('--entrypoint', '-e', help='The module and executable object which serves as the entry point for the '
-                                         'WSGi framework of choice (defaults to app:app)')
+                                         'WSGi framework of choice (defaults to app)')
 @click.option('--exclude', '-x', multiple=True,
               help='Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try '
                    'to expand this which will not do what you expect. Generally, it\'s safest to quote the pattern. '
@@ -715,7 +715,7 @@ def write_manifest_api(overwrite, entrypoint, exclude, python, conda, force_gene
                              'are created in the same directory as the API code.')
 @click.option('--overwrite', '-o', is_flag=True, help='Overwrite manifest.json, if it exists.')
 @click.option('--entrypoint', '-e', help='The module and executable object which serves as the entry point for the '
-                                         'Dash application (defaults to app:app)')
+                                         'Dash application (defaults to app)')
 @click.option('--exclude', '-x', multiple=True,
               help='Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try '
                    'to expand this which will not do what you expect. Generally, it\'s safest to quote the pattern. '
