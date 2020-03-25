@@ -234,7 +234,7 @@ def are_apis_supported_on_server(connect_details):
 
     :param connect_details: details about a Connect server as returned by gather_server_details()
     :return: boolean True if the Connect server supports Python APIs or not or False if not.
-    :error: The RStudio Connect does not allow for Python APIs.
+    :error: The RStudio Connect server does not allow for Python APIs.
     """
     return connect_details['python']['api_enabled']
 
