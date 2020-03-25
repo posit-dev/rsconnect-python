@@ -52,7 +52,7 @@ class TestActions(TestCase):
 
         with self.assertRaises(api.RSConnectException) as context:
             check_server_capabilities(None, (are_apis_supported_on_server,), lambda x: no_api_support)
-        self.assertEqual(str(context.exception), 'The RStudio Connect does not allow for Python APIs.')
+        self.assertEqual(str(context.exception), 'The RStudio Connect server does not allow for Python APIs.')
 
         check_server_capabilities(None, (are_apis_supported_on_server,), lambda x: api_support)
 
