@@ -1,3 +1,9 @@
+`rsconnect-python` 1.4.1
+--------------------------------------------------------------------------------
+*   Fixed sticky sessions so we will track deploys correctly when RStudio Connect
+    is in an HA/clustered environment.
+
+
 `rsconnect-python` 1.4.0
 --------------------------------------------------------------------------------
 *   Command line handling of options is more consistent across all commands.
