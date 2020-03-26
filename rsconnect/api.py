@@ -22,6 +22,8 @@ class RSConnectServer(object):
         self.api_key = api_key
         self.insecure = insecure
         self.ca_data = ca_data
+        # This is specifically not None.
+        self.cookie_jar = []
 
     def handle_bad_response(self, response):
         if isinstance(response, HTTPResponse):
@@ -40,6 +42,8 @@ class RSConnectServer(object):
 
 class RSConnect(HTTPServer):
     def __init__(self, server, cookies=None):
+        if cookies is None:
+            cookies = server.cookie_jar
         super(RSConnect, self).__init__(append_to_path(server.url, '__api__'), server.insecure, server.ca_data, cookies)
         self._server = server
 
