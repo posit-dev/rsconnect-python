@@ -144,6 +144,9 @@ class RSConnect(HTTPServer):
             time.sleep(0.5)
 
             task_status = self.task_get(task_id, last_status)
+
+            self._server.handle_bad_response(task_status)
+
             last_status = self.output_task_log(task_status, last_status, log_callback)
 
             if task_status['finished']:
