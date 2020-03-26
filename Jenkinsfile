@@ -78,14 +78,15 @@ def buildAndTest(pyVersion) {
 def publishArtifacts() {
     // Promote master builds to S3
     sh 'rm -f dist/*.egg'
-    cmd = "aws s3 sync docs/site s3://rstudio-rsconnect-jupyter/rsconnect-python-preview/"
 
     if (isUserBranch) {
         print "S3 sync DRY RUN for user branch ${env.BRANCH_NAME}"
-        sh (cmd + ' --dryrun')
+        sh "aws s3 sync dist s3://rstudio-rsconnect-jupyter/ --dryrun"
+        sh "aws s3 sync docs/site s3://rstudio-rsconnect-jupyter/rsconnect-python-preview/ --dryrun"
     } else {
         print "S3 sync for ${env.BRANCH_NAME}"
-        sh cmd
+        sh "aws s3 sync dist s3://rstudio-rsconnect-jupyter/"
+        sh "aws s3 sync docs/site s3://rstudio-rsconnect-jupyter/rsconnect-python-preview/"
     }
 }
 
