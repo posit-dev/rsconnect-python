@@ -1,3 +1,9 @@
+`rsconnect-python` 1.4.2 -- Unreleased
+--------------------------------------------------------------------------------
+*   Added more helpful feedback when a "requested object does not exist" error is
+    returned by Connect.
+
+
 `rsconnect-python` 1.4.1
 --------------------------------------------------------------------------------
 *   Fixed sticky sessions so we will track deploys correctly when RStudio Connect
