@@ -1,7 +1,7 @@
 import time
 from _ssl import SSLError
 
-from rsconnect.http_support import HTTPResponse, HTTPServer, append_to_path
+from rsconnect.http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
 from rsconnect.log import logger
 from rsconnect.models import AppModes
 
@@ -28,7 +28,7 @@ class RSConnectServer(object):
         self.insecure = insecure
         self.ca_data = ca_data
         # This is specifically not None.
-        self.cookie_jar = []
+        self.cookie_jar = CookieJar()
 
     def handle_bad_response(self, response):
         if isinstance(response, HTTPResponse):

@@ -119,7 +119,8 @@ class HTTPServer(object):
         relevant on HTTPS URLs.
         :param ca_data: any certificate authority data to use in specifying client side
         certificates.
-        :param cookies: an optional cookie jar.
+        :param cookies: an optional cookie jar.  Must be of type `CookieJar` defined in this
+        same file (i.e., not the one Python provides)..
         """
         self._url = urlparse(url)
 
@@ -128,7 +129,7 @@ class HTTPServer(object):
 
         self._disable_tls_check = disable_tls_check
         self._ca_data = ca_data
-        self._cookies = [] if cookies is None else cookies
+        self._cookies = cookies or CookieJar()
         self._headers = {'User-Agent': _user_agent}
         self._conn = None
 
@@ -222,20 +223,41 @@ class HTTPServer(object):
         return response
 
     def _handle_set_cookie(self, response):
+        self._cookies.store_cookies(response)
+        self._inject_cookies()
+
+    def _inject_cookies(self):
+        if len(self._cookies) > 0:
+            self._headers['Cookie'] = self._cookies.get_cookie_header_value()
+        elif 'Cookie' in self._headers:
+            del self._headers['Cookie']
+
+
+class CookieJar(object):
+    def __init__(self):
+        self._keys = []
+        self._content = {}
+        self._reference = SimpleCookie()
+
+    def store_cookies(self, response):
         headers = filter(lambda h: h[0].lower() == 'set-cookie', response.getheaders())
 
         for header in headers:
             cookie = SimpleCookie(header[1])
             for morsel in cookie.values():
-                self._cookies.append((dict(key=morsel.key, value=morsel.value)))
+                if morsel.key not in self._keys:
+                    self._keys.append(morsel.key)
+                self._content[morsel.key] = morsel.value
 
-        self._inject_cookies()
+        logger.debug('CookieJar contents: %s\n%s' % (self._keys, self._content))
 
-    def _inject_cookies(self):
-        if self._cookies:
-            self._headers['Cookie'] = '; '.join(['%s="%s"' % (kv['key'], kv['value']) for kv in self._cookies])
-        elif 'Cookie' in self._headers:
-            del self._headers['Cookie']
+    def get_cookie_header_value(self):
+        result = '; '.join(['%s=%s' % (key, self._reference.value_encode(self._content[key])[1]) for key in self._keys])
+        logger.debug('Cookie: %s' % result)
+        return result
+
+    def __len__(self):
+        return len(self._keys)
 
 
 _connection_factory = {
