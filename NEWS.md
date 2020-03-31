@@ -1,9 +1,14 @@
-`rsconnect-python` 1.4.2 -- Unreleased
+`rsconnect-python` 1.4.2
 --------------------------------------------------------------------------------
 *   Added more helpful feedback when a "requested object does not exist" error is
     returned by Connect.
 
 *   Fixed an issue where cookie header size could grow inappropriately (#107).
+
+*   Be more distinguishing between a server that's not running Connect and a
+    credentials problem.
+
+*   Corrected the instructions to enable auto-completion.
 
 
 `rsconnect-python` 1.4.1

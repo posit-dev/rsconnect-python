@@ -294,11 +294,12 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_r
     if not real_server:
         raise api.RSConnectException('You must specify one of -n/--name or -s/--server.')
 
-    connect_server = api.RSConnectServer(real_server, api_key, insecure, ca_data)
+    connect_server = api.RSConnectServer(real_server, None, insecure, ca_data)
 
     # If our info came from the command line, make sure the URL really works.
     if not from_store:
         connect_server, _ = test_server(connect_server)
+        connect_server.api_key = api_key
 
     if not connect_server.api_key:
         if api_key_is_required:
