@@ -8,7 +8,7 @@
 *   Be more distinguishing between a server that's not running Connect and a
     credentials problem.
 
-*   Corrected the auto-completion enabling instructions.
+*   Corrected the instructions to enable auto-completion.
 
 
 `rsconnect-python` 1.4.1
