@@ -70,7 +70,7 @@ If you are using the `bash` shell, use this to enable tab completion.
 
 ```bash
 #~/.bashrc
-eval "$(_RSCONNECT_COMPLETION=source rsconnect)"
+eval "$(_RSCONNECT_COMPLETE=source rsconnect)"
 ```
 
 #### `zsh`
@@ -79,7 +79,7 @@ If you are using the `zsh` shell, use this to enable tab completion.
 
 ```zsh
 #~/.zshrc
-eval "$(_RSCONNECT_COMPLETION=source_zsh rsconnect)"
+eval "$(_RSCONNECT_COMPLETE=source_zsh rsconnect)"
 ```
 
 If you get `command not found: compdef`, you need to add the following lines to your 
