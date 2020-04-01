@@ -1,6 +1,6 @@
 `rsconnect-python` 1.4.3
 --------------------------------------------------------------------------------
-*   Finished being more distinguishing between a server that's not runnint Connect
+*   Finished being more distinguishing between a server that's not running Connect
     and a credentials problem.
 
 
