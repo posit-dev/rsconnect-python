@@ -299,7 +299,8 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_r
     # If our info came from the command line, make sure the URL really works.
     if not from_store:
         connect_server, _ = test_server(connect_server)
-        connect_server.api_key = api_key
+
+    connect_server.api_key = api_key
 
     if not connect_server.api_key:
         if api_key_is_required:
