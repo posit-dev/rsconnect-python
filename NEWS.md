@@ -1,3 +1,9 @@
+`rsconnect-python` 1.4.3
+--------------------------------------------------------------------------------
+*   Finished being more distinguishing between a server that's not running Connect
+    and a credentials problem.
+
+
 `rsconnect-python` 1.4.2
 --------------------------------------------------------------------------------
 *   Added more helpful feedback when a "requested object does not exist" error is
