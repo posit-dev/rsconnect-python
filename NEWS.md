@@ -5,6 +5,8 @@
 *   Updated our `CookieJar` class to support marshalling/un-marshalling to/from
     a dictionary.
 
+*   Corrected an issue with cookie jar continuity across connections.
+
 
 `rsconnect-python` 1.4.3
 --------------------------------------------------------------------------------

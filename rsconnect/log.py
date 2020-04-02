@@ -1,4 +1,4 @@
-from logging import getLogger, LoggerAdapter
+from logging import getLogger, LoggerAdapter, DEBUG
 
 import click
 
@@ -21,6 +21,9 @@ class RSLogger(LoggerAdapter):
                 self._have_feedback_output = True
             msg = click.style(' %s' % msg, fg='green')
         return msg, kwargs
+
+    def is_debugging(self):
+        return self.isEnabledFor(DEBUG)
 
     def setLevel(self, level):
         """

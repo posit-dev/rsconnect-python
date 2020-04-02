@@ -129,7 +129,7 @@ class HTTPServer(object):
 
         self._disable_tls_check = disable_tls_check
         self._ca_data = ca_data
-        self._cookies = cookies or CookieJar()
+        self._cookies = cookies if cookies is not None else CookieJar()
         self._headers = {'User-Agent': _user_agent}
         self._conn = None
 
@@ -178,8 +178,11 @@ class HTTPServer(object):
         local_connection = False
 
         try:
-            logger.debug('Request: %s %s' % (method, full_uri))
-            logger.debug('Headers: %s' % '\n'.join(['--> %s: %s' % (key, value) for key, value in headers.items()]))
+            if logger.is_debugging():
+                logger.debug('Request: %s %s' % (method, full_uri))
+                logger.debug('Headers:')
+                for key, value in headers.items():
+                    logger.debug('--> %s: %s' % (key, value))
 
             # if we weren't called under a `with` statement, we'll need to manage the
             # connection here.
@@ -193,8 +196,12 @@ class HTTPServer(object):
                 response = self._conn.getresponse()
                 response_body = response.read().decode('utf-8').strip()
 
-                logger.debug("Response: %s %s" % (response.status, response.reason))
-                logger.debug("--> %s" % response_body)
+                if logger.is_debugging():
+                    logger.debug("Response: %s %s" % (response.status, response.reason))
+                    logger.debug('Headers:')
+                    for key, value in response.getheaders():
+                        logger.debug('--> %s: %s' % (key, value))
+                    logger.debug("--> %s" % response_body)
             finally:
                 if local_connection:
                     self.__exit__()
@@ -276,7 +283,7 @@ class CookieJar(object):
 
     def as_dict(self):
         return {
-            'keys': self._keys.copy(),
+            'keys': list(self._keys),
             'content': self._content.copy()
         }
 
