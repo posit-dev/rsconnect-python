@@ -1,3 +1,11 @@
+`rsconnect-python` 1.4.4
+--------------------------------------------------------------------------------
+*   Converted a traceback to a more appropriate message.
+
+*   Updated our `CookieJar` class to support marshalling/un-marshalling to/from
+    a dictionary.
+
+
 `rsconnect-python` 1.4.3
 --------------------------------------------------------------------------------
 *   Finished being more distinguishing between a server that's not running Connect

@@ -1,6 +1,7 @@
 from unittest import TestCase
 
-from rsconnect.http_support import _connection_factory,  _user_agent, _create_ssl_connection, append_to_path, HTTPServer
+from rsconnect.http_support import _connection_factory, _user_agent, _create_ssl_connection, append_to_path, HTTPServer, \
+    CookieJar
 
 
 class TestHTTPSupport(TestCase):
@@ -42,3 +43,21 @@ class TestHTTPSupport(TestCase):
         self.assertEqual(server._headers['User-Agent'], _user_agent)
         self.assertIn('Authorization', server._headers)
         self.assertEqual(server._headers['Authorization'], 'Key my-api-key')
+
+
+class FakeSetCookieResponse(object):
+    def __init__(self, data):
+        self._data = [('Set-Cookie', term) for term in data]
+
+    def getheaders(self):
+        return self._data
+
+
+class TestCookieJar(TestCase):
+    def test_basic_stuff(self):
+        jar = CookieJar()
+        jar.store_cookies(FakeSetCookieResponse([
+            'my-cookie=my-value',
+            'my-2nd-cookie=my-other-value'
+        ]))
+        self.assertEqual(jar.get_cookie_header_value(), 'my-cookie=my-value; my-2nd-cookie=my-other-value')

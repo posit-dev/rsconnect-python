@@ -178,7 +178,8 @@ class HTTPServer(object):
         local_connection = False
 
         try:
-            logger.debug('Performing: %s %s' % (method, full_uri))
+            logger.debug('Request: %s %s' % (method, full_uri))
+            logger.debug('Headers: %s' % '\n'.join(['--> %s: %s' % (key, value) for key, value in headers]))
 
             # if we weren't called under a `with` statement, we'll need to manage the
             # connection here.
@@ -234,6 +235,22 @@ class HTTPServer(object):
 
 
 class CookieJar(object):
+    @staticmethod
+    def from_dict(source):
+        if not isinstance(source, dict):
+            raise ValueError('Input must be a dictionary.')
+        keys = source.get('keys', [])
+        content = source.get('content', {})
+        if len(keys) != len(content):
+            raise ValueError('Cookie data is mismatched.')
+        for key in keys:
+            if key not in content:
+                raise ValueError('Cookie data is mismatched.')
+        result = CookieJar()
+        result._keys = keys
+        result._content = content
+        return result
+
     def __init__(self):
         self._keys = []
         self._content = {}
@@ -248,6 +265,7 @@ class CookieJar(object):
                 if morsel.key not in self._keys:
                     self._keys.append(morsel.key)
                 self._content[morsel.key] = morsel.value
+                logger.debug('--> Set cookie %s: %s' % (morsel.key, morsel.value))
 
         logger.debug('CookieJar contents: %s\n%s' % (self._keys, self._content))
 
@@ -255,6 +273,12 @@ class CookieJar(object):
         result = '; '.join(['%s=%s' % (key, self._reference.value_encode(self._content[key])[1]) for key in self._keys])
         logger.debug('Cookie: %s' % result)
         return result
+
+    def as_dict(self):
+        return {
+            'keys': self._keys.copy(),
+            'content': self._content.copy()
+        }
 
     def __len__(self):
         return len(self._keys)
