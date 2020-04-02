@@ -1,6 +1,7 @@
 from unittest import TestCase
 
-from rsconnect.http_support import _connection_factory,  _user_agent, _create_ssl_connection, append_to_path, HTTPServer
+from rsconnect.http_support import _connection_factory, _user_agent, _create_ssl_connection, append_to_path,\
+    HTTPServer, CookieJar
 
 
 class TestHTTPSupport(TestCase):
@@ -42,3 +43,59 @@ class TestHTTPSupport(TestCase):
         self.assertEqual(server._headers['User-Agent'], _user_agent)
         self.assertIn('Authorization', server._headers)
         self.assertEqual(server._headers['Authorization'], 'Key my-api-key')
+
+
+class FakeSetCookieResponse(object):
+    def __init__(self, data):
+        self._data = [('Set-Cookie', term) for term in data]
+
+    def getheaders(self):
+        return self._data
+
+
+class TestCookieJar(TestCase):
+    def test_basic_stuff(self):
+        jar = CookieJar()
+        jar.store_cookies(FakeSetCookieResponse([
+            'my-cookie=my-value',
+            'my-2nd-cookie=my-other-value'
+        ]))
+        self.assertEqual(jar.get_cookie_header_value(), 'my-cookie=my-value; my-2nd-cookie=my-other-value')
+
+    def test_from_dict(self):
+        jar = CookieJar.from_dict({
+            'keys': ['name'],
+            'content': {
+                'name': 'value'
+            }
+        })
+        self.assertEqual(jar.get_cookie_header_value(), 'name=value')
+
+    def test_from_dict_errors(self):
+        with self.assertRaises(ValueError) as info:
+            CookieJar.from_dict('bogus')
+        self.assertEqual(str(info.exception), 'Input must be a dictionary.')
+
+        test_data = [
+            {'content': {'a': 'b'}},
+            {'keys': ['a']},
+            {'keys': ['b'], 'content': {'a': 'b'}},
+        ]
+        for data in test_data:
+            with self.assertRaises(ValueError) as info:
+                CookieJar.from_dict(data)
+            self.assertEqual(str(info.exception), 'Cookie data is mismatched.')
+
+    def test_as_dict(self):
+        jar = CookieJar()
+        jar.store_cookies(FakeSetCookieResponse([
+            'my-cookie=my-value',
+            'my-2nd-cookie=my-other-value'
+        ]))
+        self.assertEqual(jar.as_dict(), {
+            'keys': ['my-cookie', 'my-2nd-cookie'],
+            'content': {
+                'my-cookie': 'my-value',
+                'my-2nd-cookie': 'my-other-value'
+            }
+        })

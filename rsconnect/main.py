@@ -422,8 +422,8 @@ def deploy_notebook(name, server, api_key, insecure, cacert, static, new, app_id
 
     # Ww will want this back eventually...
     if conda:
-        # with cli_feedback('Ensuring conda is supported'):
-        check_server_capabilities(connect_server, [is_conda_supported_on_server])
+        with cli_feedback('Ensuring conda is supported'):
+            check_server_capabilities(connect_server, [is_conda_supported_on_server])
 
     with cli_feedback('Inspecting Python environment'):
         python, environment = get_python_env_info(file, python, not conda, force_generate)
