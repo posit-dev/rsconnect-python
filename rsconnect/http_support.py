@@ -179,7 +179,7 @@ class HTTPServer(object):
 
         try:
             logger.debug('Request: %s %s' % (method, full_uri))
-            logger.debug('Headers: %s' % '\n'.join(['--> %s: %s' % (key, value) for key, value in headers]))
+            logger.debug('Headers: %s' % '\n'.join(['--> %s: %s' % (key, value) for key, value in headers.items()]))
 
             # if we weren't called under a `with` statement, we'll need to manage the
             # connection here.
