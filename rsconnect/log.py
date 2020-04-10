@@ -1,6 +1,7 @@
 from logging import getLogger, LoggerAdapter, DEBUG
 
 import click
+import six
 
 
 class RSLogger(LoggerAdapter):
@@ -15,9 +16,9 @@ class RSLogger(LoggerAdapter):
 
     def process(self, msg, kwargs):
         msg, kwargs = super(RSLogger, self).process(msg, kwargs)
-        if self._in_feedback:
+        if self._in_feedback and self.is_debugging():
             if not self._have_feedback_output:
-                print()
+                six.print_()
                 self._have_feedback_output = True
             msg = click.style(' %s' % msg, fg='green')
         return msg, kwargs

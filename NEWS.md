@@ -1,3 +1,10 @@
+`rsconnect-python` 1.4.5
+--------------------------------------------------------------------------------
+*   Fix output alignment under Python 2.
+
+*   Pin required versions of the `click` and `six` libraries that we use.
+
+
 `rsconnect-python` 1.4.4
 --------------------------------------------------------------------------------
 *   Converted a traceback to a more appropriate message.
