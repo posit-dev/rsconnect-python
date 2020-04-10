@@ -32,8 +32,8 @@ setup(name='rsconnect_python',
       include_package_data=True,
       zip_safe=False,
       install_requires=[
-          'six',
-          'click',
+          'six>=1.14.0',
+          'click>=7.0.0',
       ],
       python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*',
       entry_points='''
