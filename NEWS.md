@@ -4,6 +4,8 @@
 
 *   Pin required versions of the `click` and `six` libraries that we use.
 
+*   Help text touch up.
+
 
 `rsconnect-python` 1.4.4
 --------------------------------------------------------------------------------

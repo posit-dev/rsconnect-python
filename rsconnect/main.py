@@ -78,7 +78,7 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
 
 
 # noinspection SpellCheckingInspection
-@cli.command(short_help='Define a nickname for an RStuio Connect server.',
+@cli.command(short_help='Define a nickname for an RStudio Connect server.',
              help='Associate a simple nickname with the information needed to interact with an RStudio Connect server. '
                   'Specifying an existing nickname will cause its stored information to be replaced by what is given '
                   'on the command line.')
