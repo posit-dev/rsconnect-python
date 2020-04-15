@@ -16,7 +16,7 @@ class TestEnvironment(TestCase):
         return '.'.join(map(str, sys.version_info[:3]))
 
     def test_get_python_version(self):
-        self.assertEqual(get_python_version(), self.python_version())
+        self.assertEqual(get_python_version({'package_manager': 'pip'}), self.python_version())
 
     def test_get_default_locale(self):
         self.assertEqual(get_default_locale(lambda: ('en_US', 'UTF-8')), 'en_US.UTF-8')
