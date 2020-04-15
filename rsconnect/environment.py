@@ -8,6 +8,7 @@ import subprocess
 import sys
 
 version_re = re.compile(r'\d+\.\d+(\.\d+)?')
+conda_version_re = re.compile(r'^(?:\s*-\s*)?python=(\d+\.\d+(?:\.\d+)?)', re.MULTILINE)
 exec_dir = os.path.dirname(sys.executable)
 
 
@@ -44,7 +45,7 @@ def detect_environment(dirname, force_generate=False, compatibility_mode=False, 
                       or pip_freeze())
 
     if result is not None:
-        result['python'] = get_python_version()
+        result['python'] = get_python_version(result)
         result['pip'] = get_version('pip')
         if conda:
             result['conda'] = get_conda_version(conda)
@@ -65,7 +66,15 @@ def get_conda(conda=None):
         return conda or os.environ.get('CONDA_EXE', None)
 
 
-def get_python_version():
+def get_python_version(data):
+    if data['package_manager'] == 'conda':
+        versions = conda_version_re.findall(data['contents'])
+        if len(versions) > 0:
+            version = versions[0]
+            if version.count('.') == 1:
+                version = version + '.0'
+            return version
+
     v = sys.version_info
     return "%d.%d.%d" % (v[0], v[1], v[2])
 
