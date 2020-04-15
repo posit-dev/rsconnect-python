@@ -73,6 +73,7 @@ def get_python_version(data):
             version = versions[0]
             if version.count('.') == 1:
                 version = version + '.0'
+            data['py_version_from_env_yaml'] = True
             return version
 
     v = sys.version_info
