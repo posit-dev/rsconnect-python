@@ -482,8 +482,8 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
             msg = 'Unable to include the file %s in the bundle: %s' % (error.filename, error.args[1])
             if error.args[0] == errno.ENOENT:
                 msg = '\n'.join([msg, 'Since the file is missing but referenced in the manifest, you will need to\n'
-                                      'regenerate your manifest.  See the help for the "write-manifest" or "deploy\n'
-                                      'other-content" commands for information about creating manifests.'])
+                                      'regenerate your manifest.  See the help for the "write-manifest" command or,\n'
+                                      'for non-Python content, run the "deploy other-content" command.'])
             raise api.RSConnectException(msg)
 
     _deploy_bundle(connect_server, app_store, file, app_id, app_mode, deployment_name, title, default_title, bundle)
