@@ -1,3 +1,4 @@
+import errno
 import logging
 import textwrap
 from os.path import abspath, dirname, exists, isdir, join
@@ -475,7 +476,15 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
         check_server_capabilities(connect_server, [is_conda_supported_on_server])
 
     with cli_feedback('Creating deployment bundle'):
-        bundle = make_manifest_bundle(file)
+        try:
+            bundle = make_manifest_bundle(file)
+        except IOError as error:
+            msg = 'Unable to include the file %s in the bundle: %s' % (error.filename, error.args[1])
+            if error.args[0] == errno.ENOENT:
+                msg = '\n'.join([msg, 'Since the file is missing but referenced in the manifest, you will need to\n'
+                                      'regenerate your manifest.  See the help for the "write-manifest" or "deploy\n'
+                                      'other-content" commands for information about creating manifests.'])
+            raise api.RSConnectException(msg)
 
     _deploy_bundle(connect_server, app_store, file, app_id, app_mode, deployment_name, title, default_title, bundle)
 

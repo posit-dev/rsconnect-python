@@ -1,5 +1,8 @@
 `rsconnect-python` 1.4.5
 --------------------------------------------------------------------------------
+*   Provide clearer feedback when errors happen while building bundles from a
+    manifest.
+
 *   Fix output alignment under Python 2.
 
 *   Pin required versions of the `click` and `six` libraries that we use.
