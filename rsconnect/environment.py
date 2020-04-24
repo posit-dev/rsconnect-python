@@ -46,7 +46,8 @@ def detect_environment(dirname, force_generate=False, conda_mode=False, conda=No
 
     if result is not None:
         if conda_mode and result['package_manager'] != 'conda':
-            return {'error': 'Conda was requested but no Conda environment was found.'}
+            return {'error': 'Conda was requested but no activated Conda environment was found. See "conda activate '
+                             '--help" for more information.'}
 
         result['python'] = get_python_version(result)
         result['pip'] = get_version('pip')
