@@ -8,11 +8,11 @@ from six import text_type
 
 from rsconnect import VERSION
 from rsconnect.actions import are_apis_supported_on_server, check_server_capabilities, cli_feedback, \
-    create_api_deployment_bundle, create_notebook_deployment_bundle, deploy_bundle, describe_manifest, \
-    gather_basic_deployment_info_for_api, gather_basic_deployment_info_for_dash, \
+    create_api_deployment_bundle, create_notebook_deployment_bundle, create_script_bundle, deploy_bundle, describe_manifest, \
+    gather_basic_deployment_info_for_api, gather_basic_deployment_info_for_dash, gather_basic_deployment_info_for_script, \
     gather_basic_deployment_info_for_notebook, gather_basic_deployment_info_from_manifest, gather_server_details, \
     get_python_env_info, is_conda_supported_on_server, set_verbosity, spool_deployment_log, test_api_key, test_server, \
-    validate_entry_point, validate_extra_files, validate_file_is_notebook, validate_manifest_file, \
+    validate_entry_point, validate_extra_files, validate_file_is_notebook, validate_manifest_file, validate_script_file, \
     write_api_manifest_json, write_environment_file, write_notebook_manifest_json, fake_module_file_from_directory
 
 from . import api
@@ -568,6 +568,67 @@ def deploy_dash_app(name, server, api_key, insecure, cacert, entrypoint, exclude
     _deploy_by_framework(
         name, server, api_key, insecure, cacert, entrypoint, exclude, new, app_id, title, python, conda, force_generate,
         verbose, directory, extra_files, gather_basic_deployment_info_for_dash
+    )
+
+
+# noinspection SpellCheckingInspection
+@deploy.command(name='script', short_help='Deploy a Python script to RStudio Connect.',
+                help='Deploy a Python script to RStudio Connect. The "directory" argument must refer to an '
+                     'existing directory that contains the application code.')
+@click.option('--name', '-n', help='The nickname of the RStudio Connect server to deploy to.')
+@click.option('--server', '-s', envvar='CONNECT_SERVER',  help='The URL for the RStudio Connect server to deploy to.')
+@click.option('--api-key', '-k', envvar='CONNECT_API_KEY',
+              help='The API key to use to authenticate with RStudio Connect.')
+@click.option('--insecure', '-i', envvar='CONNECT_INSECURE', is_flag=True,
+              help='Disable TLS certification/host validation.')
+@click.option('--cacert', '-c', envvar='CONNECT_CA_CERTIFICATE', type=click.File(),
+              help='The path to trusted TLS CA certificates.')
+@click.option('--exclude', '-x', multiple=True,
+              help='Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try '
+                   'to expand this which will not do what you expect. Generally, it\'s safest to quote the pattern. '
+                   'This option may be repeated.')
+@click.option('--new', '-N', is_flag=True,
+              help='Force a new deployment, even if there is saved metadata from a previous deployment. '
+                   'Cannot be used with --app-id.')
+@click.option('--app-id', '-a', help='Existing app ID or GUID to replace. Cannot be used with --new.')
+@click.option('--title', '-t', help='Title of the content (default is the same as the directory).')
+@click.option('--python', '-p', type=click.Path(exists=True),
+              help='Path to Python interpreter whose environment should be used. '
+                   'The Python environment must have the rsconnect package installed.')
+@click.option('--conda', '-C', is_flag=True, hidden=True,
+              help='Use conda to deploy (requires Connect version 1.8.2 or later)')
+@click.option('--force-generate', '-g', is_flag=True,
+              help='Force generating "requirements.txt", even if it already exists.')
+@click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
+@click.argument('file', type=click.Path(exists=True, dir_okay=False, file_okay=True))
+def deploy_script(name, server, api_key, insecure, cacert, exclude, new, app_id, title, python, conda, force_generate, verbose, file):
+    set_verbosity(verbose)
+
+    with cli_feedback('Checking arguments'):
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+        file = validate_script_file(file)
+        app_store = AppStore(file)
+
+        app_id, deployment_name, title, default_title, app_mode = \
+            gather_basic_deployment_info_for_script(connect_server, app_store, file, new, app_id, title)
+
+    with cli_feedback('Checking server capabilities'):
+        checks = [are_apis_supported_on_server]
+        if conda:
+            checks.append(is_conda_supported_on_server)
+        check_server_capabilities(connect_server, checks)
+
+    with cli_feedback('Inspecting Python environment'):
+        _, environment = get_python_env_info(file, python, not conda, force_generate)
+
+    if force_generate:
+        _warn_on_ignored_requirements(directory, environment['filename'])
+
+    with cli_feedback('Creating deployment bundle'):
+        bundle = create_script_bundle(file, environment)
+
+    _deploy_bundle(
+        connect_server, app_store, file, app_id, app_mode, deployment_name, title, default_title, bundle
     )
 
 

@@ -45,8 +45,9 @@ class AppModes(object):
     JUPYTER_NOTEBOOK = AppMode(7, 'jupyter-static', 'Jupyter Notebook', '.ipynb')
     PYTHON_API = AppMode(8, 'python-api', 'Python API')
     DASH_APP = AppMode(9, 'python-dash', 'Dash Application')
+    PYTHON_SCRIPT = AppMode(10, 'python-script', 'Python script')
 
-    _modes = [UNKNOWN, SHINY, RMD, SHINY_RMD, STATIC, PLUMBER, TENSORFLOW, JUPYTER_NOTEBOOK, PYTHON_API, DASH_APP]
+    _modes = [UNKNOWN, SHINY, RMD, SHINY_RMD, STATIC, PLUMBER, TENSORFLOW, JUPYTER_NOTEBOOK, PYTHON_API, DASH_APP, PYTHON_SCRIPT]
 
     @classmethod
     def get_by_ordinal(cls, ordinal, return_unknown=False):

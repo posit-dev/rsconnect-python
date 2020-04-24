@@ -421,3 +421,29 @@ def make_api_bundle(directory, entry_point, app_mode, environment, extra_files=N
     bundle_file.seek(0)
 
     return bundle_file
+
+
+def make_script_bundle(file, environment):
+    """Create a bundle containing the specified script and python environment.
+
+    Returns a file-like object containing the bundle tarball.
+    """
+    base_dir = dirname(file)
+    script_name = basename(file)
+
+    manifest = make_source_manifest(script_name, environment, AppModes.PYTHON_SCRIPT)
+    manifest_add_file(manifest, script_name, base_dir)
+    manifest_add_buffer(manifest, environment['filename'], environment['contents'])
+
+    logger.debug('manifest: %r', manifest)
+
+    bundle_file = tempfile.TemporaryFile(prefix='rsc_bundle')
+    with tarfile.open(mode='w:gz', fileobj=bundle_file) as bundle:
+
+        # add the manifest first in case we want to partially untar the bundle for inspection
+        bundle_add_buffer(bundle, 'manifest.json', json.dumps(manifest, indent=2))
+        bundle_add_buffer(bundle, environment['filename'], environment['contents'])
+        bundle_add_file(bundle, script_name, base_dir)
+
+    bundle_file.seek(0)
+    return bundle_file

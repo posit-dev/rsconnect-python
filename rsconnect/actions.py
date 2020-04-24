@@ -10,7 +10,7 @@ from os.path import abspath, basename, dirname, exists, isdir, join, relpath, sp
 from pprint import pformat
 
 from rsconnect import api
-from .bundle import make_api_bundle, make_api_manifest, make_manifest_bundle,  make_notebook_html_bundle, \
+from .bundle import make_api_bundle, make_api_manifest, make_manifest_bundle, make_notebook_html_bundle, make_script_bundle, \
     make_notebook_source_bundle, make_source_manifest, manifest_add_buffer, manifest_add_file, read_manifest_file
 from .environment import EnvironmentException
 from .log import logger
@@ -400,6 +400,16 @@ def validate_manifest_file(file_or_directory):
     return file_or_directory
 
 
+def validate_script_file(file_or_directory):
+    """
+    TODO
+
+    :param file_or_directory: the name of the script file or directory that contains it.
+    :return: the real path to the script file.
+    """
+    return file_or_directory
+
+
 def validate_entry_point(entry_point):
     """
     Validates the entry point specified by the user, expanding as necessary.  If the
@@ -760,6 +770,45 @@ def gather_basic_deployment_info_for_dash(connect_server, app_store, directory, 
     )
 
 
+def gather_basic_deployment_info_for_script(connect_server, app_store, file_name, new, app_id, title):
+    """
+    Helps to gather the necessary info for performing a deployment.
+
+    :param connect_server: the Connect server information.
+    :param app_store: the store for the specified file
+    :param file_name: the manifest file being deployed.
+    :param new: a flag noting whether we should force a new deployment.
+    :param app_id: the ID of the app to redeploy.
+    :param title: an optional title.  If this isn't specified, a default title will
+    be generated.
+    :return: the app ID, name, title information, and app_mode
+    """
+    app_mode = AppModes.PYTHON_SCRIPT
+
+    if new and app_id:
+        raise api.RSConnectException('Specify either a new deploy or an app ID but not both.')
+
+    if app_id is not None:
+        # Ensure the app exists on the server and the app_mode is correct
+        app = api.get_app_info(connect_server, app_id)
+        existing_app_mode = AppModes.get_by_ordinal(app.get('app_mode', 0), True)
+
+        if existing_app_mode != app_mode:
+            raise("TODO: mismatched app modes")
+
+    if not new and app_id is None:
+        # Possible redeployment - check for saved metadata.
+        # Use the saved app information unless overridden by the user.
+        app_id, store_app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
+        if store_app_mode != app_mode:
+            raise("TODO: mismatched app modes")
+
+    default_title = not bool(title)
+    title = title or _default_title(file_name)
+
+    return app_id, _make_deployment_name(connect_server, title, app_id is None), title, default_title, app_mode
+
+
 def _gather_basic_deployment_info_for_framework(connect_server, app_store, directory, entry_point, new, app_id,
                                                 app_mode, title):
     """
@@ -864,6 +913,17 @@ def create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, 
             raise api.RSConnectException(str(exc))
     else:
         return make_notebook_source_bundle(file_name, environment, extra_files)
+
+
+def create_script_bundle(file_name, environment):
+    """
+    Create an in-memory bundle, ready to deploy.
+
+    :param file_name: the script being deployed.
+    :param environment: environmental information.
+    :return: the bundle.
+    """
+    return make_script_bundle(file_name, environment)
 
 
 def create_api_deployment_bundle(directory, extra_files, excludes, entry_point, app_mode, environment,
