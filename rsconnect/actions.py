@@ -96,7 +96,7 @@ def which_python(python, env=os.environ):
     return sys.executable
 
 
-def inspect_environment(python, directory, compatibility_mode=False, force_generate=False,
+def inspect_environment(python, directory, conda_mode=False, force_generate=False,
                         check_output=subprocess.check_output):
     """Run the environment inspector using the specified python binary.
 
@@ -104,7 +104,7 @@ def inspect_environment(python, directory, compatibility_mode=False, force_gener
     or containing an "error" field if an error occurred.
     """
     flags = []
-    if compatibility_mode:
+    if conda_mode:
         flags.append('c')
     if force_generate:
         flags.append('f')
@@ -808,15 +808,14 @@ def _gather_basic_deployment_info_for_framework(connect_server, app_store, direc
         app_mode
 
 
-def get_python_env_info(file_name, python, compatibility_mode, force_generate):
+def get_python_env_info(file_name, python, conda_mode, force_generate):
     """
     Gathers the python and environment information relating to the specified file
     with an eye to deploy it.
 
     :param file_name: the primary file being deployed.
     :param python: the optional name of a Python executable.
-    :param compatibility_mode: force freezing the current environment using pip
-    instead of conda, when conda is not supported on RStudio Connect (version<=1.8.0).
+    :param conda_mode: inspect the environment assuming Conda
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists.
     :return: information about the version of Python in use plus some environmental
@@ -824,8 +823,7 @@ def get_python_env_info(file_name, python, compatibility_mode, force_generate):
     """
     python = which_python(python)
     logger.debug('Python: %s' % python)
-    environment = inspect_environment(python, dirname(file_name), compatibility_mode=compatibility_mode,
-                                      force_generate=force_generate)
+    environment = inspect_environment(python, dirname(file_name), conda_mode=conda_mode, force_generate=force_generate)
     if 'error' in environment:
         raise api.RSConnectException(environment['error'])
     logger.debug('Python: %s' % python)

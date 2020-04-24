@@ -421,13 +421,15 @@ def deploy_notebook(name, server, api_key, insecure, cacert, static, new, app_id
 
     _warn_on_ignored_manifest(dirname(file))
 
-    # Ww will want this back eventually...
-    if conda:
-        with cli_feedback('Ensuring conda is supported'):
-            check_server_capabilities(connect_server, [is_conda_supported_on_server])
-
     with cli_feedback('Inspecting Python environment'):
-        python, environment = get_python_env_info(file, python, not conda, force_generate)
+        python, environment = get_python_env_info(file, python, conda, force_generate)
+
+    if environment['package_manager'] == 'conda':
+        with cli_feedback('Ensuring Conda is supported'):
+            check_server_capabilities(connect_server, [is_conda_supported_on_server])
+    elif future_enabled and 'conda' in environment:
+        click.echo('    Using %s for package management; the current Conda environment will be ignored.' %
+                   environment['package_manager'])
 
     if force_generate:
         _warn_on_ignored_requirements(dirname(file), environment['filename'])
@@ -609,14 +611,18 @@ def _deploy_by_framework(name, server, api_key, insecure, cacert, entrypoint, ex
 
     _warn_on_ignored_manifest(directory)
 
+    with cli_feedback('Inspecting Python environment'):
+        _, environment = get_python_env_info(module_file, python, conda, force_generate)
+
     with cli_feedback('Checking server capabilities'):
         checks = [are_apis_supported_on_server]
-        if conda:
+        if environment['package_manager'] == 'conda':
             checks.append(is_conda_supported_on_server)
         check_server_capabilities(connect_server, checks)
 
-    with cli_feedback('Inspecting Python environment'):
-        _, environment = get_python_env_info(module_file, python, not conda, force_generate)
+    if future_enabled and environment['package_manager'] != 'conda' and 'conda' in environment:
+        click.echo('    Using %s for package management; the current Conda environment will be ignored.' %
+                   environment['package_manager'])
 
     if force_generate:
         _warn_on_ignored_requirements(directory, environment['filename'])
@@ -677,7 +683,7 @@ def write_manifest_notebook(overwrite, python, conda, force_generate, verbose, f
             raise api.RSConnectException('manifest.json already exists. Use --overwrite to overwrite.')
 
     with cli_feedback('Inspecting Python environment'):
-        python, environment = get_python_env_info(file, python, not conda, force_generate)
+        python, environment = get_python_env_info(file, python, conda, force_generate)
 
     with cli_feedback('Creating manifest.json'):
         environment_file_exists = write_notebook_manifest_json(
@@ -778,7 +784,7 @@ def _write_framework_manifest(overwrite, entrypoint, exclude, python, conda, for
             raise api.RSConnectException('manifest.json already exists. Use --overwrite to overwrite.')
 
     with cli_feedback('Inspecting Python environment'):
-        _, environment = get_python_env_info(directory, python, not conda, force_generate)
+        _, environment = get_python_env_info(directory, python, conda, force_generate)
 
     with cli_feedback('Creating manifest.json'):
         environment_file_exists = write_api_manifest_json(

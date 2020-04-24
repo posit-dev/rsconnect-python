@@ -16,22 +16,22 @@ class EnvironmentException(Exception):
     pass
 
 
-def detect_environment(dirname, force_generate=False, compatibility_mode=False, conda=None):
+def detect_environment(dirname, force_generate=False, conda_mode=False, conda=None):
     """Determine the python dependencies in the environment.
 
-    `pip freeze` will be used to introspect the environment.
+    `pip freeze` will be used to introspect the environment unless `conda_mode` is
+    set to `True`.  In that case, an attempt will be made to use Conda to introspect
+    the environment.
 
-    Returns a dictionary containing the package spec filename
-    and contents if successful, or a dictionary containing 'error'
-    on failure.
     :param: dirname Directory name
     :param: force_generate Force the generation of an environment
-    :param: compatibility_mode Force the usage of `pip freeze` for older
-    connect versions which do not support conda.
+    :param: conda_mode inspect the environment assuming Conda
+    :return: a dictionary containing the package spec filename and contents if successful,
+    or a dictionary containing `error` on failure.
     """
-    if not compatibility_mode:
-        conda = get_conda(conda)
-    if conda:
+    conda = get_conda(conda)
+
+    if conda_mode and conda:
         if force_generate:
             result = conda_env_export(conda)
         else:
@@ -45,6 +45,9 @@ def detect_environment(dirname, force_generate=False, compatibility_mode=False, 
                       or pip_freeze())
 
     if result is not None:
+        if conda_mode and result['package_manager'] != 'conda':
+            return {'error': 'Conda was requested but no Conda environment was found.'}
+
         result['python'] = get_python_version(result)
         result['pip'] = get_version('pip')
         if conda:
@@ -184,7 +187,8 @@ def conda_env_export(conda):
     """
     try:
         proc = subprocess.Popen(
-            [conda, 'env', 'export'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+            [conda, 'env', 'export', '--from-history'], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True)
         conda_stdout, conda_stderr = proc.communicate()
         conda_status = proc.returncode
     except Exception as exception:
@@ -210,14 +214,14 @@ def main():
         directory = sys.argv[len(sys.argv)-1]
         flags = ''
         force_generate = False
-        compatibility_mode = False
+        conda_mode = False
         if len(sys.argv) > 2:
             flags = sys.argv[1]
         if 'f' in flags:
             force_generate = True
         if 'c' in flags:
-            compatibility_mode = True
-        result = detect_environment(directory, force_generate, compatibility_mode)
+            conda_mode = True
+        result = detect_environment(directory, force_generate, conda_mode)
     except EnvironmentException as exception:
         result = dict(error=str(exception))
 
