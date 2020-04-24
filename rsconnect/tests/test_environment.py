@@ -67,7 +67,7 @@ class TestEnvironment(TestCase):
     def test_conda_env_export(self):
         fake_conda = join(dirname(__file__), 'testdata', 'fake_conda.sh')
         result = detect_environment(
-            get_dir('conda1'), compatibility_mode=False, force_generate=True, conda=fake_conda
+            get_dir('conda1'), conda_mode=True, force_generate=True, conda=fake_conda
         )
         self.assertEqual(result['source'], 'conda_env_export')
         self.assertEqual(result['conda'], '1.0.0')
@@ -75,6 +75,6 @@ class TestEnvironment(TestCase):
 
         fake_broken_conda = join(dirname(__file__), 'testdata', 'fake_broken_conda.sh')
         self.assertRaises(
-            EnvironmentException, detect_environment, get_dir('conda1'), compatibility_mode=False,
+            EnvironmentException, detect_environment, get_dir('conda1'), conda_mode=True,
             force_generate=True, conda=fake_broken_conda
         )
