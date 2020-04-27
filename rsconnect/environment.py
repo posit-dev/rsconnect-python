@@ -188,7 +188,7 @@ def conda_env_export(conda):
     """
     try:
         proc = subprocess.Popen(
-            [conda, 'env', 'export', '--from-history'], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            [conda, 'env', 'export'], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             universal_newlines=True)
         conda_stdout, conda_stderr = proc.communicate()
         conda_status = proc.returncode
