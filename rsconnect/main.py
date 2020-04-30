@@ -328,6 +328,19 @@ def _warn_on_ignored_manifest(directory):
         click.secho('    Warning: the existing manifest.json file will not be used or considered.', fg='yellow')
 
 
+def _warn_on_ignored_conda_env(environment):
+    """
+    Checks for a discovered Conda environment and produces a warning that it will be ignored when
+    Conda was not requested.  The warning is only shown if we're in "future" mode since we don't
+    yet want to advertise Conda support.
+
+    :param environment: The Python environment that was discovered.
+    """
+    if future_enabled and environment['package_manager'] != 'conda' and 'conda' in environment:
+        click.echo('    Using %s for package management; the current Conda environment will be ignored.' %
+                   environment['package_manager'])
+
+
 def _warn_on_ignored_requirements(directory, requirements_file_name):
     """
     Checks for the existence of a file called manifest.json in the given directory.
@@ -400,7 +413,7 @@ def _deploy_bundle(connect_server, app_store, primary_path, app_id, app_mode, na
               help='Path to Python interpreter whose environment should be used. '
                    'The Python environment must have the rsconnect package installed.')
 @click.option('--conda', '-C', is_flag=True, hidden=True,
-              help='Use conda to deploy (requires Connect version 1.8.2 or later)')
+              help='Use Conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt", even if it already exists.')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
@@ -427,9 +440,8 @@ def deploy_notebook(name, server, api_key, insecure, cacert, static, new, app_id
     if environment['package_manager'] == 'conda':
         with cli_feedback('Ensuring Conda is supported'):
             check_server_capabilities(connect_server, [is_conda_supported_on_server])
-    elif future_enabled and 'conda' in environment:
-        click.echo('    Using %s for package management; the current Conda environment will be ignored.' %
-                   environment['package_manager'])
+    else:
+        _warn_on_ignored_conda_env(environment)
 
     if force_generate:
         _warn_on_ignored_requirements(dirname(file), environment['filename'])
@@ -473,9 +485,8 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
     click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg='white')
 
     if package_manager == 'conda':
-        # Ww will want this back eventually...
-        # with cli_feedback('Ensuring conda is supported'):
-        check_server_capabilities(connect_server, [is_conda_supported_on_server])
+        with cli_feedback('Ensuring Conda is supported'):
+            check_server_capabilities(connect_server, [is_conda_supported_on_server])
 
     with cli_feedback('Creating deployment bundle'):
         try:
@@ -518,7 +529,7 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
               help='Path to Python interpreter whose environment should be used. '
                    'The Python environment must have the rsconnect package installed.')
 @click.option('--conda', '-C', is_flag=True, hidden=True,
-              help='Use conda to deploy (requires Connect version 1.8.2 or later)')
+              help='Use Conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt", even if it already exists.')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
@@ -559,7 +570,7 @@ def deploy_api(name, server, api_key, insecure, cacert, entrypoint, exclude, new
               help='Path to Python interpreter whose environment should be used. '
                    'The Python environment must have the rsconnect package installed.')
 @click.option('--conda', '-C', is_flag=True, hidden=True,
-              help='Use conda to deploy (requires Connect version 1.8.2 or later)')
+              help='Use Conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt", even if it already exists.')
 @click.option('--verbose', '-v', is_flag=True, help='Print detailed messages.')
@@ -620,9 +631,7 @@ def _deploy_by_framework(name, server, api_key, insecure, cacert, entrypoint, ex
             checks.append(is_conda_supported_on_server)
         check_server_capabilities(connect_server, checks)
 
-    if future_enabled and environment['package_manager'] != 'conda' and 'conda' in environment:
-        click.echo('    Using %s for package management; the current Conda environment will be ignored.' %
-                   environment['package_manager'])
+    _warn_on_ignored_conda_env(environment)
 
     if force_generate:
         _warn_on_ignored_requirements(directory, environment['filename'])
@@ -664,7 +673,7 @@ def write_manifest():
               help='Path to Python interpreter whose environment should be used. ' +
                    'The Python environment must have the rsconnect package installed.')
 @click.option('--conda', '-C', is_flag=True, hidden=True,
-              help='Use conda to deploy (requires Connect version 1.8.2 or later)')
+              help='Use Conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt", even if it already exists.')
 @click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
@@ -684,6 +693,8 @@ def write_manifest_notebook(overwrite, python, conda, force_generate, verbose, f
 
     with cli_feedback('Inspecting Python environment'):
         python, environment = get_python_env_info(file, python, conda, force_generate)
+
+    _warn_on_ignored_conda_env(environment)
 
     with cli_feedback('Creating manifest.json'):
         environment_file_exists = write_notebook_manifest_json(
@@ -714,7 +725,7 @@ def write_manifest_notebook(overwrite, python, conda, force_generate, verbose, f
               help='Path to Python interpreter whose environment should be used. ' +
                    'The Python environment must have the rsconnect-python package installed.')
 @click.option('--conda', '-C', is_flag=True, hidden=True,
-              help='Use conda to deploy (requires Connect version 1.8.2 or later)')
+              help='Use Conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt", even if it already exists.')
 @click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
@@ -743,7 +754,7 @@ def write_manifest_api(overwrite, entrypoint, exclude, python, conda, force_gene
               help='Path to Python interpreter whose environment should be used. ' +
                    'The Python environment must have the rsconnect-python package installed.')
 @click.option('--conda', '-C', is_flag=True, hidden=True,
-              help='Use conda to deploy (requires Connect version 1.8.2 or later)')
+              help='Use Conda to deploy (requires Connect version 1.8.2 or later)')
 @click.option('--force-generate', '-g', is_flag=True,
               help='Force generating "requirements.txt", even if it already exists.')
 @click.option('--verbose', '-v', 'verbose', is_flag=True, help='Print detailed messages')
@@ -785,6 +796,8 @@ def _write_framework_manifest(overwrite, entrypoint, exclude, python, conda, for
 
     with cli_feedback('Inspecting Python environment'):
         _, environment = get_python_env_info(directory, python, conda, force_generate)
+
+    _warn_on_ignored_conda_env(environment)
 
     with cli_feedback('Creating manifest.json'):
         environment_file_exists = write_api_manifest_json(
