@@ -51,10 +51,12 @@ class RSConnectServer(object):
 
 
 class RSConnect(HTTPServer):
-    def __init__(self, server, cookies=None):
+    def __init__(self, server, cookies=None, timeout=30):
         if cookies is None:
             cookies = server.cookie_jar
-        super(RSConnect, self).__init__(append_to_path(server.url, '__api__'), server.insecure, server.ca_data, cookies)
+        super(RSConnect, self).__init__(
+            append_to_path(server.url, '__api__'), server.insecure, server.ca_data, cookies, timeout
+        )
         self._server = server
 
         if server.api_key:
@@ -280,7 +282,7 @@ def do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bund
     :return: application information about the deploy.  This includes the ID of the
     task that may be queried for deployment progress.
     """
-    with RSConnect(connect_server) as client:
+    with RSConnect(connect_server, timeout=120) as client:
         result = client.deploy(app_id, name, title, title_is_default, bundle)
         connect_server.handle_bad_response(result)
         return result

@@ -17,7 +17,7 @@ _user_agent = "rsconnect-python/%s" % VERSION
 
 
 # noinspection PyUnusedLocal,PyUnresolvedReferences
-def _create_plain_connection(host_name, port, disable_tls_check, ca_data):
+def _create_plain_connection(host_name, port, disable_tls_check, ca_data, timeout):
     """
     This function is used to create a plain HTTP connection.  Note that the 3rd and 4th
     parameters are ignored; they are present to make the signature match the companion
@@ -26,34 +26,36 @@ def _create_plain_connection(host_name, port, disable_tls_check, ca_data):
     :param host_name: the name of the host to connect to.
     :param port:  the port to connect to.
     :param disable_tls_check: notes whether TLS verification should be disabled (ignored).
-    :param ca_data: Any certificate authority information to use (ignored).
+    :param ca_data: any certificate authority information to use (ignored).
+    :param timeout: the timeout value to use for socket operations.
     :return: a plain HTTP connection.
     """
-    return http.HTTPConnection(host_name, port=(port or http.HTTP_PORT), timeout=10)
+    return http.HTTPConnection(host_name, port=(port or http.HTTP_PORT), timeout=timeout)
 
 
 # noinspection PyUnresolvedReferences
-def _create_ssl_connection(host_name, port, disable_tls_check, ca_data):
+def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout):
     """
     This function is used to create a TLS encrypted HTTP connection (SSL).
 
     :param host_name: the name of the host to connect to.
     :param port:  the port to connect to.
     :param disable_tls_check: notes whether TLS verification should be disabled.
-    :param ca_data: Any certificate authority information to use.
+    :param ca_data: any certificate authority information to use.
+    :param timeout: the timeout value to use for socket operations.
     :return: a TLS HTTPS connection.
     """
     if ca_data is not None and disable_tls_check:
         raise ValueError("Cannot both disable TLS checking and provide a custom certificate")
     if ca_data is not None:
-        return http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=10,
+        return http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=timeout,
                                     context=ssl.create_default_context(cadata=ca_data))
     elif disable_tls_check:
         # noinspection PyProtectedMember
-        return http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=10,
+        return http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=timeout,
                                     context=ssl._create_unverified_context())
     else:
-        return http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=10)
+        return http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=timeout)
 
 
 def append_to_path(uri, path):
@@ -109,7 +111,7 @@ class HTTPServer(object):
     This class provides the means to simply and directly invoke HTTP requests against a
     server.
     """
-    def __init__(self, url, disable_tls_check=False, ca_data=None, cookies=None):
+    def __init__(self, url, disable_tls_check=False, ca_data=None, cookies=None, timeout=30):
         """
         Constructs an HTTPServer object.
 
@@ -120,7 +122,8 @@ class HTTPServer(object):
         :param ca_data: any certificate authority data to use in specifying client side
         certificates.
         :param cookies: an optional cookie jar.  Must be of type `CookieJar` defined in this
-        same file (i.e., not the one Python provides)..
+        same file (i.e., not the one Python provides).
+        :param timeout: the timeout value to use for socket operations.
         """
         self._url = urlparse(url)
 
@@ -130,6 +133,7 @@ class HTTPServer(object):
         self._disable_tls_check = disable_tls_check
         self._ca_data = ca_data
         self._cookies = cookies if cookies is not None else CookieJar()
+        self._timeout = timeout
         self._headers = {'User-Agent': _user_agent}
         self._conn = None
 
@@ -146,7 +150,7 @@ class HTTPServer(object):
 
     def __enter__(self):
         factory = _connection_factory[self._url.scheme]
-        self._conn = factory(self._url.hostname, self._url.port, self._disable_tls_check, self._ca_data)
+        self._conn = factory(self._url.hostname, self._url.port, self._disable_tls_check, self._ca_data, self._timeout)
         return self
 
     def __exit__(self, *args):
