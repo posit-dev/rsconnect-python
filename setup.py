@@ -36,7 +36,8 @@ setup(name='rsconnect_python',
           'click>=7.0.0',
       ],
       python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*',
-      entry_points='''
-          [console_scripts]
-          rsconnect=rsconnect.main:cli
-      ''')
+      entry_points={
+
+          'console_scripts': ['rsconnect=rsconnect.main:cli'],
+          }
+      )
