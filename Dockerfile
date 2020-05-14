@@ -8,4 +8,4 @@ ENV WORKON_HOME=/.cache \
 COPY Pipfile Pipfile
 COPY Pipfile.lock Pipfile.lock
 RUN python -m pip install --upgrade pip pipenv && \
-    pipenv install --dev
+    pipenv install --dev --python=/usr/local/bin/python

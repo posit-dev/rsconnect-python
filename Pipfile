@@ -17,8 +17,5 @@ jupyter_client = "*"
 nbconvert = "*"
 six = ">=1.14.0"
 
-[requires]
-python_version = "3.8"
-
 [pipenv]
 allow_prereleases = true
