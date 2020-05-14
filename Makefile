@@ -8,18 +8,17 @@ RUNNER = docker run \
   rsconnect-python:$* \
   bash -c
 
-PYTEST_COMMAND := pipenv run \
-  pytest -vv \
-  --cov=rsconnect \
-  --cov-report=term \
-  --cov-report=html \
-  ./
+TEST_COMMAND ?= ./runtests
+SHELL_COMMAND ?= pipenv shell
 
 ifneq ($(JOB_NAME),)
   RUNNER = bash -c
 endif
 ifneq ($(LOCAL),)
   RUNNER = bash -c
+endif
+ifneq ($(GITHUB_RUN_ID),)
+	RUNNER = bash -c
 endif
 
 TEST_ENV =
@@ -42,13 +41,13 @@ all-tests: all-images test-2.7 test-3.5 test-3.6 test-3.7 test-3.8
 all-images: image-2.7 image-3.5 image-3.6 image-3.7 image-3.8
 
 image-%:
-	docker build -t rsconnect-python:$* --build-arg BASE_IMAGE=python:$* .
+	docker build -t rsconnect-python:$* --build-arg BASE_IMAGE=python:$*-slim .
 
 shell-%:
-	$(RUNNER) 'pipenv shell'
+	$(RUNNER) '$(SHELL_COMMAND)'
 
 test-%:
-	$(RUNNER) '$(TEST_ENV) $(PYTEST_COMMAND)'
+	$(RUNNER) '$(TEST_ENV) $(TEST_COMMAND)'
 
 mock-test-%: clean-stores
 	@$(MAKE) -C mock_connect image up
@@ -59,9 +58,31 @@ mock-test-%: clean-stores
 fmt-%:
 	$(RUNNER) 'pipenv run black .'
 
+.PHONY: fmt-2.7
+fmt-2.7: .fmt-unsupported
+
+.PHONY: fmt-3.5
+fmt-3.5: .fmt-unsupported
+
+.PHONY: .fmt-unsupported
+.fmt-unsupported:
+	@echo ERROR: This python version cannot run the fmting tools
+	@exit 1
+
 lint-%:
 	$(RUNNER) 'pipenv run black --check --diff .'
 	$(RUNNER) 'pipenv run flake8 rsconnect/'
+
+.PHONY: lint-2.7
+lint-2.7: .lint-unsupported
+
+.PHONY: lint-3.5
+lint-3.5: .lint-unsupported
+
+.PHONY: .lint-unsupported
+.lint-unsupported:
+	@echo ERROR: This python version cannot run the linting tools
+	@exit 1
 
 .PHONY: clean clean-stores
 clean:

@@ -1,0 +1,64 @@
+name: main
+on: [pull_request, push]
+jobs:
+  test:
+    strategy:
+      matrix:
+        os:
+        - ubuntu-latest
+        - macos-latest
+        python-version:
+        - '2.7'
+        # TODO: enable these
+        # - '3.5'
+        # - '3.6'
+        # - '3.7'
+        - '3.8'
+    runs-on: ${{ matrix.os }}
+    name: python ${{ matrix.python-version }} ${{ runner.os }}
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2
+      with:
+        python_version: ${{ matrix.python-version }}
+    - uses: actions/cache@v1
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('Pipfile.lock') }}
+    - uses: actions/cache@v1
+        path: path: ~/.local/share/virtualenvs
+        key: ${{ runner.os }}-${{ env.PYTHON_VERSION }}-virtualenvs-${{ hashFiles('Pipfile.lock') }}
+    - run: pip install -U pipenv pip
+    - if: "${{ contains(['2.7', '3.5'], matrix.python-version) }}"
+      run: pipenv install --skip-lock '&&' pipenv run pip install pytest pytest-cov
+    - if: "${{ !contains(['2.7', '3.5'], matrix.python-version) }}"
+      run: pipenv install --dev
+    - if: "${{ !contains(['2.7', '3.5'], matrix.python-version) }}"
+      run: make fmt-local
+    - if: "${{ !contains(['2.7', '3.5'], matrix.python-version) }}"
+      run: make lint-local
+    - run: make test-local
+  package:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2
+      with:
+        python-version: '3.6'
+    - run: pip install --user --upgrade twine setuptools wheel
+    - run: make dist
+    - uses: actions/upload-artifact@v2
+      with:
+        name: distributions
+        path: dist/
+  docs:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - run: make docs
+    - uses: actions/upload-artifact@v2
+      with:
+        name: docs
+        path: docs/site/
