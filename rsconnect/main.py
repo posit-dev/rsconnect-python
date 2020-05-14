@@ -580,15 +580,20 @@ def _deploy_bundle(
     "--static",
     "-S",
     is_flag=True,
-    help="Render the notebook locally and deploy the result as a static document. "
-    "Will not include the notebook source. Static notebooks cannot be re-run on the server.",
+    help=(
+        "Render the notebook locally and deploy the result as a static "
+        "document. Will not include the notebook source. Static notebooks "
+        "cannot be re-run on the server."
+    ),
 )
 @click.option(
     "--new",
     "-N",
     is_flag=True,
-    help="Force a new deployment, even if there is saved metadata from a previous deployment. "
-    "Cannot be used with --app-id.",
+    help=(
+        "Force a new deployment, even if there is saved metadata from a "
+        "previous deployment. Cannot be used with --app-id."
+    ),
 )
 @click.option(
     "--app-id",
@@ -700,9 +705,11 @@ def deploy_notebook(
 @deploy.command(
     name="manifest",
     short_help="Deploy content to RStudio Connect by manifest.",
-    help="Deploy content to RStudio Connect using an existing manifest.json file.  The specified file must "
-    'either be named "manifest.json" or refer to a directory that contains a file named '
-    '"manifest.json".',
+    help=(
+        "Deploy content to RStudio Connect using an existing manifest.json "
+        'file.  The specified file must either be named "manifest.json" or '
+        'refer to a directory that contains a file named "manifest.json".'
+    ),
 )
 @click.option(
     "--name", "-n", help="The nickname of the RStudio Connect server to deploy to."
@@ -737,7 +744,10 @@ def deploy_notebook(
     "--new",
     "-N",
     is_flag=True,
-    help="Force a new deployment, even if there is saved metadata from a previous deployment.",
+    help=(
+        "Force a new deployment, even if there is saved metadata from a "
+        "previous deployment. Cannot be used with --app-id."
+    ),
 )
 @click.option(
     "--app-id",
@@ -792,9 +802,10 @@ def deploy_manifest(
                 msg = "\n".join(
                     [
                         msg,
-                        "Since the file is missing but referenced in the manifest, you will need to\n"
-                        'regenerate your manifest.  See the help for the "write-manifest" command or,\n'
-                        'for non-Python content, run the "deploy other-content" command.',
+                        "Since the file is missing but referenced in the manifest, "
+                        "you will need to\nregenerate your manifest.  See the help "
+                        'for the "write-manifest" command or,\nfor non-Python '
+                        'content, run the "deploy other-content" command.',
                     ]
                 )
             raise api.RSConnectException(msg)
@@ -816,8 +827,10 @@ def deploy_manifest(
 @deploy.command(
     name="api",
     short_help="Deploy a Python API to RStudio Connect.",
-    help='Deploy a WSGi-based API module to RStudio Connect. The "directory" argument must refer to an '
-    "existing directory that contains the API code.",
+    help=(
+        'Deploy a WSGi-based API module to RStudio Connect. The "directory" '
+        "argument must refer to an existing directory that contains the API code."
+    ),
 )
 @click.option(
     "--name", "-n", help="The nickname of the RStudio Connect server to deploy to."
@@ -858,16 +871,21 @@ def deploy_manifest(
     "--exclude",
     "-x",
     multiple=True,
-    help="Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
-    "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
-    "This option may be repeated.",
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. "
+        "Note that your shell may try to expand this which will not do what you "
+        "expect. Generally, it's safest to quote the pattern. This option may "
+        "be repeated."
+    ),
 )
 @click.option(
     "--new",
     "-N",
     is_flag=True,
-    help="Force a new deployment, even if there is saved metadata from a previous deployment. "
-    "Cannot be used with --app-id.",
+    help=(
+        "Force a new deployment, even if there is saved metadata from a "
+        "previous deployment. Cannot be used with --app-id."
+    ),
 )
 @click.option(
     "--app-id",
@@ -949,8 +967,10 @@ def deploy_api(
 @deploy.command(
     name="dash",
     short_help="Deploy a Python Dash app to RStudio Connect.",
-    help='Deploy a Dash application module to RStudio Connect. The "directory" argument must refer to an '
-    "existing directory that contains the application code.",
+    help=(
+        'Deploy a Dash application module to RStudio Connect. The "directory" '
+        "argument must refer to an existing directory that contains the API code."
+    ),
 )
 @click.option(
     "--name", "-n", help="The nickname of the RStudio Connect server to deploy to."
@@ -991,16 +1011,21 @@ def deploy_api(
     "--exclude",
     "-x",
     multiple=True,
-    help="Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
-    "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
-    "This option may be repeated.",
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. "
+        "Note that your shell may try to expand this which will not do what you "
+        "expect. Generally, it's safest to quote the pattern. This option may "
+        "be repeated."
+    ),
 )
 @click.option(
     "--new",
     "-N",
     is_flag=True,
-    help="Force a new deployment, even if there is saved metadata from a previous deployment. "
-    "Cannot be used with --app-id.",
+    help=(
+        "Force a new deployment, even if there is saved metadata from a "
+        "previous deployment. Cannot be used with --app-id."
+    ),
 )
 @click.option(
     "--app-id",
@@ -1107,13 +1132,15 @@ def _deploy_by_framework(
     :param insecure: a flag noting whether insecure TLS should be used.
     :param cacert: a path to a CA certificates file to use with TLS.
     :param entrypoint: the entry point for the thing being deployed.
-    :param exclude: a sequence of exclude glob patterns to exclude files from the deploy.
+    :param exclude: a sequence of exclude glob patterns to exclude files
+                    from the deploy.
     :param new: a flag to force the deploy to be new.
     :param app_id: the ID of the app to redeploy.
     :param title: the title to use for the app.
     :param python: a path to the Python executable to use.
     :param conda: a flag to note whether Conda should be used/assumed..
-    :param force_generate: a flag to force the generation of manifest and requirements file.
+    :param force_generate: a flag to force the generation of manifest and
+                           requirements file.
     :param verbose: a flag to produce more (debugging) output.
     :param directory: the directory of the thing to deploy.
     :param extra_files: any extra files that should be included.
@@ -1177,8 +1204,9 @@ def _deploy_by_framework(
 )
 def deploy_help():
     text = (
-        "To deploy a Shiny application or R Markdown document, use the rsconnect R package in the RStudio IDE.  "
-        "Or, use rsconnect::writeManifest (again in the IDE) to create a manifest.json file and deploy that using "
+        "To deploy a Shiny application or R Markdown document, use the rsconnect "
+        "R package in the RStudio IDE.  Or, use rsconnect::writeManifest "
+        "(again in the IDE) to create a manifest.json file and deploy that using "
         "this tool with the command, "
     )
     click.echo("\n".join(textwrap.wrap(text, 79)))
@@ -1193,8 +1221,11 @@ def deploy_help():
     name="write-manifest",
     no_args_is_help=True,
     short_help="Create a manifest.json file for later deployment.",
-    help="Create a manifest.json file for later deployment. This may be used with the git support provided by "
-    'RStudio Connect or by using the "deploy manifest" command in this tool.',
+    help=(
+        "Create a manifest.json file for later deployment. This may be used "
+        "with the git support provided by RStudio Connect or by using the "
+        '"deploy manifest" command in this tool.'
+    ),
 )
 def write_manifest():
     pass
@@ -1203,9 +1234,11 @@ def write_manifest():
 @write_manifest.command(
     name="notebook",
     short_help="Create a manifest.json file for a Jupyter notebook.",
-    help="Create a manifest.json file for a Jupyter notebook for later deployment. This will "
-    'create an environment file ("requirements.txt") if one does not exist. '
-    "All files are created in the same directory as the notebook file.",
+    help=(
+        "Create a manifest.json file for a Jupyter notebook for later deployment. "
+        'This will create an environment file ("requirements.txt") if one does '
+        "not exist. All files are created in the same directory as the notebook file."
+    ),
 )
 @click.option(
     "--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists."
@@ -1280,9 +1313,11 @@ def write_manifest_notebook(
 @write_manifest.command(
     name="api",
     short_help="Create a manifest.json file for a Python API.",
-    help="Create a manifest.json file for a Python API for later deployment. This will create an "
-    'environment file ("requirements.txt") if one does not exist. All files '
-    "are created in the same directory as the API code.",
+    help=(
+        "Create a manifest.json file for a Python API for later deployment. "
+        'This will create an environment file ("requirements.txt") if one does '
+        "not exist. All files are created in the same directory as the API code."
+    ),
 )
 @click.option(
     "--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists."
@@ -1297,9 +1332,12 @@ def write_manifest_notebook(
     "--exclude",
     "-x",
     multiple=True,
-    help="Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
-    "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
-    "This option may be repeated.",
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. "
+        "Note that your shell may try to expand this which will not do what you "
+        "expect. Generally, it's safest to quote the pattern. This option may "
+        "be repeated."
+    ),
 )
 @click.option(
     "--python",
@@ -1361,9 +1399,11 @@ def write_manifest_api(
 @write_manifest.command(
     name="dash",
     short_help="Create a manifest.json file for a Python API.",
-    help="Create a manifest.json file for a Dash app for later deployment. This will create an "
-    'environment file ("requirements.txt") if one does not exist. All files '
-    "are created in the same directory as the API code.",
+    help=(
+        "Create a manifest.json file for a Dash app for later deployment. "
+        'This will create an environment file ("requirements.txt") if one '
+        "does not exist. All files are created in the same directory as the API code."
+    ),
 )
 @click.option(
     "--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists."
@@ -1378,9 +1418,12 @@ def write_manifest_api(
     "--exclude",
     "-x",
     multiple=True,
-    help="Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
-    "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
-    "This option may be repeated.",
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. "
+        "Note that your shell may try to expand this which will not do what you "
+        "expect. Generally, it's safest to quote the pattern. This option may be "
+        "repeated."
+    ),
 )
 @click.option(
     "--python",
@@ -1456,10 +1499,12 @@ def _write_framework_manifest(
 
     :param overwrite: overwrite the manifest.json, if it exists.
     :param entrypoint: the entry point for the thing being deployed.
-    :param exclude: a sequence of exclude glob patterns to exclude files from the deploy.
+    :param exclude: a sequence of exclude glob patterns to exclude files from
+                    the deploy.
     :param python: a path to the Python executable to use.
     :param conda: a flag to note whether Conda should be used/assumed..
-    :param force_generate: a flag to force the generation of manifest and requirements file.
+    :param force_generate: a flag to force the generation of manifest and
+                           requirements file.
     :param verbose: a flag to produce more (debugging) output.
     :param directory: the directory of the thing to deploy.
     :param extra_files: any extra files that should be included.

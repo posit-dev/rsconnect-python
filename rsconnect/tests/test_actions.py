@@ -89,7 +89,8 @@ class TestActions(TestCase):
             )
         self.assertEqual(
             str(context.exception),
-            "Conda is not supported on the target server.  Try deploying without requesting Conda.",
+            "Conda is not supported on the target server.  "
+            + "Try deploying without requesting Conda.",
         )
 
         with self.assertRaises(api.RSConnectException) as context:
@@ -98,7 +99,8 @@ class TestActions(TestCase):
             )
         self.assertEqual(
             str(context.exception),
-            "Conda is not supported on the target server.  Try deploying without requesting Conda.",
+            "Conda is not supported on the target server.  "
+            + "Try deploying without requesting Conda.",
         )
 
         check_server_capabilities(
