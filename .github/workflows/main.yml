@@ -31,7 +31,7 @@ jobs:
         key: ${{ matrix.os }}-${{ env.PYTHON_VERSION }}-virtualenvs-${{ hashFiles('Pipfile.lock') }}
     - run: pip install -U pipenv pip
     - if: "${{ matrix.python-version == '2.7' || matrix.python-version == '3.5' }}"
-      run: pipenv install --skip-lock '&&' pipenv run pip install pytest pytest-cov
+      run: 'pipenv install --skip-lock && pipenv run pip install pytest pytest-cov'
     - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
       run: pipenv install --dev
     - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
