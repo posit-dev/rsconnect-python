@@ -30,13 +30,13 @@ jobs:
         path: ~/.local/share/virtualenvs
         key: ${{ matrix.os }}-${{ env.PYTHON_VERSION }}-virtualenvs-${{ hashFiles('Pipfile.lock') }}
     - run: pip install -U pipenv pip
-    - if: "${{ contains(['2.7', '3.5'], matrix.python-version) }}"
+    - if: "${{ matrix.python-version == '2.7' || matrix.python-version == '3.5' }}"
       run: pipenv install --skip-lock '&&' pipenv run pip install pytest pytest-cov
-    - if: "${{ !contains(['2.7', '3.5'], matrix.python-version) }}"
+    - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
       run: pipenv install --dev
-    - if: "${{ !contains(['2.7', '3.5'], matrix.python-version) }}"
+    - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
       run: make fmt-local
-    - if: "${{ !contains(['2.7', '3.5'], matrix.python-version) }}"
+    - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
       run: make lint-local
     - run: make test-local
   package:
