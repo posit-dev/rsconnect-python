@@ -30,7 +30,9 @@ def _create_plain_connection(host_name, port, disable_tls_check, ca_data, timeou
     :param timeout: the timeout value to use for socket operations.
     :return: a plain HTTP connection.
     """
-    return http.HTTPConnection(host_name, port=(port or http.HTTP_PORT), timeout=timeout)
+    return http.HTTPConnection(
+        host_name, port=(port or http.HTTP_PORT), timeout=timeout
+    )
 
 
 # noinspection PyUnresolvedReferences
@@ -46,16 +48,28 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
     :return: a TLS HTTPS connection.
     """
     if ca_data is not None and disable_tls_check:
-        raise ValueError("Cannot both disable TLS checking and provide a custom certificate")
+        raise ValueError(
+            "Cannot both disable TLS checking and provide a custom certificate"
+        )
     if ca_data is not None:
-        return http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=timeout,
-                                    context=ssl.create_default_context(cadata=ca_data))
+        return http.HTTPSConnection(
+            host_name,
+            port=(port or http.HTTPS_PORT),
+            timeout=timeout,
+            context=ssl.create_default_context(cadata=ca_data),
+        )
     elif disable_tls_check:
         # noinspection PyProtectedMember
-        return http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=timeout,
-                                    context=ssl._create_unverified_context())
+        return http.HTTPSConnection(
+            host_name,
+            port=(port or http.HTTPS_PORT),
+            timeout=timeout,
+            context=ssl._create_unverified_context(),
+        )
     else:
-        return http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=timeout)
+        return http.HTTPSConnection(
+            host_name, port=(port or http.HTTPS_PORT), timeout=timeout
+        )
 
 
 def append_to_path(uri, path):
@@ -67,10 +81,10 @@ def append_to_path(uri, path):
     :param path: the path to append.
     :return: the result of the append.
     """
-    if uri.endswith('/') and path.startswith('/'):
+    if uri.endswith("/") and path.startswith("/"):
         uri += path[1:]
-    elif not (uri.endswith('/') or path.startswith('/')):
-        uri = uri + '/' + path
+    elif not (uri.endswith("/") or path.startswith("/")):
+        uri = uri + "/" + path
     else:
         uri += path
     return uri
@@ -80,6 +94,7 @@ class HTTPResponse(object):
     """
     This class represents the result of executing an HTTP request.
     """
+
     def __init__(self, full_uri, response=None, body=None, exception=None):
         """
         This constructs an HTTPResponse object.  One and only one of the arguments will
@@ -100,9 +115,13 @@ class HTTPResponse(object):
         if response is not None:
             self.status = response.status
             self.reason = response.reason
-            self.content_type = response.getheader('Content-Type')
+            self.content_type = response.getheader("Content-Type")
 
-            if self.content_type and self.content_type.startswith('application/json') and len(self.response_body) > 0:
+            if (
+                self.content_type
+                and self.content_type.startswith("application/json")
+                and len(self.response_body) > 0
+            ):
                 self.json_data = json.loads(self.response_body)
 
 
@@ -111,7 +130,10 @@ class HTTPServer(object):
     This class provides the means to simply and directly invoke HTTP requests against a
     server.
     """
-    def __init__(self, url, disable_tls_check=False, ca_data=None, cookies=None, timeout=30):
+
+    def __init__(
+        self, url, disable_tls_check=False, ca_data=None, cookies=None, timeout=30
+    ):
         """
         Constructs an HTTPServer object.
 
@@ -134,23 +156,29 @@ class HTTPServer(object):
         self._ca_data = ca_data
         self._cookies = cookies if cookies is not None else CookieJar()
         self._timeout = timeout
-        self._headers = {'User-Agent': _user_agent}
+        self._headers = {"User-Agent": _user_agent}
         self._conn = None
 
         self._inject_cookies()
 
     def authorization(self, auth_text):
-        self._headers['Authorization'] = auth_text
+        self._headers["Authorization"] = auth_text
 
     def key_authorization(self, api_key):
-        self.authorization('Key %s' % api_key)
+        self.authorization("Key %s" % api_key)
 
     def _get_full_path(self, path):
         return append_to_path(self._url.path, path)
 
     def __enter__(self):
         factory = _connection_factory[self._url.scheme]
-        self._conn = factory(self._url.hostname, self._url.port, self._disable_tls_check, self._ca_data, self._timeout)
+        self._conn = factory(
+            self._url.hostname,
+            self._url.port,
+            self._disable_tls_check,
+            self._ca_data,
+            self._timeout,
+        )
         return self
 
     def __exit__(self, *args):
@@ -159,23 +187,27 @@ class HTTPServer(object):
             self._conn = None
 
     def get(self, path, query_params=None):
-        return self.request('GET', path, query_params)
+        return self.request("GET", path, query_params)
 
     def post(self, path, query_params=None, body=None):
-        return self.request('POST', path, query_params, body)
+        return self.request("POST", path, query_params, body)
 
     def request(self, method, path, query_params=None, body=None, maximum_redirects=5):
         path = self._get_full_path(path)
         extra_headers = None
         if isinstance(body, dict):
-            body = json.dumps(body).encode('utf-8')
-            extra_headers = {'Content-Type': 'application/json; charset=utf-8'}
-        return self._do_request(method, path, query_params, body, maximum_redirects, extra_headers)
+            body = json.dumps(body).encode("utf-8")
+            extra_headers = {"Content-Type": "application/json; charset=utf-8"}
+        return self._do_request(
+            method, path, query_params, body, maximum_redirects, extra_headers
+        )
 
-    def _do_request(self, method, path, query_params, body, maximum_redirects, extra_headers=None):
+    def _do_request(
+        self, method, path, query_params, body, maximum_redirects, extra_headers=None
+    ):
         full_uri = path
         if query_params is not None:
-            full_uri = '%s?%s' % (path, urlencode(query_params))
+            full_uri = "%s?%s" % (path, urlencode(query_params))
         headers = self._headers.copy()
         if extra_headers is not None:
             headers.update(extra_headers)
@@ -183,10 +215,10 @@ class HTTPServer(object):
 
         try:
             if logger.is_debugging():
-                logger.debug('Request: %s %s' % (method, full_uri))
-                logger.debug('Headers:')
+                logger.debug("Request: %s %s" % (method, full_uri))
+                logger.debug("Headers:")
                 for key, value in headers.items():
-                    logger.debug('--> %s: %s' % (key, value))
+                    logger.debug("--> %s: %s" % (key, value))
 
             # if we weren't called under a `with` statement, we'll need to manage the
             # connection here.
@@ -198,13 +230,13 @@ class HTTPServer(object):
                 self._conn.request(method, full_uri, body, headers)
 
                 response = self._conn.getresponse()
-                response_body = response.read().decode('utf-8').strip()
+                response_body = response.read().decode("utf-8").strip()
 
                 if logger.is_debugging():
                     logger.debug("Response: %s %s" % (response.status, response.reason))
-                    logger.debug('Headers:')
+                    logger.debug("Headers:")
                     for key, value in response.getheaders():
-                        logger.debug('--> %s: %s' % (key, value))
+                        logger.debug("--> %s: %s" % (key, value))
                     logger.debug("--> %s" % response_body)
             finally:
                 if local_connection:
@@ -213,21 +245,40 @@ class HTTPServer(object):
             # Handle any redirects.
             if 300 <= response.status < 400:
                 if maximum_redirects == 0:
-                    raise http.CannotSendRequest('Too many redirects')
+                    raise http.CannotSendRequest("Too many redirects")
 
-                location = response.getheader('Location')
+                location = response.getheader("Location")
                 next_url = urljoin(self._url.geturl(), location)
 
-                logger.debug('--> Redirected to: %s' % next_url)
+                logger.debug("--> Redirected to: %s" % next_url)
 
-                return self._do_request(method, next_url, query_params, body, maximum_redirects - 1, extra_headers)
+                return self._do_request(
+                    method,
+                    next_url,
+                    query_params,
+                    body,
+                    maximum_redirects - 1,
+                    extra_headers,
+                )
 
             self._handle_set_cookie(response)
 
-            return self._tweak_response(HTTPResponse(full_uri, response=response, body=response_body))
-        except (http.HTTPException, ssl.CertificateError, IOError, OSError, socket.error, socket.herror,
-                socket.gaierror, socket.timeout) as exception:
-            logger.debug('An exception occurred processing the HTTP request.', exc_info=True)
+            return self._tweak_response(
+                HTTPResponse(full_uri, response=response, body=response_body)
+            )
+        except (
+            http.HTTPException,
+            ssl.CertificateError,
+            IOError,
+            OSError,
+            socket.error,
+            socket.herror,
+            socket.gaierror,
+            socket.timeout,
+        ) as exception:
+            logger.debug(
+                "An exception occurred processing the HTTP request.", exc_info=True
+            )
             return HTTPResponse(full_uri, exception=exception)
 
     # noinspection PyMethodMayBeStatic
@@ -240,23 +291,23 @@ class HTTPServer(object):
 
     def _inject_cookies(self):
         if len(self._cookies) > 0:
-            self._headers['Cookie'] = self._cookies.get_cookie_header_value()
-        elif 'Cookie' in self._headers:
-            del self._headers['Cookie']
+            self._headers["Cookie"] = self._cookies.get_cookie_header_value()
+        elif "Cookie" in self._headers:
+            del self._headers["Cookie"]
 
 
 class CookieJar(object):
     @staticmethod
     def from_dict(source):
         if not isinstance(source, dict):
-            raise ValueError('Input must be a dictionary.')
-        keys = source.get('keys', [])
-        content = source.get('content', {})
+            raise ValueError("Input must be a dictionary.")
+        keys = source.get("keys", [])
+        content = source.get("content", {})
         if len(keys) != len(content):
-            raise ValueError('Cookie data is mismatched.')
+            raise ValueError("Cookie data is mismatched.")
         for key in keys:
             if key not in content:
-                raise ValueError('Cookie data is mismatched.')
+                raise ValueError("Cookie data is mismatched.")
         result = CookieJar()
         result._keys = keys
         result._content = content
@@ -268,7 +319,7 @@ class CookieJar(object):
         self._reference = SimpleCookie()
 
     def store_cookies(self, response):
-        headers = filter(lambda h: h[0].lower() == 'set-cookie', response.getheaders())
+        headers = filter(lambda h: h[0].lower() == "set-cookie", response.getheaders())
 
         for header in headers:
             cookie = SimpleCookie(header[1])
@@ -276,26 +327,28 @@ class CookieJar(object):
                 if morsel.key not in self._keys:
                     self._keys.append(morsel.key)
                 self._content[morsel.key] = morsel.value
-                logger.debug('--> Set cookie %s: %s' % (morsel.key, morsel.value))
+                logger.debug("--> Set cookie %s: %s" % (morsel.key, morsel.value))
 
-        logger.debug('CookieJar contents: %s\n%s' % (self._keys, self._content))
+        logger.debug("CookieJar contents: %s\n%s" % (self._keys, self._content))
 
     def get_cookie_header_value(self):
-        result = '; '.join(['%s=%s' % (key, self._reference.value_encode(self._content[key])[1]) for key in self._keys])
-        logger.debug('Cookie: %s' % result)
+        result = "; ".join(
+            [
+                "%s=%s" % (key, self._reference.value_encode(self._content[key])[1])
+                for key in self._keys
+            ]
+        )
+        logger.debug("Cookie: %s" % result)
         return result
 
     def as_dict(self):
-        return {
-            'keys': list(self._keys),
-            'content': self._content.copy()
-        }
+        return {"keys": list(self._keys), "content": self._content.copy()}
 
     def __len__(self):
         return len(self._keys)
 
 
 _connection_factory = {
-    'http': _create_plain_connection,
-    'https': _create_ssl_connection
+    "http": _create_plain_connection,
+    "https": _create_ssl_connection,
 }

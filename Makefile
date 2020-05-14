@@ -61,7 +61,7 @@ fmt-%:
 
 lint-%:
 	$(RUNNER) 'pipenv run black --check --diff .'
-	$(RUNNER) 'pipenv run flake8 .'
+	$(RUNNER) 'pipenv run flake8 rsconnect/'
 
 .PHONY: clean clean-stores
 clean:

@@ -13,30 +13,34 @@ from rsconnect.models import AppModes, GlobSet
 
 # From https://github.com/rstudio/rsconnect/blob/485e05a26041ab8183a220da7a506c9d3a41f1ff/R/bundle.R#L85-L88
 # noinspection SpellCheckingInspection
-directories_to_ignore = ['rsconnect/', 'rsconnect-python/', 'packrat/', '.svn/', '.git/', '.Rproj.user/']
+directories_to_ignore = [
+    "rsconnect/",
+    "rsconnect-python/",
+    "packrat/",
+    ".svn/",
+    ".git/",
+    ".Rproj.user/",
+]
 
 
 # noinspection SpellCheckingInspection
 def make_source_manifest(entrypoint, environment, app_mode):
-    package_manager = environment['package_manager']
+    package_manager = environment["package_manager"]
 
     # noinspection SpellCheckingInspection
     manifest = {
         "version": 1,
-        "metadata": {
-            "appmode": app_mode.name(),
-            "entrypoint": entrypoint
-        },
-        "locale": environment['locale'],
+        "metadata": {"appmode": app_mode.name(), "entrypoint": entrypoint},
+        "locale": environment["locale"],
         "python": {
-            "version": environment['python'],
+            "version": environment["python"],
             "package_manager": {
                 "name": package_manager,
                 "version": environment[package_manager],
-                "package_file": environment['filename']
-            }
+                "package_file": environment["filename"],
+            },
         },
-        "files": {}
+        "files": {},
     }
     return manifest
 
@@ -48,21 +52,17 @@ def manifest_add_file(manifest, rel_path, base_dir):
     """
     path = join(base_dir, rel_path)
 
-    manifest['files'][rel_path] = {
-        'checksum': file_checksum(path)
-    }
+    manifest["files"][rel_path] = {"checksum": file_checksum(path)}
 
 
 def manifest_add_buffer(manifest, filename, buf):
     """Add the specified in-memory buffer to the manifest files section"""
-    manifest['files'][filename] = {
-        'checksum': buffer_checksum(buf)
-    }
+    manifest["files"][filename] = {"checksum": buffer_checksum(buf)}
 
 
 def file_checksum(path):
     """Calculate the md5 hex digest of the specified file"""
-    with open(path, 'rb') as f:
+    with open(path, "rb") as f:
         m = hashlib.md5()
         chunk_size = 64 * 1024
 
@@ -81,8 +81,8 @@ def buffer_checksum(buf):
 
 
 def to_bytes(s):
-    if hasattr(s, 'encode'):
-        return s.encode('utf-8')
+    if hasattr(s, "encode"):
+        return s.encode("utf-8")
     return s
 
 
@@ -91,7 +91,7 @@ def bundle_add_file(bundle, rel_path, base_dir):
 
     The file path is relative to the notebook directory.
     """
-    logger.debug('adding file: %s', rel_path)
+    logger.debug("adding file: %s", rel_path)
     path = join(base_dir, rel_path)
     bundle.add(path, arcname=rel_path)
 
@@ -101,7 +101,7 @@ def bundle_add_buffer(bundle, filename, contents):
 
     `contents` may be a string or bytes object
     """
-    logger.debug('adding file: %s', filename)
+    logger.debug("adding file: %s", filename)
     buf = io.BytesIO(to_bytes(contents))
     file_info = tarfile.TarInfo(filename)
     file_info.size = len(buf.getvalue())
@@ -116,7 +116,7 @@ def write_manifest(relative_dir, nb_name, environment, output_dir):
 
     Returns the list of filenames written.
     """
-    manifest_filename = 'manifest.json'
+    manifest_filename = "manifest.json"
     manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
     manifest_file = join(output_dir, manifest_filename)
     created = []
@@ -126,21 +126,21 @@ def write_manifest(relative_dir, nb_name, environment, output_dir):
     if exists(manifest_file):
         skipped.append(manifest_relative_path)
     else:
-        with open(manifest_file, 'w') as f:
+        with open(manifest_file, "w") as f:
             f.write(json.dumps(manifest, indent=2))
             created.append(manifest_relative_path)
-            logger.debug('wrote manifest file: %s', manifest_file)
+            logger.debug("wrote manifest file: %s", manifest_file)
 
-    environment_filename = environment['filename']
+    environment_filename = environment["filename"]
     environment_file = join(output_dir, environment_filename)
     environment_relative_path = join(relative_dir, environment_filename)
-    if environment['source'] == 'file':
+    if environment["source"] == "file":
         skipped.append(environment_relative_path)
     else:
-        with open(environment_file, 'w') as f:
-            f.write(environment['contents'])
+        with open(environment_file, "w") as f:
+            f.write(environment["contents"])
             created.append(environment_relative_path)
-            logger.debug('wrote environment file: %s', environment_file)
+            logger.debug("wrote environment file: %s", environment_file)
 
     return created, skipped
 
@@ -153,7 +153,7 @@ def list_files(base_dir, include_sub_dirs, walk=os.walk):
 
     Returns an iterable of file paths relative to base_dir.
     """
-    skip_dirs = ['.ipynb_checkpoints', '.git']
+    skip_dirs = [".ipynb_checkpoints", ".git"]
 
     def iter_files():
         for root, sub_dirs, files in walk(base_dir):
@@ -167,6 +167,7 @@ def list_files(base_dir, include_sub_dirs, walk=os.walk):
 
             for filename in files:
                 yield relpath(join(root, filename), base_dir)
+
     return list(iter_files())
 
 
@@ -182,23 +183,23 @@ def make_notebook_source_bundle(file, environment, extra_files=None):
 
     manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
     manifest_add_file(manifest, nb_name, base_dir)
-    manifest_add_buffer(manifest, environment['filename'], environment['contents'])
+    manifest_add_buffer(manifest, environment["filename"], environment["contents"])
 
     if extra_files:
-        skip = [nb_name, environment['filename'], 'manifest.json']
+        skip = [nb_name, environment["filename"], "manifest.json"]
         extra_files = sorted(list(set(extra_files) - set(skip)))
 
     for rel_path in extra_files:
         manifest_add_file(manifest, rel_path, base_dir)
 
-    logger.debug('manifest: %r', manifest)
+    logger.debug("manifest: %r", manifest)
 
-    bundle_file = tempfile.TemporaryFile(prefix='rsc_bundle')
-    with tarfile.open(mode='w:gz', fileobj=bundle_file) as bundle:
+    bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
+    with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
 
         # add the manifest first in case we want to partially untar the bundle for inspection
-        bundle_add_buffer(bundle, 'manifest.json', json.dumps(manifest, indent=2))
-        bundle_add_buffer(bundle, environment['filename'], environment['contents'])
+        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
+        bundle_add_buffer(bundle, environment["filename"], environment["contents"])
         bundle_add_file(bundle, nb_name, base_dir)
 
         for rel_path in extra_files:
@@ -212,19 +213,22 @@ def make_html_manifest(filename):
     # noinspection SpellCheckingInspection
     return {
         "version": 1,
-        "metadata": {
-            "appmode": "static",
-            "primary_html": filename,
-        },
+        "metadata": {"appmode": "static", "primary_html": filename,},
     }
 
 
 def make_notebook_html_bundle(filename, python, check_output=subprocess.check_output):
     # noinspection SpellCheckingInspection
     cmd = [
-        python, '-m', 'jupyter',
-        'nbconvert', '--execute', '--stdout',
-        '--log-level', 'ERROR', filename
+        python,
+        "-m",
+        "jupyter",
+        "nbconvert",
+        "--execute",
+        "--stdout",
+        "--log-level",
+        "ERROR",
+        filename,
     ]
     try:
         output = check_output(cmd)
@@ -232,16 +236,16 @@ def make_notebook_html_bundle(filename, python, check_output=subprocess.check_ou
         raise
 
     nb_name = basename(filename)
-    filename = splitext(nb_name)[0] + '.html'
+    filename = splitext(nb_name)[0] + ".html"
 
-    bundle_file = tempfile.TemporaryFile(prefix='rsc_bundle')
+    bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
 
-    with tarfile.open(mode='w:gz', fileobj=bundle_file) as bundle:
+    with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
         bundle_add_buffer(bundle, filename, output)
 
         # manifest
         manifest = make_html_manifest(filename)
-        bundle_add_buffer(bundle, 'manifest.json', json.dumps(manifest))
+        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest))
 
     # rewind file pointer
     bundle_file.seek(0)
@@ -270,8 +274,8 @@ def read_manifest_file(manifest_path):
     :param manifest_path: the path to the file to read.
     :return: the parsed manifest data and the raw file content as a string.
     """
-    with open(manifest_path, 'rb') as f:
-        raw_manifest = f.read().decode('utf-8')
+    with open(manifest_path, "rb") as f:
+        raw_manifest = f.read().decode("utf-8")
         manifest = json.loads(raw_manifest)
 
     return manifest, raw_manifest
@@ -285,16 +289,16 @@ def make_manifest_bundle(manifest_path):
     manifest, raw_manifest = read_manifest_file(manifest_path)
 
     base_dir = dirname(manifest_path)
-    files = list(filter(keep_manifest_specified_file, manifest.get('files', {}).keys()))
+    files = list(filter(keep_manifest_specified_file, manifest.get("files", {}).keys()))
 
-    if 'manifest.json' in files:
+    if "manifest.json" in files:
         # this will be created
-        files.remove('manifest.json')
+        files.remove("manifest.json")
 
-    bundle_file = tempfile.TemporaryFile(prefix='rsc_bundle')
-    with tarfile.open(mode='w:gz', fileobj=bundle_file) as bundle:
+    bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
+    with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
         # add the manifest first in case we want to partially untar the bundle for inspection
-        bundle_add_buffer(bundle, 'manifest.json', raw_manifest)
+        bundle_add_buffer(bundle, "manifest.json", raw_manifest)
 
         for rel_path in files:
             bundle_add_file(bundle, rel_path, base_dir)
@@ -323,13 +327,15 @@ def create_glob_set(directory, excludes):
             file_pattern = join(directory, pattern)
             # Special handling, if they gave us just a dir then "do the right thing".
             if isdir(file_pattern):
-                file_pattern = join(file_pattern, '**/*')
+                file_pattern = join(file_pattern, "**/*")
             work.append(file_pattern)
 
     return GlobSet(work)
 
 
-def _create_api_file_list(directory, requirements_file_name, extra_files=None, excludes=None):
+def _create_api_file_list(
+    directory, requirements_file_name, extra_files=None, excludes=None
+):
     """
     Builds a full list of files under the given directory that should be included
     in a manifest or bundle.  Extra files and excludes are relative to the given
@@ -344,12 +350,12 @@ def _create_api_file_list(directory, requirements_file_name, extra_files=None, e
     """
     # Don't let these top-level files be added via the extra files list.
     extra_files = extra_files or []
-    skip = [requirements_file_name, 'manifest.json']
+    skip = [requirements_file_name, "manifest.json"]
     extra_files = sorted(list(set(extra_files) - set(skip)))
 
     # Don't include these top-level files.
     excludes = list(excludes) if excludes else []
-    excludes.append('manifest.json')
+    excludes.append("manifest.json")
     excludes.append(requirements_file_name)
     glob_set = create_glob_set(directory, excludes)
 
@@ -360,7 +366,9 @@ def _create_api_file_list(directory, requirements_file_name, extra_files=None, e
             abs_path = os.path.join(subdir, file)
             rel_path = os.path.relpath(abs_path, directory)
 
-            if keep_manifest_specified_file(rel_path) and (rel_path in extra_files or not glob_set.matches(abs_path)):
+            if keep_manifest_specified_file(rel_path) and (
+                rel_path in extra_files or not glob_set.matches(abs_path)
+            ):
                 file_list.append(rel_path)
                 # Don't add extra files more than once.
                 if rel_path in extra_files:
@@ -372,7 +380,9 @@ def _create_api_file_list(directory, requirements_file_name, extra_files=None, e
     return sorted(file_list)
 
 
-def make_api_manifest(directory, entry_point, app_mode, environment, extra_files=None, excludes=None):
+def make_api_manifest(
+    directory, entry_point, app_mode, environment, extra_files=None, excludes=None
+):
     """
     Makes a manifest for an API.
 
@@ -384,10 +394,12 @@ def make_api_manifest(directory, entry_point, app_mode, environment, extra_files
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :return: the manifest and a list of the files involved.
     """
-    relevant_files = _create_api_file_list(directory, environment['filename'], extra_files, excludes)
+    relevant_files = _create_api_file_list(
+        directory, environment["filename"], extra_files, excludes
+    )
     manifest = make_source_manifest(entry_point, environment, app_mode)
 
-    manifest_add_buffer(manifest, environment['filename'], environment['contents'])
+    manifest_add_buffer(manifest, environment["filename"], environment["contents"])
 
     for rel_path in relevant_files:
         manifest_add_file(manifest, rel_path, directory)
@@ -395,7 +407,9 @@ def make_api_manifest(directory, entry_point, app_mode, environment, extra_files
     return manifest, relevant_files
 
 
-def make_api_bundle(directory, entry_point, app_mode, environment, extra_files=None, excludes=None):
+def make_api_bundle(
+    directory, entry_point, app_mode, environment, extra_files=None, excludes=None
+):
     """
     Create an API bundle, given a directory path and a manifest.
 
@@ -407,12 +421,14 @@ def make_api_bundle(directory, entry_point, app_mode, environment, extra_files=N
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :return: a file-like object containing the bundle tarball.
     """
-    manifest, relevant_files = make_api_manifest(directory, entry_point, app_mode, environment, extra_files, excludes)
-    bundle_file = tempfile.TemporaryFile(prefix='rsc_bundle')
+    manifest, relevant_files = make_api_manifest(
+        directory, entry_point, app_mode, environment, extra_files, excludes
+    )
+    bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
 
-    with tarfile.open(mode='w:gz', fileobj=bundle_file) as bundle:
-        bundle_add_buffer(bundle, 'manifest.json', json.dumps(manifest, indent=2))
-        bundle_add_buffer(bundle, environment['filename'], environment['contents'])
+    with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
+        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
+        bundle_add_buffer(bundle, environment["filename"], environment["contents"])
 
         for rel_path in relevant_files:
             bundle_add_file(bundle, rel_path, directory)

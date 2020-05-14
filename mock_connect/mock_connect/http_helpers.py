@@ -11,7 +11,7 @@ from flask import abort, after_this_request, g, jsonify, request
 
 from .data import DBObject, User
 
-digits = re.compile(r'^\d+$')
+digits = re.compile(r"^\d+$")
 
 
 def error(code, reason):
@@ -21,15 +21,14 @@ def error(code, reason):
     :param code: the HTTP status code to return with the error.
     :param reason: the text of the error message to return.
     """
+
     def set_code(response):
         response.status_code = code
         return response
 
     after_this_request(set_code)
 
-    return {
-        'error': reason
-    }
+    return {"error": reason}
 
 
 def _make_json_ready(thing):
@@ -43,14 +42,19 @@ def _make_json_ready(thing):
     return thing
 
 
-def endpoint(authenticated: bool = False, auth_optional: bool = False, cls=None, writes_json: bool = False):
+def endpoint(
+    authenticated: bool = False,
+    auth_optional: bool = False,
+    cls=None,
+    writes_json: bool = False,
+):
     def decorator(function):
         @wraps(function)
         def wrapper(object_id=None, *args, **kwargs):
             if authenticated:
-                auth = request.headers.get('Authorization')
+                auth = request.headers.get("Authorization")
                 user = None
-                if auth is not None and auth.startswith('Key '):
+                if auth is not None and auth.startswith("Key "):
                     user = User.get_user_by_api_key(auth[4:])
 
                 if user is None and not auth_optional:
@@ -65,7 +69,9 @@ def endpoint(authenticated: bool = False, auth_optional: bool = False, cls=None,
                     object_id = int(object_id)
                 item = cls.get_object(object_id)
                 if item is None:
-                    result = error(404, '%s with ID %s not found.' % (cls.__name__, object_id))
+                    result = error(
+                        404, "%s with ID %s not found." % (cls.__name__, object_id)
+                    )
                 else:
                     result = _make_json_ready(function(item, *args, **kwargs))
 

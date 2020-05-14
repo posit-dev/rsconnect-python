@@ -10,8 +10,17 @@ from os.path import abspath, basename, dirname, exists, isdir, join, relpath, sp
 from pprint import pformat
 
 from rsconnect import api
-from .bundle import make_api_bundle, make_api_manifest, make_manifest_bundle,  make_notebook_html_bundle, \
-    make_notebook_source_bundle, make_source_manifest, manifest_add_buffer, manifest_add_file, read_manifest_file
+from .bundle import (
+    make_api_bundle,
+    make_api_manifest,
+    make_manifest_bundle,
+    make_notebook_html_bundle,
+    make_notebook_source_bundle,
+    make_source_manifest,
+    manifest_add_buffer,
+    manifest_add_file,
+    read_manifest_file,
+)
 from .environment import EnvironmentException
 from .log import logger
 from .metadata import AppStore
@@ -21,9 +30,9 @@ import click
 from six.moves.urllib_parse import urlparse
 
 line_width = 45
-_module_pattern = re.compile(r'^[A-Za-z0-9_]+:[A-Za-z0-9_]+$')
-_name_sub_pattern = re.compile(r'[^A-Za-z0-9_ -]+')
-_repeating_sub_pattern = re.compile(r'_+')
+_module_pattern = re.compile(r"^[A-Za-z0-9_]+:[A-Za-z0-9_]+$")
+_name_sub_pattern = re.compile(r"[^A-Za-z0-9_ -]+")
+_repeating_sub_pattern = re.compile(r"_+")
 
 
 @contextlib.contextmanager
@@ -38,30 +47,30 @@ def cli_feedback(label):
     """
     if label:
         pad = line_width - len(label)
-        click.secho(label + '... ' + ' ' * pad, nl=False, fg='bright_white')
+        click.secho(label + "... " + " " * pad, nl=False, fg="bright_white")
         logger.set_in_feedback(True)
 
     def passed():
         if label:
-            click.secho('[OK]', fg='bright_green')
+            click.secho("[OK]", fg="bright_green")
 
     def failed(err):
         if label:
-            click.secho('[ERROR]', fg='red')
-        click.secho(str(err), fg='bright_red')
+            click.secho("[ERROR]", fg="red")
+        click.secho(str(err), fg="bright_red")
         sys.exit(1)
 
     try:
         yield
         passed()
     except api.RSConnectException as exc:
-        failed('Error: ' + exc.message)
+        failed("Error: " + exc.message)
     except EnvironmentException as exc:
-        failed('Error: ' + str(exc))
+        failed("Error: " + str(exc))
     except Exception as exc:
-        if click.get_current_context('verbose'):
+        if click.get_current_context("verbose"):
             traceback.print_exc()
-        failed('Internal error: ' + str(exc))
+        failed("Internal error: " + str(exc))
     finally:
         logger.set_in_feedback(False)
 
@@ -87,17 +96,24 @@ def which_python(python, env=os.environ):
     """
     if python:
         if not (exists(python) and os.access(python, os.X_OK)):
-            raise api.RSConnectException('The file, "%s", does not exist or is not executable.' % python)
+            raise api.RSConnectException(
+                'The file, "%s", does not exist or is not executable.' % python
+            )
         return python
 
-    if 'RETICULATE_PYTHON' in env:
-        return env['RETICULATE_PYTHON']
+    if "RETICULATE_PYTHON" in env:
+        return env["RETICULATE_PYTHON"]
 
     return sys.executable
 
 
-def inspect_environment(python, directory, conda_mode=False, force_generate=False,
-                        check_output=subprocess.check_output):
+def inspect_environment(
+    python,
+    directory,
+    conda_mode=False,
+    force_generate=False,
+    check_output=subprocess.check_output,
+):
     """Run the environment inspector using the specified python binary.
 
     Returns a dictionary of information about the environment,
@@ -105,12 +121,12 @@ def inspect_environment(python, directory, conda_mode=False, force_generate=Fals
     """
     flags = []
     if conda_mode:
-        flags.append('c')
+        flags.append("c")
     if force_generate:
-        flags.append('f')
-    args = [python, '-m', 'rsconnect.environment']
+        flags.append("f")
+    args = [python, "-m", "rsconnect.environment"]
     if len(flags) > 0:
-        args.append('-'+''.join(flags))
+        args.append("-" + "".join(flags))
     args.append(directory)
     try:
         environment_json = check_output(args, universal_newlines=True)
@@ -143,13 +159,13 @@ def _to_server_check_list(url):
     :return: a list of server strings to test.
     """
     # urlparse will end up with an empty netloc in this case.
-    if '//' not in url:
-        items = ['https://%s', 'http://%s']
+    if "//" not in url:
+        items = ["https://%s", "http://%s"]
     # urlparse would parse this correctly and end up with an empty scheme.
-    elif url.startswith('//'):
-        items = ['https:%s', 'http:%s']
+    elif url.startswith("//"):
+        items = ["https:%s", "http:%s"]
     else:
-        items = ['%s']
+        items = ["%s"]
 
     return [item % url for item in items]
 
@@ -168,21 +184,21 @@ def test_server(connect_server):
     key = connect_server.api_key
     insecure = connect_server.insecure
     ca_data = connect_server.ca_data
-    failures = ['Invalid server URL: %s' % url]
+    failures = ["Invalid server URL: %s" % url]
     for test in _to_server_check_list(url):
         try:
             connect_server = api.RSConnectServer(test, key, insecure, ca_data)
             result = _verify_server(connect_server)
             return connect_server, result
         except api.RSConnectException:
-            failures.append('    %s - failed to verify as RStudio Connect.' % test)
+            failures.append("    %s - failed to verify as RStudio Connect." % test)
 
     # In case the user may need https instead of http...
-    if len(failures) == 2 and url.startswith('http://'):
+    if len(failures) == 2 and url.startswith("http://"):
         failures.append('    Do you need to use "https://%s?"' % url[7:])
 
     # If we're here, nothing worked.
-    raise api.RSConnectException('\n'.join(failures))
+    raise api.RSConnectException("\n".join(failures))
 
 
 def test_api_key(connect_server):
@@ -207,23 +223,30 @@ def gather_server_details(connect_server):
     strings for all the versions of Python that are installed.  The key `conda` will
     refer to data about whether Connect is configured to support Conda environments.
     """
+
     def _to_sort_key(text):
-        parts = [part.zfill(5) for part in text.split('.')]
-        return ''.join(parts)
+        parts = [part.zfill(5) for part in text.split(".")]
+        return "".join(parts)
 
     server_settings = api.verify_server(connect_server)
     python_settings = api.get_python_info(connect_server)
-    python_versions = sorted([item['version'] for item in python_settings['installations']], key=_to_sort_key)
+    python_versions = sorted(
+        [item["version"] for item in python_settings["installations"]], key=_to_sort_key
+    )
     conda_settings = {
-        'supported': python_settings['conda_enabled'] if 'conda_enabled' in python_settings else False
+        "supported": python_settings["conda_enabled"]
+        if "conda_enabled" in python_settings
+        else False
     }
     return {
-        'connect': server_settings['version'],
-        'python': {
-            'api_enabled': python_settings['api_enabled'] if 'api_enabled' in python_settings else False,
-            'versions': python_versions
+        "connect": server_settings["version"],
+        "python": {
+            "api_enabled": python_settings["api_enabled"]
+            if "api_enabled" in python_settings
+            else False,
+            "versions": python_versions,
         },
-        'conda': conda_settings
+        "conda": conda_settings,
     }
 
 
@@ -236,7 +259,7 @@ def are_apis_supported_on_server(connect_details):
     :return: boolean True if the Connect server supports Python APIs or not or False if not.
     :error: The RStudio Connect server does not allow for Python APIs.
     """
-    return connect_details['python']['api_enabled']
+    return connect_details["python"]["api_enabled"]
 
 
 def is_conda_supported_on_server(connect_details):
@@ -247,10 +270,12 @@ def is_conda_supported_on_server(connect_details):
     :return: boolean True if supported, False otherwise
     :error: Conda is not supported on the target server.  Try deploying without requesting Conda.
     """
-    return connect_details.get('conda', {}).get('supported', False)
+    return connect_details.get("conda", {}).get("supported", False)
 
 
-def check_server_capabilities(connect_server, capability_functions, details_source=gather_server_details):
+def check_server_capabilities(
+    connect_server, capability_functions, details_source=gather_server_details
+):
     """
     Uses a sequence of functions that check for capabilities in a Connect server.  The
     server settings data is retrieved by the gather_server_details() function.
@@ -270,11 +295,14 @@ def check_server_capabilities(connect_server, capability_functions, details_sour
 
     for function in capability_functions:
         if not function(details):
-            index = function.__doc__.find(':error:') if function.__doc__ else -1
+            index = function.__doc__.find(":error:") if function.__doc__ else -1
             if index >= 0:
-                message = function.__doc__[index + 7:].strip()
+                message = function.__doc__[index + 7 :].strip()
             else:
-                message = 'The server does not satisfy the %s capability check.' % function.__name__
+                message = (
+                    "The server does not satisfy the %s capability check."
+                    % function.__name__
+                )
             raise api.RSConnectException(message)
 
 
@@ -296,8 +324,8 @@ def _make_deployment_name(connect_server, title, force_unique):
     :return: a name for a deployment based on its title.
     """
     # First, Generate a default name from the given title.
-    name = _name_sub_pattern.sub('', title.lower()).replace(' ', '_')
-    name = _repeating_sub_pattern.sub('_', name)[:64].rjust(3, '_')
+    name = _name_sub_pattern.sub("", title.lower()).replace(" ", "_")
+    name = _repeating_sub_pattern.sub("_", name)[:64].rjust(3, "_")
 
     # Now, make sure it's unique, if needed.
     if force_unique:
@@ -315,7 +343,9 @@ def _validate_title(title):
     """
     if title:
         if not (3 <= len(title) <= 1024):
-            raise api.RSConnectException('A title must be between 3-1024 characters long.')
+            raise api.RSConnectException(
+                "A title must be between 3-1024 characters long."
+            )
 
 
 def _default_title(file_name):
@@ -330,7 +360,7 @@ def _default_title(file_name):
     # Make sure we have enough of a path to derive text from.
     file_name = abspath(file_name)
     # noinspection PyTypeChecker
-    return basename(file_name).rsplit('.', 1)[0][:1024].rjust(3, '0')
+    return basename(file_name).rsplit(".", 1)[0][:1024].rjust(3, "0")
 
 
 def _default_title_from_manifest(the_manifest, manifest_file):
@@ -339,10 +369,14 @@ def _default_title_from_manifest(the_manifest, manifest_file):
     """
     filename = None
 
-    metadata = the_manifest.get('metadata')
+    metadata = the_manifest.get("metadata")
     if metadata:
         # noinspection SpellCheckingInspection
-        filename = metadata.get('entrypoint') or metadata.get('primary_rmd') or metadata.get('primary_html')
+        filename = (
+            metadata.get("entrypoint")
+            or metadata.get("primary_rmd")
+            or metadata.get("primary_html")
+        )
         # If the manifest is for an API, revert to using the parent directory.
         if filename and _module_pattern.match(filename):
             filename = None
@@ -357,8 +391,10 @@ def validate_file_is_notebook(file_name):
     :param file_name: the name of the file to validate.
     """
     file_suffix = splitext(file_name)[1].lower()
-    if file_suffix != '.ipynb' or not exists(file_name):
-        raise api.RSConnectException('A Jupyter notebook (.ipynb) file is required here.')
+    if file_suffix != ".ipynb" or not exists(file_name):
+        raise api.RSConnectException(
+            "A Jupyter notebook (.ipynb) file is required here."
+        )
 
 
 def validate_extra_files(directory, extra_files):
@@ -377,10 +413,14 @@ def validate_extra_files(directory, extra_files):
             extra_file = relpath(extra, directory)
             # It's an error if we have to leave the given dir to get to the extra
             # file.
-            if extra_file.startswith('../'):
-                raise api.RSConnectException('%s must be under %s.' % (extra_file, directory))
+            if extra_file.startswith("../"):
+                raise api.RSConnectException(
+                    "%s must be under %s." % (extra_file, directory)
+                )
             if not exists(join(directory, extra_file)):
-                raise api.RSConnectException('Could not find file %s under %s' % (extra, directory))
+                raise api.RSConnectException(
+                    "Could not find file %s under %s" % (extra, directory)
+                )
             result.append(extra_file)
     return result
 
@@ -394,9 +434,11 @@ def validate_manifest_file(file_or_directory):
     :return: the real path to the manifest file.
     """
     if isdir(file_or_directory):
-        file_or_directory = join(file_or_directory, 'manifest.json')
-    if basename(file_or_directory) != 'manifest.json' or not exists(file_or_directory):
-        raise api.RSConnectException('A manifest.json file or a directory containing one is required here.')
+        file_or_directory = join(file_or_directory, "manifest.json")
+    if basename(file_or_directory) != "manifest.json" or not exists(file_or_directory):
+        raise api.RSConnectException(
+            "A manifest.json file or a directory containing one is required here."
+        )
     return file_or_directory
 
 
@@ -410,9 +452,9 @@ def validate_entry_point(entry_point):
     :return: the fully expanded and validated entry point and the module file name..
     """
     if not entry_point:
-        entry_point = 'app'
+        entry_point = "app"
 
-    parts = entry_point.split(':')
+    parts = entry_point.split(":")
 
     if len(parts) > 2:
         raise api.RSConnectException('Entry point is not in "module:object" format.')
@@ -420,8 +462,19 @@ def validate_entry_point(entry_point):
     return entry_point
 
 
-def deploy_jupyter_notebook(connect_server, file_name, extra_files, new=False, app_id=None, title=None, static=False,
-                            python=None, compatibility_mode=False, force_generate=False, log_callback=None):
+def deploy_jupyter_notebook(
+    connect_server,
+    file_name,
+    extra_files,
+    new=False,
+    app_id=None,
+    title=None,
+    static=False,
+    python=None,
+    compatibility_mode=False,
+    force_generate=False,
+    log_callback=None,
+):
     """
     A function to deploy a Jupyter notebook to Connect.  Depending on the files involved
     and network latency, this may take a bit of time.
@@ -448,18 +501,47 @@ def deploy_jupyter_notebook(connect_server, file_name, extra_files, new=False, a
     of log lines.  The log lines value will be None if a log callback was provided.
     """
     app_store = AppStore(file_name)
-    app_id, deployment_name, deployment_title, default_title, app_mode = \
-        gather_basic_deployment_info_for_notebook(connect_server, app_store, file_name, new, app_id, title, static)
-    python, environment = get_python_env_info(file_name, python, compatibility_mode, force_generate)
-    bundle = create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, environment)
+    (
+        app_id,
+        deployment_name,
+        deployment_title,
+        default_title,
+        app_mode,
+    ) = gather_basic_deployment_info_for_notebook(
+        connect_server, app_store, file_name, new, app_id, title, static
+    )
+    python, environment = get_python_env_info(
+        file_name, python, compatibility_mode, force_generate
+    )
+    bundle = create_notebook_deployment_bundle(
+        file_name, extra_files, app_mode, python, environment
+    )
     return _finalize_deploy(
-        connect_server, app_store, file_name, app_id, app_mode, deployment_name, deployment_title, default_title,
-        bundle, log_callback
+        connect_server,
+        app_store,
+        file_name,
+        app_id,
+        app_mode,
+        deployment_name,
+        deployment_title,
+        default_title,
+        bundle,
+        log_callback,
     )
 
 
-def _finalize_deploy(connect_server, app_store, file_name, app_id, app_mode, name, title, title_is_default, bundle,
-                     log_callback):
+def _finalize_deploy(
+    connect_server,
+    app_store,
+    file_name,
+    app_id,
+    app_mode,
+    name,
+    title,
+    title_is_default,
+    bundle,
+    log_callback,
+):
     """
     A common function to finish up the deploy process once all the data (bundle
     included) has been resolved.
@@ -482,7 +564,15 @@ def _finalize_deploy(connect_server, app_store, file_name, app_id, app_mode, nam
     """
     app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle)
     app_url, log_lines = spool_deployment_log(connect_server, app, log_callback)
-    app_store.set(connect_server.url, abspath(file_name), app_url, app['app_id'], app['app_guid'], title, app_mode)
+    app_store.set(
+        connect_server.url,
+        abspath(file_name),
+        app_url,
+        app["app_id"],
+        app["app_guid"],
+        title,
+        app_mode,
+    )
     return app_url, log_lines
 
 
@@ -495,12 +585,26 @@ def fake_module_file_from_directory(directory):
     :return: the directory plus the (potentially) fake module file.
     """
     app_name = abspath(directory)
-    app_name = dirname(app_name) if app_name.endswith(os.path.sep) else basename(app_name)
-    return join(directory, app_name + '.py')
+    app_name = (
+        dirname(app_name) if app_name.endswith(os.path.sep) else basename(app_name)
+    )
+    return join(directory, app_name + ".py")
 
 
-def deploy_python_api(connect_server, directory, extra_files, excludes, entry_point, new=False, app_id=None, title=None,
-                      python=None, compatibility_mode=False, force_generate=False, log_callback=None):
+def deploy_python_api(
+    connect_server,
+    directory,
+    extra_files,
+    excludes,
+    entry_point,
+    new=False,
+    app_id=None,
+    title=None,
+    python=None,
+    compatibility_mode=False,
+    force_generate=False,
+    log_callback=None,
+):
     """
     A function to deploy a Python WSGi API module to Connect.  Depending on the files involved
     and network latency, this may take a bit of time.
@@ -527,13 +631,36 @@ def deploy_python_api(connect_server, directory, extra_files, excludes, entry_po
     of log lines.  The log lines value will be None if a log callback was provided.
     """
     return _deploy_by_python_framework(
-        connect_server, directory, extra_files, excludes, entry_point, gather_basic_deployment_info_for_api, new,
-        app_id, title, python, compatibility_mode, force_generate, log_callback
+        connect_server,
+        directory,
+        extra_files,
+        excludes,
+        entry_point,
+        gather_basic_deployment_info_for_api,
+        new,
+        app_id,
+        title,
+        python,
+        compatibility_mode,
+        force_generate,
+        log_callback,
     )
 
 
-def deploy_dash_app(connect_server, directory, extra_files, excludes, entry_point, new=False, app_id=None, title=None,
-                    python=None, compatibility_mode=False, force_generate=False, log_callback=None):
+def deploy_dash_app(
+    connect_server,
+    directory,
+    extra_files,
+    excludes,
+    entry_point,
+    new=False,
+    app_id=None,
+    title=None,
+    python=None,
+    compatibility_mode=False,
+    force_generate=False,
+    log_callback=None,
+):
     """
     A function to deploy a Python Dash app module to Connect.  Depending on the files involved
     and network latency, this may take a bit of time.
@@ -560,14 +687,37 @@ def deploy_dash_app(connect_server, directory, extra_files, excludes, entry_poin
     of log lines.  The log lines value will be None if a log callback was provided.
     """
     return _deploy_by_python_framework(
-        connect_server, directory, extra_files, excludes, entry_point, gather_basic_deployment_info_for_dash, new,
-        app_id, title, python, compatibility_mode, force_generate, log_callback
+        connect_server,
+        directory,
+        extra_files,
+        excludes,
+        entry_point,
+        gather_basic_deployment_info_for_dash,
+        new,
+        app_id,
+        title,
+        python,
+        compatibility_mode,
+        force_generate,
+        log_callback,
     )
 
 
-def _deploy_by_python_framework(connect_server, directory, extra_files, excludes, entry_point, gatherer, new=False,
-                                app_id=None, title=None, python=None, compatibility_mode=False, force_generate=False,
-                                log_callback=None):
+def _deploy_by_python_framework(
+    connect_server,
+    directory,
+    extra_files,
+    excludes,
+    entry_point,
+    gatherer,
+    new=False,
+    app_id=None,
+    title=None,
+    python=None,
+    compatibility_mode=False,
+    force_generate=False,
+    log_callback=None,
+):
     """
     A function to deploy a Python WSGi API module to Connect.  Depending on the files involved
     and network latency, this may take a bit of time.
@@ -596,17 +746,42 @@ def _deploy_by_python_framework(connect_server, directory, extra_files, excludes
     """
     module_file = fake_module_file_from_directory(directory)
     app_store = AppStore(module_file)
-    entry_point, app_id, deployment_name, deployment_title, default_title, app_mode = \
-        gatherer(connect_server, app_store, directory, entry_point, new, app_id, title)
-    _, environment = get_python_env_info(directory, python, compatibility_mode, force_generate)
-    bundle = create_api_deployment_bundle(directory, extra_files, excludes, entry_point, app_mode, environment)
+    (
+        entry_point,
+        app_id,
+        deployment_name,
+        deployment_title,
+        default_title,
+        app_mode,
+    ) = gatherer(connect_server, app_store, directory, entry_point, new, app_id, title)
+    _, environment = get_python_env_info(
+        directory, python, compatibility_mode, force_generate
+    )
+    bundle = create_api_deployment_bundle(
+        directory, extra_files, excludes, entry_point, app_mode, environment
+    )
     return _finalize_deploy(
-        connect_server, app_store, directory, app_id, app_mode, deployment_name, deployment_title, default_title,
-        bundle, log_callback
+        connect_server,
+        app_store,
+        directory,
+        app_id,
+        app_mode,
+        deployment_name,
+        deployment_title,
+        default_title,
+        bundle,
+        log_callback,
     )
 
 
-def deploy_by_manifest(connect_server, manifest_file_name, new=False, app_id=None, title=None, log_callback=None):
+def deploy_by_manifest(
+    connect_server,
+    manifest_file_name,
+    new=False,
+    app_id=None,
+    title=None,
+    log_callback=None,
+):
     """
     A function to deploy a Jupyter notebook to Connect.  Depending on the files involved
     and network latency, this may take a bit of time.
@@ -625,16 +800,34 @@ def deploy_by_manifest(connect_server, manifest_file_name, new=False, app_id=Non
     of log lines.  The log lines value will be None if a log callback was provided.
     """
     app_store = AppStore(manifest_file_name)
-    app_id, deployment_name, deployment_title, default_title, app_mode, package_manager = \
-        gather_basic_deployment_info_from_manifest(connect_server, app_store, manifest_file_name, new, app_id, title)
+    (
+        app_id,
+        deployment_name,
+        deployment_title,
+        default_title,
+        app_mode,
+        package_manager,
+    ) = gather_basic_deployment_info_from_manifest(
+        connect_server, app_store, manifest_file_name, new, app_id, title
+    )
     bundle = make_manifest_bundle(manifest_file_name)
     return _finalize_deploy(
-        connect_server, app_store, manifest_file_name, app_id, app_mode, deployment_name, deployment_title,
-        default_title, bundle, log_callback
+        connect_server,
+        app_store,
+        manifest_file_name,
+        app_id,
+        app_mode,
+        deployment_name,
+        deployment_title,
+        default_title,
+        bundle,
+        log_callback,
     )
 
 
-def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_name, new, app_id, title, static):
+def gather_basic_deployment_info_for_notebook(
+    connect_server, app_store, file_name, new, app_id, title, static
+):
     """
     Helps to gather the necessary info for performing a deployment.
 
@@ -652,15 +845,17 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
     _validate_title(title)
 
     if new and app_id:
-        raise api.RSConnectException('Specify either a new deploy or an app ID but not both.')
+        raise api.RSConnectException(
+            "Specify either a new deploy or an app ID but not both."
+        )
 
     if app_id is not None:
         # Don't read app metadata if app-id is specified. Instead, we need
         # to get this from Connect.
         app = api.get_app_info(connect_server, app_id)
-        app_mode = AppModes.get_by_ordinal(app.get('app_mode', 0), True)
+        app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
 
-        logger.debug('Using app mode from app %s: %s' % (app_id, app_mode))
+        logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
     elif static:
         app_mode = AppModes.STATIC
     else:
@@ -671,16 +866,26 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
         # Use the saved app information unless overridden by the user.
         app_id, app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
         if static and app_mode != AppModes.STATIC:
-            raise api.RSConnectException('Cannot change app mode to "static" once deployed. '
-                                         'Use --new to create a new deployment.')
+            raise api.RSConnectException(
+                'Cannot change app mode to "static" once deployed. '
+                "Use --new to create a new deployment."
+            )
 
     default_title = not bool(title)
     title = title or _default_title(file_name)
 
-    return app_id, _make_deployment_name(connect_server, title, app_id is None), title, default_title, app_mode
+    return (
+        app_id,
+        _make_deployment_name(connect_server, title, app_id is None),
+        title,
+        default_title,
+        app_mode,
+    )
 
 
-def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_name, new, app_id, title):
+def gather_basic_deployment_info_from_manifest(
+    connect_server, app_store, file_name, new, app_id, title
+):
     """
     Helps to gather the necessary info for performing a deployment.
 
@@ -699,26 +904,38 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
     _validate_title(title)
 
     if new and app_id:
-        raise api.RSConnectException('Specify either a new deploy or an app ID but not both.')
+        raise api.RSConnectException(
+            "Specify either a new deploy or an app ID but not both."
+        )
 
     source_manifest, _ = read_manifest_file(file_name)
     # noinspection SpellCheckingInspection
-    app_mode = AppModes.get_by_name(source_manifest['metadata']['appmode'])
+    app_mode = AppModes.get_by_name(source_manifest["metadata"]["appmode"])
 
     if not new and app_id is None:
         # Possible redeployment - check for saved metadata.
         # Use the saved app information unless overridden by the user.
         app_id, app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
 
-    package_manager = source_manifest.get('python', {}).get('package_manager', {}).get('name', None)
+    package_manager = (
+        source_manifest.get("python", {}).get("package_manager", {}).get("name", None)
+    )
     default_title = not bool(title)
     title = title or _default_title_from_manifest(source_manifest, file_name)
 
-    return app_id, _make_deployment_name(connect_server, title, app_id is None), title, default_title, app_mode,\
-        package_manager
+    return (
+        app_id,
+        _make_deployment_name(connect_server, title, app_id is None),
+        title,
+        default_title,
+        app_mode,
+        package_manager,
+    )
 
 
-def gather_basic_deployment_info_for_api(connect_server, app_store, directory, entry_point, new, app_id, title):
+def gather_basic_deployment_info_for_api(
+    connect_server, app_store, directory, entry_point, new, app_id, title
+):
     """
     Helps to gather the necessary info for performing a deployment.
 
@@ -735,11 +952,20 @@ def gather_basic_deployment_info_for_api(connect_server, app_store, directory, e
     :return: the entry point, app ID, name, title and mode for the deployment.
     """
     return _gather_basic_deployment_info_for_framework(
-        connect_server, app_store, directory, entry_point, new, app_id, AppModes.PYTHON_API, title
+        connect_server,
+        app_store,
+        directory,
+        entry_point,
+        new,
+        app_id,
+        AppModes.PYTHON_API,
+        title,
     )
 
 
-def gather_basic_deployment_info_for_dash(connect_server, app_store, directory, entry_point, new, app_id, title):
+def gather_basic_deployment_info_for_dash(
+    connect_server, app_store, directory, entry_point, new, app_id, title
+):
     """
     Helps to gather the necessary info for performing a deployment.
 
@@ -756,12 +982,20 @@ def gather_basic_deployment_info_for_dash(connect_server, app_store, directory, 
     :return: the entry point, app ID, name, title and mode for the deployment.
     """
     return _gather_basic_deployment_info_for_framework(
-        connect_server, app_store, directory, entry_point, new, app_id, AppModes.DASH_APP, title
+        connect_server,
+        app_store,
+        directory,
+        entry_point,
+        new,
+        app_id,
+        AppModes.DASH_APP,
+        title,
     )
 
 
-def _gather_basic_deployment_info_for_framework(connect_server, app_store, directory, entry_point, new, app_id,
-                                                app_mode, title):
+def _gather_basic_deployment_info_for_framework(
+    connect_server, app_store, directory, entry_point, new, app_id, app_mode, title
+):
     """
     Helps to gather the necessary info for performing a deployment.
 
@@ -783,29 +1017,37 @@ def _gather_basic_deployment_info_for_framework(connect_server, app_store, direc
     _validate_title(title)
 
     if new and app_id:
-        raise api.RSConnectException('Specify either a new deploy or an app ID but not both.')
+        raise api.RSConnectException(
+            "Specify either a new deploy or an app ID but not both."
+        )
 
     if app_id is not None:
         # Don't read app metadata if app-id is specified. Instead, we need
         # to get this from Connect.
         app = api.get_app_info(connect_server, app_id)
-        app_mode = AppModes.get_by_ordinal(app.get('app_mode', 0), True)
+        app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
 
-        logger.debug('Using app mode from app %s: %s' % (app_id, app_mode))
+        logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
 
     if not new and app_id is None:
         # Possible redeployment - check for saved metadata.
         # Use the saved app information unless overridden by the user.
         app_id, app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
 
-    if directory[-1] == '/':
+    if directory[-1] == "/":
         directory = directory[:-1]
 
     default_title = not bool(title)
     title = title or _default_title(directory)
 
-    return entry_point, app_id, _make_deployment_name(connect_server, title, app_id is None), title, default_title,\
-        app_mode
+    return (
+        entry_point,
+        app_id,
+        _make_deployment_name(connect_server, title, app_id is None),
+        title,
+        default_title,
+        app_mode,
+    )
 
 
 def get_python_env_info(file_name, python, conda_mode, force_generate):
@@ -822,18 +1064,26 @@ def get_python_env_info(file_name, python, conda_mode, force_generate):
     stuff.
     """
     python = which_python(python)
-    logger.debug('Python: %s' % python)
-    environment = inspect_environment(python, dirname(file_name), conda_mode=conda_mode, force_generate=force_generate)
-    if 'error' in environment:
-        raise api.RSConnectException(environment['error'])
-    logger.debug('Python: %s' % python)
-    logger.debug('Environment: %s' % pformat(environment))
+    logger.debug("Python: %s" % python)
+    environment = inspect_environment(
+        python, dirname(file_name), conda_mode=conda_mode, force_generate=force_generate
+    )
+    if "error" in environment:
+        raise api.RSConnectException(environment["error"])
+    logger.debug("Python: %s" % python)
+    logger.debug("Environment: %s" % pformat(environment))
 
     return python, environment
 
 
-def create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, environment,
-                                      extra_files_need_validating=True):
+def create_notebook_deployment_bundle(
+    file_name,
+    extra_files,
+    app_mode,
+    python,
+    environment,
+    extra_files_need_validating=True,
+):
     """
     Create an in-memory bundle, ready to deploy.
 
@@ -864,8 +1114,15 @@ def create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, 
         return make_notebook_source_bundle(file_name, environment, extra_files)
 
 
-def create_api_deployment_bundle(directory, extra_files, excludes, entry_point, app_mode, environment,
-                                 extra_files_need_validating=True):
+def create_api_deployment_bundle(
+    directory,
+    extra_files,
+    excludes,
+    entry_point,
+    app_mode,
+    environment,
+    extra_files_need_validating=True,
+):
     """
     Create an in-memory bundle, ready to deploy.
 
@@ -889,7 +1146,9 @@ def create_api_deployment_bundle(directory, extra_files, excludes, entry_point, 
     if app_mode is None:
         app_mode = AppModes.PYTHON_API
 
-    return make_api_bundle(directory, entry_point, app_mode, environment, extra_files, excludes)
+    return make_api_bundle(
+        directory, entry_point, app_mode, environment, extra_files, excludes
+    )
 
 
 def deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle):
@@ -905,7 +1164,9 @@ def deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle)
     :return: application information about the deploy.  This includes the ID of the
     task that may be queried for deployment progress.
     """
-    return api.do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bundle)
+    return api.do_bundle_deploy(
+        connect_server, app_id, name, title, title_is_default, bundle
+    )
 
 
 def spool_deployment_log(connect_server, app, log_callback):
@@ -921,11 +1182,14 @@ def spool_deployment_log(connect_server, app, log_callback):
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    return api.emit_task_log(connect_server, app['app_id'], app['task_id'], log_callback)
+    return api.emit_task_log(
+        connect_server, app["app_id"], app["task_id"], log_callback
+    )
 
 
-def create_notebook_manifest_and_environment_file(entry_point_file, environment, app_mode=None, extra_files=None,
-                                                  force=True):
+def create_notebook_manifest_and_environment_file(
+    entry_point_file, environment, app_mode=None, extra_files=None, force=True
+):
     """
     Creates and writes a manifest.json file for the given notebook entry point file.
     If the related environment file (requirements.txt, environment.yml, etc.) doesn't
@@ -942,11 +1206,18 @@ def create_notebook_manifest_and_environment_file(entry_point_file, environment,
     already exists.
     :return:
     """
-    if not write_notebook_manifest_json(entry_point_file, environment, app_mode, extra_files) or force:
+    if (
+        not write_notebook_manifest_json(
+            entry_point_file, environment, app_mode, extra_files
+        )
+        or force
+    ):
         write_environment_file(environment, dirname(entry_point_file))
 
 
-def write_notebook_manifest_json(entry_point_file, environment, app_mode=None, extra_files=None):
+def write_notebook_manifest_json(
+    entry_point_file, environment, app_mode=None, extra_files=None
+):
     """
     Creates and writes a manifest.json file for the given entry point file.  If
     the application mode is not provided, an attempt will be made to resolve one
@@ -965,29 +1236,39 @@ def write_notebook_manifest_json(entry_point_file, environment, app_mode=None, e
     extra_files = validate_extra_files(dirname(entry_point_file), extra_files)
     directory = dirname(entry_point_file)
     file_name = basename(entry_point_file)
-    manifest_path = join(directory, 'manifest.json')
+    manifest_path = join(directory, "manifest.json")
 
     if app_mode is None:
         _, extension = splitext(file_name)
         app_mode = AppModes.get_by_extension(extension, True)
         if app_mode == AppModes.UNKNOWN:
-            raise api.RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
+            raise api.RSConnectException(
+                'Could not determine the app mode from "%s"; please specify one.'
+                % extension
+            )
 
     manifest_data = make_source_manifest(file_name, environment, app_mode)
     manifest_add_file(manifest_data, file_name, directory)
-    manifest_add_buffer(manifest_data, environment['filename'], environment['contents'])
+    manifest_add_buffer(manifest_data, environment["filename"], environment["contents"])
 
     for rel_path in extra_files:
         manifest_add_file(manifest_data, rel_path, directory)
 
-    with open(manifest_path, 'w') as f:
+    with open(manifest_path, "w") as f:
         json.dump(manifest_data, f, indent=2)
 
-    return exists(join(directory, environment['filename']))
+    return exists(join(directory, environment["filename"]))
 
 
-def create_api_manifest_and_environment_file(directory, entry_point, environment, app_mode=AppModes.PYTHON_API,
-                                             extra_files=None, excludes=None, force=True):
+def create_api_manifest_and_environment_file(
+    directory,
+    entry_point,
+    environment,
+    app_mode=AppModes.PYTHON_API,
+    extra_files=None,
+    excludes=None,
+    force=True,
+):
     """
     Creates and writes a manifest.json file for the given Python API entry point.  If
     the related environment file (requirements.txt, environment.yml, etc.) doesn't
@@ -1004,12 +1285,23 @@ def create_api_manifest_and_environment_file(directory, entry_point, environment
     already exists.
     :return:
     """
-    if not write_api_manifest_json(directory, entry_point, environment, app_mode, extra_files, excludes) or force:
+    if (
+        not write_api_manifest_json(
+            directory, entry_point, environment, app_mode, extra_files, excludes
+        )
+        or force
+    ):
         write_environment_file(environment, directory)
 
 
-def write_api_manifest_json(directory, entry_point, environment, app_mode=AppModes.PYTHON_API, extra_files=None,
-                            excludes=None):
+def write_api_manifest_json(
+    directory,
+    entry_point,
+    environment,
+    app_mode=AppModes.PYTHON_API,
+    extra_files=None,
+    excludes=None,
+):
     """
     Creates and writes a manifest.json file for the given entry point file.  If
     the application mode is not provided, an attempt will be made to resolve one
@@ -1026,13 +1318,15 @@ def write_api_manifest_json(directory, entry_point, environment, app_mode=AppMod
     etc.) that goes along with the manifest exists.
     """
     extra_files = validate_extra_files(directory, extra_files)
-    manifest, _ = make_api_manifest(directory, entry_point, app_mode, environment, extra_files, excludes)
-    manifest_path = join(directory, 'manifest.json')
+    manifest, _ = make_api_manifest(
+        directory, entry_point, app_mode, environment, extra_files, excludes
+    )
+    manifest_path = join(directory, "manifest.json")
 
-    with open(manifest_path, 'w') as f:
+    with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
 
-    return exists(join(directory, environment['filename']))
+    return exists(join(directory, environment["filename"]))
 
 
 def write_environment_file(environment, directory):
@@ -1044,9 +1338,9 @@ def write_environment_file(environment, directory):
     returned by the inspect_environment() function.
     :param directory: the directory where the file should be written.
     """
-    environment_file_path = join(directory, environment['filename'])
-    with open(environment_file_path, 'w') as f:
-        f.write(environment['contents'])
+    environment_file_path = join(directory, environment["filename"])
+    with open(environment_file_path, "w") as f:
+        f.write(environment["contents"])
 
 
 def describe_manifest(file_name):
@@ -1059,10 +1353,13 @@ def describe_manifest(file_name):
     :param file_name: the name of the manifest file to read.
     :return: the entry point and primary document from the manifest.
     """
-    if basename(file_name) == 'manifest.json' and exists(file_name):
+    if basename(file_name) == "manifest.json" and exists(file_name):
         manifest, _ = read_manifest_file(file_name)
-        metadata = manifest.get('metadata')
+        metadata = manifest.get("metadata")
         if metadata:
             # noinspection SpellCheckingInspection
-            return metadata.get('entrypoint'), metadata.get('primary_rmd') or metadata.get('primary_html')
+            return (
+                metadata.get("entrypoint"),
+                metadata.get("primary_rmd") or metadata.get("primary_html"),
+            )
     return None, None
