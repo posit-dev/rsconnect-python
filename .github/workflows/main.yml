@@ -5,8 +5,9 @@ jobs:
     strategy:
       matrix:
         os:
-        - ubuntu-latest
         - macos-latest
+        - ubuntu-latest
+        - windows-latest
         python-version:
         - '2.7'
         - '3.5'
@@ -20,7 +21,7 @@ jobs:
     - uses: actions/setup-python@v2
       with:
         python_version: ${{ matrix.python-version }}
-    - if: ${{ matrix.os == 'ubuntu-latest' }}
+    - if: ${{ matrix.os != 'macos-latest' }}
       uses: actions/cache@v1
       with:
         path: ~/.cache/pip
