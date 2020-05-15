@@ -4,13 +4,9 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        # TODO: work on windows-latest compatibility?
+        os: [macos-latest, ubuntu-latest]
         python-version: ['2.7', '3.5', '3.6', '3.7', '3.8']
-        exclude:
-        - { os: windows-latest, python-version: '2.7' }
-        - { os: windows-latest, python-version: '3.5' }
-        - { os: windows-latest, python-version: '3.6' }
-        - { os: windows-latest, python-version: '3.7' }
     runs-on: ${{ matrix.os }}
     name: test (py${{ matrix.python-version }} ${{ matrix.os }})
     steps:
