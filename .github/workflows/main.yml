@@ -9,13 +9,12 @@ jobs:
         - macos-latest
         python-version:
         - '2.7'
-        # TODO: enable these
-        # - '3.5'
-        # - '3.6'
-        # - '3.7'
+        - '3.5'
+        - '3.6'
+        - '3.7'
         - '3.8'
     runs-on: ${{ matrix.os }}
-    name: python ${{ matrix.python-version }} ${{ matrix.os }}
+    name: test (py${{ matrix.python-version }} ${{ matrix.os }})
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-python@v2
@@ -39,7 +38,7 @@ jobs:
     - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
       run: make lint-local
     - run: make test-local
-  package:
+  distributions:
     needs: test
     runs-on: ubuntu-latest
     steps:
