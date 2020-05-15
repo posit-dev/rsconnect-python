@@ -43,10 +43,7 @@ def _make_json_ready(thing):
 
 
 def endpoint(
-    authenticated: bool = False,
-    auth_optional: bool = False,
-    cls=None,
-    writes_json: bool = False,
+    authenticated: bool = False, auth_optional: bool = False, cls=None, writes_json: bool = False,
 ):
     def decorator(function):
         @wraps(function)
@@ -69,9 +66,7 @@ def endpoint(
                     object_id = int(object_id)
                 item = cls.get_object(object_id)
                 if item is None:
-                    result = error(
-                        404, "%s with ID %s not found." % (cls.__name__, object_id)
-                    )
+                    result = error(404, "%s with ID %s not found." % (cls.__name__, object_id))
                 else:
                     result = _make_json_ready(function(item, *args, **kwargs))
 

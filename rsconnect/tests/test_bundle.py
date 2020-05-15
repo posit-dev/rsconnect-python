@@ -36,16 +36,12 @@ class TestBundle(TestCase):
         ) as tar:
 
             names = sorted(tar.getnames())
-            self.assertEqual(
-                names, ["dummy.ipynb", "manifest.json", "requirements.txt",]
-            )
+            self.assertEqual(names, ["dummy.ipynb", "manifest.json", "requirements.txt",])
 
             reqs = tar.extractfile("requirements.txt").read()
             self.assertEqual(reqs, b"numpy\npandas\nmatplotlib\n")
 
-            manifest = json.loads(
-                tar.extractfile("manifest.json").read().decode("utf-8")
-            )
+            manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
 
             # don't check locale value, just require it be present
             del manifest["locale"]
@@ -61,22 +57,14 @@ class TestBundle(TestCase):
                 manifest,
                 {
                     u"version": 1,
-                    u"metadata": {
-                        u"appmode": u"jupyter-static",
-                        u"entrypoint": u"dummy.ipynb",
-                    },
+                    u"metadata": {u"appmode": u"jupyter-static", u"entrypoint": u"dummy.ipynb",},
                     u"python": {
                         u"version": self.python_version(),
-                        u"package_manager": {
-                            u"name": u"pip",
-                            u"package_file": u"requirements.txt",
-                        },
+                        u"package_manager": {u"name": u"pip", u"package_file": u"requirements.txt",},
                     },
                     u"files": {
                         u"dummy.ipynb": {u"checksum": ipynb_hash,},
-                        u"requirements.txt": {
-                            u"checksum": u"5f2a5e862fe7afe3def4a57bb5cfb214"
-                        },
+                        u"requirements.txt": {u"checksum": u"5f2a5e862fe7afe3def4a57bb5cfb214"},
                     },
                 },
             )
@@ -92,23 +80,19 @@ class TestBundle(TestCase):
         # the kernel environment and not the notebook server environment.
         environment = detect_environment(directory)
 
-        with make_notebook_source_bundle(
-            nb_path, environment, extra_files=["data.csv"]
-        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with make_notebook_source_bundle(nb_path, environment, extra_files=["data.csv"]) as bundle, tarfile.open(
+            mode="r:gz", fileobj=bundle
+        ) as tar:
 
             names = sorted(tar.getnames())
-            self.assertEqual(
-                names, ["data.csv", "dummy.ipynb", "manifest.json", "requirements.txt",]
-            )
+            self.assertEqual(names, ["data.csv", "dummy.ipynb", "manifest.json", "requirements.txt",])
 
             reqs = tar.extractfile("requirements.txt").read()
 
             # these are the dependencies declared in our setup.py
             self.assertIn(b"six", reqs)
 
-            manifest = json.loads(
-                tar.extractfile("manifest.json").read().decode("utf-8")
-            )
+            manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
 
             # don't check requirements.txt since we don't know the checksum
             del manifest["files"]["requirements.txt"]
@@ -127,16 +111,10 @@ class TestBundle(TestCase):
                 manifest,
                 {
                     u"version": 1,
-                    u"metadata": {
-                        u"appmode": u"jupyter-static",
-                        u"entrypoint": u"dummy.ipynb",
-                    },
+                    u"metadata": {u"appmode": u"jupyter-static", u"entrypoint": u"dummy.ipynb",},
                     u"python": {
                         u"version": self.python_version(),
-                        u"package_manager": {
-                            u"name": u"pip",
-                            u"package_file": u"requirements.txt",
-                        },
+                        u"package_manager": {u"name": u"pip", u"package_file": u"requirements.txt",},
                     },
                     u"files": {
                         u"dummy.ipynb": {u"checksum": ipynb_hash,},
@@ -198,20 +176,11 @@ class TestBundle(TestCase):
             names = sorted(tar.getnames())
             self.assertEqual(names, ["dummy.html", "manifest.json",])
 
-            manifest = json.loads(
-                tar.extractfile("manifest.json").read().decode("utf-8")
-            )
+            manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
 
             # noinspection SpellCheckingInspection
             self.assertEqual(
-                manifest,
-                {
-                    u"version": 1,
-                    u"metadata": {
-                        u"appmode": u"static",
-                        u"primary_html": u"dummy.html",
-                    },
-                },
+                manifest, {u"version": 1, u"metadata": {u"appmode": u"static", u"primary_html": u"dummy.html",},},
             )
         finally:
             tar.close()
@@ -231,18 +200,10 @@ class TestBundle(TestCase):
     def test_manifest_bundle(self):
         self.maxDiff = 5000
         # noinspection SpellCheckingInspection
-        manifest_path = join(
-            dirname(__file__), "testdata", "R", "shinyapp", "manifest.json"
-        )
+        manifest_path = join(dirname(__file__), "testdata", "R", "shinyapp", "manifest.json")
 
-        with make_manifest_bundle(manifest_path) as bundle, tarfile.open(
-            mode="r:gz", fileobj=bundle
-        ) as tar:
+        with make_manifest_bundle(manifest_path) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             tar_names = sorted(tar.getnames())
-            manifest = json.loads(
-                tar.extractfile("manifest.json").read().decode("utf-8")
-            )
-            manifest_names = sorted(
-                filter(keep_manifest_specified_file, manifest["files"].keys())
-            )
+            manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+            manifest_names = sorted(filter(keep_manifest_specified_file, manifest["files"].keys()))
             self.assertEqual(tar_names, manifest_names)

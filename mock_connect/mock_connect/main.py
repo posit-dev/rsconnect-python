@@ -97,14 +97,10 @@ def upload(connect_app):
 def deploy(connect_app):
     bundle_id = request.get_json(force=True).get("bundle")
     if bundle_id is None:
-        return error(
-            400, "bundle_id is required"
-        )  # message and status code probably wrong
+        return error(400, "bundle_id is required")  # message and status code probably wrong
     bundle = Bundle.get_object(bundle_id)
     if bundle is None:
-        return error(
-            404, "bundle %s not found" % bundle_id
-        )  # message and status code probably wrong
+        return error(404, "bundle %s not found" % bundle_id)  # message and status code probably wrong
 
     manifest = bundle.get_manifest()
     old_app_mode = connect_app.app_mode
@@ -112,9 +108,7 @@ def deploy(connect_app):
     new_app_mode = AppMode.value_of(manifest["metadata"]["appmode"])
 
     if old_app_mode is not None and old_app_mode != new_app_mode:
-        return error(
-            400, "Cannot change app mode once deployed"
-        )  # message and status code probably wrong
+        return error(400, "Cannot change app mode once deployed")  # message and status code probably wrong
 
     connect_app.bundle_deployed(bundle, new_app_mode)
 
@@ -161,9 +155,7 @@ def python_settings():
 def content(connect_app):
     bundle = connect_app.get_bundle()
     if bundle is None:
-        return error(
-            400, "The content has not been deployed."
-        )  # message and status code probably wrong
+        return error(400, "The content has not been deployed.")  # message and status code probably wrong
     return bundle.get_rendered_content()
 
 

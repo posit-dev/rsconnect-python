@@ -249,10 +249,7 @@ class ServerStore(DataStore):
         :param ca_data: client side certificate data to use for TLS.
         """
         self._set(
-            name,
-            dict(
-                name=name, url=url, api_key=api_key, insecure=insecure, ca_cert=ca_data,
-            ),
+            name, dict(name=name, url=url, api_key=api_key, insecure=insecure, ca_cert=ca_data,),
         )
 
     def remove_by_name(self, name):
@@ -298,9 +295,7 @@ class ServerStore(DataStore):
         if name:
             entry = self.get_by_name(name)
             if not entry:
-                raise api.RSConnectException(
-                    'The nickname, "%s", does not exist.' % name
-                )
+                raise api.RSConnectException('The nickname, "%s", does not exist.' % name)
         elif url:
             entry = self.get_by_url(url)
         else:
@@ -402,9 +397,7 @@ class AppStore(DataStore):
     def resolve(self, server, app_id, app_mode):
         metadata = self.get(server)
         if metadata is None:
-            logger.debug(
-                "No previous deployment to this server was found; this will be a new deployment."
-            )
+            logger.debug("No previous deployment to this server was found; this will be a new deployment.")
             return app_id, app_mode
 
         logger.debug("Found previous deployment data in %s" % self.get_path())

@@ -61,17 +61,11 @@ class AppModes(object):
 
     @classmethod
     def get_by_ordinal(cls, ordinal, return_unknown=False):
-        return cls._find_by(
-            lambda mode: mode.ordinal() == ordinal,
-            "with ordinal %s" % ordinal,
-            return_unknown,
-        )
+        return cls._find_by(lambda mode: mode.ordinal() == ordinal, "with ordinal %s" % ordinal, return_unknown,)
 
     @classmethod
     def get_by_name(cls, name, return_unknown=False):
-        return cls._find_by(
-            lambda mode: mode.name() == name, "named %s" % name, return_unknown
-        )
+        return cls._find_by(lambda mode: mode.name() == name, "named %s" % name, return_unknown)
 
     @classmethod
     def get_by_extension(cls, extension, return_unknown=False):
@@ -82,9 +76,7 @@ class AppModes(object):
             raise ValueError("No app mode with extension %s" % extension)
 
         return cls._find_by(
-            lambda mode: mode.extension() == extension,
-            "with extension: %s" % extension,
-            return_unknown,
+            lambda mode: mode.extension() == extension, "with extension: %s" % extension, return_unknown,
         )
 
     @classmethod
@@ -131,9 +123,7 @@ class GlobMatcher(object):
         for index, name in enumerate(parts):
             if name == "**":
                 if depth_wildcard_index is not None:
-                    raise ValueError(
-                        'Only one occurrence of the "**" pattern is allowed.'
-                    )
+                    raise ValueError('Only one occurrence of the "**" pattern is allowed.')
                 depth_wildcard_index = index
             elif any(ch in name for ch in "*?["):
                 parts[index] = re.compile(r"\A" + fnmatch.translate(name))
@@ -152,11 +142,7 @@ class GlobMatcher(object):
                 return self._pattern_parts[i1] == parts[i2]
             return self._pattern_parts[i1].match(parts[i2]) is not None
 
-        wildcard_index = (
-            len(self._pattern_parts)
-            if self._wildcard_index is None
-            else self._wildcard_index
-        )
+        wildcard_index = len(self._pattern_parts) if self._wildcard_index is None else self._wildcard_index
 
         # Top-down...
         for index in range(wildcard_index):

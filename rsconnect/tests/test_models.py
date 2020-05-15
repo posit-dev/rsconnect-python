@@ -104,12 +104,7 @@ class TestModels(TestCase):
 
         for case in cases:
             matcher = GlobMatcher(case[0])
-            msg = "Pattern: %s, Path: %s, expected: %s, got: %s" % (
-                case[0],
-                case[1],
-                case[2],
-                not case[2],
-            )
+            msg = "Pattern: %s, Path: %s, expected: %s, got: %s" % (case[0], case[1], case[2], not case[2],)
             self.assertEqual(matcher.matches(case[1]), case[2], msg)
 
         with self.assertRaises(ValueError):

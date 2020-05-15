@@ -21,9 +21,7 @@ class TestEnvironment(TestCase):
         return ".".join(map(str, sys.version_info[:3]))
 
     def test_get_python_version(self):
-        self.assertEqual(
-            get_python_version({"package_manager": "pip"}), self.python_version()
-        )
+        self.assertEqual(get_python_version({"package_manager": "pip"}), self.python_version())
 
     def test_get_default_locale(self):
         self.assertEqual(get_default_locale(lambda: ("en_US", "UTF-8")), "en_US.UTF-8")
@@ -79,9 +77,7 @@ class TestEnvironment(TestCase):
 
     def test_conda_env_export(self):
         fake_conda = join(dirname(__file__), "testdata", "fake_conda.sh")
-        result = detect_environment(
-            get_dir("conda1"), conda_mode=True, force_generate=True, conda=fake_conda
-        )
+        result = detect_environment(get_dir("conda1"), conda_mode=True, force_generate=True, conda=fake_conda)
         self.assertEqual(result["source"], "conda_env_export")
         self.assertEqual(result["conda"], "1.0.0")
         self.assertEqual(result["contents"], "this is a conda environment\n")

@@ -30,9 +30,7 @@ def _create_plain_connection(host_name, port, disable_tls_check, ca_data, timeou
     :param timeout: the timeout value to use for socket operations.
     :return: a plain HTTP connection.
     """
-    return http.HTTPConnection(
-        host_name, port=(port or http.HTTP_PORT), timeout=timeout
-    )
+    return http.HTTPConnection(host_name, port=(port or http.HTTP_PORT), timeout=timeout)
 
 
 # noinspection PyUnresolvedReferences
@@ -48,9 +46,7 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
     :return: a TLS HTTPS connection.
     """
     if ca_data is not None and disable_tls_check:
-        raise ValueError(
-            "Cannot both disable TLS checking and provide a custom certificate"
-        )
+        raise ValueError("Cannot both disable TLS checking and provide a custom certificate")
     if ca_data is not None:
         return http.HTTPSConnection(
             host_name,
@@ -61,15 +57,10 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
     elif disable_tls_check:
         # noinspection PyProtectedMember
         return http.HTTPSConnection(
-            host_name,
-            port=(port or http.HTTPS_PORT),
-            timeout=timeout,
-            context=ssl._create_unverified_context(),
+            host_name, port=(port or http.HTTPS_PORT), timeout=timeout, context=ssl._create_unverified_context(),
         )
     else:
-        return http.HTTPSConnection(
-            host_name, port=(port or http.HTTPS_PORT), timeout=timeout
-        )
+        return http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=timeout)
 
 
 def append_to_path(uri, path):
@@ -117,11 +108,7 @@ class HTTPResponse(object):
             self.reason = response.reason
             self.content_type = response.getheader("Content-Type")
 
-            if (
-                self.content_type
-                and self.content_type.startswith("application/json")
-                and len(self.response_body) > 0
-            ):
+            if self.content_type and self.content_type.startswith("application/json") and len(self.response_body) > 0:
                 self.json_data = json.loads(self.response_body)
 
 
@@ -131,9 +118,7 @@ class HTTPServer(object):
     server.
     """
 
-    def __init__(
-        self, url, disable_tls_check=False, ca_data=None, cookies=None, timeout=30
-    ):
+    def __init__(self, url, disable_tls_check=False, ca_data=None, cookies=None, timeout=30):
         """
         Constructs an HTTPServer object.
 
@@ -172,13 +157,7 @@ class HTTPServer(object):
 
     def __enter__(self):
         factory = _connection_factory[self._url.scheme]
-        self._conn = factory(
-            self._url.hostname,
-            self._url.port,
-            self._disable_tls_check,
-            self._ca_data,
-            self._timeout,
-        )
+        self._conn = factory(self._url.hostname, self._url.port, self._disable_tls_check, self._ca_data, self._timeout,)
         return self
 
     def __exit__(self, *args):
@@ -198,13 +177,9 @@ class HTTPServer(object):
         if isinstance(body, dict):
             body = json.dumps(body).encode("utf-8")
             extra_headers = {"Content-Type": "application/json; charset=utf-8"}
-        return self._do_request(
-            method, path, query_params, body, maximum_redirects, extra_headers
-        )
+        return self._do_request(method, path, query_params, body, maximum_redirects, extra_headers)
 
-    def _do_request(
-        self, method, path, query_params, body, maximum_redirects, extra_headers=None
-    ):
+    def _do_request(self, method, path, query_params, body, maximum_redirects, extra_headers=None):
         full_uri = path
         if query_params is not None:
             full_uri = "%s?%s" % (path, urlencode(query_params))
@@ -252,20 +227,11 @@ class HTTPServer(object):
 
                 logger.debug("--> Redirected to: %s" % next_url)
 
-                return self._do_request(
-                    method,
-                    next_url,
-                    query_params,
-                    body,
-                    maximum_redirects - 1,
-                    extra_headers,
-                )
+                return self._do_request(method, next_url, query_params, body, maximum_redirects - 1, extra_headers,)
 
             self._handle_set_cookie(response)
 
-            return self._tweak_response(
-                HTTPResponse(full_uri, response=response, body=response_body)
-            )
+            return self._tweak_response(HTTPResponse(full_uri, response=response, body=response_body))
         except (
             http.HTTPException,
             ssl.CertificateError,
@@ -276,9 +242,7 @@ class HTTPServer(object):
             socket.gaierror,
             socket.timeout,
         ) as exception:
-            logger.debug(
-                "An exception occurred processing the HTTP request.", exc_info=True
-            )
+            logger.debug("An exception occurred processing the HTTP request.", exc_info=True)
             return HTTPResponse(full_uri, exception=exception)
 
     # noinspection PyMethodMayBeStatic
@@ -332,12 +296,7 @@ class CookieJar(object):
         logger.debug("CookieJar contents: %s\n%s" % (self._keys, self._content))
 
     def get_cookie_header_value(self):
-        result = "; ".join(
-            [
-                "%s=%s" % (key, self._reference.value_encode(self._content[key])[1])
-                for key in self._keys
-            ]
-        )
+        result = "; ".join(["%s=%s" % (key, self._reference.value_encode(self._content[key])[1]) for key in self._keys])
         logger.debug("Cookie: %s" % result)
         return result
 

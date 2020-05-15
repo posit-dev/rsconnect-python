@@ -9,12 +9,8 @@ from rsconnect.metadata import AppStore, ServerStore
 class TestServerMetadata(TestCase):
     def setUp(self):
         self.server_store = ServerStore()
-        self.server_store.set(
-            "foo", "http://connect.local", "notReallyAnApiKey", ca_data="/certs/connect"
-        )
-        self.server_store.set(
-            "bar", "http://connect.remote", "differentApiKey", insecure=True
-        )
+        self.server_store.set("foo", "http://connect.local", "notReallyAnApiKey", ca_data="/certs/connect")
+        self.server_store.set("bar", "http://connect.remote", "differentApiKey", insecure=True)
 
     def test_add(self):
         self.assertEqual(
@@ -30,13 +26,7 @@ class TestServerMetadata(TestCase):
 
         self.assertEqual(
             self.server_store.get_by_name("bar"),
-            dict(
-                name="bar",
-                url="http://connect.remote",
-                api_key="differentApiKey",
-                insecure=True,
-                ca_cert=None,
-            ),
+            dict(name="bar", url="http://connect.remote", api_key="differentApiKey", insecure=True, ca_cert=None,),
         )
 
     def test_remove_by_name(self):
@@ -67,9 +57,7 @@ class TestServerMetadata(TestCase):
         self.assertEqual(servers[1]["name"], "foo")
         self.assertEqual(servers[1]["url"], "http://connect.local")
 
-    def check_resolve_call(
-        self, name, server, api_key, insecure, ca_cert, should_be_from_store
-    ):
+    def check_resolve_call(self, name, server, api_key, insecure, ca_cert, should_be_from_store):
         server, api_key, insecure, ca_cert, from_store = self.server_store.resolve(
             name, server, api_key, insecure, ca_cert
         )
@@ -89,9 +77,7 @@ class TestServerMetadata(TestCase):
     def test_resolve_by_default(self):
         # with multiple entries, server None will not resolve by default
         name, server, api_key, insecure, ca_cert = None, None, None, None, None
-        server, api_key, insecure, ca_cert, _ = self.server_store.resolve(
-            name, server, api_key, insecure, ca_cert
-        )
+        server, api_key, insecure, ca_cert, _ = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
         self.assertEqual(server, None)
 
         # with only a single entry, server None will resolve to that entry
@@ -123,9 +109,7 @@ class TestServerMetadata(TestCase):
 
         self.assertFalse(exists(path))
 
-        server_store.set(
-            "foo", "http://connect.local", "notReallyAnApiKey", ca_data="/certs/connect"
-        )
+        server_store.set("foo", "http://connect.local", "notReallyAnApiKey", ca_data="/certs/connect")
 
         self.assertTrue(exists(path))
 
@@ -138,9 +122,7 @@ class TestServerMetadata(TestCase):
         self.assertIn("/certs/connect", data)
 
         server_store2 = ServerStore(base_dir=temp)
-        self.assertEqual(
-            server_store.get_all_servers(), server_store2.get_all_servers()
-        )
+        self.assertEqual(server_store.get_all_servers(), server_store2.get_all_servers())
 
     def test_get_path(self):
         self.assertIn("rsconnect-python", self.server_store.get_path())
@@ -156,13 +138,7 @@ class TestAppMetadata(TestCase):
 
         self.app_store = AppStore(self.nb_path)
         self.app_store.set(
-            "http://dev",
-            "/path/to/file",
-            "http://dev/apps/123",
-            123,
-            "shouldBeAGuid",
-            "Important Title",
-            "static",
+            "http://dev", "/path/to/file", "http://dev/apps/123", 123, "shouldBeAGuid", "Important Title", "static",
         )
         self.app_store.set(
             "http://prod",
@@ -230,10 +206,7 @@ class TestAppMetadata(TestCase):
     def test_global_save_load(self):
         def mock_open(path_to_open, mode, *args, **kw):
             if path_to_open.startswith(self.tempdir) and "w" in mode:
-                raise OSError(
-                    "Mock: path %s in directory %s is not writable"
-                    % (path_to_open, self.tempdir)
-                )
+                raise OSError("Mock: path %s in directory %s is not writable" % (path_to_open, self.tempdir))
             return open(path_to_open, mode, *args, **kw)
 
         path = join(self.tempdir, "rsconnect-python", "notebook.ipynb")

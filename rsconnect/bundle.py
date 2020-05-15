@@ -333,9 +333,7 @@ def create_glob_set(directory, excludes):
     return GlobSet(work)
 
 
-def _create_api_file_list(
-    directory, requirements_file_name, extra_files=None, excludes=None
-):
+def _create_api_file_list(directory, requirements_file_name, extra_files=None, excludes=None):
     """
     Builds a full list of files under the given directory that should be included
     in a manifest or bundle.  Extra files and excludes are relative to the given
@@ -366,9 +364,7 @@ def _create_api_file_list(
             abs_path = os.path.join(subdir, file)
             rel_path = os.path.relpath(abs_path, directory)
 
-            if keep_manifest_specified_file(rel_path) and (
-                rel_path in extra_files or not glob_set.matches(abs_path)
-            ):
+            if keep_manifest_specified_file(rel_path) and (rel_path in extra_files or not glob_set.matches(abs_path)):
                 file_list.append(rel_path)
                 # Don't add extra files more than once.
                 if rel_path in extra_files:
@@ -380,9 +376,7 @@ def _create_api_file_list(
     return sorted(file_list)
 
 
-def make_api_manifest(
-    directory, entry_point, app_mode, environment, extra_files=None, excludes=None
-):
+def make_api_manifest(directory, entry_point, app_mode, environment, extra_files=None, excludes=None):
     """
     Makes a manifest for an API.
 
@@ -394,9 +388,7 @@ def make_api_manifest(
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :return: the manifest and a list of the files involved.
     """
-    relevant_files = _create_api_file_list(
-        directory, environment["filename"], extra_files, excludes
-    )
+    relevant_files = _create_api_file_list(directory, environment["filename"], extra_files, excludes)
     manifest = make_source_manifest(entry_point, environment, app_mode)
 
     manifest_add_buffer(manifest, environment["filename"], environment["contents"])
@@ -407,9 +399,7 @@ def make_api_manifest(
     return manifest, relevant_files
 
 
-def make_api_bundle(
-    directory, entry_point, app_mode, environment, extra_files=None, excludes=None
-):
+def make_api_bundle(directory, entry_point, app_mode, environment, extra_files=None, excludes=None):
     """
     Create an API bundle, given a directory path and a manifest.
 
@@ -421,9 +411,7 @@ def make_api_bundle(
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :return: a file-like object containing the bundle tarball.
     """
-    manifest, relevant_files = make_api_manifest(
-        directory, entry_point, app_mode, environment, extra_files, excludes
-    )
+    manifest, relevant_files = make_api_manifest(directory, entry_point, app_mode, environment, extra_files, excludes)
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
 
     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:

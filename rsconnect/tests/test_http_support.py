@@ -62,14 +62,9 @@ class FakeSetCookieResponse(object):
 class TestCookieJar(TestCase):
     def test_basic_stuff(self):
         jar = CookieJar()
-        jar.store_cookies(
-            FakeSetCookieResponse(
-                ["my-cookie=my-value", "my-2nd-cookie=my-other-value"]
-            )
-        )
+        jar.store_cookies(FakeSetCookieResponse(["my-cookie=my-value", "my-2nd-cookie=my-other-value"]))
         self.assertEqual(
-            jar.get_cookie_header_value(),
-            "my-cookie=my-value; my-2nd-cookie=my-other-value",
+            jar.get_cookie_header_value(), "my-cookie=my-value; my-2nd-cookie=my-other-value",
         )
 
     def test_from_dict(self):
@@ -93,11 +88,7 @@ class TestCookieJar(TestCase):
 
     def test_as_dict(self):
         jar = CookieJar()
-        jar.store_cookies(
-            FakeSetCookieResponse(
-                ["my-cookie=my-value", "my-2nd-cookie=my-other-value"]
-            )
-        )
+        jar.store_cookies(FakeSetCookieResponse(["my-cookie=my-value", "my-2nd-cookie=my-other-value"]))
         self.assertEqual(
             jar.as_dict(),
             {

@@ -34,10 +34,7 @@ class RSConnectServer(object):
     def handle_bad_response(self, response):
         if isinstance(response, HTTPResponse):
             if response.exception:
-                raise RSConnectException(
-                    "Exception trying to connect to %s - %s"
-                    % (self.url, response.exception)
-                )
+                raise RSConnectException("Exception trying to connect to %s - %s" % (self.url, response.exception))
             # Sometimes an ISP will respond to an unknown server name by returning a friendly
             # search page so trap that since we know we're expecting JSON from Connect.  This
             # also catches all error conditions which we will report as "not running Connect".
@@ -47,14 +44,10 @@ class RSConnectServer(object):
                     if code in _error_map:
                         error = _error_map[code]
                     else:
-                        error = (
-                            "The Connect server reported an error: %s"
-                            % response.json_data["error"]
-                        )
+                        error = "The Connect server reported an error: %s" % response.json_data["error"]
                     raise RSConnectException(error)
                 raise RSConnectException(
-                    "Received and unexpected response from RStudio Connect: %s %s"
-                    % (response.status, response.reason)
+                    "Received and unexpected response from RStudio Connect: %s %s" % (response.status, response.reason)
                 )
 
 
@@ -63,11 +56,7 @@ class RSConnect(HTTPServer):
         if cookies is None:
             cookies = server.cookie_jar
         super(RSConnect, self).__init__(
-            append_to_path(server.url, "__api__"),
-            server.insecure,
-            server.ca_data,
-            cookies,
-            timeout,
+            append_to_path(server.url, "__api__"), server.insecure, server.ca_data, cookies, timeout,
         )
         self._server = server
 
@@ -75,11 +64,7 @@ class RSConnect(HTTPServer):
             self.key_authorization(server.api_key)
 
     def _tweak_response(self, response):
-        return (
-            response.json_data
-            if response.status and response.status == 200 and response.json_data
-            else response
-        )
+        return response.json_data if response.status and response.status == 200 and response.json_data else response
 
     def me(self):
         return self.get("me")
@@ -109,10 +94,7 @@ class RSConnect(HTTPServer):
         return self.post("applications/%s/deploy" % app_id, body={"bundle": bundle_id})
 
     def app_publish(self, app_id, access):
-        return self.post(
-            "applications/%s" % app_id,
-            body={"access_type": access, "id": app_id, "needs_config": False},
-        )
+        return self.post("applications/%s" % app_id, body={"access_type": access, "id": app_id, "needs_config": False},)
 
     def app_config(self, app_id):
         return self.get("applications/%s/config" % app_id)
@@ -138,9 +120,7 @@ class RSConnect(HTTPServer):
             self._server.handle_bad_response(app)
 
         if app["title"] != app_title and not title_is_default:
-            self._server.handle_bad_response(
-                self.app_update(app_id, {"title": app_title})
-            )
+            self._server.handle_bad_response(self.app_update(app_id, {"title": app_title}))
             app["title"] = app_title
 
         app_bundle = self.app_upload(app_id, tarball)
@@ -223,9 +203,7 @@ def verify_server(connect_server):
             connect_server.handle_bad_response(result)
             return result
     except SSLError as ssl_error:
-        raise RSConnectException(
-            "There is an SSL/TLS configuration problem: %s" % ssl_error
-        )
+        raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
 
 
 def verify_api_key(connect_server):
@@ -239,15 +217,9 @@ def verify_api_key(connect_server):
     with RSConnect(connect_server) as client:
         result = client.me()
         if isinstance(result, HTTPResponse):
-            if (
-                result.json_data
-                and "code" in result.json_data
-                and result.json_data["code"] == 30
-            ):
+            if result.json_data and "code" in result.json_data and result.json_data["code"] == 30:
                 raise RSConnectException("The specified API key is not valid.")
-            raise RSConnectException(
-                "Could not verify the API key: %s %s" % (result.status, result.reason)
-            )
+            raise RSConnectException("Could not verify the API key: %s %s" % (result.status, result.reason))
         return result["username"]
 
 
@@ -334,9 +306,7 @@ def emit_task_log(connect_server, app_id, task_id, log_callback, timeout=None):
         return result
 
 
-def retrieve_matching_apps(
-    connect_server, filters=None, limit=None, mapping_function=None
-):
+def retrieve_matching_apps(connect_server, filters=None, limit=None, mapping_function=None):
     """
     Retrieves all the app names that start with the given default name.  The main
     point for this function is that it handles all the necessary paging logic.
@@ -467,9 +437,7 @@ def override_title_search(connect_server, app_id, app_title):
                 if mode in (AppModes.STATIC, AppModes.JUPYTER_NOTEBOOK):
                     apps.append(map_app(app, get_app_config(connect_server, app_id)))
             except RSConnectException:
-                logger.debug(
-                    'Error getting info for previous app_id "%s", skipping.', app_id
-                )
+                logger.debug('Error getting info for previous app_id "%s", skipping.', app_id)
 
     return apps
 
@@ -484,9 +452,7 @@ def find_unique_name(connect_server, name):
     :return: the name, potentially with a suffixed number to guarantee uniqueness.
     """
     existing_names = retrieve_matching_apps(
-        connect_server,
-        filters={"search": name},
-        mapping_function=lambda client, app: app["name"],
+        connect_server, filters={"search": name}, mapping_function=lambda client, app: app["name"],
     )
 
     if name in existing_names:

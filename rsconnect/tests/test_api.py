@@ -20,7 +20,5 @@ class TestAPI(TestCase):
         task_status["code"] = 0
 
         self.assertEqual(len(output), 0)
-        self.assertEqual(
-            RSConnect.output_task_log(task_status, "0", output.append), "last"
-        )
+        self.assertEqual(RSConnect.output_task_log(task_status, "0", output.append), "last")
         self.assertEqual(lines, output)
