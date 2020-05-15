@@ -22,16 +22,25 @@ jobs:
       uses: actions/cache@v1
       with:
         path: ~/.cache/pip
-        key: ${{ matrix.os }}-pip-${{ hashFiles('Pipfile.lock') }}
+        key: pip-${{ matrix.os }}-py${{ matrix.python-version }}-${{ hashFiles('Pipfile.lock') }}
+        restore-keys: |
+          pip-${{ matrix.os }}-py${{ matrix.python-version }}-${{ hashFiles('Pipfile.lock') }}
+          pip-${{ matrix.os }}-py${{ matrix.python-version }}-
     - if: ${{ matrix.os == 'macos-latest' }}
       uses: actions/cache@v1
       with:
         path: ~/Library/Caches/pip
-        key: ${{ matrix.os }}-pip-${{ hashFiles('Pipfile.lock') }}
+        key: pip-${{ matrix.os }}-py${{ matrix.python-version }}-${{ hashFiles('Pipfile.lock') }}
+        restore-keys: |
+          pip-${{ matrix.os }}-py${{ matrix.python-version }}-${{ hashFiles('Pipfile.lock') }}
+          pip-${{ matrix.os }}-py${{ matrix.python-version }}-
     - uses: actions/cache@v1
       with:
         path: ~/.local/share/virtualenvs
-        key: ${{ matrix.os }}-${{ env.PYTHON_VERSION }}-virtualenvs-${{ hashFiles('Pipfile.lock') }}
+        key: virtualenvs-${{ matrix.os }}-py${{ matrix.python-version }}-${{ hashFiles('Pipfile.lock') }}
+        restore-keys: |
+          virtualenvs-${{ matrix.os }}-py${{ matrix.python-version }}-${{ hashFiles('Pipfile.lock') }}
+          virtualenvs-${{ matrix.os }}-py${{ matrix.python-version }}-
     - run: pip install -U pipenv pip
     - if: "${{ matrix.python-version == '2.7' || matrix.python-version == '3.5' }}"
       run: 'pipenv install --skip-lock && pipenv run pip install pytest pytest-cov'
