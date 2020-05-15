@@ -33,6 +33,7 @@ jobs:
         path: ~/.local/share/virtualenvs
         key: ${{ matrix.os }}-${{ env.PYTHON_VERSION }}-virtualenvs-${{ hashFiles('Pipfile.lock') }}
     - run: pip install -U pipenv pip
+    - run: pip cache dir
     - if: "${{ matrix.python-version == '2.7' || matrix.python-version == '3.5' }}"
       run: 'pipenv install --skip-lock && pipenv run pip install pytest pytest-cov'
     - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
