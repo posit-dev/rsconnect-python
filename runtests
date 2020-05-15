@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o xtrace
+
+: "${PYTEST_ARGS:=-vv --cov=rsconnect --cov-report=term --cov-report=html}"
+
+case "${PYTHON_VERSION}" in
+2*)
+  set +o xtrace
+  source "$(pipenv --venv)/bin/activate"
+  set -o xtrace
+  pytest ${PYTEST_ARGS} ./rsconnect/
+  ;;
+*)
+  pipenv run pytest ${PYTEST_ARGS} ./rsconnect/
+  ;;
+esac

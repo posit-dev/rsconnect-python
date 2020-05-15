@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o xtrace
+
+[[ "${PYTHON_VERSION}" ]] || {
+  : WARNING: this script is intended to be run inside a docker python container
+  exit 1
+}
+python -m pip install --upgrade pipenv pip
+
+case "${PYTHON_VERSION}" in
+2*|3.5*)
+  pipenv install --skip-lock --python=/usr/local/bin/python
+  pipenv run pip install pytest pytest-cov
+  ;;
+*)
+  pipenv install --dev --python=/usr/local/bin/python
+  ;;
+esac

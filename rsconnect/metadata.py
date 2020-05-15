@@ -1,4 +1,3 @@
-
 import base64
 import hashlib
 import json
@@ -13,21 +12,21 @@ from rsconnect.models import AppMode, AppModes
 
 def config_dirname(platform=sys.platform, env=os.environ):
     """Get the user's configuration directory path for this platform."""
-    home = env.get('HOME', '~')
+    home = env.get("HOME", "~")
     base_dir = home
 
-    if platform.startswith('linux'):
-        base_dir = env.get('XDG_CONFIG_HOME', home)
-    elif platform == 'darwin':
-        base_dir = join(home, 'Library', 'Application Support')
-    elif platform == 'win32':
+    if platform.startswith("linux"):
+        base_dir = env.get("XDG_CONFIG_HOME", home)
+    elif platform == "darwin":
+        base_dir = join(home, "Library", "Application Support")
+    elif platform == "win32":
         # noinspection SpellCheckingInspection
-        base_dir = env.get('APPDATA', home)
+        base_dir = env.get("APPDATA", home)
 
     if base_dir == home:
-        return join(base_dir, '.rsconnect-python')
+        return join(base_dir, ".rsconnect-python")
     else:
-        return join(base_dir, 'rsconnect-python')
+        return join(base_dir, "rsconnect-python")
 
 
 # noinspection SpellCheckingInspection
@@ -48,6 +47,7 @@ class DataStore(object):
     Defines a base class for a persistent store.  The store supports a primary location and
     an optional secondary one.
     """
+
     def __init__(self, primary_path, secondary_path=None, chmod=False):
         self._primary_path = primary_path
         self._secondary_path = secondary_path
@@ -72,8 +72,8 @@ class DataStore(object):
         Returns True if the data was successfully loaded.
         """
         if exists(path):
-            with open(path, 'rb') as f:
-                self._data = json.loads(f.read().decode('utf-8'))
+            with open(path, "rb") as f:
+                self._data = json.loads(f.read().decode("utf-8"))
                 self._real_path = path
                 return True
         return False
@@ -177,7 +177,7 @@ class DataStore(object):
         """
         Save our data to the specified file.
         """
-        with open(path, 'wb') as f:
+        with open(path, "wb") as f:
             f.write(data)
         self._real_path = path
 
@@ -189,7 +189,7 @@ class DataStore(object):
         The app directory is tried first. If that fails,
         then we write to the global config location.
         """
-        data = json.dumps(self._data, indent=4).encode('utf-8')
+        data = json.dumps(self._data, indent=4).encode("utf-8")
         try:
             makedirs(self._primary_path)
             self.save_to(self._primary_path, data, open)
@@ -210,8 +210,9 @@ class ServerStore(DataStore):
     Data is stored in the customary platform-specific location
     (typically a subdirectory of the user's home directory).
     """
+
     def __init__(self, base_dir=config_dirname()):
-        super(ServerStore, self).__init__(join(base_dir, 'servers.json'), chmod=True)
+        super(ServerStore, self).__init__(join(base_dir, "servers.json"), chmod=True)
 
     def get_by_name(self, name):
         """
@@ -227,7 +228,7 @@ class ServerStore(DataStore):
 
         :param url: the Connect URL of the server to get information for.
         """
-        return self._get_by_value_attr('url', url)
+        return self._get_by_value_attr("url", url)
 
     def get_all_servers(self):
         """
@@ -235,7 +236,7 @@ class ServerStore(DataStore):
 
         :return: the sorted list of known servers.
         """
-        return self._get_sorted_values(lambda s: s['name'])
+        return self._get_sorted_values(lambda s: s["name"])
 
     def set(self, name, url, api_key, insecure=False, ca_data=None):
         """
@@ -247,13 +248,9 @@ class ServerStore(DataStore):
         :param insecure: a flag to disable TLS verification.
         :param ca_data: client side certificate data to use for TLS.
         """
-        self._set(name, dict(
-            name=name,
-            url=url,
-            api_key=api_key,
-            insecure=insecure,
-            ca_cert=ca_data,
-        ))
+        self._set(
+            name, dict(name=name, url=url, api_key=api_key, insecure=insecure, ca_cert=ca_data,),
+        )
 
     def remove_by_name(self, name):
         """
@@ -269,7 +266,7 @@ class ServerStore(DataStore):
 
         :param url: the Connect URL of the server to remove.
         """
-        return self._remove_by_value_attr('name', 'url', url)
+        return self._remove_by_value_attr("name", "url", url)
 
     def resolve(self, name, url, api_key, insecure, ca_data):
         """
@@ -309,17 +306,23 @@ class ServerStore(DataStore):
                 entry = None
 
         if entry:
-            return entry['url'], entry['api_key'], entry['insecure'], entry['ca_cert'], True
+            return (
+                entry["url"],
+                entry["api_key"],
+                entry["insecure"],
+                entry["ca_cert"],
+                True,
+            )
         else:
             return url, api_key, insecure, ca_data, False
 
 
 def sha1(s):
     m = hashlib.sha1()
-    if hasattr(s, 'encode'):
-        s = s.encode('utf-8')
+    if hasattr(s, "encode"):
+        s = s.encode("utf-8")
     m.update(s)
-    return base64.urlsafe_b64encode(m.digest()).decode('utf-8').rstrip('=')
+    return base64.urlsafe_b64encode(m.digest()).decode("utf-8").rstrip("=")
 
 
 class AppStore(DataStore):
@@ -344,11 +347,12 @@ class AppStore(DataStore):
     in the user's config directory under `applications/{hash}.json` where the
     hash is derived from the entry point file name.
     """
+
     def __init__(self, app_file):
-        base_name = str(basename(app_file).rsplit('.', 1)[0]) + '.json'
+        base_name = str(basename(app_file).rsplit(".", 1)[0]) + ".json"
         super(AppStore, self).__init__(
-            join(dirname(app_file), 'rsconnect-python', base_name),
-            join(config_dirname(), 'applications', sha1(abspath(app_file)) + '.json')
+            join(dirname(app_file), "rsconnect-python", base_name),
+            join(config_dirname(), "applications", sha1(abspath(app_file)) + ".json"),
         )
 
     def get(self, server_url):
@@ -363,7 +367,7 @@ class AppStore(DataStore):
         """
         Get all metadata for this app.
         """
-        return self._get_sorted_values(lambda entry: entry.get('server_url'))
+        return self._get_sorted_values(lambda entry: entry.get("server_url"))
 
     def set(self, server_url, filename, app_url, app_id, app_guid, title, app_mode):
         """
@@ -377,28 +381,31 @@ class AppStore(DataStore):
         :param title: the title of the application.
         :param app_mode: the mode of the application.
         ."""
-        self._set(server_url, dict(
-            server_url=server_url,
-            filename=filename,
-            app_url=app_url,
-            app_id=app_id,
-            app_guid=app_guid,
-            title=title,
-            app_mode=app_mode.name() if isinstance(app_mode, AppMode) else app_mode,
-        ))
+        self._set(
+            server_url,
+            dict(
+                server_url=server_url,
+                filename=filename,
+                app_url=app_url,
+                app_id=app_id,
+                app_guid=app_guid,
+                title=title,
+                app_mode=app_mode.name() if isinstance(app_mode, AppMode) else app_mode,
+            ),
+        )
 
     def resolve(self, server, app_id, app_mode):
         metadata = self.get(server)
         if metadata is None:
-            logger.debug('No previous deployment to this server was found; this will be a new deployment.')
+            logger.debug("No previous deployment to this server was found; this will be a new deployment.")
             return app_id, app_mode
 
-        logger.debug('Found previous deployment data in %s' % self.get_path())
+        logger.debug("Found previous deployment data in %s" % self.get_path())
 
         if app_id is None:
-            app_id = metadata.get('app_guid') or metadata.get('app_id')
-            logger.debug('Using saved app ID: %s' % app_id)
+            app_id = metadata.get("app_guid") or metadata.get("app_id")
+            logger.debug("Using saved app ID: %s" % app_id)
 
         # app mode cannot be changed on redeployment
-        app_mode = AppModes.get_by_name(metadata.get('app_mode'))
+        app_mode = AppModes.get_by_name(metadata.get("app_mode"))
         return app_id, app_mode

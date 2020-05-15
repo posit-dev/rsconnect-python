@@ -35,26 +35,37 @@ class AppMode(object):
 
 
 class AppModes(object):
-    UNKNOWN = AppMode(0, 'unknown', '<unknown>')
-    SHINY = AppMode(1, 'shiny', 'Shiny App', '.R')
-    RMD = AppMode(3, 'rmd-static', 'R Markdown', '.Rmd')
-    SHINY_RMD = AppMode(2, 'rmd-shiny', 'Shiny App (Rmd)')
-    STATIC = AppMode(4, 'static', 'Static HTML', '.html')
-    PLUMBER = AppMode(5, 'api', 'API')
-    TENSORFLOW = AppMode(6, 'tensorflow-saved-model', 'TensorFlow Model')
-    JUPYTER_NOTEBOOK = AppMode(7, 'jupyter-static', 'Jupyter Notebook', '.ipynb')
-    PYTHON_API = AppMode(8, 'python-api', 'Python API')
-    DASH_APP = AppMode(9, 'python-dash', 'Dash Application')
+    UNKNOWN = AppMode(0, "unknown", "<unknown>")
+    SHINY = AppMode(1, "shiny", "Shiny App", ".R")
+    RMD = AppMode(3, "rmd-static", "R Markdown", ".Rmd")
+    SHINY_RMD = AppMode(2, "rmd-shiny", "Shiny App (Rmd)")
+    STATIC = AppMode(4, "static", "Static HTML", ".html")
+    PLUMBER = AppMode(5, "api", "API")
+    TENSORFLOW = AppMode(6, "tensorflow-saved-model", "TensorFlow Model")
+    JUPYTER_NOTEBOOK = AppMode(7, "jupyter-static", "Jupyter Notebook", ".ipynb")
+    PYTHON_API = AppMode(8, "python-api", "Python API")
+    DASH_APP = AppMode(9, "python-dash", "Dash Application")
 
-    _modes = [UNKNOWN, SHINY, RMD, SHINY_RMD, STATIC, PLUMBER, TENSORFLOW, JUPYTER_NOTEBOOK, PYTHON_API, DASH_APP]
+    _modes = [
+        UNKNOWN,
+        SHINY,
+        RMD,
+        SHINY_RMD,
+        STATIC,
+        PLUMBER,
+        TENSORFLOW,
+        JUPYTER_NOTEBOOK,
+        PYTHON_API,
+        DASH_APP,
+    ]
 
     @classmethod
     def get_by_ordinal(cls, ordinal, return_unknown=False):
-        return cls._find_by(lambda mode: mode.ordinal() == ordinal, 'with ordinal %s' % ordinal, return_unknown)
+        return cls._find_by(lambda mode: mode.ordinal() == ordinal, "with ordinal %s" % ordinal, return_unknown,)
 
     @classmethod
     def get_by_name(cls, name, return_unknown=False):
-        return cls._find_by(lambda mode: mode.name() == name, 'named %s' % name, return_unknown)
+        return cls._find_by(lambda mode: mode.name() == name, "named %s" % name, return_unknown)
 
     @classmethod
     def get_by_extension(cls, extension, return_unknown=False):
@@ -62,10 +73,11 @@ class AppModes(object):
         if extension is None:
             if return_unknown:
                 return cls.UNKNOWN
-            raise ValueError('No app mode with extension %s' % extension)
+            raise ValueError("No app mode with extension %s" % extension)
 
-        return cls._find_by(lambda mode: mode.extension() == extension, 'with extension: %s' % extension,
-                            return_unknown)
+        return cls._find_by(
+            lambda mode: mode.extension() == extension, "with extension: %s" % extension, return_unknown,
+        )
 
     @classmethod
     def _find_by(cls, predicate, message, return_unknown):
@@ -74,7 +86,7 @@ class AppModes(object):
                 return mode
         if return_unknown:
             return cls.UNKNOWN
-        raise ValueError('No app mode %s' % message)
+        raise ValueError("No app mode %s" % message)
 
 
 class GlobMatcher(object):
@@ -82,6 +94,7 @@ class GlobMatcher(object):
     A simplified means of matching a path against a glob pattern.  The key
     limitation is that we support at most one occurrence of the `**` pattern.
     """
+
     def __init__(self, pattern):
         if pattern.endswith("/**/*"):
             # Note: the index used here makes sure the pattern has a trailing
@@ -108,12 +121,12 @@ class GlobMatcher(object):
         parts = pattern.split(os.path.sep)
         depth_wildcard_index = None
         for index, name in enumerate(parts):
-            if name == '**':
+            if name == "**":
                 if depth_wildcard_index is not None:
                     raise ValueError('Only one occurrence of the "**" pattern is allowed.')
                 depth_wildcard_index = index
-            elif any(ch in name for ch in '*?['):
-                parts[index] = re.compile(r'\A' + fnmatch.translate(name))
+            elif any(ch in name for ch in "*?["):
+                parts[index] = re.compile(r"\A" + fnmatch.translate(name))
         return parts, depth_wildcard_index
 
     def _match_with_starts_with(self, path):

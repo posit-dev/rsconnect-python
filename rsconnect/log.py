@@ -6,7 +6,7 @@ import six
 
 class RSLogger(LoggerAdapter):
     def __init__(self):
-        super(RSLogger, self).__init__(getLogger('rsconnect'), {})
+        super(RSLogger, self).__init__(getLogger("rsconnect"), {})
         self._in_feedback = False
         self._have_feedback_output = False
 
@@ -20,7 +20,7 @@ class RSLogger(LoggerAdapter):
             if not self._have_feedback_output:
                 six.print_()
                 self._have_feedback_output = True
-            msg = click.style(' %s' % msg, fg='green')
+            msg = click.style(" %s" % msg, fg="green")
         return msg, kwargs
 
     def is_debugging(self):

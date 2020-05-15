@@ -6,8 +6,8 @@ from rsconnect.log import logger
 from rsconnect.models import AppModes
 
 _error_map = {
-    4: 'This content has been deployed before but could not be found on the server.\nUse the --new option to '
-       'deploy it as new content.'
+    4: "This content has been deployed before but could not be found on the server.\nUse the --new option to "
+    "deploy it as new content."
 }
 
 
@@ -22,6 +22,7 @@ class RSConnectServer(object):
     A simple class to encapsulate the information needed to interact with an
     instance of the Connect server.
     """
+
     def __init__(self, url, api_key, insecure=False, ca_data=None):
         self.url = url
         self.api_key = api_key
@@ -33,20 +34,20 @@ class RSConnectServer(object):
     def handle_bad_response(self, response):
         if isinstance(response, HTTPResponse):
             if response.exception:
-                raise RSConnectException('Exception trying to connect to %s - %s' % (self.url, response.exception))
+                raise RSConnectException("Exception trying to connect to %s - %s" % (self.url, response.exception))
             # Sometimes an ISP will respond to an unknown server name by returning a friendly
             # search page so trap that since we know we're expecting JSON from Connect.  This
             # also catches all error conditions which we will report as "not running Connect".
             else:
-                if response.json_data and 'error' in response.json_data:
-                    code = response.json_data['code']
+                if response.json_data and "error" in response.json_data:
+                    code = response.json_data["code"]
                     if code in _error_map:
                         error = _error_map[code]
                     else:
-                        error = 'The Connect server reported an error: %s' % response.json_data['error']
+                        error = "The Connect server reported an error: %s" % response.json_data["error"]
                     raise RSConnectException(error)
                 raise RSConnectException(
-                    'Received and unexpected response from RStudio Connect: %s %s' % (response.status, response.reason)
+                    "Received and unexpected response from RStudio Connect: %s %s" % (response.status, response.reason)
                 )
 
 
@@ -55,7 +56,7 @@ class RSConnect(HTTPServer):
         if cookies is None:
             cookies = server.cookie_jar
         super(RSConnect, self).__init__(
-            append_to_path(server.url, '__api__'), server.insecure, server.ca_data, cookies, timeout
+            append_to_path(server.url, "__api__"), server.insecure, server.ca_data, cookies, timeout,
         )
         self._server = server
 
@@ -66,54 +67,50 @@ class RSConnect(HTTPServer):
         return response.json_data if response.status and response.status == 200 and response.json_data else response
 
     def me(self):
-        return self.get('me')
+        return self.get("me")
 
     def server_settings(self):
-        return self.get('server_settings')
+        return self.get("server_settings")
 
     def python_settings(self):
-        return self.get('v1/server_settings/python')
+        return self.get("v1/server_settings/python")
 
     def app_search(self, filters):
-        return self.get('applications', query_params=filters)
+        return self.get("applications", query_params=filters)
 
     def app_create(self, name):
-        return self.post('applications', body={'name': name})
+        return self.post("applications", body={"name": name})
 
     def app_get(self, app_id):
-        return self.get('applications/%s' % app_id)
+        return self.get("applications/%s" % app_id)
 
     def app_upload(self, app_id, tarball):
-        return self.post('applications/%s/upload' % app_id, body=tarball)
+        return self.post("applications/%s/upload" % app_id, body=tarball)
 
     def app_update(self, app_id, updates):
-        return self.post('applications/%s' % app_id, body=updates)
+        return self.post("applications/%s" % app_id, body=updates)
 
     def app_deploy(self, app_id, bundle_id=None):
-        return self.post('applications/%s/deploy' % app_id, body={'bundle': bundle_id})
+        return self.post("applications/%s/deploy" % app_id, body={"bundle": bundle_id})
 
     def app_publish(self, app_id, access):
-        return self.post('applications/%s' % app_id, body={
-            'access_type': access,
-            'id': app_id,
-            'needs_config': False
-        })
+        return self.post("applications/%s" % app_id, body={"access_type": access, "id": app_id, "needs_config": False},)
 
     def app_config(self, app_id):
-        return self.get('applications/%s/config' % app_id)
+        return self.get("applications/%s/config" % app_id)
 
     def task_get(self, task_id, first_status=None):
         params = None
         if first_status is not None:
-            params = {'first_status': first_status}
-        return self.get('tasks/%s' % task_id, query_params=params)
+            params = {"first_status": first_status}
+        return self.get("tasks/%s" % task_id, query_params=params)
 
     def deploy(self, app_id, app_name, app_title, title_is_default, tarball):
         if app_id is None:
             # create an app if id is not provided
             app = self.app_create(app_name)
             self._server.handle_bad_response(app)
-            app_id = app['id']
+            app_id = app["id"]
             # Force the title to update.
             title_is_default = False
         else:
@@ -122,24 +119,24 @@ class RSConnect(HTTPServer):
             app = self.app_get(app_id)
             self._server.handle_bad_response(app)
 
-        if app['title'] != app_title and not title_is_default:
-            self._server.handle_bad_response(self.app_update(app_id, {'title': app_title}))
-            app['title'] = app_title
+        if app["title"] != app_title and not title_is_default:
+            self._server.handle_bad_response(self.app_update(app_id, {"title": app_title}))
+            app["title"] = app_title
 
         app_bundle = self.app_upload(app_id, tarball)
 
         self._server.handle_bad_response(app_bundle)
 
-        task = self.app_deploy(app_id, app_bundle['id'])
+        task = self.app_deploy(app_id, app_bundle["id"])
 
         self._server.handle_bad_response(task)
 
         return {
-            'task_id': task['id'],
-            'app_id': app_id,
-            'app_guid': app['guid'],
-            'app_url': app['url'],
-            'title': app['title'],
+            "task_id": task["id"],
+            "app_id": app_id,
+            "app_guid": app["guid"],
+            "app_url": app["url"],
+            "title": app["title"],
         }
 
     def wait_for_task(self, app_id, task_id, log_callback, timeout=None):
@@ -161,12 +158,12 @@ class RSConnect(HTTPServer):
 
             last_status = self.output_task_log(task_status, last_status, log_callback)
 
-            if task_status['finished']:
+            if task_status["finished"]:
                 app_config = self.app_config(app_id)
-                app_url = app_config.get('config_url')
+                app_url = app_config.get("config_url")
                 return app_url, log_lines
 
-        raise RSConnectException('Task timed out after %d seconds' % timeout)
+        raise RSConnectException("Task timed out after %d seconds" % timeout)
 
     @staticmethod
     def output_task_log(task_status, last_status, log_callback):
@@ -178,15 +175,15 @@ class RSConnect(HTTPServer):
         Raises RSConnectException on task failure.
         """
         new_last_status = last_status
-        if task_status['last_status'] != last_status:
-            for line in task_status['status']:
+        if task_status["last_status"] != last_status:
+            for line in task_status["status"]:
                 log_callback(line)
-            new_last_status = task_status['last_status']
+            new_last_status = task_status["last_status"]
 
-        if task_status['finished']:
-            exit_code = task_status['code']
+        if task_status["finished"]:
+            exit_code = task_status["code"]
             if exit_code != 0:
-                raise RSConnectException('Task exited with status %d.' % exit_code)
+                raise RSConnectException("Task exited with status %d." % exit_code)
 
         return new_last_status
 
@@ -220,10 +217,10 @@ def verify_api_key(connect_server):
     with RSConnect(connect_server) as client:
         result = client.me()
         if isinstance(result, HTTPResponse):
-            if result.json_data and 'code' in result.json_data and result.json_data['code'] == 30:
-                raise RSConnectException('The specified API key is not valid.')
-            raise RSConnectException('Could not verify the API key: %s %s' % (result.status, result.reason))
-        return result['username']
+            if result.json_data and "code" in result.json_data and result.json_data["code"] == 30:
+                raise RSConnectException("The specified API key is not valid.")
+            raise RSConnectException("Could not verify the API key: %s %s" % (result.status, result.reason))
+        return result["username"]
 
 
 def get_python_info(connect_server):
@@ -330,7 +327,7 @@ def retrieve_matching_apps(connect_server, filters=None, limit=None, mapping_fun
     page_size = 100
     result = []
     search_filters = filters.copy() if filters else {}
-    search_filters['count'] = min(limit, page_size) if limit else page_size
+    search_filters["count"] = min(limit, page_size) if limit else page_size
     total_returned = 0
     maximum = limit
     finished = False
@@ -341,16 +338,16 @@ def retrieve_matching_apps(connect_server, filters=None, limit=None, mapping_fun
             connect_server.handle_bad_response(response)
 
             if not maximum:
-                maximum = response['total']
+                maximum = response["total"]
             else:
-                maximum = min(maximum, response['total'])
+                maximum = min(maximum, response["total"])
 
-            applications = response['applications']
-            returned = response['count']
+            applications = response["applications"]
+            returned = response["count"]
             delta = maximum - (total_returned + returned)
             # If more came back than we need, drop the rest.
             if delta < 0:
-                applications = applications[:abs(delta)]
+                applications = applications[: abs(delta)]
             total_returned = total_returned + len(applications)
 
             if mapping_function:
@@ -363,9 +360,9 @@ def retrieve_matching_apps(connect_server, filters=None, limit=None, mapping_fun
 
             if total_returned < maximum:
                 search_filters = {
-                    'start': total_returned,
-                    'count': page_size,
-                    'cont': response['continuation']
+                    "start": total_returned,
+                    "count": page_size,
+                    "cont": response["continuation"],
                 }
             else:
                 finished = True
@@ -395,12 +392,12 @@ def override_title_search(connect_server, app_id, app_title):
         :return: the abbreviated app data dictionary.
         """
         return {
-            'id': app['id'],
-            'name': app['name'],
-            'title': app['title'],
-            'app_mode': AppModes.get_by_ordinal(app['app_mode']).name(),
-            'url': app['url'],
-            'config_url': config['config_url']
+            "id": app["id"],
+            "name": app["name"],
+            "title": app["title"],
+            "app_mode": AppModes.get_by_ordinal(app["app_mode"]).name(),
+            "url": app["url"],
+            "config_url": config["config_url"],
         }
 
     def mapping_filter(client, app):
@@ -414,29 +411,29 @@ def override_title_search(connect_server, app_id, app_title):
         :return: the abbreviated data for the app or None.
         """
         # Only keep apps that match our app modes.
-        app_mode = AppModes.get_by_ordinal(app['app_mode'])
+        app_mode = AppModes.get_by_ordinal(app["app_mode"])
         if app_mode not in (AppModes.STATIC, AppModes.JUPYTER_NOTEBOOK):
             return None
 
-        config = client.app_config(app['id'])
+        config = client.app_config(app["id"])
         connect_server.handle_bad_response(config)
 
         return map_app(app, config)
 
     apps = retrieve_matching_apps(
-        connect_server, filters={
-            'filter': 'min_role:editor',
-            'search': app_title
-        }, mapping_function=mapping_filter, limit=5
+        connect_server,
+        filters={"filter": "min_role:editor", "search": app_title},
+        mapping_function=mapping_filter,
+        limit=5,
     )
 
     if app_id:
-        found = next((app for app in apps if app['id'] == app_id), None)
+        found = next((app for app in apps if app["id"] == app_id), None)
 
         if not found:
             try:
                 app = get_app_info(connect_server, app_id)
-                mode = AppModes.get_by_ordinal(app['app_mode'])
+                mode = AppModes.get_by_ordinal(app["app_mode"])
                 if mode in (AppModes.STATIC, AppModes.JUPYTER_NOTEBOOK):
                     apps.append(map_app(app, get_app_config(connect_server, app_id)))
             except RSConnectException:
@@ -455,15 +452,15 @@ def find_unique_name(connect_server, name):
     :return: the name, potentially with a suffixed number to guarantee uniqueness.
     """
     existing_names = retrieve_matching_apps(
-        connect_server, filters={'search': name}, mapping_function=lambda client, app: app['name']
+        connect_server, filters={"search": name}, mapping_function=lambda client, app: app["name"],
     )
 
     if name in existing_names:
         suffix = 1
-        test = '%s%d' % (name, suffix)
+        test = "%s%d" % (name, suffix)
         while test in existing_names:
             suffix = suffix + 1
-            test = '%s%d' % (name, suffix)
+            test = "%s%d" % (name, suffix)
         name = test
 
     return name

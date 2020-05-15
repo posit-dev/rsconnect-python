@@ -1,0 +1,21 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+black = "*"
+flake8 = "*"
+ipython = "*"
+pytest = "*"
+pytest-cov = "*"
+
+[packages]
+click = ">=7.0.0"
+ipykernel = "*"
+jupyter_client = "*"
+nbconvert = "*"
+six = ">=1.14.0"
+
+[pipenv]
+allow_prereleases = true
