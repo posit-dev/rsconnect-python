@@ -11,9 +11,6 @@ RUNNER = docker run \
 TEST_COMMAND ?= ./runtests
 SHELL_COMMAND ?= pipenv shell
 
-ifneq ($(JOB_NAME),)
-  RUNNER = bash -c
-endif
 ifneq ($(LOCAL),)
   RUNNER = bash -c
 endif
