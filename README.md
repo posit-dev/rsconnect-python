@@ -4,10 +4,10 @@ This package is a library used by the [`rsconnect-jupyter`](https://github.com/r
 package to deploy Jupyter notebooks to RStudio Connect. It contains a full deployment
 API so can also be used by other Python-based deployment tools. Other types of content
 supported by RStudio Connect may also be deployed by this package, including WSGi-style
-APIs and Dash applications.
+APIs, Dash applications, and Streamlit applications.
 
-> **Important:** Dash support in RStudio Connect is currently in beta. You should not
-> rely on it for deployments in production.
+> **Important:** Dash and Streamlit support in RStudio Connect are currently in
+> beta. You should not rely on it for deployments in production.
 
 A command-line deployment tool is also provided that can be used directly to deploy
 Jupyter notebooks, Python APIs and apps. Content types not directly supported by the
@@ -16,10 +16,10 @@ CLI can also be deployed if they include a prepared `manifest.json` file. See
 
 ## Deploying Python Content to RStudio Connect
 
-In addition to various kinds of R content, RStudio Connect also supports the
-deployment of Jupyter notebooks, Python APIs (such as `flask`-based) and apps (such
-as Dash). Much like deploying R content to RStudio Connect, there are some
-caveats to understand when replicating your environment on the RStudio Connect server:
+In addition to various kinds of R content, RStudio Connect also supports the deployment
+of Jupyter notebooks, Python APIs (such as `flask`-based) and apps (such as Dash and
+Streamlit). Much like deploying R content to RStudio Connect, there are some caveats to
+understand when replicating your environment on the RStudio Connect server:
 
 RStudio Connect insists on matching <MAJOR.MINOR> versions of Python. For example,
 a server with only Python 3.5 installed will fail to match content deployed with
@@ -262,9 +262,9 @@ rsconnect write-manifest notebook my-notebook.ipynb
 
 ### API/Application Deployment Options
 
-There are a variety of options available to you when deploying a Python WSGi-style
-API or Dash application.  All options below apply equally to `api` and `dash`
-sub-commands.
+There are a variety of options available to you when deploying a Python WSGi-style API,
+Dash application, or Streamlit application.  All options below apply equally to `api`,
+`dash`, and `streamlit` sub-commands.
 
 #### Including Extra Files
 
@@ -373,8 +373,8 @@ this, use the `--title` option:
 rsconnect deploy notebook --title "My Notebook" my-notebook.ipynb
 ```
 
-When using `rsconnect deploy api` or `rsconnect deploy dash`, the title is derived
-from the directory containing the API or application.
+When using `rsconnect deploy api`, `rsconnect deploy dash`, or `rsconnect deploy
+streamlit`, the title is derived from the directory containing the API or application.
 
 When using `rsconnect deploy manifest`, the title is derived from the primary
 filename referenced in the manifest.

@@ -45,6 +45,7 @@ class AppModes(object):
     JUPYTER_NOTEBOOK = AppMode(7, "jupyter-static", "Jupyter Notebook", ".ipynb")
     PYTHON_API = AppMode(8, "python-api", "Python API")
     DASH_APP = AppMode(9, "python-dash", "Dash Application")
+    STREAMLIT_APP = AppMode(10, "python-streamlit", "Streamlit Application")
 
     _modes = [
         UNKNOWN,
@@ -57,6 +58,7 @@ class AppModes(object):
         JUPYTER_NOTEBOOK,
         PYTHON_API,
         DASH_APP,
+        STREAMLIT_APP,
     ]
 
     @classmethod

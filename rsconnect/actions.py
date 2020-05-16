@@ -643,6 +643,62 @@ def deploy_dash_app(
     )
 
 
+def deploy_streamlit_app(
+    connect_server,
+    directory,
+    extra_files,
+    excludes,
+    entry_point,
+    new=False,
+    app_id=None,
+    title=None,
+    python=None,
+    compatibility_mode=False,
+    force_generate=False,
+    log_callback=None,
+):
+    """
+    A function to deploy a Python Streamlit app module to Connect.  Depending on the files involved
+    and network latency, this may take a bit of time.
+
+    :param connect_server: the Connect server information.
+    :param directory: the Jupyter notebook file to deploy.
+    :param extra_files: any extra files that should be included in the deploy.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param entry_point: the module/executable object for the WSGi framework.
+    :param new: a flag to force this as a new deploy.
+    :param app_id: the ID of an existing application to deploy new files for.
+    :param title: an optional title for the deploy.  If this is not provided, ne will
+    be generated.
+    :param python: the optional name of a Python executable.
+    :param compatibility_mode: force freezing the current environment using pip
+    instead of conda, when conda is not supported on RStudio Connect (version<=1.8.0).
+    :param force_generate: force generating "requirements.txt" or "environment.yml",
+    even if it already exists.
+    :param log_callback: the callback to use to write the log to.  If this is None
+    (the default) the lines from the deployment log will be returned as a sequence.
+    If a log callback is provided, then None will be returned for the log lines part
+    of the return tuple.
+    :return: the ultimate URL where the deployed app may be accessed and the sequence
+    of log lines.  The log lines value will be None if a log callback was provided.
+    """
+    return _deploy_by_python_framework(
+        connect_server,
+        directory,
+        extra_files,
+        excludes,
+        entry_point,
+        gather_basic_deployment_info_for_streamlit,
+        new,
+        app_id,
+        title,
+        python,
+        compatibility_mode,
+        force_generate,
+        log_callback,
+    )
+
+
 def _deploy_by_python_framework(
     connect_server,
     directory,
@@ -846,46 +902,33 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
     )
 
 
-def gather_basic_deployment_info_for_api(connect_server, app_store, directory, entry_point, new, app_id, title):
-    """
-    Helps to gather the necessary info for performing a deployment.
+def _generate_gather_basic_deployment_info_for_python(app_mode):
+    def gatherer(connect_server, app_store, directory, entry_point, new, app_id, title):
+        """
+        Helps to gather the necessary info for performing a deployment.
 
-    :param connect_server: the Connect server information.
-    :param app_store: the store for the specified directory.
-    :param directory: the primary file being deployed.
-    :param entry_point: the entry point for the API in '<module>:<object> format.  if
-    the object name is omitted, it defaults to the module name.  If nothing is specified,
-    it defaults to 'app'.
-    :param new: a flag noting whether we should force a new deployment.
-    :param app_id: the ID of the app to redeploy.
-    :param title: an optional title.  If this isn't specified, a default title will
-    be generated.
-    :return: the entry point, app ID, name, title and mode for the deployment.
-    """
-    return _gather_basic_deployment_info_for_framework(
-        connect_server, app_store, directory, entry_point, new, app_id, AppModes.PYTHON_API, title,
-    )
+        :param connect_server: the Connect server information.
+        :param app_store: the store for the specified directory.
+        :param directory: the primary file being deployed.
+        :param entry_point: the entry point for the API in '<module>:<object> format.  if
+        the object name is omitted, it defaults to the module name.  If nothing is specified,
+        it defaults to 'app'.
+        :param new: a flag noting whether we should force a new deployment.
+        :param app_id: the ID of the app to redeploy.
+        :param title: an optional title.  If this isn't specified, a default title will
+        be generated.
+        :return: the entry point, app ID, name, title and mode for the deployment.
+        """
+        return _gather_basic_deployment_info_for_framework(
+            connect_server, app_store, directory, entry_point, new, app_id, app_mode, title,
+        )
+
+    return gatherer
 
 
-def gather_basic_deployment_info_for_dash(connect_server, app_store, directory, entry_point, new, app_id, title):
-    """
-    Helps to gather the necessary info for performing a deployment.
-
-    :param connect_server: the Connect server information.
-    :param app_store: the store for the specified directory.
-    :param directory: the primary file being deployed.
-    :param entry_point: the entry point for the API in '<module>:<object> format.  if
-    the object name is omitted, it defaults to the module name.  If nothing is specified,
-    it defaults to 'app'.
-    :param new: a flag noting whether we should force a new deployment.
-    :param app_id: the ID of the app to redeploy.
-    :param title: an optional title.  If this isn't specified, a default title will
-    be generated.
-    :return: the entry point, app ID, name, title and mode for the deployment.
-    """
-    return _gather_basic_deployment_info_for_framework(
-        connect_server, app_store, directory, entry_point, new, app_id, AppModes.DASH_APP, title,
-    )
+gather_basic_deployment_info_for_api = _generate_gather_basic_deployment_info_for_python(AppModes.PYTHON_API)
+gather_basic_deployment_info_for_dash = _generate_gather_basic_deployment_info_for_python(AppModes.DASH_APP)
+gather_basic_deployment_info_for_streamlit = _generate_gather_basic_deployment_info_for_python(AppModes.STREAMLIT_APP)
 
 
 def _gather_basic_deployment_info_for_framework(
