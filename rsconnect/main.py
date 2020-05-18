@@ -17,6 +17,7 @@ from rsconnect.actions import (
     describe_manifest,
     gather_basic_deployment_info_for_api,
     gather_basic_deployment_info_for_dash,
+    gather_basic_deployment_info_for_streamlit,
     gather_basic_deployment_info_for_notebook,
     gather_basic_deployment_info_from_manifest,
     gather_server_details,
@@ -648,99 +649,84 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
     )
 
 
-# noinspection SpellCheckingInspection
-@deploy.command(
-    name="api",
-    short_help="Deploy a Python API to RStudio Connect.",
-    help=(
-        'Deploy a WSGi-based API module to RStudio Connect. The "directory" '
-        "argument must refer to an existing directory that contains the API code."
-    ),
-)
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
-@click.option(
-    "--server", "-s", envvar="CONNECT_SERVER", help="The URL for the RStudio Connect server to deploy to.",
-)
-@click.option(
-    "--api-key", "-k", envvar="CONNECT_API_KEY", help="The API key to use to authenticate with RStudio Connect.",
-)
-@click.option(
-    "--insecure", "-i", envvar="CONNECT_INSECURE", is_flag=True, help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
-    help="The path to trusted TLS CA certificates.",
-)
-@click.option(
-    "--entrypoint",
-    "-e",
-    help="The module and executable object which serves as the entry point for the "
-    "WSGi framework of choice (defaults to app)",
-)
-@click.option(
-    "--exclude",
-    "-x",
-    multiple=True,
-    help=(
-        "Specify a glob pattern for ignoring files when building the bundle. "
-        "Note that your shell may try to expand this which will not do what you "
-        "expect. Generally, it's safest to quote the pattern. This option may "
-        "be repeated."
-    ),
-)
-@click.option(
-    "--new",
-    "-N",
-    is_flag=True,
-    help=(
-        "Force a new deployment, even if there is saved metadata from a "
-        "previous deployment. Cannot be used with --app-id."
-    ),
-)
-@click.option(
-    "--app-id", "-a", help="Existing app ID or GUID to replace. Cannot be used with --new.",
-)
-@click.option("--title", "-t", help="Title of the content (default is the same as the directory).")
-@click.option(
-    "--python",
-    "-p",
-    type=click.Path(exists=True),
-    help="Path to Python interpreter whose environment should be used. "
-    "The Python environment must have the rsconnect package installed.",
-)
-@click.option(
-    "--conda", "-C", is_flag=True, hidden=True, help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
-)
-@click.option(
-    "--force-generate", "-g", is_flag=True, help='Force generating "requirements.txt", even if it already exists.',
-)
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
-@click.argument(
-    "extra_files", nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True),
-)
-def deploy_api(
-    name,
-    server,
-    api_key,
-    insecure,
-    cacert,
-    entrypoint,
-    exclude,
-    new,
-    app_id,
-    title,
-    python,
-    conda,
-    force_generate,
-    verbose,
-    directory,
-    extra_files,
-):
-    _deploy_by_framework(
+def generate_deploy_python(app_mode, alias):
+    # noinspection SpellCheckingInspection
+    @deploy.command(
+        name=alias,
+        short_help="Deploy a {desc} to RStudio Connect.".format(desc=app_mode.desc()),
+        help=(
+            'Deploy a {desc} module to RStudio Connect. The "directory" argument must refer to an '
+            "existing directory that contains the application code."
+        ).format(desc=app_mode.desc()),
+    )
+    @click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
+    @click.option(
+        "--server", "-s", envvar="CONNECT_SERVER", help="The URL for the RStudio Connect server to deploy to.",
+    )
+    @click.option(
+        "--api-key", "-k", envvar="CONNECT_API_KEY", help="The API key to use to authenticate with RStudio Connect.",
+    )
+    @click.option(
+        "--insecure", "-i", envvar="CONNECT_INSECURE", is_flag=True, help="Disable TLS certification/host validation.",
+    )
+    @click.option(
+        "--cacert",
+        "-c",
+        envvar="CONNECT_CA_CERTIFICATE",
+        type=click.File(),
+        help="The path to trusted TLS CA certificates.",
+    )
+    @click.option(
+        "--entrypoint",
+        "-e",
+        help=(
+            "The module and executable object which serves as the entry point for the " "{desc} (defaults to app)"
+        ).format(desc=app_mode.desc()),
+    )
+    @click.option(
+        "--exclude",
+        "-x",
+        multiple=True,
+        help="Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated.",
+    )
+    @click.option(
+        "--new",
+        "-N",
+        is_flag=True,
+        help="Force a new deployment, even if there is saved metadata from a previous deployment. "
+        "Cannot be used with --app-id.",
+    )
+    @click.option(
+        "--app-id", "-a", help="Existing app ID or GUID to replace. Cannot be used with --new.",
+    )
+    @click.option(
+        "--title", "-t", help="Title of the content (default is the same as the directory).",
+    )
+    @click.option(
+        "--python",
+        "-p",
+        type=click.Path(exists=True),
+        help="Path to Python interpreter whose environment should be used. "
+        "The Python environment must have the rsconnect package installed.",
+    )
+    @click.option(
+        "--conda",
+        "-C",
+        is_flag=True,
+        hidden=True,
+        help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
+    )
+    @click.option(
+        "--force-generate", "-g", is_flag=True, help='Force generating "requirements.txt", even if it already exists.',
+    )
+    @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+    @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+    @click.argument(
+        "extra_files", nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True),
+    )
+    def deploy_app(
         name,
         server,
         api_key,
@@ -757,121 +743,37 @@ def deploy_api(
         verbose,
         directory,
         extra_files,
-        gather_basic_deployment_info_for_api,
-    )
+    ):
+        _deploy_by_framework(
+            name,
+            server,
+            api_key,
+            insecure,
+            cacert,
+            entrypoint,
+            exclude,
+            new,
+            app_id,
+            title,
+            python,
+            conda,
+            force_generate,
+            verbose,
+            directory,
+            extra_files,
+            {
+                AppModes.PYTHON_API: gather_basic_deployment_info_for_api,
+                AppModes.DASH_APP: gather_basic_deployment_info_for_dash,
+                AppModes.STREAMLIT_APP: gather_basic_deployment_info_for_streamlit,
+            }[app_mode],
+        )
+
+    return deploy_app
 
 
-# noinspection SpellCheckingInspection
-@deploy.command(
-    name="dash",
-    short_help="Deploy a Python Dash app to RStudio Connect.",
-    help=(
-        'Deploy a Dash application module to RStudio Connect. The "directory" '
-        "argument must refer to an existing directory that contains the API code."
-    ),
-)
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
-@click.option(
-    "--server", "-s", envvar="CONNECT_SERVER", help="The URL for the RStudio Connect server to deploy to.",
-)
-@click.option(
-    "--api-key", "-k", envvar="CONNECT_API_KEY", help="The API key to use to authenticate with RStudio Connect.",
-)
-@click.option(
-    "--insecure", "-i", envvar="CONNECT_INSECURE", is_flag=True, help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
-    help="The path to trusted TLS CA certificates.",
-)
-@click.option(
-    "--entrypoint",
-    "-e",
-    help="The module and executable object which serves as the entry point for the "
-    "Dash application (defaults to app)",
-)
-@click.option(
-    "--exclude",
-    "-x",
-    multiple=True,
-    help=(
-        "Specify a glob pattern for ignoring files when building the bundle. "
-        "Note that your shell may try to expand this which will not do what you "
-        "expect. Generally, it's safest to quote the pattern. This option may "
-        "be repeated."
-    ),
-)
-@click.option(
-    "--new",
-    "-N",
-    is_flag=True,
-    help=(
-        "Force a new deployment, even if there is saved metadata from a "
-        "previous deployment. Cannot be used with --app-id."
-    ),
-)
-@click.option(
-    "--app-id", "-a", help="Existing app ID or GUID to replace. Cannot be used with --new.",
-)
-@click.option("--title", "-t", help="Title of the content (default is the same as the directory).")
-@click.option(
-    "--python",
-    "-p",
-    type=click.Path(exists=True),
-    help="Path to Python interpreter whose environment should be used. "
-    "The Python environment must have the rsconnect package installed.",
-)
-@click.option(
-    "--conda", "-C", is_flag=True, hidden=True, help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
-)
-@click.option(
-    "--force-generate", "-g", is_flag=True, help='Force generating "requirements.txt", even if it already exists.',
-)
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
-@click.argument(
-    "extra_files", nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True),
-)
-def deploy_dash_app(
-    name,
-    server,
-    api_key,
-    insecure,
-    cacert,
-    entrypoint,
-    exclude,
-    new,
-    app_id,
-    title,
-    python,
-    conda,
-    force_generate,
-    verbose,
-    directory,
-    extra_files,
-):
-    _deploy_by_framework(
-        name,
-        server,
-        api_key,
-        insecure,
-        cacert,
-        entrypoint,
-        exclude,
-        new,
-        app_id,
-        title,
-        python,
-        conda,
-        force_generate,
-        verbose,
-        directory,
-        extra_files,
-        gather_basic_deployment_info_for_dash,
-    )
+deploy_api = generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="api")
+deploy_dash_app = generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash")
+deploy_streamlit_app = generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit")
 
 
 # noinspection SpellCheckingInspection
@@ -895,7 +797,7 @@ def _deploy_by_framework(
     gatherer,
 ):
     """
-    A common function for deploying APIs, Dash apps, etc.
+    A common function for deploying APIs, Dash and Streamlit apps, etc.
 
     :param name: the nickname of the Connect server to use.
     :param server: the URL of the Connect server to use.
@@ -1045,130 +947,68 @@ def write_manifest_notebook(overwrite, python, conda, force_generate, verbose, f
             write_environment_file(environment, base_dir)
 
 
-# noinspection SpellCheckingInspection
-@write_manifest.command(
-    name="api",
-    short_help="Create a manifest.json file for a Python API.",
-    help=(
-        "Create a manifest.json file for a Python API for later deployment. "
-        'This will create an environment file ("requirements.txt") if one does '
-        "not exist. All files are created in the same directory as the API code."
-    ),
-)
-@click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
-@click.option(
-    "--entrypoint",
-    "-e",
-    help="The module and executable object which serves as the entry point for the "
-    "WSGi framework of choice (defaults to app)",
-)
-@click.option(
-    "--exclude",
-    "-x",
-    multiple=True,
-    help=(
-        "Specify a glob pattern for ignoring files when building the bundle. "
-        "Note that your shell may try to expand this which will not do what you "
-        "expect. Generally, it's safest to quote the pattern. This option may "
-        "be repeated."
-    ),
-)
-@click.option(
-    "--python",
-    "-p",
-    type=click.Path(exists=True),
-    help="Path to Python interpreter whose environment should be used. "
-    + "The Python environment must have the rsconnect-python package installed.",
-)
-@click.option(
-    "--conda", "-C", is_flag=True, hidden=True, help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
-)
-@click.option(
-    "--force-generate", "-g", is_flag=True, help='Force generating "requirements.txt", even if it already exists.',
-)
-@click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
-@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
-@click.argument(
-    "extra_files", nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True),
-)
-def write_manifest_api(
-    overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files,
-):
-    _write_framework_manifest(
-        overwrite,
-        entrypoint,
-        exclude,
-        python,
-        conda,
-        force_generate,
-        verbose,
-        directory,
-        extra_files,
-        AppModes.PYTHON_API,
+def generate_write_manifest_python(app_mode, alias):
+    # noinspection SpellCheckingInspection
+    @write_manifest.command(
+        name=alias,
+        short_help="Create a manifest.json file for a {desc}.".format(desc=app_mode.desc()),
+        help=(
+            "Create a manifest.json file for a {desc} for later deployment. This will create an "
+            'environment file ("requirements.txt") if one does not exist. All files '
+            "are created in the same directory as the API code."
+        ).format(desc=app_mode.desc()),
     )
+    @click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
+    @click.option(
+        "--entrypoint",
+        "-e",
+        help=(
+            "The module and executable object which serves as the entry point for the " "{desc} (defaults to app)"
+        ).format(desc=app_mode.desc()),
+    )
+    @click.option(
+        "--exclude",
+        "-x",
+        multiple=True,
+        help="Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated.",
+    )
+    @click.option(
+        "--python",
+        "-p",
+        type=click.Path(exists=True),
+        help="Path to Python interpreter whose environment should be used. "
+        + "The Python environment must have the rsconnect-python package installed.",
+    )
+    @click.option(
+        "--conda",
+        "-C",
+        is_flag=True,
+        hidden=True,
+        help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
+    )
+    @click.option(
+        "--force-generate", "-g", is_flag=True, help='Force generating "requirements.txt", even if it already exists.',
+    )
+    @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+    @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+    @click.argument(
+        "extra_files", nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True),
+    )
+    def manifest_writer(
+        overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files,
+    ):
+        _write_framework_manifest(
+            overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files, app_mode,
+        )
+
+    return manifest_writer
 
 
-# noinspection SpellCheckingInspection
-@write_manifest.command(
-    name="dash",
-    short_help="Create a manifest.json file for a Python API.",
-    help=(
-        "Create a manifest.json file for a Dash app for later deployment. "
-        'This will create an environment file ("requirements.txt") if one '
-        "does not exist. All files are created in the same directory as the API code."
-    ),
-)
-@click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
-@click.option(
-    "--entrypoint",
-    "-e",
-    help="The module and executable object which serves as the entry point for the "
-    "Dash application (defaults to app)",
-)
-@click.option(
-    "--exclude",
-    "-x",
-    multiple=True,
-    help=(
-        "Specify a glob pattern for ignoring files when building the bundle. "
-        "Note that your shell may try to expand this which will not do what you "
-        "expect. Generally, it's safest to quote the pattern. This option may be "
-        "repeated."
-    ),
-)
-@click.option(
-    "--python",
-    "-p",
-    type=click.Path(exists=True),
-    help="Path to Python interpreter whose environment should be used. "
-    + "The Python environment must have the rsconnect-python package installed.",
-)
-@click.option(
-    "--conda", "-C", is_flag=True, hidden=True, help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
-)
-@click.option(
-    "--force-generate", "-g", is_flag=True, help='Force generating "requirements.txt", even if it already exists.',
-)
-@click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
-@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
-@click.argument(
-    "extra_files", nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True),
-)
-def write_manifest_dash(
-    overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files,
-):
-    _write_framework_manifest(
-        overwrite,
-        entrypoint,
-        exclude,
-        python,
-        conda,
-        force_generate,
-        verbose,
-        directory,
-        extra_files,
-        AppModes.DASH_APP,
-    )
+write_manifest_api = generate_write_manifest_python(AppModes.PYTHON_API, alias="api")
+write_manifest_dash = generate_write_manifest_python(AppModes.DASH_APP, alias="dash")
+write_manifest_streamlit = generate_write_manifest_python(AppModes.STREAMLIT_APP, alias="streamlit")
 
 
 # noinspection SpellCheckingInspection
@@ -1176,7 +1016,7 @@ def _write_framework_manifest(
     overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files, app_mode,
 ):
     """
-    A common function for writing manifests for APIs, Dash apps, etc.
+    A common function for writing manifests for APIs, Dash & Streamlit apps, etc.
 
     :param overwrite: overwrite the manifest.json, if it exists.
     :param entrypoint: the entry point for the thing being deployed.

@@ -1,7 +1,13 @@
 import os
 import sys
+
 from os.path import dirname, join
 from unittest import TestCase
+
+try:
+    from inspect import signature
+except ImportError:
+    from funcsigs import signature
 
 from rsconnect import api
 
@@ -19,6 +25,8 @@ from rsconnect.actions import (
     validate_entry_point,
     validate_extra_files,
     deploy_python_api,
+    deploy_dash_app,
+    deploy_streamlit_app,
     gather_basic_deployment_info_for_api,
     create_notebook_deployment_bundle,
     create_api_deployment_bundle,
@@ -185,6 +193,58 @@ class TestActions(TestCase):
         server = RSConnectServer("https://www.bogus.com", "bogus")
         with self.assertRaises(RSConnectException):
             deploy_python_api(server, directory, [], [], "bogus")
+
+    def test_deploy_dash_app_signature(self):
+        self.assertEqual(
+            str(signature(deploy_dash_app)),
+            "({})".format(
+                ", ".join(
+                    [
+                        "connect_server",
+                        "directory",
+                        "extra_files",
+                        "excludes",
+                        "entry_point",
+                        "new=False",
+                        "app_id=None",
+                        "title=None",
+                        "python=None",
+                        "compatibility_mode=False",
+                        "force_generate=False",
+                        "log_callback=None",
+                    ]
+                )
+            ),
+        )
+
+    def test_deploy_dash_app_docs(self):
+        self.assertTrue("Dash app" in deploy_dash_app.__doc__)
+
+    def test_deploy_streamlit_app_signature(self):
+        self.assertEqual(
+            str(signature(deploy_streamlit_app)),
+            "({})".format(
+                ", ".join(
+                    [
+                        "connect_server",
+                        "directory",
+                        "extra_files",
+                        "excludes",
+                        "entry_point",
+                        "new=False",
+                        "app_id=None",
+                        "title=None",
+                        "python=None",
+                        "compatibility_mode=False",
+                        "force_generate=False",
+                        "log_callback=None",
+                    ]
+                )
+            ),
+        )
+
+    def test_deploy_streamlit_app_docs(self):
+        self.assertTrue("Streamlit app" in deploy_streamlit_app.__doc__)
 
     def test_gather_basic_deployment_info_for_api_validates(self):
         directory = get_api_path("flask")
