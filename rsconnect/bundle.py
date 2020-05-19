@@ -14,12 +14,16 @@ from rsconnect.models import AppModes, GlobSet
 # From https://github.com/rstudio/rsconnect/blob/485e05a26041ab8183a220da7a506c9d3a41f1ff/R/bundle.R#L85-L88
 # noinspection SpellCheckingInspection
 directories_to_ignore = [
-    "rsconnect/",
-    "rsconnect-python/",
-    "packrat/",
-    ".svn/",
-    ".git/",
     ".Rproj.user/",
+    ".env/",
+    ".git/",
+    ".svn/",
+    ".venv/",
+    "env/",
+    "packrat/",
+    "rsconnect-python/",
+    "rsconnect/",
+    "venv/",
 ]
 
 
