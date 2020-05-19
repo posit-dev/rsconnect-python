@@ -27,6 +27,7 @@ from rsconnect.actions import (
     deploy_python_api,
     deploy_dash_app,
     deploy_streamlit_app,
+    deploy_bokeh_app,
     gather_basic_deployment_info_for_api,
     create_notebook_deployment_bundle,
     create_api_deployment_bundle,
@@ -245,6 +246,32 @@ class TestActions(TestCase):
 
     def test_deploy_streamlit_app_docs(self):
         self.assertTrue("Streamlit app" in deploy_streamlit_app.__doc__)
+
+    def test_deploy_bokeh_app_signature(self):
+        self.assertEqual(
+            str(signature(deploy_bokeh_app)),
+            "({})".format(
+                ", ".join(
+                    [
+                        "connect_server",
+                        "directory",
+                        "extra_files",
+                        "excludes",
+                        "entry_point",
+                        "new=False",
+                        "app_id=None",
+                        "title=None",
+                        "python=None",
+                        "compatibility_mode=False",
+                        "force_generate=False",
+                        "log_callback=None",
+                    ]
+                )
+            ),
+        )
+
+    def test_deploy_bokeh_app_docs(self):
+        self.assertTrue("Bokeh app" in deploy_bokeh_app.__doc__)
 
     def test_gather_basic_deployment_info_for_api_validates(self):
         directory = get_api_path("flask")

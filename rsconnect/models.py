@@ -46,6 +46,7 @@ class AppModes(object):
     PYTHON_API = AppMode(8, "python-api", "Python API")
     DASH_APP = AppMode(9, "python-dash", "Dash Application")
     STREAMLIT_APP = AppMode(10, "python-streamlit", "Streamlit Application")
+    BOKEH_APP = AppMode(11, "python-bokeh", "Bokeh Application")
 
     _modes = [
         UNKNOWN,
@@ -59,6 +60,7 @@ class AppModes(object):
         PYTHON_API,
         DASH_APP,
         STREAMLIT_APP,
+        BOKEH_APP,
     ]
 
     @classmethod
