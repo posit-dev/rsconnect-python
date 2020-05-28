@@ -9,7 +9,8 @@ import tempfile
 from os.path import basename, dirname, exists, isdir, join, relpath, splitext
 
 from rsconnect.log import logger
-from rsconnect.models import AppModes, GlobSet
+from rsconnect.models import AppMode, AppModes, GlobSet
+from rsconnect.environment import Environment
 
 # From https://github.com/rstudio/rsconnect/blob/485e05a26041ab8183a220da7a506c9d3a41f1ff/R/bundle.R#L85-L88
 # noinspection SpellCheckingInspection
@@ -29,19 +30,20 @@ directories_to_ignore = [
 
 # noinspection SpellCheckingInspection
 def make_source_manifest(entrypoint, environment, app_mode):
-    package_manager = environment["package_manager"]
+    # type: (str, Environment, AppMode) -> dict
+    package_manager = environment.package_manager
 
     # noinspection SpellCheckingInspection
     manifest = {
         "version": 1,
         "metadata": {"appmode": app_mode.name(), "entrypoint": entrypoint},
-        "locale": environment["locale"],
+        "locale": environment.locale,
         "python": {
-            "version": environment["python"],
+            "version": environment.python,
             "package_manager": {
                 "name": package_manager,
-                "version": environment[package_manager],
-                "package_file": environment["filename"],
+                "version": getattr(environment, package_manager),
+                "package_file": environment.filename,
             },
         },
         "files": {},
@@ -113,6 +115,7 @@ def bundle_add_buffer(bundle, filename, contents):
 
 
 def write_manifest(relative_dir, nb_name, environment, output_dir):
+    # type: (str, str, Environment, str) -> typing.Tuple[list, list]
     """Create a manifest for source publishing the specified notebook.
 
     The manifest will be written to `manifest.json` in the output directory..
@@ -135,14 +138,14 @@ def write_manifest(relative_dir, nb_name, environment, output_dir):
             created.append(manifest_relative_path)
             logger.debug("wrote manifest file: %s", manifest_file)
 
-    environment_filename = environment["filename"]
+    environment_filename = environment.filename
     environment_file = join(output_dir, environment_filename)
     environment_relative_path = join(relative_dir, environment_filename)
-    if environment["source"] == "file":
+    if environment.source == "file":
         skipped.append(environment_relative_path)
     else:
         with open(environment_file, "w") as f:
-            f.write(environment["contents"])
+            f.write(environment.contents)
             created.append(environment_relative_path)
             logger.debug("wrote environment file: %s", environment_file)
 
@@ -175,7 +178,12 @@ def list_files(base_dir, include_sub_dirs, walk=os.walk):
     return list(iter_files())
 
 
-def make_notebook_source_bundle(file, environment, extra_files=None):
+def make_notebook_source_bundle(
+    file,  # type: str
+    environment,  # type: Environment
+    extra_files=None,  # type:  typing.Optional[typing.List[str]]
+):
+    # type: (...) -> io.BufferedRandom
     """Create a bundle containing the specified notebook and python environment.
 
     Returns a file-like object containing the bundle tarball.
@@ -187,10 +195,10 @@ def make_notebook_source_bundle(file, environment, extra_files=None):
 
     manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
     manifest_add_file(manifest, nb_name, base_dir)
-    manifest_add_buffer(manifest, environment["filename"], environment["contents"])
+    manifest_add_buffer(manifest, environment.filename, environment.contents)
 
     if extra_files:
-        skip = [nb_name, environment["filename"], "manifest.json"]
+        skip = [nb_name, environment.filename, "manifest.json"]
         extra_files = sorted(list(set(extra_files) - set(skip)))
 
     for rel_path in extra_files:
@@ -203,7 +211,7 @@ def make_notebook_source_bundle(file, environment, extra_files=None):
 
         # add the manifest first in case we want to partially untar the bundle for inspection
         bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
-        bundle_add_buffer(bundle, environment["filename"], environment["contents"])
+        bundle_add_buffer(bundle, environment.filename, environment.contents)
         bundle_add_file(bundle, nb_name, base_dir)
 
         for rel_path in extra_files:
@@ -214,6 +222,7 @@ def make_notebook_source_bundle(file, environment, extra_files=None):
 
 
 def make_html_manifest(filename):
+    # type: (str) -> dict
     # noinspection SpellCheckingInspection
     return {
         "version": 1,
@@ -221,7 +230,12 @@ def make_html_manifest(filename):
     }
 
 
-def make_notebook_html_bundle(filename, python, check_output=subprocess.check_output):
+def make_notebook_html_bundle(
+    filename,  # type: str
+    python,  # type: str
+    check_output=subprocess.check_output,  # type: typing.Callable
+):
+    # type: (...) -> io.BufferedRandom
     # noinspection SpellCheckingInspection
     cmd = [
         python,
@@ -337,7 +351,13 @@ def create_glob_set(directory, excludes):
     return GlobSet(work)
 
 
-def _create_api_file_list(directory, requirements_file_name, extra_files=None, excludes=None):
+def _create_api_file_list(
+    directory,  # type: str
+    requirements_file_name,  # type: str
+    extra_files=None,  # type: typing.Optional[typing.List[str]]
+    excludes=None,  # type: typing.Optional[typing.List[str]])
+):
+    # type: (...) -> typing.List[str]
     """
     Builds a full list of files under the given directory that should be included
     in a manifest or bundle.  Extra files and excludes are relative to the given
@@ -380,7 +400,15 @@ def _create_api_file_list(directory, requirements_file_name, extra_files=None, e
     return sorted(file_list)
 
 
-def make_api_manifest(directory, entry_point, app_mode, environment, extra_files=None, excludes=None):
+def make_api_manifest(
+    directory,  # type: str
+    entry_point,  # type: str
+    app_mode,  # type: AppMode
+    environment,  # type: Environment
+    extra_files=None,  # type: typing.Optional[typing.List[str]]
+    excludes=None,  # type: typing.Optional[typing.List[str]]
+):
+    # type: (...) -> typing.Tuple[str, typing.List[str]]
     """
     Makes a manifest for an API.
 
@@ -392,10 +420,10 @@ def make_api_manifest(directory, entry_point, app_mode, environment, extra_files
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :return: the manifest and a list of the files involved.
     """
-    relevant_files = _create_api_file_list(directory, environment["filename"], extra_files, excludes)
+    relevant_files = _create_api_file_list(directory, environment.filename, extra_files, excludes)
     manifest = make_source_manifest(entry_point, environment, app_mode)
 
-    manifest_add_buffer(manifest, environment["filename"], environment["contents"])
+    manifest_add_buffer(manifest, environment.filename, environment.contents)
 
     for rel_path in relevant_files:
         manifest_add_file(manifest, rel_path, directory)
@@ -403,7 +431,15 @@ def make_api_manifest(directory, entry_point, app_mode, environment, extra_files
     return manifest, relevant_files
 
 
-def make_api_bundle(directory, entry_point, app_mode, environment, extra_files=None, excludes=None):
+def make_api_bundle(
+    directory,  # type: str
+    entry_point,  # type: str
+    app_mode,  # type: AppMode
+    environment,  # type: Environment
+    extra_files=None,  # type: typing.Optional[typing.List[str]]
+    excludes=None,  # type: typing.Optional[typing.List[str]]
+):
+    # type: (...) -> io.BufferedRandom
     """
     Create an API bundle, given a directory path and a manifest.
 
@@ -420,7 +456,7 @@ def make_api_bundle(directory, entry_point, app_mode, environment, extra_files=N
 
     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
         bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
-        bundle_add_buffer(bundle, environment["filename"], environment["contents"])
+        bundle_add_buffer(bundle, environment.filename, environment.contents)
 
         for rel_path in relevant_files:
             bundle_add_file(bundle, rel_path, directory)

@@ -5,10 +5,11 @@ from unittest import TestCase
 from os.path import dirname, join
 
 from rsconnect.environment import (
-    detect_environment,
+    Environment,
     EnvironmentException,
-    get_python_version,
+    detect_environment,
     get_default_locale,
+    get_python_version,
 )
 from rsconnect.tests.test_data_util import get_dir
 
@@ -21,7 +22,9 @@ class TestEnvironment(TestCase):
         return ".".join(map(str, sys.version_info[:3]))
 
     def test_get_python_version(self):
-        self.assertEqual(get_python_version({"package_manager": "pip"}), self.python_version())
+        self.assertEqual(
+            get_python_version(Environment(package_manager="pip")), self.python_version(),
+        )
 
     def test_get_default_locale(self):
         self.assertEqual(get_default_locale(lambda: ("en_US", "UTF-8")), "en_US.UTF-8")
@@ -32,55 +35,46 @@ class TestEnvironment(TestCase):
     def test_file(self):
         result = detect_environment(get_dir("pip1"))
 
-        pip_version = result.pop("pip")
-        self.assertTrue(version_re.match(pip_version))
+        self.assertTrue(version_re.match(result.pip))
 
-        locale = result.pop("locale")
-        self.assertIsInstance(locale, str)
-        self.assertIn(".", locale)
+        self.assertIsInstance(result.locale, str)
+        self.assertIn(".", result.locale)
 
-        self.assertEqual(
-            result,
-            {
-                "package_manager": "pip",
-                "source": "file",
-                "filename": "requirements.txt",
-                "contents": "numpy\npandas\nmatplotlib\n",
-                "python": self.python_version(),
-            },
-        )
+        for key, value in {
+            "package_manager": "pip",
+            "source": "file",
+            "filename": "requirements.txt",
+            "contents": "numpy\npandas\nmatplotlib\n",
+            "python": self.python_version(),
+        }.items():
+            self.assertEqual(getattr(result, key), value)
 
     def test_pip_freeze(self):
         result = detect_environment(get_dir("pip2"))
-        contents = result.pop("contents")
 
         # these are the dependencies declared in our setup.py
-        self.assertIn("six", contents)
-        self.assertIn("click", contents.lower())
+        self.assertIn("six", result.contents)
+        self.assertIn("click", result.contents.lower())
 
-        pip_version = result.pop("pip")
-        self.assertTrue(version_re.match(pip_version))
+        self.assertTrue(version_re.match(result.pip))
 
-        locale = result.pop("locale")
-        self.assertIsInstance(locale, str)
-        self.assertIn(".", locale)
+        self.assertIsInstance(result.locale, str)
+        self.assertIn(".", result.locale)
 
-        self.assertEqual(
-            result,
-            {
-                "package_manager": "pip",
-                "source": "pip_freeze",
-                "filename": "requirements.txt",
-                "python": self.python_version(),
-            },
-        )
+        for key, value in {
+            "package_manager": "pip",
+            "source": "pip_freeze",
+            "filename": "requirements.txt",
+            "python": self.python_version(),
+        }.items():
+            self.assertEqual(getattr(result, key), value)
 
     def test_conda_env_export(self):
         fake_conda = join(dirname(__file__), "testdata", "fake_conda.sh")
         result = detect_environment(get_dir("conda1"), conda_mode=True, force_generate=True, conda=fake_conda)
-        self.assertEqual(result["source"], "conda_env_export")
-        self.assertEqual(result["conda"], "1.0.0")
-        self.assertEqual(result["contents"], "this is a conda environment\n")
+        self.assertEqual(result.source, "conda_env_export")
+        self.assertEqual(result.conda, "1.0.0")
+        self.assertEqual(result.contents, "this is a conda environment\n")
 
         fake_broken_conda = join(dirname(__file__), "testdata", "fake_broken_conda.sh")
         self.assertRaises(

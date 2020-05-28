@@ -387,10 +387,10 @@ def _warn_on_ignored_conda_env(environment):
 
     :param environment: The Python environment that was discovered.
     """
-    if future_enabled and environment["package_manager"] != "conda" and "conda" in environment:
+    if future_enabled and environment.package_manager != "conda" and environment.conda is not None:
         click.echo(
             "    Using %s for package management; the current Conda environment will be ignored."
-            % environment["package_manager"]
+            % environment.package_manager
         )
 
 
@@ -546,14 +546,14 @@ def deploy_notebook(
     with cli_feedback("Inspecting Python environment"):
         python, environment = get_python_env_info(file, python, conda, force_generate)
 
-    if environment["package_manager"] == "conda":
+    if environment.package_manager == "conda":
         with cli_feedback("Ensuring Conda is supported"):
             check_server_capabilities(connect_server, [is_conda_supported_on_server])
     else:
         _warn_on_ignored_conda_env(environment)
 
     if force_generate:
-        _warn_on_ignored_requirements(dirname(file), environment["filename"])
+        _warn_on_ignored_requirements(dirname(file), environment.filename)
 
     with cli_feedback("Creating deployment bundle"):
         bundle = create_notebook_deployment_bundle(file, extra_files, app_mode, python, environment, False)
@@ -842,14 +842,14 @@ def _deploy_by_framework(
 
     with cli_feedback("Checking server capabilities"):
         checks = [are_apis_supported_on_server]
-        if environment["package_manager"] == "conda":
+        if environment.package_manager == "conda":
             checks.append(is_conda_supported_on_server)
         check_server_capabilities(connect_server, checks)
 
     _warn_on_ignored_conda_env(environment)
 
     if force_generate:
-        _warn_on_ignored_requirements(directory, environment["filename"])
+        _warn_on_ignored_requirements(directory, environment.filename)
 
     with cli_feedback("Creating deployment bundle"):
         bundle = create_api_deployment_bundle(directory, extra_files, exclude, entrypoint, app_mode, environment, False)
@@ -943,10 +943,10 @@ def write_manifest_notebook(overwrite, python, conda, force_generate, verbose, f
 
     if environment_file_exists and not force_generate:
         click.secho(
-            "    Warning: %s already exists and will not be overwritten." % environment["filename"], fg="yellow",
+            "    Warning: %s already exists and will not be overwritten." % environment.filename, fg="yellow",
         )
     else:
-        with cli_feedback("Creating %s" % environment["filename"]):
+        with cli_feedback("Creating %s" % environment.filename):
             write_environment_file(environment, base_dir)
 
 
@@ -1057,10 +1057,10 @@ def _write_framework_manifest(
 
     if environment_file_exists and not force_generate:
         click.secho(
-            "    Warning: %s already exists and will not be overwritten." % environment["filename"], fg="yellow",
+            "    Warning: %s already exists and will not be overwritten." % environment.filename, fg="yellow",
         )
     else:
-        with cli_feedback("Creating %s" % environment["filename"]):
+        with cli_feedback("Creating %s" % environment.filename):
             write_environment_file(environment, directory)
 
 
