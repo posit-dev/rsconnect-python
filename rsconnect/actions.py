@@ -6,6 +6,12 @@ import re
 import traceback
 import sys
 import subprocess
+
+try:
+    import typing
+except ImportError:
+    typing = None
+
 from os.path import abspath, basename, dirname, exists, isdir, join, relpath, splitext
 from pprint import pformat
 
@@ -21,7 +27,7 @@ from .bundle import (
     manifest_add_file,
     read_manifest_file,
 )
-from .environment import EnvironmentException
+from .environment import Environment, EnvironmentException
 from .log import logger
 from .metadata import AppStore
 from .models import AppModes
@@ -106,8 +112,13 @@ def which_python(python, env=os.environ):
 
 
 def inspect_environment(
-    python, directory, conda_mode=False, force_generate=False, check_output=subprocess.check_output,
+    python,  # type: str
+    directory,  # type: str
+    conda_mode=False,  # type: bool
+    force_generate=False,  # type: bool
+    check_output=subprocess.check_output,  # type: typing.Callable
 ):
+    # type: (...) -> Environment
     """Run the environment inspector using the specified python binary.
 
     Returns a dictionary of information about the environment,
@@ -126,8 +137,7 @@ def inspect_environment(
         environment_json = check_output(args, universal_newlines=True)
     except subprocess.CalledProcessError as e:
         raise api.RSConnectException("Error inspecting environment: %s" % e.output)
-    environment = json.loads(environment_json)
-    return environment
+    return Environment(**json.loads(environment_json))
 
 
 def _verify_server(connect_server):
@@ -1059,10 +1069,10 @@ def get_python_env_info(file_name, python, conda_mode, force_generate):
     python = which_python(python)
     logger.debug("Python: %s" % python)
     environment = inspect_environment(python, dirname(file_name), conda_mode=conda_mode, force_generate=force_generate)
-    if "error" in environment:
-        raise api.RSConnectException(environment["error"])
+    if environment.error:
+        raise api.RSConnectException(environment.error)
     logger.debug("Python: %s" % python)
-    logger.debug("Environment: %s" % pformat(environment))
+    logger.debug("Environment: %s" % pformat(environment._asdict()))
 
     return python, environment
 
@@ -1213,7 +1223,7 @@ def write_notebook_manifest_json(entry_point_file, environment, app_mode=None, e
 
     manifest_data = make_source_manifest(file_name, environment, app_mode)
     manifest_add_file(manifest_data, file_name, directory)
-    manifest_add_buffer(manifest_data, environment["filename"], environment["contents"])
+    manifest_add_buffer(manifest_data, environment.filename, environment.contents)
 
     for rel_path in extra_files:
         manifest_add_file(manifest_data, rel_path, directory)
@@ -1221,7 +1231,7 @@ def write_notebook_manifest_json(entry_point_file, environment, app_mode=None, e
     with open(manifest_path, "w") as f:
         json.dump(manifest_data, f, indent=2)
 
-    return exists(join(directory, environment["filename"]))
+    return exists(join(directory, environment.filename))
 
 
 def create_api_manifest_and_environment_file(
@@ -1272,7 +1282,7 @@ def write_api_manifest_json(
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
 
-    return exists(join(directory, environment["filename"]))
+    return exists(join(directory, environment.filename))
 
 
 def write_environment_file(environment, directory):
@@ -1284,9 +1294,9 @@ def write_environment_file(environment, directory):
     returned by the inspect_environment() function.
     :param directory: the directory where the file should be written.
     """
-    environment_file_path = join(directory, environment["filename"])
+    environment_file_path = join(directory, environment.filename)
     with open(environment_file_path, "w") as f:
-        f.write(environment["contents"])
+        f.write(environment.contents)
 
 
 def describe_manifest(file_name):

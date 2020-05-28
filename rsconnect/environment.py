@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import collections
 import datetime
 import json
 import locale
@@ -7,9 +8,38 @@ import re
 import subprocess
 import sys
 
+try:
+    import typing
+except ImportError:
+    typing = None
+
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
 conda_version_re = re.compile(r"^(?:\s*-\s*)?python=(\d+\.\d+(?:\.\d+)?)", re.MULTILINE)
 exec_dir = os.path.dirname(sys.executable)
+
+
+ENVIRONMENT_FIELDS_DEFAULTS = (
+    ("conda", None),
+    ("contents", ""),
+    ("error", None),
+    ("filename", ""),
+    ("locale", ""),
+    ("package_manager", ""),
+    ("pip", None),
+    ("python", None),
+    ("source", None),
+)
+ENVIRONMENT_FIELDS = tuple([f[0] for f in ENVIRONMENT_FIELDS_DEFAULTS])
+ENVIRONMENT_DEFAULTS = tuple([f[1] for f in ENVIRONMENT_FIELDS_DEFAULTS])
+
+if sys.version_info[:2] < (3, 7):
+
+    Environment = collections.namedtuple("Environment", ENVIRONMENT_FIELDS)
+    Environment.__new__.__defaults__ = ENVIRONMENT_DEFAULTS
+
+else:
+
+    Environment = collections.namedtuple("Environment", ENVIRONMENT_FIELDS, defaults=ENVIRONMENT_DEFAULTS,)
 
 
 class EnvironmentException(Exception):
@@ -17,6 +47,7 @@ class EnvironmentException(Exception):
 
 
 def detect_environment(dirname, force_generate=False, conda_mode=False, conda=None):
+    # type: (str, bool, bool, typing.Optional[str]) -> Environment
     """Determine the python dependencies in the environment.
 
     `pip freeze` will be used to introspect the environment unless `conda_mode` is
@@ -49,13 +80,13 @@ def detect_environment(dirname, force_generate=False, conda_mode=False, conda=No
                 '--help" for more information.'
             }
 
-        result["python"] = get_python_version(result)
+        result["python"] = get_python_version(Environment(**result))
         result["pip"] = get_version("pip")
         if conda:
             result["conda"] = get_conda_version(conda)
         result["locale"] = get_default_locale()
 
-    return result
+    return Environment(**result)
 
 
 def get_conda(conda=None):
@@ -70,14 +101,14 @@ def get_conda(conda=None):
         return conda or os.environ.get("CONDA_EXE", None)
 
 
-def get_python_version(data):
-    if data["package_manager"] == "conda":
-        versions = conda_version_re.findall(data["contents"])
+def get_python_version(environment):
+    # type: (Environment) -> str
+    if environment.package_manager == "conda":
+        versions = conda_version_re.findall(environment.contents)
         if len(versions) > 0:
             version = versions[0]
             if version.count(".") == 1:
                 version = version + ".0"
-            data["py_version_from_env_yaml"] = True
             return version
 
     v = sys.version_info
@@ -228,11 +259,11 @@ def main():
             force_generate = True
         if "c" in flags:
             conda_mode = True
-        result = detect_environment(directory, force_generate, conda_mode)
+        json.dump(
+            detect_environment(directory, force_generate, conda_mode)._asdict(), sys.stdout, indent=4,
+        )
     except EnvironmentException as exception:
-        result = dict(error=str(exception))
-
-    json.dump(result, sys.stdout, indent=4)
+        json.dump(dict(error=str(exception)), sys.stdout, indent=4)
 
 
 if __name__ == "__main__":

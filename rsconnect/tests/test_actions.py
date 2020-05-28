@@ -14,23 +14,24 @@ from rsconnect import api
 from rsconnect.actions import (
     _default_title,
     _default_title_from_manifest,
-    which_python,
-    _to_server_check_list,
-    _verify_server,
-    check_server_capabilities,
-    are_apis_supported_on_server,
-    is_conda_supported_on_server,
     _make_deployment_name,
+    _to_server_check_list,
     _validate_title,
-    validate_entry_point,
-    validate_extra_files,
-    deploy_python_api,
+    _verify_server,
+    are_apis_supported_on_server,
+    check_server_capabilities,
+    create_api_deployment_bundle,
+    create_notebook_deployment_bundle,
     deploy_dash_app,
+    deploy_python_api,
     deploy_streamlit_app,
     deploy_bokeh_app,
     gather_basic_deployment_info_for_api,
-    create_notebook_deployment_bundle,
-    create_api_deployment_bundle,
+    inspect_environment,
+    is_conda_supported_on_server,
+    validate_entry_point,
+    validate_extra_files,
+    which_python,
 )
 from rsconnect.api import RSConnectException, RSConnectServer
 from rsconnect.tests.test_data_util import get_manifest_path, get_api_path, get_dir
@@ -295,3 +296,8 @@ class TestActions(TestCase):
             create_api_deployment_bundle(directory, [], [], "bogus:bogus:bogus", None, None)
         with self.assertRaises(RSConnectException):
             create_api_deployment_bundle(directory, ["bogus"], [], "app:app", None, None)
+
+    def test_inspect_environment(self):
+        environment = inspect_environment(sys.executable, get_dir("pip1"))
+        assert environment is not None
+        assert environment.python != ""
