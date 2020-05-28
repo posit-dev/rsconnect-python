@@ -6,6 +6,12 @@ import re
 import traceback
 import sys
 import subprocess
+
+try:
+    import typing
+except ImportError:
+    typing = None
+
 from os.path import abspath, basename, dirname, exists, isdir, join, relpath, splitext
 from pprint import pformat
 

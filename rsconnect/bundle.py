@@ -6,6 +6,11 @@ import subprocess
 import tarfile
 import tempfile
 
+try:
+    import typing
+except ImportError:
+    typing = None
+
 from os.path import basename, dirname, exists, isdir, join, relpath, splitext
 
 from rsconnect.log import logger
@@ -355,7 +360,7 @@ def _create_api_file_list(
     directory,  # type: str
     requirements_file_name,  # type: str
     extra_files=None,  # type: typing.Optional[typing.List[str]]
-    excludes=None,  # type: typing.Optional[typing.List[str]])
+    excludes=None,  # type: typing.Optional[typing.List[str]]
 ):
     # type: (...) -> typing.List[str]
     """
