@@ -40,14 +40,16 @@ class TestEnvironment(TestCase):
         self.assertIsInstance(result.locale, str)
         self.assertIn(".", result.locale)
 
-        for key, value in {
-            "package_manager": "pip",
-            "source": "file",
-            "filename": "requirements.txt",
-            "contents": "numpy\npandas\nmatplotlib\n",
-            "python": self.python_version(),
-        }.items():
-            self.assertEqual(getattr(result, key), value)
+        expected = Environment(
+            contents="numpy\npandas\nmatplotlib\n",
+            filename="requirements.txt",
+            locale=result.locale,
+            package_manager="pip",
+            pip=result.pip,
+            python=self.python_version(),
+            source="file",
+        )
+        self.assertEqual(expected, result)
 
     def test_pip_freeze(self):
         result = detect_environment(get_dir("pip2"))
@@ -61,13 +63,16 @@ class TestEnvironment(TestCase):
         self.assertIsInstance(result.locale, str)
         self.assertIn(".", result.locale)
 
-        for key, value in {
-            "package_manager": "pip",
-            "source": "pip_freeze",
-            "filename": "requirements.txt",
-            "python": self.python_version(),
-        }.items():
-            self.assertEqual(getattr(result, key), value)
+        expected = Environment(
+            contents=result.contents,
+            filename="requirements.txt",
+            locale=result.locale,
+            package_manager="pip",
+            pip=result.pip,
+            python=self.python_version(),
+            source="pip_freeze",
+        )
+        self.assertEqual(expected, result)
 
     def test_conda_env_export(self):
         fake_conda = join(dirname(__file__), "testdata", "fake_conda.sh")
