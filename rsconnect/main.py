@@ -18,6 +18,7 @@ from rsconnect.actions import (
     gather_basic_deployment_info_for_api,
     gather_basic_deployment_info_for_dash,
     gather_basic_deployment_info_for_streamlit,
+    gather_basic_deployment_info_for_bokeh,
     gather_basic_deployment_info_for_notebook,
     gather_basic_deployment_info_from_manifest,
     gather_server_details,
@@ -765,6 +766,7 @@ def generate_deploy_python(app_mode, alias):
                 AppModes.PYTHON_API: gather_basic_deployment_info_for_api,
                 AppModes.DASH_APP: gather_basic_deployment_info_for_dash,
                 AppModes.STREAMLIT_APP: gather_basic_deployment_info_for_streamlit,
+                AppModes.BOKEH_APP: gather_basic_deployment_info_for_bokeh,
             }[app_mode],
         )
 
@@ -774,6 +776,7 @@ def generate_deploy_python(app_mode, alias):
 deploy_api = generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="api")
 deploy_dash_app = generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash")
 deploy_streamlit_app = generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit")
+deploy_bokeh_app = generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh")
 
 
 # noinspection SpellCheckingInspection
@@ -797,7 +800,7 @@ def _deploy_by_framework(
     gatherer,
 ):
     """
-    A common function for deploying APIs, Dash and Streamlit apps, etc.
+    A common function for deploying APIs, as well as Dash, Streamlit, and Bokeh apps.
 
     :param name: the nickname of the Connect server to use.
     :param server: the URL of the Connect server to use.
@@ -1009,6 +1012,7 @@ def generate_write_manifest_python(app_mode, alias):
 write_manifest_api = generate_write_manifest_python(AppModes.PYTHON_API, alias="api")
 write_manifest_dash = generate_write_manifest_python(AppModes.DASH_APP, alias="dash")
 write_manifest_streamlit = generate_write_manifest_python(AppModes.STREAMLIT_APP, alias="streamlit")
+write_manifest_bokeh = generate_write_manifest_python(AppModes.BOKEH_APP, alias="bokeh")
 
 
 # noinspection SpellCheckingInspection
@@ -1016,7 +1020,7 @@ def _write_framework_manifest(
     overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files, app_mode,
 ):
     """
-    A common function for writing manifests for APIs, Dash & Streamlit apps, etc.
+    A common function for writing manifests for APIs as well as Dash, Streamlit, and Bokeh apps.
 
     :param overwrite: overwrite the manifest.json, if it exists.
     :param entrypoint: the entry point for the thing being deployed.

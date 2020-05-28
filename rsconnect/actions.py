@@ -550,7 +550,7 @@ def deploy_python_api(
     and network latency, this may take a bit of time.
 
     :param connect_server: the Connect server information.
-    :param directory: the Jupyter notebook file to deploy.
+    :param directory: the app directory to deploy.
     :param extra_files: any extra files that should be included in the deploy.
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param entry_point: the module/executable object for the WSGi framework.
@@ -606,7 +606,7 @@ def deploy_dash_app(
     and network latency, this may take a bit of time.
 
     :param connect_server: the Connect server information.
-    :param directory: the Jupyter notebook file to deploy.
+    :param directory: the app directory to deploy.
     :param extra_files: any extra files that should be included in the deploy.
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param entry_point: the module/executable object for the WSGi framework.
@@ -662,7 +662,7 @@ def deploy_streamlit_app(
     and network latency, this may take a bit of time.
 
     :param connect_server: the Connect server information.
-    :param directory: the Jupyter notebook file to deploy.
+    :param directory: the app directory to deploy.
     :param extra_files: any extra files that should be included in the deploy.
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param entry_point: the module/executable object for the WSGi framework.
@@ -699,6 +699,62 @@ def deploy_streamlit_app(
     )
 
 
+def deploy_bokeh_app(
+    connect_server,
+    directory,
+    extra_files,
+    excludes,
+    entry_point,
+    new=False,
+    app_id=None,
+    title=None,
+    python=None,
+    compatibility_mode=False,
+    force_generate=False,
+    log_callback=None,
+):
+    """
+    A function to deploy a Python Bokeh app module to Connect.  Depending on the files involved
+    and network latency, this may take a bit of time.
+
+    :param connect_server: the Connect server information.
+    :param directory: the app directory to deploy.
+    :param extra_files: any extra files that should be included in the deploy.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param entry_point: the module/executable object for the WSGi framework.
+    :param new: a flag to force this as a new deploy.
+    :param app_id: the ID of an existing application to deploy new files for.
+    :param title: an optional title for the deploy.  If this is not provided, ne will
+    be generated.
+    :param python: the optional name of a Python executable.
+    :param compatibility_mode: force freezing the current environment using pip
+    instead of conda, when conda is not supported on RStudio Connect (version<=1.8.0).
+    :param force_generate: force generating "requirements.txt" or "environment.yml",
+    even if it already exists.
+    :param log_callback: the callback to use to write the log to.  If this is None
+    (the default) the lines from the deployment log will be returned as a sequence.
+    If a log callback is provided, then None will be returned for the log lines part
+    of the return tuple.
+    :return: the ultimate URL where the deployed app may be accessed and the sequence
+    of log lines.  The log lines value will be None if a log callback was provided.
+    """
+    return _deploy_by_python_framework(
+        connect_server,
+        directory,
+        extra_files,
+        excludes,
+        entry_point,
+        gather_basic_deployment_info_for_bokeh,
+        new,
+        app_id,
+        title,
+        python,
+        compatibility_mode,
+        force_generate,
+        log_callback,
+    )
+
+
 def _deploy_by_python_framework(
     connect_server,
     directory,
@@ -719,7 +775,7 @@ def _deploy_by_python_framework(
     and network latency, this may take a bit of time.
 
     :param connect_server: the Connect server information.
-    :param directory: the Jupyter notebook file to deploy.
+    :param directory: the app directory to deploy.
     :param extra_files: any extra files that should be included in the deploy.
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param entry_point: the module/executable object for the WSGi framework.
@@ -929,6 +985,7 @@ def _generate_gather_basic_deployment_info_for_python(app_mode):
 gather_basic_deployment_info_for_api = _generate_gather_basic_deployment_info_for_python(AppModes.PYTHON_API)
 gather_basic_deployment_info_for_dash = _generate_gather_basic_deployment_info_for_python(AppModes.DASH_APP)
 gather_basic_deployment_info_for_streamlit = _generate_gather_basic_deployment_info_for_python(AppModes.STREAMLIT_APP)
+gather_basic_deployment_info_for_bokeh = _generate_gather_basic_deployment_info_for_python(AppModes.BOKEH_APP)
 
 
 def _gather_basic_deployment_info_for_framework(
