@@ -46,7 +46,7 @@ jobs:
       run: 'pipenv install --skip-lock && pipenv run pip install pytest pytest-cov'
     - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
       run: pipenv install --dev
-    - run: pip freeze
+    - run: pipenv run pip freeze
     - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
       run: make fmt-local
     - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
@@ -61,7 +61,7 @@ jobs:
         python_version: 3.8.x
     - run: pip install -U pipenv pip
     - run: pipenv install --dev --pre
-    - run: pip freeze
+    - run: pipenv run pip freeze
     - run: make fmt-local
     - run: make lint-local
     - run: make test-local
