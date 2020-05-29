@@ -249,8 +249,8 @@ def make_notebook_html_bundle(
         "nbconvert",
         "--execute",
         "--stdout",
-        "--log-level",
-        "ERROR",
+        "--log-level=ERROR",
+        "--to=html",
         filename,
     ]
     try:
