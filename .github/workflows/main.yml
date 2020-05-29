@@ -60,7 +60,7 @@ jobs:
       with:
         python_version: 3.8.x
     - run: pip install -U pipenv pip
-    - run: pipenv install --dev --pre
+    - run: pipenv install --skip-lock --dev --pre
     - run: pipenv run pip freeze
     - run: make fmt-local
     - run: make lint-local
