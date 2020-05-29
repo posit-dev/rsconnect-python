@@ -10,6 +10,7 @@ funcsigs = "*"
 ipython = "*"
 pytest = "*"
 pytest-cov = "*"
+importlib-metadata = "*"
 
 [packages]
 click = ">=7.0.0"
