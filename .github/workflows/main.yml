@@ -54,6 +54,7 @@ jobs:
     - run: make test-local
   prerelease-test:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-python@v2
