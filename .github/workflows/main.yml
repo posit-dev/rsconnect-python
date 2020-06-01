@@ -46,10 +46,27 @@ jobs:
       run: 'pipenv install --skip-lock && pipenv run pip install pytest pytest-cov'
     - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
       run: pipenv install --dev
+    - run: pipenv run pip freeze
     - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
       run: make fmt-local
     - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
       run: make lint-local
+    - run: make test-local
+  prerelease-test:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2
+      with:
+        python_version: 3.8.x
+    - run: pip install -U -I --pre pipenv pip
+    - run: pipenv lock --dev --pre --requirements | awk -F= '{ print $1 }' >requirements-unlocked.txt
+    - run: pipenv run pip install --pre -r requirements-unlocked.txt
+    - run: pipenv run pip freeze
+    - run: rm -vf requirements-unlocked.txt
+    - run: make fmt-local
+    - run: make lint-local
     - run: make test-local
   distributions:
     needs: test
