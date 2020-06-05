@@ -1,3 +1,16 @@
+Development version
+--------------------------------------------------------------------------------
+*   Added support for deploying Streamlit and Bokeh applications.
+
+*   Expanded the default exclusion list to include common virtual environment
+    directory names (`env`, `venv`, `.env`, and `.venv`).
+
+*   Improved handling of HTTP timeouts.
+
+*   Added the `--to-html` option to `nbconvert` when publishing a static notebook.
+    This is required by the latest version of `nbconvert`.
+
+
 `rsconnect-python` 1.4.5
 --------------------------------------------------------------------------------
 *   Provide clearer feedback when errors happen while building bundles from a
