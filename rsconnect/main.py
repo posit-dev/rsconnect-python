@@ -449,7 +449,7 @@ def _deploy_bundle(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="notebook",
-    short_help="Deploy Jupyter notebook to RStudio Connect.",
+    short_help="Deploy Jupyter notebook to RStudio Connect [v1.7.0+].",
     help="Deploy a Jupyter notebook to RStudio Connect. This may be done by source or as a static HTML "
     "page. If the notebook is deployed as a static HTML page (--static), it cannot be scheduled or "
     "rerun on the Connect server.",
@@ -650,11 +650,13 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
     )
 
 
-def generate_deploy_python(app_mode, alias):
+def generate_deploy_python(app_mode, alias, min_version):
     # noinspection SpellCheckingInspection
     @deploy.command(
         name=alias,
-        short_help="Deploy a {desc} to RStudio Connect.".format(desc=app_mode.desc()),
+        short_help="Deploy a {desc} to RStudio Connect [v{version}+].".format(
+            desc=app_mode.desc(), version=min_version
+        ),
         help=(
             'Deploy a {desc} module to RStudio Connect. The "directory" argument must refer to an '
             "existing directory that contains the application code."
@@ -773,10 +775,10 @@ def generate_deploy_python(app_mode, alias):
     return deploy_app
 
 
-deploy_api = generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="api")
-deploy_dash_app = generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash")
-deploy_streamlit_app = generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit")
-deploy_bokeh_app = generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh")
+deploy_api = generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="api", min_version="1.8.2")
+deploy_dash_app = generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
+deploy_streamlit_app = generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
+deploy_bokeh_app = generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
 
 
 # noinspection SpellCheckingInspection
