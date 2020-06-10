@@ -13,6 +13,7 @@ from rsconnect.actions import (
     cli_feedback,
     create_api_deployment_bundle,
     create_notebook_deployment_bundle,
+    create_script_deployment_bundle,
     deploy_bundle,
     describe_manifest,
     gather_basic_deployment_info_for_api,
@@ -20,6 +21,7 @@ from rsconnect.actions import (
     gather_basic_deployment_info_for_streamlit,
     gather_basic_deployment_info_for_bokeh,
     gather_basic_deployment_info_for_notebook,
+    gather_basic_deployment_info_for_script,
     gather_basic_deployment_info_from_manifest,
     gather_server_details,
     get_python_env_info,
@@ -858,6 +860,110 @@ def _deploy_by_framework(
 
     _deploy_bundle(
         connect_server, app_store, directory, app_id, app_mode, deployment_name, title, default_title, bundle,
+    )
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@deploy.command(
+    name="script",
+    short_help="Deploy Python script to RStudio Connect [v1.8.4+].",
+    help="Deploy a Python script to RStudio Connect"
+)
+@click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
+@click.option(
+    "--server", "-s", envvar="CONNECT_SERVER", help="The URL for the RStudio Connect server to deploy to.",
+)
+@click.option(
+    "--api-key", "-k", envvar="CONNECT_API_KEY", help="The API key to use to authenticate with RStudio Connect.",
+)
+@click.option(
+    "--insecure", "-i", envvar="CONNECT_INSECURE", is_flag=True, help="Disable TLS certification/host validation.",
+)
+@click.option(
+    "--cacert",
+    "-c",
+    envvar="CONNECT_CA_CERTIFICATE",
+    type=click.File(),
+    help="The path to trusted TLS CA certificates.",
+)
+@click.option(
+    "--new",
+    "-N",
+    is_flag=True,
+    help=(
+        "Force a new deployment, even if there is saved metadata from a "
+        "previous deployment. Cannot be used with --app-id."
+    ),
+)
+@click.option(
+    "--app-id", "-a", help="Existing app ID or GUID to replace. Cannot be used with --new.",
+)
+@click.option("--title", "-t", help="Title of the content (default is the same as the filename).")
+@click.option(
+    "--python",
+    "-p",
+    type=click.Path(exists=True),
+    help="Path to Python interpreter whose environment should be used. "
+    "The Python environment must have the rsconnect package installed.",
+)
+@click.option(
+    "--conda", "-C", is_flag=True, hidden=True, help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
+)
+@click.option(
+    "--force-generate", "-g", is_flag=True, help='Force generating "requirements.txt", even if it already exists.',
+)
+@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+@click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
+@click.argument(
+    "extra_files", nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+def deploy_script(
+    name,
+    server,
+    api_key,
+    insecure,
+    cacert,
+    new,
+    app_id,
+    title,
+    python,
+    conda,
+    force_generate,
+    verbose,
+    file,
+    extra_files,
+):
+    set_verbosity(verbose)
+
+    with cli_feedback("Checking arguments"):
+        app_store = AppStore(file)
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+        extra_files = validate_extra_files(dirname(file), extra_files)
+        (app_id, deployment_name, title, default_title, app_mode) = gather_basic_deployment_info_for_script(
+            connect_server, app_store, file, new, app_id, title
+        )
+
+    click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg="white")
+
+    _warn_on_ignored_manifest(dirname(file))
+
+    with cli_feedback("Inspecting Python environment"):
+        python, environment = get_python_env_info(file, python, conda, force_generate)
+
+    if environment.package_manager == "conda":
+        with cli_feedback("Ensuring Conda is supported"):
+            check_server_capabilities(connect_server, [is_conda_supported_on_server])
+    else:
+        _warn_on_ignored_conda_env(environment)
+
+    if force_generate:
+        _warn_on_ignored_requirements(dirname(file), environment.filename)
+
+    with cli_feedback("Creating deployment bundle"):
+        bundle = create_script_deployment_bundle(file, extra_files, app_mode, python, environment, False)
+
+    _deploy_bundle(
+        connect_server, app_store, file, app_id, app_mode, deployment_name, title, default_title, bundle,
     )
 
 

@@ -22,6 +22,7 @@ from .bundle import (
     make_manifest_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
+    make_script_bundle,
     make_source_manifest,
     manifest_add_buffer,
     manifest_add_file,
@@ -924,6 +925,56 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
     )
 
 
+def gather_basic_deployment_info_for_script(connect_server, app_store, file_name, new, app_id, title):
+    """
+    Helps to gather the necessary info for performing a Python script deployment.
+
+    :param connect_server: the Connect server information.
+    :param app_store: the store for the specified file
+    :param file_name: the primary file being deployed.
+    :param new: a flag noting whether we should force a new deployment.
+    :param app_id: the ID of the app to redeploy.
+    :param title: an optional title.  If this isn't specified, a default title will
+    be generated.
+    :return: the app ID, name, title information and mode for the deployment.
+    """
+    # TODO: Validate file is python script
+    _validate_title(title)
+
+    if new and app_id:
+        raise api.RSConnectException("Specify either a new deploy or an app ID but not both.")
+
+    if app_id is not None:
+        # Don't read app metadata if app-id is specified. Instead, we need
+        # to get this from Connect.
+        app = api.get_app_info(connect_server, app_id)
+        app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
+
+        logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
+    else:
+        app_mode = AppModes.PYTHON_SCRIPT
+
+    if not new and app_id is None:
+        # Possible redeployment - check for saved metadata.
+        # Use the saved app information unless overridden by the user.
+        app_id, app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
+        if  app_mode != AppModes.PYTHON_SCRIPT:
+            raise api.RSConnectException(
+                'Cannot change app mode once deployed. ' "Use --new to create a new deployment."
+            )
+
+    default_title = not bool(title)
+    title = title or _default_title(file_name)
+
+    return (
+        app_id,
+        _make_deployment_name(connect_server, title, app_id is None),
+        title,
+        default_title,
+        app_mode,
+    )
+
+
 def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_name, new, app_id, title):
     """
     Helps to gather the necessary info for performing a deployment.
@@ -1108,6 +1159,30 @@ def create_notebook_deployment_bundle(
             raise api.RSConnectException(str(exc))
     else:
         return make_notebook_source_bundle(file_name, environment, extra_files)
+
+
+def create_script_deployment_bundle(
+    file_name, extra_files, app_mode, python, environment, extra_files_need_validating=True,
+):
+    """
+    Create an in-memory bundle, ready to deploy.
+
+    :param file_name: the Python script being deployed.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param app_mode: the mode of the app being deployed.
+    :param python: information about the version of Python being used.
+    :param environment: environmental information.
+    :param extra_files_need_validating: a flag indicating whether the list of extra
+    files should be validated or not.  Part of validating includes qualifying each
+    with the parent directory of the notebook file.  If you provide False here, make
+    sure the names are properly qualified first.
+    :return: the bundle.
+    """
+    # TODO: validate file is python script
+    if extra_files_need_validating:
+        extra_files = validate_extra_files(dirname(file_name), extra_files)
+
+    return make_script_bundle(file_name, environment, extra_files)
 
 
 def create_api_deployment_bundle(

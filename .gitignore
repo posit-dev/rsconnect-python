@@ -15,3 +15,5 @@
 rsconnect/tests/testdata/**/rsconnect-python/
 .coverage
 htmlcov
+/.venv
+/.python-version
