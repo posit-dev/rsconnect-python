@@ -43,10 +43,7 @@ jobs:
           virtualenvs-${{ matrix.os }}-py${{ matrix.python-version }}-${{ hashFiles('Pipfile.lock') }}
           virtualenvs-${{ matrix.os }}-py${{ matrix.python-version }}-
     - run: pip install -U pipenv pip
-    - if: "${{ matrix.python-version == '2.7' || matrix.python-version == '3.5' }}"
-      run: 'pipenv install --skip-lock && pipenv run pip install pytest pytest-cov coverage[toml]'
-    - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
-      run: pipenv install --dev
+    - run: make deps
     - run: pipenv run pip freeze
     - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
       run: make fmt-local
@@ -69,6 +66,7 @@ jobs:
     - run: rm -vf requirements-unlocked.txt
     - run: make fmt-local
     - run: make lint-local
+    - run: pipenv run python setup.py --version
     - run: make test-local
   distributions:
     needs: test

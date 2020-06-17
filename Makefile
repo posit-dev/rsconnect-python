@@ -11,9 +11,6 @@ RUNNER = docker run \
 TEST_COMMAND ?= ./runtests
 SHELL_COMMAND ?= pipenv shell
 
-ifneq ($(LOCAL),)
-  RUNNER = bash -c
-endif
 ifneq ($(GITHUB_RUN_ID),)
 	RUNNER = bash -c
 endif
@@ -66,6 +63,9 @@ fmt-3.5: .fmt-unsupported
 	@echo ERROR: This python version cannot run the fmting tools
 	@exit 1
 
+deps-%:
+	$(RUNNER) 'pipenv run ./install-deps'
+
 lint-%:
 	$(RUNNER) 'pipenv run black --check --diff .'
 	$(RUNNER) 'pipenv run flake8 rsconnect/'
@@ -89,19 +89,23 @@ clean-stores:
 	@find . -name "rsconnect-python" | xargs rm -rf
 
 .PHONY: shell
-shell: LOCAL = 1
+shell: RUNNER = bash -c
 shell: shell-3.8
 
 .PHONY: test
-test: LOCAL = 1
+test: RUNNER = bash -c
 test: test-3.8
 
 .PHONY: lint
-lint: LOCAL = 1
+lint: RUNNER = bash -c
 lint: lint-3.8
 
+.PHONY: deps
+deps: RUNNER = bash -c
+deps: deps-3.8
+
 .PHONY: fmt
-fmt: LOCAL = 1
+fmt: RUNNER = bash -c
 fmt: fmt-3.8
 
 .PHONY: docs
