@@ -123,8 +123,8 @@ version:
 # exported as a point of reference instead.
 .PHONY: dist
 dist:
-	python setup.py bdist_wheel
-	twine check $(BDIST_WHEEL)
+	pipenv run python setup.py bdist_wheel
+	pipenv run twine check $(BDIST_WHEEL)
 	rm -vf dist/*.egg
 	@echo "::set-output name=whl::$(BDIST_WHEEL)"
 	@echo "::set-output name=whl_basename::$(notdir $(BDIST_WHEEL))"
