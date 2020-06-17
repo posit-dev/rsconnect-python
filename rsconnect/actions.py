@@ -1035,7 +1035,14 @@ def _gather_basic_deployment_info_for_framework(
     if not new and app_id is None:
         # Possible redeployment - check for saved metadata.
         # Use the saved app information unless overridden by the user.
-        app_id, app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
+        app_id, existing_app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
+        if existing_app_mode and app_mode != existing_app_mode:
+            msg = (
+                "Deploying with mode '%s',\n"
+                + "but the existing deployment has mode '%s'.\n"
+                + "Use the --new option to create a new deployment of the desired type."
+            ) % (app_mode.desc(), existing_app_mode.desc())
+            raise api.RSConnectException(msg)
 
     if directory[-1] == "/":
         directory = directory[:-1]
