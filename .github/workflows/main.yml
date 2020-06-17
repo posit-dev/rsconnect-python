@@ -51,6 +51,7 @@ jobs:
       run: make fmt-local
     - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
       run: make lint-local
+    - run: pipenv run python setup.py --version
     - run: make test-local
   prerelease-test:
     runs-on: ubuntu-latest
