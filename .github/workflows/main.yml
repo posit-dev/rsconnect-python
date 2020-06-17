@@ -93,6 +93,7 @@ jobs:
           virtualenvs-ubuntu-latest-py3.8-
     - run: pip install -U pipenv pip
     - run: make deps
+    - run: pipenv run pip install -U 'SecretStorage>=3'
     - run: make dist
       id: create_dist
     - uses: actions/upload-artifact@v2
