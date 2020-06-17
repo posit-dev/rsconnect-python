@@ -76,7 +76,8 @@ jobs:
     - uses: actions/setup-python@v2
       with:
         python-version: '3.8'
-    - run: pip install --user --upgrade twine setuptools wheel
+    - run: pip install -U pipenv pip
+    - run: make deps
     - run: make dist
       id: create_dist
     - uses: actions/upload-artifact@v2
