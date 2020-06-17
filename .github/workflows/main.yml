@@ -15,6 +15,7 @@ jobs:
     name: test (py${{ matrix.python-version }} ${{ matrix.os }})
     steps:
     - uses: actions/checkout@v2
+    - run: git fetch --prune --unshallow
     - uses: actions/setup-python@v2
       with:
         python_version: ${{ matrix.python-version }}
@@ -42,15 +43,13 @@ jobs:
           virtualenvs-${{ matrix.os }}-py${{ matrix.python-version }}-${{ hashFiles('Pipfile.lock') }}
           virtualenvs-${{ matrix.os }}-py${{ matrix.python-version }}-
     - run: pip install -U pipenv pip
-    - if: "${{ matrix.python-version == '2.7' || matrix.python-version == '3.5' }}"
-      run: 'pipenv install --skip-lock && pipenv run pip install pytest pytest-cov'
-    - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
-      run: pipenv install --dev
+    - run: make deps
     - run: pipenv run pip freeze
     - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
       run: make fmt-local
     - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
       run: make lint-local
+    - run: pipenv run python setup.py --version
     - run: make test-local
   prerelease-test:
     runs-on: ubuntu-latest
@@ -67,6 +66,7 @@ jobs:
     - run: rm -vf requirements-unlocked.txt
     - run: make fmt-local
     - run: make lint-local
+    - run: pipenv run python setup.py --version
     - run: make test-local
   distributions:
     needs: test
