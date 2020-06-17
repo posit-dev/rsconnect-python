@@ -134,3 +134,9 @@ sync-to-s3:
 	aws s3 cp --acl bucket-owner-full-control \
 		$(BDIST_WHEEL) \
 		$(S3_PREFIX)/$(VERSION)/$(notdir $(BDIST_WHEEL))
+
+.PHONY: sync-latest-to-s3
+sync-latest-to-s3:
+	aws s3 cp --acl bucket-owner-full-control \
+		$(BDIST_WHEEL) \
+		$(S3_PREFIX)/latest/rsconnect_python-latest-py2.py3-none-any.whl
