@@ -8,5 +8,5 @@ ENV WORKON_HOME=/.cache \
     PIPENV_SHELL=/bin/bash
 COPY Pipfile Pipfile
 COPY Pipfile.lock Pipfile.lock
-COPY build-image build-image
+COPY scripts/build-image build-image
 RUN bash build-image && rm -vf build-image Pipfile*
