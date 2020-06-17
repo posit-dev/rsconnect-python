@@ -5,12 +5,15 @@ verify_ssl = true
 
 [dev-packages]
 black = "*"
+coverage = "*"
 flake8 = "*"
 funcsigs = "*"
+importlib-metadata = "*"
 ipython = "*"
 pytest = "*"
 pytest-cov = "*"
-importlib-metadata = "*"
+setuptools_scm = "*"
+toml = "*"
 
 [packages]
 click = ">=7.0.0"

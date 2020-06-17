@@ -1,4 +1,4 @@
-VERSION := $(shell cat rsconnect/version.txt).$(shell printenv BUILD_NUMBER || echo 9999)
+VERSION := $(shell python setup.py --version)
 HOSTNAME := $(shell hostname)
 
 RUNNER = docker run \
