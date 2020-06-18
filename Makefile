@@ -1,5 +1,7 @@
-VERSION := $(shell python setup.py --version)
+VERSION := $(shell pipenv run python setup.py --version)
 HOSTNAME := $(shell hostname)
+BDIST_WHEEL := dist/rsconnect_python-$(VERSION)-py2.py3-none-any.whl
+S3_PREFIX := s3://rstudio-connect-downloads/connect/rsconnect-python
 
 RUNNER = docker run \
   -it --rm \
@@ -8,7 +10,7 @@ RUNNER = docker run \
   rsconnect-python:$* \
   bash -c
 
-TEST_COMMAND ?= ./runtests
+TEST_COMMAND ?= ./scripts/runtests
 SHELL_COMMAND ?= pipenv shell
 
 ifneq ($(GITHUB_RUN_ID),)
@@ -64,7 +66,7 @@ fmt-3.5: .fmt-unsupported
 	@exit 1
 
 deps-%:
-	$(RUNNER) 'pipenv run ./install-deps'
+	$(RUNNER) 'pipenv run ./scripts/install-deps'
 
 lint-%:
 	$(RUNNER) 'pipenv run black --check --diff .'
@@ -112,10 +114,29 @@ fmt: fmt-3.8
 docs:
 	$(MAKE) -C docs
 
+.PHONY: version
+version:
+	@echo $(VERSION)
+
 # NOTE: Wheels won't get built if _any_ file it tries to touch has a timestamp
 # before 1980 (system files) so the $(SOURCE_DATE_EPOCH) current timestamp is
 # exported as a point of reference instead.
 .PHONY: dist
 dist:
-	python setup.py sdist bdist_wheel && \
-		rm -vf dist/*.egg
+	pipenv run python setup.py bdist_wheel
+	pipenv run twine check $(BDIST_WHEEL)
+	rm -vf dist/*.egg
+	@echo "::set-output name=whl::$(BDIST_WHEEL)"
+	@echo "::set-output name=whl_basename::$(notdir $(BDIST_WHEEL))"
+
+.PHONY: sync-to-s3
+sync-to-s3:
+	aws s3 cp --acl bucket-owner-full-control \
+		$(BDIST_WHEEL) \
+		$(S3_PREFIX)/$(VERSION)/$(notdir $(BDIST_WHEEL))
+
+.PHONY: sync-latest-to-s3
+sync-latest-to-s3:
+	aws s3 cp --acl bucket-owner-full-control \
+		$(BDIST_WHEEL) \
+		$(S3_PREFIX)/latest/rsconnect_python-latest-py2.py3-none-any.whl

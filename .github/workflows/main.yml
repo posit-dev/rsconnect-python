@@ -18,7 +18,7 @@ jobs:
     - run: git fetch --prune --unshallow
     - uses: actions/setup-python@v2
       with:
-        python_version: ${{ matrix.python-version }}
+        python-version: ${{ matrix.python-version }}
     - if: ${{ matrix.os != 'macos-latest' }}
       uses: actions/cache@v1
       with:
@@ -46,11 +46,11 @@ jobs:
     - run: make deps
     - run: pipenv run pip freeze
     - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
-      run: make fmt-local
+      run: make fmt
     - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
-      run: make lint-local
+      run: make lint
     - run: pipenv run python setup.py --version
-    - run: make test-local
+    - run: make test
   prerelease-test:
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -58,30 +58,84 @@ jobs:
     - uses: actions/checkout@v2
     - uses: actions/setup-python@v2
       with:
-        python_version: 3.8.x
+        python-version: 3.8.x
     - run: pip install -U -I --pre pipenv pip
     - run: pipenv lock --dev --pre --requirements | awk -F= '{ print $1 }' >requirements-unlocked.txt
     - run: pipenv run pip install --pre -r requirements-unlocked.txt
     - run: pipenv run pip freeze
     - run: rm -vf requirements-unlocked.txt
-    - run: make fmt-local
-    - run: make lint-local
+    - run: make fmt
+    - run: make lint
     - run: pipenv run python setup.py --version
-    - run: make test-local
+    - run: make test
   distributions:
     needs: test
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - run: git fetch --prune --unshallow
     - uses: actions/setup-python@v2
       with:
-        python-version: '3.6'
-    - run: pip install --user --upgrade twine setuptools wheel
+        python-version: 3.8.x
+    - uses: actions/cache@v1
+      with:
+        path: ~/.cache/pip
+        key: pip-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
+        restore-keys: |
+          pip-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
+          pip-ubuntu-latest-py3.8-
+    - uses: actions/cache@v1
+      with:
+        path: ~/.local/share/virtualenvs
+        key: virtualenvs-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
+        restore-keys: |
+          virtualenvs-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
+          virtualenvs-ubuntu-latest-py3.8-
+    - run: pip install -U pipenv pip
+    - run: make deps
+    - run: pipenv run pip install -U 'SecretStorage>=3'
     - run: make dist
+      id: create_dist
     - uses: actions/upload-artifact@v2
       with:
         name: distributions
         path: dist/
+    - run: pipenv run pip install -vvv ${{ steps.create_dist.outputs.whl }}
+    - run: pipenv run rsconnect version
+    - run: pipenv run rsconnect --help
+    - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+    - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ steps.create_dist.outputs.whl }}
+        asset_name: ${{ steps.create_dist.outputs.whl_basename }}
+        asset_content_type: application/x-wheel+zip
+    - uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET }}
+        aws-region: us-east-1
+    - if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      run: make sync-latest-to-s3
+    - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      run: make sync-to-s3
+    - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_TOKEN }}
   docs:
     needs: test
     runs-on: ubuntu-latest

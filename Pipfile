@@ -14,6 +14,8 @@ pytest = "*"
 pytest-cov = "*"
 setuptools_scm = "*"
 toml = "*"
+twine = "*"
+wheel = "*"
 
 [packages]
 click = ">=7.0.0"
