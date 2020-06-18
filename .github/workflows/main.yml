@@ -10,8 +10,11 @@ jobs:
     strategy:
       matrix:
         # TODO: work on windows-latest compatibility?
-        os: [macos-latest, ubuntu-latest]
+        os: [ubuntu-latest]
         python-version: ['2.7', '3.5', '3.6', '3.7', '3.8']
+        include:
+        - os: macos-latest
+          python-version: '3.8'
     runs-on: ${{ matrix.os }}
     name: test (py${{ matrix.python-version }} ${{ matrix.os }})
     steps:
