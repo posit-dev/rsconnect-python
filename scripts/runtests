@@ -13,6 +13,6 @@ case "${PYTHON_VERSION}" in
   pytest ${PYTEST_ARGS} ./rsconnect/
   ;;
 *)
-  pipenv run pytest ${PYTEST_ARGS} ./rsconnect/
+  pipenv run pytest ${PYTEST_ARGS} --mypy ./rsconnect/
   ;;
 esac

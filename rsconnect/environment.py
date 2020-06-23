@@ -18,28 +18,21 @@ conda_version_re = re.compile(r"^(?:\s*-\s*)?python=(\d+\.\d+(?:\.\d+)?)", re.MU
 exec_dir = os.path.dirname(sys.executable)
 
 
-ENVIRONMENT_FIELDS_DEFAULTS = (
-    ("conda", None),
-    ("contents", ""),
-    ("error", None),
-    ("filename", ""),
-    ("locale", ""),
-    ("package_manager", ""),
-    ("pip", None),
-    ("python", None),
-    ("source", None),
-)
-ENVIRONMENT_FIELDS = tuple([f[0] for f in ENVIRONMENT_FIELDS_DEFAULTS])
-ENVIRONMENT_DEFAULTS = tuple([f[1] for f in ENVIRONMENT_FIELDS_DEFAULTS])
-
 if sys.version_info[:2] < (3, 7):
 
-    Environment = collections.namedtuple("Environment", ENVIRONMENT_FIELDS)
-    Environment.__new__.__defaults__ = ENVIRONMENT_DEFAULTS
+    Environment = collections.namedtuple(
+        "Environment",
+        ("conda", "contents", "error", "filename", "locale", "package_manager", "pip", "python", "source",),
+    )
+    Environment.__new__.__defaults__ = (None, "", None, "", "", "", None, None, None)
 
 else:
 
-    Environment = collections.namedtuple("Environment", ENVIRONMENT_FIELDS, defaults=ENVIRONMENT_DEFAULTS,)
+    Environment = collections.namedtuple(
+        "Environment",
+        ("conda", "contents", "error", "filename", "locale", "package_manager", "pip", "python", "source",),
+        defaults=(None, "", None, "", "", "", None, None, None),
+    )
 
 
 class EnvironmentException(Exception):
@@ -75,10 +68,10 @@ def detect_environment(dirname, force_generate=False, conda_mode=False, conda=No
 
     if result is not None:
         if conda_mode and result["package_manager"] != "conda":
-            return {
-                "error": 'Conda was requested but no activated Conda environment was found. See "conda activate '
+            return Environment(
+                error='Conda was requested but no activated Conda environment was found. See "conda activate '
                 '--help" for more information.'
-            }
+            )
 
         result["python"] = get_python_version(Environment(**result))
         result["pip"] = get_version("pip")
