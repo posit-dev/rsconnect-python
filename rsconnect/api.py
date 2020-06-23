@@ -47,7 +47,7 @@ class RSConnectServer(object):
                         error = "The Connect server reported an error: %s" % response.json_data["error"]
                     raise RSConnectException(error)
                 raise RSConnectException(
-                    "Received and unexpected response from RStudio Connect: %s %s" % (response.status, response.reason)
+                    "Received an unexpected response from RStudio Connect: %s %s" % (response.status, response.reason)
                 )
 
 

@@ -188,7 +188,7 @@ def test_server(connect_server):
     key = connect_server.api_key
     insecure = connect_server.insecure
     ca_data = connect_server.ca_data
-    failures = ["Invalid server URL: %s" % url]
+    failures = []
     for test in _to_server_check_list(url):
         try:
             connect_server = api.RSConnectServer(test, key, insecure, ca_data)
@@ -198,8 +198,8 @@ def test_server(connect_server):
             failures.append("    %s - failed to verify as RStudio Connect." % test)
 
     # In case the user may need https instead of http...
-    if len(failures) == 2 and url.startswith("http://"):
-        failures.append('    Do you need to use "https://%s?"' % url[7:])
+    if len(failures) == 1 and url.startswith("http://"):
+        failures.append('    Do you need to use "https://%s"?' % url[7:])
 
     # If we're here, nothing worked.
     raise api.RSConnectException("\n".join(failures))
