@@ -71,6 +71,7 @@ deps-%:
 lint-%:
 	$(RUNNER) 'pipenv run black --check --diff .'
 	$(RUNNER) 'pipenv run flake8 rsconnect/'
+	$(RUNNER) 'pipenv run mypy -p rsconnect'
 
 .PHONY: lint-2.7
 lint-2.7: .lint-unsupported
@@ -83,10 +84,18 @@ lint-3.5: .lint-unsupported
 	@echo ERROR: This python version cannot run the linting tools
 	@exit 1
 
-.PHONY: clean clean-stores
+.PHONY: clean
 clean:
-	@rm -rf build dist rsconnect_python.egg-info
+	$(RM) -r \
+		./.coverage \
+		./.mypy_cache \
+		./.pytest_cache \
+		./build \
+		./dist \
+		./htmlcov \
+		./rsconnect_python.egg-info
 
+.PHONY: clean-stores
 clean-stores:
 	@find . -name "rsconnect-python" | xargs rm -rf
 

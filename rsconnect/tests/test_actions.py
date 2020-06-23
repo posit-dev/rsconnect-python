@@ -1,13 +1,15 @@
 import os
 import sys
 
+try:
+    import typing
+except ImportError:
+    typing = None
+
 from os.path import dirname, join
 from unittest import TestCase
 
-try:
-    from inspect import signature
-except ImportError:
-    from funcsigs import signature
+from funcsigs import signature
 
 from rsconnect import api
 

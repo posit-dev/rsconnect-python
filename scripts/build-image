@@ -12,7 +12,11 @@ python -m pip install --upgrade pipenv pip
 case "${PYTHON_VERSION}" in
 2*|3.5*)
   pipenv install --skip-lock --python=/usr/local/bin/python
-  pipenv run pip install funcsigs pytest pytest-cov
+  pipenv run pip install \
+    'coverage[toml]' \
+    funcsigs \
+    pytest \
+    pytest-cov
   ;;
 *)
   pipenv install --dev --python=/usr/local/bin/python
