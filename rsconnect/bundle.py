@@ -35,7 +35,7 @@ directories_to_ignore = [
 
 # noinspection SpellCheckingInspection
 def make_source_manifest(entrypoint, environment, app_mode):
-    # type: (str, Environment, AppMode) -> dict
+    # type: (str, Environment, AppMode) -> typing.Dict[str, typing.Any]
     package_manager = environment.package_manager
 
     # noinspection SpellCheckingInspection
@@ -188,7 +188,7 @@ def make_notebook_source_bundle(
     environment,  # type: Environment
     extra_files=None,  # type:  typing.Optional[typing.List[str]]
 ):
-    # type: (...) -> io.BufferedRandom
+    # type: (...) -> typing.IO[bytes]
     """Create a bundle containing the specified notebook and python environment.
 
     Returns a file-like object containing the bundle tarball.
@@ -240,7 +240,7 @@ def make_notebook_html_bundle(
     python,  # type: str
     check_output=subprocess.check_output,  # type: typing.Callable
 ):
-    # type: (...) -> io.BufferedRandom
+    # type: (...) -> typing.IO[bytes]
     # noinspection SpellCheckingInspection
     cmd = [
         python,
@@ -413,7 +413,7 @@ def make_api_manifest(
     extra_files=None,  # type: typing.Optional[typing.List[str]]
     excludes=None,  # type: typing.Optional[typing.List[str]]
 ):
-    # type: (...) -> typing.Tuple[str, typing.List[str]]
+    # type: (...) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]
     """
     Makes a manifest for an API.
 
@@ -444,7 +444,7 @@ def make_api_bundle(
     extra_files=None,  # type: typing.Optional[typing.List[str]]
     excludes=None,  # type: typing.Optional[typing.List[str]]
 ):
-    # type: (...) -> io.BufferedRandom
+    # type: (...) -> typing.IO[bytes]
     """
     Create an API bundle, given a directory path and a manifest.
 
