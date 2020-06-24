@@ -220,7 +220,7 @@ class TestActions(TestCase):
                         "app_id=None",
                         "title=None",
                         "python=None",
-                        "compatibility_mode=False",
+                        "conda_mode=False",
                         "force_generate=False",
                         "log_callback=None",
                     ]
@@ -246,7 +246,7 @@ class TestActions(TestCase):
                         "app_id=None",
                         "title=None",
                         "python=None",
-                        "compatibility_mode=False",
+                        "conda_mode=False",
                         "force_generate=False",
                         "log_callback=None",
                     ]
@@ -272,7 +272,7 @@ class TestActions(TestCase):
                         "app_id=None",
                         "title=None",
                         "python=None",
-                        "compatibility_mode=False",
+                        "conda_mode=False",
                         "force_generate=False",
                         "log_callback=None",
                     ]
