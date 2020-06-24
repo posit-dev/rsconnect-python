@@ -448,7 +448,7 @@ def deploy_jupyter_notebook(
     title=None,
     static=False,
     python=None,
-    compatibility_mode=False,
+    conda_mode=False,
     force_generate=False,
     log_callback=None,
 ):
@@ -466,7 +466,7 @@ def deploy_jupyter_notebook(
     :param static: a flag noting whether the notebook should be deployed as a static
     HTML page or as a render-able document with sources.
     :param python: the optional name of a Python executable.
-    :param compatibility_mode: force freezing the current environment using pip
+    :param conda_mode: use conda to build an environment.yml
     instead of conda, when conda is not supported on RStudio Connect (version<=1.8.0).
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists.
@@ -481,7 +481,7 @@ def deploy_jupyter_notebook(
     (app_id, deployment_name, deployment_title, default_title, app_mode,) = gather_basic_deployment_info_for_notebook(
         connect_server, app_store, file_name, new, app_id, title, static
     )
-    python, environment = get_python_env_info(file_name, python, compatibility_mode, force_generate)
+    python, environment = get_python_env_info(file_name, python, conda_mode=conda_mode, force_generate=force_generate,)
     bundle = create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, environment)
     return _finalize_deploy(
         connect_server,
@@ -551,7 +551,7 @@ def deploy_python_api(
     app_id=None,
     title=None,
     python=None,
-    compatibility_mode=False,
+    conda_mode=False,
     force_generate=False,
     log_callback=None,
 ):
@@ -569,7 +569,7 @@ def deploy_python_api(
     :param title: an optional title for the deploy.  If this is not provided, ne will
     be generated.
     :param python: the optional name of a Python executable.
-    :param compatibility_mode: force freezing the current environment using pip
+    :param conda_mode: use conda to build an environment.yml
     instead of conda, when conda is not supported on RStudio Connect (version<=1.8.0).
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists.
@@ -591,7 +591,7 @@ def deploy_python_api(
         app_id,
         title,
         python,
-        compatibility_mode,
+        conda_mode,
         force_generate,
         log_callback,
     )
@@ -607,7 +607,7 @@ def deploy_dash_app(
     app_id=None,
     title=None,
     python=None,
-    compatibility_mode=False,
+    conda_mode=False,
     force_generate=False,
     log_callback=None,
 ):
@@ -625,7 +625,7 @@ def deploy_dash_app(
     :param title: an optional title for the deploy.  If this is not provided, ne will
     be generated.
     :param python: the optional name of a Python executable.
-    :param compatibility_mode: force freezing the current environment using pip
+    :param conda_mode: use conda to build an environment.yml
     instead of conda, when conda is not supported on RStudio Connect (version<=1.8.0).
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists.
@@ -647,7 +647,7 @@ def deploy_dash_app(
         app_id,
         title,
         python,
-        compatibility_mode,
+        conda_mode,
         force_generate,
         log_callback,
     )
@@ -663,7 +663,7 @@ def deploy_streamlit_app(
     app_id=None,
     title=None,
     python=None,
-    compatibility_mode=False,
+    conda_mode=False,
     force_generate=False,
     log_callback=None,
 ):
@@ -681,7 +681,7 @@ def deploy_streamlit_app(
     :param title: an optional title for the deploy.  If this is not provided, ne will
     be generated.
     :param python: the optional name of a Python executable.
-    :param compatibility_mode: force freezing the current environment using pip
+    :param conda_mode: use conda to build an environment.yml
     instead of conda, when conda is not supported on RStudio Connect (version<=1.8.0).
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists.
@@ -703,7 +703,7 @@ def deploy_streamlit_app(
         app_id,
         title,
         python,
-        compatibility_mode,
+        conda_mode,
         force_generate,
         log_callback,
     )
@@ -719,7 +719,7 @@ def deploy_bokeh_app(
     app_id=None,
     title=None,
     python=None,
-    compatibility_mode=False,
+    conda_mode=False,
     force_generate=False,
     log_callback=None,
 ):
@@ -737,7 +737,7 @@ def deploy_bokeh_app(
     :param title: an optional title for the deploy.  If this is not provided, ne will
     be generated.
     :param python: the optional name of a Python executable.
-    :param compatibility_mode: force freezing the current environment using pip
+    :param conda_mode: use conda to build an environment.yml
     instead of conda, when conda is not supported on RStudio Connect (version<=1.8.0).
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists.
@@ -759,7 +759,7 @@ def deploy_bokeh_app(
         app_id,
         title,
         python,
-        compatibility_mode,
+        conda_mode,
         force_generate,
         log_callback,
     )
@@ -776,7 +776,7 @@ def _deploy_by_python_framework(
     app_id=None,
     title=None,
     python=None,
-    compatibility_mode=False,
+    conda_mode=False,
     force_generate=False,
     log_callback=None,
 ):
@@ -795,7 +795,7 @@ def _deploy_by_python_framework(
     :param title: an optional title for the deploy.  If this is not provided, ne will
     be generated.
     :param python: the optional name of a Python executable.
-    :param compatibility_mode: force freezing the current environment using pip
+    :param conda_mode: use conda to build an environment.yml
     instead of conda, when conda is not supported on RStudio Connect (version<=1.8.0).
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists.
@@ -811,7 +811,7 @@ def _deploy_by_python_framework(
     (entry_point, app_id, deployment_name, deployment_title, default_title, app_mode,) = gatherer(
         connect_server, app_store, directory, entry_point, new, app_id, title
     )
-    _, environment = get_python_env_info(directory, python, compatibility_mode, force_generate)
+    _, environment = get_python_env_info(directory, python, conda_mode=conda_mode, force_generate=force_generate,)
     bundle = create_api_deployment_bundle(directory, extra_files, excludes, entry_point, app_mode, environment)
     return _finalize_deploy(
         connect_server,
@@ -1060,7 +1060,7 @@ def _gather_basic_deployment_info_for_framework(
     )
 
 
-def get_python_env_info(file_name, python, conda_mode, force_generate):
+def get_python_env_info(file_name, python, conda_mode=False, force_generate=False):
     """
     Gathers the python and environment information relating to the specified file
     with an eye to deploy it.
