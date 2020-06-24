@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 
 try:
@@ -6,10 +7,14 @@ try:
 except ImportError:
     typing = None
 
-from os.path import dirname, join
+from os.path import basename, dirname, join
 from unittest import TestCase
 
+import pytest
+
 from funcsigs import signature
+
+import rsconnect.actions
 
 from rsconnect import api
 
@@ -29,6 +34,7 @@ from rsconnect.actions import (
     deploy_streamlit_app,
     deploy_bokeh_app,
     gather_basic_deployment_info_for_api,
+    get_python_env_info,
     inspect_environment,
     is_conda_supported_on_server,
     validate_entry_point,
@@ -36,6 +42,7 @@ from rsconnect.actions import (
     which_python,
 )
 from rsconnect.api import RSConnectException, RSConnectServer
+from rsconnect.environment import Environment
 from rsconnect.tests.test_data_util import get_manifest_path, get_api_path, get_dir
 
 
@@ -303,3 +310,89 @@ class TestActions(TestCase):
         environment = inspect_environment(sys.executable, get_dir("pip1"))
         assert environment is not None
         assert environment.python != ""
+
+
+@pytest.mark.parametrize(
+    ("file_name", "python", "conda_mode", "force_generate", "expected_python", "expected_environment",),
+    [
+        pytest.param(
+            "path/to/file.py",
+            sys.executable,
+            False,
+            False,
+            sys.executable,
+            Environment(
+                conda=None,
+                filename="requirements.txt",
+                locale="en_US.UTF-8",
+                package_manager="pip",
+                source="pip_freeze",
+            ),
+            id="basic",
+        ),
+        pytest.param(
+            "another/file.py",
+            basename(sys.executable),
+            False,
+            False,
+            sys.executable,
+            Environment(
+                conda=None,
+                filename="requirements.txt",
+                locale="en_US.UTF-8",
+                package_manager="pip",
+                source="pip_freeze",
+            ),
+            id="which_python",
+        ),
+        pytest.param(
+            "even/moar/file.py",
+            "whython",
+            True,
+            True,
+            "/very/serious/whython",
+            Environment(
+                conda="/opt/Conda/bin/conda",
+                filename="requirements.txt",
+                locale="en_US.UTF-8",
+                package_manager="pip",
+                source="pip_freeze",
+            ),
+            id="conda_ish",
+        ),
+        pytest.param(
+            "will/the/files/never/stop.py",
+            "argh.py",
+            False,
+            True,
+            "unused",
+            Environment(error="Could not even do things"),
+            id="exploding",
+        ),
+    ],
+)
+def test_get_python_env_info(
+    monkeypatch, file_name, python, conda_mode, force_generate, expected_python, expected_environment,
+):
+    def fake_which_python(python, env=os.environ):
+        return expected_python
+
+    def fake_inspect_environment(
+        python, directory, conda_mode=False, force_generate=False, check_output=subprocess.check_output,
+    ):
+        return expected_environment
+
+    monkeypatch.setattr(rsconnect.actions, "inspect_environment", fake_inspect_environment)
+
+    monkeypatch.setattr(rsconnect.actions, "which_python", fake_which_python)
+
+    if expected_environment.error is not None:
+        with pytest.raises(api.RSConnectException):
+            _, _ = get_python_env_info(file_name, python, conda_mode=conda_mode, force_generate=force_generate)
+    else:
+        python, environment = get_python_env_info(
+            file_name, python, conda_mode=conda_mode, force_generate=force_generate
+        )
+
+        assert python == expected_python
+        assert environment == expected_environment

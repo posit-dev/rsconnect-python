@@ -481,7 +481,9 @@ def deploy_jupyter_notebook(
     (app_id, deployment_name, deployment_title, default_title, app_mode,) = gather_basic_deployment_info_for_notebook(
         connect_server, app_store, file_name, new, app_id, title, static
     )
-    python, environment = get_python_env_info(file_name, python, compatibility_mode, force_generate)
+    python, environment = get_python_env_info(
+        file_name, python, conda_mode=not compatibility_mode, force_generate=force_generate,
+    )
     bundle = create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, environment)
     return _finalize_deploy(
         connect_server,
@@ -811,7 +813,9 @@ def _deploy_by_python_framework(
     (entry_point, app_id, deployment_name, deployment_title, default_title, app_mode,) = gatherer(
         connect_server, app_store, directory, entry_point, new, app_id, title
     )
-    _, environment = get_python_env_info(directory, python, compatibility_mode, force_generate)
+    _, environment = get_python_env_info(
+        directory, python, conda_mode=not compatibility_mode, force_generate=force_generate,
+    )
     bundle = create_api_deployment_bundle(directory, extra_files, excludes, entry_point, app_mode, environment)
     return _finalize_deploy(
         connect_server,
@@ -1060,7 +1064,7 @@ def _gather_basic_deployment_info_for_framework(
     )
 
 
-def get_python_env_info(file_name, python, conda_mode, force_generate):
+def get_python_env_info(file_name, python, conda_mode=False, force_generate=False):
     """
     Gathers the python and environment information relating to the specified file
     with an eye to deploy it.
