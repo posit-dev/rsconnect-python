@@ -23,7 +23,7 @@ jobs:
     - uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
-    - if: ${{ matrix.os != 'macos-latest' }}
+    - if: matrix.os != 'macos-latest'
       uses: actions/cache@v1
       with:
         path: ~/.cache/pip
@@ -31,7 +31,7 @@ jobs:
         restore-keys: |
           pip-${{ matrix.os }}-py${{ matrix.python-version }}-${{ hashFiles('Pipfile.lock') }}
           pip-${{ matrix.os }}-py${{ matrix.python-version }}-
-    - if: ${{ matrix.os == 'macos-latest' }}
+    - if: matrix.os == 'macos-latest'
       uses: actions/cache@v1
       with:
         path: ~/Library/Caches/pip
@@ -49,9 +49,9 @@ jobs:
     - run: pip install -U pipenv pip
     - run: make deps
     - run: pipenv run pip freeze
-    - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
+    - if: matrix.python-version != '2.7' && matrix.python-version != '3.5'
       run: make fmt
-    - if: "${{ matrix.python-version != '2.7' && matrix.python-version != '3.5' }}"
+    - if: matrix.python-version != '2.7' && matrix.python-version != '3.5'
       run: make lint
     - run: pipenv run python setup.py --version
     - run: make test
@@ -150,3 +150,18 @@ jobs:
       with:
         name: docs
         path: docs/site/
+  dispatch:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: distributions
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/github-script@v2
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          github.repos.createDispatchEvent({
+            owner: 'rstudio',
+            repo: 'rsconnect-jupyter',
+            event_type: 'rsconnect_python_latest'
+          })
