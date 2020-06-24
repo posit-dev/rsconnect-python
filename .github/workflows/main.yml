@@ -155,7 +155,6 @@ jobs:
     needs: distributions
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
     - uses: actions/github-script@v2
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
