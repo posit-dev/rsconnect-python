@@ -157,7 +157,7 @@ jobs:
     steps:
     - uses: actions/github-script@v2
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ secrets.DISPATCH_TOKEN }}
         script: |
           github.repos.createDispatchEvent({
             owner: 'rstudio',
