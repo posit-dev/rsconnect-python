@@ -10,6 +10,7 @@ main() {
 
   local pipenv_requires="${top}/.pipenv-requires"
 
+  pipenv run pip install toml
   _print_pipfile_packages >"${pipenv_requires}"
   pipenv run pip install -U --pre -r "${pipenv_requires}"
   rm -f "${pipenv_requires}"
