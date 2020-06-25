@@ -158,11 +158,13 @@ sync-latest-to-s3:
 .PHONY: sync-latest-docs-to-s3
 sync-latest-docs-to-s3:
 	aws s3 sync --delete --acl bucket-owner-full-control \
+		--cache-control max-age=0 \
 		docs/site/ \
 		$(S3_PREFIX)/latest/docs/
 
 .PHONY: promote-docs-in-s3
 promote-docs-in-s3:
 	aws s3 sync --delete --acl bucket-owner-full-control \
+		--cache-control max-age=300 \
 		docs/site/ \
 		s3://docs.rstudio.com/rsconnect-python/
