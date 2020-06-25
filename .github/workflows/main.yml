@@ -64,10 +64,7 @@ jobs:
       with:
         python-version: 3.8.x
     - run: pip install -U -I --pre pipenv pip
-    - run: pipenv lock --dev --pre --requirements | awk -F= '{ print $1 }' >requirements-unlocked.txt
-    - run: pipenv run pip install --pre -r requirements-unlocked.txt
-    - run: pipenv run pip freeze
-    - run: rm -vf requirements-unlocked.txt
+    - run: make deps-prerelease
     - run: make fmt
     - run: make lint
     - run: pipenv run python setup.py --version

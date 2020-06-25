@@ -1,18 +1,23 @@
 #!/usr/bin/env bash
 set -o errexit
 set -o pipefail
-set -o xtrace
 
-case "${PYTHON_VERSION}" in
-2* | 3.5*)
-  pipenv install --skip-lock
-  pipenv run pip install \
-    pytest \
-    pytest-cov \
-    'coverage[toml]' \
-    setuptools_scm
-  ;;
-*)
-  pipenv install --dev
-  ;;
-esac
+main() {
+  set -o xtrace
+
+  case "${PYTHON_VERSION}" in
+  2* | 3.5*)
+    pipenv install --skip-lock
+    pipenv run pip install \
+      pytest \
+      pytest-cov \
+      'coverage[toml]' \
+      setuptools_scm
+    ;;
+  *)
+    pipenv install --dev
+    ;;
+  esac
+}
+
+main "${@}"
