@@ -162,6 +162,21 @@ jobs:
       with:
         name: docs
         path: docs/site/
+    - uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET }}
+        aws-region: us-east-1
+    - if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      run: make sync-latest-docs-to-s3
+    - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.DOCS_AWS_ID }}
+        aws-secret-access-key: ${{ secrets.DOCS_AWS_SECRET }}
+        aws-region: us-east-1
+    - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      run: make promote-docs-in-s3
   dispatch:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: distributions
