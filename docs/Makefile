@@ -1,34 +1,34 @@
-# Our make file for the docs.
-MKDOCS_IMAGE?="rstudio/rsconnect:mkdocs"
+MKDOCS_IMAGE ?= rstudio/rsconnect:mkdocs
+VERSION ?= NOTSET
 
-## Specify that Docker runs with the calling user's uid/gid to avoid file
-## permission issues on Linux dev hosts.
-DOCKER_RUN_AS=
+DOCKER_RUN_AS =
 ifeq (Linux,$(shell uname))
-	DOCKER_RUN_AS=-u $(shell id -u):$(shell id -g)
+	DOCKER_RUN_AS = -u $(shell id -u):$(shell id -g)
 endif
 
-BUILD_RUNNER=docker run --rm --name mkdocs \
-	${DOCKER_RUN_AS} \
-	-v $(CURDIR):/mkdocs \
-	-w /mkdocs \
-	${MKDOCS_IMAGE}
+BUILD_RUNNER = \
+	docker run --rm --name mkdocs \
+		$(DOCKER_RUN_AS) \
+		-e VERSION=$(VERSION) \
+		-v $(CURDIR):/mkdocs \
+		-w /mkdocs \
+		$(MKDOCS_IMAGE)
 
-# Do everything,
+.PHONY: all
 all: clean image build
 
-# Destroy the site, if it exists.
+.PHONY: clean
 clean:
-	@rm -rf docs/site
+	rm -rf docs/site
 
-# Build the image in which mkdocs will run.
+.PHONY: image
 image:
-	docker build -t ${MKDOCS_IMAGE} .
+	docker build -t $(MKDOCS_IMAGE) .
 
-# Build the actual documentation.
-build:
-	python patch_admonitions.py
-	${BUILD_RUNNER} mkdocs build
+.PHONY: build
+build: docs/index.md
+	$(BUILD_RUNNER) mkdocs build
 	@rm docs/index.md
 
-.PHONY: clean image build
+docs/index.md: $(CURDIR)/../README.md
+	python patch_admonitions.py

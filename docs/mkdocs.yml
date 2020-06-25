@@ -22,3 +22,7 @@ theme:
 
 extra_css:
   - css/custom.css
+
+extra:
+  rsconnect_python:
+    version: !!python/object/apply:os.getenv ["VERSION"]

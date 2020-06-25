@@ -1,4 +1,4 @@
-FROM python:3.8.2-alpine3.11
+FROM python:3.8-slim
 MAINTAINER RStudio Connect <rsconnect@rstudio.com>
 
 # Needed with Python3 mkdocs.
