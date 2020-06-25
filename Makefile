@@ -147,5 +147,6 @@ sync-to-s3:
 .PHONY: sync-latest-to-s3
 sync-latest-to-s3:
 	aws s3 cp --acl bucket-owner-full-control \
+		--cache-control max-age=0 \
 		$(BDIST_WHEEL) \
 		$(S3_PREFIX)/latest/rsconnect_python-latest-py2.py3-none-any.whl
