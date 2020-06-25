@@ -65,6 +65,10 @@ fmt-3.5: .fmt-unsupported
 	@echo ERROR: This python version cannot run the fmting tools
 	@exit 1
 
+.PHONY: deps-prerelease
+deps-prerelease:
+	pipenv run ./scripts/install-deps-prerelease
+
 deps-%:
 	$(RUNNER) 'pipenv run ./scripts/install-deps'
 
