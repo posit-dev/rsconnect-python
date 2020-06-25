@@ -499,3 +499,7 @@ to enable later redeployment. This data is stored alongside the deployed file,
 in an `rsconnect-python` subdirectory, if possible. If that location is not writable
 during deployment, then the deployment data will be stored in the global configuration
 directory specified above.
+
+<div style="display:none">
+Generated from <code>rsconnect-python {{ rsconnect_python.version }}</code>
+</div>

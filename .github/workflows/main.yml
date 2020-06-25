@@ -157,6 +157,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - run: git fetch --prune --unshallow
+    - uses: actions/setup-python@v2
+      with:
+        python-version: 3.8.x
+    - uses: actions/cache@v1
+      with:
+        path: ~/.cache/pip
+        key: pip-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
+        restore-keys: |
+          pip-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
+          pip-ubuntu-latest-py3.8-
+    - uses: actions/cache@v1
+      with:
+        path: ~/.local/share/virtualenvs
+        key: virtualenvs-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
+        restore-keys: |
+          virtualenvs-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
+          virtualenvs-ubuntu-latest-py3.8-
+    - run: pip install -U pipenv pip
+    - run: make deps
     - run: make docs
     - uses: actions/upload-artifact@v2
       with:

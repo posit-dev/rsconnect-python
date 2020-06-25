@@ -1,7 +1,8 @@
 VERSION := $(shell pipenv run python setup.py --version)
 HOSTNAME := $(shell hostname)
-BDIST_WHEEL := dist/rsconnect_python-$(VERSION)-py2.py3-none-any.whl
 S3_PREFIX := s3://rstudio-connect-downloads/connect/rsconnect-python
+
+BDIST_WHEEL := dist/rsconnect_python-$(VERSION)-py2.py3-none-any.whl
 
 RUNNER = docker run \
   -it --rm \
@@ -125,7 +126,7 @@ fmt: fmt-3.8
 
 .PHONY: docs
 docs:
-	$(MAKE) -C docs
+	$(MAKE) -C docs VERSION=$(VERSION)
 
 .PHONY: version
 version:
