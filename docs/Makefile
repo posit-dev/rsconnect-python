@@ -27,9 +27,11 @@ image:
 	docker build -t $(MKDOCS_IMAGE) .
 
 .PHONY: build
-build: docs/index.md
+build: docs/index.md docs/changelog.md
 	$(BUILD_RUNNER) mkdocs build
-	@rm docs/index.md
 
 docs/index.md: $(CURDIR)/../README.md
 	python3 patch_admonitions.py
+
+docs/changelog.md: $(CURDIR)/../CHANGELOG.md
+	cp -v $^ $@
