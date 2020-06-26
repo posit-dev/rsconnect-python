@@ -40,9 +40,7 @@ else:
         ("conda", "contents", "error", "filename", "locale", "package_manager", "pip", "python", "source",),
         defaults=(None, "", None, "", "", "", None, None, None),
     )
-
-
-Environment.__doc__ = "Data class encapsulating values needed by various deployment and metadata functions"
+    Environment.__doc__ = "Data class encapsulating values needed by various deployment and metadata functions"
 
 
 class EnvironmentException(Exception):
