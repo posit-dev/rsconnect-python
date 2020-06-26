@@ -104,9 +104,11 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
 # noinspection SpellCheckingInspection
 @cli.command(
     short_help="Define a nickname for an RStudio Connect server.",
-    help="Associate a simple nickname with the information needed to interact with an RStudio Connect server. "
-    "Specifying an existing nickname will cause its stored information to be replaced by what is given "
-    "on the command line.",
+    help=(
+        "Associate a simple nickname with the information needed to interact with an RStudio Connect server. "
+        "Specifying an existing nickname will cause its stored information to be replaced by what is given "
+        "on the command line."
+    ),
 )
 @click.option("--name", "-n", required=True, help="The nickname to associate with the server.")
 @click.option("--server", "-s", required=True, help="The URL for the RStudio Connect server.")
@@ -165,10 +167,12 @@ def list_servers(verbose):
 # noinspection SpellCheckingInspection
 @cli.command(
     short_help="Show details about an RStudio Connect server.",
-    help="Show details about an RStudio Connect server and installed Python information. "
-    "Use this command to verify that a URL refers to an RStudio Connect server, optionally, that an "
-    "API key is valid for authentication for that server.  It may also be used to verify that the "
-    "information stored as a nickname is still valid.",
+    help=(
+        "Show details about an RStudio Connect server and installed Python information. "
+        "Use this command to verify that a URL refers to an RStudio Connect server, optionally, that an "
+        "API key is valid for authentication for that server.  It may also be used to verify that the "
+        "information stored as a nickname is still valid."
+    ),
 )
 @click.option(
     "--name", "-n", help="The nickname of the RStudio Connect server to get details for.",
@@ -226,8 +230,10 @@ def details(name, server, api_key, insecure, cacert, verbose):
 
 @cli.command(
     short_help="Remove the information about an RStudio Connect server.",
-    help="Remove the information about an RStudio Connect server by nickname or URL. "
-    "One of --name or --server is required.",
+    help=(
+        "Remove the information about an RStudio Connect server by nickname or URL. "
+        "One of --name or --server is required."
+    ),
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server to remove.")
 @click.option("--server", "-s", help="The URL of the RStudio Connect server to remove.")
@@ -278,9 +284,11 @@ def _get_names_to_check(file_or_directory):
 
 @cli.command(
     short_help="Show saved information about the specified deployment.",
-    help="Display information about the deployment of a Jupyter notebook or manifest. For any given file, "
-    "information about it"
-    "s deployments are saved on a per-server basis.",
+    help=(
+        "Display information about the deployment of a Jupyter notebook or manifest. For any given file, "
+        "information about it"
+        "s deployments are saved on a per-server basis."
+    ),
 )
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 def info(file):
@@ -450,9 +458,11 @@ def _deploy_bundle(
 @deploy.command(
     name="notebook",
     short_help="Deploy Jupyter notebook to RStudio Connect [v1.7.0+].",
-    help="Deploy a Jupyter notebook to RStudio Connect. This may be done by source or as a static HTML "
-    "page. If the notebook is deployed as a static HTML page (--static), it cannot be scheduled or "
-    "rerun on the Connect server.",
+    help=(
+        "Deploy a Jupyter notebook to RStudio Connect. This may be done by source or as a static HTML "
+        "page. If the notebook is deployed as a static HTML page (--static), it cannot be scheduled or "
+        "rerun on the Connect server."
+    ),
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
 @click.option(
@@ -498,8 +508,10 @@ def _deploy_bundle(
     "--python",
     "-p",
     type=click.Path(exists=True),
-    help="Path to Python interpreter whose environment should be used. "
-    "The Python environment must have the rsconnect package installed.",
+    help=(
+        "Path to Python interpreter whose environment should be used. "
+        "The Python environment must have the rsconnect package installed."
+    ),
 )
 @click.option(
     "--conda", "-C", is_flag=True, hidden=True, help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
@@ -683,23 +695,27 @@ def generate_deploy_python(app_mode, alias, min_version):
         "--entrypoint",
         "-e",
         help=(
-            "The module and executable object which serves as the entry point for the " "{desc} (defaults to app)"
+            "The module and executable object which serves as the entry point for the {desc} (defaults to app)"
         ).format(desc=app_mode.desc()),
     )
     @click.option(
         "--exclude",
         "-x",
         multiple=True,
-        help="Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
-        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
-        "This option may be repeated.",
+        help=(
+            "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+            "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+            "This option may be repeated."
+        ),
     )
     @click.option(
         "--new",
         "-N",
         is_flag=True,
-        help="Force a new deployment, even if there is saved metadata from a previous deployment. "
-        "Cannot be used with --app-id.",
+        help=(
+            "Force a new deployment, even if there is saved metadata from a previous deployment. "
+            "Cannot be used with --app-id."
+        ),
     )
     @click.option(
         "--app-id", "-a", help="Existing app ID or GUID to replace. Cannot be used with --new.",
@@ -711,8 +727,10 @@ def generate_deploy_python(app_mode, alias, min_version):
         "--python",
         "-p",
         type=click.Path(exists=True),
-        help="Path to Python interpreter whose environment should be used. "
-        "The Python environment must have the rsconnect package installed.",
+        help=(
+            "Path to Python interpreter whose environment should be used. "
+            "The Python environment must have the rsconnect package installed."
+        ),
     )
     @click.option(
         "--conda",
@@ -968,16 +986,18 @@ def generate_write_manifest_python(app_mode, alias):
         "--entrypoint",
         "-e",
         help=(
-            "The module and executable object which serves as the entry point for the " "{desc} (defaults to app)"
+            "The module and executable object which serves as the entry point for the {desc} (defaults to app)"
         ).format(desc=app_mode.desc()),
     )
     @click.option(
         "--exclude",
         "-x",
         multiple=True,
-        help="Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
-        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
-        "This option may be repeated.",
+        help=(
+            "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+            "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+            "This option may be repeated."
+        ),
     )
     @click.option(
         "--python",

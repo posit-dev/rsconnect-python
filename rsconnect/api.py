@@ -1,3 +1,7 @@
+"""
+RStudio Connect API client and utility functions
+"""
+
 import time
 from _ssl import SSLError
 
@@ -6,8 +10,10 @@ from rsconnect.log import logger
 from rsconnect.models import AppModes
 
 _error_map = {
-    4: "This content has been deployed before but could not be found on the server.\nUse the --new option to "
-    "deploy it as new content."
+    4: (
+        "This content has been deployed before but could not be found on the server.\nUse the --new option to "
+        "deploy it as new content."
+    )
 }
 
 

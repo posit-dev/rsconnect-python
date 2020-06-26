@@ -1,3 +1,7 @@
+"""
+Public API for managing settings and deploying content.
+"""
+
 import contextlib
 import json
 import logging
@@ -909,7 +913,7 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
         app_id, app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
         if static and app_mode != AppModes.STATIC:
             raise api.RSConnectException(
-                'Cannot change app mode to "static" once deployed. ' "Use --new to create a new deployment."
+                'Cannot change app mode to "static" once deployed. Use --new to create a new deployment.'
             )
 
     default_title = not bool(title)
@@ -969,22 +973,11 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
 
 
 def _generate_gather_basic_deployment_info_for_python(app_mode):
-    def gatherer(connect_server, app_store, directory, entry_point, new, app_id, title):
-        """
-        Helps to gather the necessary info for performing a deployment.
+    """
+    Generates function to gather the necessary info for performing a deployment by app mode
+    """
 
-        :param connect_server: the Connect server information.
-        :param app_store: the store for the specified directory.
-        :param directory: the primary file being deployed.
-        :param entry_point: the entry point for the API in '<module>:<object> format.  if
-        the object name is omitted, it defaults to the module name.  If nothing is specified,
-        it defaults to 'app'.
-        :param new: a flag noting whether we should force a new deployment.
-        :param app_id: the ID of the app to redeploy.
-        :param title: an optional title.  If this isn't specified, a default title will
-        be generated.
-        :return: the entry point, app ID, name, title and mode for the deployment.
-        """
+    def gatherer(connect_server, app_store, directory, entry_point, new, app_id, title):
         return _gather_basic_deployment_info_for_framework(
             connect_server, app_store, directory, entry_point, new, app_id, app_mode, title,
         )

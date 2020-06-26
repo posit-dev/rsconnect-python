@@ -13,7 +13,7 @@ from rsconnect.bundle import (
     make_notebook_source_bundle,
     keep_manifest_specified_file,
 )
-from rsconnect.tests.test_data_util import get_dir
+from .test_data_util import get_dir
 
 
 class TestBundle(TestCase):

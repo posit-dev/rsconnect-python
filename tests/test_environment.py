@@ -11,7 +11,7 @@ from rsconnect.environment import (
     get_default_locale,
     get_python_version,
 )
-from rsconnect.tests.test_data_util import get_dir
+from .test_data_util import get_dir
 
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
 

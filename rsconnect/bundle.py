@@ -1,3 +1,7 @@
+"""
+Manifest generation and bundling utilities
+"""
+
 import hashlib
 import io
 import json

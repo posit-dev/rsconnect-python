@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+"""
+Environment data class abstraction that is usable as an executable module
+
+```bash
+python -m rsconnect.environment
+```
+"""
 import collections
 import datetime
 import json
@@ -35,6 +42,9 @@ else:
     )
 
 
+Environment.__doc__ = "Data class encapsulating values needed by various deployment and metadata functions"
+
+
 class EnvironmentException(Exception):
     pass
 
@@ -69,8 +79,10 @@ def detect_environment(dirname, force_generate=False, conda_mode=False, conda=No
     if result is not None:
         if conda_mode and result["package_manager"] != "conda":
             return Environment(
-                error='Conda was requested but no activated Conda environment was found. See "conda activate '
-                '--help" for more information.'
+                error=(
+                    'Conda was requested but no activated Conda environment was found. See "conda activate '
+                    '--help" for more information.'
+                )
             )
 
         result["python"] = get_python_version(Environment(**result))
@@ -238,6 +250,9 @@ def conda_env_export(conda):
 
 
 def main():
+    """
+    Run `detect_environment` and dump the result as JSON.
+    """
     try:
         if len(sys.argv) < 2:
             raise EnvironmentException("Usage: %s [-fc] DIRECTORY" % sys.argv[0])

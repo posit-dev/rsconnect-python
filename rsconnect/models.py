@@ -1,5 +1,5 @@
 """
-This file defines some support data models.
+Data models
 """
 import fnmatch
 import os
@@ -9,6 +9,11 @@ import six
 
 
 class AppMode(object):
+    """
+    Data class defining an "app mode" as understood by RStudio
+    Connect
+    """
+
     def __init__(self, ordinal, name, text, ext=None):
         self._ordinal = ordinal
         self._name = name
@@ -35,6 +40,11 @@ class AppMode(object):
 
 
 class AppModes(object):
+    """
+    Enumeration-like collection of known `AppMode`s with lookup
+    functions
+    """
+
     UNKNOWN = AppMode(0, "unknown", "<unknown>")
     SHINY = AppMode(1, "shiny", "Shiny App", ".R")
     RMD = AppMode(3, "rmd-static", "R Markdown", ".Rmd")
@@ -65,14 +75,17 @@ class AppModes(object):
 
     @classmethod
     def get_by_ordinal(cls, ordinal, return_unknown=False):
+        """Get an AppMode by its associated ordinal (integer)"""
         return cls._find_by(lambda mode: mode.ordinal() == ordinal, "with ordinal %s" % ordinal, return_unknown,)
 
     @classmethod
     def get_by_name(cls, name, return_unknown=False):
+        """Get an AppMode by name"""
         return cls._find_by(lambda mode: mode.name() == name, "named %s" % name, return_unknown)
 
     @classmethod
     def get_by_extension(cls, extension, return_unknown=False):
+        """Get an app mode by its associated extension"""
         # We can't allow a lookup by None since some modes have that for an extension.
         if extension is None:
             if return_unknown:
@@ -170,6 +183,10 @@ class GlobMatcher(object):
 
 
 class GlobSet(object):
+    """
+    Matches against a set of `GlobMatcher` patterns
+    """
+
     def __init__(self, patterns):
         self._matchers = [GlobMatcher(pattern) for pattern in patterns]
 

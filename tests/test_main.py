@@ -5,8 +5,8 @@ from unittest import TestCase
 from click.testing import CliRunner
 
 from .test_data_util import get_dir, get_manifest_path, get_api_path
-from ..api import RSConnectException
-from ..main import cli, _validate_deploy_to_args, server_store
+from rsconnect.api import RSConnectException
+from rsconnect.main import cli, _validate_deploy_to_args, server_store
 from rsconnect import VERSION
 
 

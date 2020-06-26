@@ -10,9 +10,9 @@ case "${PYTHON_VERSION}" in
   set +o xtrace
   source "$(pipenv --venv)/bin/activate"
   set -o xtrace
-  pytest ${PYTEST_ARGS} ./rsconnect/
+  pytest ${PYTEST_ARGS} ./tests/
   ;;
 *)
-  pipenv run pytest ${PYTEST_ARGS} --mypy ./rsconnect/
+  pipenv run pytest ${PYTEST_ARGS} --mypy ./tests/
   ;;
 esac

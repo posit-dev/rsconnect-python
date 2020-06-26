@@ -1,0 +1,10 @@
+mkdocs
+
+Pygments
+markdown
+markdown-include
+mkapi
+mkdocs-exclude
+mkdocs-macros-plugin
+mkdocs-material
+pymdown-extensions
