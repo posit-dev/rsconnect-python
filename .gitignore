@@ -16,4 +16,5 @@
 /notebooks*/
 /rsconnect/version.py
 htmlcov
-rsconnect/tests/testdata/**/rsconnect-python/
+/tests/testdata/**/rsconnect-python/
+/docs/docs/index.md

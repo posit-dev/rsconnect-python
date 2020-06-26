@@ -1,3 +1,7 @@
+"""
+Logging wrapper and shared instance
+"""
+
 from logging import getLogger, LoggerAdapter, DEBUG
 
 import click

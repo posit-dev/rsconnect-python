@@ -1,47 +1,49 @@
-# The rsconnect-python Library
+# The rsconnect-python CLI and library
 
-This package is a library used by the [`rsconnect-jupyter`](https://github.com/rstudio/rsconnect-jupyter)
-package to deploy Jupyter notebooks to RStudio Connect. It contains a full deployment
-API so can also be used by other Python-based deployment tools. Other types of content
-supported by RStudio Connect may also be deployed by this package, including WSGi-style
-APIs, as well as Dash, Streamlit, and Bokeh applications.
+This package provides both a CLI (command-line interface) and a library for interacting
+with and deploying to RStudio Connect. The library is also used by the
+[`rsconnect-jupyter`](https://github.com/rstudio/rsconnect-jupyter) package to deploy
+Jupyter notebooks via the Jupyter web console. Many types of content supported by RStudio
+Connect may be deployed by this package, including WSGI-style APIs, Dash, Streamlit, and
+Bokeh applications.
 
-> **Important:** Streamlit and Bokeh support in RStudio Connect are currently in
-> beta. You should not rely on them for deployments in production.
+> **Important:** Bokeh support in RStudio Connect is currently in beta.
 
-A command-line deployment tool is also provided that can be used directly to deploy
-Jupyter notebooks, Python APIs and apps. Content types not directly supported by the
-CLI can also be deployed if they include a prepared `manifest.json` file. See
-["Deploying R or Other Content"](#deploying-r-or-other-content) for details.
+Content types not directly supported by the CLI may also be deployed if they include a
+prepared `manifest.json` file. See ["Deploying R or Other
+Content"](#deploying-r-or-other-content) for details.
 
 ## Deploying Python Content to RStudio Connect
 
-In addition to various kinds of R content, RStudio Connect also supports the deployment
-of Jupyter notebooks, Python APIs (such as `flask`-based) and apps (such as Dash, Streamlit,
-and Bokeh apps). Much like deploying R content to RStudio Connect, there are some caveats to
-understand when replicating your environment on the RStudio Connect server:
+RStudio Connect supports the deployment of Jupyter notebooks, Python APIs (such as
+`flask`-based) and apps (such as Dash, Streamlit, and Bokeh apps). Much like deploying R
+content to RStudio Connect, there are some caveats to understand when replicating your
+environment on the RStudio Connect server:
 
-RStudio Connect insists on matching <MAJOR.MINOR> versions of Python. For example,
-a server with only Python 3.5 installed will fail to match content deployed with
-Python 3.4. Your administrator may also enable exact Python version matching which
+RStudio Connect insists on matching `<MAJOR.MINOR>` versions of Python. For example,
+a server with only Python 3.8 installed will fail to match content deployed with
+Python 3.7. Your administrator may also enable exact Python version matching which
 will be stricter and require matching major, minor, and patch versions. For more
 information see the [RStudio Connect Admin Guide chapter titled Python Version
 Matching](https://docs.rstudio.com/connect/admin/python.html#python-version-matching).
 
 ### Installation
 
-To install `rsconnect-python` from this repository:
-
-```bash
-git clone https://github.com/rstudio/rsconnect-python
-cd rsconnect-python
-python setup.py install
-```
-
-To install the current version directly from pip:
+To install `rsconnect-python` from PYPI, you may use any python package manager such as
+pip:
 
 ```bash
 pip install rsconnect-python
+```
+
+You may also build and install a wheel directly from a repository clone:
+
+```bash
+git clone https://github.com/rstudio/rsconnect-python.git
+cd rsconnect-python
+pip install pipenv
+make deps dist
+pip install ./dist/rsconnect_python-*.whl
 ```
 
 ### Using the rsconnect CLI
@@ -50,9 +52,9 @@ Here's an example command that deploys a Jupyter notebook to RStudio Connect.
 
 ```bash
 rsconnect deploy notebook \
-	--server https://my.connect.server:3939 \
-	--api-key my-api-key \
-	my-notebook.ipynb
+    --server https://connect.example.org:3939 \
+    --api-key my-api-key \
+    my-notebook.ipynb
 ```
 
 > **Note:** The examples here use long command line options, but there are short
@@ -94,11 +96,11 @@ compinit
 ### Managing Server Information
 
 The information used by the `rsconnect` command to communicate with an RStudio Connect
-server can be tedious to repeat on every command.  To help, the CLI supports the idea
+server can be tedious to repeat on every command. To help, the CLI supports the idea
 of saving this information, making it usable by a simple nickname.
 
 > **Important:** One item of information saved is the API key used to authenticate with
-> RStudio Connect.  Although the file where this information is saved is marked as
+> RStudio Connect. Although the file where this information is saved is marked as
 > accessible by the owner only, it's important to remember that the key is present
 > in the file as plain text so care must be taken to prevent any unauthorized access
 > to the server information file.
@@ -106,15 +108,15 @@ of saving this information, making it usable by a simple nickname.
 #### TLS Support and RStudio Connect
 
 Usually, an RStudio Connect server will be set up to be accessed in a secure manner,
-using the `https` protocol rather than simple `http`.  If RStudio Connect is set up
+using the `https` protocol rather than simple `http`. If RStudio Connect is set up
 with a self-signed certificate, you will need to include the `--insecure` flag on
-all commands.  If RStudio Connect is set up to require a client-side certificate chain,
+all commands. If RStudio Connect is set up to require a client-side certificate chain,
 you will need to include the `--cacert` option that points to your certificate
-authority (CA) trusted certificates file.  Both of these options can be saved along
+authority (CA) trusted certificates file. Both of these options can be saved along
 with the URL and API Key for a server.
 
 > **Note:** When certificate information is saved for the server, the specified file
-> is read and its _contents_ are saved under the server's nickname.  If the CA file's
+> is read and its _contents_ are saved under the server's nickname. If the CA file's
 > contents are ever changed, you will need to add the server information again.
 
 See the [Network Options](#network-options) section for more details about these options.
@@ -125,13 +127,13 @@ Use the `add` command to store information about an RStudio Connect server:
 
 ```bash
 rsconnect add \
-	--api-key my-api-key \
-	--server https://my.connect.server:3939 \
-	--name myserver
+    --api-key my-api-key \
+    --server https://connect.example.org:3939 \
+    --name myserver
 ```
 
 > **Note:** The `rsconnect` CLI will verify that the serve URL and API key
-> are valid.  If either is found not to be, no information will be saved.
+> are valid. If either is found not to be, no information will be saved.
 
 If any of the access information for the server changes, simply rerun the
 `add` command with the new information and it will replace the original
@@ -173,14 +175,14 @@ You can verify that a URL refers to a running instance of RStudio Connect by usi
 the `details` command:
 
 ```bash
-rsconnect details --server https://my.connect.server:3939
+rsconnect details --server https://connect.example.org:3939
 ```
 
 In this form, `rsconnect` will only tell you whether the URL given does, in fact, refer
-to a running RStudio Connect instance.  If you include a valid API key:
+to a running RStudio Connect instance. If you include a valid API key:
 
 ```bash
-rsconnect details --server https://my.connect.server:3939 --api-key my-api-key
+rsconnect details --server https://connect.example.org:3939 --api-key my-api-key
 ```
 
 the tool will provide the version of RStudio Connect (if the server is configured to
@@ -244,7 +246,7 @@ rsconnect deploy notebook --static my-notebook.ipynb
 ### Creating a Manifest for Future Deployment
 
 You can create a `manifest.json` file for a Jupyter Notebook, then use that manifest
-in a later deployment.  Use the `write-manifest` command to do this.
+in a later deployment. Use the `write-manifest` command to do this.
 
 The `write-manifest` command will also create a `requirements.txt` file, if it does
 not already exist or the `--force-generate` option is specified. It will contain the
@@ -262,8 +264,8 @@ rsconnect write-manifest notebook my-notebook.ipynb
 
 ### API/Application Deployment Options
 
-There are a variety of options available to you when deploying a Python WSGi-style API,
-Dash, Streamlit, or Bokeh application.  All options below apply equally to `api`,
+There are a variety of options available to you when deploying a Python WSGI-style API,
+Dash, Streamlit, or Bokeh application. All options below apply equally to `api`,
 `dash`, `streamlit`, and `bokeh` sub-commands.
 
 #### Including Extra Files
@@ -278,7 +280,7 @@ rsconnect deploy api flask-api/ data.csv
 
 Since deploying an API or application starts at a directory level, there will be times
 when some files under that directory subtree should not be included in the deployment
-or manifest.  Use the `--exclude` option to specify files to exclude.  An exclusion may
+or manifest. Use the `--exclude` option to specify files to exclude. An exclusion may
 be a glob pattern and the `--exclude` option may be repeated.
 
 ```bash
@@ -286,9 +288,9 @@ rsconnect deploy dash --exclude "workfiles/*" dash-app/ data.csv
 ```
 
 You should always quote a glob pattern so that it will be passed to `rsconnect` as-is
-instead of letting the shell expand it.  If a file is specifically listed as an extra
+instead of letting the shell expand it. If a file is specifically listed as an extra
 file that also matches an exclusion pattern, the file will still be included in the
-deployment (i.e., extra files trumps exclusions).
+deployment (i.e., extra files take precedence).
 
 #### Package Dependencies
 
@@ -316,7 +318,7 @@ ensuring that you use the same Python that you use to run your API or applicatio
 ### Creating a Manifest for Future Deployment
 
 You can create a `manifest.json` file for an API or application, then use that
-manifest in a later deployment.  Use the `write-manifest` command to do this.
+manifest in a later deployment. Use the `write-manifest` command to do this.
 
 The `write-manifest` command will also create a `requirements.txt` file, if it does
 not already exist or the `--force-generate` option is specified. It will contain
@@ -392,7 +394,7 @@ is trusted by your Jupyter Notebook server, API client or user's browser, then y
 don't need to do anything special. You can test this out with the `details` command:
 
 ```bash
-rsconnect details --api-key my-api-key --server https://my.connect.server:3939
+rsconnect details --api-key my-api-key --server https://connect.example.org:3939
 ```
 
 If this fails with a TLS Certificate Validation error, then you have two options.
@@ -401,22 +403,22 @@ If this fails with a TLS Certificate Validation error, then you have two options
   RStudio Connect server. This will enable `rsconnect` to securely validate the
   server's TLS certificate.
 
-	```bash
-	rsconnect details \
-		--api-key my-api-key \
-		--server https://my.connect.server:3939 \
-		--cacert /path/to/certificate.pem
-	```
+    ```bash
+    rsconnect details \
+        --api-key my-api-key \
+        --server https://connect.example.org:3939 \
+        --cacert /path/to/certificate.pem
+    ```
 
 * RStudio Connect is in "insecure mode". This disables TLS certificate verification,
   which results in a less secure connection.
 
-	```bash
-	rsconnect add \
-		--api-key my-api-key \
-		--server https://my.connect.server:3939 \
-		--insecure
-	```
+    ```bash
+    rsconnect add \
+        --api-key my-api-key \
+        --server https://connect.example.org:3939 \
+        --insecure
+    ```
 
 Once you work out the combination of options that allow you to successfully work with
 an instance of RStudio Connect, you'll probably want to use the `add` command to have

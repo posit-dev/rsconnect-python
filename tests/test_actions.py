@@ -43,7 +43,8 @@ from rsconnect.actions import (
 )
 from rsconnect.api import RSConnectException, RSConnectServer
 from rsconnect.environment import Environment
-from rsconnect.tests.test_data_util import get_manifest_path, get_api_path, get_dir
+
+from .test_data_util import get_manifest_path, get_api_path, get_dir
 
 
 class TestActions(TestCase):

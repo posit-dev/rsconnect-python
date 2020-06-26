@@ -6,7 +6,7 @@ line-length = 120
 target-version = ['py27', 'py35', 'py36', 'py37', 'py38']
 
 [tool.coverage.run]
-omit = ["rsconnect/tests/*"]
+omit = ["tests/*"]
 
 [tool.setuptools_scm]
 write_to = "rsconnect/version.py"

@@ -13,6 +13,12 @@ markdown_extensions:
 
 plugins:
   - macros
+  - search
+  - mkapi
+
+nav:
+  - index.md
+  - API: mkapi/api/rsconnect
 
 theme:
   name: material

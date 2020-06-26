@@ -9,9 +9,10 @@ endif
 BUILD_RUNNER = \
 	docker run --rm --name mkdocs \
 		$(DOCKER_RUN_AS) \
+		-e PYTHONPATH=/rsconnect_python \
 		-e VERSION=$(VERSION) \
-		-v $(CURDIR):/mkdocs \
-		-w /mkdocs \
+		-v $(CURDIR)/../:/rsconnect_python \
+		-w /rsconnect_python/docs \
 		$(MKDOCS_IMAGE)
 
 .PHONY: all
@@ -31,4 +32,4 @@ build: docs/index.md
 	@rm docs/index.md
 
 docs/index.md: $(CURDIR)/../README.md
-	python patch_admonitions.py
+	python3 patch_admonitions.py

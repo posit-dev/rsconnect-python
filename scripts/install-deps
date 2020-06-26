@@ -16,6 +16,9 @@ main() {
     ;;
   *)
     pipenv install --dev
+    if [[ "$(uname)" == Linux ]]; then
+      pipenv run pip install -U 'SecretStorage>=3'
+    fi
     ;;
   esac
 }

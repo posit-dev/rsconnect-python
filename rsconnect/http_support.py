@@ -1,6 +1,5 @@
 """
-This file provides an HTTP API (wrapped around the standard library via six) tailored to
-our needs.
+HTTP support wrappers and utility functions
 """
 import json
 import socket
