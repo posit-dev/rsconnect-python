@@ -19,6 +19,7 @@ plugins:
 nav:
   - index.md
   - API: mkapi/api/rsconnect
+  - changelog.md
 
 theme:
   name: material
