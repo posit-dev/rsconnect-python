@@ -9,6 +9,7 @@
 /.idea/
 /.jupyter/
 /.local/
+/.venv/
 /.pipenv-requires
 /build/
 /dist/
