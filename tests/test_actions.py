@@ -322,7 +322,7 @@ class TestActions(TestCase):
             False,
             False,
             sys.executable,
-            Environment(
+            Environment( # type: ignore
                 conda=None,
                 filename="requirements.txt",
                 locale="en_US.UTF-8",
@@ -337,7 +337,7 @@ class TestActions(TestCase):
             False,
             False,
             sys.executable,
-            Environment(
+            Environment( # type: ignore
                 conda=None,
                 filename="requirements.txt",
                 locale="en_US.UTF-8",
@@ -352,7 +352,7 @@ class TestActions(TestCase):
             True,
             True,
             "/very/serious/whython",
-            Environment(
+            Environment( # type: ignore
                 conda="/opt/Conda/bin/conda",
                 filename="requirements.txt",
                 locale="en_US.UTF-8",
@@ -367,7 +367,7 @@ class TestActions(TestCase):
             False,
             True,
             "unused",
-            Environment(error="Could not even do things"),
+            Environment(error="Could not even do things"), # type: ignore
             id="exploding",
         ),
     ],

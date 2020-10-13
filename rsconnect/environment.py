@@ -31,7 +31,7 @@ if sys.version_info[:2] < (3, 7):
         "Environment",
         ("conda", "contents", "error", "filename", "locale", "package_manager", "pip", "python", "source",),
     )
-    Environment.__new__.__defaults__ = (None, "", None, "", "", "", None, None, None)
+    Environment.__new__.__defaults__ = (None, "", None, "", "", "", None, None, None) # type: ignore
 
 else:
 
@@ -76,7 +76,7 @@ def detect_environment(dirname, force_generate=False, conda_mode=False, conda=No
 
     if result is not None:
         if conda_mode and result["package_manager"] != "conda":
-            return Environment(
+            return Environment( # type: ignore
                 error=(
                     'Conda was requested but no activated Conda environment was found. See "conda activate '
                     '--help" for more information.'
