@@ -7,6 +7,7 @@ from os.path import dirname, join
 from rsconnect.environment import (
     Environment,
     EnvironmentException,
+    MakeEnvironment,
     detect_environment,
     get_default_locale,
     get_python_version,
@@ -23,7 +24,7 @@ class TestEnvironment(TestCase):
 
     def test_get_python_version(self):
         self.assertEqual(
-            get_python_version(Environment(package_manager="pip")), self.python_version(),
+            get_python_version(MakeEnvironment(package_manager="pip")), self.python_version(),
         )
 
     def test_get_default_locale(self):
@@ -40,7 +41,7 @@ class TestEnvironment(TestCase):
         self.assertIsInstance(result.locale, str)
         self.assertIn(".", result.locale)
 
-        expected = Environment(
+        expected = MakeEnvironment(
             contents="numpy\npandas\nmatplotlib\n",
             filename="requirements.txt",
             locale=result.locale,
@@ -63,7 +64,7 @@ class TestEnvironment(TestCase):
         self.assertIsInstance(result.locale, str)
         self.assertIn(".", result.locale)
 
-        expected = Environment(
+        expected = MakeEnvironment(
             contents=result.contents,
             filename="requirements.txt",
             locale=result.locale,

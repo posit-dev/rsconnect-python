@@ -42,7 +42,7 @@ from rsconnect.actions import (
     which_python,
 )
 from rsconnect.api import RSConnectException, RSConnectServer
-from rsconnect.environment import Environment
+from rsconnect.environment import MakeEnvironment
 
 from .test_data_util import get_manifest_path, get_api_path, get_dir
 
@@ -322,7 +322,7 @@ class TestActions(TestCase):
             False,
             False,
             sys.executable,
-            Environment(
+            MakeEnvironment(
                 conda=None,
                 filename="requirements.txt",
                 locale="en_US.UTF-8",
@@ -337,7 +337,7 @@ class TestActions(TestCase):
             False,
             False,
             sys.executable,
-            Environment(
+            MakeEnvironment(
                 conda=None,
                 filename="requirements.txt",
                 locale="en_US.UTF-8",
@@ -352,7 +352,7 @@ class TestActions(TestCase):
             True,
             True,
             "/very/serious/whython",
-            Environment(
+            MakeEnvironment(
                 conda="/opt/Conda/bin/conda",
                 filename="requirements.txt",
                 locale="en_US.UTF-8",
@@ -367,7 +367,7 @@ class TestActions(TestCase):
             False,
             True,
             "unused",
-            Environment(error="Could not even do things"),
+            MakeEnvironment(error="Could not even do things"),
             id="exploding",
         ),
     ],
