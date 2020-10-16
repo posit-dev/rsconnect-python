@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import json
 import sys
 import tarfile
@@ -12,6 +13,7 @@ from rsconnect.bundle import (
     make_notebook_html_bundle,
     make_notebook_source_bundle,
     keep_manifest_specified_file,
+    to_bytes,
 )
 from .test_data_util import get_dir
 
@@ -20,6 +22,17 @@ class TestBundle(TestCase):
     @staticmethod
     def python_version():
         return u".".join(map(str, sys.version_info[:3]))
+
+    def test_to_bytes(self):
+        self.assertEqual(to_bytes(b"abc123"), b"abc123")
+        self.assertEqual(to_bytes(b"\xc3\xa5bc123"), b"\xc3\xa5bc123")
+        self.assertEqual(to_bytes(b"\xff\xffabc123"), b"\xff\xffabc123")
+
+        self.assertEqual(to_bytes("abc123"), b"abc123")
+        self.assertEqual(to_bytes("åbc123"), b"\xc3\xa5bc123")
+
+        self.assertEqual(to_bytes(u"abc123"), b"abc123")
+        self.assertEqual(to_bytes(u"åbc123"), b"\xc3\xa5bc123")
 
     def test_source_bundle1(self):
         self.maxDiff = 5000

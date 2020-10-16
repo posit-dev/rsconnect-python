@@ -31,7 +31,7 @@ from .bundle import (
     manifest_add_file,
     read_manifest_file,
 )
-from .environment import Environment, EnvironmentException
+from .environment import Environment, MakeEnvironment, EnvironmentException
 from .log import logger
 from .metadata import AppStore
 from .models import AppModes
@@ -141,7 +141,7 @@ def inspect_environment(
         environment_json = check_output(args, universal_newlines=True)
     except subprocess.CalledProcessError as e:
         raise api.RSConnectException("Error inspecting environment: %s" % e.output)
-    return Environment(**json.loads(environment_json))  # type: ignore
+    return MakeEnvironment(**json.loads(environment_json))  # type: ignore
 
 
 def _verify_server(connect_server):

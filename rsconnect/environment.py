@@ -17,6 +17,7 @@ import sys
 
 try:
     import typing
+    from typing import Optional
 except ImportError:
     typing = None
 
@@ -25,22 +26,23 @@ conda_version_re = re.compile(r"^(?:\s*-\s*)?python=(\d+\.\d+(?:\.\d+)?)", re.MU
 exec_dir = os.path.dirname(sys.executable)
 
 
-if sys.version_info[:2] < (3, 7):
+Environment = collections.namedtuple(
+    "Environment", ("conda", "contents", "error", "filename", "locale", "package_manager", "pip", "python", "source",),
+)
 
-    Environment = collections.namedtuple(
-        "Environment",
-        ("conda", "contents", "error", "filename", "locale", "package_manager", "pip", "python", "source",),
-    )
-    Environment.__new__.__defaults__ = (None, "", None, "", "", "", None, None, None)
 
-else:
-
-    Environment = collections.namedtuple(
-        "Environment",
-        ("conda", "contents", "error", "filename", "locale", "package_manager", "pip", "python", "source",),
-        defaults=(None, "", None, "", "", "", None, None, None),
-    )
-    Environment.__doc__ = "Data class encapsulating values needed by various deployment and metadata functions"
+def MakeEnvironment(
+    conda=None,  # type: Optional[str]
+    contents="",  # type: Optional[str]
+    error=None,  # type: Optional[str]
+    filename="",  # type: Optional[str]
+    locale="",  # type: Optional[str]
+    package_manager="",  # type: Optional[str]
+    pip=None,  # type: Optional[str]
+    python=None,  # type: Optional[str]
+    source=None,  # type: Optional[str]
+):
+    return Environment(conda, contents, error, filename, locale, package_manager, pip, python, source)
 
 
 class EnvironmentException(Exception):
@@ -76,20 +78,20 @@ def detect_environment(dirname, force_generate=False, conda_mode=False, conda=No
 
     if result is not None:
         if conda_mode and result["package_manager"] != "conda":
-            return Environment(
+            return MakeEnvironment(
                 error=(
                     'Conda was requested but no activated Conda environment was found. See "conda activate '
                     '--help" for more information.'
                 )
             )
 
-        result["python"] = get_python_version(Environment(**result))
+        result["python"] = get_python_version(MakeEnvironment(**result))
         result["pip"] = get_version("pip")
         if conda:
             result["conda"] = get_conda_version(conda)
         result["locale"] = get_default_locale()
 
-    return Environment(**result)
+    return MakeEnvironment(**result)
 
 
 def get_conda(conda=None):
