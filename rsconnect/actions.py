@@ -198,8 +198,8 @@ def test_server(connect_server):
             connect_server = api.RSConnectServer(test, key, insecure, ca_data)
             result = _verify_server(connect_server)
             return connect_server, result
-        except api.RSConnectException:
-            failures.append("    %s - failed to verify as RStudio Connect." % test)
+        except api.RSConnectException as exc:
+            failures.append("    %s - failed to verify as RStudio Connect (%s)." % (test, str(exc)))
 
     # In case the user may need https instead of http...
     if len(failures) == 1 and url.startswith("http://"):
