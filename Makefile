@@ -158,7 +158,7 @@ sync-latest-to-s3:
 
 .PHONY: sync-latest-docs-to-s3
 sync-latest-docs-to-s3:
-	aws s3 sync --delete --acl bucket-owner-full-control \
+	aws s3 sync --acl bucket-owner-full-control \
 		--cache-control max-age=0 \
 		docs/site/ \
 		$(S3_PREFIX)/latest/docs/
