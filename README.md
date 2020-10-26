@@ -7,8 +7,6 @@ Jupyter notebooks via the Jupyter web console. Many types of content supported b
 Connect may be deployed by this package, including WSGI-style APIs, Dash, Streamlit, and
 Bokeh applications.
 
-> **Important:** Bokeh support in RStudio Connect is currently in beta.
-
 Content types not directly supported by the CLI may also be deployed if they include a
 prepared `manifest.json` file. See ["Deploying R or Other
 Content"](#deploying-r-or-other-content) for details.
