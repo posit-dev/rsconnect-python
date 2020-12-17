@@ -221,11 +221,11 @@ from an alternative Python executable specified via the `--python` option or via
 rsconnect deploy notebook --python /path/to/python my-notebook.ipynb
 ```
 
-You can see the packages list that will be included by running `pip freeze` yourself,
+You can see the packages list that will be included by running `pip list --format=freeze` yourself,
 ensuring that you use the same Python that you use to run your Jupyter Notebook:
 
 ```bash
-/path/to/python -m pip freeze
+/path/to/python -m pip list --format=freeze
 ```
 
 #### Static (Snapshot) Deployment
@@ -306,11 +306,11 @@ from an alternative Python executable specified via the `--python` option or via
 rsconnect deploy api --python /path/to/python my-api/
 ```
 
-You can see the packages list that will be included by running `pip freeze` yourself,
+You can see the packages list that will be included by running `pip list --format=freeze` yourself,
 ensuring that you use the same Python that you use to run your API or application:
 
 ```bash
-/path/to/python -m pip freeze
+/path/to/python -m pip list --format=freeze
 ```
 
 ### Creating a Manifest for Future Deployment
