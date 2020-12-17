@@ -194,7 +194,7 @@ def pip_freeze():
     """
     try:
         proc = subprocess.Popen(
-            [sys.executable, "-m", "pip", "freeze"],
+            [sys.executable, "-m", "pip", "list", "--format=freeze"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,
