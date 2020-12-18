@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Environments are now introspected with `pip list --format=freeze` instead of `pip freeze`,
   since the latter injects nonexistent paths into the requirements file when run in a conda environment.
+  This issue started occurring when pip 20.1 added support for PEP 610 metadata.
 
 ## [1.5.1] - 2020-11-02
 
