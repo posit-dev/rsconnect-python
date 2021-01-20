@@ -4,6 +4,7 @@ HTTP support wrappers and utility functions
 import json
 import socket
 import ssl
+import os
 
 from rsconnect import VERSION
 from rsconnect.log import logger
@@ -55,11 +56,39 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
         )
     elif disable_tls_check:
         # noinspection PyProtectedMember
-        return http.HTTPSConnection(
-            host_name, port=(port or http.HTTPS_PORT), timeout=timeout, context=ssl._create_unverified_context(),
-        )
+        proxyURL = os.getenv("HTTPS_PROXY")
+        if proxyURL:
+            print("Using custom proxy server - TLS check disabled {}".format(proxyURL))
+            proxyURL = proxyURL.replace("http://", "")
+            if ":" in proxyURL:
+                proxyURL, proxyPort = proxyURL.split(":")
+                proxyPort = int(proxyPort)
+            else:
+                proxyPort = 8080
+            tmp = http.HTTPSConnection(
+                proxyURL, port=proxyPort, timeout=timeout, context=ssl._create_unverified_context(),
+            )
+            tmp.set_tunnel(host_name, (port or http.HTTPS_PORT))
+        else:
+            tmp = http.HTTPSConnection(
+                host_name, port=(port or http.HTTPS_PORT), timeout=timeout, context=ssl._create_unverified_context(),
+            )
+        return tmp
     else:
-        return http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=timeout)
+        proxyURL = os.getenv("HTTPS_PROXY")
+        if proxyURL:
+            print("Using custom proxy server {}".format(proxyURL))
+            proxyURL = proxyURL.replace("http://", "")
+            if ":" in proxyURL:
+                proxyURL, proxyPort = proxyURL.split(":")
+                proxyPort = int(proxyPort)
+            else:
+                proxyPort = 8080
+            tmp = http.HTTPSConnection(proxyURL, port=proxyPort, timeout=timeout)
+            tmp.set_tunnel(host_name, (port or http.HTTPS_PORT))
+        else:
+            tmp = http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=timeout)
+        return tmp
 
 
 def append_to_path(uri, path):
@@ -140,7 +169,7 @@ class HTTPServer(object):
         self._ca_data = ca_data
         self._cookies = cookies if cookies is not None else CookieJar()
         self._timeout = timeout
-        self._headers = {"User-Agent": _user_agent}
+        self._headers = {"User-Agent": _user_agent, "Authorization": 'notEmpty'}
         self._conn = None
 
         self._inject_cookies()
