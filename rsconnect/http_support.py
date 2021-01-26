@@ -66,12 +66,18 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
             else:
                 proxyPort = 8080
             tmp = http.HTTPSConnection(
-                proxyURL, port=proxyPort, timeout=timeout, context=ssl._create_unverified_context(),
+                proxyURL,
+                port=proxyPort,
+                timeout=timeout,
+                context=ssl._create_unverified_context(),
             )
             tmp.set_tunnel(host_name, (port or http.HTTPS_PORT))
         else:
             tmp = http.HTTPSConnection(
-                host_name, port=(port or http.HTTPS_PORT), timeout=timeout, context=ssl._create_unverified_context(),
+                host_name,
+                port=(port or http.HTTPS_PORT),
+                timeout=timeout,
+                context=ssl._create_unverified_context(),
             )
         return tmp
     else:
@@ -169,7 +175,7 @@ class HTTPServer(object):
         self._ca_data = ca_data
         self._cookies = cookies if cookies is not None else CookieJar()
         self._timeout = timeout
-        self._headers = {"User-Agent": _user_agent, "Authorization": 'notEmpty'}
+        self._headers = {"User-Agent": _user_agent, "Authorization": "notEmpty"}
         self._conn = None
 
         self._inject_cookies()
@@ -185,7 +191,13 @@ class HTTPServer(object):
 
     def __enter__(self):
         factory = _connection_factory[self._url.scheme]
-        self._conn = factory(self._url.hostname, self._url.port, self._disable_tls_check, self._ca_data, self._timeout,)
+        self._conn = factory(
+            self._url.hostname,
+            self._url.port,
+            self._disable_tls_check,
+            self._ca_data,
+            self._timeout,
+        )
         return self
 
     def __exit__(self, *args):
@@ -255,7 +267,14 @@ class HTTPServer(object):
 
                 logger.debug("--> Redirected to: %s" % next_url)
 
-                return self._do_request(method, next_url, query_params, body, maximum_redirects - 1, extra_headers,)
+                return self._do_request(
+                    method,
+                    next_url,
+                    query_params,
+                    body,
+                    maximum_redirects - 1,
+                    extra_headers,
+                )
 
             self._handle_set_cookie(response)
 
