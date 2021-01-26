@@ -58,7 +58,7 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
         # noinspection PyProtectedMember
         proxyURL = os.getenv("HTTPS_PROXY")
         if proxyURL:
-            print("Using custom proxy server - TLS check disabled {}".format(proxyURL))
+            logger.info("Using custom proxy server - TLS check disabled {}".format(proxyURL))
             proxyURL = proxyURL.replace("http://", "")
             if ":" in proxyURL:
                 proxyURL, proxyPort = proxyURL.split(":")
@@ -83,7 +83,7 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
     else:
         proxyURL = os.getenv("HTTPS_PROXY")
         if proxyURL:
-            print("Using custom proxy server {}".format(proxyURL))
+            logger.info("Using custom proxy server {}".format(proxyURL))
             proxyURL = proxyURL.replace("http://", "")
             if ":" in proxyURL:
                 proxyURL, proxyPort = proxyURL.split(":")
