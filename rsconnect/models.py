@@ -76,7 +76,11 @@ class AppModes(object):
     @classmethod
     def get_by_ordinal(cls, ordinal, return_unknown=False):
         """Get an AppMode by its associated ordinal (integer)"""
-        return cls._find_by(lambda mode: mode.ordinal() == ordinal, "with ordinal %s" % ordinal, return_unknown,)
+        return cls._find_by(
+            lambda mode: mode.ordinal() == ordinal,
+            "with ordinal %s" % ordinal,
+            return_unknown,
+        )
 
     @classmethod
     def get_by_name(cls, name, return_unknown=False):
@@ -93,7 +97,9 @@ class AppModes(object):
             raise ValueError("No app mode with extension %s" % extension)
 
         return cls._find_by(
-            lambda mode: mode.extension() == extension, "with extension: %s" % extension, return_unknown,
+            lambda mode: mode.extension() == extension,
+            "with extension: %s" % extension,
+            return_unknown,
         )
 
     @classmethod
