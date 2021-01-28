@@ -33,6 +33,23 @@ def _create_plain_connection(host_name, port, disable_tls_check, ca_data, timeou
     return http.HTTPConnection(host_name, port=(port or http.HTTP_PORT), timeout=timeout)
 
 
+def _get_proxy():
+    proxyURL = os.getenv("HTTPS_PROXY")
+    if proxyURL:
+        logger.info("Using custom proxy server {}".format(proxyURL))
+        parsed = urlparse(proxyURL)
+        netloc = parsed.netloc.split(":")
+        if len(netloc) > 1:
+            proxyHost, proxyPort = netloc
+        else:
+            proxyHost = netloc
+            proxyPort = 8080
+
+        return proxyHost, int(proxyPort)
+    else:
+        return None, None
+
+
 # noinspection PyUnresolvedReferences
 def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout):
     """
@@ -55,18 +72,10 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
             context=ssl.create_default_context(cadata=ca_data),
         )
     elif disable_tls_check:
-        # noinspection PyProtectedMember
-        proxyURL = os.getenv("HTTPS_PROXY")
-        if proxyURL:
-            logger.info("Using custom proxy server - TLS check disabled {}".format(proxyURL))
-            proxyURL = proxyURL.replace("http://", "")
-            if ":" in proxyURL:
-                proxyURL, proxyPort = proxyURL.split(":")
-                proxyPort = int(proxyPort)
-            else:
-                proxyPort = 8080
+        proxyHost, proxyPort = _get_proxy()
+        if proxyHost is not None:
             tmp = http.HTTPSConnection(
-                proxyURL,
+                proxyHost,
                 port=proxyPort,
                 timeout=timeout,
                 context=ssl._create_unverified_context(),
@@ -81,16 +90,9 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
             )
         return tmp
     else:
-        proxyURL = os.getenv("HTTPS_PROXY")
-        if proxyURL:
-            logger.info("Using custom proxy server {}".format(proxyURL))
-            proxyURL = proxyURL.replace("http://", "")
-            if ":" in proxyURL:
-                proxyURL, proxyPort = proxyURL.split(":")
-                proxyPort = int(proxyPort)
-            else:
-                proxyPort = 8080
-            tmp = http.HTTPSConnection(proxyURL, port=proxyPort, timeout=timeout)
+        proxyHost, proxyPort = _get_proxy()
+        if proxyHost is not None:
+            tmp = http.HTTPSConnection(proxyHost, port=proxyPort, timeout=timeout)
             tmp.set_tunnel(host_name, (port or http.HTTPS_PORT))
         else:
             tmp = http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=timeout)
