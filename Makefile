@@ -44,7 +44,7 @@ shell-%:
 	$(RUNNER) '$(SHELL_COMMAND)'
 
 test-%:
-	$(RUNNER) '$(TEST_ENV) $(TEST_COMMAND)'
+	PYTHON_VERSION=$* $(RUNNER) '$(TEST_ENV) $(TEST_COMMAND)'
 
 mock-test-%: clean-stores
 	@$(MAKE) -C mock_connect image up
