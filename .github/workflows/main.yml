@@ -23,37 +23,13 @@ jobs:
     - uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
-    - if: matrix.os != 'macos-latest'
-      uses: actions/cache@v1
-      with:
-        path: ~/.cache/pip
-        key: pip-${{ matrix.os }}-py${{ matrix.python-version }}-${{ hashFiles('Pipfile.lock') }}
-        restore-keys: |
-          pip-${{ matrix.os }}-py${{ matrix.python-version }}-${{ hashFiles('Pipfile.lock') }}
-          pip-${{ matrix.os }}-py${{ matrix.python-version }}-
-    - if: matrix.os == 'macos-latest'
-      uses: actions/cache@v1
-      with:
-        path: ~/Library/Caches/pip
-        key: pip-${{ matrix.os }}-py${{ matrix.python-version }}-${{ hashFiles('Pipfile.lock') }}
-        restore-keys: |
-          pip-${{ matrix.os }}-py${{ matrix.python-version }}-${{ hashFiles('Pipfile.lock') }}
-          pip-${{ matrix.os }}-py${{ matrix.python-version }}-
-    - uses: actions/cache@v1
-      with:
-        path: ~/.local/share/virtualenvs
-        key: virtualenvs-${{ matrix.os }}-py${{ matrix.python-version }}-${{ hashFiles('Pipfile.lock') }}
-        restore-keys: |
-          virtualenvs-${{ matrix.os }}-py${{ matrix.python-version }}-${{ hashFiles('Pipfile.lock') }}
-          virtualenvs-${{ matrix.os }}-py${{ matrix.python-version }}-
-    - run: pip install -U pipenv pip
-    - run: make deps
-    - run: pipenv run pip freeze
+    - run: pip install -r requirements.txt
+    - run: pip freeze
     - if: matrix.python-version != '2.7' && matrix.python-version != '3.5'
       run: make fmt
     - if: matrix.python-version != '2.7' && matrix.python-version != '3.5'
       run: make lint
-    - run: pipenv run python setup.py --version
+    - run: run python setup.py --version
     - run: make test
   prerelease-test:
     runs-on: ubuntu-latest
@@ -64,25 +40,11 @@ jobs:
     - uses: actions/setup-python@v2
       with:
         python-version: 3.8.x
-    - uses: actions/cache@v1
-      with:
-        path: ~/.cache/pip
-        key: pip-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
-        restore-keys: |
-          pip-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
-          pip-ubuntu-latest-py3.8-
-    - uses: actions/cache@v1
-      with:
-        path: ~/.local/share/virtualenvs
-        key: virtualenvs-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
-        restore-keys: |
-          virtualenvs-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
-          virtualenvs-ubuntu-latest-py3.8-
-    - run: pip install -U -I --pre pipenv pip
-    - run: make deps-prerelease
+    - run: pip install --pre -r requirements.txt
+    - run: pip freeze
     - run: make fmt
     - run: make lint
-    - run: pipenv run python setup.py --version
+    - run: python setup.py --version
     - run: make test
   distributions:
     needs: test
@@ -93,31 +55,17 @@ jobs:
     - uses: actions/setup-python@v2
       with:
         python-version: 3.8.x
-    - uses: actions/cache@v1
-      with:
-        path: ~/.cache/pip
-        key: pip-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
-        restore-keys: |
-          pip-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
-          pip-ubuntu-latest-py3.8-
-    - uses: actions/cache@v1
-      with:
-        path: ~/.local/share/virtualenvs
-        key: virtualenvs-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
-        restore-keys: |
-          virtualenvs-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
-          virtualenvs-ubuntu-latest-py3.8-
-    - run: pip install -U pipenv pip
-    - run: make deps
+    - run: pip install -r requirements.txt
+    - run: pip freeze
     - run: make dist
       id: create_dist
     - uses: actions/upload-artifact@v2
       with:
         name: distributions
         path: dist/
-    - run: pipenv run pip install -vvv ${{ steps.create_dist.outputs.whl }}
-    - run: pipenv run rsconnect version
-    - run: pipenv run rsconnect --help
+    - run: pip install -vvv ${{ steps.create_dist.outputs.whl }}
+    - run: rsconnect version
+    - run: rsconnect --help
     - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
       id: create_release
       uses: actions/create-release@v1
@@ -160,22 +108,8 @@ jobs:
     - uses: actions/setup-python@v2
       with:
         python-version: 3.8.x
-    - uses: actions/cache@v1
-      with:
-        path: ~/.cache/pip
-        key: pip-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
-        restore-keys: |
-          pip-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
-          pip-ubuntu-latest-py3.8-
-    - uses: actions/cache@v1
-      with:
-        path: ~/.local/share/virtualenvs
-        key: virtualenvs-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
-        restore-keys: |
-          virtualenvs-ubuntu-latest-py3.8-${{ hashFiles('Pipfile.lock') }}
-          virtualenvs-ubuntu-latest-py3.8-
-    - run: pip install -U pipenv pip
-    - run: make deps
+    - run: pip install -r requirements.txt
+    - run: pip freeze
     - run: make docs
     - uses: actions/upload-artifact@v2
       with:

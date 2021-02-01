@@ -1,4 +1,4 @@
-VERSION := $(shell pipenv run python setup.py --version)
+VERSION := $(shell python setup.py --version)
 HOSTNAME := $(shell hostname)
 S3_PREFIX := s3://rstudio-connect-downloads/connect/rsconnect-python
 
@@ -12,7 +12,7 @@ RUNNER = docker run \
   bash -c
 
 TEST_COMMAND ?= ./scripts/runtests
-SHELL_COMMAND ?= pipenv shell
+SHELL_COMMAND ?= bash
 
 ifneq ($(GITHUB_RUN_ID),)
 	RUNNER = bash -c
@@ -53,7 +53,7 @@ mock-test-%: clean-stores
 	@$(MAKE) -C mock_connect down
 
 fmt-%:
-	$(RUNNER) 'pipenv run black .'
+	$(RUNNER) 'black .'
 
 .PHONY: fmt-2.7
 fmt-2.7: .fmt-unsupported
@@ -68,15 +68,15 @@ fmt-3.5: .fmt-unsupported
 
 .PHONY: deps-prerelease
 deps-prerelease:
-	pipenv run ./scripts/install-deps-prerelease
+	pip install --pre -r requirements.txt
 
 deps-%:
-	$(RUNNER) 'pipenv run ./scripts/install-deps'
+	$(RUNNER) 'pip install --pre -r requirements.txt'
 
 lint-%:
-	$(RUNNER) 'pipenv run black --check --diff .'
-	$(RUNNER) 'pipenv run flake8 rsconnect/'
-	$(RUNNER) 'pipenv run mypy -p rsconnect'
+	$(RUNNER) 'black --check --diff rsconnect/'
+	$(RUNNER) 'flake8 rsconnect/'
+	$(RUNNER) 'mypy -p rsconnect'
 
 .PHONY: lint-2.7
 lint-2.7: .lint-unsupported
@@ -137,8 +137,8 @@ version:
 # exported as a point of reference instead.
 .PHONY: dist
 dist:
-	pipenv run python setup.py bdist_wheel
-	pipenv run twine check $(BDIST_WHEEL)
+	python setup.py bdist_wheel
+	twine check $(BDIST_WHEEL)
 	rm -vf dist/*.egg
 	@echo "::set-output name=whl::$(BDIST_WHEEL)"
 	@echo "::set-output name=whl_basename::$(notdir $(BDIST_WHEEL))"
