@@ -30,7 +30,7 @@ jobs:
     - if: matrix.python-version != '2.7' && matrix.python-version != '3.5'
       run: make lint
     - run: python setup.py --version
-    - run: make test
+    - run: make test-${{ matrix.python-version }}
   prerelease-test:
     runs-on: ubuntu-latest
     continue-on-error: true
