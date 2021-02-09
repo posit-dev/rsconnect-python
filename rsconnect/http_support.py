@@ -177,7 +177,7 @@ class HTTPServer(object):
         self._ca_data = ca_data
         self._cookies = cookies if cookies is not None else CookieJar()
         self._timeout = timeout
-        self._headers = {"User-Agent": _user_agent, "Authorization": "notEmpty"}
+        self._headers = {"User-Agent": _user_agent}
         self._conn = None
 
         self._inject_cookies()
