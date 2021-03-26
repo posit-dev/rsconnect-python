@@ -223,6 +223,14 @@ def pip_freeze():
     }
 
 
+def strip_ref(line):
+    return line.split("@", 1)[0].strip()
+
+
+def exclude(line):
+    return line and line.startswith('setuptools') and 'post' in line
+
+
 def conda_env_export(conda):
     """Inspect the environment using `conda env export`
     :param: conda path to the `conda` tool
@@ -267,8 +275,15 @@ def main():
             force_generate = True
         if "c" in flags:
             conda_mode = True
+        envinfo = detect_environment(directory, force_generate, conda_mode)._asdict()
+        if 'contents' in envinfo:
+            keepers = list(map(strip_ref, envinfo['contents'].split('\n')))
+            if not conda_mode:
+                keepers = [line for line in keepers if not exclude(line)]
+            envinfo['contents'] = '\n'.join(keepers)
+
         json.dump(
-            detect_environment(directory, force_generate, conda_mode)._asdict(), sys.stdout, indent=4,
+            envinfo, sys.stdout, indent=4,
         )
     except EnvironmentException as exception:
         json.dump(dict(error=str(exception)), sys.stdout, indent=4)
