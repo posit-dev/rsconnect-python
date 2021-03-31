@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.5.2] - 2021-3-31
 
 ### Changed
+- Add support for HTTPS_PROXY
 - Environments are now introspected with `pip list --format=freeze` instead of `pip freeze`,
   since the latter injects nonexistent paths into the requirements file when run in a conda environment.
   This issue started occurring when pip 20.1 added support for PEP 610 metadata.
