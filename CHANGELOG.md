@@ -4,12 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.5.2] - 2021-3-31
 
 ### Changed
 - Environments are now introspected with `pip list --format=freeze` instead of `pip freeze`,
   since the latter injects nonexistent paths into the requirements file when run in a conda environment.
   This issue started occurring when pip 20.1 added support for PEP 610 metadata.
+- Conda environments contain Conda-only versions of setuptools, which are now filtered out from requirements.txt for non-Conda environments.
 
 ## [1.5.1] - 2020-11-02
 
