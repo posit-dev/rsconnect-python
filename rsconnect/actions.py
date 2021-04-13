@@ -110,7 +110,7 @@ def which_python(python, env=os.environ):
         return python
 
     if "RETICULATE_PYTHON" in env:
-        return env["RETICULATE_PYTHON"]
+        return os.path.expanduser(env["RETICULATE_PYTHON"])
 
     return sys.executable
 
