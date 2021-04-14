@@ -75,10 +75,20 @@ def manifest_add_buffer(manifest, filename, buf):
     manifest["files"][filename] = {"checksum": buffer_checksum(buf)}
 
 
+def make_hasher():
+    try:
+        return hashlib.md5()
+    except Exception:
+        # md5 is not available in FIPS mode, see if the usedforsecurity option is available
+        # (it was added in python 3.9). We set usedforsecurity=False since we are only
+        # using this for a file upload integrity check.
+        return hashlib.md5(usedforsecurity=False)
+
+
 def file_checksum(path):
     """Calculate the md5 hex digest of the specified file"""
     with open(path, "rb") as f:
-        m = hashlib.md5()
+        m = make_hasher()
         chunk_size = 64 * 1024
 
         chunk = f.read(chunk_size)
@@ -90,7 +100,7 @@ def file_checksum(path):
 
 def buffer_checksum(buf):
     """Calculate the md5 hex digest of a buffer (str or bytes)"""
-    m = hashlib.md5()
+    m = make_hasher()
     m.update(to_bytes(buf))
     return m.hexdigest()
 
