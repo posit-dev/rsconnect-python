@@ -16,6 +16,7 @@ from rsconnect.actions import (
     deploy_bundle,
     describe_manifest,
     gather_basic_deployment_info_for_api,
+    gather_basic_deployment_info_for_fastapi,
     gather_basic_deployment_info_for_dash,
     gather_basic_deployment_info_for_streamlit,
     gather_basic_deployment_info_for_bokeh,
@@ -113,7 +114,10 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
 @click.option("--name", "-n", required=True, help="The nickname to associate with the server.")
 @click.option("--server", "-s", required=True, help="The URL for the RStudio Connect server.")
 @click.option(
-    "--api-key", "-k", required=True, help="The API key to use to authenticate with RStudio Connect.",
+    "--api-key",
+    "-k",
+    required=True,
+    help="The API key to use to authenticate with RStudio Connect.",
 )
 @click.option("--insecure", "-i", is_flag=True, help="Disable TLS certification/host validation.")
 @click.option("--cacert", "-c", type=click.File(), help="The path to trusted TLS CA certificates.")
@@ -127,7 +131,11 @@ def add(name, server, api_key, insecure, cacert, verbose):
     real_server, _ = _test_server_and_api(server, api_key, insecure, cacert)
 
     server_store.set(
-        name, real_server.url, real_server.api_key, real_server.insecure, real_server.ca_data,
+        name,
+        real_server.url,
+        real_server.api_key,
+        real_server.insecure,
+        real_server.ca_data,
     )
 
     if old_server:
@@ -175,16 +183,28 @@ def list_servers(verbose):
     ),
 )
 @click.option(
-    "--name", "-n", help="The nickname of the RStudio Connect server to get details for.",
+    "--name",
+    "-n",
+    help="The nickname of the RStudio Connect server to get details for.",
 )
 @click.option(
-    "--server", "-s", envvar="CONNECT_SERVER", help="The URL for the RStudio Connect server to get details for.",
+    "--server",
+    "-s",
+    envvar="CONNECT_SERVER",
+    help="The URL for the RStudio Connect server to get details for.",
 )
 @click.option(
-    "--api-key", "-k", envvar="CONNECT_API_KEY", help="The API key to use to authenticate with RStudio Connect.",
+    "--api-key",
+    "-k",
+    envvar="CONNECT_API_KEY",
+    help="The API key to use to authenticate with RStudio Connect.",
 )
 @click.option(
-    "--insecure", "-i", envvar="CONNECT_INSECURE", is_flag=True, help="Disable TLS certification/host validation.",
+    "--insecure",
+    "-i",
+    envvar="CONNECT_INSECURE",
+    is_flag=True,
+    help="Disable TLS certification/host validation.",
 )
 @click.option(
     "--cacert",
@@ -383,7 +403,8 @@ def _warn_on_ignored_manifest(directory):
     """
     if exists(join(directory, "manifest.json")):
         click.secho(
-            "    Warning: the existing manifest.json file will not be used or considered.", fg="yellow",
+            "    Warning: the existing manifest.json file will not be used or considered.",
+            fg="yellow",
         )
 
 
@@ -412,12 +433,21 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
     """
     if exists(join(directory, requirements_file_name)):
         click.secho(
-            "    Warning: the existing %s file will not be used or considered." % requirements_file_name, fg="yellow",
+            "    Warning: the existing %s file will not be used or considered." % requirements_file_name,
+            fg="yellow",
         )
 
 
 def _deploy_bundle(
-    connect_server, app_store, primary_path, app_id, app_mode, name, title, title_is_default, bundle,
+    connect_server,
+    app_store,
+    primary_path,
+    app_id,
+    app_mode,
+    name,
+    title,
+    title_is_default,
+    bundle,
 ):
     """
     Does the work of uploading a prepared bundle.
@@ -437,7 +467,13 @@ def _deploy_bundle(
 
     with cli_feedback("Saving deployment data"):
         app_store.set(
-            connect_server.url, abspath(primary_path), app["app_url"], app["app_id"], app["app_guid"], title, app_mode,
+            connect_server.url,
+            abspath(primary_path),
+            app["app_url"],
+            app["app_id"],
+            app["app_guid"],
+            title,
+            app_mode,
         )
 
     with cli_feedback(""):
@@ -450,7 +486,13 @@ def _deploy_bundle(
         # save the config URL, replacing the old app URL we got during deployment
         # (which is the Open Solo URL).
         app_store.set(
-            connect_server.url, abspath(primary_path), app_url, app["app_id"], app["app_guid"], app["title"], app_mode,
+            connect_server.url,
+            abspath(primary_path),
+            app_url,
+            app["app_id"],
+            app["app_guid"],
+            app["title"],
+            app_mode,
         )
 
 
@@ -466,13 +508,23 @@ def _deploy_bundle(
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
 @click.option(
-    "--server", "-s", envvar="CONNECT_SERVER", help="The URL for the RStudio Connect server to deploy to.",
+    "--server",
+    "-s",
+    envvar="CONNECT_SERVER",
+    help="The URL for the RStudio Connect server to deploy to.",
 )
 @click.option(
-    "--api-key", "-k", envvar="CONNECT_API_KEY", help="The API key to use to authenticate with RStudio Connect.",
+    "--api-key",
+    "-k",
+    envvar="CONNECT_API_KEY",
+    help="The API key to use to authenticate with RStudio Connect.",
 )
 @click.option(
-    "--insecure", "-i", envvar="CONNECT_INSECURE", is_flag=True, help="Disable TLS certification/host validation.",
+    "--insecure",
+    "-i",
+    envvar="CONNECT_INSECURE",
+    is_flag=True,
+    help="Disable TLS certification/host validation.",
 )
 @click.option(
     "--cacert",
@@ -501,7 +553,9 @@ def _deploy_bundle(
     ),
 )
 @click.option(
-    "--app-id", "-a", help="Existing app ID or GUID to replace. Cannot be used with --new.",
+    "--app-id",
+    "-a",
+    help="Existing app ID or GUID to replace. Cannot be used with --new.",
 )
 @click.option("--title", "-t", help="Title of the content (default is the same as the filename).")
 @click.option(
@@ -514,15 +568,24 @@ def _deploy_bundle(
     ),
 )
 @click.option(
-    "--conda", "-C", is_flag=True, hidden=True, help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
+    "--conda",
+    "-C",
+    is_flag=True,
+    hidden=True,
+    help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
 )
 @click.option(
-    "--force-generate", "-g", is_flag=True, help='Force generating "requirements.txt", even if it already exists.',
+    "--force-generate",
+    "-g",
+    is_flag=True,
+    help='Force generating "requirements.txt", even if it already exists.',
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
-    "extra_files", nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True),
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
 def deploy_notebook(
     name,
@@ -547,9 +610,13 @@ def deploy_notebook(
         app_store = AppStore(file)
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         extra_files = validate_extra_files(dirname(file), extra_files)
-        (app_id, deployment_name, title, default_title, app_mode,) = gather_basic_deployment_info_for_notebook(
-            connect_server, app_store, file, new, app_id, title, static
-        )
+        (
+            app_id,
+            deployment_name,
+            title,
+            default_title,
+            app_mode,
+        ) = gather_basic_deployment_info_for_notebook(connect_server, app_store, file, new, app_id, title, static)
 
     click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg="white")
 
@@ -571,7 +638,15 @@ def deploy_notebook(
         bundle = create_notebook_deployment_bundle(file, extra_files, app_mode, python, environment, False)
 
     _deploy_bundle(
-        connect_server, app_store, file, app_id, app_mode, deployment_name, title, default_title, bundle,
+        connect_server,
+        app_store,
+        file,
+        app_id,
+        app_mode,
+        deployment_name,
+        title,
+        default_title,
+        bundle,
     )
 
 
@@ -587,13 +662,23 @@ def deploy_notebook(
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
 @click.option(
-    "--server", "-s", envvar="CONNECT_SERVER", help="The URL for the RStudio Connect server to deploy to.",
+    "--server",
+    "-s",
+    envvar="CONNECT_SERVER",
+    help="The URL for the RStudio Connect server to deploy to.",
 )
 @click.option(
-    "--api-key", "-k", envvar="CONNECT_API_KEY", help="The API key to use to authenticate with RStudio Connect.",
+    "--api-key",
+    "-k",
+    envvar="CONNECT_API_KEY",
+    help="The API key to use to authenticate with RStudio Connect.",
 )
 @click.option(
-    "--insecure", "-i", envvar="CONNECT_INSECURE", is_flag=True, help="Disable TLS certification/host validation.",
+    "--insecure",
+    "-i",
+    envvar="CONNECT_INSECURE",
+    is_flag=True,
+    help="Disable TLS certification/host validation.",
 )
 @click.option(
     "--cacert",
@@ -612,7 +697,9 @@ def deploy_notebook(
     ),
 )
 @click.option(
-    "--app-id", "-a", help="Existing app ID or GUID to replace. Cannot be used with --new.",
+    "--app-id",
+    "-a",
+    help="Existing app ID or GUID to replace. Cannot be used with --new.",
 )
 @click.option("--title", "-t", help="Title of the content (default is the same as the filename).")
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
@@ -644,7 +731,10 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
         try:
             bundle = make_manifest_bundle(file)
         except IOError as error:
-            msg = "Unable to include the file %s in the bundle: %s" % (error.filename, error.args[1],)
+            msg = "Unable to include the file %s in the bundle: %s" % (
+                error.filename,
+                error.args[1],
+            )
             if error.args[0] == errno.ENOENT:
                 msg = "\n".join(
                     [
@@ -658,7 +748,15 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
             raise api.RSConnectException(msg)
 
     _deploy_bundle(
-        connect_server, app_store, file, app_id, app_mode, deployment_name, title, default_title, bundle,
+        connect_server,
+        app_store,
+        file,
+        app_id,
+        app_mode,
+        deployment_name,
+        title,
+        default_title,
+        bundle,
     )
 
 
@@ -676,13 +774,23 @@ def generate_deploy_python(app_mode, alias, min_version):
     )
     @click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
     @click.option(
-        "--server", "-s", envvar="CONNECT_SERVER", help="The URL for the RStudio Connect server to deploy to.",
+        "--server",
+        "-s",
+        envvar="CONNECT_SERVER",
+        help="The URL for the RStudio Connect server to deploy to.",
     )
     @click.option(
-        "--api-key", "-k", envvar="CONNECT_API_KEY", help="The API key to use to authenticate with RStudio Connect.",
+        "--api-key",
+        "-k",
+        envvar="CONNECT_API_KEY",
+        help="The API key to use to authenticate with RStudio Connect.",
     )
     @click.option(
-        "--insecure", "-i", envvar="CONNECT_INSECURE", is_flag=True, help="Disable TLS certification/host validation.",
+        "--insecure",
+        "-i",
+        envvar="CONNECT_INSECURE",
+        is_flag=True,
+        help="Disable TLS certification/host validation.",
     )
     @click.option(
         "--cacert",
@@ -718,10 +826,14 @@ def generate_deploy_python(app_mode, alias, min_version):
         ),
     )
     @click.option(
-        "--app-id", "-a", help="Existing app ID or GUID to replace. Cannot be used with --new.",
+        "--app-id",
+        "-a",
+        help="Existing app ID or GUID to replace. Cannot be used with --new.",
     )
     @click.option(
-        "--title", "-t", help="Title of the content (default is the same as the directory).",
+        "--title",
+        "-t",
+        help="Title of the content (default is the same as the directory).",
     )
     @click.option(
         "--python",
@@ -740,12 +852,17 @@ def generate_deploy_python(app_mode, alias, min_version):
         help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
     )
     @click.option(
-        "--force-generate", "-g", is_flag=True, help='Force generating "requirements.txt", even if it already exists.',
+        "--force-generate",
+        "-g",
+        is_flag=True,
+        help='Force generating "requirements.txt", even if it already exists.',
     )
     @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
     @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
     @click.argument(
-        "extra_files", nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True),
+        "extra_files",
+        nargs=-1,
+        type=click.Path(exists=True, dir_okay=False, file_okay=True),
     )
     def deploy_app(
         name,
@@ -784,6 +901,7 @@ def generate_deploy_python(app_mode, alias, min_version):
             extra_files,
             {
                 AppModes.PYTHON_API: gather_basic_deployment_info_for_api,
+                AppModes.PYTHON_FASTAPI: gather_basic_deployment_info_for_fastapi,
                 AppModes.DASH_APP: gather_basic_deployment_info_for_dash,
                 AppModes.STREAMLIT_APP: gather_basic_deployment_info_for_streamlit,
                 AppModes.BOKEH_APP: gather_basic_deployment_info_for_bokeh,
@@ -794,6 +912,8 @@ def generate_deploy_python(app_mode, alias, min_version):
 
 
 deploy_api = generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="api", min_version="1.8.2")
+# TODO: set fastapi min_version correctly
+deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="1.8.8")
 deploy_dash_app = generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
 deploy_streamlit_app = generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
 deploy_bokeh_app = generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
@@ -875,7 +995,15 @@ def _deploy_by_framework(
         bundle = create_api_deployment_bundle(directory, extra_files, exclude, entrypoint, app_mode, environment, False)
 
     _deploy_bundle(
-        connect_server, app_store, directory, app_id, app_mode, deployment_name, title, default_title, bundle,
+        connect_server,
+        app_store,
+        directory,
+        app_id,
+        app_mode,
+        deployment_name,
+        title,
+        default_title,
+        bundle,
     )
 
 
@@ -929,15 +1057,24 @@ def write_manifest():
     + "The Python environment must have the rsconnect package installed.",
 )
 @click.option(
-    "--conda", "-C", is_flag=True, hidden=True, help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
+    "--conda",
+    "-C",
+    is_flag=True,
+    hidden=True,
+    help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
 )
 @click.option(
-    "--force-generate", "-g", is_flag=True, help='Force generating "requirements.txt", even if it already exists.',
+    "--force-generate",
+    "-g",
+    is_flag=True,
+    help='Force generating "requirements.txt", even if it already exists.',
 )
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
-    "extra_files", nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True),
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
 def write_manifest_notebook(overwrite, python, conda, force_generate, verbose, file, extra_files):
     set_verbosity(verbose)
@@ -963,7 +1100,8 @@ def write_manifest_notebook(overwrite, python, conda, force_generate, verbose, f
 
     if environment_file_exists and not force_generate:
         click.secho(
-            "    Warning: %s already exists and will not be overwritten." % environment.filename, fg="yellow",
+            "    Warning: %s already exists and will not be overwritten." % environment.filename,
+            fg="yellow",
         )
     else:
         with cli_feedback("Creating %s" % environment.filename):
@@ -1014,24 +1152,47 @@ def generate_write_manifest_python(app_mode, alias):
         help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
     )
     @click.option(
-        "--force-generate", "-g", is_flag=True, help='Force generating "requirements.txt", even if it already exists.',
+        "--force-generate",
+        "-g",
+        is_flag=True,
+        help='Force generating "requirements.txt", even if it already exists.',
     )
     @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
     @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
     @click.argument(
-        "extra_files", nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True),
+        "extra_files",
+        nargs=-1,
+        type=click.Path(exists=True, dir_okay=False, file_okay=True),
     )
     def manifest_writer(
-        overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files,
+        overwrite,
+        entrypoint,
+        exclude,
+        python,
+        conda,
+        force_generate,
+        verbose,
+        directory,
+        extra_files,
     ):
         _write_framework_manifest(
-            overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files, app_mode,
+            overwrite,
+            entrypoint,
+            exclude,
+            python,
+            conda,
+            force_generate,
+            verbose,
+            directory,
+            extra_files,
+            app_mode,
         )
 
     return manifest_writer
 
 
 write_manifest_api = generate_write_manifest_python(AppModes.PYTHON_API, alias="api")
+write_manifest_fastapi = generate_write_manifest_python(AppModes.PYTHON_FASTAPI, alias="fastapi")
 write_manifest_dash = generate_write_manifest_python(AppModes.DASH_APP, alias="dash")
 write_manifest_streamlit = generate_write_manifest_python(AppModes.STREAMLIT_APP, alias="streamlit")
 write_manifest_bokeh = generate_write_manifest_python(AppModes.BOKEH_APP, alias="bokeh")
@@ -1039,7 +1200,16 @@ write_manifest_bokeh = generate_write_manifest_python(AppModes.BOKEH_APP, alias=
 
 # noinspection SpellCheckingInspection
 def _write_framework_manifest(
-    overwrite, entrypoint, exclude, python, conda, force_generate, verbose, directory, extra_files, app_mode,
+    overwrite,
+    entrypoint,
+    exclude,
+    python,
+    conda,
+    force_generate,
+    verbose,
+    directory,
+    extra_files,
+    app_mode,
 ):
     """
     A common function for writing manifests for APIs as well as Dash, Streamlit, and Bokeh apps.
@@ -1079,7 +1249,8 @@ def _write_framework_manifest(
 
     if environment_file_exists and not force_generate:
         click.secho(
-            "    Warning: %s already exists and will not be overwritten." % environment.filename, fg="yellow",
+            "    Warning: %s already exists and will not be overwritten." % environment.filename,
+            fg="yellow",
         )
     else:
         with cli_feedback("Creating %s" % environment.filename):

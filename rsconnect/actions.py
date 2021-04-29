@@ -482,10 +482,19 @@ def deploy_jupyter_notebook(
     of log lines.  The log lines value will be None if a log callback was provided.
     """
     app_store = AppStore(file_name)
-    (app_id, deployment_name, deployment_title, default_title, app_mode,) = gather_basic_deployment_info_for_notebook(
-        connect_server, app_store, file_name, new, app_id, title, static
+    (
+        app_id,
+        deployment_name,
+        deployment_title,
+        default_title,
+        app_mode,
+    ) = gather_basic_deployment_info_for_notebook(connect_server, app_store, file_name, new, app_id, title, static)
+    python, environment = get_python_env_info(
+        file_name,
+        python,
+        conda_mode=conda_mode,
+        force_generate=force_generate,
     )
-    python, environment = get_python_env_info(file_name, python, conda_mode=conda_mode, force_generate=force_generate,)
     bundle = create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, environment)
     return _finalize_deploy(
         connect_server,
@@ -502,7 +511,16 @@ def deploy_jupyter_notebook(
 
 
 def _finalize_deploy(
-    connect_server, app_store, file_name, app_id, app_mode, name, title, title_is_default, bundle, log_callback,
+    connect_server,
+    app_store,
+    file_name,
+    app_id,
+    app_mode,
+    name,
+    title,
+    title_is_default,
+    bundle,
+    log_callback,
 ):
     """
     A common function to finish up the deploy process once all the data (bundle
@@ -527,7 +545,13 @@ def _finalize_deploy(
     app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle)
     app_url, log_lines = spool_deployment_log(connect_server, app, log_callback)
     app_store.set(
-        connect_server.url, abspath(file_name), app_url, app["app_id"], app["app_guid"], title, app_mode,
+        connect_server.url,
+        abspath(file_name),
+        app_url,
+        app["app_id"],
+        app["app_guid"],
+        title,
+        app_mode,
     )
     return app_url, log_lines
 
@@ -591,6 +615,62 @@ def deploy_python_api(
         excludes,
         entry_point,
         gather_basic_deployment_info_for_api,
+        new,
+        app_id,
+        title,
+        python,
+        conda_mode,
+        force_generate,
+        log_callback,
+    )
+
+
+def deploy_python_fastapi(
+    connect_server,
+    directory,
+    extra_files,
+    excludes,
+    entry_point,
+    new=False,
+    app_id=None,
+    title=None,
+    python=None,
+    conda_mode=False,
+    force_generate=False,
+    log_callback=None,
+):
+    """
+    A function to deploy a Python ASGI API module to Connect.  Depending on the files involved
+    and network latency, this may take a bit of time.
+
+    :param connect_server: the Connect server information.
+    :param directory: the app directory to deploy.
+    :param extra_files: any extra files that should be included in the deploy.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param entry_point: the module/executable object for the WSGi framework.
+    :param new: a flag to force this as a new deploy.
+    :param app_id: the ID of an existing application to deploy new files for.
+    :param title: an optional title for the deploy.  If this is not provided, ne will
+    be generated.
+    :param python: the optional name of a Python executable.
+    :param conda_mode: use conda to build an environment.yml
+    instead of conda, when conda is not supported on RStudio Connect (version<=1.8.0).
+    :param force_generate: force generating "requirements.txt" or "environment.yml",
+    even if it already exists.
+    :param log_callback: the callback to use to write the log to.  If this is None
+    (the default) the lines from the deployment log will be returned as a sequence.
+    If a log callback is provided, then None will be returned for the log lines part
+    of the return tuple.
+    :return: the ultimate URL where the deployed app may be accessed and the sequence
+    of log lines.  The log lines value will be None if a log callback was provided.
+    """
+    return _deploy_by_python_framework(
+        connect_server,
+        directory,
+        extra_files,
+        excludes,
+        entry_point,
+        gather_basic_deployment_info_for_fastapi,
         new,
         app_id,
         title,
@@ -812,10 +892,20 @@ def _deploy_by_python_framework(
     """
     module_file = fake_module_file_from_directory(directory)
     app_store = AppStore(module_file)
-    (entry_point, app_id, deployment_name, deployment_title, default_title, app_mode,) = gatherer(
-        connect_server, app_store, directory, entry_point, new, app_id, title
+    (
+        entry_point,
+        app_id,
+        deployment_name,
+        deployment_title,
+        default_title,
+        app_mode,
+    ) = gatherer(connect_server, app_store, directory, entry_point, new, app_id, title)
+    _, environment = get_python_env_info(
+        directory,
+        python,
+        conda_mode=conda_mode,
+        force_generate=force_generate,
     )
-    _, environment = get_python_env_info(directory, python, conda_mode=conda_mode, force_generate=force_generate,)
     bundle = create_api_deployment_bundle(directory, extra_files, excludes, entry_point, app_mode, environment)
     return _finalize_deploy(
         connect_server,
@@ -832,7 +922,12 @@ def _deploy_by_python_framework(
 
 
 def deploy_by_manifest(
-    connect_server, manifest_file_name, new=False, app_id=None, title=None, log_callback=None,
+    connect_server,
+    manifest_file_name,
+    new=False,
+    app_id=None,
+    title=None,
+    log_callback=None,
 ):
     """
     A function to deploy a Jupyter notebook to Connect.  Depending on the files involved
@@ -979,13 +1074,21 @@ def _generate_gather_basic_deployment_info_for_python(app_mode):
 
     def gatherer(connect_server, app_store, directory, entry_point, new, app_id, title):
         return _gather_basic_deployment_info_for_framework(
-            connect_server, app_store, directory, entry_point, new, app_id, app_mode, title,
+            connect_server,
+            app_store,
+            directory,
+            entry_point,
+            new,
+            app_id,
+            app_mode,
+            title,
         )
 
     return gatherer
 
 
 gather_basic_deployment_info_for_api = _generate_gather_basic_deployment_info_for_python(AppModes.PYTHON_API)
+gather_basic_deployment_info_for_fastapi = _generate_gather_basic_deployment_info_for_python(AppModes.PYTHON_FASTAPI)
 gather_basic_deployment_info_for_dash = _generate_gather_basic_deployment_info_for_python(AppModes.DASH_APP)
 gather_basic_deployment_info_for_streamlit = _generate_gather_basic_deployment_info_for_python(AppModes.STREAMLIT_APP)
 gather_basic_deployment_info_for_bokeh = _generate_gather_basic_deployment_info_for_python(AppModes.BOKEH_APP)
@@ -1078,7 +1181,12 @@ def get_python_env_info(file_name, python, conda_mode=False, force_generate=Fals
 
 
 def create_notebook_deployment_bundle(
-    file_name, extra_files, app_mode, python, environment, extra_files_need_validating=True,
+    file_name,
+    extra_files,
+    app_mode,
+    python,
+    environment,
+    extra_files_need_validating=True,
 ):
     """
     Create an in-memory bundle, ready to deploy.
@@ -1111,7 +1219,13 @@ def create_notebook_deployment_bundle(
 
 
 def create_api_deployment_bundle(
-    directory, extra_files, excludes, entry_point, app_mode, environment, extra_files_need_validating=True,
+    directory,
+    extra_files,
+    excludes,
+    entry_point,
+    app_mode,
+    environment,
+    extra_files_need_validating=True,
 ):
     """
     Create an in-memory bundle, ready to deploy.
@@ -1235,7 +1349,13 @@ def write_notebook_manifest_json(entry_point_file, environment, app_mode=None, e
 
 
 def create_api_manifest_and_environment_file(
-    directory, entry_point, environment, app_mode=AppModes.PYTHON_API, extra_files=None, excludes=None, force=True,
+    directory,
+    entry_point,
+    environment,
+    app_mode=AppModes.PYTHON_API,
+    extra_files=None,
+    excludes=None,
+    force=True,
 ):
     """
     Creates and writes a manifest.json file for the given Python API entry point.  If
@@ -1258,7 +1378,12 @@ def create_api_manifest_and_environment_file(
 
 
 def write_api_manifest_json(
-    directory, entry_point, environment, app_mode=AppModes.PYTHON_API, extra_files=None, excludes=None,
+    directory,
+    entry_point,
+    environment,
+    app_mode=AppModes.PYTHON_API,
+    extra_files=None,
+    excludes=None,
 ):
     """
     Creates and writes a manifest.json file for the given entry point file.  If
