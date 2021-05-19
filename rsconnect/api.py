@@ -62,7 +62,11 @@ class RSConnect(HTTPServer):
         if cookies is None:
             cookies = server.cookie_jar
         super(RSConnect, self).__init__(
-            append_to_path(server.url, "__api__"), server.insecure, server.ca_data, cookies, timeout,
+            append_to_path(server.url, "__api__"),
+            server.insecure,
+            server.ca_data,
+            cookies,
+            timeout,
         )
         self._server = server
 
@@ -100,10 +104,19 @@ class RSConnect(HTTPServer):
         return self.post("applications/%s/deploy" % app_id, body={"bundle": bundle_id})
 
     def app_publish(self, app_id, access):
-        return self.post("applications/%s" % app_id, body={"access_type": access, "id": app_id, "needs_config": False},)
+        return self.post(
+            "applications/%s" % app_id,
+            body={"access_type": access, "id": app_id, "needs_config": False},
+        )
 
     def app_config(self, app_id):
         return self.get("applications/%s/config" % app_id)
+
+    def vanity_get(self, app_id):
+        return self.get("content/%s/vanity" % app_id)
+
+    def vanity_set(self, app_id, vanity_url):
+        return self.post("content/%s/vanity" % app_id, body={"path": "%s" % vanity_url})
 
     def task_get(self, task_id, first_status=None):
         params = None
@@ -111,12 +124,11 @@ class RSConnect(HTTPServer):
             params = {"first_status": first_status}
         return self.get("tasks/%s" % task_id, query_params=params)
 
-    def deploy(self, app_id, app_name, app_title, title_is_default, tarball):
+    def deploy(self, app_id, app_name, app_title, title_is_default, vanity_url, tarball):
         if app_id is None:
             # create an app if id is not provided
             app = self.app_create(app_name)
             self._server.handle_bad_response(app)
-            app_id = app["id"]
             # Force the title to update.
             title_is_default = False
         else:
@@ -127,7 +139,9 @@ class RSConnect(HTTPServer):
 
         if app["title"] != app_title and not title_is_default:
             self._server.handle_bad_response(self.app_update(app_id, {"title": app_title}))
-            app["title"] = app_title
+
+        if vanity_url:
+            self._server.handle_bad_response(self.vanity_set(app_id, vanity_url))
 
         app_bundle = self.app_upload(app_id, tarball)
 
@@ -137,9 +151,13 @@ class RSConnect(HTTPServer):
 
         self._server.handle_bad_response(task)
 
+        # refresh our info after the updates
+        app = self.app_get(app_id)
+        self._server.handle_bad_response(app)
+
         return {
             "task_id": task["id"],
-            "app_id": app_id,
+            "app_id": app["id"],
             "app_guid": app["guid"],
             "app_url": app["url"],
             "title": app["title"],
@@ -272,7 +290,7 @@ def get_app_config(connect_server, app_id):
         return result
 
 
-def do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bundle):
+def do_bundle_deploy(connect_server, app_id, name, title, title_is_default, vanity_url, bundle):
     """
     Deploys the specified bundle.
 
@@ -281,12 +299,13 @@ def do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bund
     :param name: the name for the deploy.
     :param title: the title for the deploy.
     :param title_is_default: a flag noting whether the title carries a defaulted value.
+    :param vanity_url: the vanity URL to be assigned to this app deployment.
     :param bundle: the bundle to deploy.
     :return: application information about the deploy.  This includes the ID of the
     task that may be queried for deployment progress.
     """
     with RSConnect(connect_server, timeout=120) as client:
-        result = client.deploy(app_id, name, title, title_is_default, bundle)
+        result = client.deploy(app_id, name, title, title_is_default, vanity_url, bundle)
         connect_server.handle_bad_response(result)
         return result
 
@@ -458,7 +477,9 @@ def find_unique_name(connect_server, name):
     :return: the name, potentially with a suffixed number to guarantee uniqueness.
     """
     existing_names = retrieve_matching_apps(
-        connect_server, filters={"search": name}, mapping_function=lambda client, app: app["name"],
+        connect_server,
+        filters={"search": name},
+        mapping_function=lambda client, app: app["name"],
     )
 
     if name in existing_names:

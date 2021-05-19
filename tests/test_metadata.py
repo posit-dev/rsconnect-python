@@ -26,7 +26,13 @@ class TestServerMetadata(TestCase):
 
         self.assertEqual(
             self.server_store.get_by_name("bar"),
-            dict(name="bar", url="http://connect.remote", api_key="differentApiKey", insecure=True, ca_cert=None,),
+            dict(
+                name="bar",
+                url="http://connect.remote",
+                api_key="differentApiKey",
+                insecure=True,
+                ca_cert=None,
+            ),
         )
 
     def test_remove_by_name(self):
@@ -138,7 +144,13 @@ class TestAppMetadata(TestCase):
 
         self.app_store = AppStore(self.nb_path)
         self.app_store.set(
-            "http://dev", "/path/to/file", "http://dev/apps/123", 123, "shouldBeAGuid", "Important Title", "static",
+            "http://dev",
+            "/path/to/file",
+            "http://dev/apps/123",
+            123,
+            "shouldBeAGuid",
+            "Important Title",
+            "static",
         )
         self.app_store.set(
             "http://prod",

@@ -33,6 +33,8 @@ from rsconnect.actions import (
     deploy_python_api,
     deploy_streamlit_app,
     deploy_bokeh_app,
+    deploy_jupyter_notebook,
+    deploy_tableau_api,
     gather_basic_deployment_info_for_api,
     get_python_env_info,
     inspect_environment,
@@ -87,7 +89,8 @@ class TestActions(TestCase):
         with self.assertRaises(api.RSConnectException) as context:
             check_server_capabilities(None, (are_apis_supported_on_server,), lambda x: no_api_support)
         self.assertEqual(
-            str(context.exception), "The RStudio Connect server does not allow for Python APIs.",
+            str(context.exception),
+            "The RStudio Connect server does not allow for Python APIs.",
         )
 
         check_server_capabilities(None, (are_apis_supported_on_server,), lambda x: api_support)
@@ -124,13 +127,15 @@ class TestActions(TestCase):
         with self.assertRaises(api.RSConnectException) as context:
             check_server_capabilities(None, (fake_cap,), lambda x: None)
         self.assertEqual(
-            str(context.exception), "The server does not satisfy the fake_cap capability check.",
+            str(context.exception),
+            "The server does not satisfy the fake_cap capability check.",
         )
 
         with self.assertRaises(api.RSConnectException) as context:
             check_server_capabilities(None, (fake_cap_with_doc,), lambda x: None)
         self.assertEqual(
-            str(context.exception), "The server does not satisfy the fake_cap_with_doc capability check.",
+            str(context.exception),
+            "The server does not satisfy the fake_cap_with_doc capability check.",
         )
 
     def test_validate_title(self):
@@ -197,7 +202,8 @@ class TestActions(TestCase):
         self.assertEqual(validate_extra_files(directory, None), [])
         self.assertEqual(validate_extra_files(directory, []), [])
         self.assertEqual(
-            validate_extra_files(directory, [join(directory, "index.htm")]), ["index.htm"],
+            validate_extra_files(directory, [join(directory, "index.htm")]),
+            ["index.htm"],
         )
 
     def test_deploy_python_api_validates(self):
@@ -205,6 +211,32 @@ class TestActions(TestCase):
         server = RSConnectServer("https://www.bogus.com", "bogus")
         with self.assertRaises(RSConnectException):
             deploy_python_api(server, directory, [], [], "bogus")
+
+    def test_deploy_jupyter_notebook_signature(self):
+        self.assertEqual(
+            str(signature(deploy_jupyter_notebook)),
+            "({})".format(
+                ", ".join(
+                    [
+                        "connect_server",
+                        "file_name",
+                        "extra_files",
+                        "new=False",
+                        "app_id=None",
+                        "title=None",
+                        "vanity_url=None",
+                        "static=False",
+                        "python=None",
+                        "conda_mode=False",
+                        "force_generate=False",
+                        "log_callback=None",
+                    ]
+                )
+            ),
+        )
+
+    def test_deploy_jupyter_notebook_docs(self):
+        self.assertTrue("Jupyter notebook" in deploy_jupyter_notebook.__doc__)
 
     def test_deploy_dash_app_signature(self):
         self.assertEqual(
@@ -220,6 +252,7 @@ class TestActions(TestCase):
                         "new=False",
                         "app_id=None",
                         "title=None",
+                        "vanity_url=None",
                         "python=None",
                         "conda_mode=False",
                         "force_generate=False",
@@ -246,6 +279,7 @@ class TestActions(TestCase):
                         "new=False",
                         "app_id=None",
                         "title=None",
+                        "vanity_url=None",
                         "python=None",
                         "conda_mode=False",
                         "force_generate=False",
@@ -272,6 +306,7 @@ class TestActions(TestCase):
                         "new=False",
                         "app_id=None",
                         "title=None",
+                        "vanity_url=None",
                         "python=None",
                         "conda_mode=False",
                         "force_generate=False",
@@ -283,6 +318,33 @@ class TestActions(TestCase):
 
     def test_deploy_bokeh_app_docs(self):
         self.assertTrue("Bokeh app" in deploy_bokeh_app.__doc__)
+
+    def test_deploy_tableau_api_signature(self):
+        self.assertEqual(
+            str(signature(deploy_tableau_api)),
+            "({})".format(
+                ", ".join(
+                    [
+                        "connect_server",
+                        "directory",
+                        "extra_files",
+                        "excludes",
+                        "entry_point",
+                        "vanity_url",
+                        "new=False",
+                        "app_id=None",
+                        "title=None",
+                        "python=None",
+                        "conda_mode=False",
+                        "force_generate=False",
+                        "log_callback=None",
+                    ]
+                )
+            ),
+        )
+
+    def test_deploy_tableau_api_docs(self):
+        self.assertTrue("Tableau API" in deploy_tableau_api.__doc__)
 
     def test_gather_basic_deployment_info_for_api_validates(self):
         directory = get_api_path("flask")
@@ -314,7 +376,14 @@ class TestActions(TestCase):
 
 
 @pytest.mark.parametrize(
-    ("file_name", "python", "conda_mode", "force_generate", "expected_python", "expected_environment",),
+    (
+        "file_name",
+        "python",
+        "conda_mode",
+        "force_generate",
+        "expected_python",
+        "expected_environment",
+    ),
     [
         pytest.param(
             "path/to/file.py",
@@ -373,13 +442,23 @@ class TestActions(TestCase):
     ],
 )
 def test_get_python_env_info(
-    monkeypatch, file_name, python, conda_mode, force_generate, expected_python, expected_environment,
+    monkeypatch,
+    file_name,
+    python,
+    conda_mode,
+    force_generate,
+    expected_python,
+    expected_environment,
 ):
     def fake_which_python(python, env=os.environ):
         return expected_python
 
     def fake_inspect_environment(
-        python, directory, conda_mode=False, force_generate=False, check_output=subprocess.check_output,
+        python,
+        directory,
+        conda_mode=False,
+        force_generate=False,
+        check_output=subprocess.check_output,
     ):
         return expected_environment
 

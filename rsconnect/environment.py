@@ -27,7 +27,18 @@ exec_dir = os.path.dirname(sys.executable)
 
 
 Environment = collections.namedtuple(
-    "Environment", ("conda", "contents", "error", "filename", "locale", "package_manager", "pip", "python", "source",),
+    "Environment",
+    (
+        "conda",
+        "contents",
+        "error",
+        "filename",
+        "locale",
+        "package_manager",
+        "pip",
+        "python",
+        "source",
+    ),
 )
 
 
@@ -123,7 +134,12 @@ def get_python_version(environment):
 def get_conda_version(conda):
     try:
         args = [conda, "-V"]
-        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True,)
+        proc = subprocess.Popen(
+            args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
         stdout, stderr = proc.communicate()
         match = version_re.search(stdout or stderr)
         if match:
@@ -146,13 +162,21 @@ def get_default_locale(locale_source=locale.getdefaultlocale):
 def get_version(module):
     try:
         args = [sys.executable, "-m", module, "--version"]
-        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True,)
+        proc = subprocess.Popen(
+            args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
         stdout, stderr = proc.communicate()
         match = version_re.search(stdout)
         if match:
             return match.group()
 
-        msg = "Failed to get version of '%s' from the output of: %s" % (module, " ".join(args),)
+        msg = "Failed to get version of '%s' from the output of: %s" % (
+            module,
+            " ".join(args),
+        )
         raise EnvironmentException(msg)
     except Exception as exception:
         raise EnvironmentException("Error getting '%s' version: %s" % (module, str(exception)))
@@ -228,7 +252,7 @@ def strip_ref(line):
 
 
 def exclude(line):
-    return line and line.startswith('setuptools') and 'post' in line
+    return line and line.startswith("setuptools") and "post" in line
 
 
 def conda_env_export(conda):
@@ -238,7 +262,10 @@ def conda_env_export(conda):
     """
     try:
         proc = subprocess.Popen(
-            [conda, "env", "export"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True,
+            [conda, "env", "export"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
         )
         conda_stdout, conda_stderr = proc.communicate()
         conda_status = proc.returncode
@@ -276,14 +303,16 @@ def main():
         if "c" in flags:
             conda_mode = True
         envinfo = detect_environment(directory, force_generate, conda_mode)._asdict()
-        if 'contents' in envinfo:
-            keepers = list(map(strip_ref, envinfo['contents'].split('\n')))
+        if "contents" in envinfo:
+            keepers = list(map(strip_ref, envinfo["contents"].split("\n")))
             if not conda_mode:
                 keepers = [line for line in keepers if not exclude(line)]
-            envinfo['contents'] = '\n'.join(keepers)
+            envinfo["contents"] = "\n".join(keepers)
 
         json.dump(
-            envinfo, sys.stdout, indent=4,
+            envinfo,
+            sys.stdout,
+            indent=4,
         )
     except EnvironmentException as exception:
         json.dump(dict(error=str(exception)), sys.stdout, indent=4)
