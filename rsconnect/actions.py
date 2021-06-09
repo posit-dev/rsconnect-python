@@ -455,6 +455,7 @@ def deploy_jupyter_notebook(
     conda_mode=False,
     force_generate=False,
     log_callback=None,
+    noinput=None,
 ):
     """
     A function to deploy a Jupyter notebook to Connect.  Depending on the files involved
@@ -478,6 +479,7 @@ def deploy_jupyter_notebook(
     (the default) the lines from the deployment log will be returned as a sequence.
     If a log callback is provided, then None will be returned for the log lines part
     of the return tuple.
+    :param noinput: if True, will hide notebook code cells when rendering to output
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
@@ -486,7 +488,7 @@ def deploy_jupyter_notebook(
         connect_server, app_store, file_name, new, app_id, title, static
     )
     python, environment = get_python_env_info(file_name, python, conda_mode=conda_mode, force_generate=force_generate,)
-    bundle = create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, environment)
+    bundle = create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, environment, noinput)
     return _finalize_deploy(
         connect_server,
         app_store,
@@ -1079,6 +1081,7 @@ def get_python_env_info(file_name, python, conda_mode=False, force_generate=Fals
 
 def create_notebook_deployment_bundle(
     file_name, extra_files, app_mode, python, environment, extra_files_need_validating=True,
+    noinput=None,
 ):
     """
     Create an in-memory bundle, ready to deploy.
@@ -1101,13 +1104,13 @@ def create_notebook_deployment_bundle(
 
     if app_mode == AppModes.STATIC:
         try:
-            return make_notebook_html_bundle(file_name, python)
+            return make_notebook_html_bundle(file_name, python, noinput)
         except subprocess.CalledProcessError as exc:
             # Jupyter rendering failures are often due to
             # user code failing, vs. an internal failure of rsconnect-python.
             raise api.RSConnectException(str(exc))
     else:
-        return make_notebook_source_bundle(file_name, environment, extra_files)
+        return make_notebook_source_bundle(file_name, environment, extra_files, noinput)
 
 
 def create_api_deployment_bundle(
@@ -1172,7 +1175,7 @@ def spool_deployment_log(connect_server, app, log_callback):
 
 
 def create_notebook_manifest_and_environment_file(
-    entry_point_file, environment, app_mode=None, extra_files=None, force=True
+    entry_point_file, environment, app_mode=None, extra_files=None, force=True, noinput=None
 ):
     """
     Creates and writes a manifest.json file for the given notebook entry point file.
@@ -1190,11 +1193,11 @@ def create_notebook_manifest_and_environment_file(
     already exists.
     :return:
     """
-    if not write_notebook_manifest_json(entry_point_file, environment, app_mode, extra_files) or force:
+    if not write_notebook_manifest_json(entry_point_file, environment, app_mode, extra_files, noinput) or force:
         write_environment_file(environment, dirname(entry_point_file))
 
 
-def write_notebook_manifest_json(entry_point_file, environment, app_mode=None, extra_files=None):
+def write_notebook_manifest_json(entry_point_file, environment, app_mode, extra_files, noinput):
     """
     Creates and writes a manifest.json file for the given entry point file.  If
     the application mode is not provided, an attempt will be made to resolve one

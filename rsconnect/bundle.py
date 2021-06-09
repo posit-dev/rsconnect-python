@@ -136,7 +136,7 @@ def bundle_add_buffer(bundle, filename, contents):
     bundle.addfile(file_info, buf)
 
 
-def write_manifest(relative_dir, nb_name, environment, output_dir):
+def write_manifest(relative_dir, nb_name, environment, output_dir, noinput=None):
     # type: (str, str, Environment, str) -> typing.Tuple[list, list]
     """Create a manifest for source publishing the specified notebook.
 
@@ -147,6 +147,8 @@ def write_manifest(relative_dir, nb_name, environment, output_dir):
     """
     manifest_filename = "manifest.json"
     manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
+    if noinput:
+        manifest['jupyter'] = {'noinput': noinput}
     manifest_file = join(output_dir, manifest_filename)
     created = []
     skipped = []
@@ -204,6 +206,7 @@ def make_notebook_source_bundle(
     file,  # type: str
     environment,  # type: Environment
     extra_files=None,  # type:  typing.Optional[typing.List[str]]
+    noinput=None,
 ):
     # type: (...) -> typing.IO[bytes]
     """Create a bundle containing the specified notebook and python environment.
@@ -216,6 +219,8 @@ def make_notebook_source_bundle(
     nb_name = basename(file)
 
     manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
+    if noinput:
+        manifest['jupyter'] = {'noinput': noinput}
     manifest_add_file(manifest, nb_name, base_dir)
     manifest_add_buffer(manifest, environment.filename, environment.contents)
 
@@ -256,6 +261,7 @@ def make_notebook_html_bundle(
     filename,  # type: str
     python,  # type: str
     check_output=subprocess.check_output,  # type: typing.Callable
+    noinput=None,
 ):
     # type: (...) -> typing.IO[bytes]
     # noinspection SpellCheckingInspection
@@ -270,6 +276,8 @@ def make_notebook_html_bundle(
         "--to=html",
         filename,
     ]
+    if noinput:
+        cmd.append('--no-input')    
     try:
         output = check_output(cmd)
     except subprocess.CalledProcessError:
