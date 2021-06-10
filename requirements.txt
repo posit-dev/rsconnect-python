@@ -19,3 +19,4 @@ twine
 wheel
 types-six
 types-click
+types-Flask
