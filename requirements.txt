@@ -18,3 +18,4 @@ toml
 twine
 wheel
 types-six
+types-click
