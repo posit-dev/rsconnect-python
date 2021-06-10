@@ -87,7 +87,8 @@ class TestActions(TestCase):
         with self.assertRaises(api.RSConnectException) as context:
             check_server_capabilities(None, (are_apis_supported_on_server,), lambda x: no_api_support)
         self.assertEqual(
-            str(context.exception), "The RStudio Connect server does not allow for Python APIs.",
+            str(context.exception),
+            "The RStudio Connect server does not allow for Python APIs.",
         )
 
         check_server_capabilities(None, (are_apis_supported_on_server,), lambda x: api_support)
@@ -124,13 +125,15 @@ class TestActions(TestCase):
         with self.assertRaises(api.RSConnectException) as context:
             check_server_capabilities(None, (fake_cap,), lambda x: None)
         self.assertEqual(
-            str(context.exception), "The server does not satisfy the fake_cap capability check.",
+            str(context.exception),
+            "The server does not satisfy the fake_cap capability check.",
         )
 
         with self.assertRaises(api.RSConnectException) as context:
             check_server_capabilities(None, (fake_cap_with_doc,), lambda x: None)
         self.assertEqual(
-            str(context.exception), "The server does not satisfy the fake_cap_with_doc capability check.",
+            str(context.exception),
+            "The server does not satisfy the fake_cap_with_doc capability check.",
         )
 
     def test_validate_title(self):
@@ -197,7 +200,8 @@ class TestActions(TestCase):
         self.assertEqual(validate_extra_files(directory, None), [])
         self.assertEqual(validate_extra_files(directory, []), [])
         self.assertEqual(
-            validate_extra_files(directory, [join(directory, "index.htm")]), ["index.htm"],
+            validate_extra_files(directory, [join(directory, "index.htm")]),
+            ["index.htm"],
         )
 
     def test_deploy_python_api_validates(self):
@@ -314,7 +318,14 @@ class TestActions(TestCase):
 
 
 @pytest.mark.parametrize(
-    ("file_name", "python", "conda_mode", "force_generate", "expected_python", "expected_environment",),
+    (
+        "file_name",
+        "python",
+        "conda_mode",
+        "force_generate",
+        "expected_python",
+        "expected_environment",
+    ),
     [
         pytest.param(
             "path/to/file.py",
@@ -373,13 +384,23 @@ class TestActions(TestCase):
     ],
 )
 def test_get_python_env_info(
-    monkeypatch, file_name, python, conda_mode, force_generate, expected_python, expected_environment,
+    monkeypatch,
+    file_name,
+    python,
+    conda_mode,
+    force_generate,
+    expected_python,
+    expected_environment,
 ):
     def fake_which_python(python, env=os.environ):
         return expected_python
 
     def fake_inspect_environment(
-        python, directory, conda_mode=False, force_generate=False, check_output=subprocess.check_output,
+        python,
+        directory,
+        conda_mode=False,
+        force_generate=False,
+        check_output=subprocess.check_output,
     ):
         return expected_environment
 
