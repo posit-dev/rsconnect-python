@@ -137,7 +137,7 @@ def bundle_add_buffer(bundle, filename, contents):
 
 
 def write_manifest(relative_dir, nb_name, environment, output_dir, noinput=None):
-    # type: (str, str, Environment, str) -> typing.Tuple[list, list]
+    # type: (str, str, Environment, str, noinput) -> typing.Tuple[list, list]
     """Create a manifest for source publishing the specified notebook.
 
     The manifest will be written to `manifest.json` in the output directory..
