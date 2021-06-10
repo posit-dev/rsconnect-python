@@ -17,3 +17,4 @@ six>=1.14.0
 toml
 twine
 wheel
+types-six
