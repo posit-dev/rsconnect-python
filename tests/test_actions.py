@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import tempfile
 
 try:
     import typing
@@ -147,12 +148,21 @@ class TestActions(TestCase):
         _validate_title("1" * 1024)
 
     def test_validate_entry_point(self):
-        self.assertEqual(validate_entry_point(None), "app")
-        self.assertEqual(validate_entry_point("app"), "app")
-        self.assertEqual(validate_entry_point("app:app"), "app:app")
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertEqual(validate_entry_point(None, directory), "app")
+            self.assertEqual(validate_entry_point("app", directory), "app")
+            self.assertEqual(validate_entry_point("app:app", directory), "app:app")
 
-        with self.assertRaises(RSConnectException):
-            validate_entry_point("x:y:z")
+            with self.assertRaises(RSConnectException):
+                validate_entry_point("x:y:z", directory)
+
+                with open(join(directory, "onlysource.py"), "w") as f:
+                    f.close()
+                    self.assertEqual(validate_entry_point(None, directory), "onlysource")
+
+                    with open(join(directory, "main.py"), "w") as f:
+                        f.close()
+                        self.assertEqual(validate_entry_point(None, directory), "main")
 
     def test_make_deployment_name(self):
         self.assertEqual(_make_deployment_name(None, "title", False), "title")
