@@ -521,6 +521,7 @@ def _deploy_bundle(
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 @click.option("--no-input", is_flag=True, default=None, help="Hide code cells when rendering output")
+@click.option("--no-tag-input", is_flag=True, default=None, help="Hide input of cells with the 'remove_input' tag")
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
     "extra_files", nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True),
@@ -542,6 +543,7 @@ def deploy_notebook(
     file,
     extra_files,
     no_input,
+    no_tag_input,
 ):
     set_verbosity(verbose)
 
@@ -570,8 +572,9 @@ def deploy_notebook(
         _warn_on_ignored_requirements(dirname(file), environment.filename)
 
     with cli_feedback("Creating deployment bundle"):
-        bundle = create_notebook_deployment_bundle(file, extra_files, app_mode, python, environment, False, no_input)
-
+        bundle = create_notebook_deployment_bundle(
+            file, extra_files, app_mode, python, environment, False, no_input, no_tag_input
+        )
     _deploy_bundle(
         connect_server, app_store, file, app_id, app_mode, deployment_name, title, default_title, bundle,
     )
@@ -937,12 +940,15 @@ def write_manifest():
     "--force-generate", "-g", is_flag=True, help='Force generating "requirements.txt", even if it already exists.',
 )
 @click.option("--no-input", help="Hide code cells when rendering output")
+@click.option("--no-tag-input", is_flag=True, default=None, help="Hide input of cells with the 'remove_input' tag")
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
     "extra_files", nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
-def write_manifest_notebook(overwrite, python, conda, force_generate, verbose, file, extra_files, no_input=None):
+def write_manifest_notebook(
+    overwrite, python, conda, force_generate, verbose, file, extra_files, no_input=None, no_tag_input=None
+):
     set_verbosity(verbose)
     with cli_feedback("Checking arguments"):
         validate_file_is_notebook(file)
@@ -961,7 +967,12 @@ def write_manifest_notebook(overwrite, python, conda, force_generate, verbose, f
 
     with cli_feedback("Creating manifest.json"):
         environment_file_exists = write_notebook_manifest_json(
-            file, environment, AppModes.JUPYTER_NOTEBOOK, extra_files, no_input,
+            file,
+            environment,
+            AppModes.JUPYTER_NOTEBOOK,
+            extra_files,
+            no_input,
+            no_tag_input,
         )
 
     if environment_file_exists and not force_generate:

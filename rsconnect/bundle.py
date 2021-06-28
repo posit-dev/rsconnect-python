@@ -136,7 +136,7 @@ def bundle_add_buffer(bundle, filename, contents):
     bundle.addfile(file_info, buf)
 
 
-def write_manifest(relative_dir, nb_name, environment, output_dir, no_input=None):
+def write_manifest(relative_dir, nb_name, environment, output_dir, no_input=None, no_tag_input=None):
     # type: (...) -> typing.Tuple[list, list]
     """Create a manifest for source publishing the specified notebook.
 
@@ -149,6 +149,8 @@ def write_manifest(relative_dir, nb_name, environment, output_dir, no_input=None
     manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
     if no_input:
         manifest['jupyter'] = {'no_input': no_input}
+    if no_tag_input:
+        manifest['jupyter'] = {'no_tag_input': no_tag_input}
     manifest_file = join(output_dir, manifest_filename)
     created = []
     skipped = []
@@ -207,6 +209,7 @@ def make_notebook_source_bundle(
     environment,  # type: Environment
     extra_files=None,  # type:  typing.Optional[typing.List[str]]
     no_input=None,
+    no_tag_input=None,
 ):
     # type: (...) -> typing.IO[bytes]
     """Create a bundle containing the specified notebook and python environment.
@@ -221,6 +224,8 @@ def make_notebook_source_bundle(
     manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
     if no_input:
         manifest['jupyter'] = {'no_input': no_input}
+    if no_tag_input:
+        manifest['jupyter'] = {'no_tag_input': no_tag_input}
     manifest_add_file(manifest, nb_name, base_dir)
     manifest_add_buffer(manifest, environment.filename, environment.contents)
 
@@ -261,6 +266,7 @@ def make_notebook_html_bundle(
     filename,  # type: str
     python,  # type: str
     no_input=None,
+    no_tag_input=None,
     check_output=subprocess.check_output,  # type: typing.Callable
 ):
     # type: (...) -> typing.IO[bytes]
@@ -277,7 +283,9 @@ def make_notebook_html_bundle(
         filename,
     ]
     if no_input:
-        cmd.append('--no-input')    
+        cmd.append('--no-input')
+    if no_tag_input:
+        cmd.append('--TagRemovePreprocessor.remove_input_tags=remove_input')
     try:
         output = check_output(cmd)
     except subprocess.CalledProcessError:
