@@ -258,7 +258,10 @@ def make_html_manifest(filename):
     # noinspection SpellCheckingInspection
     return {
         "version": 1,
-        "metadata": {"appmode": "static", "primary_html": filename,},
+        "metadata": {
+            "appmode": "static",
+            "primary_html": filename,
+        },
     }
 
 
