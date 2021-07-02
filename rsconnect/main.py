@@ -1060,7 +1060,7 @@ def _write_framework_manifest(
     set_verbosity(verbose)
 
     with cli_feedback("Checking arguments"):
-        entrypoint = validate_entry_point(entrypoint)
+        entrypoint = validate_entry_point(entrypoint, directory)
         extra_files = validate_extra_files(directory, extra_files)
         manifest_path = join(directory, "manifest.json")
 
