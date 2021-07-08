@@ -1,0 +1,22 @@
+black; python_version >= '3.6'
+click>=7.0.0
+coverage
+flake8
+funcsigs
+importlib-metadata
+ipykernel
+ipython
+jupyter_client
+mypy; python_version >= '3.6'
+nbconvert
+pytest
+pytest-cov
+pytest-mypy; python_version >= '3.5'
+setuptools_scm
+six>=1.14.0
+toml
+twine
+wheel
+types-six
+types-click
+types-Flask

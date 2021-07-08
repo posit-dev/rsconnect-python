@@ -4,6 +4,7 @@ HTTP support wrappers and utility functions
 import json
 import socket
 import ssl
+import os
 
 from rsconnect import VERSION
 from rsconnect.log import logger
@@ -32,6 +33,23 @@ def _create_plain_connection(host_name, port, disable_tls_check, ca_data, timeou
     return http.HTTPConnection(host_name, port=(port or http.HTTP_PORT), timeout=timeout)
 
 
+def _get_proxy():
+    proxyURL = os.getenv("HTTPS_PROXY")
+    if proxyURL:
+        logger.info("Using custom proxy server {}".format(proxyURL))
+        parsed = urlparse(proxyURL)
+        netloc = parsed.netloc.split(":")
+        if len(netloc) > 1:
+            proxyHost, proxyPort = netloc
+        else:
+            proxyHost = netloc
+            proxyPort = 8080
+
+        return proxyHost, int(proxyPort)
+    else:
+        return None, None
+
+
 # noinspection PyUnresolvedReferences
 def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout):
     """
@@ -54,12 +72,31 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
             context=ssl.create_default_context(cadata=ca_data),
         )
     elif disable_tls_check:
-        # noinspection PyProtectedMember
-        return http.HTTPSConnection(
-            host_name, port=(port or http.HTTPS_PORT), timeout=timeout, context=ssl._create_unverified_context(),
-        )
+        proxyHost, proxyPort = _get_proxy()
+        if proxyHost is not None:
+            tmp = http.HTTPSConnection(
+                proxyHost,
+                port=proxyPort,
+                timeout=timeout,
+                context=ssl._create_unverified_context(),
+            )
+            tmp.set_tunnel(host_name, (port or http.HTTPS_PORT))
+        else:
+            tmp = http.HTTPSConnection(
+                host_name,
+                port=(port or http.HTTPS_PORT),
+                timeout=timeout,
+                context=ssl._create_unverified_context(),
+            )
+        return tmp
     else:
-        return http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=timeout)
+        proxyHost, proxyPort = _get_proxy()
+        if proxyHost is not None:
+            tmp = http.HTTPSConnection(proxyHost, port=proxyPort, timeout=timeout)
+            tmp.set_tunnel(host_name, (port or http.HTTPS_PORT))
+        else:
+            tmp = http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=timeout)
+        return tmp
 
 
 def append_to_path(uri, path):
@@ -156,7 +193,13 @@ class HTTPServer(object):
 
     def __enter__(self):
         factory = _connection_factory[self._url.scheme]
-        self._conn = factory(self._url.hostname, self._url.port, self._disable_tls_check, self._ca_data, self._timeout,)
+        self._conn = factory(
+            self._url.hostname,
+            self._url.port,
+            self._disable_tls_check,
+            self._ca_data,
+            self._timeout,
+        )
         return self
 
     def __exit__(self, *args):
@@ -226,7 +269,14 @@ class HTTPServer(object):
 
                 logger.debug("--> Redirected to: %s" % next_url)
 
-                return self._do_request(method, next_url, query_params, body, maximum_redirects - 1, extra_headers,)
+                return self._do_request(
+                    method,
+                    next_url,
+                    query_params,
+                    body,
+                    maximum_redirects - 1,
+                    extra_headers,
+                )
 
             self._handle_set_cookie(response)
 

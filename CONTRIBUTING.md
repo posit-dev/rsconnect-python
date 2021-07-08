@@ -33,3 +33,20 @@ a release will be created and published to the repository
 
 > **NOTE**: Pre-releases versions must comply with [PIP 440](https://www.python.org/dev/peps/pep-0440/) in order for
 > PIPY to appropriately mark them as pre-releases.
+
+## Updating rsconnect-python on conda-forge
+
+rsconnect-python exists on conda-forge as its own [feedstock](https://github.com/conda-forge/rsconnect-python-feedstock)
+
+Updating the package requires a fork of the repository and a [push request](https://github.com/conda-forge/rsconnect-python-feedstock#updating-rsconnect-python-feedstock). 
+
+- For new version/release, update the [meta.yaml](https://github.com/conda-forge/rsconnect-python-feedstock/blob/master/recipe/meta.yaml) file with the new version number, source url, and corresponding checksum.
+
+- For a rebuild of the same version, increase "number" under "build" by one in the [meta.yaml](https://github.com/conda-forge/rsconnect-python-feedstock/blob/master/recipe/meta.yaml) file.
+
+Once the proposed change is pushed, follow the checklist.
+- [example PR with check list](https://github.com/conda-forge/rsconnect-python-feedstock/pull/1)
+
+### Adding yourself as a rsconnect-python conda-forge maintainer
+
+Add your github username under recipe-maintainers in the [meta.yaml](https://github.com/conda-forge/rsconnect-python-feedstock/blob/master/recipe/meta.yaml) file.
