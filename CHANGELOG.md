@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+- Ability to hide code cells when rendering Jupyter notebooks. 
+
+After setting up Connect and rsconnect-python, the user can render a Jupyter notebook without its corresponding code cells by passing the ' hide-all-input' flag through the rsconnect cli:
+
+```
+rsconnect deploy notebook \
+    -n server \
+    -k APIKey \
+    --hide-all-input \
+    hello_world.ipynb
+```
+
+To selectively hide the input of cells, the user can add a tag call 'hide_input' to the cell, then pass the ' hide-tagged-input' flag through the rsconnect cli:
+
+```
+rsconnect deploy notebook \
+    -n server \
+    -k APIKey \
+    --hide-tagged-input \
+    hello_world.ipynb
+```
+
+
 ## [1.5.3] - 2021-05-06
 
 ### Added
