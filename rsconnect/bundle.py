@@ -136,7 +136,7 @@ def bundle_add_buffer(bundle, filename, contents):
     bundle.addfile(file_info, buf)
 
 
-def write_manifest(relative_dir, nb_name, environment, output_dir, no_input=None, no_tag_input=None):
+def write_manifest(relative_dir, nb_name, environment, output_dir, hide_all_input=False, hide_tagged_input=False):
     # type: (...) -> typing.Tuple[list, list]
     """Create a manifest for source publishing the specified notebook.
 
@@ -147,10 +147,10 @@ def write_manifest(relative_dir, nb_name, environment, output_dir, no_input=None
     """
     manifest_filename = "manifest.json"
     manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
-    if no_input:
-        manifest['jupyter'] = {'no_input': no_input}
-    if no_tag_input:
-        manifest['jupyter'] = {'no_tag_input': no_tag_input}
+    if hide_all_input:
+        manifest['jupyter'] = {'hide_all_input': hide_all_input}
+    if hide_tagged_input:
+        manifest['jupyter'] = {'hide_tagged_input': hide_tagged_input}
     manifest_file = join(output_dir, manifest_filename)
     created = []
     skipped = []
@@ -208,8 +208,8 @@ def make_notebook_source_bundle(
     file,  # type: str
     environment,  # type: Environment
     extra_files=None,  # type:  typing.Optional[typing.List[str]]
-    no_input=None,
-    no_tag_input=None,
+    hide_all_input=False,
+    hide_tagged_input=False,
 ):
     # type: (...) -> typing.IO[bytes]
     """Create a bundle containing the specified notebook and python environment.
@@ -222,10 +222,10 @@ def make_notebook_source_bundle(
     nb_name = basename(file)
 
     manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
-    if no_input:
-        manifest['jupyter'] = {'no_input': no_input}
-    if no_tag_input:
-        manifest['jupyter'] = {'no_tag_input': no_tag_input}
+    if hide_all_input:
+        manifest['jupyter'] = {'hide_all_input': hide_all_input}
+    if hide_tagged_input:
+        manifest['jupyter'] = {'hide_tagged_input': hide_tagged_input}
     manifest_add_file(manifest, nb_name, base_dir)
     manifest_add_buffer(manifest, environment.filename, environment.contents)
 
@@ -268,8 +268,8 @@ def make_html_manifest(filename):
 def make_notebook_html_bundle(
     filename,  # type: str
     python,  # type: str
-    no_input=None,
-    no_tag_input=None,
+    hide_all_input=False,
+    hide_tagged_input=False,
     check_output=subprocess.check_output,  # type: typing.Callable
 ):
     # type: (...) -> typing.IO[bytes]
@@ -285,9 +285,9 @@ def make_notebook_html_bundle(
         "--to=html",
         filename,
     ]
-    if no_input:
+    if hide_all_input:
         cmd.append('--no-input')
-    if no_tag_input:
+    if hide_tagged_input:
         cmd.append('--TagRemovePreprocessor.remove_input_tags=remove_input')
     try:
         output = check_output(cmd)

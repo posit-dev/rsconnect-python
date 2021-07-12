@@ -520,8 +520,8 @@ def _deploy_bundle(
     "--force-generate", "-g", is_flag=True, help='Force generating "requirements.txt", even if it already exists.',
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-@click.option("--no-input", is_flag=True, default=None, help="Hide code cells when rendering output")
-@click.option("--no-tag-input", is_flag=True, default=None, help="Hide input of cells with the 'remove_input' tag")
+@click.option("--hide-all-input", is_flag=True, default=None, help="Hide all input cells when rendering output")
+@click.option("--hide-tagged-input", is_flag=True, default=None, help="Hide input code cells with the 'hide_input' tag")
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
     "extra_files", nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True),
@@ -939,8 +939,8 @@ def write_manifest():
 @click.option(
     "--force-generate", "-g", is_flag=True, help='Force generating "requirements.txt", even if it already exists.',
 )
-@click.option("--no-input", help="Hide code cells when rendering output")
-@click.option("--no-tag-input", is_flag=True, default=None, help="Hide input of cells with the 'remove_input' tag")
+@click.option("--hide-all-input", help="Hide all input cells when rendering output")
+@click.option("--hide-tagged-input", is_flag=True, default=None, help="Hide input code cells with the 'hide_input' tag")
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
