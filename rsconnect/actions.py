@@ -423,7 +423,25 @@ def validate_manifest_file(file_or_directory):
     return file_or_directory
 
 
-def validate_entry_point(entry_point):
+def get_default_entrypoint(directory):
+    candidates = ["app", "application", "main", "api"]
+    files = set(os.listdir(directory))
+
+    for candidate in candidates:
+        filename = candidate + ".py"
+        if filename in files:
+            return candidate
+
+    # if only one python source file, use it
+    python_files = list(filter(lambda s: s.endswith(".py"), files))
+    if len(python_files) == 1:
+        return python_files[0][:-3]
+
+    logger.warning("Can't determine entrypoint; defaulting to 'app'")
+    return "app"
+
+
+def validate_entry_point(entry_point, directory):
     """
     Validates the entry point specified by the user, expanding as necessary.  If the
     user specifies nothing, a module of "app" is assumed.  If the user specifies a
@@ -433,7 +451,7 @@ def validate_entry_point(entry_point):
     :return: the fully expanded and validated entry point and the module file name..
     """
     if not entry_point:
-        entry_point = "app"
+        entry_point = get_default_entrypoint(directory)
 
     parts = entry_point.split(":")
 
@@ -1016,7 +1034,7 @@ def _gather_basic_deployment_info_for_framework(
     be generated.
     :return: the entry point, app ID, name, title and mode for the deployment.
     """
-    entry_point = validate_entry_point(entry_point)
+    entry_point = validate_entry_point(entry_point, directory)
 
     _validate_title(title)
 
@@ -1138,7 +1156,7 @@ def create_api_deployment_bundle(
     are properly qualified first.
     :return: the bundle.
     """
-    entry_point = validate_entry_point(entry_point)
+    entry_point = validate_entry_point(entry_point, directory)
 
     if extra_files_need_validating:
         extra_files = validate_extra_files(directory, extra_files)
