@@ -542,8 +542,8 @@ def deploy_notebook(
     verbose,
     file,
     extra_files,
-    no_input,
-    no_tag_input,
+    hide_all_input,
+    hide_tagged_input,
 ):
     set_verbosity(verbose)
 
@@ -573,7 +573,7 @@ def deploy_notebook(
 
     with cli_feedback("Creating deployment bundle"):
         bundle = create_notebook_deployment_bundle(
-            file, extra_files, app_mode, python, environment, False, no_input, no_tag_input
+            file, extra_files, app_mode, python, environment, False, hide_all_input, hide_tagged_input
         )
     _deploy_bundle(
         connect_server, app_store, file, app_id, app_mode, deployment_name, title, default_title, bundle,
@@ -947,7 +947,7 @@ def write_manifest():
     "extra_files", nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
 def write_manifest_notebook(
-    overwrite, python, conda, force_generate, verbose, file, extra_files, no_input=None, no_tag_input=None
+    overwrite, python, conda, force_generate, verbose, file, extra_files, hide_all_input=None, hide_tagged_input=None
 ):
     set_verbosity(verbose)
     with cli_feedback("Checking arguments"):
@@ -971,8 +971,8 @@ def write_manifest_notebook(
             environment,
             AppModes.JUPYTER_NOTEBOOK,
             extra_files,
-            no_input,
-            no_tag_input,
+            hide_all_input,
+            hide_tagged_input,
         )
 
     if environment_file_exists and not force_generate:
