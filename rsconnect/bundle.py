@@ -288,7 +288,7 @@ def make_notebook_html_bundle(
     if hide_all_input:
         cmd.append('--no-input')
     if hide_tagged_input:
-        cmd.append('--TagRemovePreprocessor.remove_input_tags=remove_input')
+        cmd.append('--TagRemovePreprocessor.remove_input_tags=hide_input')
     try:
         output = check_output(cmd)
     except subprocess.CalledProcessError:
