@@ -14,7 +14,8 @@ Content"](#deploying-r-or-other-content) for details.
 ## Deploying Python Content to RStudio Connect
 
 RStudio Connect supports the deployment of Jupyter notebooks, Python APIs (such as
-`flask`-based) and apps (such as Dash, Streamlit, and Bokeh apps). Much like deploying R
+those based on Flask or FastAPI) and apps (such as Dash, Streamlit, and Bokeh apps).
+Much like deploying R
 content to RStudio Connect, there are some caveats to understand when replicating your
 environment on the RStudio Connect server:
 
@@ -262,9 +263,17 @@ rsconnect write-manifest notebook my-notebook.ipynb
 
 ### API/Application Deployment Options
 
-There are a variety of options available to you when deploying a Python WSGI-style API,
-Dash, Streamlit, or Bokeh application. All options below apply equally to `api`,
-`dash`, `streamlit`, and `bokeh` sub-commands.
+You can deploy a variety of APIs and applications using sub-commands of the
+`rsconnect deploy` command.
+
+* `api`: WSGI-compliant APIs such as Flask and packages based on Flask
+* `fastapi`: ASGI-compliant APIs (FastAPI, Quart, Sanic, and Falcon)
+* `dash`: Python Dash apps
+* `streamlit`: Streamlit apps
+* `bokeh`: Bokeh server apps
+
+All options below apply equally to the `api`, `fastapi`, `dash`, `streamlit`,
+and `bokeh` sub-commands.
 
 #### Including Extra Files
 
@@ -373,8 +382,8 @@ this, use the `--title` option:
 rsconnect deploy notebook --title "My Notebook" my-notebook.ipynb
 ```
 
-When using `rsconnect deploy api`, `rsconnect deploy dash`, `rsconnect deploy
-streamlit`, or `rsconnect deploy bokeh`, the title is derived from the directory
+When using `rsconnect deploy api`, `rsconnect deploy fastapi`, `rsconnect deploy dash`,
+`rsconnect deploy streamlit`, or `rsconnect deploy bokeh`, the title is derived from the directory
 containing the API or application.
 
 When using `rsconnect deploy manifest`, the title is derived from the primary
