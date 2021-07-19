@@ -285,9 +285,9 @@ def make_notebook_html_bundle(
         "--to=html",
         filename,
     ]
-    if hide_all_input:
+    if hide_all_input and hide_tagged_input or hide_all_input:
         cmd.append('--no-input')
-    if hide_tagged_input:
+    elif hide_tagged_input:
         cmd.append('--TagRemovePreprocessor.remove_input_tags=hide_input')
     try:
         output = check_output(cmd)
