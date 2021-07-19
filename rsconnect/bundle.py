@@ -147,9 +147,9 @@ def write_manifest(relative_dir, nb_name, environment, output_dir, hide_all_inpu
     """
     manifest_filename = "manifest.json"
     manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
-    if hide_all_input and hide_tagged_input or hide_all_input:
+    if hide_all_input:
         manifest['jupyter'] = {'hide_all_input': hide_all_input}
-    elif hide_tagged_input:
+    if hide_tagged_input:
         manifest['jupyter'] = {'hide_tagged_input': hide_tagged_input}
     manifest_file = join(output_dir, manifest_filename)
     created = []
