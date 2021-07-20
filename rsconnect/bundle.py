@@ -148,8 +148,10 @@ def write_manifest(relative_dir, nb_name, environment, output_dir, hide_all_inpu
     manifest_filename = "manifest.json"
     manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
     if hide_all_input:
+        if 'jupyter' not in manifest: manifest['jupyter']= {}       
         manifest['jupyter'].update({'hide_all_input': hide_all_input})
     if hide_tagged_input:
+        if 'jupyter' not in manifest: manifest['jupyter']= {} 
         manifest['jupyter'].update({'hide_tagged_input': hide_tagged_input})
     manifest_file = join(output_dir, manifest_filename)
     created = []
@@ -223,8 +225,10 @@ def make_notebook_source_bundle(
 
     manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
     if hide_all_input:
+        if 'jupyter' not in manifest: manifest['jupyter']= {}       
         manifest['jupyter'].update({'hide_all_input': hide_all_input})
     if hide_tagged_input:
+        if 'jupyter' not in manifest: manifest['jupyter']= {} 
         manifest['jupyter'].update({'hide_tagged_input': hide_tagged_input})
     manifest_add_file(manifest, nb_name, base_dir)
     manifest_add_buffer(manifest, environment.filename, environment.contents)
