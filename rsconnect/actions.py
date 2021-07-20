@@ -473,8 +473,8 @@ def deploy_jupyter_notebook(
     conda_mode=False,
     force_generate=False,
     log_callback=None,
-    hide_all_input=None,
-    hide_tagged_input=None,
+    hide_all_input=False,
+    hide_tagged_input=False,
 ):
     """
     A function to deploy a Jupyter notebook to Connect.  Depending on the files involved
@@ -1205,8 +1205,8 @@ def create_notebook_manifest_and_environment_file(
     app_mode=None,
     extra_files=None,
     force=True,
-    hide_all_input=None,
-    hide_tagged_input=None,
+    hide_all_input=False,
+    hide_tagged_input=False,
 ):
     """
     Creates and writes a manifest.json file for the given notebook entry point file.
