@@ -520,8 +520,8 @@ def _deploy_bundle(
     "--force-generate", "-g", is_flag=True, help='Force generating "requirements.txt", even if it already exists.',
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-@click.option("--hide-all-input", is_flag=True, default=None, help="Hide all input cells when rendering output")
-@click.option("--hide-tagged-input", is_flag=True, default=None, help="Hide input code cells with the 'hide_input' tag")
+@click.option("--hide-all-input", is_flag=True, default=False, help="Hide all input cells when rendering output")
+@click.option("--hide-tagged-input", is_flag=True, default=False, help="Hide input code cells with the 'hide_input' tag")
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
     "extra_files", nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True),
