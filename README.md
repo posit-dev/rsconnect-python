@@ -503,3 +503,27 @@ directory specified above.
 <div style="display:none">
 Generated from <code>rsconnect-python {{ rsconnect_python.version }}</code>
 </div>
+
+### Hide Jupyter Notebook Input Code Cells
+
+The user can render a Jupyter notebook without its corresponding input code cells by passing the '--hide-all-input' flag through the cli:
+
+```
+rsconnect deploy notebook \
+    --server https://connect.example.org:3939 \
+    --api-key my-api-key \
+    --hide-all-input \
+    my-notebook.ipynb
+```
+
+To selectively hide input cells in a Jupyter notebook, the user needs to follow a two step process:
+1. tag cells with the 'hide_input' tag, 
+2. then pass the ' --hide-tagged-input' flag through the cli:
+
+```
+rsconnect deploy notebook \
+    --server https://connect.example.org:3939 \
+    --api-key my-api-key \
+    --hide-tagged-input \
+    my-notebook.ipynb
+```
