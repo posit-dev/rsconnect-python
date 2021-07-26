@@ -527,3 +527,11 @@ rsconnect deploy notebook \
     --hide-tagged-input \
     my-notebook.ipynb
 ```
+
+By default, rsconnect-python does not install Jupyter notebook related depenencies. These dependencies are installed via rsconnect-jupyter. When the user is using the hide input features in rsconnect-python by itself without rsconnect-jupyter, he/she needs to install the following package depenecies:
+
+```
+notebook
+nbformat
+nbconvert>=5.6.1
+```
