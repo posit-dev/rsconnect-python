@@ -289,10 +289,10 @@ def make_notebook_html_bundle(
         "--to=html",
         filename,
     ]
-    version = check_output([python, '--version']).decode("utf-8") 
     if hide_all_input and hide_tagged_input or hide_all_input:
         cmd.append('--no-input')
     elif hide_tagged_input:
+        version = check_output([python, '--version']).decode("utf-8") 
         if version >= 'Python 3':
             cmd.append('--TagRemovePreprocessor.remove_input_tags=hide_input')
         else:
