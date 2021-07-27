@@ -572,7 +572,7 @@ def _deploy_bundle(
     "-C",
     is_flag=True,
     hidden=True,
-    help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
+ help="Use Conda to deploy (requires RStudio Connect version 1.8.2 or later)",
 )
 @click.option(
     "--force-generate",
@@ -1061,7 +1061,7 @@ def write_manifest():
     "-C",
     is_flag=True,
     hidden=True,
-    help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
+help="Use Conda to deploy (requires RStudio Connect version 1.8.2 or later)",
 )
 @click.option(
     "--force-generate",
