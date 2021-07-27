@@ -287,17 +287,27 @@ rsconnect deploy api flask-api/ data.csv
 
 Since deploying an API or application starts at a directory level, there will be times
 when some files under that directory subtree should not be included in the deployment
-or manifest. Use the `--exclude` option to specify files to exclude. An exclusion may
-be a glob pattern and the `--exclude` option may be repeated.
+or manifest. Use the `--exclude` option to specify files to exclude. The `--exclude` option may be repeated, and may include a glob pattern.
 
 ```bash
-rsconnect deploy dash --exclude "workfiles/*" dash-app/ data.csv
+rsconnect deploy dash --exclude dash-app-venv --exclude TODO.txt dash-app/
 ```
 
 You should always quote a glob pattern so that it will be passed to `rsconnect` as-is
 instead of letting the shell expand it. If a file is specifically listed as an extra
 file that also matches an exclusion pattern, the file will still be included in the
 deployment (i.e., extra files take precedence).
+
+```bash
+rsconnect deploy dash --exclude dash-app-venv --exclude “*.txt” dash-app/
+```
+
+The following shows an example of an extra file taking precedence:
+
+```bash
+rsconnect deploy dash --exclude “*.csv” dash-app/ important_data.csv
+```
+
 
 #### Package Dependencies
 
