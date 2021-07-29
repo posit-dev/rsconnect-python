@@ -57,12 +57,12 @@ def cli_feedback(label):
     """
     if label:
         pad = line_width - len(label)
-        click.secho(label + "... " + " " * pad, nl=False, fg="bright_white")
+        click.secho(label + "... " + " " * pad, nl=False)
         logger.set_in_feedback(True)
 
     def passed():
         if label:
-            click.secho("[OK]", fg="bright_green")
+            click.secho("[OK]", fg="green")
 
     def failed(err):
         if label:

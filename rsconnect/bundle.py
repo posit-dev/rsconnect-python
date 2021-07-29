@@ -29,6 +29,7 @@ directories_to_ignore = [
     ".git/",
     ".svn/",
     ".venv/",
+    "__pycache__/",
     "env/",
     "packrat/",
     "rsconnect-python/",

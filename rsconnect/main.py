@@ -309,7 +309,7 @@ def info(file):
                 entry_point, primary_document = describe_manifest(file_name)
                 label = "Directory:" if isdir(file_name) else "Filename: "
                 click.echo()
-                click.echo("Server URL: %s" % click.style(deployment.get("server_url"), fg="white"))
+                click.echo("Server URL: %s" % click.style(deployment.get("server_url")))
                 click.echo("    App URL:     %s" % deployment.get("app_url"))
                 click.echo("    App ID:      %s" % deployment.get("app_id"))
                 click.echo("    App GUID:    %s" % deployment.get("app_guid"))
@@ -441,11 +441,13 @@ def _deploy_bundle(
         )
 
     with cli_feedback(""):
-        click.secho("\nDeployment log:", fg="bright_white")
+        click.secho("\nDeployment log:")
         app_url, _ = spool_deployment_log(connect_server, app, click.echo)
-        click.secho("Deployment completed successfully.", fg="bright_white")
-        click.secho("    Dashboard content URL: %s" % app_url, fg="bright_white")
-        click.secho("    Direct content URL: %s" % app["app_url"], fg="bright_white")
+        click.secho("Deployment completed successfully.")
+        click.secho("    Dashboard content URL: ", nl=False)
+        click.secho(app_url, fg="green")
+        click.secho("    Direct content URL: ", nl=False)
+        click.secho(app["app_url"], fg="green")
 
         # save the config URL, replacing the old app URL we got during deployment
         # (which is the Open Solo URL).
@@ -555,7 +557,7 @@ def deploy_notebook(
             connect_server, app_store, file, new, app_id, title, static
         )
 
-    click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg="white")
+    click.secho('    Deploying %s to server "%s"' % (file, connect_server.url))
 
     _warn_on_ignored_manifest(dirname(file))
 
@@ -639,7 +641,7 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
             package_manager,
         ) = gather_basic_deployment_info_from_manifest(connect_server, app_store, file, new, app_id, title)
 
-    click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg="white")
+    click.secho('    Deploying %s to server "%s"' % (file, connect_server.url))
 
     if package_manager == "conda":
         with cli_feedback("Ensuring Conda is supported"):
@@ -858,7 +860,7 @@ def _deploy_by_framework(
             connect_server, app_store, directory, entrypoint, new, app_id, title
         )
 
-    click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url), fg="white")
+    click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
 
     _warn_on_ignored_manifest(directory)
 
