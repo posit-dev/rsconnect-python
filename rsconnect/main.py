@@ -522,6 +522,8 @@ def _deploy_bundle(
     "--force-generate", "-g", is_flag=True, help='Force generating "requirements.txt", even if it already exists.',
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+@click.option("--hide-all-input", is_flag=True, default=False, help="Hide all input cells when rendering output")
+@click.option("--hide-tagged-input", is_flag=True, default=False, help="Hide input code cells with the 'hide_input' tag")
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
     "extra_files", nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True),
@@ -542,6 +544,8 @@ def deploy_notebook(
     verbose,
     file,
     extra_files,
+    hide_all_input,
+    hide_tagged_input,
 ):
     set_verbosity(verbose)
 
@@ -570,8 +574,9 @@ def deploy_notebook(
         _warn_on_ignored_requirements(dirname(file), environment.filename)
 
     with cli_feedback("Creating deployment bundle"):
-        bundle = create_notebook_deployment_bundle(file, extra_files, app_mode, python, environment, False)
-
+        bundle = create_notebook_deployment_bundle(
+            file, extra_files, app_mode, python, environment, False, hide_all_input, hide_tagged_input
+        )
     _deploy_bundle(
         connect_server, app_store, file, app_id, app_mode, deployment_name, title, default_title, bundle,
     )
@@ -936,12 +941,16 @@ def write_manifest():
 @click.option(
     "--force-generate", "-g", is_flag=True, help='Force generating "requirements.txt", even if it already exists.',
 )
+@click.option("--hide-all-input", help="Hide all input cells when rendering output")
+@click.option("--hide-tagged-input", is_flag=True, default=None, help="Hide input code cells with the 'hide_input' tag")
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
     "extra_files", nargs=-1, type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
-def write_manifest_notebook(overwrite, python, conda, force_generate, verbose, file, extra_files):
+def write_manifest_notebook(
+    overwrite, python, conda, force_generate, verbose, file, extra_files, hide_all_input=None, hide_tagged_input=None
+):
     set_verbosity(verbose)
     with cli_feedback("Checking arguments"):
         validate_file_is_notebook(file)
@@ -960,7 +969,12 @@ def write_manifest_notebook(overwrite, python, conda, force_generate, verbose, f
 
     with cli_feedback("Creating manifest.json"):
         environment_file_exists = write_notebook_manifest_json(
-            file, environment, AppModes.JUPYTER_NOTEBOOK, extra_files
+            file,
+            environment,
+            AppModes.JUPYTER_NOTEBOOK,
+            extra_files,
+            hide_all_input,
+            hide_tagged_input,
         )
 
     if environment_file_exists and not force_generate:
