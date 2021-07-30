@@ -43,7 +43,10 @@ def _make_json_ready(thing):
 
 
 def endpoint(
-    authenticated: bool = False, auth_optional: bool = False, cls=None, writes_json: bool = False,
+    authenticated: bool = False,
+    auth_optional: bool = False,
+    cls=None,
+    writes_json: bool = False,
 ):
     def decorator(function):
         @wraps(function)

@@ -49,7 +49,14 @@ class TestBundle(TestCase):
         ) as tar:
 
             names = sorted(tar.getnames())
-            self.assertEqual(names, ["dummy.ipynb", "manifest.json", "requirements.txt",])
+            self.assertEqual(
+                names,
+                [
+                    "dummy.ipynb",
+                    "manifest.json",
+                    "requirements.txt",
+                ],
+            )
 
             reqs = tar.extractfile("requirements.txt").read()
             self.assertEqual(reqs, b"numpy\npandas\nmatplotlib\n")
@@ -70,13 +77,21 @@ class TestBundle(TestCase):
                 manifest,
                 {
                     u"version": 1,
-                    u"metadata": {u"appmode": u"jupyter-static", u"entrypoint": u"dummy.ipynb",},
+                    u"metadata": {
+                        u"appmode": u"jupyter-static",
+                        u"entrypoint": u"dummy.ipynb",
+                    },
                     u"python": {
                         u"version": self.python_version(),
-                        u"package_manager": {u"name": u"pip", u"package_file": u"requirements.txt",},
+                        u"package_manager": {
+                            u"name": u"pip",
+                            u"package_file": u"requirements.txt",
+                        },
                     },
                     u"files": {
-                        u"dummy.ipynb": {u"checksum": ipynb_hash,},
+                        u"dummy.ipynb": {
+                            u"checksum": ipynb_hash,
+                        },
                         u"requirements.txt": {u"checksum": u"5f2a5e862fe7afe3def4a57bb5cfb214"},
                     },
                 },
@@ -98,7 +113,15 @@ class TestBundle(TestCase):
         ) as tar:
 
             names = sorted(tar.getnames())
-            self.assertEqual(names, ["data.csv", "dummy.ipynb", "manifest.json", "requirements.txt",])
+            self.assertEqual(
+                names,
+                [
+                    "data.csv",
+                    "dummy.ipynb",
+                    "manifest.json",
+                    "requirements.txt",
+                ],
+            )
 
             reqs = tar.extractfile("requirements.txt").read()
 
@@ -124,13 +147,21 @@ class TestBundle(TestCase):
                 manifest,
                 {
                     u"version": 1,
-                    u"metadata": {u"appmode": u"jupyter-static", u"entrypoint": u"dummy.ipynb",},
+                    u"metadata": {
+                        u"appmode": u"jupyter-static",
+                        u"entrypoint": u"dummy.ipynb",
+                    },
                     u"python": {
                         u"version": self.python_version(),
-                        u"package_manager": {u"name": u"pip", u"package_file": u"requirements.txt",},
+                        u"package_manager": {
+                            u"name": u"pip",
+                            u"package_file": u"requirements.txt",
+                        },
                     },
                     u"files": {
-                        u"dummy.ipynb": {u"checksum": ipynb_hash,},
+                        u"dummy.ipynb": {
+                            u"checksum": ipynb_hash,
+                        },
                         u"data.csv": {u"checksum": u"f2bd77cc2752b3efbb732b761d2aa3c3"},
                     },
                 },
@@ -187,13 +218,26 @@ class TestBundle(TestCase):
 
         try:
             names = sorted(tar.getnames())
-            self.assertEqual(names, ["dummy.html", "manifest.json",])
+            self.assertEqual(
+                names,
+                [
+                    "dummy.html",
+                    "manifest.json",
+                ],
+            )
 
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
 
             # noinspection SpellCheckingInspection
             self.assertEqual(
-                manifest, {u"version": 1, u"metadata": {u"appmode": u"static", u"primary_html": u"dummy.html",},},
+                manifest,
+                {
+                    u"version": 1,
+                    u"metadata": {
+                        u"appmode": u"static",
+                        u"primary_html": u"dummy.html",
+                    },
+                },
             )
         finally:
             tar.close()

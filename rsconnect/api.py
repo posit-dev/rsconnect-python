@@ -62,7 +62,11 @@ class RSConnect(HTTPServer):
         if cookies is None:
             cookies = server.cookie_jar
         super(RSConnect, self).__init__(
-            append_to_path(server.url, "__api__"), server.insecure, server.ca_data, cookies, timeout,
+            append_to_path(server.url, "__api__"),
+            server.insecure,
+            server.ca_data,
+            cookies,
+            timeout,
         )
         self._server = server
 
@@ -100,7 +104,10 @@ class RSConnect(HTTPServer):
         return self.post("applications/%s/deploy" % app_id, body={"bundle": bundle_id})
 
     def app_publish(self, app_id, access):
-        return self.post("applications/%s" % app_id, body={"access_type": access, "id": app_id, "needs_config": False},)
+        return self.post(
+            "applications/%s" % app_id,
+            body={"access_type": access, "id": app_id, "needs_config": False},
+        )
 
     def app_config(self, app_id):
         return self.get("applications/%s/config" % app_id)
@@ -458,7 +465,9 @@ def find_unique_name(connect_server, name):
     :return: the name, potentially with a suffixed number to guarantee uniqueness.
     """
     existing_names = retrieve_matching_apps(
-        connect_server, filters={"search": name}, mapping_function=lambda client, app: app["name"],
+        connect_server,
+        filters={"search": name},
+        mapping_function=lambda client, app: app["name"],
     )
 
     if name in existing_names:
