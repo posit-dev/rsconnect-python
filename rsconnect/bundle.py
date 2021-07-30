@@ -29,6 +29,7 @@ directories_to_ignore = [
     ".git/",
     ".svn/",
     ".venv/",
+    "__pycache__/",
     "env/",
     "packrat/",
     "rsconnect-python/",
@@ -136,8 +137,8 @@ def bundle_add_buffer(bundle, filename, contents):
     bundle.addfile(file_info, buf)
 
 
-def write_manifest(relative_dir, nb_name, environment, output_dir):
-    # type: (str, str, Environment, str) -> typing.Tuple[list, list]
+def write_manifest(relative_dir, nb_name, environment, output_dir, hide_all_input=False, hide_tagged_input=False):
+    # type: (...) -> typing.Tuple[list, list]
     """Create a manifest for source publishing the specified notebook.
 
     The manifest will be written to `manifest.json` in the output directory..
@@ -147,6 +148,12 @@ def write_manifest(relative_dir, nb_name, environment, output_dir):
     """
     manifest_filename = "manifest.json"
     manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
+    if hide_all_input:
+        if 'jupyter' not in manifest: manifest['jupyter']= {}       
+        manifest['jupyter'].update({'hide_all_input': hide_all_input})
+    if hide_tagged_input:
+        if 'jupyter' not in manifest: manifest['jupyter']= {} 
+        manifest['jupyter'].update({'hide_tagged_input': hide_tagged_input})
     manifest_file = join(output_dir, manifest_filename)
     created = []
     skipped = []
@@ -204,6 +211,8 @@ def make_notebook_source_bundle(
     file,  # type: str
     environment,  # type: Environment
     extra_files=None,  # type:  typing.Optional[typing.List[str]]
+    hide_all_input=False,
+    hide_tagged_input=False,
 ):
     # type: (...) -> typing.IO[bytes]
     """Create a bundle containing the specified notebook and python environment.
@@ -216,6 +225,12 @@ def make_notebook_source_bundle(
     nb_name = basename(file)
 
     manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
+    if hide_all_input:
+        if 'jupyter' not in manifest: manifest['jupyter']= {}       
+        manifest['jupyter'].update({'hide_all_input': hide_all_input})
+    if hide_tagged_input:
+        if 'jupyter' not in manifest: manifest['jupyter']= {} 
+        manifest['jupyter'].update({'hide_tagged_input': hide_tagged_input})
     manifest_add_file(manifest, nb_name, base_dir)
     manifest_add_buffer(manifest, environment.filename, environment.contents)
 
@@ -258,6 +273,8 @@ def make_html_manifest(filename):
 def make_notebook_html_bundle(
     filename,  # type: str
     python,  # type: str
+    hide_all_input=False,
+    hide_tagged_input=False,
     check_output=subprocess.check_output,  # type: typing.Callable
 ):
     # type: (...) -> typing.IO[bytes]
@@ -273,6 +290,14 @@ def make_notebook_html_bundle(
         "--to=html",
         filename,
     ]
+    if hide_all_input and hide_tagged_input or hide_all_input:
+        cmd.append('--no-input')
+    elif hide_tagged_input:
+        version = check_output([python, '--version']).decode("utf-8") 
+        if version >= 'Python 3':
+            cmd.append('--TagRemovePreprocessor.remove_input_tags=hide_input')
+        else:
+            cmd.append("--TagRemovePreprocessor.remove_input_tags=['hide_input']")
     try:
         output = check_output(cmd)
     except subprocess.CalledProcessError:

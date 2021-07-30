@@ -57,12 +57,12 @@ def cli_feedback(label):
     """
     if label:
         pad = line_width - len(label)
-        click.secho(label + "... " + " " * pad, nl=False, fg="bright_white")
+        click.secho(label + "... " + " " * pad, nl=False)
         logger.set_in_feedback(True)
 
     def passed():
         if label:
-            click.secho("[OK]", fg="bright_green")
+            click.secho("[OK]", fg="green")
 
     def failed(err):
         if label:
@@ -473,6 +473,8 @@ def deploy_jupyter_notebook(
     conda_mode=False,
     force_generate=False,
     log_callback=None,
+    hide_all_input=False,
+    hide_tagged_input=False,
 ):
     """
     A function to deploy a Jupyter notebook to Connect.  Depending on the files involved
@@ -496,6 +498,8 @@ def deploy_jupyter_notebook(
     (the default) the lines from the deployment log will be returned as a sequence.
     If a log callback is provided, then None will be returned for the log lines part
     of the return tuple.
+    :param hide_all_input: if True, will hide all input cells when rendering output
+    :param hide_tagged_input: If True, will hide input code cells with the 'hide_input' tag when rendering output
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
@@ -513,7 +517,9 @@ def deploy_jupyter_notebook(
         conda_mode=conda_mode,
         force_generate=force_generate,
     )
-    bundle = create_notebook_deployment_bundle(file_name, extra_files, app_mode, python, environment)
+    bundle = create_notebook_deployment_bundle(
+        file_name, extra_files, app_mode, python, environment, hide_all_input, hide_tagged_input
+    )
     return _finalize_deploy(
         connect_server,
         app_store,
@@ -1205,6 +1211,8 @@ def create_notebook_deployment_bundle(
     python,
     environment,
     extra_files_need_validating=True,
+    hide_all_input=None,
+    hide_tagged_input=None,
 ):
     """
     Create an in-memory bundle, ready to deploy.
@@ -1215,6 +1223,8 @@ def create_notebook_deployment_bundle(
     :param python: information about the version of Python being used.
     :param environment: environmental information.
     :param extra_files_need_validating: a flag indicating whether the list of extra
+    :param hide_all_input: if True, will hide all input cells when rendering output
+    :param hide_tagged_input: If True, will hide input code cells with the 'hide_input' tag when rendering output
     files should be validated or not.  Part of validating includes qualifying each
     with the parent directory of the notebook file.  If you provide False here, make
     sure the names are properly qualified first.
@@ -1227,13 +1237,13 @@ def create_notebook_deployment_bundle(
 
     if app_mode == AppModes.STATIC:
         try:
-            return make_notebook_html_bundle(file_name, python)
+            return make_notebook_html_bundle(file_name, python, hide_all_input, hide_tagged_input)
         except subprocess.CalledProcessError as exc:
             # Jupyter rendering failures are often due to
             # user code failing, vs. an internal failure of rsconnect-python.
             raise api.RSConnectException(str(exc))
     else:
-        return make_notebook_source_bundle(file_name, environment, extra_files)
+        return make_notebook_source_bundle(file_name, environment, extra_files, hide_all_input, hide_tagged_input)
 
 
 def create_api_deployment_bundle(
@@ -1304,7 +1314,13 @@ def spool_deployment_log(connect_server, app, log_callback):
 
 
 def create_notebook_manifest_and_environment_file(
-    entry_point_file, environment, app_mode=None, extra_files=None, force=True
+    entry_point_file,
+    environment,
+    app_mode=None,
+    extra_files=None,
+    force=True,
+    hide_all_input=False,
+    hide_tagged_input=False,
 ):
     """
     Creates and writes a manifest.json file for the given notebook entry point file.
@@ -1320,13 +1336,22 @@ def create_notebook_manifest_and_environment_file(
     :param extra_files: any extra files that should be included in the manifest.
     :param force: if True, forces the environment file to be written. even if it
     already exists.
+    :param hide_all_input: if True, will hide all input cells when rendering output
+    :param hide_tagged_input: If True, will hide input code cells with the 'hide_input' tag when rendering output
     :return:
     """
-    if not write_notebook_manifest_json(entry_point_file, environment, app_mode, extra_files) or force:
+    if (
+        not write_notebook_manifest_json(
+            entry_point_file, environment, app_mode, extra_files, hide_all_input, hide_tagged_input
+        )
+        or force
+    ):
         write_environment_file(environment, dirname(entry_point_file))
 
 
-def write_notebook_manifest_json(entry_point_file, environment, app_mode=None, extra_files=None):
+def write_notebook_manifest_json(
+    entry_point_file, environment, app_mode, extra_files, hide_all_input, hide_tagged_input
+):
     """
     Creates and writes a manifest.json file for the given entry point file.  If
     the application mode is not provided, an attempt will be made to resolve one
@@ -1339,6 +1364,8 @@ def write_notebook_manifest_json(entry_point_file, environment, app_mode=None, e
     :param app_mode: the application mode to assume.  If this is None, the extension
     portion of the entry point file name will be used to derive one.
     :param extra_files: any extra files that should be included in the manifest.
+    :param hide_all_input: if True, will hide all input cells when rendering output
+    :param hide_tagged_input: If True, will hide input code cells with the 'hide_input' tag when rendering output
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
     """

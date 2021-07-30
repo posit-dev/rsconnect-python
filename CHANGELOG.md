@@ -4,7 +4,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.4] - TBD
+
+## [1.5.4] - 2021-07-29
 
 ### Added
 
@@ -14,6 +15,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that will be used as the entrypoint.
   rsconnect-python does not inspect the file contents to identify the object name, which must be
   one of the default names that Connect expects (`app`, `application`, `create_app`, or `make_app`).
+
+- Ability to hide code cells when rendering Jupyter notebooks. 
+
+After setting up Connect (>=1.9.0) and rsconnect-python, the user can render a Jupyter notebook without its corresponding code cells by passing the ' hide-all-input' flag through the rsconnect cli:
+
+```
+rsconnect deploy notebook \
+    --server https://connect.example.org:3939 \
+    --api-key my-api-key \
+    --hide-all-input \
+    mynotebook.ipynb
+```
+
+To selectively hide the input of cells, the user can add a tag call 'hide_input' to the cell, then pass the ' hide-tagged-input' flag through the rsconnect cli:
+
+```
+rsconnect deploy notebook \
+    --server https://connect.example.org:3939 \
+    --api-key my-api-key \
+    --hide-tagged-input \
+    mynotebook.ipynb
+```
 
 ## [1.5.3] - 2021-05-06
 

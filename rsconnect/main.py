@@ -329,7 +329,7 @@ def info(file):
                 entry_point, primary_document = describe_manifest(file_name)
                 label = "Directory:" if isdir(file_name) else "Filename: "
                 click.echo()
-                click.echo("Server URL: %s" % click.style(deployment.get("server_url"), fg="white"))
+                click.echo("Server URL: %s" % click.style(deployment.get("server_url")))
                 click.echo("    App URL:     %s" % deployment.get("app_url"))
                 click.echo("    App ID:      %s" % deployment.get("app_id"))
                 click.echo("    App GUID:    %s" % deployment.get("app_guid"))
@@ -477,11 +477,13 @@ def _deploy_bundle(
         )
 
     with cli_feedback(""):
-        click.secho("\nDeployment log:", fg="bright_white")
+        click.secho("\nDeployment log:")
         app_url, _ = spool_deployment_log(connect_server, app, click.echo)
-        click.secho("Deployment completed successfully.", fg="bright_white")
-        click.secho("    Dashboard content URL: %s" % app_url, fg="bright_white")
-        click.secho("    Direct content URL: %s" % app["app_url"], fg="bright_white")
+        click.secho("Deployment completed successfully.")
+        click.secho("    Dashboard content URL: ", nl=False)
+        click.secho(app_url, fg="green")
+        click.secho("    Direct content URL: ", nl=False)
+        click.secho(app["app_url"], fg="green")
 
         # save the config URL, replacing the old app URL we got during deployment
         # (which is the Open Solo URL).
@@ -581,6 +583,8 @@ def _deploy_bundle(
     help='Force generating "requirements.txt", even if it already exists.',
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+@click.option("--hide-all-input", is_flag=True, default=False, help="Hide all input cells when rendering output")
+@click.option("--hide-tagged-input", is_flag=True, default=False, help="Hide input code cells with the 'hide_input' tag")
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
     "extra_files",
@@ -603,6 +607,8 @@ def deploy_notebook(
     verbose,
     file,
     extra_files,
+    hide_all_input,
+    hide_tagged_input,
 ):
     set_verbosity(verbose)
 
@@ -618,7 +624,7 @@ def deploy_notebook(
             app_mode,
         ) = gather_basic_deployment_info_for_notebook(connect_server, app_store, file, new, app_id, title, static)
 
-    click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg="white")
+    click.secho('    Deploying %s to server "%s"' % (file, connect_server.url))
 
     _warn_on_ignored_manifest(dirname(file))
 
@@ -635,8 +641,9 @@ def deploy_notebook(
         _warn_on_ignored_requirements(dirname(file), environment.filename)
 
     with cli_feedback("Creating deployment bundle"):
-        bundle = create_notebook_deployment_bundle(file, extra_files, app_mode, python, environment, False)
-
+        bundle = create_notebook_deployment_bundle(
+            file, extra_files, app_mode, python, environment, False, hide_all_input, hide_tagged_input
+        )
     _deploy_bundle(
         connect_server,
         app_store,
@@ -721,7 +728,7 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
             package_manager,
         ) = gather_basic_deployment_info_from_manifest(connect_server, app_store, file, new, app_id, title)
 
-    click.secho('    Deploying %s to server "%s"' % (file, connect_server.url), fg="white")
+    click.secho('    Deploying %s to server "%s"' % (file, connect_server.url))
 
     if package_manager == "conda":
         with cli_feedback("Ensuring Conda is supported"):
@@ -973,7 +980,7 @@ def _deploy_by_framework(
             connect_server, app_store, directory, entrypoint, new, app_id, title
         )
 
-    click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url), fg="white")
+    click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
 
     _warn_on_ignored_manifest(directory)
 
@@ -1069,6 +1076,8 @@ def write_manifest():
     is_flag=True,
     help='Force generating "requirements.txt", even if it already exists.',
 )
+@click.option("--hide-all-input", help="Hide all input cells when rendering output")
+@click.option("--hide-tagged-input", is_flag=True, default=None, help="Hide input code cells with the 'hide_input' tag")
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
@@ -1076,7 +1085,9 @@ def write_manifest():
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
-def write_manifest_notebook(overwrite, python, conda, force_generate, verbose, file, extra_files):
+def write_manifest_notebook(
+    overwrite, python, conda, force_generate, verbose, file, extra_files, hide_all_input=None, hide_tagged_input=None
+):
     set_verbosity(verbose)
     with cli_feedback("Checking arguments"):
         validate_file_is_notebook(file)
@@ -1095,7 +1106,12 @@ def write_manifest_notebook(overwrite, python, conda, force_generate, verbose, f
 
     with cli_feedback("Creating manifest.json"):
         environment_file_exists = write_notebook_manifest_json(
-            file, environment, AppModes.JUPYTER_NOTEBOOK, extra_files
+            file,
+            environment,
+            AppModes.JUPYTER_NOTEBOOK,
+            extra_files,
+            hide_all_input,
+            hide_tagged_input,
         )
 
     if environment_file_exists and not force_generate:
