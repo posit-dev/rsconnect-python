@@ -664,7 +664,7 @@ def deploy_python_fastapi(
     log_callback=None,
 ):
     """
-    A function to deploy a Python ASGI API module to Connect.  Depending on the files involved
+A function to deploy a Python ASGI API module to RStudio Connect.  Depending on the files involved
     and network latency, this may take a bit of time.
 
     :param connect_server: the Connect server information.
