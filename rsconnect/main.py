@@ -383,7 +383,23 @@ def _warn_on_ignored_manifest(directory):
     """
     if exists(join(directory, "manifest.json")):
         click.secho(
-            "    Warning: the existing manifest.json file will not be used or considered.", fg="yellow",
+            "    Warning: the existing manifest.json file will not be used or considered.",
+            fg="yellow",
+        )
+
+
+def _warn_if_no_requirements_file(directory):
+    """
+    Checks for the existence of a file called requirements.txt in the given directory.
+    If it's not there, a warning will be printed.
+
+    :param directory: the directory to check in.
+    """
+    if not exists(join(directory, "requirements.txt")):
+        click.secho(
+            "    Warning: Capturing the environment using 'pip freeze'.\n"
+            "             Consider creating a requirements.txt file instead.",
+            fg="yellow",
         )
 
 
@@ -560,6 +576,7 @@ def deploy_notebook(
     click.secho('    Deploying %s to server "%s"' % (file, connect_server.url))
 
     _warn_on_ignored_manifest(dirname(file))
+    _warn_if_no_requirements_file(dirname(file))
 
     with cli_feedback("Inspecting Python environment"):
         python, environment = get_python_env_info(file, python, conda, force_generate)
@@ -863,6 +880,7 @@ def _deploy_by_framework(
     click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
 
     _warn_on_ignored_manifest(directory)
+    _warn_if_no_requirements_file(directory)
 
     with cli_feedback("Inspecting Python environment"):
         _, environment = get_python_env_info(module_file, python, conda, force_generate)
