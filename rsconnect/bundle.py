@@ -32,6 +32,7 @@ directories_to_ignore = [
     "__pycache__/",
     "env/",
     "packrat/",
+    "renv/",
     "rsconnect-python/",
     "rsconnect/",
     "venv/",
@@ -401,6 +402,18 @@ def create_glob_set(directory, excludes):
     return GlobSet(work)
 
 
+def list_environment_dirs(directory):
+    # type: (...) -> typing.List[str]
+    """Returns a list of subdirectories in `directory` that appear to contain virtual environments."""
+    envs = []
+
+    for name in os.listdir(directory):
+        python_path = join(directory, name, "bin", "python")
+        if exists(python_path):
+            envs.append(name)
+    return envs
+
+
 def _create_api_file_list(
     directory,  # type: str
     requirements_file_name,  # type: str
@@ -429,6 +442,7 @@ def _create_api_file_list(
     excludes = list(excludes) if excludes else []
     excludes.append("manifest.json")
     excludes.append(requirements_file_name)
+    excludes.extend(list_environment_dirs(directory))
     glob_set = create_glob_set(directory, excludes)
 
     file_list = []
