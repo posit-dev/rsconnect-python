@@ -412,7 +412,7 @@ def _warn_if_environment_directory(directory):
     if is_environment_dir(directory):
         click.secho(
             "    Warning: The deployment directory appears to be a python virtual environment.\n"
-            "             Excluding the 'bin' and 'lib' directories..",
+            "             Excluding the 'bin' and 'lib' directories.",
             fg="yellow",
         )
 
