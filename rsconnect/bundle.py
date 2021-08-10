@@ -402,14 +402,19 @@ def create_glob_set(directory, excludes):
     return GlobSet(work)
 
 
+def is_environment_dir(directory):
+    python_path = join(directory, "bin", "python")
+    return exists(python_path)
+
+
 def list_environment_dirs(directory):
     # type: (...) -> typing.List[str]
     """Returns a list of subdirectories in `directory` that appear to contain virtual environments."""
     envs = []
 
     for name in os.listdir(directory):
-        python_path = join(directory, name, "bin", "python")
-        if exists(python_path):
+        path = join(directory, name)
+        if is_environment_dir(path):
             envs.append(name)
     return envs
 
@@ -484,6 +489,9 @@ def make_api_manifest(
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :return: the manifest and a list of the files involved.
     """
+    if is_environment_dir(directory):
+        excludes = list(excludes or []) + ["bin/", "lib/"]
+
     relevant_files = _create_api_file_list(directory, environment.filename, extra_files, excludes)
     manifest = make_source_manifest(entry_point, environment, app_mode)
 
