@@ -64,7 +64,8 @@ class TestCookieJar(TestCase):
         jar = CookieJar()
         jar.store_cookies(FakeSetCookieResponse(["my-cookie=my-value", "my-2nd-cookie=my-other-value"]))
         self.assertEqual(
-            jar.get_cookie_header_value(), "my-cookie=my-value; my-2nd-cookie=my-other-value",
+            jar.get_cookie_header_value(),
+            "my-cookie=my-value; my-2nd-cookie=my-other-value",
         )
 
     def test_from_dict(self):

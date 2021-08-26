@@ -57,6 +57,7 @@ class AppModes(object):
     DASH_APP = AppMode(9, "python-dash", "Dash Application")
     STREAMLIT_APP = AppMode(10, "python-streamlit", "Streamlit Application")
     BOKEH_APP = AppMode(11, "python-bokeh", "Bokeh Application")
+    PYTHON_FASTAPI = AppMode(12, "python-fastapi", "Python FastAPI")
 
     _modes = [
         UNKNOWN,
@@ -71,12 +72,17 @@ class AppModes(object):
         DASH_APP,
         STREAMLIT_APP,
         BOKEH_APP,
+        PYTHON_FASTAPI,
     ]
 
     @classmethod
     def get_by_ordinal(cls, ordinal, return_unknown=False):
         """Get an AppMode by its associated ordinal (integer)"""
-        return cls._find_by(lambda mode: mode.ordinal() == ordinal, "with ordinal %s" % ordinal, return_unknown,)
+        return cls._find_by(
+            lambda mode: mode.ordinal() == ordinal,
+            "with ordinal %s" % ordinal,
+            return_unknown,
+        )
 
     @classmethod
     def get_by_name(cls, name, return_unknown=False):
@@ -93,7 +99,9 @@ class AppModes(object):
             raise ValueError("No app mode with extension %s" % extension)
 
         return cls._find_by(
-            lambda mode: mode.extension() == extension, "with extension: %s" % extension, return_unknown,
+            lambda mode: mode.extension() == extension,
+            "with extension: %s" % extension,
+            return_unknown,
         )
 
     @classmethod

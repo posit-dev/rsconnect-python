@@ -150,11 +150,13 @@ def write_manifest(relative_dir, nb_name, environment, output_dir, hide_all_inpu
     manifest_filename = "manifest.json"
     manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
     if hide_all_input:
-        if 'jupyter' not in manifest: manifest['jupyter']= {}       
-        manifest['jupyter'].update({'hide_all_input': hide_all_input})
+        if "jupyter" not in manifest:
+            manifest["jupyter"] = {}
+        manifest["jupyter"].update({"hide_all_input": hide_all_input})
     if hide_tagged_input:
-        if 'jupyter' not in manifest: manifest['jupyter']= {} 
-        manifest['jupyter'].update({'hide_tagged_input': hide_tagged_input})
+        if "jupyter" not in manifest:
+            manifest["jupyter"] = {}
+        manifest["jupyter"].update({"hide_tagged_input": hide_tagged_input})
     manifest_file = join(output_dir, manifest_filename)
     created = []
     skipped = []
@@ -227,11 +229,13 @@ def make_notebook_source_bundle(
 
     manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
     if hide_all_input:
-        if 'jupyter' not in manifest: manifest['jupyter']= {}       
-        manifest['jupyter'].update({'hide_all_input': hide_all_input})
+        if "jupyter" not in manifest:
+            manifest["jupyter"] = {}
+        manifest["jupyter"].update({"hide_all_input": hide_all_input})
     if hide_tagged_input:
-        if 'jupyter' not in manifest: manifest['jupyter']= {} 
-        manifest['jupyter'].update({'hide_tagged_input': hide_tagged_input})
+        if "jupyter" not in manifest:
+            manifest["jupyter"] = {}
+        manifest["jupyter"].update({"hide_tagged_input": hide_tagged_input})
     manifest_add_file(manifest, nb_name, base_dir)
     manifest_add_buffer(manifest, environment.filename, environment.contents)
 
@@ -292,11 +296,11 @@ def make_notebook_html_bundle(
         filename,
     ]
     if hide_all_input and hide_tagged_input or hide_all_input:
-        cmd.append('--no-input')
+        cmd.append("--no-input")
     elif hide_tagged_input:
-        version = check_output([python, '--version']).decode("utf-8") 
-        if version >= 'Python 3':
-            cmd.append('--TagRemovePreprocessor.remove_input_tags=hide_input')
+        version = check_output([python, "--version"]).decode("utf-8")
+        if version >= "Python 3":
+            cmd.append("--TagRemovePreprocessor.remove_input_tags=hide_input")
         else:
             cmd.append("--TagRemovePreprocessor.remove_input_tags=['hide_input']")
     try:

@@ -253,7 +253,14 @@ class ServerStore(DataStore):
         :param ca_data: client side certificate data to use for TLS.
         """
         self._set(
-            name, dict(name=name, url=url, api_key=api_key, insecure=insecure, ca_cert=ca_data,),
+            name,
+            dict(
+                name=name,
+                url=url,
+                api_key=api_key,
+                insecure=insecure,
+                ca_cert=ca_data,
+            ),
         )
 
     def remove_by_name(self, name):
