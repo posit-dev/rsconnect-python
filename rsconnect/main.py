@@ -40,7 +40,7 @@ from rsconnect.actions import (
 )
 
 from . import api
-from .bundle import make_manifest_bundle
+from .bundle import is_environment_dir, make_manifest_bundle
 from .metadata import ServerStore, AppStore
 from .models import AppModes
 
@@ -408,6 +408,35 @@ def _warn_on_ignored_manifest(directory):
         )
 
 
+def _warn_if_no_requirements_file(directory):
+    """
+    Checks for the existence of a file called requirements.txt in the given directory.
+    If it's not there, a warning will be printed.
+
+    :param directory: the directory to check in.
+    """
+    if not exists(join(directory, "requirements.txt")):
+        click.secho(
+            "    Warning: Capturing the environment using 'pip freeze'.\n"
+            "             Consider creating a requirements.txt file instead.",
+            fg="yellow",
+        )
+
+
+def _warn_if_environment_directory(directory):
+    """
+    Issue a warning if the deployment directory is itself a virtualenv (yikes!).
+
+    :param directory: the directory to check in.
+    """
+    if is_environment_dir(directory):
+        click.secho(
+            "    Warning: The deployment directory appears to be a python virtual environment.\n"
+            "             Excluding the 'bin' and 'lib' directories.",
+            fg="yellow",
+        )
+
+
 def _warn_on_ignored_conda_env(environment):
     """
     Checks for a discovered Conda environment and produces a warning that it will be ignored when
@@ -628,7 +657,10 @@ def deploy_notebook(
 
     click.secho('    Deploying %s to server "%s"' % (file, connect_server.url))
 
-    _warn_on_ignored_manifest(dirname(file))
+    base_dir = dirname(file)
+    _warn_on_ignored_manifest(base_dir)
+    _warn_if_no_requirements_file(base_dir)
+    _warn_if_environment_directory(base_dir)
 
     with cli_feedback("Inspecting Python environment"):
         python, environment = get_python_env_info(file, python, conda, force_generate)
@@ -640,7 +672,7 @@ def deploy_notebook(
         _warn_on_ignored_conda_env(environment)
 
     if force_generate:
-        _warn_on_ignored_requirements(dirname(file), environment.filename)
+        _warn_on_ignored_requirements(base_dir, environment.filename)
 
     with cli_feedback("Creating deployment bundle"):
         bundle = create_notebook_deployment_bundle(
@@ -985,6 +1017,8 @@ def _deploy_by_framework(
     click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
 
     _warn_on_ignored_manifest(directory)
+    _warn_if_no_requirements_file(directory)
+    _warn_if_environment_directory(directory)
 
     with cli_feedback("Inspecting Python environment"):
         _, environment = get_python_env_info(module_file, python, conda, force_generate)
