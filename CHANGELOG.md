@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2021-08-30
+
+### Added
+
+- You can now deploy FastAPI applications. This requires RStudio Connect release 2021.08.0
+  or later. Use `rsconnect deploy fastapi` to deploy, or `rsconnect write-manifest fastapi`
+  to create a manifest file.
+- In addition to FastAPI, you can also deploy Quart, Sanic, and Falcon ASGI applications.
+
+### Changed
+
+- rsconnect-python will now issue a warning during deployment if there isn't a requirements.txt
+  file in the deployment directory. Using a requirements file ensures consistency in the
+  environment that will be created by the RStudio Connect server during deployment. This helps avoid
+  unnecessary package installations and issues that can occur if rsconnect-python falls back
+  to inferring packages from the local Python environment.
 
 ## [1.5.4] - 2021-07-29
 
