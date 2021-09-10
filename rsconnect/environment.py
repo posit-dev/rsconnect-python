@@ -224,11 +224,11 @@ def pip_freeze():
 
 
 def strip_ref(line):
-    return line.split("@", 1)[0].strip()
+    return line.split(" @ ", 1)[0].strip()
 
 
 def exclude(line):
-    return line and line.startswith('setuptools') and 'post' in line
+    return line and line.startswith("setuptools") and "post" in line
 
 
 def conda_env_export(conda):
@@ -276,11 +276,11 @@ def main():
         if "c" in flags:
             conda_mode = True
         envinfo = detect_environment(directory, force_generate, conda_mode)._asdict()
-        if 'contents' in envinfo:
-            keepers = list(map(strip_ref, envinfo['contents'].split('\n')))
+        if "contents" in envinfo:
+            keepers = list(map(strip_ref, envinfo["contents"].split("\n")))
             if not conda_mode:
                 keepers = [line for line in keepers if not exclude(line)]
-            envinfo['contents'] = '\n'.join(keepers)
+            envinfo["contents"] = "\n".join(keepers)
 
         json.dump(
             envinfo, sys.stdout, indent=4,
