@@ -224,7 +224,8 @@ def pip_freeze():
 
 
 def strip_ref(line):
-    return line.split(" @ ", 1)[0].strip()
+    # remove erroneous conda build paths that will break pip install
+    return line.split(" @ file:", 1)[0].strip()
 
 
 def exclude(line):
