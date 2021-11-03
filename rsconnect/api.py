@@ -52,9 +52,10 @@ class RSConnectServer(object):
                     else:
                         error = "The Connect server reported an error: %s" % response.json_data["error"]
                     raise RSConnectException(error)
-                raise RSConnectException(
-                    "Received an unexpected response from RStudio Connect: %s %s" % (response.status, response.reason)
-                )
+                if response.status != 200:
+                    raise RSConnectException(
+                        "Received an unexpected response from RStudio Connect: %s %s" % (response.status, response.reason)
+                    )
 
 
 class RSConnect(HTTPServer):
@@ -112,6 +113,15 @@ class RSConnect(HTTPServer):
     def app_config(self, app_id):
         return self.get("applications/%s/config" % app_id)
 
+    def bundle_download(self, content_guid, bundle_id):
+        return self.get("v1/content/%s/bundles/%s/download" % (content_guid, bundle_id), decode_response=False)
+
+    def content_search(self):
+        return self.get("v1/content")
+
+    def content_get(self, content_guid):
+        return self.get("v1/content/%s" % content_guid)
+
     def task_get(self, task_id, first_status=None):
         params = None
         if first_status is not None:
@@ -151,6 +161,21 @@ class RSConnect(HTTPServer):
             "app_url": app["url"],
             "title": app["title"],
         }
+
+    def download_bundle(self, content_guid, bundle_id):
+        results = self.bundle_download(content_guid, bundle_id)
+        self._server.handle_bad_response(results)
+        return results
+
+    def search_content(self):
+        results = self.content_search()
+        self._server.handle_bad_response(results)
+        return results
+
+    def get_content(self, content_guid):
+        results = self.content_get(content_guid)
+        self._server.handle_bad_response(results)
+        return results
 
     def wait_for_task(self, app_id, task_id, log_callback, timeout=None):
         last_status = None
@@ -479,3 +504,32 @@ def find_unique_name(connect_server, name):
         name = test
 
     return name
+
+
+def do_bundle_download(connect_server, guid, bundle_id):
+    """
+    Downloads a content source bundle
+    """
+    with RSConnect(connect_server, timeout=120) as client:
+        result = client.download_bundle(guid, bundle_id)
+        connect_server.handle_bad_response(result)
+        return result
+
+
+def do_content_search(connect_server):
+    """
+    Searches for content
+    """
+    with RSConnect(connect_server, timeout=120) as client:
+        result = client.search_content()
+        connect_server.handle_bad_response(result)
+        return result
+
+def do_content_get(connect_server, guid):
+    """
+    Get metadata about a single piece of content
+    """
+    with RSConnect(connect_server, timeout=120) as client:
+        result = client.content_get(guid)
+        connect_server.handle_bad_response(result)
+        return result

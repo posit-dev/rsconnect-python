@@ -1,7 +1,8 @@
 """
 Public API for managing settings and deploying content.
 """
-
+from http_support import HTTPResponse
+import semver
 import contextlib
 import json
 import logging
@@ -1489,3 +1490,105 @@ def describe_manifest(file_name):
                 metadata.get("primary_rmd") or metadata.get("primary_html"),
             )
     return None, None
+
+
+def download_bundle(connect_server, guid, bundle_id):
+    # bundle_id not provided so grab the latest
+    if not bundle_id:
+        content = api.do_content_get(connect_server, guid)
+        if 'bundle_id' in content and content['bundle_id']:
+            bundle_id = content['bundle_id']
+        else:
+            raise api.RSConnectException("There is no current bundle available for this content: %s" % guid)
+
+    response = api.do_bundle_download(connect_server, guid, bundle_id)
+    return response.response_body
+
+
+def get_content(connect_server, guid):
+    result = [api.do_content_get(connect_server, g) for g in guid]
+    return json.dumps(result, indent=2)
+
+
+def search_content(connect_server, published, unpublished, r_version, py_version, title_contains, order_by):
+    result = api.do_content_search(connect_server)
+    result = _apply_content_filters(result, published, unpublished, r_version, py_version, title_contains)
+    result = _order_content_results(result, order_by)
+    return json.dumps(list(result), indent=2)
+
+
+def _apply_content_filters(content_list, published, unpublished, r_version, py_version, title_search):
+    def content_is_published(item):
+        return 'bundle_id' in item and item['bundle_id'] != None
+
+    def content_is_unpublished(item):
+        if 'bundle_id' not in item:
+            return False
+        else:
+            return item['bundle_id'] == None
+
+    def title_contains(item):
+        return item['title'] is not None and title_search in item['title']
+
+    def apply_version_filter(items, version_filter):
+        def do_filter(item):
+            vers = None
+            if version_filter.name not in item:
+                return False
+            else:
+                vers = item[version_filter.name]
+            try:
+                compare = semver.compare(vers, version_filter.vers)
+            except (ValueError, TypeError):
+                return False
+
+            if version_filter.comp == ">":
+                return compare == 1
+            elif version_filter.comp == "<":
+                return compare == -1
+            elif version_filter.comp == "==":
+                return compare == 0
+            elif version_filter.comp == "<=":
+                return compare <= 0
+            elif version_filter.comp == ">=":
+                return compare >= 0
+            return False
+        return filter(do_filter, items)
+
+    result = iter(content_list)
+    if published:
+        result = filter(content_is_published, result)
+    if unpublished:
+        result = filter(content_is_unpublished, result)
+    if title_search:
+        result = filter(title_contains, result)
+    if r_version:
+        result = apply_version_filter(result, r_version)
+    if py_version:
+        result = apply_version_filter(result, py_version)
+    return result
+
+
+def _order_content_results(content_list, order_by):
+    result = iter(content_list)
+    if order_by == "last_deployed":
+        result = sorted(result, key=lambda c: c['last_deployed_time'])
+    elif order_by == "created":
+        result = sorted(result, key=lambda c: c['created_time'])
+
+    return result
+
+
+# https://stackoverflow.com/questions/17602878/how-to-handle-both-with-open-and-sys-stdout-nicely
+@contextlib.contextmanager
+def open_file_or_stdout(filename=None):
+    if filename and filename != '-':
+        fh = open(filename, 'w')
+    else:
+        fh = sys.stdout
+
+    try:
+        yield fh
+    finally:
+        if fh is not sys.stdout:
+            fh.close()

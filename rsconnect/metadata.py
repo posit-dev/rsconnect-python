@@ -420,3 +420,39 @@ class AppStore(DataStore):
         # app mode cannot be changed on redeployment
         app_mode = AppModes.get_by_name(metadata.get("app_mode"))
         return app_id, app_mode
+
+
+# class ContentRebuildStore(DataStore):
+#     """
+#     Defines a metadata store for information about a content rebuild.
+#     Each instance of this store represents one rebuild job initiated by the user.
+#     A rebuild job might be responsible for building 1-N content items on a single
+#     Connect server.
+
+#     Metadata for a rebuild job consists of one entry for each content item.
+
+#     * Server URL
+#     * Content GUID
+#     * Content Title
+#     * Start Timestamp
+#     * End Timestamp
+#     * Last known status
+#     * A log file reference
+
+#     The metadata file for a content rebuild is written in the current working
+#     directory, if that directory is writable.
+#     """
+#     def __init__(self, state_file):
+#         base_name = str(basename(state_file).rsplit(".", 1)[0]) + ".json"
+#         super(AppStore, self).__init__(
+#             join(dirname(app_file), "rsconnect-python", base_name),
+#             join(config_dirname(), "applications", sha1(abspath(app_file)) + ".json"),
+#         )
+
+#     def get(self, server_url):
+#         """
+#         Get the metadata for the last app deployed to the given server.
+
+#         :param server_url: the Connect URL to get the metadata for.
+#         """
+#         return self._get_by_key(server_url)
