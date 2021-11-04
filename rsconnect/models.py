@@ -7,6 +7,12 @@ import re
 
 import six
 
+class RebuildStatus(object):
+    NEEDS_REBUILD = "NEEDS_REBUILD"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    ERROR = "ERROR"
+
 
 class AppMode(object):
     """

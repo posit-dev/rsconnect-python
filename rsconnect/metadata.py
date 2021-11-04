@@ -8,6 +8,7 @@ import json
 import os
 import sys
 from os.path import abspath, basename, dirname, exists, join
+from urllib.parse import urlparse
 
 from rsconnect import api
 from rsconnect.log import logger
@@ -422,37 +423,56 @@ class AppStore(DataStore):
         return app_id, app_mode
 
 
-# class ContentRebuildStore(DataStore):
-#     """
-#     Defines a metadata store for information about a content rebuild.
-#     Each instance of this store represents one rebuild job initiated by the user.
-#     A rebuild job might be responsible for building 1-N content items on a single
-#     Connect server.
+DEFAULT_REBUILD_DIR = join(os.getcwd(), "rsconnect-rebuild")
+class ContentRebuildStore(DataStore):
+    """
+    Defines a metadata store for information about content rebuilds.
 
-#     Metadata for a rebuild job consists of one entry for each content item.
+    The metadata directory for a content rebuild is written in the directory specified by
+    CONNECT_ADMIN_REBUILD_DIR or the current working directory is none is supplied.
+    """
+    def __init__(self, base_dir=os.getenv("CONNECT_ADMIN_REBUILD_DIR", DEFAULT_REBUILD_DIR)):
+        super(ContentRebuildStore, self).__init__(join(base_dir, "rebuild.json"), chmod=True)
 
-#     * Server URL
-#     * Content GUID
-#     * Content Title
-#     * Start Timestamp
-#     * End Timestamp
-#     * Last known status
-#     * A log file reference
+    def add_content_item(self, server, content):
+        """
+        Add an item to the rebuilds for a given server
+        """
+        if server.url not in self._data:
+            self._data[server.url] = dict()
 
-#     The metadata file for a content rebuild is written in the current working
-#     directory, if that directory is writable.
-#     """
-#     def __init__(self, state_file):
-#         base_name = str(basename(state_file).rsplit(".", 1)[0]) + ".json"
-#         super(AppStore, self).__init__(
-#             join(dirname(app_file), "rsconnect-python", base_name),
-#             join(config_dirname(), "applications", sha1(abspath(app_file)) + ".json"),
-#         )
+        self._data[server.url][content['guid']] = content
+        self.save()
 
-#     def get(self, server_url):
-#         """
-#         Get the metadata for the last app deployed to the given server.
+    def get_content_item(self, server, guid):
+        """
+        Get a content item from the rebuilds for a given server by guid
+        """
+        return self._data.get(server.url, {}).get(guid)
 
-#         :param server_url: the Connect URL to get the metadata for.
-#         """
-#         return self._get_by_key(server_url)
+    def set_content_item_rebuild_status(self, server, guid, status):
+        """
+        Set the current status for a content rebuild
+        """
+        content = self.get_content_item(server, guid)
+        content['rsconnect_rebuild_status'] = str(status)
+        self.save()
+
+    def get_content_items(self, server, status=None):
+        """
+        Get all the content items that are tracked for rebuild on the given server.
+        :param status: Filter results by rebuild status
+        :return: A list of content items
+        """
+        if status:
+            return [item for item in self._data.get(server.url, {}).values() if item['rsconnect_rebuild_status'] == status]
+        else:
+            return self._data.get(server.url, {}).values()
+
+    def set_content_rebuild_task_id(self, server, guid, task_id):
+        """
+        Set the rebuild task result for a content item
+        """
+        content = self.get_content_item(server, guid)
+        content['rsconnect_rebuild_task_id'] = task_id
+        self.save()

@@ -34,8 +34,8 @@ from .bundle import (
 )
 from .environment import Environment, MakeEnvironment, EnvironmentException
 from .log import logger
-from .metadata import AppStore
-from .models import AppModes
+from .metadata import AppStore, ContentRebuildStore
+from .models import AppModes, RebuildStatus
 
 import click
 from six.moves.urllib_parse import urlparse
@@ -44,6 +44,8 @@ line_width = 45
 _module_pattern = re.compile(r"^[A-Za-z0-9_]+:[A-Za-z0-9_]+$")
 _name_sub_pattern = re.compile(r"[^A-Za-z0-9_ -]+")
 _repeating_sub_pattern = re.compile(r"_+")
+
+content_rebuild_store = ContentRebuildStore()
 
 
 @contextlib.contextmanager
@@ -1492,6 +1494,40 @@ def describe_manifest(file_name):
     return None, None
 
 
+def rebuild_add_content(connect_server, guid, bundle_id):
+    content = api.do_content_get(connect_server, guid)
+    if not bundle_id and not content['bundle_id']:
+        raise api.RSConnectException("This content has never been published to this server. You must specify a bundle_id for the rebuild. Content GUID: %s" % guid)
+
+    # TODO: Do we need to check for running builds first?
+
+    content_rebuild_store.add_content_item(connect_server,
+        dict(
+            guid=content['guid'],
+            bundle_id=bundle_id if bundle_id else content['bundle_id'],
+            title=content['title'],
+            name=content['name'],
+            created_time=content['created_time'],
+            last_deployed_time=content['last_deployed_time'],
+            rsconnect_rebuild_status=RebuildStatus.NEEDS_REBUILD
+        )
+    )
+
+
+def rebuild_start(connect_server):
+    content_items = content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.NEEDS_REBUILD)
+    for content in content_items:
+        task_result = api.do_content_rebuild(connect_server, content['guid'], content.get('bundle_id'))
+        task_id = task_result.json_data['task_id']
+        content_rebuild_store.set_content_rebuild_task_id(connect_server, content['guid'], task_id)
+        # check describe task and check that it's running
+        # set status in state file
+        print("Starting rebuild for %s..." % content['guid'])
+        api.emit_task_log(connect_server, content['guid'], task_id, log_callback=lambda line: print("\t%s" % line))
+        # wait for deploy to finish
+        # update status in state file
+
+
 def download_bundle(connect_server, guid, bundle_id):
     # bundle_id not provided so grab the latest
     if not bundle_id:
@@ -1501,12 +1537,19 @@ def download_bundle(connect_server, guid, bundle_id):
         else:
             raise api.RSConnectException("There is no current bundle available for this content: %s" % guid)
 
-    response = api.do_bundle_download(connect_server, guid, bundle_id)
-    return response.response_body
+    result = api.do_bundle_download(connect_server, guid, bundle_id)
+    return result.response_body
 
 
 def get_content(connect_server, guid):
-    result = [api.do_content_get(connect_server, g) for g in guid]
+    """
+    :param guid: a single guid as a string or list of guids.
+    :return: a list of content items.
+    """
+    if isinstance(guid, str):
+        result = [api.do_content_get(connect_server, guid)]
+    else:
+        result = [api.do_content_get(connect_server, g) for g in guid]
     return json.dumps(result, indent=2)
 
 

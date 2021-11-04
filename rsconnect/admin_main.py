@@ -11,6 +11,8 @@ from .metadata import ServerStore
 from .actions import (
   open_file_or_stdout,
   download_bundle,
+  rebuild_add_content,
+  rebuild_start,
   search_content,
   get_content,
 )
@@ -88,12 +90,12 @@ class VersionSearchFilter(click.ParamType):
     name="search",
     short_help="Search for content on RStudio Connect.",
 )
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server to search for content.")
+@click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server to search for content.",
+    help="The URL for the RStudio Connect server.",
 )
 @click.option(
     "--api-key",
@@ -151,6 +153,7 @@ class VersionSearchFilter(click.ParamType):
     default="-",
     help="Defines the output location for search results. Defaults to stdout.",
 )
+# todo: Add a --content-type filter flag
 def content_search(name, server, api_key, insecure, cacert, published, unpublished, r_version, py_version, title_contains, order_by, output):
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     if output != "-":
@@ -166,12 +169,12 @@ def content_search(name, server, api_key, insecure, cacert, published, unpublish
     name="get",
     short_help="Describe a content item on RStudio Connect.",
 )
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server to search.")
+@click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server to search.",
+    help="The URL for the RStudio Connect server.",
 )
 @click.option(
     "--api-key",
@@ -279,17 +282,22 @@ def content_bundle_download(name, server, api_key, insecure, cacert, guid, bundl
         f.write(download_bundle(connect_server, guid, bundle_id))
 
 
+@content.group(no_args_is_help=True, help="Rebuild content on RStudio Connect.")
+def rebuild():
+    pass
+
+
 # noinspection SpellCheckingInspection,DuplicatedCode
-@content.command(
-    name="rebuild",
-    short_help="Rebuild content on RStudio Connect.",
+@rebuild.command(
+    name="add",
+    short_help="Add content items to the next rebuild job for a given Connect server.",
 )
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server to initiate a rebuild.")
+@click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server initiate a rebuild.",
+    help="The URL for the RStudio Connect server.",
 )
 @click.option(
     "--api-key",
@@ -312,30 +320,53 @@ def content_bundle_download(name, server, api_key, insecure, cacert, guid, bundl
     help="The path to trusted TLS CA certificates.",
 )
 @click.option(
-    "--from-file",
-    "-f",
-    type=click.File(),
-    default="-",
-    help="A json file containing an array of content to rebuild. Each json object must contain a `guid` field. Defaults to stdin.",
+    "--guid",
+    "-g",
+    required=True,
+    help="Add a content item by guid.",
 )
 @click.option(
-    "--guid",
-    multiple=True,
-    help="The GUID of a content item to rebuild. This flag can be passed multiple times.",
+    "--bundle-id",
+    help="The bundle ID of the content item to rebuild. By default, the latest bundle is used.",
 )
-# @click.option(
-#     "--parallelism",
-#     type=click.INT,
-#     default=1,
-#     help="Rebuild the content in parallel. This flag controls the number of rebuilds that happen at the same time.",
-# )
-def content_rebuild(name, server, api_key, insecure, cacert, from_file, guid):
+def add_content_to_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id):
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+    rebuild_add_content(connect_server, guid, bundle_id)
 
-    # TODO: Rebuild must allow passing in a \n delimited string of guids AND json
 
-    # if guid was provided, then we can go ahead and close the input file, we dont need it
-    if guid:
-        from_file.close()
-
-    return
+# noinspection SpellCheckingInspection,DuplicatedCode
+@rebuild.command(
+    name="start",
+    short_help="Start rebuilding content on a given Connect server.",
+)
+@click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
+@click.option(
+    "--server",
+    "-s",
+    envvar="CONNECT_SERVER",
+    help="The URL for the RStudio Connect server.",
+)
+@click.option(
+    "--api-key",
+    "-k",
+    envvar="CONNECT_API_KEY",
+    help="The API key to use to authenticate with RStudio Connect.",
+)
+@click.option(
+    "--insecure",
+    "-i",
+    envvar="CONNECT_INSECURE",
+    is_flag=True,
+    help="Disable TLS certification/host validation.",
+)
+@click.option(
+    "--cacert",
+    "-c",
+    envvar="CONNECT_CA_CERTIFICATE",
+    type=click.File(),
+    help="The path to trusted TLS CA certificates.",
+)
+# todo: --background flag
+def start_content_rebuild(name, server, api_key, insecure, cacert):
+    connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+    rebuild_start(connect_server)

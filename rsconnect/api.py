@@ -9,6 +9,19 @@ from rsconnect.http_support import HTTPResponse, HTTPServer, append_to_path, Coo
 from rsconnect.log import logger
 from rsconnect.models import AppModes
 
+_ok_http_status = [
+    200,
+    201,
+    202,
+    203,
+    204,
+    205,
+    206,
+    207,
+    208,
+    226,
+]
+
 _error_map = {
     4: (
         "This content has been deployed before but could not be found on the server.\nUse the --new option to "
@@ -52,7 +65,7 @@ class RSConnectServer(object):
                     else:
                         error = "The Connect server reported an error: %s" % response.json_data["error"]
                     raise RSConnectException(error)
-                if response.status != 200:
+                if response.status not in _ok_http_status:
                     raise RSConnectException(
                         "Received an unexpected response from RStudio Connect: %s %s" % (response.status, response.reason)
                     )
@@ -121,6 +134,9 @@ class RSConnect(HTTPServer):
 
     def content_get(self, content_guid):
         return self.get("v1/content/%s" % content_guid)
+
+    def content_deploy(self, content_guid, bundle_id=None):
+        return self.post("v1/content/%s/deploy" % content_guid, body={"bundle_id": bundle_id})
 
     def task_get(self, task_id, first_status=None):
         params = None
@@ -525,11 +541,19 @@ def do_content_search(connect_server):
         connect_server.handle_bad_response(result)
         return result
 
+
 def do_content_get(connect_server, guid):
     """
     Get metadata about a single piece of content
     """
     with RSConnect(connect_server, timeout=120) as client:
         result = client.content_get(guid)
+        connect_server.handle_bad_response(result)
+        return result
+
+
+def do_content_rebuild(connect_server, guid, bundle_id=None):
+    with RSConnect(connect_server, timeout=120) as client:
+        result = client.content_deploy(guid, bundle_id)
         connect_server.handle_bad_response(result)
         return result
