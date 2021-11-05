@@ -91,14 +91,14 @@ class DataStore(object):
         if not self._load_from(self._primary_path) and self._secondary_path:
             self._load_from(self._secondary_path)
 
-    def _get_by_key(self, key):
+    def _get_by_key(self, key, default=None):
         """
         Return a stored value by its key.
 
         :param key: the key for the value to return.
         :return: the associated value or None if there isn't one.
         """
-        return self._data.get(key)
+        return self._data.get(key, default)
 
     def _get_by_value_attr(self, attr, value):
         """
@@ -431,8 +431,29 @@ class ContentRebuildStore(DataStore):
     The metadata directory for a content rebuild is written in the directory specified by
     CONNECT_ADMIN_REBUILD_DIR or the current working directory is none is supplied.
     """
+
+    # todo: acquire_lock, release_lock
+    # todo: save_safe()
+
     def __init__(self, base_dir=os.getenv("CONNECT_ADMIN_REBUILD_DIR", DEFAULT_REBUILD_DIR)):
+        self._base_dir = base_dir
         super(ContentRebuildStore, self).__init__(join(base_dir, "rebuild.json"), chmod=True)
+
+    def ensure_logs_dir(self):
+        d = self.get_deploy_logs_dir()
+        os.makedirs(d, exist_ok=True)
+        if self._chmod:
+            os.chmod(d, 0o700)
+
+    def get_deploy_logs_dir(self):
+        return join(self._base_dir, "logs")
+
+    def get_rebuild_running(self, server):
+        return self._data.get(server.url, {}).get('rsconnect_rebuild_running')
+
+    def set_rebuild_running(self, server, is_running):
+        self._data[server.url]['rsconnect_rebuild_running'] = is_running
+        self.save()
 
     def add_content_item(self, server, content):
         """
@@ -441,14 +462,17 @@ class ContentRebuildStore(DataStore):
         if server.url not in self._data:
             self._data[server.url] = dict()
 
-        self._data[server.url][content['guid']] = content
+        if 'content' not in self._data[server.url]:
+            self._data[server.url]['content'] = dict()
+
+        self._data[server.url]['content'][content['guid']] = content
         self.save()
 
     def get_content_item(self, server, guid):
         """
         Get a content item from the rebuilds for a given server by guid
         """
-        return self._data.get(server.url, {}).get(guid)
+        return self._data.get(server.url, {}).get('content', {}).get(guid)
 
     def set_content_item_rebuild_status(self, server, guid, status):
         """
@@ -465,14 +489,14 @@ class ContentRebuildStore(DataStore):
         :return: A list of content items
         """
         if status:
-            return [item for item in self._data.get(server.url, {}).values() if item['rsconnect_rebuild_status'] == status]
+            return [item for item in self._data.get(server.url, {}).get('content', {}).values() if item['rsconnect_rebuild_status'] == status]
         else:
-            return self._data.get(server.url, {}).values()
+            return self._data.get(server.url, {}).get('content', {}).values()
 
-    def set_content_rebuild_task_id(self, server, guid, task_id):
+    def set_content_rebuild_task(self, server, guid, task):
         """
         Set the rebuild task result for a content item
         """
         content = self.get_content_item(server, guid)
-        content['rsconnect_rebuild_task_id'] = task_id
+        content['rsconnect_rebuild_task'] = task
         self.save()

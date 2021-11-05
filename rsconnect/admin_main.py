@@ -329,6 +329,7 @@ def rebuild():
     "--bundle-id",
     help="The bundle ID of the content item to rebuild. By default, the latest bundle is used.",
 )
+# todo: add a --timeout flag with sane default
 def add_content_to_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id):
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     rebuild_add_content(connect_server, guid, bundle_id)
@@ -366,7 +367,13 @@ def add_content_to_rebuild(name, server, api_key, insecure, cacert, guid, bundle
     type=click.File(),
     help="The path to trusted TLS CA certificates.",
 )
+@click.option(
+    "--parallelism",
+    type=click.IntRange(min=1, max=10, clamp=True),
+    default=1,
+    help="Defines the number of rebuilds that can run concurrently. Defaults to 1. Capped at 10."
+)
 # todo: --background flag
-def start_content_rebuild(name, server, api_key, insecure, cacert):
+def start_content_rebuild(name, server, api_key, insecure, cacert, parallelism):
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-    rebuild_start(connect_server)
+    rebuild_start(connect_server, parallelism)

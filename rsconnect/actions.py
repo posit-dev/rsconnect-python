@@ -1,7 +1,11 @@
 """
 Public API for managing settings and deploying content.
 """
-from http_support import HTTPResponse
+
+# This probably breaks python2, can we remove python2.7 support from setup and/or can we require >3 for only the admin tool
+from concurrent.futures import ThreadPoolExecutor, as_completed
+#from multiprocessing.pool import ThreadPool
+
 import semver
 import contextlib
 import json
@@ -1499,8 +1503,10 @@ def rebuild_add_content(connect_server, guid, bundle_id):
     if not bundle_id and not content['bundle_id']:
         raise api.RSConnectException("This content has never been published to this server. You must specify a bundle_id for the rebuild. Content GUID: %s" % guid)
 
-    # TODO: Do we need to check for running builds first?
+    if content_rebuild_store.get_rebuild_running(connect_server):
+        raise api.RSConnectException("There is already a rebuild running on this server, please wait for it to finish before adding new content.")
 
+    # TODO: add_content_item should merge with existing items
     content_rebuild_store.add_content_item(connect_server,
         dict(
             guid=content['guid'],
@@ -1509,23 +1515,52 @@ def rebuild_add_content(connect_server, guid, bundle_id):
             name=content['name'],
             created_time=content['created_time'],
             last_deployed_time=content['last_deployed_time'],
-            rsconnect_rebuild_status=RebuildStatus.NEEDS_REBUILD
         )
     )
+    content_rebuild_store.set_content_item_rebuild_status(connect_server, content['guid'], RebuildStatus.NEEDS_REBUILD)
 
 
-def rebuild_start(connect_server):
+def rebuild_start(connect_server, parallelism):
+    # TODO: Should we trap exit signals? How do we check on the server whether it's safe to restart a rebuild?
+    #   We could query task_id for every content item that has RebuildStatus.RUNNING. If task_id not found then mark content as COMPLETE?
+    if content_rebuild_store.get_rebuild_running(connect_server):
+        raise api.RSConnectException("There is already a rebuild running on this server: %s" % connect_server.url)
+    content_rebuild_store.ensure_logs_dir()
+    content_rebuild_store.set_rebuild_running(connect_server, True)
     content_items = content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.NEEDS_REBUILD)
-    for content in content_items:
-        task_result = api.do_content_rebuild(connect_server, content['guid'], content.get('bundle_id'))
-        task_id = task_result.json_data['task_id']
-        content_rebuild_store.set_content_rebuild_task_id(connect_server, content['guid'], task_id)
-        # check describe task and check that it's running
-        # set status in state file
-        print("Starting rebuild for %s..." % content['guid'])
-        api.emit_task_log(connect_server, content['guid'], task_id, log_callback=lambda line: print("\t%s" % line))
-        # wait for deploy to finish
-        # update status in state file
+
+    if len(content_items) == 0:
+        click.secho("Nothing to rebuild...\nUse `rsconnect-admin content rebuild add` to mark content for rebuild.")
+
+    # https://docs.python.org/3/library/concurrent.futures.html#threadpoolexecutor-example
+    with ThreadPoolExecutor(max_workers=parallelism) as executor:
+        rebuild_result_futures = {executor.submit(_rebuild_content_item, connect_server, content): content['guid'] for content in content_items}
+        for future in as_completed(rebuild_result_futures):
+            guid = rebuild_result_futures[future]
+            try:
+                log_file = future.result()
+            except Exception as exc:
+                click.secho('%s generated an exception: %s' % (guid, exc))
+            else:
+                click.secho('%s rebuild complete: %s' % (guid, log_file))
+                # TODO: update content item after build completes
+                # TODO: keep task_id history and exec timestamp
+
+    content_rebuild_store.set_rebuild_running(connect_server, False)
+
+
+def _rebuild_content_item(connect_server, content, timeout=None):
+    click.secho("Starting rebuild for content %s..." % content['guid'])
+    content_rebuild_store.set_content_item_rebuild_status(connect_server, content['guid'], RebuildStatus.RUNNING)
+    task_result = api.do_start_content_rebuild(connect_server, content['guid'], content.get('bundle_id'))
+    task_id = task_result.json_data['task_id']
+    log_file_name = join(content_rebuild_store.get_deploy_logs_dir(), "%s.log" % task_id)
+    with open(log_file_name, 'w') as log:
+        api.emit_task_log(connect_server, content['guid'], task_id, log_callback=lambda line: log.write("%s\n" % line))
+
+    # TODO check result and raise exc if failed
+    content_rebuild_store.set_content_item_rebuild_status(connect_server, content['guid'], RebuildStatus.COMPLETED)
+    return log_file_name
 
 
 def download_bundle(connect_server, guid, bundle_id):

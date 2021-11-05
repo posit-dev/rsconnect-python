@@ -552,8 +552,19 @@ def do_content_get(connect_server, guid):
         return result
 
 
-def do_content_rebuild(connect_server, guid, bundle_id=None):
+def do_start_content_rebuild(connect_server, guid, bundle_id=None):
     with RSConnect(connect_server, timeout=120) as client:
         result = client.content_deploy(guid, bundle_id)
         connect_server.handle_bad_response(result)
         return result
+
+
+def do_task_get(connect_server, task_id):
+    with RSConnect(connect_server, timeout=120) as client:
+        result = client.task_get(task_id)
+        connect_server.handle_bad_response(result)
+        return result
+
+
+# def wait_for_task_complete(connect_server, task_id):
+#     with RSConnect(connect_server, timeout=120) as client:
