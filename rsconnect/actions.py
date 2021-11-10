@@ -1515,20 +1515,19 @@ def rebuild_add_content(connect_server, guid, bundle_id):
     content_rebuild_store.set_content_item_rebuild_status(connect_server, content['guid'], RebuildStatus.NEEDS_REBUILD)
 
 
-def rebuild_start(connect_server, parallelism):
+def rebuild_start(connect_server, parallelism, debug=False):
     # TODO: Should we trap exit signals so we can set_rebuild_running(connect_server, False)? How do we check on the server whether it's safe to restart a rebuild?
     #   We could query task_id for every content item that has RebuildStatus.RUNNING. If task_id not found then mark content as COMPLETE?
     #   or maybe just warn and move and mark them as NEEDS_REBUILD
     if content_rebuild_store.get_rebuild_running(connect_server):
         raise api.RSConnectException("There is already a rebuild running on this server: %s" % connect_server.url)
-    content_rebuild_store.ensure_logs_dir()
-    content_items = content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.NEEDS_REBUILD)
 
+    content_items = content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.NEEDS_REBUILD)
     if len(content_items) == 0:
         click.secho("Nothing to rebuild...\nUse `rsconnect-admin content rebuild add` to mark content for rebuild.")
         return
 
-    click.secho("Starting content rebuild (%s)" % connect_server.url)
+    click.secho("Starting content rebuild (%s)..." % connect_server.url)
     content_rebuild_store.set_rebuild_running(connect_server, True)
 
     # spawn a single thread to print progress feedback for the user
@@ -1545,10 +1544,18 @@ def rebuild_start(connect_server, parallelism):
                 future.result()
             except Exception as exc:
                 content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.ERROR)
-                click.secho('%s generated an exception: %s' % (guid, exc))
+                if debug:
+                    click.secho('%s generated an exception: %s' % (guid, exc), fg="red")
 
     content_rebuild_store.set_rebuild_running(connect_server, False)
-    success = summary_future.result() # wait for rebuild to complete and print final summary
+
+    # wait for rebuild to complete and print final summary
+    try:
+        success = summary_future.result()
+    except Exception as exc:
+        if debug:
+            click.secho(exc, fg="red")
+
     summary_executor.shutdown()
     click.secho("\nContent rebuild complete.")
     if not success:
@@ -1560,13 +1567,14 @@ def _print_content_rebuild_summary(connect_server, content_items):
     :return bool: True if there were no rebuild failures, False otherwise
     """
     click.secho("\tTo check progress or results for a specific piece of content, use the following command: rsconnect-admin rebuild status --guid")
+    click.secho()
     start = datetime.now()
     while content_rebuild_store.get_rebuild_running(connect_server):
         current = datetime.now()
         duration = current - start
         rounded_duration = timedelta(seconds=duration.seconds) # construct a new delta w/o millis since timedelta doesn't allow strfmt
         time.sleep(0.5)
-        complete = [item for item in content_items if item['rsconnect_rebuild_status'] == RebuildStatus.COMPLETED]
+        complete = [item for item in content_items if item['rsconnect_rebuild_status'] == RebuildStatus.COMPLETE]
         error = [item for item in content_items if item['rsconnect_rebuild_status'] == RebuildStatus.ERROR]
         running = [item for item in content_items if item['rsconnect_rebuild_status'] == RebuildStatus.RUNNING]
         pending = [item for item in content_items if item['rsconnect_rebuild_status'] == RebuildStatus.NEEDS_REBUILD]
@@ -1574,11 +1582,14 @@ def _print_content_rebuild_summary(connect_server, content_items):
             (len(running), len(pending), len(complete), len(error), rounded_duration), nl=False)
 
     click.secho()
+    click.secho()
     click.secho("%d/%d content rebuilds completed in %s" % (len(complete) + len(error), len(content_items), rounded_duration))
     click.secho("Success = %d, Error = %d" % (len(complete), len(error)))
-    click.secho()
     if len(error) != 0:
-        click.secho("There were failures during your rebuild. The check the rebuild log, use the following command: rsconnect-admin rebuild logs --guid")
+        click.secho()
+        click.secho("There were failures during your rebuild.")
+        click.secho("\tTo check the rebuild log, use the following command: rsconnect-admin rebuild logs --guid")
+        click.secho()
         click.secho("Failed content:")
         for c in error:
             click.secho("\tContent Name: %s, GUID: %s" % (c['name'], c['guid']))
@@ -1587,18 +1598,33 @@ def _print_content_rebuild_summary(connect_server, content_items):
 
 
 def _rebuild_content_item(connect_server, content, timeout=None):
-    content_rebuild_store.set_content_item_rebuild_status(connect_server, content['guid'], RebuildStatus.RUNNING)
-    task_result = api.do_start_content_rebuild(connect_server, content['guid'], content.get('bundle_id'))
+    guid = content['guid']
+    content_rebuild_store.ensure_logs_dir(connect_server, guid)
+    content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.RUNNING)
+    task_result = api.do_start_content_rebuild(connect_server, guid, content.get('bundle_id'))
     task_id = task_result.json_data['task_id']
-    log_file_name = join(content_rebuild_store.get_deploy_logs_dir(), "%s.log" % task_id)
-    with open(log_file_name, 'w') as log:
+    log_file = content_rebuild_store.get_rebuild_log(connect_server, guid, task_id)
+    with open(log_file, 'w') as log:
         # emit_task_log raises an exception if exit_code != 0
-        api.emit_task_log(connect_server, content['guid'], task_id, log_callback=lambda line: log.write("%s\n" % line))
+        api.emit_task_log(connect_server, guid, task_id, log_callback=lambda line: log.write("%s\n" % line))
 
     # grab the updated content metadata from connect and update our store
-    updated_content = api.do_content_get(connect_server, content['guid'])
+    updated_content = api.do_content_get(connect_server, guid)
     content_rebuild_store.update_content_item(connect_server, updated_content)
-    content_rebuild_store.set_content_item_rebuild_status(connect_server, content['guid'], RebuildStatus.COMPLETE)
+    content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.COMPLETE)
+
+
+def emit_rebuild_log(connect_server, guid, format, task_id=None):
+    log_file = content_rebuild_store.get_rebuild_log(connect_server, guid, task_id)
+    if log_file:
+        with open(log_file, 'r') as f:
+            for line in f.readlines():
+                if format == "json":
+                    yield json.dumps({"message": line}) + "\n"
+                else:
+                    yield line
+    else:
+        raise api.RSConnectException("Log file not found for content: %s" % guid)
 
 
 def download_bundle(connect_server, guid, bundle_id):

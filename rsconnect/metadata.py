@@ -6,13 +6,14 @@ import base64
 import hashlib
 import json
 import os
+import glob
 import sys
-from os.path import abspath, basename, dirname, exists, join
+from os.path import abspath, basename, dirname, exists, join, isfile
 from urllib.parse import urlparse
 
 from rsconnect import api
 from rsconnect.log import logger
-from rsconnect.models import AppMode, AppModes, RebuildStatus
+from rsconnect.models import AppMode, AppModes
 
 
 def config_dirname(platform=sys.platform, env=os.environ):
@@ -45,6 +46,11 @@ def makedirs(filepath):
         os.makedirs(dirname(filepath))
     except OSError:
         pass
+
+
+def _normalize_server_url(server_url):
+    url = urlparse(server_url)
+    return url.netloc.replace(".", "_").replace(":", "_")
 
 
 class DataStore(object):
@@ -439,14 +445,33 @@ class ContentRebuildStore(DataStore):
         self._base_dir = base_dir
         super(ContentRebuildStore, self).__init__(join(base_dir, "rebuild.json"), chmod=True)
 
-    def ensure_logs_dir(self):
-        d = self.get_deploy_logs_dir()
-        os.makedirs(d, exist_ok=True)
-        if self._chmod:
-            os.chmod(d, 0o700)
+    def get_rebuild_logs_dir(self, server, guid):
+        return join(self._base_dir, "logs", _normalize_server_url(server.url), guid)
 
-    def get_deploy_logs_dir(self):
-        return join(self._base_dir, "logs")
+    def ensure_logs_dir(self, server, guid):
+        log_dir = self.get_rebuild_logs_dir(server, guid)
+        os.makedirs(log_dir, exist_ok=True)
+        if self._chmod:
+            os.chmod(log_dir, 0o700)
+
+    def get_rebuild_log(self, server, guid, task_id=None):
+        """
+        Returns the path to the rebuild log file. This method does not check
+        whether the file exists if a task_id is provided.
+        If task_id is not provided, we will return the latest log
+        using the last modified timestamp on the filesystem.
+        If no log files are found, returns None
+        """
+        log_dir = self.get_rebuild_logs_dir(server, guid)
+        if task_id:
+            return join(log_dir, "%s.log" % task_id)
+        else:
+            try:
+                log_files = glob.glob(join(log_dir, "*.log"))
+                latest = max(log_files, key=os.path.getctime)
+            except ValueError:
+                latest = None
+            return latest
 
     def get_rebuild_running(self, server):
         return self._data.get(server.url, {}).get('rsconnect_rebuild_running')

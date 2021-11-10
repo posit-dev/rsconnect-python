@@ -15,6 +15,7 @@ from .actions import (
   rebuild_start,
   search_content,
   get_content,
+  emit_rebuild_log,
 )
 from rsconnect.main import (
   _validate_deploy_to_args
@@ -158,7 +159,7 @@ def content_search(name, server, api_key, insecure, cacert, published, unpublish
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     if output != "-":
         if exists(output):
-            raise api.RSConnectException("The output file already exists.")
+            raise api.RSConnectException("The output file already exists: %s" % output)
 
     with open_file_or_stdout(output) as f:
         f.write(search_content(connect_server, published, unpublished, r_version, py_version, title_contains, order_by))
@@ -213,7 +214,7 @@ def content_get(name, server, api_key, insecure, cacert, guid, output):
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     if output != "-":
         if exists(output):
-            raise api.RSConnectException("The output file already exists.")
+            raise api.RSConnectException("The output file already exists: %s" % output)
 
     with open_file_or_stdout(output) as f:
         f.write(get_content(connect_server, guid))
@@ -282,7 +283,7 @@ def content_bundle_download(name, server, api_key, insecure, cacert, guid, bundl
         f.write(download_bundle(connect_server, guid, bundle_id))
 
 
-@content.group(no_args_is_help=True, help="Rebuild content on RStudio Connect.")
+@cli.group(no_args_is_help=True, help="Rebuild content on RStudio Connect.")
 def rebuild():
     pass
 
@@ -337,6 +338,74 @@ def add_content_to_rebuild(name, server, api_key, insecure, cacert, guid, bundle
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @rebuild.command(
+    name="logs",
+    short_help="Print the logs for a content rebuild.",
+)
+@click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
+@click.option(
+    "--server",
+    "-s",
+    envvar="CONNECT_SERVER",
+    help="The URL for the RStudio Connect server.",
+)
+@click.option(
+    "--api-key",
+    "-k",
+    envvar="CONNECT_API_KEY",
+    help="The API key to use to authenticate with RStudio Connect.",
+)
+@click.option(
+    "--insecure",
+    "-i",
+    envvar="CONNECT_INSECURE",
+    is_flag=True,
+    help="Disable TLS certification/host validation.",
+)
+@click.option(
+    "--cacert",
+    "-c",
+    envvar="CONNECT_CA_CERTIFICATE",
+    type=click.File(),
+    help="The path to trusted TLS CA certificates.",
+)
+@click.option(
+    "--guid",
+    "-g",
+    required=True,
+    help="The guid of the content item.",
+)
+@click.option(
+    "--task-id",
+    "-t",
+    help="The task ID of the rebuild.",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    default="-",
+    help="The output location of the logs. Defaults to stdout.",
+)
+@click.option(
+    "--format",
+    "-f",
+    type=click.Choice(["json", "text"]),
+    default="text",
+    help="The output format of the logs. Defaults to text.",
+)
+def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, output, format):
+    connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+    if output != "-":
+        if exists(output):
+            raise api.RSConnectException("The output file already exists: %s" % output)
+
+    with open_file_or_stdout(output) as f:
+        for line in emit_rebuild_log(connect_server, guid, format, task_id):
+            f.write(line)
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@rebuild.command(
     name="start",
     short_help="Start rebuilding content on a given Connect server.",
 )
@@ -373,7 +442,12 @@ def add_content_to_rebuild(name, server, api_key, insecure, cacert, guid, bundle
     default=1,
     help="Defines the number of rebuilds that can run concurrently. Defaults to 1. Capped at 10."
 )
+@click.option(
+    "--debug",
+    is_flag=True,
+    help="Print exceptions from background operations."
+)
 # todo: --background flag
-def start_content_rebuild(name, server, api_key, insecure, cacert, parallelism):
+def start_content_rebuild(name, server, api_key, insecure, cacert, parallelism, debug):
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-    rebuild_start(connect_server, parallelism)
+    rebuild_start(connect_server, parallelism, debug)
