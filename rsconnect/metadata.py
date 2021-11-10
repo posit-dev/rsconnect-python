@@ -495,6 +495,7 @@ class ContentRebuildStore(DataStore):
             bundle_id=bundle_id,
             title=content['title'],
             name=content['name'],
+            app_mode=['app_mode'],
             created_time=content['created_time'],
             last_deployed_time=content['last_deployed_time'],
         )
@@ -511,6 +512,7 @@ class ContentRebuildStore(DataStore):
             bundle_id=updated_content['bundle_id'],
             title=updated_content['title'],
             name=updated_content['name'],
+            app_mode=['app_mode'],
             created_time=updated_content['created_time'],
             last_deployed_time=updated_content['last_deployed_time'],
         ))
@@ -539,7 +541,7 @@ class ContentRebuildStore(DataStore):
         if status:
             return [item for item in self._data.get(server.url, {}).get('content', {}).values() if item['rsconnect_rebuild_status'] == status]
         else:
-            return self._data.get(server.url, {}).get('content', {}).values()
+            return list(self._data.get(server.url, {}).get('content', {}).values())
 
     def set_content_rebuild_task(self, server, guid, task):
         """

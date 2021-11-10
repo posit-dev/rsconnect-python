@@ -36,7 +36,7 @@ def rebuild_add_content(connect_server, guid, bundle_id):
 
 
 def rebuild_list_content(connect_server, status):
-    return
+    return content_rebuild_store.get_content_items(connect_server, status=status)
 
 
 def rebuild_start(connect_server, parallelism, debug=False):
@@ -175,14 +175,14 @@ def get_content(connect_server, guid):
     return result
 
 
-def search_content(connect_server, published, unpublished, r_version, py_version, title_contains, order_by):
+def search_content(connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by):
     result = api.do_content_search(connect_server)
-    result = _apply_content_filters(result, published, unpublished, r_version, py_version, title_contains)
+    result = _apply_content_filters(result, published, unpublished, content_type, r_version, py_version, title_contains)
     result = _order_content_results(result, order_by)
     return list(result)
 
 
-def _apply_content_filters(content_list, published, unpublished, r_version, py_version, title_search):
+def _apply_content_filters(content_list, published, unpublished, content_type, r_version, py_version, title_search):
     def content_is_published(item):
         return 'bundle_id' in item and item['bundle_id'] != None
 
@@ -194,6 +194,9 @@ def _apply_content_filters(content_list, published, unpublished, r_version, py_v
 
     def title_contains(item):
         return item['title'] is not None and title_search in item['title']
+
+    def apply_content_type_filter(item):
+        return item['app_mode'] is not None and item['app_mode'] in content_type
 
     def apply_version_filter(items, version_filter):
         def do_filter(item):
@@ -225,6 +228,8 @@ def _apply_content_filters(content_list, published, unpublished, r_version, py_v
         result = filter(content_is_published, result)
     if unpublished:
         result = filter(content_is_unpublished, result)
+    if content_type:
+        result = filter(apply_content_type_filter, result)
     if title_search:
         result = filter(title_contains, result)
     if r_version:

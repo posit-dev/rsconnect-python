@@ -9,7 +9,7 @@ import semver
 from rsconnect import VERSION
 from . import api
 from .metadata import ServerStore
-from .models import RebuildStatus
+from .models import AppModes, RebuildStatus
 from .admin_actions import (
   open_file_or_stdout,
   download_bundle,
@@ -132,6 +132,12 @@ class VersionSearchFilter(click.ParamType):
     help="Search only unpublished content.",
 )
 @click.option(
+    "--content-type",
+    type=click.Choice(list(map(str, AppModes._modes))),
+    multiple=True,
+    help="Filter content results by content type."
+)
+@click.option(
     "--r-version",
     type=VersionSearchFilter("r_version"),
     help="Filter content results by R version.",
@@ -152,10 +158,10 @@ class VersionSearchFilter(click.ParamType):
 )
 # todo: Add a --content-type filter flag
 # todo: --format option (json, text)
-def content_search(name, server, api_key, insecure, cacert, published, unpublished, r_version, py_version, title_contains, order_by):
+def content_search(name, server, api_key, insecure, cacert, published, unpublished, content_type, r_version, py_version, title_contains, order_by):
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     with open_file_or_stdout("-") as f:
-        result = search_content(connect_server, published, unpublished, r_version, py_version, title_contains, order_by)
+        result = search_content(connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by)
         f.write(json.dumps(result, indent=2))
 
 
@@ -356,13 +362,15 @@ def add_content_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id
 )
 @click.option(
     "--status",
-    type=click.Choice(RebuildStatus._all)
+    type=click.Choice(RebuildStatus._all),
+    help="Filter results by status of the rebuild operation."
 )
 # todo: --format option (json, text)
 def list_content_rebuild(name, server, api_key, insecure, cacert, status):
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-    rebuild_list_content(connect_server, status)
-
+    with open_file_or_stdout("-") as f:
+        result = rebuild_list_content(connect_server, status)
+        f.write(json.dumps(result, indent=2))
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
