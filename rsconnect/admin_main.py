@@ -1,5 +1,6 @@
 import logging
 import re
+import json
 from os.path import exists
 
 import click
@@ -149,22 +150,13 @@ class VersionSearchFilter(click.ParamType):
     type=click.Choice(["created", "last_deployed"]),
     help="Order content results.",
 )
-@click.option(
-    "--output",
-    "-o",
-    type=click.Path(),
-    default="-",
-    help="Defines the output location for search results. Defaults to stdout.",
-)
 # todo: Add a --content-type filter flag
-def content_search(name, server, api_key, insecure, cacert, published, unpublished, r_version, py_version, title_contains, order_by, output):
+# todo: --format option (json, text)
+def content_search(name, server, api_key, insecure, cacert, published, unpublished, r_version, py_version, title_contains, order_by):
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-    if output != "-":
-        if exists(output):
-            raise api.RSConnectException("The output file already exists: %s" % output)
-
-    with open_file_or_stdout(output) as f:
-        f.write(search_content(connect_server, published, unpublished, r_version, py_version, title_contains, order_by))
+    with open_file_or_stdout("-") as f:
+        result = search_content(connect_server, published, unpublished, r_version, py_version, title_contains, order_by)
+        f.write(json.dumps(result, indent=2))
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -205,21 +197,12 @@ def content_search(name, server, api_key, insecure, cacert, published, unpublish
     multiple=True,
     help="The GUID of a content item to describe. This flag can be passed multiple times.",
 )
-@click.option(
-    "--output",
-    "-o",
-    type=click.Path(),
-    default="-",
-    help="Defines the output location for query results. Defaults to stdout.",
-)
-def content_get(name, server, api_key, insecure, cacert, guid, output):
+# todo: --format option (json, text)
+def content_get(name, server, api_key, insecure, cacert, guid):
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-    if output != "-":
-        if exists(output):
-            raise api.RSConnectException("The output file already exists: %s" % output)
-
-    with open_file_or_stdout(output) as f:
-        f.write(get_content(connect_server, guid))
+    with open_file_or_stdout("-") as f:
+        result = get_content(connect_server, guid)
+        f.write(json.dumps(result, indent=2))
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -282,7 +265,8 @@ def content_bundle_download(name, server, api_key, insecure, cacert, guid, bundl
         raise api.RSConnectException("The output file already exists: %s" % output)
 
     with open(output, 'wb') as f:
-        f.write(download_bundle(connect_server, guid, bundle_id))
+        result = download_bundle(connect_server, guid, bundle_id)
+        f.write(result.response_body)
 
 
 @cli.group(no_args_is_help=True, help="Rebuild content on RStudio Connect.")
@@ -374,6 +358,7 @@ def add_content_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id
     "--status",
     type=click.Choice(RebuildStatus._all)
 )
+# todo: --format option (json, text)
 def list_content_rebuild(name, server, api_key, insecure, cacert, status):
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     rebuild_list_content(connect_server, status)
@@ -424,26 +409,15 @@ def list_content_rebuild(name, server, api_key, insecure, cacert, status):
     help="The task ID of the rebuild.",
 )
 @click.option(
-    "--output",
-    "-o",
-    type=click.Path(),
-    default="-",
-    help="The output location of the logs. Defaults to stdout.",
-)
-@click.option(
     "--format",
     "-f",
     type=click.Choice(["json", "text"]),
     default="text",
     help="The output format of the logs. Defaults to text.",
 )
-def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, output, format):
+def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, format):
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-    if output != "-":
-        if exists(output):
-            raise api.RSConnectException("The output file already exists: %s" % output)
-
-    with open_file_or_stdout(output) as f:
+    with open_file_or_stdout("-") as f:
         for line in emit_rebuild_log(connect_server, guid, format, task_id):
             f.write(line)
 

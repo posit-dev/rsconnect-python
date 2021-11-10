@@ -160,8 +160,7 @@ def download_bundle(connect_server, guid, bundle_id):
         else:
             raise api.RSConnectException("There is no current bundle available for this content: %s" % guid)
 
-    result = api.do_bundle_download(connect_server, guid, bundle_id)
-    return result.response_body
+    return api.do_bundle_download(connect_server, guid, bundle_id)
 
 
 def get_content(connect_server, guid):
@@ -173,14 +172,14 @@ def get_content(connect_server, guid):
         result = [api.do_content_get(connect_server, guid)]
     else:
         result = [api.do_content_get(connect_server, g) for g in guid]
-    return json.dumps(result, indent=2)
+    return result
 
 
 def search_content(connect_server, published, unpublished, r_version, py_version, title_contains, order_by):
     result = api.do_content_search(connect_server)
     result = _apply_content_filters(result, published, unpublished, r_version, py_version, title_contains)
     result = _order_content_results(result, order_by)
-    return json.dumps(list(result), indent=2)
+    return list(result)
 
 
 def _apply_content_filters(content_list, published, unpublished, r_version, py_version, title_search):
