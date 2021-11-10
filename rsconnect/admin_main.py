@@ -14,6 +14,7 @@ from .admin_actions import (
   open_file_or_stdout,
   download_bundle,
   rebuild_add_content,
+  rebuild_remove_content,
   rebuild_list_content,
   rebuild_start,
   search_content,
@@ -24,6 +25,24 @@ from rsconnect.main import (
   _validate_deploy_to_args
 )
 
+class CustomMultiCommand(click.Group):
+    def command(self, *args, **kwargs):
+        """Behaves the same as `click.Group.command()` except if passed
+        a list of names, all after the first will be aliases for the first.
+        """
+        def decorator(f):
+            if isinstance(args[0], list):
+                _args = [args[0][0]] + list(args[1:])
+                for alias in args[0][1:]:
+                    cmd = super(CustomMultiCommand, self).command(
+                        alias, *args[1:], **kwargs)(f)
+                    cmd.hidden = True
+            else:
+                _args = args
+            cmd = super(CustomMultiCommand, self).command(
+                *_args, **kwargs)(f)
+            return cmd
+        return decorator
 
 server_store = ServerStore()
 future_enabled = False
@@ -38,15 +57,8 @@ def cli(future):
     This command line tool may be used to administer content on RStudio
     Connect including searching and rebuilding content.
 
-    The tool supports the notion of a simple nickname that represents the
-    information needed to interact with an RStudio Connect server instance.  Use
-    the add, list and remove commands to manage these nicknames.
-
-    The information about an instance of RStudio Connect includes its URL, the
-    API key needed to authenticate against that instance, a flag that notes whether
-    TLS certificate/host verification should be disabled and a path to a trusted CA
-    certificate file to use for TLS.  The last two items are only relevant if the
-    URL specifies the "https" protocol.
+    This tool uses the same server nicknames as the `rsconnect` cli.
+    Use the `rsconnect list` command to show the available servers.
     """
     global future_enabled
     future_enabled = future
@@ -275,15 +287,15 @@ def content_bundle_download(name, server, api_key, insecure, cacert, guid, bundl
         f.write(result.response_body)
 
 
-@cli.group(no_args_is_help=True, help="Rebuild content on RStudio Connect.")
+@cli.group(cls=CustomMultiCommand, no_args_is_help=True, help="Rebuild content on RStudio Connect.")
 def rebuild():
     pass
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @rebuild.command(
-    name="add",
-    short_help="Mark a content item for rebuild on a given Connect server."
+    "add",
+    short_help="Mark a content item for rebuild. Use `rebuild start` to invoke the rebuild on the Connect server."
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
@@ -330,7 +342,56 @@ def add_content_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @rebuild.command(
-    name="list",
+    ["remove", "rm"],
+    short_help="Remove a content item from the list of content that are tracked for rebuild. Use `rebuild list` to view the tracked content."
+)
+@click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
+@click.option(
+    "--server",
+    "-s",
+    envvar="CONNECT_SERVER",
+    help="The URL for the RStudio Connect server.",
+)
+@click.option(
+    "--api-key",
+    "-k",
+    envvar="CONNECT_API_KEY",
+    help="The API key to use to authenticate with RStudio Connect.",
+)
+@click.option(
+    "--insecure",
+    "-i",
+    envvar="CONNECT_INSECURE",
+    is_flag=True,
+    help="Disable TLS certification/host validation.",
+)
+@click.option(
+    "--cacert",
+    "-c",
+    envvar="CONNECT_CA_CERTIFICATE",
+    type=click.File(),
+    help="The path to trusted TLS CA certificates.",
+)
+@click.option(
+    "--guid",
+    "-g",
+    required=True,
+    help="Remove a content item by guid.",
+)
+@click.option(
+    "--purge",
+    "-p",
+    is_flag=True,
+    help="Cleanup all associated rebuild log files on the local filesystem.",
+)
+def remove_content_rebuild(name, server, api_key, insecure, cacert, guid, purge):
+    connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+    rebuild_remove_content(connect_server, guid, purge)
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@rebuild.command(
+    ["list", "ls"],
     short_help="List the content items that are being tracked for rebuild on a given Connect server."
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
@@ -375,7 +436,7 @@ def list_content_rebuild(name, server, api_key, insecure, cacert, status):
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @rebuild.command(
-    name="logs",
+    "logs",
     short_help="Print the logs for a content rebuild.",
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
@@ -432,7 +493,7 @@ def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, for
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @rebuild.command(
-    name="start",
+    "start",
     short_help="Start rebuilding content on a given Connect server.",
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")

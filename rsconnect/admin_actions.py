@@ -35,6 +35,12 @@ def rebuild_add_content(connect_server, guid, bundle_id):
     content_rebuild_store.set_content_item_rebuild_status(connect_server, content['guid'], RebuildStatus.NEEDS_REBUILD)
 
 
+def rebuild_remove_content(connect_server, guid, purge=False):
+    if content_rebuild_store.get_rebuild_running(connect_server):
+        raise api.RSConnectException("There is a rebuild running on this server, please wait for it to finish before removing content.")
+    content_rebuild_store.remove_content_item(connect_server, guid, purge)
+
+
 def rebuild_list_content(connect_server, status):
     return content_rebuild_store.get_content_items(connect_server, status=status)
 

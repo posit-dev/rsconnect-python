@@ -8,8 +8,9 @@ import json
 import os
 import glob
 import sys
-from os.path import abspath, basename, dirname, exists, join, isfile
+from os.path import abspath, basename, dirname, exists, join
 from urllib.parse import urlparse
+import shutil
 
 from rsconnect import api
 from rsconnect.log import logger
@@ -502,6 +503,9 @@ class ContentRebuildStore(DataStore):
         self.save()
 
     def update_content_item(self, server, updated_content):
+        """
+        Update an existing item in the rebuilds for a given server
+        """
         guid = updated_content['guid']
         old_content = self.get_content_item(server, guid)
         if not old_content:
@@ -523,6 +527,30 @@ class ContentRebuildStore(DataStore):
         Get a content item from the rebuilds for a given server by guid
         """
         return self._data.get(server.url, {}).get('content', {}).get(guid)
+
+    def _cleanup_content_log_dir(self, server, guid):
+        """
+        Delete the local logs directory for a given content item.
+        """
+        logs_dir = self.get_rebuild_logs_dir(server, guid)
+        try:
+            shutil.rmtree(logs_dir)
+        except FileNotFoundError:
+            pass
+
+    def remove_content_item(self, server, guid, purge=False):
+        """
+        Remove a content item from the rebuilds for a given server by guid.
+        If purge is True, cleanup the log files on the local filesystem.
+        """
+        if purge:
+            self._cleanup_content_log_dir(server, guid)
+
+        try:
+            self._data.get(server.url, {}).get('content', {}).pop(guid)
+        except KeyError:
+            pass
+        self.save()
 
     def set_content_item_rebuild_status(self, server, guid, status):
         """
