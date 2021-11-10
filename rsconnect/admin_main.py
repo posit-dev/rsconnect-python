@@ -25,25 +25,6 @@ from rsconnect.main import (
   _validate_deploy_to_args
 )
 
-class CustomMultiCommand(click.Group):
-    def command(self, *args, **kwargs):
-        """Behaves the same as `click.Group.command()` except if passed
-        a list of names, all after the first will be aliases for the first.
-        """
-        def decorator(f):
-            if isinstance(args[0], list):
-                _args = [args[0][0]] + list(args[1:])
-                for alias in args[0][1:]:
-                    cmd = super(CustomMultiCommand, self).command(
-                        alias, *args[1:], **kwargs)(f)
-                    cmd.hidden = True
-            else:
-                _args = args
-            cmd = super(CustomMultiCommand, self).command(
-                *_args, **kwargs)(f)
-            return cmd
-        return decorator
-
 server_store = ServerStore()
 future_enabled = False
 logging.basicConfig()
@@ -287,14 +268,14 @@ def content_bundle_download(name, server, api_key, insecure, cacert, guid, bundl
         f.write(result.response_body)
 
 
-@cli.group(cls=CustomMultiCommand, no_args_is_help=True, help="Rebuild content on RStudio Connect.")
+@cli.group(no_args_is_help=True, help="Rebuild content on RStudio Connect.")
 def rebuild():
     pass
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @rebuild.command(
-    "add",
+    name="add",
     short_help="Mark a content item for rebuild. Use `rebuild start` to invoke the rebuild on the Connect server."
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
@@ -342,7 +323,7 @@ def add_content_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @rebuild.command(
-    ["remove", "rm"],
+    name="rm",
     short_help="Remove a content item from the list of content that are tracked for rebuild. Use `rebuild list` to view the tracked content."
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
@@ -391,7 +372,7 @@ def remove_content_rebuild(name, server, api_key, insecure, cacert, guid, purge)
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @rebuild.command(
-    ["list", "ls"],
+    name="ls",
     short_help="List the content items that are being tracked for rebuild on a given Connect server."
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
@@ -436,7 +417,7 @@ def list_content_rebuild(name, server, api_key, insecure, cacert, status):
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @rebuild.command(
-    "logs",
+    name="logs",
     short_help="Print the logs for a content rebuild.",
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
@@ -493,7 +474,7 @@ def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, for
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @rebuild.command(
-    "start",
+    name="start",
     short_help="Start rebuilding content on a given Connect server.",
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")

@@ -1,7 +1,6 @@
 """
 Metadata management objects and utility functions
 """
-
 import base64
 import hashlib
 import json
@@ -11,6 +10,7 @@ import sys
 from os.path import abspath, basename, dirname, exists, join
 from urllib.parse import urlparse
 import shutil
+from threading import Lock
 
 from rsconnect import api
 from rsconnect.log import logger
@@ -66,6 +66,7 @@ class DataStore(object):
         self._chmod = chmod
         self._data = {}
         self._real_path = None
+        self._lock = Lock()
 
         self.load()
 
@@ -439,9 +440,6 @@ class ContentRebuildStore(DataStore):
     CONNECT_ADMIN_REBUILD_DIR or the current working directory is none is supplied.
     """
 
-    # todo: acquire_lock, release_lock
-    # todo: save_safe()
-
     def __init__(self, base_dir=os.getenv("CONNECT_ADMIN_REBUILD_DIR", DEFAULT_REBUILD_DIR)):
         self._base_dir = base_dir
         super(ContentRebuildStore, self).__init__(join(base_dir, "rebuild.json"), chmod=True)
@@ -478,49 +476,65 @@ class ContentRebuildStore(DataStore):
         return self._data.get(server.url, {}).get('rsconnect_rebuild_running')
 
     def set_rebuild_running(self, server, is_running):
-        self._data[server.url]['rsconnect_rebuild_running'] = is_running
-        self.save()
+        self._lock.acquire()
+        try:
+            self._data[server.url]['rsconnect_rebuild_running'] = is_running
+            self.save()
+        finally:
+            self._lock.release()
 
     def add_content_item(self, server, content, bundle_id):
         """
         Add an item to the rebuilds for a given server
         """
-        if server.url not in self._data:
-            self._data[server.url] = dict()
+        self._lock.acquire()
+        try:
+            if server.url not in self._data:
+                self._data[server.url] = dict()
 
-        if 'content' not in self._data[server.url]:
-            self._data[server.url]['content'] = dict()
+            if 'content' not in self._data[server.url]:
+                self._data[server.url]['content'] = dict()
 
-        self._data[server.url]['content'][content['guid']] = dict(
-            guid=content['guid'],
-            bundle_id=bundle_id,
-            title=content['title'],
-            name=content['name'],
-            app_mode=['app_mode'],
-            created_time=content['created_time'],
-            last_deployed_time=content['last_deployed_time'],
-        )
-        self.save()
+            self._data[server.url]['content'][content['guid']] = dict(
+                guid=content['guid'],
+                bundle_id=bundle_id,
+                title=content['title'],
+                name=content['name'],
+                app_mode=content['app_mode'],
+                content_url=content["content_url"],
+                dashboard_url=content["dashboard_url"],
+                created_time=content['created_time'],
+                last_deployed_time=content['last_deployed_time'],
+            )
+            self.save()
+        finally:
+            self._lock.release()
 
     def update_content_item(self, server, updated_content):
         """
         Update an existing item in the rebuilds for a given server
         """
-        guid = updated_content['guid']
-        old_content = self.get_content_item(server, guid)
-        if not old_content:
-            raise api.RSConnectException("Content not found: %s" % guid)
+        self._lock.acquire()
+        try:
+            guid = updated_content['guid']
+            old_content = self.get_content_item(server, guid)
+            if not old_content:
+                raise api.RSConnectException("Content not found: %s" % guid)
 
-        old_content.update(dict(
-            guid=guid,
-            bundle_id=updated_content['bundle_id'],
-            title=updated_content['title'],
-            name=updated_content['name'],
-            app_mode=['app_mode'],
-            created_time=updated_content['created_time'],
-            last_deployed_time=updated_content['last_deployed_time'],
-        ))
-        self.save()
+            old_content.update(dict(
+                guid=guid,
+                bundle_id=updated_content['bundle_id'],
+                title=updated_content['title'],
+                name=updated_content['name'],
+                app_mode=updated_content['app_mode'],
+                content_url=updated_content["content_url"],
+                dashboard_url=updated_content["dashboard_url"],
+                created_time=updated_content['created_time'],
+                last_deployed_time=updated_content['last_deployed_time'],
+            ))
+            self.save()
+        finally:
+            self._lock.release()
 
     def get_content_item(self, server, guid):
         """
@@ -546,19 +560,27 @@ class ContentRebuildStore(DataStore):
         if purge:
             self._cleanup_content_log_dir(server, guid)
 
+        self._lock.acquire()
         try:
-            self._data.get(server.url, {}).get('content', {}).pop(guid)
-        except KeyError:
-            pass
-        self.save()
+            try:
+                self._data.get(server.url, {}).get('content', {}).pop(guid)
+            except KeyError:
+                pass
+            self.save()
+        finally:
+            self._lock.release()
 
     def set_content_item_rebuild_status(self, server, guid, status):
         """
         Set the current status for a content rebuild
         """
-        content = self.get_content_item(server, guid)
-        content['rsconnect_rebuild_status'] = str(status)
-        self.save()
+        self._lock.acquire()
+        try:
+            content = self.get_content_item(server, guid)
+            content['rsconnect_rebuild_status'] = str(status)
+            self.save()
+        finally:
+            self._lock.release()
 
     def get_content_items(self, server, status=None):
         """
@@ -575,6 +597,10 @@ class ContentRebuildStore(DataStore):
         """
         Set the rebuild task result for a content item
         """
-        content = self.get_content_item(server, guid)
-        content['rsconnect_rebuild_task'] = task
-        self.save()
+        self._lock.acquire()
+        try:
+            content = self.get_content_item(server, guid)
+            content['rsconnect_rebuild_task'] = task
+            self.save()
+        finally:
+            self._lock.release()
