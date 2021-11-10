@@ -13,6 +13,13 @@ class RebuildStatus(object):
     COMPLETE = "COMPLETE"
     ERROR = "ERROR"
 
+    _all = [
+        NEEDS_REBUILD,
+        RUNNING,
+        COMPLETE,
+        ERROR
+    ]
+
 
 class AppMode(object):
     """

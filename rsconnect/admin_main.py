@@ -8,10 +8,12 @@ import semver
 from rsconnect import VERSION
 from . import api
 from .metadata import ServerStore
-from .actions import (
+from .models import RebuildStatus
+from .admin_actions import (
   open_file_or_stdout,
   download_bundle,
   rebuild_add_content,
+  rebuild_list_content,
   rebuild_start,
   search_content,
   get_content,
@@ -291,7 +293,7 @@ def rebuild():
 # noinspection SpellCheckingInspection,DuplicatedCode
 @rebuild.command(
     name="add",
-    short_help="Add content items to the next rebuild job for a given Connect server.",
+    short_help="Mark a content item for rebuild on a given Connect server."
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
@@ -331,9 +333,51 @@ def rebuild():
     help="The bundle ID of the content item to rebuild. By default, the latest bundle is used.",
 )
 # todo: add a --timeout flag with sane default
-def add_content_to_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id):
+def add_content_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id):
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     rebuild_add_content(connect_server, guid, bundle_id)
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@rebuild.command(
+    name="list",
+    short_help="List the content items that are being tracked for rebuild on a given Connect server."
+)
+@click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
+@click.option(
+    "--server",
+    "-s",
+    envvar="CONNECT_SERVER",
+    help="The URL for the RStudio Connect server.",
+)
+@click.option(
+    "--api-key",
+    "-k",
+    envvar="CONNECT_API_KEY",
+    help="The API key to use to authenticate with RStudio Connect.",
+)
+@click.option(
+    "--insecure",
+    "-i",
+    envvar="CONNECT_INSECURE",
+    is_flag=True,
+    help="Disable TLS certification/host validation.",
+)
+@click.option(
+    "--cacert",
+    "-c",
+    envvar="CONNECT_CA_CERTIFICATE",
+    type=click.File(),
+    help="The path to trusted TLS CA certificates.",
+)
+@click.option(
+    "--status",
+    type=click.Choice(RebuildStatus._all)
+)
+def list_content_rebuild(name, server, api_key, insecure, cacert, status):
+    connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+    rebuild_list_content(connect_server, status)
+
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
