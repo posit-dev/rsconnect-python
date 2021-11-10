@@ -10,7 +10,7 @@ import six
 class RebuildStatus(object):
     NEEDS_REBUILD = "NEEDS_REBUILD"
     RUNNING = "RUNNING"
-    COMPLETED = "COMPLETED"
+    COMPLETE = "COMPLETE"
     ERROR = "ERROR"
 
 

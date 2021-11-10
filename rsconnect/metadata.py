@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 from rsconnect import api
 from rsconnect.log import logger
-from rsconnect.models import AppMode, AppModes
+from rsconnect.models import AppMode, AppModes, RebuildStatus
 
 
 def config_dirname(platform=sys.platform, env=os.environ):
@@ -455,7 +455,7 @@ class ContentRebuildStore(DataStore):
         self._data[server.url]['rsconnect_rebuild_running'] = is_running
         self.save()
 
-    def add_content_item(self, server, content):
+    def add_content_item(self, server, content, bundle_id):
         """
         Add an item to the rebuilds for a given server
         """
@@ -465,7 +465,30 @@ class ContentRebuildStore(DataStore):
         if 'content' not in self._data[server.url]:
             self._data[server.url]['content'] = dict()
 
-        self._data[server.url]['content'][content['guid']] = content
+        self._data[server.url]['content'][content['guid']] = dict(
+            guid=content['guid'],
+            bundle_id=bundle_id,
+            title=content['title'],
+            name=content['name'],
+            created_time=content['created_time'],
+            last_deployed_time=content['last_deployed_time'],
+        )
+        self.save()
+
+    def update_content_item(self, server, updated_content):
+        guid = updated_content['guid']
+        old_content = self.get_content_item(server, guid)
+        if not old_content:
+            raise api.RSConnectException("Content not found: %s" % guid)
+
+        old_content.update(dict(
+            guid=guid,
+            bundle_id=updated_content['bundle_id'],
+            title=updated_content['title'],
+            name=updated_content['name'],
+            created_time=updated_content['created_time'],
+            last_deployed_time=updated_content['last_deployed_time'],
+        ))
         self.save()
 
     def get_content_item(self, server, guid):

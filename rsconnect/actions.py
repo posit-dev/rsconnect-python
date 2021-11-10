@@ -4,6 +4,7 @@ Public API for managing settings and deploying content.
 
 # This probably breaks python2, can we remove python2.7 support from setup and/or can we require >3 for only the admin tool
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta
 #from multiprocessing.pool import ThreadPool
 
 import semver
@@ -12,6 +13,7 @@ import json
 import logging
 import os
 import re
+import time
 import traceback
 import sys
 import subprocess
@@ -1502,65 +1504,101 @@ def rebuild_add_content(connect_server, guid, bundle_id):
     content = api.do_content_get(connect_server, guid)
     if not bundle_id and not content['bundle_id']:
         raise api.RSConnectException("This content has never been published to this server. You must specify a bundle_id for the rebuild. Content GUID: %s" % guid)
+    else:
+        bundle_id = bundle_id if bundle_id else content['bundle_id']
 
     if content_rebuild_store.get_rebuild_running(connect_server):
         raise api.RSConnectException("There is already a rebuild running on this server, please wait for it to finish before adding new content.")
 
-    # TODO: add_content_item should merge with existing items
-    content_rebuild_store.add_content_item(connect_server,
-        dict(
-            guid=content['guid'],
-            bundle_id=bundle_id if bundle_id else content['bundle_id'],
-            title=content['title'],
-            name=content['name'],
-            created_time=content['created_time'],
-            last_deployed_time=content['last_deployed_time'],
-        )
-    )
+    # TODO: should add_content_item should merge with existing items?
+    content_rebuild_store.add_content_item(connect_server, content, bundle_id)
     content_rebuild_store.set_content_item_rebuild_status(connect_server, content['guid'], RebuildStatus.NEEDS_REBUILD)
 
 
 def rebuild_start(connect_server, parallelism):
-    # TODO: Should we trap exit signals? How do we check on the server whether it's safe to restart a rebuild?
+    # TODO: Should we trap exit signals so we can set_rebuild_running(connect_server, False)? How do we check on the server whether it's safe to restart a rebuild?
     #   We could query task_id for every content item that has RebuildStatus.RUNNING. If task_id not found then mark content as COMPLETE?
+    #   or maybe just warn and move and mark them as NEEDS_REBUILD
     if content_rebuild_store.get_rebuild_running(connect_server):
         raise api.RSConnectException("There is already a rebuild running on this server: %s" % connect_server.url)
     content_rebuild_store.ensure_logs_dir()
-    content_rebuild_store.set_rebuild_running(connect_server, True)
     content_items = content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.NEEDS_REBUILD)
 
     if len(content_items) == 0:
         click.secho("Nothing to rebuild...\nUse `rsconnect-admin content rebuild add` to mark content for rebuild.")
+        return
+
+    click.secho("Starting content rebuild (%s)" % connect_server.url)
+    content_rebuild_store.set_rebuild_running(connect_server, True)
+
+    # spawn a single thread to print progress feedback for the user
+    summary_executor = ThreadPoolExecutor(max_workers=1)
+    summary_future = summary_executor.submit(_print_content_rebuild_summary, connect_server, content_items)
 
     # https://docs.python.org/3/library/concurrent.futures.html#threadpoolexecutor-example
-    with ThreadPoolExecutor(max_workers=parallelism) as executor:
-        rebuild_result_futures = {executor.submit(_rebuild_content_item, connect_server, content): content['guid'] for content in content_items}
+    # spawn a pool of worker threads to perform the content rebuilds
+    with ThreadPoolExecutor(max_workers=parallelism) as content_executor:
+        rebuild_result_futures = {content_executor.submit(_rebuild_content_item, connect_server, content): content['guid'] for content in content_items}
         for future in as_completed(rebuild_result_futures):
             guid = rebuild_result_futures[future]
             try:
-                log_file = future.result()
+                future.result()
             except Exception as exc:
+                content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.ERROR)
                 click.secho('%s generated an exception: %s' % (guid, exc))
-            else:
-                click.secho('%s rebuild complete: %s' % (guid, log_file))
-                # TODO: update content item after build completes
-                # TODO: keep task_id history and exec timestamp
 
     content_rebuild_store.set_rebuild_running(connect_server, False)
+    success = summary_future.result() # wait for rebuild to complete and print final summary
+    summary_executor.shutdown()
+    click.secho("\nContent rebuild complete.")
+    if not success:
+        exit(1)
+
+
+def _print_content_rebuild_summary(connect_server, content_items):
+    """
+    :return bool: True if there were no rebuild failures, False otherwise
+    """
+    click.secho("\tTo check progress or results for a specific piece of content, use the following command: rsconnect-admin rebuild status --guid")
+    start = datetime.now()
+    while content_rebuild_store.get_rebuild_running(connect_server):
+        current = datetime.now()
+        duration = current - start
+        rounded_duration = timedelta(seconds=duration.seconds) # construct a new delta w/o millis since timedelta doesn't allow strfmt
+        time.sleep(0.5)
+        complete = [item for item in content_items if item['rsconnect_rebuild_status'] == RebuildStatus.COMPLETED]
+        error = [item for item in content_items if item['rsconnect_rebuild_status'] == RebuildStatus.ERROR]
+        running = [item for item in content_items if item['rsconnect_rebuild_status'] == RebuildStatus.RUNNING]
+        pending = [item for item in content_items if item['rsconnect_rebuild_status'] == RebuildStatus.NEEDS_REBUILD]
+        click.secho("Content rebuild in progress: Running = %d, Pending = %d, Success = %d, Error = %d\t%s\r" %
+            (len(running), len(pending), len(complete), len(error), rounded_duration), nl=False)
+
+    click.secho()
+    click.secho("%d/%d content rebuilds completed in %s" % (len(complete) + len(error), len(content_items), rounded_duration))
+    click.secho("Success = %d, Error = %d" % (len(complete), len(error)))
+    click.secho()
+    if len(error) != 0:
+        click.secho("There were failures during your rebuild. The check the rebuild log, use the following command: rsconnect-admin rebuild logs --guid")
+        click.secho("Failed content:")
+        for c in error:
+            click.secho("\tContent Name: %s, GUID: %s" % (c['name'], c['guid']))
+        return False
+    return True
 
 
 def _rebuild_content_item(connect_server, content, timeout=None):
-    click.secho("Starting rebuild for content %s..." % content['guid'])
     content_rebuild_store.set_content_item_rebuild_status(connect_server, content['guid'], RebuildStatus.RUNNING)
     task_result = api.do_start_content_rebuild(connect_server, content['guid'], content.get('bundle_id'))
     task_id = task_result.json_data['task_id']
     log_file_name = join(content_rebuild_store.get_deploy_logs_dir(), "%s.log" % task_id)
     with open(log_file_name, 'w') as log:
+        # emit_task_log raises an exception if exit_code != 0
         api.emit_task_log(connect_server, content['guid'], task_id, log_callback=lambda line: log.write("%s\n" % line))
 
-    # TODO check result and raise exc if failed
-    content_rebuild_store.set_content_item_rebuild_status(connect_server, content['guid'], RebuildStatus.COMPLETED)
-    return log_file_name
+    # grab the updated content metadata from connect and update our store
+    updated_content = api.do_content_get(connect_server, content['guid'])
+    content_rebuild_store.update_content_item(connect_server, updated_content)
+    content_rebuild_store.set_content_item_rebuild_status(connect_server, content['guid'], RebuildStatus.COMPLETE)
 
 
 def download_bundle(connect_server, guid, bundle_id):
