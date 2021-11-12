@@ -7,6 +7,7 @@ import json
 import os
 import glob
 import sys
+from datetime import datetime, timezone
 from os.path import abspath, basename, dirname, exists, join
 from urllib.parse import urlparse
 import shutil
@@ -490,6 +491,20 @@ class ContentRebuildStore(DataStore):
             except ValueError:
                 latest = None
             return latest
+
+    def get_rebuild_history(self, server, guid):
+        """
+        Returns the rebuild history for a given content guid.
+        """
+        log_dir = self.get_rebuild_logs_dir(server, guid)
+        log_files = glob.glob(join(log_dir, '*.log'))
+        history = []
+        for f in log_files:
+            task_id = basename(f).split('.log')[0]
+            t = datetime.fromtimestamp(os.path.getctime(f), tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S%z')
+            history.append({'time': t, 'task_id': task_id})
+        history.sort(key=lambda x: x['time'])
+        return history
 
     def get_rebuild_running(self, server):
         return self._data.get(server.url, {}).get('rsconnect_rebuild_running')

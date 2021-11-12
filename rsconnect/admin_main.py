@@ -16,6 +16,7 @@ from .admin_actions import (
   rebuild_add_content,
   rebuild_remove_content,
   rebuild_list_content,
+  rebuild_history,
   rebuild_start,
   search_content,
   get_content,
@@ -412,6 +413,52 @@ def list_content_rebuild(name, server, api_key, insecure, cacert, status):
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     with open_file_or_stdout("-") as f:
         result = rebuild_list_content(connect_server, status)
+        f.write(json.dumps(result, indent=2))
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@rebuild.command(
+    name="history",
+    short_help="Get the rebuild history for a content item."
+)
+@click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
+@click.option(
+    "--server",
+    "-s",
+    envvar="CONNECT_SERVER",
+    help="The URL for the RStudio Connect server.",
+)
+@click.option(
+    "--api-key",
+    "-k",
+    envvar="CONNECT_API_KEY",
+    help="The API key to use to authenticate with RStudio Connect.",
+)
+@click.option(
+    "--insecure",
+    "-i",
+    envvar="CONNECT_INSECURE",
+    is_flag=True,
+    help="Disable TLS certification/host validation.",
+)
+@click.option(
+    "--cacert",
+    "-c",
+    envvar="CONNECT_CA_CERTIFICATE",
+    type=click.File(),
+    help="The path to trusted TLS CA certificates.",
+)
+@click.option(
+    "--guid",
+    "-g",
+    required=True,
+    help="The guid of the content item.",
+)
+# todo: --format option (json, text)
+def get_rebuild_history(name, server, api_key, insecure, cacert, guid):
+    connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+    with open_file_or_stdout("-") as f:
+        result = rebuild_history(connect_server, guid)
         f.write(json.dumps(result, indent=2))
 
 

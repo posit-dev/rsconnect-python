@@ -45,6 +45,10 @@ def rebuild_list_content(connect_server, status):
     return content_rebuild_store.get_content_items(connect_server, status=status)
 
 
+def rebuild_history(connect_server, guid):
+    return content_rebuild_store.get_rebuild_history(connect_server, guid)
+
+
 def rebuild_start(connect_server, parallelism, debug=False):
     # TODO: Should we trap exit signals so we can set_rebuild_running(connect_server, False)? How do we check on the server whether it's safe to restart a rebuild?
     #   We could query task_id for every content item that has RebuildStatus.RUNNING. If task_id not found then mark content as COMPLETE?
