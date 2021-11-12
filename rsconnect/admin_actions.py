@@ -6,7 +6,7 @@ import json
 import time
 import sys
 
-# This probably breaks python2, can we remove python2.7 support from setup and/or can we require >3 for only the admin tool
+# This probably breaks python2, can we remove python2.7 support from setup and/or can we require >3 for only the admin tool?
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 #from multiprocessing.pool import ThreadPool

@@ -438,6 +438,25 @@ class ContentRebuildStore(DataStore):
 
     The metadata directory for a content rebuild is written in the directory specified by
     CONNECT_ADMIN_REBUILD_DIR or the current working directory is none is supplied.
+
+    A single `rebuild.json` file contains "tracked" content for 1-N connect servers.
+    The structure is as follows:
+    {
+        "https://connect-server-1:443": {
+            "rsconnect_rebuild_running": <bool>,
+            "<content guid 1>": {
+                "rsconnect_rebuild_status": <models.RebuildStatus>,
+                ..., // various content metadata fields returned by the v1/content api
+            },
+            "<content guid 2>": {
+                ...,
+            }
+        },
+        "https://another-connect-server:443": {
+            ...,
+        },
+        ...
+    }
     """
 
     def __init__(self, base_dir=os.getenv("CONNECT_ADMIN_REBUILD_DIR", DEFAULT_REBUILD_DIR)):
@@ -592,15 +611,3 @@ class ContentRebuildStore(DataStore):
             return [item for item in self._data.get(server.url, {}).get('content', {}).values() if item['rsconnect_rebuild_status'] == status]
         else:
             return list(self._data.get(server.url, {}).get('content', {}).values())
-
-    def set_content_rebuild_task(self, server, guid, task):
-        """
-        Set the rebuild task result for a content item
-        """
-        self._lock.acquire()
-        try:
-            content = self.get_content_item(server, guid)
-            content['rsconnect_rebuild_task'] = task
-            self.save()
-        finally:
-            self._lock.release()
