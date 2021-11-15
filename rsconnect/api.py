@@ -524,7 +524,11 @@ def find_unique_name(connect_server, name):
 
 def do_bundle_download(connect_server, guid, bundle_id):
     """
-    Downloads a content source bundle
+    Downloads a content source bundle.
+
+    :param connect_server: the Connect server information.
+    :param guid: the guid of the content.
+    :param bundle_id: the content's bundle_id.
     """
     with RSConnect(connect_server, timeout=120) as client:
         result = client.download_bundle(guid, bundle_id)
@@ -534,7 +538,11 @@ def do_bundle_download(connect_server, guid, bundle_id):
 
 def do_content_search(connect_server):
     """
-    Searches for content
+    Searches for content. Fetches all content metadata from the server.
+    Filtering is applied on the client until Connect server has better support
+    for filter parameters via the /v1/content endpoints
+
+    :param connect_server: the Connect server information.
     """
     with RSConnect(connect_server, timeout=120) as client:
         result = client.search_content()
@@ -544,7 +552,10 @@ def do_content_search(connect_server):
 
 def do_content_get(connect_server, guid):
     """
-    Get metadata about a single piece of content
+    Get metadata about a single piece of content.
+
+    :param connect_server: the Connect server information.
+    :param guid: the guid of the content.
     """
     with RSConnect(connect_server, timeout=120) as client:
         result = client.content_get(guid)
@@ -553,6 +564,13 @@ def do_content_get(connect_server, guid):
 
 
 def do_start_content_rebuild(connect_server, guid, bundle_id=None):
+    """
+    Get metadata about a single piece of content.
+
+    :param connect_server: the Connect server information.
+    :param guid: the guid of the content.
+    :param bundle_id: the bundle ID of the content, defaults to latest bundle.
+    """
     with RSConnect(connect_server, timeout=120) as client:
         result = client.content_deploy(guid, bundle_id)
         connect_server.handle_bad_response(result)
@@ -560,11 +578,13 @@ def do_start_content_rebuild(connect_server, guid, bundle_id=None):
 
 
 def do_task_get(connect_server, task_id):
+    """
+    Fetch task information.
+
+    :param connect_server: the Connect server information.
+    :param task_id: the ID of the task.
+    """
     with RSConnect(connect_server, timeout=120) as client:
         result = client.task_get(task_id)
         connect_server.handle_bad_response(result)
         return result
-
-
-# def wait_for_task_complete(connect_server, task_id):
-#     with RSConnect(connect_server, timeout=120) as client:

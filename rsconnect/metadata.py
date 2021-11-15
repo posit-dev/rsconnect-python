@@ -443,7 +443,7 @@ class ContentRebuildStore(DataStore):
     A single `rebuild.json` file contains "tracked" content for 1-N connect servers.
     The structure is as follows:
     {
-        "https://connect-server-1:443": {
+        "<connect server url>": {
             "rsconnect_rebuild_running": <bool>,
             "<content guid 1>": {
                 "rsconnect_rebuild_status": <models.RebuildStatus>,
@@ -544,27 +544,26 @@ class ContentRebuildStore(DataStore):
         finally:
             self._lock.release()
 
-    def update_content_item(self, server, updated_content):
+    def update_content_item(self, server, guid, content):
         """
         Update an existing item in the rebuilds for a given server
         """
         self._lock.acquire()
         try:
-            guid = updated_content['guid']
             old_content = self.get_content_item(server, guid)
             if not old_content:
                 raise api.RSConnectException("Content not found: %s" % guid)
 
             old_content.update(dict(
                 guid=guid,
-                bundle_id=updated_content['bundle_id'],
-                title=updated_content['title'],
-                name=updated_content['name'],
-                app_mode=updated_content['app_mode'],
-                content_url=updated_content["content_url"],
-                dashboard_url=updated_content["dashboard_url"],
-                created_time=updated_content['created_time'],
-                last_deployed_time=updated_content['last_deployed_time'],
+                bundle_id=content['bundle_id'],
+                title=content['title'],
+                name=content['name'],
+                app_mode=content['app_mode'],
+                content_url=content['content_url'],
+                dashboard_url=content['dashboard_url'],
+                created_time=content['created_time'],
+                last_deployed_time=content['last_deployed_time'],
             ))
             self.save()
         finally:

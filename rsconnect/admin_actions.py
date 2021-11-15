@@ -144,7 +144,7 @@ def _rebuild_content_item(connect_server, content, timeout=None):
 
     # grab the updated content metadata from connect and update our store
     updated_content = api.do_content_get(connect_server, guid)
-    content_rebuild_store.update_content_item(connect_server, updated_content)
+    content_rebuild_store.update_content_item(connect_server, guid, updated_content)
     content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.COMPLETE)
 
 

@@ -3,7 +3,14 @@ import tempfile
 from unittest import TestCase
 from os.path import exists, join
 
-from rsconnect.metadata import AppStore, ServerStore
+from rsconnect.api import RSConnectServer
+from rsconnect.models import RebuildStatus
+from rsconnect.metadata import (
+    AppStore,
+    ServerStore,
+    ContentRebuildStore,
+    _normalize_server_url
+)
 
 
 class TestServerMetadata(TestCase):
@@ -229,3 +236,167 @@ class TestAppMetadata(TestCase):
         new_app_store = AppStore(self.nb_path)
         new_app_store.load()
         self.assertEqual(new_app_store._data, self.app_store._data)
+
+
+class TestHelpers(TestCase):
+    def test_normalize_server_url(self):
+        self.assertEqual("localhost_3939", _normalize_server_url("https://localhost:3939"))
+        self.assertEqual("127_0_0_1_3939", _normalize_server_url("https://127.0.0.1:3939"))
+        self.assertEqual("connect_dev", _normalize_server_url("https://connect.dev"))
+        self.assertEqual("connect_dev_6443", _normalize_server_url("https://connect.dev:6443"))
+
+
+class TestRebuildMetadata(TestCase):
+    def setUp(self):
+        self.server_store = ServerStore()
+        self.server_store.set("connect", "https://connect.remote:6443", "apiKey", insecure=True)
+        self.server = RSConnectServer("https://connect.remote:6443", "apiKey", True, None)
+        self.rebuild_store = ContentRebuildStore()
+        self.rebuild_store._set(self.server.url,
+            {
+                "rsconnect_rebuild_running": False,
+                "content": {
+                    "c96db3f3-87a1-4df5-9f58-eb109c397718": {
+                        "guid": "c96db3f3-87a1-4df5-9f58-eb109c397718",
+                        "bundle_id": "177",
+                        "title": "orphan-proc-shiny-test",
+                        "name": "orphan-proc-shiny-test",
+                        "app_mode": "shiny",
+                        "content_url": "https://connect.remote:6443/content/c96db3f3-87a1-4df5-9f58-eb109c397718/",
+                        "dashboard_url": "https://connect.remote:6443/connect/#/apps/c96db3f3-87a1-4df5-9f58-eb109c397718",
+                        "created_time": "2021-11-04T18:07:12Z",
+                        "last_deployed_time": "2021-11-10T19:10:56Z",
+                        "rsconnect_rebuild_status": "NEEDS_REBUILD"
+                    },
+                    "fe673896-f92a-40cc-be4c-e4872bb90a37": {
+                        "guid": "fe673896-f92a-40cc-be4c-e4872bb90a37",
+                        "bundle_id": "185",
+                        "title": "interactive-rmd",
+                        "name": "interactive-rmd",
+                        "app_mode": "rmd-shiny",
+                        "content_url": "https://connect.remote:6443/content/fe673896-f92a-40cc-be4c-e4872bb90a37/",
+                        "dashboard_url": "https://connect.remote:6443/connect/#/apps/fe673896-f92a-40cc-be4c-e4872bb90a37",
+                        "created_time": "2021-11-15T15:37:53Z",
+                        "last_deployed_time": "2021-11-15T15:37:57Z",
+                        "rsconnect_rebuild_status": "ERROR"
+                    },
+                    "a0b6b5a2-5fbe-4293-8310-4f80054bc24f": {
+                        "guid": "a0b6b5a2-5fbe-4293-8310-4f80054bc24f",
+                        "bundle_id": "184",
+                        "title": "stock-report-jupyter",
+                        "name": "stock-report-jupyter",
+                        "app_mode": "jupyter-static",
+                        "content_url": "https://connect.remote:6443/content/a0b6b5a2-5fbe-4293-8310-4f80054bc24f/",
+                        "dashboard_url": "https://connect.remote:6443/connect/#/apps/a0b6b5a2-5fbe-4293-8310-4f80054bc24f",
+                        "created_time": "2021-11-15T15:27:18Z",
+                        "last_deployed_time": "2021-11-15T15:35:27Z",
+                        "rsconnect_rebuild_status": "RUNNING"
+                    },
+                    "23315cc9-ed2a-40ad-9e99-e5e49066531a": {
+                        "guid": "23315cc9-ed2a-40ad-9e99-e5e49066531a",
+                        "bundle_id": "180",
+                        "title": "static-rmd",
+                        "name": "static-rmd2",
+                        "app_mode": "rmd-static",
+                        "content_url": "https://connect.remote:6443/content/23315cc9-ed2a-40ad-9e99-e5e49066531a/",
+                        "dashboard_url": "https://connect.remote:6443/connect/#/apps/23315cc9-ed2a-40ad-9e99-e5e49066531a",
+                        "created_time": "2021-11-15T15:20:58Z",
+                        "last_deployed_time": "2021-11-15T15:25:31Z",
+                        "rsconnect_rebuild_status": "COMPLETE"
+                    },
+                    "015143da-b75f-407c-81b1-99c4a724341e": {
+                        "guid": "015143da-b75f-407c-81b1-99c4a724341e",
+                        "bundle_id": "176",
+                        "title": "plumber-async",
+                        "name": "plumber-async",
+                        "app_mode": "api",
+                        "content_url": "https://connect.remote:6443/content/015143da-b75f-407c-81b1-99c4a724341e/",
+                        "dashboard_url": "https://connect.remote:6443/connect/#/apps/015143da-b75f-407c-81b1-99c4a724341e",
+                        "created_time": "2021-11-01T20:43:32Z",
+                        "last_deployed_time": "2021-11-03T17:48:59Z",
+                        "rsconnect_rebuild_status": "NEEDS_REBUILD"
+                    }
+                }
+            }
+        )
+
+    def test_get_rebuild_logs_dir(self):
+        logs_dir = self.rebuild_store.get_rebuild_logs_dir(self.server, "015143da-b75f-407c-81b1-99c4a724341e")
+        self.assertEqual(join(self.rebuild_store._base_dir, "logs", "connect_remote_6443", "015143da-b75f-407c-81b1-99c4a724341e"), logs_dir)
+
+    def test_get_set_rebuild_running(self):
+        self.assertFalse(self.rebuild_store.get_rebuild_running(self.server))
+        self.rebuild_store.set_rebuild_running(self.server, True)
+        self.assertTrue(self.rebuild_store.get_rebuild_running(self.server))
+
+    def test_add_content_item(self):
+        guid = "015143da-b75f-407c-81b1-99c4a724341e"
+        content = {
+            "bundle_id": "139",
+            "title": "test item",
+            "app_mode": "api",
+            "dashboard_url": "https://connect.remote:6443/connect/#/apps/%s" % guid,
+            "content_url": "https://connect.remote:6443/content/%s/" % guid,
+            "guid": guid,
+            "name": "test-test-test",
+            "last_deployed_time": "2021-10-25T20:21:37Z",
+            "created_time": "2021-09-01T15:12:17Z",
+            "other_field": "this should be ignored"
+        }
+        self.rebuild_store.add_content_item(self.server, content, "1234")
+        content = self.rebuild_store.get_content_item(self.server, guid)
+        self.assertNotIn("other_field", content)
+        self.assertEqual(content, {
+            "bundle_id": "1234",
+            "title": "test item",
+            "app_mode": "api",
+            "dashboard_url": "https://connect.remote:6443/connect/#/apps/%s" % guid,
+            "content_url": "https://connect.remote:6443/content/%s/" % guid,
+            "guid": guid,
+            "name": "test-test-test",
+            "last_deployed_time": "2021-10-25T20:21:37Z",
+            "created_time": "2021-09-01T15:12:17Z"
+        })
+
+    def test_update_content_item(self):
+        guid = "015143da-b75f-407c-81b1-99c4a724341e"
+        self.rebuild_store.update_content_item(self.server, guid, {
+            "bundle_id": "177",
+            "title": "new title",
+            "name": "plumber-async",
+            "app_mode": "api",
+            "dashboard_url": "https://connect.remote:6443/connect/#/apps/%s" % guid,
+            "content_url": "https://connect.remote:6443/content/%s/" % guid,
+            "created_time": "2021-11-01T20:43:32Z",
+            "last_deployed_time": "2021-12-01T12:00:00Z",
+            "other_field": "this should be ignored"
+        })
+        content = self.rebuild_store.get_content_item(self.server, guid)
+        self.assertNotIn("other_field", content)
+        self.assertEqual("177", content['bundle_id'])
+        self.assertEqual("new title", content['title'])
+        self.assertEqual("2021-12-01T12:00:00Z", content['last_deployed_time'])
+
+    def test_get_content_item(self):
+        self.assertIsNotNone(self.rebuild_store.get_content_item(self.server, "015143da-b75f-407c-81b1-99c4a724341e"))
+        self.assertIsNone(self.rebuild_store.get_content_item(self.server, "not real"))
+        self.assertIsNone(self.rebuild_store.get_content_item(RSConnectServer("not real", None, False, None), None))
+
+    def test_remove_content_item(self):
+        guid = "015143da-b75f-407c-81b1-99c4a724341e"
+        self.rebuild_store.remove_content_item(self.server, guid, purge=False)
+        items = self.rebuild_store.get_content_items(self.server)
+        self.assertEqual(4, len(items))
+        self.assertNotIn(guid, list(map(lambda x: x['guid'], items)))
+
+    def test_set_content_item_rebuild_status(self):
+        guid = "015143da-b75f-407c-81b1-99c4a724341e"
+        self.rebuild_store.set_content_item_rebuild_status(self.server, guid, RebuildStatus.COMPLETE)
+        self.assertEqual(RebuildStatus.COMPLETE, self.rebuild_store.get_content_item(self.server, guid)['rsconnect_rebuild_status'])
+        self.rebuild_store.set_content_item_rebuild_status(self.server, guid, RebuildStatus.ERROR)
+        self.assertEqual(RebuildStatus.ERROR, self.rebuild_store.get_content_item(self.server, guid)['rsconnect_rebuild_status'])
+
+    def test_get_content_items(self):
+        self.assertEqual(5, len(self.rebuild_store.get_content_items(self.server)))
+        self.assertEqual(2, len(self.rebuild_store.get_content_items(self.server, status=RebuildStatus.NEEDS_REBUILD)))
+        self.assertEqual(1, len(self.rebuild_store.get_content_items(self.server, status=RebuildStatus.ERROR)))
