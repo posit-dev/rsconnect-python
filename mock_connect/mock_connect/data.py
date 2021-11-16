@@ -46,8 +46,11 @@ class DBObject(object):
     @classmethod
     def get_object(cls, db_id: Union[int, str]):
         name = cls.__name__
-        if name in cls.instances and db_id in cls.instances[name]:
-            return cls.instances[name][db_id]
+        if name in cls.instances:
+            if db_id in cls.instances[name]:
+                return cls.instances[name][db_id]
+            elif isinstance(db_id, str): # if guid was provided, find by guid instead of id
+                return next(filter(lambda x: x['guid'] == db_id, cls.instances[name].values()), None)
         return None
 
     @classmethod
@@ -79,8 +82,6 @@ class DBObject(object):
         if name not in cls.instances:
             cls.instances[name] = {}
         cls.instances[name][instance.id] = instance
-        if "guid" in instance.attrs:
-            cls.instances[name][instance.guid] = instance
 
     @classmethod
     def get_table_headers(cls):
@@ -358,7 +359,7 @@ def get_data_dump():
         _format_section(sections, cls.__name__, rows)
     rows = ["<tr><th>API Key</th><th>User ID</th></tr>"]
     for key, value in api_keys.items():
-        rows.append("<tr><td>%s</td><td>%s</td</tr" % (key, value))
+        rows.append("<tr><td>%s</td><td>%s</td></tr>" % (key, value))
     _format_section(sections, "API Key", rows)
     text = "\n".join(sections)
     text = text.replace("<th>", "<th%s>" % ts)
