@@ -10,6 +10,7 @@ from .data import (
     Application,
     AppMode,
     Bundle,
+    Content,
     Task,
     get_data_dump,
     default_server_settings,
@@ -157,6 +158,28 @@ def content(connect_app):
     if bundle is None:
         return error(400, "The content has not been deployed.")  # message and status code probably wrong
     return bundle.get_rendered_content()
+
+
+# noinspection PyUnresolvedReferences
+@app.route("/v1/content/<object_id>")
+@endpoint(authenticated=True, cls=Content, writes_json=True)
+def get_content_v1(content):
+    return content
+
+
+# noinspection PyUnresolvedReferences
+@app.route("/v1/content")
+@endpoint(authenticated=True, writes_json=True)
+def content_v1():
+    return list(Content.get_all_objects())
+
+
+# def bundle_download(self, content_guid, bundle_id):
+#     return self.get("v1/content/%s/bundles/%s/download" % (content_guid, bundle_id), decode_response=False)
+
+
+# def content_deploy(self, content_guid, bundle_id=None):
+#     return self.post("v1/content/%s/deploy" % content_guid, body={"bundle_id": bundle_id})
 
 
 app.register_blueprint(api, url_prefix="/__api__")

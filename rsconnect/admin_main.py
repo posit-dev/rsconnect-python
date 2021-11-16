@@ -150,7 +150,6 @@ class VersionSearchFilter(click.ParamType):
     type=click.Choice(["created", "last_deployed"]),
     help="Order content results.",
 )
-# todo: Add a --content-type filter flag
 # todo: --format option (json, text)
 def content_search(name, server, api_key, insecure, cacert, published, unpublished, content_type, r_version, py_version, title_contains, order_by):
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)

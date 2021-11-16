@@ -1,0 +1,44 @@
+{
+  "apps": [],
+  "users": [
+    {
+      "api_key": "0123456789abcdef0123456789abcdef",
+      "guid": "29a74070-2c13-4ef9-a898-cfc6bcf0f275",
+      "username": "admin",
+      "first_name": "Super",
+      "last_name": "User",
+      "email": "admin@example.com",
+      "user_role": "administrator",
+      "password": "",
+      "confirmed": true,
+      "locked": false,
+      "created_time": "2018-08-29T19:25:23.68280816Z",
+      "active_time": "2018-08-30T23:49:18.421238194Z",
+      "updated_time": "2018-08-29T19:25:23.68280816Z",
+      "privileges": [
+        "add_users",
+        "add_vanities",
+        "change_app_permissions",
+        "change_apps",
+        "change_groups",
+        "change_usernames",
+        "change_users",
+        "change_variant_schedule",
+        "create_groups",
+        "edit_run_as",
+        "edit_runtime",
+        "lock_users",
+        "publish_apps",
+        "remove_apps",
+        "remove_groups",
+        "remove_users",
+        "remove_vanities",
+        "view_app_settings",
+        "view_apps"
+      ]
+    }
+  ],
+  "bundles": [],
+  "content": [],
+  "tasks": []
+}

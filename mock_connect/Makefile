@@ -5,7 +5,7 @@
 #
 MOCK_IMAGE?="rstudio/connect:mock"
 MOCK_HOST?="mock-connect"
-PRE_FETCH_FILE?=""
+PRE_FETCH_FILE?="data.json"
 LOG_FILE?="mock_connect.log"
 
 # Build the image in which the mock server will run.

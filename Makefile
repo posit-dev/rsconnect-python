@@ -47,7 +47,7 @@ test-%:
 	PYTHON_VERSION=$* $(RUNNER) '$(TEST_ENV) $(TEST_COMMAND)'
 
 mock-test-%: clean-stores
-	@$(MAKE) -C mock_connect image up
+	@$(MAKE) -C mock_connect down image up
 	@sleep 1
 	CONNECT_SERVER=http://$(HOSTNAME):3939 CONNECT_API_KEY=0123456789abcdef0123456789abcdef $(MAKE) test-$*
 	@$(MAKE) -C mock_connect down

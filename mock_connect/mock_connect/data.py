@@ -248,6 +248,75 @@ class Task(DBObject):
         self.status = ["Building static content", "Deploying static content"]
 
 
+class Content(DBObject):
+    attrs = [
+        'guid',
+        'name',
+        'title',
+        'description',
+        'access_type',
+        'connection_timeout',
+        'read_timeout',
+        'init_timeout',
+        'idle_timeout',
+        'max_processes',
+        'min_processes',
+        'max_conns_per_process',
+        'load_factor',
+        'created_time',
+        'last_deployed_time',
+        'bundle_id',
+        'app_mode',
+        'content_category',
+        'parameterized',
+        'cluster_name',
+        'image_name',
+        'r_version',
+        'py_version',
+        'quarto_version',
+        'run_as',
+        'run_as_current_user',
+        'owner_guid',
+        'content_url',
+        'dashboard_url',
+        'app_role',
+        'id'
+    ]
+    show = ["guid", "name", "app_mode", "r_version", "py_version", "quarto_version"]
+
+    def __init__(self, name, bundle_id, app_mode, content_category, r_version, py_version, quarto_version, url, user):
+        super(Content, self).__init__(needs_uuid=True)
+        self.name = name
+        self.title = name + "+ title"
+        self.bundle_id = bundle_id
+        self.app_mode = app_mode
+        self.content_category = content_category
+        self.content_url = "%scontent/%s/" % (url, self.guid)
+        self.dashboard_url = "%sconnect/#/apps/{1}" % (url, self.guid)
+        self.created_time = timestamp()
+        self.last_deployed_time = timestamp()
+        self.r_version = r_version
+        self.py_version = py_version
+        self.quarto_version = quarto_version
+        self.owner_guid = user.guid
+        self.description = name + "+ description"
+        self.access_type = "acl"
+        self.connection_timeout = None
+        self.read_timeout = None
+        self.init_timeout = None
+        self.idle_timeout = None
+        self.max_processes = None
+        self.min_processes = None
+        self.max_conns_per_process = None
+        self.load_factor = None
+        self.parameterized = False
+        self.cluster_name = None
+        self.image_name = None
+        self.run_as = None
+        self.run_as_current_user = False
+        self.app_role = "owner"
+
+
 def _apply_pre_fetch_data(data: dict):
     for key, value in data.items():
         if key in tag_map:
@@ -283,7 +352,7 @@ def _format_section(sections, name, rows):
 def get_data_dump():
     ts = ' style="border-style: solid; border-width: 1px"'
     sections = []
-    for cls in (Application, User, Bundle, Task):
+    for cls in (Application, Content, Bundle, Task, User):
         rows = [item.get_table_row() for item in cls.get_all_objects()]
         rows.insert(0, cls.get_table_headers())
         _format_section(sections, cls.__name__, rows)
@@ -387,46 +456,16 @@ default_server_settings = {
     "git_available": True,
     "documentation_dashboard": False,
 }
-tag_map = {"apps": Application, "users": User, "bundles": Bundle, "tasks": Task}
-admin_user = User.create_from(
-    {
-        "guid": "29a74070-2c13-4ef9-a898-cfc6bcf0f275",
-        "username": "admin",
-        "first_name": "Super",
-        "last_name": "User",
-        "email": "admin@example.com",
-        "user_role": "administrator",
-        "password": "",
-        "confirmed": True,
-        "locked": False,
-        "created_time": "2018-08-29T19:25:23.68280816Z",
-        "active_time": "2018-08-30T23:49:18.421238194Z",
-        "updated_time": "2018-08-29T19:25:23.68280816Z",
-        "privileges": [
-            "add_users",
-            "add_vanities",
-            "change_app_permissions",
-            "change_apps",
-            "change_groups",
-            "change_usernames",
-            "change_users",
-            "change_variant_schedule",
-            "create_groups",
-            "edit_run_as",
-            "edit_runtime",
-            "lock_users",
-            "publish_apps",
-            "remove_apps",
-            "remove_groups",
-            "remove_users",
-            "remove_vanities",
-            "view_app_settings",
-            "view_apps",
-        ],
-    }
-)
-# noinspection SpellCheckingInspection
-api_keys = {"0123456789abcdef0123456789abcdef": admin_user.id}
+
+tag_map = {
+    "apps": Application,
+    "users": User,
+    "bundles": Bundle,
+    "tasks": Task,
+    "content": Content
+}
+
+api_keys = {}
 
 # Handle any pre-fetching we should do.
 _pre_fetch_data()
