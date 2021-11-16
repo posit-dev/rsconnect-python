@@ -161,14 +161,14 @@ def content(connect_app):
 
 
 # noinspection PyUnresolvedReferences
-@app.route("/v1/content/<object_id>")
+@api.route("v1/content/<object_id>")
 @endpoint(authenticated=True, cls=Content, writes_json=True)
 def get_content_v1(content):
     return content
 
 
 # noinspection PyUnresolvedReferences
-@app.route("/v1/content")
+@api.route("v1/content")
 @endpoint(authenticated=True, writes_json=True)
 def content_v1():
     return list(Content.get_all_objects())
