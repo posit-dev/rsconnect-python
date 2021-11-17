@@ -161,7 +161,7 @@ def content_search(name, server, api_key, insecure, cacert, published, unpublish
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @content.command(
-    name="get",
+    name="describe",
     short_help="Describe a content item on RStudio Connect.",
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
@@ -195,11 +195,12 @@ def content_search(name, server, api_key, insecure, cacert, published, unpublish
     "--guid",
     "-g",
     multiple=True,
+    required=True,
     help="The GUID of a content item to describe. This flag can be passed multiple times.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 # todo: --format option (json, text)
-def content_get(name, server, api_key, insecure, cacert, guid, verbose):
+def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     with open_file_or_stdout("-") as f:
