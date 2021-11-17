@@ -6,7 +6,7 @@ from os.path import exists
 import click
 import semver
 
-from rsconnect import VERSION
+from . import VERSION
 from . import api
 from .metadata import ServerStore
 from .models import AppModes, RebuildStatus
@@ -22,9 +22,8 @@ from .admin_actions import (
   get_content,
   emit_rebuild_log,
 )
-from rsconnect.main import (
-  _validate_deploy_to_args
-)
+from rsconnect.actions import set_verbosity
+from rsconnect.main import _validate_deploy_to_args
 
 server_store = ServerStore()
 future_enabled = False
@@ -150,8 +149,10 @@ class VersionSearchFilter(click.ParamType):
     type=click.Choice(["created", "last_deployed"]),
     help="Order content results.",
 )
+@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 # todo: --format option (json, text)
-def content_search(name, server, api_key, insecure, cacert, published, unpublished, content_type, r_version, py_version, title_contains, order_by):
+def content_search(name, server, api_key, insecure, cacert, published, unpublished, content_type, r_version, py_version, title_contains, order_by, verbose):
+    set_verbosity(verbose)
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     with open_file_or_stdout("-") as f:
         result = search_content(connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by)
@@ -196,8 +197,10 @@ def content_search(name, server, api_key, insecure, cacert, published, unpublish
     multiple=True,
     help="The GUID of a content item to describe. This flag can be passed multiple times.",
 )
+@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 # todo: --format option (json, text)
-def content_get(name, server, api_key, insecure, cacert, guid):
+def content_get(name, server, api_key, insecure, cacert, guid, verbose):
+    set_verbosity(verbose)
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     with open_file_or_stdout("-") as f:
         result = get_content(connect_server, guid)
@@ -258,7 +261,9 @@ def content_get(name, server, api_key, insecure, cacert, guid):
     is_flag=True,
     help="Overwrite the output file if it already exists.",
 )
-def content_bundle_download(name, server, api_key, insecure, cacert, guid, bundle_id, output, overwrite):
+@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+def content_bundle_download(name, server, api_key, insecure, cacert, guid, bundle_id, output, overwrite, verbose):
+    set_verbosity(verbose)
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     if exists(output) and not overwrite:
         raise api.RSConnectException("The output file already exists: %s" % output)
@@ -315,8 +320,10 @@ def rebuild():
     "--bundle-id",
     help="The bundle ID of the content item to rebuild. By default, the latest bundle is used.",
 )
-# todo: add a --timeout flag with sane default
-def add_content_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id):
+@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+# todo: add a --timeout flag with sane default?
+def add_content_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id, verbose):
+    set_verbosity(verbose)
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     rebuild_add_content(connect_server, guid, bundle_id)
 
@@ -365,7 +372,9 @@ def add_content_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id
     is_flag=True,
     help="Cleanup all associated rebuild log files on the local filesystem.",
 )
-def remove_content_rebuild(name, server, api_key, insecure, cacert, guid, purge):
+@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+def remove_content_rebuild(name, server, api_key, insecure, cacert, guid, purge, verbose):
+    set_verbosity(verbose)
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     rebuild_remove_content(connect_server, guid, purge)
 
@@ -407,8 +416,10 @@ def remove_content_rebuild(name, server, api_key, insecure, cacert, guid, purge)
     type=click.Choice(RebuildStatus._all),
     help="Filter results by status of the rebuild operation."
 )
+@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 # todo: --format option (json, text)
-def list_content_rebuild(name, server, api_key, insecure, cacert, status):
+def list_content_rebuild(name, server, api_key, insecure, cacert, status, verbose):
+    set_verbosity(verbose)
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     with open_file_or_stdout("-") as f:
         result = rebuild_list_content(connect_server, status)
@@ -453,8 +464,10 @@ def list_content_rebuild(name, server, api_key, insecure, cacert, status):
     required=True,
     help="The guid of the content item.",
 )
+@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 # todo: --format option (json, text)
-def get_rebuild_history(name, server, api_key, insecure, cacert, guid):
+def get_rebuild_history(name, server, api_key, insecure, cacert, guid, verbose):
+    set_verbosity(verbose)
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     with open_file_or_stdout("-") as f:
         result = rebuild_history(connect_server, guid)
@@ -511,7 +524,9 @@ def get_rebuild_history(name, server, api_key, insecure, cacert, guid):
     default="text",
     help="The output format of the logs. Defaults to text.",
 )
-def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, format):
+@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, format, verbose):
+    set_verbosity(verbose)
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     with open_file_or_stdout("-") as f:
         for line in emit_rebuild_log(connect_server, guid, format, task_id):
@@ -561,7 +576,9 @@ def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, for
     is_flag=True,
     help="Print exceptions from background operations."
 )
+@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 # todo: --background flag
-def start_content_rebuild(name, server, api_key, insecure, cacert, parallelism, debug):
+def start_content_rebuild(name, server, api_key, insecure, cacert, parallelism, debug, verbose):
+    set_verbosity(verbose)
     connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     rebuild_start(connect_server, parallelism, debug)
