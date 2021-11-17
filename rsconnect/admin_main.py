@@ -4,6 +4,7 @@ import json
 from os.path import exists
 
 import click
+from click.types import StringParamType
 import semver
 
 from . import VERSION
@@ -54,7 +55,19 @@ def version():
 def content():
     pass
 
+# Strip quotes from string arguments that might be passed in by jq
+#  without the -r flag
+class StrippedString(StringParamType):
+    name = "StrippedString"
+
+    def convert(self, value, param, ctx):
+        value = super(StrippedString, self).convert(value, param, ctx)
+        return value.strip("\"\'")
+
+
 class VersionSearchFilter(click.ParamType):
+    name = "VersionSearchFilter"
+
     def __init__(self, name:str=None, comp:str=None, vers:str=None):
         self.name = name
         self.comp = comp
@@ -196,6 +209,7 @@ def content_search(name, server, api_key, insecure, cacert, published, unpublish
     "-g",
     multiple=True,
     required=True,
+    type=StrippedString(),
     help="The GUID of a content item to describe. This flag can be passed multiple times.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
@@ -244,10 +258,12 @@ def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     "--guid",
     "-g",
     required=True,
+    type=StrippedString(),
     help="The GUID of a content item to download.",
 )
 @click.option(
     "--bundle-id",
+    type=StrippedString(),
     help="The bundle ID of the content item to download. By default, the latest bundle is downloaded.",
 )
 @click.option(
@@ -315,10 +331,12 @@ def rebuild():
     "--guid",
     "-g",
     required=True,
+    type=StrippedString(),
     help="Add a content item by guid.",
 )
 @click.option(
     "--bundle-id",
+    type=StrippedString(),
     help="The bundle ID of the content item to rebuild. By default, the latest bundle is used.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
@@ -365,6 +383,7 @@ def add_content_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id
     "--guid",
     "-g",
     required=True,
+    type=StrippedString(),
     help="Remove a content item by guid.",
 )
 @click.option(
@@ -463,6 +482,7 @@ def list_content_rebuild(name, server, api_key, insecure, cacert, status, verbos
     "--guid",
     "-g",
     required=True,
+    type=StrippedString(),
     help="The guid of the content item.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
@@ -511,11 +531,13 @@ def get_rebuild_history(name, server, api_key, insecure, cacert, guid, verbose):
     "--guid",
     "-g",
     required=True,
+    type=StrippedString(),
     help="The guid of the content item.",
 )
 @click.option(
     "--task-id",
     "-t",
+    type=StrippedString(),
     help="The task ID of the rebuild.",
 )
 @click.option(
