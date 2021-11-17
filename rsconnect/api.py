@@ -193,7 +193,7 @@ class RSConnect(HTTPServer):
         self._server.handle_bad_response(results)
         return results
 
-    def wait_for_task(self, app_id, task_id, log_callback, timeout=None):
+    def wait_for_task(self, app_id, task_id, log_callback, abort_func=lambda: False, timeout=None):
         last_status = None
         ending = time.time() + timeout if timeout else 999999999999
 
@@ -203,21 +203,20 @@ class RSConnect(HTTPServer):
         else:
             log_lines = None
 
-        while time.time() < ending:
+        while True:
+            if time.time() >= ending:
+                raise RSConnectException("Task timed out after %d seconds" % timeout)
+            elif abort_func():
+                raise RSConnectException("Task aborted.")
+
             time.sleep(0.5)
-
             task_status = self.task_get(task_id, last_status)
-
             self._server.handle_bad_response(task_status)
-
             last_status = self.output_task_log(task_status, last_status, log_callback)
-
             if task_status["finished"]:
                 app_config = self.app_config(app_id)
                 app_url = app_config.get("config_url")
                 return app_url, log_lines
-
-        raise RSConnectException("Task timed out after %d seconds" % timeout)
 
     @staticmethod
     def output_task_log(task_status, last_status, log_callback):
@@ -339,7 +338,7 @@ def do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bund
         return result
 
 
-def emit_task_log(connect_server, app_id, task_id, log_callback, timeout=None):
+def emit_task_log(connect_server, app_id, task_id, log_callback, abort_func=lambda: False, timeout=None):
     """
     Helper for spooling the deployment log for an app.
 
@@ -355,7 +354,7 @@ def emit_task_log(connect_server, app_id, task_id, log_callback, timeout=None):
     of log lines.  The log lines value will be None if a log callback was provided.
     """
     with RSConnect(connect_server) as client:
-        result = client.wait_for_task(app_id, task_id, log_callback, timeout)
+        result = client.wait_for_task(app_id, task_id, log_callback, abort_func, timeout)
         connect_server.handle_bad_response(result)
         return result
 

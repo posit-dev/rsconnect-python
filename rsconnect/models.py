@@ -8,10 +8,11 @@ import re
 import six
 
 class RebuildStatus(object):
-    NEEDS_REBUILD = "NEEDS_REBUILD"
-    RUNNING = "RUNNING"
-    COMPLETE = "COMPLETE"
-    ERROR = "ERROR"
+    NEEDS_REBUILD = "NEEDS_REBUILD" # marked for rebuild
+    RUNNING = "RUNNING" # running now
+    ABORTED = "ABORTED" # cancelled while running
+    COMPLETE = "COMPLETE" # completed successfully
+    ERROR = "ERROR" # completed with an error
 
     _all = [
         NEEDS_REBUILD,

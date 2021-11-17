@@ -46,7 +46,7 @@ _repeating_sub_pattern = re.compile(r"_+")
 
 
 @contextlib.contextmanager
-def cli_feedback(label):
+def cli_feedback(label, stderr=False):
     """Context manager for OK/ERROR feedback from the CLI.
 
     If the enclosed block succeeds, OK will be emitted.
@@ -57,17 +57,17 @@ def cli_feedback(label):
     """
     if label:
         pad = line_width - len(label)
-        click.secho(label + "... " + " " * pad, nl=False)
+        click.secho(label + "... " + " " * pad, nl=False, err=stderr)
         logger.set_in_feedback(True)
 
     def passed():
         if label:
-            click.secho("[OK]", fg="green")
+            click.secho("[OK]", fg="green", err=stderr)
 
     def failed(err):
         if label:
-            click.secho("[ERROR]", fg="red")
-        click.secho(str(err), fg="bright_red")
+            click.secho("[ERROR]", fg="red", err=stderr)
+        click.secho(str(err), fg="bright_red", err=stderr)
         sys.exit(1)
 
     try:

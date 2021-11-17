@@ -460,9 +460,14 @@ class ContentRebuildStore(DataStore):
     }
     """
 
+    _REBUILD_ABORTED = False
+
     def __init__(self, base_dir=os.getenv("CONNECT_ADMIN_REBUILD_DIR", DEFAULT_REBUILD_DIR)):
         self._base_dir = base_dir
         super(ContentRebuildStore, self).__init__(join(base_dir, "rebuild.json"), chmod=True)
+
+    def aborted(self):
+        return ContentRebuildStore._REBUILD_ABORTED
 
     def get_rebuild_logs_dir(self, server, guid):
         return join(self._base_dir, "logs", _normalize_server_url(server.url), guid)
