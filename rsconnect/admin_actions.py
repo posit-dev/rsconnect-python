@@ -49,13 +49,17 @@ def rebuild_history(connect_server, guid):
     return content_rebuild_store.get_rebuild_history(connect_server, guid)
 
 
-def rebuild_start(connect_server, parallelism, debug=False):
+def rebuild_start(connect_server, parallelism, resume=False, debug=False):
     if content_rebuild_store.get_rebuild_running(connect_server):
         raise api.RSConnectException("There is already a rebuild running on this server: %s" % connect_server.url)
 
     content_items = content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.NEEDS_REBUILD)
+    if resume:
+        content_items = content_items + content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.ABORTED)
+
     if len(content_items) == 0:
-        click.secho("Nothing to rebuild...\nUse `rsconnect-admin rebuild add` to mark content for rebuild.")
+        click.secho("Nothing to rebuild...")
+        click.secho("\tUse `rsconnect-admin rebuild add` to mark content for rebuild.")
         return
 
     rebuild_monitor = None
@@ -64,7 +68,7 @@ def rebuild_start(connect_server, parallelism, debug=False):
         click.secho("Starting content rebuild (%s)..." % connect_server.url)
         content_rebuild_store.set_rebuild_running(connect_server, True)
 
-        # spawn a single thread to print progress feedback for the user
+        # spawn a single thread to monitor progress and report feedback to the user
         rebuild_monitor = ThreadPoolExecutor(max_workers=1)
         summary_future = rebuild_monitor.submit(_monitor_rebuild, connect_server, content_items)
 
@@ -81,10 +85,10 @@ def rebuild_start(connect_server, parallelism, debug=False):
                 if debug: # TODO: should use logger.debug?
                     click.secho('%s generated an exception: %s' % (guid, exc), fg="red", err=True)
 
-        # all rebuilds are finished, mark the rebuild as complete
+        # all content rebuilds are finished, mark the rebuild as complete
         content_rebuild_store.set_rebuild_running(connect_server, False)
 
-        # wait for rebuild to complete and print final summary
+        # wait for rebuild to complete
         try:
             success = summary_future.result()
         except Exception as exc:
@@ -101,7 +105,7 @@ def rebuild_start(connect_server, parallelism, debug=False):
             content_executor.shutdown(wait=False, cancel_futures=True)
         if rebuild_monitor:
             rebuild_monitor.shutdown()
-        # make sure that we always mark the rebuild as complete once we finish cleanup
+        # make sure that we always mark the rebuild as complete once we finish our cleanup
         content_rebuild_store.set_rebuild_running(connect_server, False)
 
 
@@ -127,20 +131,23 @@ def _monitor_rebuild(connect_server, content_items):
     if content_rebuild_store.aborted():
         click.secho()
         click.secho("Rebuild interrupted! Marking running rebuilds as ABORTED...")
-        click.secho("Aborted rebuilds:")
-        for guid in [i['guid'] for i in content_items if i['rsconnect_rebuild_status'] == RebuildStatus.RUNNING]:
-            click.secho("\t%s" % guid)
-            content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.ABORTED)
+        aborted_rebuilds = [i['guid'] for i in content_items if i['rsconnect_rebuild_status'] == RebuildStatus.RUNNING]
+        if len(aborted_rebuilds) > 0:
+            click.secho("\tUse `rsconnect-admin rebuild start --resume` to retry the aborted rebuilds.")
+            click.secho("Aborted rebuilds:")
+            for guid in aborted_rebuilds:
+                click.secho("\t%s" % guid)
+                content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.ABORTED)
         return False
 
     click.secho()
     click.secho()
     click.secho("%d/%d content rebuilds completed in %s" % (len(complete) + len(error), len(content_items), rounded_duration))
     click.secho("Success = %d, Error = %d" % (len(complete), len(error)))
-    if len(error) != 0:
+    if len(error) > 0:
         click.secho()
         click.secho("There were failures during your rebuild.")
-        click.secho("\tTo check the rebuild log, use the following command: rsconnect-admin rebuild logs --guid")
+        click.secho("\tUse `rsconnect-admin rebuild logs --guid` to check the rebuild logs.")
         click.secho()
         click.secho("Failed content:")
         for c in error:

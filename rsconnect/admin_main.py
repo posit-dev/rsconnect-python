@@ -612,15 +612,20 @@ def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, for
     help="Defines the number of rebuilds that can run concurrently. Defaults to 1. Capped at 10."
 )
 @click.option(
+    "--resume",
+    is_flag=True,
+    help="Restart an aborted rebuild."
+)
+@click.option(
     "--debug",
     is_flag=True,
     help="Print exceptions from background operations."
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-# todo: --force flag for when a rebuild is already marked as "running"
 # todo: --background flag
-def start_content_rebuild(name, server, api_key, insecure, cacert, parallelism, debug, verbose):
+def start_content_rebuild(name, server, api_key, insecure, cacert, parallelism, resume, debug, verbose):
     set_verbosity(verbose)
     with cli_feedback("Checking arguments", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-    rebuild_start(connect_server, parallelism, debug)
+    with cli_feedback("Starting rebuild", stderr=True):
+        rebuild_start(connect_server, parallelism, resume, debug)
