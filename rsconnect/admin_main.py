@@ -9,8 +9,13 @@ import semver
 
 from . import VERSION
 from . import api
+from .actions import (
+    cli_feedback,
+    set_verbosity,
+)
 from .metadata import ServerStore
 from .models import AppModes, RebuildStatus
+from .main import _validate_deploy_to_args
 from .admin_actions import (
   open_file_or_stdout,
   download_bundle,
@@ -23,8 +28,7 @@ from .admin_actions import (
   get_content,
   emit_rebuild_log,
 )
-from rsconnect.actions import set_verbosity
-from rsconnect.main import _validate_deploy_to_args
+
 
 server_store = ServerStore()
 future_enabled = False
@@ -166,7 +170,9 @@ class VersionSearchFilter(click.ParamType):
 # todo: --format option (json, text)
 def content_search(name, server, api_key, insecure, cacert, published, unpublished, content_type, r_version, py_version, title_contains, order_by, verbose):
     set_verbosity(verbose)
-    connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+    with cli_feedback("Checking arguments"):
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+
     with open_file_or_stdout("-") as f:
         result = search_content(connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by)
         f.write(json.dumps(result, indent=2))
@@ -216,7 +222,8 @@ def content_search(name, server, api_key, insecure, cacert, published, unpublish
 # todo: --format option (json, text)
 def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
-    connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+    with cli_feedback("Checking arguments"):
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     with open_file_or_stdout("-") as f:
         result = get_content(connect_server, guid)
         f.write(json.dumps(result, indent=2))
@@ -281,7 +288,8 @@ def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def content_bundle_download(name, server, api_key, insecure, cacert, guid, bundle_id, output, overwrite, verbose):
     set_verbosity(verbose)
-    connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+    with cli_feedback("Checking arguments"):
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     if exists(output) and not overwrite:
         raise api.RSConnectException("The output file already exists: %s" % output)
 
@@ -343,7 +351,8 @@ def rebuild():
 # todo: add a --timeout flag with sane default?
 def add_content_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id, verbose):
     set_verbosity(verbose)
-    connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+    with cli_feedback("Checking arguments"):
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     rebuild_add_content(connect_server, guid, bundle_id)
 
 
@@ -395,7 +404,8 @@ def add_content_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def remove_content_rebuild(name, server, api_key, insecure, cacert, guid, purge, verbose):
     set_verbosity(verbose)
-    connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+    with cli_feedback("Checking arguments"):
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     rebuild_remove_content(connect_server, guid, purge)
 
 
@@ -440,7 +450,8 @@ def remove_content_rebuild(name, server, api_key, insecure, cacert, guid, purge,
 # todo: --format option (json, text)
 def list_content_rebuild(name, server, api_key, insecure, cacert, status, verbose):
     set_verbosity(verbose)
-    connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+    with cli_feedback("Checking arguments"):
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     with open_file_or_stdout("-") as f:
         result = rebuild_list_content(connect_server, status)
         f.write(json.dumps(result, indent=2))
@@ -489,7 +500,8 @@ def list_content_rebuild(name, server, api_key, insecure, cacert, status, verbos
 # todo: --format option (json, text)
 def get_rebuild_history(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
-    connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+    with cli_feedback("Checking arguments"):
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     with open_file_or_stdout("-") as f:
         result = rebuild_history(connect_server, guid)
         f.write(json.dumps(result, indent=2))
@@ -550,7 +562,8 @@ def get_rebuild_history(name, server, api_key, insecure, cacert, guid, verbose):
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, format, verbose):
     set_verbosity(verbose)
-    connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+    with cli_feedback("Checking arguments"):
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     with open_file_or_stdout("-") as f:
         for line in emit_rebuild_log(connect_server, guid, format, task_id):
             f.write(line)
@@ -603,5 +616,6 @@ def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, for
 # todo: --background flag
 def start_content_rebuild(name, server, api_key, insecure, cacert, parallelism, debug, verbose):
     set_verbosity(verbose)
-    connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+    with cli_feedback("Checking arguments"):
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
     rebuild_start(connect_server, parallelism, debug)
