@@ -45,8 +45,11 @@ def rebuild_remove_content(connect_server, guid, all=False, purge=False):
         content_rebuild_store.remove_content_item(connect_server, guid, purge)
 
 
-def rebuild_list_content(connect_server, status):
-    return content_rebuild_store.get_content_items(connect_server, status=status)
+def rebuild_list_content(connect_server, guid, status):
+    if guid:
+        return [content_rebuild_store.get_content_item(connect_server, g) for g in guid]
+    else:
+        return content_rebuild_store.get_content_items(connect_server, status=status)
 
 
 def rebuild_history(connect_server, guid):
@@ -135,13 +138,12 @@ def _monitor_rebuild(connect_server, content_items):
         error = [item for item in content_items if item['rsconnect_rebuild_status'] == RebuildStatus.ERROR]
         running = [item for item in content_items if item['rsconnect_rebuild_status'] == RebuildStatus.RUNNING]
         pending = [item for item in content_items if item['rsconnect_rebuild_status'] == RebuildStatus.NEEDS_REBUILD]
+        click.secho("Content rebuild in progress... (%s) Running = %d, Pending = %d, Success = %d, Error = %d\r" %
+            (rounded_duration, len(running), len(pending), len(complete), len(error)), nl=False)
 
-        # todo: https://stackoverflow.com/questions/2388090/how-to-delete-and-replace-last-line-in-the-terminal-using-bash
-        click.secho("Content rebuild in progress... Running = %d, Pending = %d, Success = %d, Error = %d\t\t%s\r" %
-            (len(running), len(pending), len(complete), len(error), rounded_duration), nl=False)
-
+    # https://stackoverflow.com/questions/2388090/how-to-delete-and-replace-last-line-in-the-terminal-using-bash
+    click.secho('\033[K')
     if content_rebuild_store.aborted():
-        click.secho()
         click.secho("Rebuild interrupted! Marking running rebuilds as ABORTED...")
         aborted_rebuilds = [i['guid'] for i in content_items if i['rsconnect_rebuild_status'] == RebuildStatus.RUNNING]
         if len(aborted_rebuilds) > 0:
@@ -152,7 +154,6 @@ def _monitor_rebuild(connect_server, content_items):
                 content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.ABORTED)
         return False
 
-    click.secho()
     click.secho()
     click.secho("%d/%d content rebuilds completed in %s" % (len(complete) + len(error), len(content_items), rounded_duration))
     click.secho("Success = %d, Error = %d" % (len(complete), len(error)))

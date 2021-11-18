@@ -226,6 +226,7 @@ def content_search(name, server, api_key, insecure, cacert, published, unpublish
     multiple=True,
     required=True,
     type=StrippedString(),
+    metavar="TEXT",
     help="The GUID of a content item to describe. This flag can be passed multiple times.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
@@ -276,11 +277,13 @@ def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     "-g",
     required=True,
     type=StrippedString(),
+    metavar="TEXT",
     help="The GUID of a content item to download.",
 )
 @click.option(
     "--bundle-id",
     type=StrippedString(),
+    metavar="TEXT",
     help="The bundle ID of the content item to download. By default, the latest bundle is downloaded.",
 )
 @click.option(
@@ -350,12 +353,14 @@ def rebuild():
     "-g",
     required=True,
     type=StrippedString(),
+    metavar="TEXT",
     help="Add a content item by guid.",
     # TODO: Allow Multiple=True with optional bundle_id separated by a ,
 )
 @click.option(
     "--bundle-id",
     type=StrippedString(),
+    metavar="TEXT",
     help="The bundle ID of the content item to rebuild. By default, the latest bundle is used.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
@@ -403,6 +408,7 @@ def add_content_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id
     "--guid",
     "-g",
     type=StrippedString(),
+    metavar="TEXT",
     help="Remove a content item by guid.",
 )
 @click.option(
@@ -463,14 +469,22 @@ def remove_content_rebuild(name, server, api_key, insecure, cacert, guid, all, p
     type=click.Choice(RebuildStatus._all),
     help="Filter results by status of the rebuild operation."
 )
+@click.option(
+    "--guid",
+    "-g",
+    multiple=True,
+    type=StrippedString(),
+    metavar="TEXT",
+    help="Check the local rebuild state of a specific content item. This flag can be passed multiple times.",
+)
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 # todo: --format option (json, text)
-def list_content_rebuild(name, server, api_key, insecure, cacert, status, verbose):
+def list_content_rebuild(name, server, api_key, insecure, cacert, status, guid, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         with open_file_or_stdout("-") as f:
-            result = rebuild_list_content(connect_server, status)
+            result = rebuild_list_content(connect_server, guid, status)
             f.write(json.dumps(result, indent=2))
 
 
@@ -511,6 +525,7 @@ def list_content_rebuild(name, server, api_key, insecure, cacert, status, verbos
     "-g",
     required=True,
     type=StrippedString(),
+    metavar="TEXT",
     help="The guid of the content item.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
@@ -561,12 +576,14 @@ def get_rebuild_history(name, server, api_key, insecure, cacert, guid, verbose):
     "-g",
     required=True,
     type=StrippedString(),
+    metavar="TEXT",
     help="The guid of the content item.",
 )
 @click.option(
     "--task-id",
     "-t",
     type=StrippedString(),
+    metavar="TEXT",
     help="The task ID of the rebuild.",
 )
 @click.option(
