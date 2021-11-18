@@ -81,6 +81,12 @@ def rebuild_start(connect_server, parallelism, aborted=False, error=False, all=F
         click.secho("Starting content rebuild (%s)..." % connect_server.url)
         content_rebuild_store.set_rebuild_running(connect_server, True)
 
+        # reset all content_items as NEEDS_REBUILD so our progress metrics are accurate.
+        # if we are rebuilding content that was part of a previous rebuild, it may not
+        # have been re-added so the status could still be COMPLETE,ERROR,ABORTED, etc.
+        for c in content_items:
+            content_rebuild_store.set_content_item_rebuild_status(connect_server, c['guid'], RebuildStatus.NEEDS_REBUILD)
+
         # spawn a single thread to monitor progress and report feedback to the user
         rebuild_monitor = ThreadPoolExecutor(max_workers=1)
         summary_future = rebuild_monitor.submit(_monitor_rebuild, connect_server, content_items)
@@ -138,7 +144,7 @@ def _monitor_rebuild(connect_server, content_items):
         error = [item for item in content_items if item['rsconnect_rebuild_status'] == RebuildStatus.ERROR]
         running = [item for item in content_items if item['rsconnect_rebuild_status'] == RebuildStatus.RUNNING]
         pending = [item for item in content_items if item['rsconnect_rebuild_status'] == RebuildStatus.NEEDS_REBUILD]
-        click.secho("Content rebuild in progress... (%s) Running = %d, Pending = %d, Success = %d, Error = %d\r" %
+        click.secho("\033[KContent rebuild in progress... (%s) Running = %d, Pending = %d, Success = %d, Error = %d\r" %
             (rounded_duration, len(running), len(pending), len(complete), len(error)), nl=False)
 
     # https://stackoverflow.com/questions/2388090/how-to-delete-and-replace-last-line-in-the-terminal-using-bash
