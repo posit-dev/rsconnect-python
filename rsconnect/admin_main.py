@@ -622,22 +622,31 @@ def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, for
     "--parallelism",
     type=click.IntRange(min=1, max=10, clamp=True),
     default=1,
-    help="Defines the number of rebuilds that can run concurrently. Defaults to 1. Capped at 10."
+    help="Defines the number of rebuilds that can run concurrently. Defaults to 1. Max is 10."
 )
 @click.option(
-    "--resume",
+    "--aborted",
     is_flag=True,
-    help="Restart an aborted rebuild."
+    help="Rebuild content that is in the ABORTED state."
+)
+@click.option(
+    "--error",
+    is_flag=True,
+    help="Rebuild content that is in the ERROR state."
+)
+@click.option(
+    "--all",
+    is_flag=True,
+    help="Rebuild all content, even if it is already marked as COMPLETE."
 )
 @click.option(
     "--debug",
     is_flag=True,
-    help="Print exceptions from background operations."
+    help="Log exceptions from background operations."
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-# todo: --background flag
-def start_content_rebuild(name, server, api_key, insecure, cacert, parallelism, resume, debug, verbose):
+def start_content_rebuild(name, server, api_key, insecure, cacert, parallelism, aborted, error, all, debug, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        rebuild_start(connect_server, parallelism, resume, debug)
+        rebuild_start(connect_server, parallelism, aborted, error, all, debug)

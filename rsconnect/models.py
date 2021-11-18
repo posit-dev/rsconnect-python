@@ -17,6 +17,7 @@ class RebuildStatus(object):
     _all = [
         NEEDS_REBUILD,
         RUNNING,
+        ABORTED,
         COMPLETE,
         ERROR
     ]

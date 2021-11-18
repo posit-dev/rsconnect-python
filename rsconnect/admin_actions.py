@@ -14,7 +14,8 @@ from datetime import datetime, timedelta
 import click
 import semver
 
-from rsconnect import api
+from . import api
+from .log import logger
 from .models import RebuildStatus
 from .metadata import ContentRebuildStore
 
@@ -52,13 +53,19 @@ def rebuild_history(connect_server, guid):
     return content_rebuild_store.get_rebuild_history(connect_server, guid)
 
 
-def rebuild_start(connect_server, parallelism, resume=False, debug=False):
+def rebuild_start(connect_server, parallelism, aborted=False, error=False, all=False, debug=False):
     if content_rebuild_store.get_rebuild_running(connect_server):
         raise api.RSConnectException("There is already a rebuild running on this server: %s" % connect_server.url)
 
-    content_items = content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.NEEDS_REBUILD)
-    if resume:
-        content_items = content_items + content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.ABORTED)
+    content_items = []
+    if not all:
+        content_items = content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.NEEDS_REBUILD)
+        if aborted:
+            content_items = content_items + content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.ABORTED)
+        if error:
+            content_items = content_items + content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.ERROR)
+    else:
+        content_items = content_rebuild_store.get_content_items(connect_server)
 
     if len(content_items) == 0:
         click.secho("Nothing to rebuild...")
@@ -84,9 +91,10 @@ def rebuild_start(connect_server, parallelism, resume=False, debug=False):
             try:
                 future.result()
             except Exception as exc:
+                # this exception is logged and re-raised from future thread
                 content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.ERROR)
-                if debug: # TODO: should use logger.debug?
-                    click.secho('%s generated an exception: %s' % (guid, exc), fg="red", err=True)
+                if debug:
+                    logger.error('%s generated an exception: %s' % (guid, exc))
 
         # all content rebuilds are finished, mark the rebuild as complete
         content_rebuild_store.set_rebuild_running(connect_server, False)
@@ -95,8 +103,7 @@ def rebuild_start(connect_server, parallelism, resume=False, debug=False):
         try:
             success = summary_future.result()
         except Exception as exc:
-            if debug: # TODO: should use logger.debug?
-                click.secho(exc, fg="red")
+            logger.error(exc)
 
         click.secho("\nContent rebuild complete.")
         if not success:
@@ -162,24 +169,34 @@ def _monitor_rebuild(connect_server, content_items):
 
 
 def _rebuild_content_item(connect_server, content, timeout=None):
-    guid = content['guid']
-    content_rebuild_store.ensure_logs_dir(connect_server, guid)
-    content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.RUNNING)
-    task_result = api.do_start_content_rebuild(connect_server, guid, content.get('bundle_id'))
-    task_id = task_result.json_data['task_id']
-    log_file = content_rebuild_store.get_rebuild_log(connect_server, guid, task_id)
-    with open(log_file, 'w') as log:
+    log = None
+    try:
+        guid = content['guid']
+        content_rebuild_store.ensure_logs_dir(connect_server, guid)
+        content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.RUNNING)
+        task_result = api.do_start_content_rebuild(connect_server, guid, content.get('bundle_id'))
+        task_id = task_result.json_data['task_id']
+        log_file = content_rebuild_store.get_rebuild_log(connect_server, guid, task_id)
+        log = open(log_file, 'w')
         # emit_task_log raises an exception if exit_code != 0
         api.emit_task_log(connect_server, guid, task_id,
             log_callback=lambda line: log.write("%s\n" % line), abort_func=content_rebuild_store.aborted)
 
-    if content_rebuild_store.aborted():
-        return
+        if content_rebuild_store.aborted():
+            return
 
-    # grab the updated content metadata from connect and update our store
-    updated_content = api.do_content_get(connect_server, guid)
-    content_rebuild_store.update_content_item(connect_server, guid, updated_content)
-    content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.COMPLETE)
+        # grab the updated content metadata from connect and update our store
+        updated_content = api.do_content_get(connect_server, guid)
+        content_rebuild_store.update_content_item(connect_server, guid, updated_content)
+        content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.COMPLETE)
+    except Exception as exc:
+        # try to write the exception to the log file if we can
+        if log:
+            log.write('\n[ERROR]: %s generated an exception: %s' % (guid, exc))
+        raise
+    finally:
+        if log:
+            log.close()
 
 
 def emit_rebuild_log(connect_server, guid, format, task_id=None):
