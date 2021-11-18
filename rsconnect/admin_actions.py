@@ -145,7 +145,7 @@ def _monitor_rebuild(connect_server, content_items):
         click.secho("Rebuild interrupted! Marking running rebuilds as ABORTED...")
         aborted_rebuilds = [i['guid'] for i in content_items if i['rsconnect_rebuild_status'] == RebuildStatus.RUNNING]
         if len(aborted_rebuilds) > 0:
-            click.secho("\tUse `rsconnect-admin rebuild start --resume` to retry the aborted rebuilds.")
+            click.secho("\tUse `rsconnect-admin rebuild run --aborted` to retry the aborted rebuilds.")
             click.secho("Aborted rebuilds:")
             for guid in aborted_rebuilds:
                 click.secho("\t%s" % guid)

@@ -316,7 +316,7 @@ def rebuild():
 # noinspection SpellCheckingInspection,DuplicatedCode
 @rebuild.command(
     name="add",
-    short_help="Mark a content item for rebuild. Use `rebuild start` to invoke the rebuild on the Connect server."
+    short_help="Mark a content item for rebuild. Use `rebuild run` to invoke the rebuild on the Connect server."
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
