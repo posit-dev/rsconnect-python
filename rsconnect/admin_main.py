@@ -40,6 +40,12 @@ logging.basicConfig()
 
 _version_search_pattern = r"(^[=><]{1,2})(.*)"
 
+def _verify_rebuild_rm_args(guid, all, purge):
+    if guid and all:
+        raise api.RSConnectException("You must specify only one of -g/--guid or --all, not both.")
+    if not guid and not all:
+        raise api.RSConnectException("You must specify one of -g/--guid or --all.")
+
 @click.group(no_args_is_help=True)
 @click.option("--future", "-u", is_flag=True, hidden=True, help="Enables future functionality.")
 def cli(future):
@@ -174,12 +180,12 @@ class VersionSearchFilter(click.ParamType):
 # todo: --format option (json, text)
 def content_search(name, server, api_key, insecure, cacert, published, unpublished, content_type, r_version, py_version, title_contains, order_by, verbose):
     set_verbosity(verbose)
-    with cli_feedback("Checking arguments", stderr=True):
+    with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
 
-    with open_file_or_stdout("-") as f:
-        result = search_content(connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by)
-        f.write(json.dumps(result, indent=2))
+        with open_file_or_stdout("-") as f:
+            result = search_content(connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by)
+            f.write(json.dumps(result, indent=2))
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -226,11 +232,11 @@ def content_search(name, server, api_key, insecure, cacert, published, unpublish
 # todo: --format option (json, text)
 def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
-    with cli_feedback("Checking arguments", stderr=True):
+    with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-    with open_file_or_stdout("-") as f:
-        result = get_content(connect_server, guid)
-        f.write(json.dumps(result, indent=2))
+        with open_file_or_stdout("-") as f:
+            result = get_content(connect_server, guid)
+            f.write(json.dumps(result, indent=2))
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -292,14 +298,14 @@ def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def content_bundle_download(name, server, api_key, insecure, cacert, guid, bundle_id, output, overwrite, verbose):
     set_verbosity(verbose)
-    with cli_feedback("Checking arguments", stderr=True):
+    with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-    if exists(output) and not overwrite:
-        raise api.RSConnectException("The output file already exists: %s" % output)
+        if exists(output) and not overwrite:
+            raise api.RSConnectException("The output file already exists: %s" % output)
 
-    with open(output, 'wb') as f:
-        result = download_bundle(connect_server, guid, bundle_id)
-        f.write(result.response_body)
+        with open(output, 'wb') as f:
+            result = download_bundle(connect_server, guid, bundle_id)
+            f.write(result.response_body)
 
 
 @cli.group(no_args_is_help=True, help="Rebuild content on RStudio Connect.")
@@ -345,6 +351,7 @@ def rebuild():
     required=True,
     type=StrippedString(),
     help="Add a content item by guid.",
+    # TODO: Allow Multiple=True with optional bundle_id separated by a ,
 )
 @click.option(
     "--bundle-id",
@@ -355,15 +362,15 @@ def rebuild():
 # todo: add a --timeout flag with sane default?
 def add_content_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id, verbose):
     set_verbosity(verbose)
-    with cli_feedback("Checking arguments", stderr=True):
+    with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-    rebuild_add_content(connect_server, guid, bundle_id)
+        rebuild_add_content(connect_server, guid, bundle_id)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @rebuild.command(
     name="rm",
-    short_help="Remove a content item from the list of content that are tracked for rebuild. Use `rebuild list` to view the tracked content."
+    short_help="Remove a content item from the list of content that are tracked for rebuild. Use `rebuild ls` to view the tracked content."
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
@@ -395,22 +402,28 @@ def add_content_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id
 @click.option(
     "--guid",
     "-g",
-    required=True,
     type=StrippedString(),
     help="Remove a content item by guid.",
+)
+@click.option(
+    "--all",
+    is_flag=True,
+    # TODO: Ask for confirmation?
+    help="Remove all content items from the list of content tracked for rebuild.",
 )
 @click.option(
     "--purge",
     "-p",
     is_flag=True,
-    help="Cleanup all associated rebuild log files on the local filesystem.",
+    help="Remove rebuild history and log files from the local filesystem.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def remove_content_rebuild(name, server, api_key, insecure, cacert, guid, purge, verbose):
+def remove_content_rebuild(name, server, api_key, insecure, cacert, guid, all, purge, verbose):
     set_verbosity(verbose)
-    with cli_feedback("Checking arguments", stderr=True):
+    with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-    rebuild_remove_content(connect_server, guid, purge)
+        _verify_rebuild_rm_args(guid, all, purge)
+        rebuild_remove_content(connect_server, guid, all, purge)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -454,11 +467,11 @@ def remove_content_rebuild(name, server, api_key, insecure, cacert, guid, purge,
 # todo: --format option (json, text)
 def list_content_rebuild(name, server, api_key, insecure, cacert, status, verbose):
     set_verbosity(verbose)
-    with cli_feedback("Checking arguments", stderr=True):
+    with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-    with open_file_or_stdout("-") as f:
-        result = rebuild_list_content(connect_server, status)
-        f.write(json.dumps(result, indent=2))
+        with open_file_or_stdout("-") as f:
+            result = rebuild_list_content(connect_server, status)
+            f.write(json.dumps(result, indent=2))
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -504,11 +517,11 @@ def list_content_rebuild(name, server, api_key, insecure, cacert, status, verbos
 # todo: --format option (json, text)
 def get_rebuild_history(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
-    with cli_feedback("Checking arguments", stderr=True):
+    with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-    with open_file_or_stdout("-") as f:
-        result = rebuild_history(connect_server, guid)
-        f.write(json.dumps(result, indent=2))
+        with open_file_or_stdout("-") as f:
+            result = rebuild_history(connect_server, guid)
+            f.write(json.dumps(result, indent=2))
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -566,11 +579,11 @@ def get_rebuild_history(name, server, api_key, insecure, cacert, guid, verbose):
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, format, verbose):
     set_verbosity(verbose)
-    with cli_feedback("Checking arguments", stderr=True):
+    with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-    with open_file_or_stdout("-") as f:
-        for line in emit_rebuild_log(connect_server, guid, format, task_id):
-            f.write(line)
+        with open_file_or_stdout("-") as f:
+            for line in emit_rebuild_log(connect_server, guid, format, task_id):
+                f.write(line)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -625,7 +638,6 @@ def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, for
 # todo: --background flag
 def start_content_rebuild(name, server, api_key, insecure, cacert, parallelism, resume, debug, verbose):
     set_verbosity(verbose)
-    with cli_feedback("Checking arguments", stderr=True):
+    with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-    with cli_feedback("Starting rebuild", stderr=True):
         rebuild_start(connect_server, parallelism, resume, debug)

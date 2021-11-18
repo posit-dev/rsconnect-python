@@ -30,15 +30,18 @@ def rebuild_add_content(connect_server, guid, bundle_id):
     if content_rebuild_store.get_rebuild_running(connect_server):
         raise api.RSConnectException("There is already a rebuild running on this server, please wait for it to finish before adding new content.")
 
-    # TODO: should add_content_item should merge with existing items?
     content_rebuild_store.add_content_item(connect_server, content, bundle_id)
     content_rebuild_store.set_content_item_rebuild_status(connect_server, content['guid'], RebuildStatus.NEEDS_REBUILD)
 
 
-def rebuild_remove_content(connect_server, guid, purge=False):
+def rebuild_remove_content(connect_server, guid, all=False, purge=False):
     if content_rebuild_store.get_rebuild_running(connect_server):
         raise api.RSConnectException("There is a rebuild running on this server, please wait for it to finish before removing content.")
-    content_rebuild_store.remove_content_item(connect_server, guid, purge)
+    guids = [guid]
+    if all:
+        guids = [c['guid'] for c in content_rebuild_store.get_content_items(connect_server)]
+    for guid in guids:
+        content_rebuild_store.remove_content_item(connect_server, guid, purge)
 
 
 def rebuild_list_content(connect_server, status):
@@ -125,6 +128,8 @@ def _monitor_rebuild(connect_server, content_items):
         error = [item for item in content_items if item['rsconnect_rebuild_status'] == RebuildStatus.ERROR]
         running = [item for item in content_items if item['rsconnect_rebuild_status'] == RebuildStatus.RUNNING]
         pending = [item for item in content_items if item['rsconnect_rebuild_status'] == RebuildStatus.NEEDS_REBUILD]
+
+        # todo: https://stackoverflow.com/questions/2388090/how-to-delete-and-replace-last-line-in-the-terminal-using-bash
         click.secho("Content rebuild in progress... Running = %d, Pending = %d, Success = %d, Error = %d\t\t%s\r" %
             (len(running), len(pending), len(complete), len(error), rounded_duration), nl=False)
 
