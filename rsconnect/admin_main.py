@@ -588,7 +588,7 @@ def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, for
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @rebuild.command(
-    name="start",
+    name="run",
     short_help="Start rebuilding content on a given Connect server.",
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
