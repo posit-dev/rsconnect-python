@@ -121,7 +121,7 @@ def rebuild_start(connect_server, parallelism, aborted=False, error=False, all=F
         ContentRebuildStore._REBUILD_ABORTED = True
     finally:
         if content_executor:
-            content_executor.shutdown(wait=False, cancel_futures=True)
+            content_executor.shutdown(wait=False)
         if rebuild_monitor:
             rebuild_monitor.shutdown()
         # make sure that we always mark the rebuild as complete once we finish our cleanup
@@ -176,6 +176,12 @@ def _monitor_rebuild(connect_server, content_items):
 
 
 def _rebuild_content_item(connect_server, content, timeout=None):
+    # Pending futures will still try to execute when ThreadPoolExecutor.shutdown() is called
+    # so just exit immediately if the current rebuild has been aborted.
+    # ThreadPoolExecutor.shutdown(cancel_futures=) isnt available until py3.9
+    if content_rebuild_store.aborted():
+            return
+
     log = None
     try:
         guid = content['guid']
