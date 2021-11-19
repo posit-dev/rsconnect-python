@@ -236,7 +236,13 @@ class RSConnect(HTTPServer):
         if task_status["finished"]:
             exit_code = task_status["code"]
             if exit_code != 0:
-                raise RSConnectException("Task exited with status %d." % exit_code)
+                reason = "Task exited with status %d." % exit_code
+                log_callback("Task failed. %s" % reason)
+                if 'result' in task_status:
+                    log_callback("%s: %s" % (task_status['result']['type'], task_status['result']['data']))
+                if 'error' in task_status:
+                    log_callback("Error: %s" % task_status['error'])
+                raise RSConnectException(reason)
 
         return new_last_status
 

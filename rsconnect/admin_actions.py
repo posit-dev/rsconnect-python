@@ -182,34 +182,25 @@ def _rebuild_content_item(connect_server, content, timeout=None):
     if content_rebuild_store.aborted():
             return
 
-    log = None
-    try:
-        guid = content['guid']
-        content_rebuild_store.ensure_logs_dir(connect_server, guid)
-        content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.RUNNING)
-        task_result = api.do_start_content_rebuild(connect_server, guid, content.get('bundle_id'))
-        task_id = task_result.json_data['task_id']
-        log_file = content_rebuild_store.get_rebuild_log(connect_server, guid, task_id)
-        log = open(log_file, 'w')
+    guid = content['guid']
+    content_rebuild_store.ensure_logs_dir(connect_server, guid)
+    content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.RUNNING)
+    task_result = api.do_start_content_rebuild(connect_server, guid, content.get('bundle_id'))
+    task_id = task_result.json_data['task_id']
+    log_file = content_rebuild_store.get_rebuild_log(connect_server, guid, task_id)
+    with open(log_file, 'w') as log:
         # emit_task_log raises an exception if exit_code != 0
         api.emit_task_log(connect_server, guid, task_id,
             log_callback=lambda line: log.write("%s\n" % line), abort_func=content_rebuild_store.aborted)
 
-        if content_rebuild_store.aborted():
-            return
+    if content_rebuild_store.aborted():
+        return
 
-        # grab the updated content metadata from connect and update our store
-        updated_content = api.do_content_get(connect_server, guid)
-        content_rebuild_store.update_content_item(connect_server, guid, updated_content)
-        content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.COMPLETE)
-    except Exception as exc:
-        # try to write the exception to the log file if we can
-        if log:
-            log.write('\n[ERROR]: %s generated an exception: %s' % (guid, exc))
-        raise
-    finally:
-        if log:
-            log.close()
+    # grab the updated content metadata from connect and update our store
+    updated_content = api.do_content_get(connect_server, guid)
+    content_rebuild_store.update_content_item(connect_server, guid, updated_content)
+    content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.COMPLETE)
+
 
 
 def emit_rebuild_log(connect_server, guid, format, task_id=None):
