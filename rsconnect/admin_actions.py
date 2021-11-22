@@ -170,7 +170,7 @@ def _monitor_rebuild(connect_server, content_items):
         click.secho()
         click.secho("Failed content:")
         for c in error:
-            click.secho("\tContent Name: %s, GUID: %s" % (c['name'], c['guid']))
+            click.secho("\tName: %s, GUID: %s" % (c['name'], c['guid']))
         return False
     return True
 

@@ -637,9 +637,9 @@ def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, for
 )
 @click.option(
     "--parallelism",
-    type=click.IntRange(min=1, max=10, clamp=True),
+    type=click.IntRange(min=1, clamp=True),
     default=1,
-    help="Defines the number of rebuilds that can run concurrently. Defaults to 1. Max is 10."
+    help="Defines the number of rebuilds that can run concurrently. Defaults to 1."
 )
 @click.option(
     "--aborted",
