@@ -166,11 +166,12 @@ def _monitor_rebuild(connect_server, content_items):
     if len(error) > 0:
         click.secho()
         click.secho("There were failures during your rebuild.")
-        click.secho("\tUse `rsconnect-admin rebuild logs --guid` to check the rebuild logs.")
-        click.secho()
-        click.secho("Failed content:")
-        for c in error:
-            click.secho("\tName: %s, GUID: %s" % (c['name'], c['guid']))
+        click.secho("\tUse `rsconnect-admin rebuild ls --status=ERROR` to inspect the failed content.")
+        click.secho("\tUse `rsconnect-admin rebuild logs --guid` to check the rebuild logs of a specific content rebuild.")
+        # click.secho()
+        # click.secho("Failed content:")
+        # for c in error:
+        #     click.secho("\tName: %s, GUID: %s" % (c['name'], c['guid']))
         return False
     return True
 
