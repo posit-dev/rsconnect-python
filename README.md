@@ -11,7 +11,7 @@ Content types not directly supported by the CLI may also be deployed if they inc
 prepared `manifest.json` file. See ["Deploying R or Other
 Content"](#deploying-r-or-other-content) for details.
 
-> If you're looking for documentation about the `rsconnect-admin` CLI, find them
+> If you're looking for documentation about the `rsconnect-admin` CLI, find it
 [here](./README_ADMIN.md)
 
 
