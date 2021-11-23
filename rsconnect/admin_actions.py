@@ -21,7 +21,7 @@ from .metadata import ContentRebuildStore
 
 content_rebuild_store = ContentRebuildStore()
 
-def rebuild_add_content(connect_server, guid, bundle_id):
+def rebuild_add_content(connect_server, guid, bundle_id=None):
     content = api.do_content_get(connect_server, guid)
     if not bundle_id and not content['bundle_id']:
         raise api.RSConnectException("This content has never been published to this server. You must specify a bundle_id for the rebuild. Content GUID: %s" % guid)
@@ -59,17 +59,25 @@ def rebuild_start(connect_server, parallelism, aborted=False, error=False, all=F
     if content_rebuild_store.get_rebuild_running(connect_server):
         raise api.RSConnectException("There is already a rebuild running on this server: %s" % connect_server.url)
 
-    # TODO: Use rebuild_add_content instead of settings status directly
-    content_items = []
-    if not all:
-        content_items = content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.NEEDS_REBUILD)
-        if aborted:
-            content_items = content_items + content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.ABORTED)
-        if error:
-            content_items = content_items + content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.ERROR)
+    # if we are re-building any already "tracked" content items, then re-add them to be safe
+    if all:
+        click.secho("Adding all content to rebuild...", err=True)
+        # only re-add content that is not already marked NEEDS_REBUILD
+        items = content_rebuild_store.get_content_items(connect_server)
+        items = list(filter(lambda x: x['rsconnect_rebuild_status'] != RebuildStatus.NEEDS_REBUILD, items))
+        for content_item in items:
+            rebuild_add_content(connect_server, content_item['guid'], content_item['bundle_id'])
     else:
-        content_items = content_rebuild_store.get_content_items(connect_server)
+        if aborted:
+            click.secho("Adding ABORTED content to rebuild...", err=True)
+            for content_item in content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.ABORTED):
+                rebuild_add_content(connect_server, content_item['guid'], content_item['bundle_id'])
+        if error:
+            click.secho("Adding ERROR content to rebuild...", err=True)
+            for content_item in content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.ERROR):
+                rebuild_add_content(connect_server, content_item['guid'], content_item['bundle_id'])
 
+    content_items = content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.NEEDS_REBUILD)
     if len(content_items) == 0:
         click.secho("Nothing to rebuild...")
         click.secho("\tUse `rsconnect-admin rebuild add` to mark content for rebuild.")
