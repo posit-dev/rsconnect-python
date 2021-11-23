@@ -11,6 +11,10 @@ Content types not directly supported by the CLI may also be deployed if they inc
 prepared `manifest.json` file. See ["Deploying R or Other
 Content"](#deploying-r-or-other-content) for details.
 
+> If you're looking for documentation about the `rsconnect-admin` CLI, find them
+[here](./README_ADMIN.md)
+
+
 ## Deploying Python Content to RStudio Connect
 
 RStudio Connect supports the deployment of Jupyter notebooks, Python APIs (such as
@@ -83,7 +87,7 @@ If you are using the `zsh` shell, use this to enable tab completion.
 eval "$(_RSCONNECT_COMPLETE=source_zsh rsconnect)"
 ```
 
-If you get `command not found: compdef`, you need to add the following lines to your 
+If you get `command not found: compdef`, you need to add the following lines to your
 `.zshrc` before the completion setup:
 
 ```zsh
@@ -542,7 +546,7 @@ rsconnect deploy notebook \
 ```
 
 To selectively hide input cells in a Jupyter notebook, the user needs to follow a two step process:
-1. tag cells with the 'hide_input' tag, 
+1. tag cells with the 'hide_input' tag,
 2. then pass the ' --hide-tagged-input' flag through the cli:
 
 ```

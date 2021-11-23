@@ -62,7 +62,7 @@ def cli(future):
 
 @cli.command(help="Show the version of the rsconnect-admin package.")
 def version():
-    click.echo(VERSION)
+    click.secho(VERSION)
 
 
 @cli.group(no_args_is_help=True, help="Interact with RStudio Connect's content API.")
@@ -370,6 +370,7 @@ def add_content_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         rebuild_add_content(connect_server, guid, bundle_id)
+        click.secho("Added %s" % guid, err=True)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -430,6 +431,7 @@ def remove_content_rebuild(name, server, api_key, insecure, cacert, guid, all, p
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         _verify_rebuild_rm_args(guid, all, purge)
         rebuild_remove_content(connect_server, guid, all, purge)
+        click.secho("Removed %s" % guid, err=True)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode

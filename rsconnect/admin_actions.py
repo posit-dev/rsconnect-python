@@ -34,7 +34,6 @@ def rebuild_add_content(connect_server, guid, bundle_id):
     content_rebuild_store.add_content_item(connect_server, content, bundle_id)
     content_rebuild_store.set_content_item_rebuild_status(connect_server, content['guid'], RebuildStatus.NEEDS_REBUILD)
 
-
 def rebuild_remove_content(connect_server, guid, all=False, purge=False):
     if content_rebuild_store.get_rebuild_running(connect_server):
         raise api.RSConnectException("There is a rebuild running on this server, please wait for it to finish before removing content.")
@@ -60,6 +59,7 @@ def rebuild_start(connect_server, parallelism, aborted=False, error=False, all=F
     if content_rebuild_store.get_rebuild_running(connect_server):
         raise api.RSConnectException("There is already a rebuild running on this server: %s" % connect_server.url)
 
+    # TODO: Use rebuild_add_content instead of settings status directly
     content_items = []
     if not all:
         content_items = content_rebuild_store.get_content_items(connect_server, status=RebuildStatus.NEEDS_REBUILD)
@@ -166,7 +166,7 @@ def _monitor_rebuild(connect_server, content_items):
     if len(error) > 0:
         click.secho()
         click.secho("There were failures during your rebuild.")
-        click.secho("\tUse `rsconnect-admin rebuild ls --status=ERROR` to inspect the failed content.")
+        click.secho("\tUse `rsconnect-admin rebuild ls --status=ERROR` to list the failed content.")
         click.secho("\tUse `rsconnect-admin rebuild logs --guid` to check the rebuild logs of a specific content rebuild.")
         # click.secho()
         # click.secho("Failed content:")
