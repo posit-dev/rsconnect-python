@@ -4,7 +4,8 @@ Public API for administering content.
 import json
 import time
 
-# This probably breaks python2, can we remove python2.7 support from setup and/or can we require >3 for only the admin tool?
+# This probably breaks python2, can we remove python2.7 support
+# from setup and/or can we require >3 for only the admin tool?
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 #from multiprocessing.pool import ThreadPool
@@ -27,12 +28,14 @@ def rebuild_add_content(connect_server, guid, bundle_id=None):
     with RSConnect(connect_server, timeout=120) as client:
         content = client.content_get(guid)
         if not bundle_id and not content['bundle_id']:
-            raise RSConnectException("This content has never been published to this server. You must specify a bundle_id for the rebuild. Content GUID: %s" % guid)
+            raise RSConnectException("This content has never been published to this server. " +
+                "You must specify a bundle_id for the rebuild. Content GUID: %s" % guid)
         else:
             bundle_id = bundle_id if bundle_id else content['bundle_id']
 
         if content_rebuild_store.get_rebuild_running(connect_server):
-            raise RSConnectException("There is already a rebuild running on this server, please wait for it to finish before adding new content.")
+            raise RSConnectException("There is already a rebuild running on this server, " +
+                "please wait for it to finish before adding new content.")
 
         content_rebuild_store.add_content_item(connect_server, content, bundle_id)
         content_rebuild_store.set_content_item_rebuild_status(connect_server, content['guid'], RebuildStatus.NEEDS_REBUILD)
@@ -40,7 +43,8 @@ def rebuild_add_content(connect_server, guid, bundle_id=None):
 
 def rebuild_remove_content(connect_server, guid, all=False, purge=False):
     if content_rebuild_store.get_rebuild_running(connect_server):
-        raise RSConnectException("There is a rebuild running on this server, please wait for it to finish before removing content.")
+        raise RSConnectException("There is a rebuild running on this server, " +
+            "please wait for it to finish before removing content.")
     guids = [guid]
     if all:
         guids = [c['guid'] for c in content_rebuild_store.get_content_items(connect_server)]
@@ -265,10 +269,10 @@ def search_content(connect_server, published, unpublished, content_type, r_versi
 
 def _apply_content_filters(content_list, published, unpublished, content_type, r_version, py_version, title_search):
     def content_is_published(item):
-        return item.get('bundle_id') != None
+        return item.get('bundle_id') is not None
 
     def content_is_unpublished(item):
-        return item.get('bundle_id') == None
+        return item.get('bundle_id') is None
 
     def title_contains(item):
         return item['title'] is not None and title_search in item['title']

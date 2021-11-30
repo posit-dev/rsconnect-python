@@ -91,7 +91,7 @@ class VersionSearchFilter(click.ParamType):
 
         if isinstance(value, str):
             m = re.match(_version_search_pattern, value)
-            if m != None:
+            if m is not None:
                 self.comp = m.group(1)
                 self.vers = m.group(2)
 
@@ -370,7 +370,8 @@ def add_content_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id
 # noinspection SpellCheckingInspection,DuplicatedCode
 @rebuild.command(
     name="rm",
-    short_help="Remove a content item from the list of content that are tracked for rebuild. Use `rebuild ls` to view the tracked content."
+    short_help="Remove a content item from the list of content that are tracked for rebuild. " +
+        "Use `rebuild ls` to view the tracked content."
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
