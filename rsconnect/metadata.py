@@ -515,19 +515,15 @@ class ContentRebuildStore(DataStore):
         return self._data.get(server.url, {}).get('rsconnect_rebuild_running')
 
     def set_rebuild_running(self, server, is_running):
-        self._lock.acquire()
-        try:
+        with self._lock:
             self._data[server.url]['rsconnect_rebuild_running'] = is_running
             self.save()
-        finally:
-            self._lock.release()
 
     def add_content_item(self, server, content, bundle_id):
         """
         Add an item to the rebuilds for a given server
         """
-        self._lock.acquire()
-        try:
+        with self._lock:
             if server.url not in self._data:
                 self._data[server.url] = dict()
 
@@ -546,15 +542,12 @@ class ContentRebuildStore(DataStore):
                 last_deployed_time=content['last_deployed_time'],
             )
             self.save()
-        finally:
-            self._lock.release()
 
     def update_content_item(self, server, guid, content):
         """
         Update an existing item in the rebuilds for a given server
         """
-        self._lock.acquire()
-        try:
+        with self._lock:
             old_content = self.get_content_item(server, guid)
             if not old_content:
                 raise api.RSConnectException("Content not found: %s" % guid)
@@ -571,8 +564,6 @@ class ContentRebuildStore(DataStore):
                 last_deployed_time=content['last_deployed_time'],
             ))
             self.save()
-        finally:
-            self._lock.release()
 
     def get_content_item(self, server, guid):
         """
@@ -598,27 +589,21 @@ class ContentRebuildStore(DataStore):
         if purge:
             self._cleanup_content_log_dir(server, guid)
 
-        self._lock.acquire()
-        try:
+        with self._lock:
             try:
                 self._data.get(server.url, {}).get('content', {}).pop(guid)
             except KeyError:
                 pass
             self.save()
-        finally:
-            self._lock.release()
 
     def set_content_item_rebuild_status(self, server, guid, status):
         """
         Set the current status for a content rebuild
         """
-        self._lock.acquire()
-        try:
+        with self._lock:
             content = self.get_content_item(server, guid)
             content['rsconnect_rebuild_status'] = str(status)
             self.save()
-        finally:
-            self._lock.release()
 
     def get_content_items(self, server, status=None):
         """
