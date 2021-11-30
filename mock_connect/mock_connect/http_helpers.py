@@ -30,16 +30,25 @@ def error(code, reason):
 
     return {"error": reason}
 
+def safe_delete(key, data: dict):
+    try:
+        del data[key]
+    except KeyError:
+        pass
 
-def _make_json_ready(thing):
-    if isinstance(thing, DBObject):
-        thing = thing.to_dict()
-    elif isinstance(thing, Dict):
-        for key, value in thing.items():
-            thing[key] = _make_json_ready(value)
-    elif isinstance(thing, List):
-        thing = [_make_json_ready(item) for item in thing]
-    return thing
+def _make_json_ready(obj):
+    if isinstance(obj, DBObject):
+        data = obj.to_dict()
+        for key in obj.excludes:
+            print("Removing %s from %s" % (key, type(obj)))
+            safe_delete(key, data)
+        obj = data
+    elif isinstance(obj, Dict):
+        for key, value in obj.items():
+            obj[key] = _make_json_ready(value)
+    elif isinstance(obj, List):
+        obj = [_make_json_ready(item) for item in obj]
+    return obj
 
 
 def endpoint(

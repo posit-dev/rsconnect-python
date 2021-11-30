@@ -51,8 +51,16 @@ def applications():
         if name and Application.get_app_by_name(name) is not None:
             return error(409, "An object with that name already exists.")
         title = connect_app["title"] if "title" in connect_app else ""
-
-        return Application(name, title, url_for("index", _external=True), g.user)
+        return Application(
+            name=name,
+            title=title,
+            base_url=url_for("index", _external=True),
+            owner_username=g.user.username,
+            owner_first_name = g.user.first_name,
+            owner_last_name = g.user.last_name,
+            owner_email = g.user.email,
+            owner_locked = g.user.locked,
+        )
     else:
         count = int(request.args.get("count", 10000))
         search = request.args.get("search")
@@ -89,7 +97,7 @@ def config(connect_app):
 @api.route("applications/<object_id>/upload", methods=["POST"])
 @endpoint(authenticated=True, cls=Application, writes_json=True)
 def upload(connect_app):
-    return Bundle(connect_app, request.data)
+    return Bundle(app_id=connect_app.id, tarball=request.data)
 
 
 # noinspection PyUnresolvedReferences
