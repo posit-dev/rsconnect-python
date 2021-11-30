@@ -180,7 +180,7 @@ def content_search(name, server, api_key, insecure, cacert, published, unpublish
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         result = search_content(connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by)
-        sys.stdout.write(json.dumps(result, indent=2))
+        json.dump(result, sys.stdout, indent=2)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -231,7 +231,7 @@ def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         result = get_content(connect_server, guid)
-        sys.stdout.write(json.dumps(result, indent=2))
+        json.dump(result, sys.stdout, indent=2)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -480,7 +480,7 @@ def list_content_rebuild(name, server, api_key, insecure, cacert, status, guid, 
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         result = rebuild_list_content(connect_server, guid, status)
-        sys.stdout.write(json.dumps(result, indent=2))
+        json.dump(result, sys.stdout, indent=2)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -530,7 +530,7 @@ def get_rebuild_history(name, server, api_key, insecure, cacert, guid, verbose):
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         result = rebuild_history(connect_server, guid)
-        sys.stdout.write(json.dumps(result, indent=2))
+        json.dump(result, sys.stdout, indent=2)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
