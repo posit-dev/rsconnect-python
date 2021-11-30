@@ -145,7 +145,7 @@ One common use case might be to `rsconnect-admin rebuild add` content for rebuil
 based on the results of a `rsconnect-admin content search`. For example:
 
 ```bash
-# search for all API type content
+# search for all API type content, then
 # for each guid, add it to the "tracked" content items
 $ for guid in $(rsconnect-admin \
 content search \

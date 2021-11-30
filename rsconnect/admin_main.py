@@ -1,5 +1,6 @@
 import logging
 import re
+import sys
 import json
 from os.path import exists
 
@@ -21,7 +22,6 @@ from .models import AppModes, RebuildStatus
 from .main import _validate_deploy_to_args
 
 from .admin_actions import (
-  open_file_or_stdout,
   download_bundle,
   rebuild_add_content,
   rebuild_remove_content,
@@ -35,7 +35,6 @@ from .admin_actions import (
 
 
 server_store = ServerStore()
-future_enabled = False
 logging.basicConfig()
 
 _version_search_pattern = r"(^[=><]{1,2})(.*)"
@@ -47,8 +46,7 @@ def _verify_rebuild_rm_args(guid, all, purge):
         raise api.RSConnectException("You must specify one of -g/--guid or --all.")
 
 @click.group(no_args_is_help=True)
-@click.option("--future", "-u", is_flag=True, hidden=True, help="Enables future functionality.")
-def cli(future):
+def cli():
     """
     This command line tool may be used to administer content on RStudio
     Connect including searching and rebuilding content.
@@ -56,8 +54,7 @@ def cli(future):
     This tool uses the same server nicknames as the `rsconnect` cli.
     Use the `rsconnect list` command to show the available servers.
     """
-    global future_enabled
-    future_enabled = future
+    pass
 
 
 @cli.command(help="Show the version of the rsconnect-admin package.")
@@ -182,10 +179,8 @@ def content_search(name, server, api_key, insecure, cacert, published, unpublish
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-
-        with open_file_or_stdout("-") as f:
-            result = search_content(connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by)
-            f.write(json.dumps(result, indent=2))
+        result = search_content(connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by)
+        sys.stdout.write(json.dumps(result, indent=2))
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -235,9 +230,8 @@ def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        with open_file_or_stdout("-") as f:
-            result = get_content(connect_server, guid)
-            f.write(json.dumps(result, indent=2))
+        result = get_content(connect_server, guid)
+        sys.stdout.write(json.dumps(result, indent=2))
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -485,9 +479,8 @@ def list_content_rebuild(name, server, api_key, insecure, cacert, status, guid, 
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        with open_file_or_stdout("-") as f:
-            result = rebuild_list_content(connect_server, guid, status)
-            f.write(json.dumps(result, indent=2))
+        result = rebuild_list_content(connect_server, guid, status)
+        sys.stdout.write(json.dumps(result, indent=2))
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -536,9 +529,8 @@ def get_rebuild_history(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        with open_file_or_stdout("-") as f:
-            result = rebuild_history(connect_server, guid)
-            f.write(json.dumps(result, indent=2))
+        result = rebuild_history(connect_server, guid)
+        sys.stdout.write(json.dumps(result, indent=2))
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -600,9 +592,8 @@ def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, for
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        with open_file_or_stdout("-") as f:
-            for line in emit_rebuild_log(connect_server, guid, format, task_id):
-                f.write(line)
+        for line in emit_rebuild_log(connect_server, guid, format, task_id):
+            sys.stdout.write(line)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode

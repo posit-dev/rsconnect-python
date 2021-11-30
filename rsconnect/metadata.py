@@ -626,7 +626,8 @@ class ContentRebuildStore(DataStore):
         :param status: Filter results by rebuild status
         :return: A list of content items
         """
+        all_content = list(self._data.get(server.url, {}).get('content', {}).values())
         if status:
-            return [item for item in self._data.get(server.url, {}).get('content', {}).values() if item['rsconnect_rebuild_status'] == status]
+            return [item for item in all_content if item['rsconnect_rebuild_status'] == status]
         else:
-            return list(self._data.get(server.url, {}).get('content', {}).values())
+            return all_content

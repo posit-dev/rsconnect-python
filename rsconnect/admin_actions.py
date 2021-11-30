@@ -258,13 +258,10 @@ def search_content(connect_server, published, unpublished, content_type, r_versi
 
 def _apply_content_filters(content_list, published, unpublished, content_type, r_version, py_version, title_search):
     def content_is_published(item):
-        return 'bundle_id' in item and item['bundle_id'] != None
+        return item.get('bundle_id') != None
 
     def content_is_unpublished(item):
-        if 'bundle_id' not in item:
-            return False
-        else:
-            return item['bundle_id'] == None
+        return item.get('bundle_id') == None
 
     def title_contains(item):
         return item['title'] is not None and title_search in item['title']
@@ -321,18 +318,3 @@ def _order_content_results(content_list, order_by):
         result = sorted(result, key=lambda c: c['created_time'])
 
     return result
-
-
-# https://stackoverflow.com/questions/17602878/how-to-handle-both-with-open-and-sys-stdout-nicely
-@contextlib.contextmanager
-def open_file_or_stdout(filename=None):
-    if filename and filename != '-':
-        fh = open(filename, 'w')
-    else:
-        fh = sys.stdout
-
-    try:
-        yield fh
-    finally:
-        if fh is not sys.stdout:
-            fh.close()
