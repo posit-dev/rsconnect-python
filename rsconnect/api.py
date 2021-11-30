@@ -114,22 +114,32 @@ class RSConnect(HTTPServer):
         return self.get("applications/%s/config" % app_id)
 
     def bundle_download(self, content_guid, bundle_id):
-        return self.get("v1/content/%s/bundles/%s/download" % (content_guid, bundle_id), decode_response=False)
+        response = self.get("v1/content/%s/bundles/%s/download" % (content_guid, bundle_id), decode_response=False)
+        self._server.handle_bad_response(response)
+        return response
 
     def content_search(self):
-        return self.get("v1/content")
+        response = self.get("v1/content")
+        self._server.handle_bad_response(response)
+        return response
 
     def content_get(self, content_guid):
-        return self.get("v1/content/%s" % content_guid)
+        response = self.get("v1/content/%s" % content_guid)
+        self._server.handle_bad_response(response)
+        return response
 
     def content_deploy(self, content_guid, bundle_id=None):
-        return self.post("v1/content/%s/deploy" % content_guid, body={"bundle_id": bundle_id})
+        response = self.post("v1/content/%s/deploy" % content_guid, body={"bundle_id": bundle_id})
+        self._server.handle_bad_response(response)
+        return response
 
     def task_get(self, task_id, first_status=None):
         params = None
         if first_status is not None:
             params = {"first_status": first_status}
-        return self.get("tasks/%s" % task_id, query_params=params)
+        response = self.get("tasks/%s" % task_id, query_params=params)
+        self._server.handle_bad_response(response)
+        return response
 
     def deploy(self, app_id, app_name, app_title, title_is_default, tarball):
         if app_id is None:
@@ -512,71 +522,3 @@ def find_unique_name(connect_server, name):
         name = test
 
     return name
-
-
-def do_bundle_download(connect_server, guid, bundle_id):
-    """
-    Downloads a content source bundle.
-
-    :param connect_server: the Connect server information.
-    :param guid: the guid of the content.
-    :param bundle_id: the content's bundle_id.
-    """
-    with RSConnect(connect_server, timeout=120) as client:
-        result = client.download_bundle(guid, bundle_id)
-        connect_server.handle_bad_response(result)
-        return result
-
-
-def do_content_search(connect_server):
-    """
-    Searches for content. Fetches all content metadata from the server.
-    Filtering is applied on the client until Connect server has better support
-    for filter parameters via the /v1/content endpoints
-
-    :param connect_server: the Connect server information.
-    """
-    with RSConnect(connect_server, timeout=120) as client:
-        result = client.search_content()
-        connect_server.handle_bad_response(result)
-        return result
-
-
-def do_content_get(connect_server, guid):
-    """
-    Get metadata about a single piece of content.
-
-    :param connect_server: the Connect server information.
-    :param guid: the guid of the content.
-    """
-    with RSConnect(connect_server, timeout=120) as client:
-        result = client.content_get(guid)
-        connect_server.handle_bad_response(result)
-        return result
-
-
-def do_start_content_rebuild(connect_server, guid, bundle_id=None):
-    """
-    Get metadata about a single piece of content.
-
-    :param connect_server: the Connect server information.
-    :param guid: the guid of the content.
-    :param bundle_id: the bundle ID of the content, defaults to latest bundle.
-    """
-    with RSConnect(connect_server, timeout=120) as client:
-        result = client.content_deploy(guid, bundle_id)
-        connect_server.handle_bad_response(result)
-        return result
-
-
-def do_task_get(connect_server, task_id):
-    """
-    Fetch task information.
-
-    :param connect_server: the Connect server information.
-    :param task_id: the ID of the task.
-    """
-    with RSConnect(connect_server, timeout=120) as client:
-        result = client.task_get(task_id)
-        connect_server.handle_bad_response(result)
-        return result

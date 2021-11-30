@@ -14,7 +14,11 @@ from datetime import datetime, timedelta
 import click
 import semver
 
-from . import api
+from .api import (
+    RSConnect,
+    RSConnectException,
+    emit_task_log
+)
 from .log import logger
 from .models import RebuildStatus
 from .metadata import ContentRebuildStore
@@ -22,21 +26,23 @@ from .metadata import ContentRebuildStore
 content_rebuild_store = ContentRebuildStore()
 
 def rebuild_add_content(connect_server, guid, bundle_id=None):
-    content = api.do_content_get(connect_server, guid)
-    if not bundle_id and not content['bundle_id']:
-        raise api.RSConnectException("This content has never been published to this server. You must specify a bundle_id for the rebuild. Content GUID: %s" % guid)
-    else:
-        bundle_id = bundle_id if bundle_id else content['bundle_id']
+    with RSConnect(connect_server, timeout=120) as client:
+        content = client.content_get(guid)
+        if not bundle_id and not content['bundle_id']:
+            raise RSConnectException("This content has never been published to this server. You must specify a bundle_id for the rebuild. Content GUID: %s" % guid)
+        else:
+            bundle_id = bundle_id if bundle_id else content['bundle_id']
 
-    if content_rebuild_store.get_rebuild_running(connect_server):
-        raise api.RSConnectException("There is already a rebuild running on this server, please wait for it to finish before adding new content.")
+        if content_rebuild_store.get_rebuild_running(connect_server):
+            raise RSConnectException("There is already a rebuild running on this server, please wait for it to finish before adding new content.")
 
-    content_rebuild_store.add_content_item(connect_server, content, bundle_id)
-    content_rebuild_store.set_content_item_rebuild_status(connect_server, content['guid'], RebuildStatus.NEEDS_REBUILD)
+        content_rebuild_store.add_content_item(connect_server, content, bundle_id)
+        content_rebuild_store.set_content_item_rebuild_status(connect_server, content['guid'], RebuildStatus.NEEDS_REBUILD)
+
 
 def rebuild_remove_content(connect_server, guid, all=False, purge=False):
     if content_rebuild_store.get_rebuild_running(connect_server):
-        raise api.RSConnectException("There is a rebuild running on this server, please wait for it to finish before removing content.")
+        raise RSConnectException("There is a rebuild running on this server, please wait for it to finish before removing content.")
     guids = [guid]
     if all:
         guids = [c['guid'] for c in content_rebuild_store.get_content_items(connect_server)]
@@ -57,7 +63,7 @@ def rebuild_history(connect_server, guid):
 
 def rebuild_start(connect_server, parallelism, aborted=False, error=False, all=False, debug=False):
     if content_rebuild_store.get_rebuild_running(connect_server):
-        raise api.RSConnectException("There is already a rebuild running on this server: %s" % connect_server.url)
+        raise RSConnectException("There is already a rebuild running on this server: %s" % connect_server.url)
 
     # if we are re-building any already "tracked" content items, then re-add them to be safe
     if all:
@@ -184,32 +190,32 @@ def _monitor_rebuild(connect_server, content_items):
     return True
 
 
-def _rebuild_content_item(connect_server, content, timeout=None):
-    # Pending futures will still try to execute when ThreadPoolExecutor.shutdown() is called
-    # so just exit immediately if the current rebuild has been aborted.
-    # ThreadPoolExecutor.shutdown(cancel_futures=) isnt available until py3.9
-    if content_rebuild_store.aborted():
+def _rebuild_content_item(connect_server, content):
+    with RSConnect(connect_server, timeout=120) as client:
+        # Pending futures will still try to execute when ThreadPoolExecutor.shutdown() is called
+        # so just exit immediately if the current rebuild has been aborted.
+        # ThreadPoolExecutor.shutdown(cancel_futures=) isnt available until py3.9
+        if content_rebuild_store.aborted():
+                return
+
+        guid = content['guid']
+        content_rebuild_store.ensure_logs_dir(connect_server, guid)
+        content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.RUNNING)
+        task_result = client.content_deploy(guid, content.get('bundle_id'))
+        task_id = task_result.json_data['task_id']
+        log_file = content_rebuild_store.get_rebuild_log(connect_server, guid, task_id)
+        with open(log_file, 'w') as log:
+            # emit_task_log raises an exception if exit_code != 0
+            emit_task_log(connect_server, guid, task_id,
+                log_callback=lambda line: log.write("%s\n" % line), abort_func=content_rebuild_store.aborted)
+
+        if content_rebuild_store.aborted():
             return
 
-    guid = content['guid']
-    content_rebuild_store.ensure_logs_dir(connect_server, guid)
-    content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.RUNNING)
-    task_result = api.do_start_content_rebuild(connect_server, guid, content.get('bundle_id'))
-    task_id = task_result.json_data['task_id']
-    log_file = content_rebuild_store.get_rebuild_log(connect_server, guid, task_id)
-    with open(log_file, 'w') as log:
-        # emit_task_log raises an exception if exit_code != 0
-        api.emit_task_log(connect_server, guid, task_id,
-            log_callback=lambda line: log.write("%s\n" % line), abort_func=content_rebuild_store.aborted)
-
-    if content_rebuild_store.aborted():
-        return
-
-    # grab the updated content metadata from connect and update our store
-    updated_content = api.do_content_get(connect_server, guid)
-    content_rebuild_store.update_content_item(connect_server, guid, updated_content)
-    content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.COMPLETE)
-
+        # grab the updated content metadata from connect and update our store
+        updated_content = client.get_content(guid)
+        content_rebuild_store.update_content_item(connect_server, guid, updated_content)
+        content_rebuild_store.set_content_item_rebuild_status(connect_server, guid, RebuildStatus.COMPLETE)
 
 
 def emit_rebuild_log(connect_server, guid, format, task_id=None):
@@ -222,19 +228,20 @@ def emit_rebuild_log(connect_server, guid, format, task_id=None):
                 else:
                     yield line
     else:
-        raise api.RSConnectException("Log file not found for content: %s" % guid)
+        raise RSConnectException("Log file not found for content: %s" % guid)
 
 
 def download_bundle(connect_server, guid, bundle_id):
-    # bundle_id not provided so grab the latest
-    if not bundle_id:
-        content = api.do_content_get(connect_server, guid)
-        if 'bundle_id' in content and content['bundle_id']:
-            bundle_id = content['bundle_id']
-        else:
-            raise api.RSConnectException("There is no current bundle available for this content: %s" % guid)
+    with RSConnect(connect_server, timeout=120) as client:
+        # bundle_id not provided so grab the latest
+        if not bundle_id:
+            content = client.get_content(guid)
+            if 'bundle_id' in content and content['bundle_id']:
+                bundle_id = content['bundle_id']
+            else:
+                raise RSConnectException("There is no current bundle available for this content: %s" % guid)
 
-    return api.do_bundle_download(connect_server, guid, bundle_id)
+        return client.download_bundle(guid, bundle_id)
 
 
 def get_content(connect_server, guid):
@@ -242,18 +249,20 @@ def get_content(connect_server, guid):
     :param guid: a single guid as a string or list of guids.
     :return: a list of content items.
     """
-    if isinstance(guid, str):
-        result = [api.do_content_get(connect_server, guid)]
-    else:
-        result = [api.do_content_get(connect_server, g) for g in guid]
-    return result
+    with RSConnect(connect_server, timeout=120) as client:
+        if isinstance(guid, str):
+            result = [client.get_content(guid)]
+        else:
+            result = [client.get_content(g) for g in guid]
+        return result
 
 
 def search_content(connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by):
-    result = api.do_content_search(connect_server)
-    result = _apply_content_filters(result, published, unpublished, content_type, r_version, py_version, title_contains)
-    result = _order_content_results(result, order_by)
-    return list(result)
+    with RSConnect(connect_server, timeout=120) as client:
+        result = client.search_content()
+        result = _apply_content_filters(result, published, unpublished, content_type, r_version, py_version, title_contains)
+        result = _order_content_results(result, order_by)
+        return list(result)
 
 
 def _apply_content_filters(content_list, published, unpublished, content_type, r_version, py_version, title_search):
