@@ -9,19 +9,6 @@ from rsconnect.http_support import HTTPResponse, HTTPServer, append_to_path, Coo
 from rsconnect.log import logger
 from rsconnect.models import AppModes
 
-_ok_http_status = [
-    200,
-    201,
-    202,
-    203,
-    204,
-    205,
-    206,
-    207,
-    208,
-    226,
-]
-
 _error_map = {
     4: (
         "This content has been deployed before but could not be found on the server.\nUse the --new option to "
@@ -65,7 +52,7 @@ class RSConnectServer(object):
                     else:
                         error = "The Connect server reported an error: %s" % response.json_data["error"]
                     raise RSConnectException(error)
-                if response.status not in _ok_http_status:
+                if response.status < 200 or response.status > 299:
                     raise RSConnectException(
                         "Received an unexpected response from RStudio Connect: %s %s" % (response.status, response.reason)
                     )
