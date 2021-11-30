@@ -51,7 +51,7 @@ class DBObject(object):
             if db_id in cls.instances[name]:
                 return cls.instances[name][db_id]
             elif isinstance(db_id, str): # if guid was provided, find by guid instead of id
-                return next(filter(lambda x: x['guid'] == db_id, cls.instances[name].values()), None)
+                return next(filter(lambda x: x.guid == db_id, cls.instances[name].values()), None)
         return None
 
     @classmethod
@@ -72,10 +72,10 @@ class DBObject(object):
     def get_table_headers(cls):
         return "<tr><th>%s</th></tr>" % "</th><th>".join(cls.show)
 
-    def __init__(self, id: str = None, needs_uuid: bool = False):
-        self.id = id if id else self._next_id()
-        if needs_uuid:
-            self.guid = str(uuid.uuid4())
+    def __init__(self, id: str = None, needs_guid: bool = False, **kwargs):
+        self.id = int(id) if id else self._next_id()
+        if needs_guid:
+            self.guid = kwargs.get("guid", str(uuid.uuid4()))
         self._save(self)
 
     def update_from(self, data: dict):
@@ -100,6 +100,7 @@ class AppMode(Enum):
 
 
 class Application(DBObject):
+    excludes = ["_base_url"]
     show = ["id", "guid", "name", "title", "url"]
 
     @classmethod
@@ -110,11 +111,11 @@ class Application(DBObject):
         return None
 
     def __init__(self, **kwargs):
-        super(Application, self).__init__(needs_uuid=True)
-        self._base_url = kwargs.get('base_url', default_url())
+        super(Application, self).__init__(needs_guid=True, **kwargs)
+        self._base_url = kwargs.get('_base_url', default_url())
         self.name = kwargs.get('name')
         self.title = kwargs.get('title')
-        self.url = "{0}content/{1}".format(self._base_url, self.id)
+        self.url = "%scontent/%s" % (self._base_url, self.id)
         self.owner_username = kwargs.get('owner_username')
         self.owner_first_name = kwargs.get('owner_first_name')
         self.owner_last_name = kwargs.get('owner_last_name')
@@ -149,7 +150,7 @@ class User(DBObject):
         return None
 
     def __init__(self, **kwargs):
-        super(User, self).__init__(needs_uuid=True)
+        super(User, self).__init__(needs_guid=True, **kwargs)
         self.username = kwargs.get('username')
         self.first_name = kwargs.get('first_name')
         self.last_name = kwargs.get('last_name')
@@ -169,7 +170,7 @@ class Bundle(DBObject):
     show = ["id", "app_id"]
 
     def __init__(self, **kwargs):
-        super(Bundle, self).__init__()
+        super(Bundle, self).__init__(**kwargs)
         self.app_id = kwargs.get('app_id')
         self.created_time = timestamp()
         self.updated_time = self.created_time
@@ -194,7 +195,7 @@ class Bundle(DBObject):
 
 class Task(DBObject):
     def __init__(self, **kwargs):
-        super(Task, self).__init__()
+        super(Task, self).__init__(**kwargs)
         self.user_id = kwargs.get('user_id', 0)
         self.finished = kwargs.get('finished', True)
         self.code = kwargs.get('code', 0)
@@ -204,23 +205,25 @@ class Task(DBObject):
 
 
 class Content(DBObject):
+    excludes = ["_base_url"]
     show = ["guid", "name", "app_mode", "r_version", "py_version", "quarto_version"]
 
     def __init__(self, **kwargs):
-        super(Content, self).__init__(needs_uuid=True)
+        super(Content, self).__init__(needs_guid=True, **kwargs)
+        self._base_url = kwargs.get('_base_url', default_url())
         self.name = kwargs.get('name')
         self.title = self.name + "+ title"
         self.description = self.name + "+ description"
         self.bundle_id = kwargs.get('bundle_id')
         self.app_mode = kwargs.get('app_mode')
         self.content_category = kwargs.get('content_category')
-        self.content_url = "%scontent/%s/" % (base_url(), self.guid)
-        self.dashboard_url = "%sconnect/#/apps/{1}" % (base_url(), self.guid)
+        self.content_url = "%scontent/%s/" % (self._base_url, self.guid)
+        self.dashboard_url = "%sconnect/#/apps/%s" % (self._base_url, self.guid)
         self.created_time = timestamp()
         self.last_deployed_time = timestamp()
-        self.r_version = self.get('r_version', '4.1.1')
-        self.py_version = self.get('py_version', '3.9.9')
-        self.quarto_version = self.get('quarto_version', '0.2.318')
+        self.r_version = kwargs.get('r_version', '4.1.1')
+        self.py_version = kwargs.get('py_version', '3.9.9')
+        self.quarto_version = kwargs.get('quarto_version', '0.2.318')
         self.owner_guid = kwargs.get('owner_guid')
         self.access_type = kwargs.get('access_type', 'acl')
         self.connection_timeout = kwargs.get('connection_timeout')

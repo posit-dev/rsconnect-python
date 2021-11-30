@@ -40,7 +40,6 @@ def _make_json_ready(obj):
     if isinstance(obj, DBObject):
         data = obj.to_dict()
         for key in obj.excludes:
-            print("Removing %s from %s" % (key, type(obj)))
             safe_delete(key, data)
         obj = data
     elif isinstance(obj, Dict):

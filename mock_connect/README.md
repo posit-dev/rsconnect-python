@@ -8,7 +8,7 @@ Connect.
 ### Restrictions
 
 - The mock RStudio Connect does not support HTTPS connections; only HTTP.
-- Not all Connect endpoints are implements; only those needed to verify `rsconnect-python`
+- Not all Connect endpoints are implemented; only those needed to verify `rsconnect-python`
   functionality.
 
 ## Data Handling

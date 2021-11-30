@@ -54,12 +54,12 @@ def applications():
         return Application(
             name=name,
             title=title,
-            base_url=url_for("index", _external=True),
             owner_username=g.user.username,
             owner_first_name = g.user.first_name,
             owner_last_name = g.user.last_name,
             owner_email = g.user.email,
             owner_locked = g.user.locked,
+            _base_url=url_for("index", _external=True),
         )
     else:
         count = int(request.args.get("count", 10000))
