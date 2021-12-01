@@ -15,7 +15,7 @@ from .actions import (
     set_verbosity,
 )
 from .metadata import ServerStore
-from .models import AppModes, RebuildStatus
+from .models import AppModes, BuildStatus
 
 # todo: instead of checking these for every command, we could just do this to skip the connection checks:
 # real_server, api_key, insecure, ca_data, from_store = server_store.resolve(name, url, api_key, insecure, ca_data)
@@ -23,14 +23,14 @@ from .main import _validate_deploy_to_args
 
 from .admin_actions import (
   download_bundle,
-  rebuild_add_content,
-  rebuild_remove_content,
-  rebuild_list_content,
-  rebuild_history,
-  rebuild_start,
+  build_add_content,
+  build_remove_content,
+  build_list_content,
+  build_history,
+  build_start,
   search_content,
   get_content,
-  emit_rebuild_log,
+  emit_build_log,
 )
 
 
@@ -39,7 +39,7 @@ logging.basicConfig()
 
 _version_search_pattern = r"(^[=><]{1,2})(.*)"
 
-def _verify_rebuild_rm_args(guid, all, purge):
+def _verify_build_rm_args(guid, all, purge):
     if guid and all:
         raise api.RSConnectException("You must specify only one of -g/--guid or --all, not both.")
     if not guid and not all:
@@ -49,7 +49,7 @@ def _verify_rebuild_rm_args(guid, all, purge):
 def cli():
     """
     This command line tool may be used to administer content on RStudio
-    Connect including searching and rebuilding content.
+    Connect including searching and building content.
 
     This tool uses the same server nicknames as the `rsconnect` cli.
     Use the `rsconnect list` command to show the available servers.
@@ -305,15 +305,15 @@ def content_bundle_download(name, server, api_key, insecure, cacert, guid, bundl
             f.write(result.response_body)
 
 
-@cli.group(no_args_is_help=True, help="Rebuild content on RStudio Connect.")
-def rebuild():
+@cli.group(no_args_is_help=True, help="Build content on RStudio Connect. Requires Connect >= 2021.11.1")
+def build():
     pass
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
-@rebuild.command(
+@build.command(
     name="add",
-    short_help="Mark a content item for rebuild. Use `rebuild run` to invoke the rebuild on the Connect server."
+    short_help="Mark a content item for build. Use `build run` to invoke the build on the Connect server."
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
@@ -355,23 +355,23 @@ def rebuild():
     "--bundle-id",
     type=StrippedString(),
     metavar="TEXT",
-    help="The bundle ID of the content item to rebuild. By default, the latest bundle is used.",
+    help="The bundle ID of the content item to build. By default, the latest bundle is used.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 # todo: add a --timeout flag with sane default?
-def add_content_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id, verbose):
+def add_content_build(name, server, api_key, insecure, cacert, guid, bundle_id, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        rebuild_add_content(connect_server, guid, bundle_id)
+        build_add_content(connect_server, guid, bundle_id)
         click.secho("Added %s" % guid, err=True)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
-@rebuild.command(
+@build.command(
     name="rm",
-    short_help="Remove a content item from the list of content that are tracked for rebuild. " +
-        "Use `rebuild ls` to view the tracked content."
+    short_help="Remove a content item from the list of content that are tracked for build. " +
+        "Use `build ls` to view the tracked content."
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
@@ -411,28 +411,28 @@ def add_content_rebuild(name, server, api_key, insecure, cacert, guid, bundle_id
     "--all",
     is_flag=True,
     # TODO: Ask for confirmation?
-    help="Remove all content items from the list of content tracked for rebuild.",
+    help="Remove all content items from the list of content tracked for build.",
 )
 @click.option(
     "--purge",
     "-p",
     is_flag=True,
-    help="Remove rebuild history and log files from the local filesystem.",
+    help="Remove build history and log files from the local filesystem.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def remove_content_rebuild(name, server, api_key, insecure, cacert, guid, all, purge, verbose):
+def remove_content_build(name, server, api_key, insecure, cacert, guid, all, purge, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        _verify_rebuild_rm_args(guid, all, purge)
-        rebuild_remove_content(connect_server, guid, all, purge)
+        _verify_build_rm_args(guid, all, purge)
+        build_remove_content(connect_server, guid, all, purge)
         click.secho("Removed %s" % guid, err=True)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
-@rebuild.command(
+@build.command(
     name="ls",
-    short_help="List the content items that are being tracked for rebuild on a given Connect server."
+    short_help="List the content items that are being tracked for build on a given Connect server."
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
@@ -463,8 +463,8 @@ def remove_content_rebuild(name, server, api_key, insecure, cacert, guid, all, p
 )
 @click.option(
     "--status",
-    type=click.Choice(RebuildStatus._all),
-    help="Filter results by status of the rebuild operation."
+    type=click.Choice(BuildStatus._all),
+    help="Filter results by status of the build operation."
 )
 @click.option(
     "--guid",
@@ -472,22 +472,22 @@ def remove_content_rebuild(name, server, api_key, insecure, cacert, guid, all, p
     multiple=True,
     type=StrippedString(),
     metavar="TEXT",
-    help="Check the local rebuild state of a specific content item. This flag can be passed multiple times.",
+    help="Check the local build state of a specific content item. This flag can be passed multiple times.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 # todo: --format option (json, text)
-def list_content_rebuild(name, server, api_key, insecure, cacert, status, guid, verbose):
+def list_content_build(name, server, api_key, insecure, cacert, status, guid, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        result = rebuild_list_content(connect_server, guid, status)
+        result = build_list_content(connect_server, guid, status)
         json.dump(result, sys.stdout, indent=2)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
-@rebuild.command(
+@build.command(
     name="history",
-    short_help="Get the rebuild history for a content item."
+    short_help="Get the build history for a content item."
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
@@ -526,18 +526,18 @@ def list_content_rebuild(name, server, api_key, insecure, cacert, status, guid, 
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 # todo: --format option (json, text)
-def get_rebuild_history(name, server, api_key, insecure, cacert, guid, verbose):
+def get_build_history(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        result = rebuild_history(connect_server, guid)
+        result = build_history(connect_server, guid)
         json.dump(result, sys.stdout, indent=2)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
-@rebuild.command(
+@build.command(
     name="logs",
-    short_help="Print the logs for a content rebuild.",
+    short_help="Print the logs for a content build.",
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
@@ -579,7 +579,7 @@ def get_rebuild_history(name, server, api_key, insecure, cacert, guid, verbose):
     "-t",
     type=StrippedString(),
     metavar="TEXT",
-    help="The task ID of the rebuild.",
+    help="The task ID of the build.",
 )
 @click.option(
     "--format",
@@ -589,18 +589,18 @@ def get_rebuild_history(name, server, api_key, insecure, cacert, guid, verbose):
     help="The output format of the logs. Defaults to text.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, format, verbose):
+def get_build_logs(name, server, api_key, insecure, cacert, guid, task_id, format, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        for line in emit_rebuild_log(connect_server, guid, format, task_id):
+        for line in emit_build_log(connect_server, guid, format, task_id):
             sys.stdout.write(line)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
-@rebuild.command(
+@build.command(
     name="run",
-    short_help="Start rebuilding content on a given Connect server.",
+    short_help="Start building content on a given Connect server.",
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
@@ -633,22 +633,22 @@ def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, for
     "--parallelism",
     type=click.IntRange(min=1, clamp=True),
     default=1,
-    help="Defines the number of rebuilds that can run concurrently. Defaults to 1."
+    help="Defines the number of builds that can run concurrently. Defaults to 1."
 )
 @click.option(
     "--aborted",
     is_flag=True,
-    help="Rebuild content that is in the ABORTED state."
+    help="Build content that is in the ABORTED state."
 )
 @click.option(
     "--error",
     is_flag=True,
-    help="Rebuild content that is in the ERROR state."
+    help="Build content that is in the ERROR state."
 )
 @click.option(
     "--all",
     is_flag=True,
-    help="Rebuild all content, even if it is already marked as COMPLETE."
+    help="Build all content, even if it is already marked as COMPLETE."
 )
 @click.option(
     "--debug",
@@ -656,8 +656,8 @@ def get_rebuild_logs(name, server, api_key, insecure, cacert, guid, task_id, for
     help="Log exceptions from background operations."
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def start_content_rebuild(name, server, api_key, insecure, cacert, parallelism, aborted, error, all, debug, verbose):
+def start_content_build(name, server, api_key, insecure, cacert, parallelism, aborted, error, all, debug, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        rebuild_start(connect_server, parallelism, aborted, error, all, debug)
+        build_start(connect_server, parallelism, aborted, error, all, debug)

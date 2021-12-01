@@ -2,7 +2,7 @@
 
 While the `rsconnect` CLI is meant for publishers, the `rsconnect-admin` CLI is
 a tool meant for administrators of RStudio Connect.  `rsconnect-admin` allows administrators
-to search for content and initiate content rebuilds during a server migration.
+to search for content and initiate content builds during a server migration.
 
 The `rsconnect-admin` CLI uses the same server "nicknames" as the `rsconnect` CLI.
 See [this section](./README.md#managing-server-information) of the main README
@@ -14,8 +14,8 @@ for details on adding a new RStudio Connect server.
 The following are some examples of how an administrator might use the
 `rsconnect-admin content search` subcommand to search for content on RStudio Connect.
 This could be useful for administrators to identify content that needs to be
-rebuilt during a server migration. See the [rebuild section](#rebuild) for details
-on when a content rebuild might be necessary.
+rebuilt during a server migration. See [this section](#building-content) for details
+on when a content build might be necessary.
 
 By default, the `rsconnect-admin content search` command will return metadata for ALL
 of the content on a RStudio Connect server, both published and unpublished content.
@@ -44,7 +44,7 @@ $ rsconnect-admin content search --title-contains "Stock Report"
 ```
 
 
-### Rebuild
+### Building Content
 
 RStudio Connect caches R and Python packages in the configured
 [`Server.DataDir`](https://docs.rstudio.com/connect/admin/appendix/configuration/#Server.DataDir).
@@ -52,10 +52,10 @@ Sometimes, these package caches become stale and need to be rebuilt. This refres
 occurs automatically when an RStudio Connect user visits the content via the
 RStudio Connect dashboard. Some content, however, is high priority or not accessed
 frequently via the dashboard (API content, emailed reports). In these cases, administrators
-can preemptively rebuild specific content items using the `rsconnect-admin rebuild` subcommands.
-This way the user does not have to pay the rebuild cost when the content is accessed next.
+can preemptively build specific content items using the `rsconnect-admin build` subcommands.
+This way the user does not have to pay the build cost when the content is accessed next.
 
-The following are some common scenarios where performing a content rebuild might be necessary:
+The following are some common scenarios where performing a content build might be necessary:
 
 - OS upgrade
 - changes to gcc or libc libraries
@@ -64,73 +64,73 @@ The following are some common scenarios where performing a content rebuild might
 - migrating from local content execution to remote content execution with Kubernetes
 
 Administrators should use the [`rsconnect-admin content search`](#search) subcommand to help
-identify content items for rebuild.
+identify content items for building.
 
-To rebuild a specific content item, first `add` it to the list of content that is
-"tracked" for rebuild using its GUID.
+To build a specific content item, first `add` it to the list of content that is
+"tracked" for building using its GUID.
 
 ```bash
 # add a single content item by guid
-$ rsconnect-admin rebuild add --guid 4ffc819c-065c-420c-88eb-332db1133317
+$ rsconnect-admin build add --guid 4ffc819c-065c-420c-88eb-332db1133317
 ```
 
 Administrators can view currently "tracked" content items using the
-`rsconnect-admin rebuild ls` subcommand.
+`rsconnect-admin build ls` subcommand.
 
 ```bash
 # list all tracked content
-$ rsconnect-admin rebuild ls
+$ rsconnect-admin build ls
 
-# list tracked content that still needs to be rebuilt
-$ rsconnect-admin rebuild ls --status NEEDS_REBUILD
+# list tracked content that still needs to be built
+$ rsconnect-admin build ls --status NEEDS_BUILD
 
-# list tracked content that has already been rebuilt successfully
-$ rsconnect-admin rebuild ls --status COMPLETE
+# list tracked content that has already been built successfully
+$ rsconnect-admin build ls --status COMPLETE
 
-# list tracked content that failed to rebuild
-$ rsconnect-admin rebuild ls --status=ERROR
+# list tracked content that failed to build
+$ rsconnect-admin build ls --status=ERROR
 
 # list tracked content that was cancelled while in progress
-$ rsconnect-admin rebuild ls --status=ABORTED
+$ rsconnect-admin build ls --status=ABORTED
 ```
 
-Once the content items have been "tracked", Administrators can initiate a rebuild
-using the `rsconnect-admin rebuild run` subcommand. This command will attempt to
-rebuild all "tracked" content that has the status `NEEDS_REBUILD`.
+Once the content items have been "tracked", Administrators can initiate a build
+using the `rsconnect-admin build run` subcommand. This command will attempt to
+build all "tracked" content that has the status `NEEDS_BUILD`.
 
 ```bash
-# rebuild content serially
-$ rsconnect-admin rebuild run
+# build content serially
+$ rsconnect-admin build run
 
-# rebuild content in parallel, 5 at a time
-$ rsconnect-admin rebuild run --parallelism 5
+# build content in parallel, 5 at a time
+$ rsconnect-admin build run --parallelism 5
 ```
 
-Sometimes content rebuilds will fail. Use the `rsconnect-admin rebuild ls` command
-to identify content items that failed to rebuild. Then use the `rsconnect-admin rebuild logs`
+Sometimes content builds will fail. Use the `rsconnect-admin build ls` command
+to identify content items that failed to build. Then use the `rsconnect-admin build logs`
 subcommand to help identify the underlying reason for the failure.
 
 ```bash
-# print latest rebuild logs as raw text
-$ rsconnect-admin rebuild logs --guid 4ffc819c-065c-420c-88eb-332db1133317
+# print latest build logs as raw text
+$ rsconnect-admin build logs --guid 4ffc819c-065c-420c-88eb-332db1133317
 
-# print latest rebuild logs as json lines
-$ rsconnect-admin rebuild logs -f json --guid 4ffc819c-065c-420c-88eb-332db1133317
+# print latest build logs as json lines
+$ rsconnect-admin build logs -f json --guid 4ffc819c-065c-420c-88eb-332db1133317
 ```
 
-The `rsconnect-admin rebuild history` subcommand can be used to list the rebuild
+The `rsconnect-admin build history` subcommand can be used to list the build
 history for a given content item.
 
 ```bash
-$ rsconnect-admin rebuild history --guid 4ffc819c-065c-420c-88eb-332db1133317
+$ rsconnect-admin build history --guid 4ffc819c-065c-420c-88eb-332db1133317
 ```
 
-By default the `rsconnect-admin rebuild logs` subcommand prints the logs of the
-most recent rebuild. To view the rebuild logs for a specific rebuild, provide a
+By default the `rsconnect-admin build logs` subcommand prints the logs of the
+most recent build. To view the build logs for a specific build, provide a
 `--task-id` to the `logs` subcommand.
 
 ```bash
-$ rsconnect-admin rebuild logs --guid 4ffc819c-065c-420c-88eb-332db1133317 --task-id GoTVLYxWkbvCo2bN
+$ rsconnect-admin build logs --guid 4ffc819c-065c-420c-88eb-332db1133317 --task-id GoTVLYxWkbvCo2bN
 ```
 
 
@@ -141,7 +141,7 @@ The default output format is `JSON` so that the results can be easily piped into
 other command line utilities like [`jq`](https://stedolan.github.io/jq/)
 for further post-processing.
 
-One common use case might be to `rsconnect-admin rebuild add` content for rebuild
+One common use case might be to `rsconnect-admin build add` content for build
 based on the results of a `rsconnect-admin content search`. For example:
 
 ```bash
@@ -152,5 +152,5 @@ content search \
 --published \
 --content-type python-api \
 --content-type api | jq -r '.[].guid'); do \
-rsconnect-admin rebuild add --guid $guid; done
+rsconnect-admin build add --guid $guid; done
 ```

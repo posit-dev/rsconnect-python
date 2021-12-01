@@ -432,21 +432,21 @@ class AppStore(DataStore):
         return app_id, app_mode
 
 
-DEFAULT_REBUILD_DIR = join(os.getcwd(), "rsconnect-rebuild")
-class ContentRebuildStore(DataStore):
+DEFAULT_BUILD_DIR = join(os.getcwd(), "rsconnect-build")
+class ContentBuildStore(DataStore):
     """
-    Defines a metadata store for information about content rebuilds.
+    Defines a metadata store for information about content builds.
 
-    The metadata directory for a content rebuild is written in the directory specified by
-    CONNECT_ADMIN_REBUILD_DIR or the current working directory is none is supplied.
+    The metadata directory for a content build is written in the directory specified by
+    CONNECT_ADMIN_BUILD_DIR or the current working directory is none is supplied.
 
-    A single `rebuild.json` file contains "tracked" content for 1-N connect servers.
+    A single `build.json` file contains "tracked" content for 1-N connect servers.
     The structure is as follows:
     {
         "<connect server url>": {
-            "rsconnect_rebuild_running": <bool>,
+            "rsconnect_build_running": <bool>,
             "<content guid 1>": {
-                "rsconnect_rebuild_status": <models.RebuildStatus>,
+                "rsconnect_build_status": <models.BuildStatus>,
                 ..., // various content metadata fields returned by the v1/content api
             },
             "<content guid 2>": {
@@ -460,33 +460,33 @@ class ContentRebuildStore(DataStore):
     }
     """
 
-    _REBUILD_ABORTED = False
+    _BUILD_ABORTED = False
 
-    def __init__(self, base_dir=os.getenv("CONNECT_ADMIN_REBUILD_DIR", DEFAULT_REBUILD_DIR)):
+    def __init__(self, base_dir=os.getenv("CONNECT_ADMIN_BUILD_DIR", DEFAULT_BUILD_DIR)):
         self._base_dir = base_dir
-        super(ContentRebuildStore, self).__init__(join(base_dir, "rebuild.json"), chmod=True)
+        super(ContentBuildStore, self).__init__(join(base_dir, "build.json"), chmod=True)
 
     def aborted(self):
-        return ContentRebuildStore._REBUILD_ABORTED
+        return ContentBuildStore._BUILD_ABORTED
 
-    def get_rebuild_logs_dir(self, server, guid):
+    def get_build_logs_dir(self, server, guid):
         return join(self._base_dir, "logs", _normalize_server_url(server.url), guid)
 
     def ensure_logs_dir(self, server, guid):
-        log_dir = self.get_rebuild_logs_dir(server, guid)
+        log_dir = self.get_build_logs_dir(server, guid)
         os.makedirs(log_dir, exist_ok=True)
         if self._chmod:
             os.chmod(log_dir, 0o700)
 
-    def get_rebuild_log(self, server, guid, task_id=None):
+    def get_build_log(self, server, guid, task_id=None):
         """
-        Returns the path to the rebuild log file. This method does not check
+        Returns the path to the build log file. This method does not check
         whether the file exists if a task_id is provided.
         If task_id is not provided, we will return the latest log
         using the last modified timestamp on the filesystem.
         If no log files are found, returns None
         """
-        log_dir = self.get_rebuild_logs_dir(server, guid)
+        log_dir = self.get_build_logs_dir(server, guid)
         if task_id:
             return join(log_dir, "%s.log" % task_id)
         else:
@@ -497,11 +497,11 @@ class ContentRebuildStore(DataStore):
                 latest = None
             return latest
 
-    def get_rebuild_history(self, server, guid):
+    def get_build_history(self, server, guid):
         """
-        Returns the rebuild history for a given content guid.
+        Returns the build history for a given content guid.
         """
-        log_dir = self.get_rebuild_logs_dir(server, guid)
+        log_dir = self.get_build_logs_dir(server, guid)
         log_files = glob.glob(join(log_dir, '*.log'))
         history = []
         for f in log_files:
@@ -511,17 +511,17 @@ class ContentRebuildStore(DataStore):
         history.sort(key=lambda x: x['time'])
         return history
 
-    def get_rebuild_running(self, server):
-        return self._data.get(server.url, {}).get('rsconnect_rebuild_running')
+    def get_build_running(self, server):
+        return self._data.get(server.url, {}).get('rsconnect_build_running')
 
-    def set_rebuild_running(self, server, is_running):
+    def set_build_running(self, server, is_running):
         with self._lock:
-            self._data[server.url]['rsconnect_rebuild_running'] = is_running
+            self._data[server.url]['rsconnect_build_running'] = is_running
             self.save()
 
     def add_content_item(self, server, content, bundle_id):
         """
-        Add an item to the rebuilds for a given server
+        Add an item to the builds for a given server
         """
         with self._lock:
             if server.url not in self._data:
@@ -540,12 +540,13 @@ class ContentRebuildStore(DataStore):
                 dashboard_url=content["dashboard_url"],
                 created_time=content['created_time'],
                 last_deployed_time=content['last_deployed_time'],
+                owner_guid=content['owner_guid'],
             )
             self.save()
 
     def update_content_item(self, server, guid, content):
         """
-        Update an existing item in the rebuilds for a given server
+        Update an existing item in the builds for a given server
         """
         with self._lock:
             old_content = self.get_content_item(server, guid)
@@ -562,12 +563,13 @@ class ContentRebuildStore(DataStore):
                 dashboard_url=content['dashboard_url'],
                 created_time=content['created_time'],
                 last_deployed_time=content['last_deployed_time'],
+                owner_guid=content['owner_guid'],
             ))
             self.save()
 
     def get_content_item(self, server, guid):
         """
-        Get a content item from the rebuilds for a given server by guid
+        Get a content item from the builds for a given server by guid
         """
         return self._data.get(server.url, {}).get('content', {}).get(guid)
 
@@ -575,7 +577,7 @@ class ContentRebuildStore(DataStore):
         """
         Delete the local logs directory for a given content item.
         """
-        logs_dir = self.get_rebuild_logs_dir(server, guid)
+        logs_dir = self.get_build_logs_dir(server, guid)
         try:
             shutil.rmtree(logs_dir)
         except FileNotFoundError:
@@ -583,7 +585,7 @@ class ContentRebuildStore(DataStore):
 
     def remove_content_item(self, server, guid, purge=False):
         """
-        Remove a content item from the rebuilds for a given server by guid.
+        Remove a content item from the builds for a given server by guid.
         If purge is True, cleanup the log files on the local filesystem.
         """
         if purge:
@@ -596,23 +598,23 @@ class ContentRebuildStore(DataStore):
                 pass
             self.save()
 
-    def set_content_item_rebuild_status(self, server, guid, status):
+    def set_content_item_build_status(self, server, guid, status):
         """
-        Set the current status for a content rebuild
+        Set the current status for a content build
         """
         with self._lock:
             content = self.get_content_item(server, guid)
-            content['rsconnect_rebuild_status'] = str(status)
+            content['rsconnect_build_status'] = str(status)
             self.save()
 
     def get_content_items(self, server, status=None):
         """
-        Get all the content items that are tracked for rebuild on the given server.
-        :param status: Filter results by rebuild status
+        Get all the content items that are tracked for build on the given server.
+        :param status: Filter results by build status
         :return: A list of content items
         """
         all_content = list(self._data.get(server.url, {}).get('content', {}).values())
         if status:
-            return [item for item in all_content if item['rsconnect_rebuild_status'] == status]
+            return [item for item in all_content if item['rsconnect_build_status'] == status]
         else:
             return all_content

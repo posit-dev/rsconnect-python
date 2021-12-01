@@ -128,8 +128,8 @@ class RSConnect(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
-    def content_deploy(self, content_guid, bundle_id=None):
-        response = self.post("v1/content/%s/deploy" % content_guid, body={"bundle_id": bundle_id})
+    def content_build(self, content_guid, bundle_id=None):
+        response = self.post("v1/content/%s/build" % content_guid, body={"bundle_id": bundle_id})
         self._server.handle_bad_response(response)
         return response
 

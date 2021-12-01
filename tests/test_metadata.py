@@ -4,11 +4,11 @@ from unittest import TestCase
 from os.path import exists, join
 
 from rsconnect.api import RSConnectServer
-from rsconnect.models import RebuildStatus
+from rsconnect.models import BuildStatus
 from rsconnect.metadata import (
     AppStore,
     ServerStore,
-    ContentRebuildStore,
+    ContentBuildStore,
     _normalize_server_url
 )
 
@@ -246,15 +246,15 @@ class TestHelpers(TestCase):
         self.assertEqual("connect_dev_6443", _normalize_server_url("https://connect.dev:6443"))
 
 
-class TestRebuildMetadata(TestCase):
+class TestBuildMetadata(TestCase):
     def setUp(self):
         self.server_store = ServerStore()
         self.server_store.set("connect", "https://connect.remote:6443", "apiKey", insecure=True)
         self.server = RSConnectServer("https://connect.remote:6443", "apiKey", True, None)
-        self.rebuild_store = ContentRebuildStore()
-        self.rebuild_store._set(self.server.url,
+        self.build_store = ContentBuildStore()
+        self.build_store._set(self.server.url,
             {
-                "rsconnect_rebuild_running": False,
+                "rsconnect_build_running": False,
                 "content": {
                     "c96db3f3-87a1-4df5-9f58-eb109c397718": {
                         "guid": "c96db3f3-87a1-4df5-9f58-eb109c397718",
@@ -266,7 +266,7 @@ class TestRebuildMetadata(TestCase):
                         "dashboard_url": "https://connect.remote:6443/connect/#/apps/c96db3f3-87a1-4df5-9f58-eb109c397718",
                         "created_time": "2021-11-04T18:07:12Z",
                         "last_deployed_time": "2021-11-10T19:10:56Z",
-                        "rsconnect_rebuild_status": "NEEDS_REBUILD"
+                        "rsconnect_build_status": "NEEDS_BUILD"
                     },
                     "fe673896-f92a-40cc-be4c-e4872bb90a37": {
                         "guid": "fe673896-f92a-40cc-be4c-e4872bb90a37",
@@ -278,7 +278,7 @@ class TestRebuildMetadata(TestCase):
                         "dashboard_url": "https://connect.remote:6443/connect/#/apps/fe673896-f92a-40cc-be4c-e4872bb90a37",
                         "created_time": "2021-11-15T15:37:53Z",
                         "last_deployed_time": "2021-11-15T15:37:57Z",
-                        "rsconnect_rebuild_status": "ERROR"
+                        "rsconnect_build_status": "ERROR"
                     },
                     "a0b6b5a2-5fbe-4293-8310-4f80054bc24f": {
                         "guid": "a0b6b5a2-5fbe-4293-8310-4f80054bc24f",
@@ -290,7 +290,7 @@ class TestRebuildMetadata(TestCase):
                         "dashboard_url": "https://connect.remote:6443/connect/#/apps/a0b6b5a2-5fbe-4293-8310-4f80054bc24f",
                         "created_time": "2021-11-15T15:27:18Z",
                         "last_deployed_time": "2021-11-15T15:35:27Z",
-                        "rsconnect_rebuild_status": "RUNNING"
+                        "rsconnect_build_status": "RUNNING"
                     },
                     "23315cc9-ed2a-40ad-9e99-e5e49066531a": {
                         "guid": "23315cc9-ed2a-40ad-9e99-e5e49066531a",
@@ -302,7 +302,7 @@ class TestRebuildMetadata(TestCase):
                         "dashboard_url": "https://connect.remote:6443/connect/#/apps/23315cc9-ed2a-40ad-9e99-e5e49066531a",
                         "created_time": "2021-11-15T15:20:58Z",
                         "last_deployed_time": "2021-11-15T15:25:31Z",
-                        "rsconnect_rebuild_status": "COMPLETE"
+                        "rsconnect_build_status": "COMPLETE"
                     },
                     "015143da-b75f-407c-81b1-99c4a724341e": {
                         "guid": "015143da-b75f-407c-81b1-99c4a724341e",
@@ -314,20 +314,20 @@ class TestRebuildMetadata(TestCase):
                         "dashboard_url": "https://connect.remote:6443/connect/#/apps/015143da-b75f-407c-81b1-99c4a724341e",
                         "created_time": "2021-11-01T20:43:32Z",
                         "last_deployed_time": "2021-11-03T17:48:59Z",
-                        "rsconnect_rebuild_status": "NEEDS_REBUILD"
+                        "rsconnect_build_status": "NEEDS_BUILD"
                     }
                 }
             }
         )
 
-    def test_get_rebuild_logs_dir(self):
-        logs_dir = self.rebuild_store.get_rebuild_logs_dir(self.server, "015143da-b75f-407c-81b1-99c4a724341e")
-        self.assertEqual(join(self.rebuild_store._base_dir, "logs", "connect_remote_6443", "015143da-b75f-407c-81b1-99c4a724341e"), logs_dir)
+    def test_get_build_logs_dir(self):
+        logs_dir = self.build_store.get_build_logs_dir(self.server, "015143da-b75f-407c-81b1-99c4a724341e")
+        self.assertEqual(join(self.build_store._base_dir, "logs", "connect_remote_6443", "015143da-b75f-407c-81b1-99c4a724341e"), logs_dir)
 
-    def test_get_set_rebuild_running(self):
-        self.assertFalse(self.rebuild_store.get_rebuild_running(self.server))
-        self.rebuild_store.set_rebuild_running(self.server, True)
-        self.assertTrue(self.rebuild_store.get_rebuild_running(self.server))
+    def test_get_set_build_running(self):
+        self.assertFalse(self.build_store.get_build_running(self.server))
+        self.build_store.set_build_running(self.server, True)
+        self.assertTrue(self.build_store.get_build_running(self.server))
 
     def test_add_content_item(self):
         guid = "015143da-b75f-407c-81b1-99c4a724341e"
@@ -343,8 +343,8 @@ class TestRebuildMetadata(TestCase):
             "created_time": "2021-09-01T15:12:17Z",
             "other_field": "this should be ignored"
         }
-        self.rebuild_store.add_content_item(self.server, content, "1234")
-        content = self.rebuild_store.get_content_item(self.server, guid)
+        self.build_store.add_content_item(self.server, content, "1234")
+        content = self.build_store.get_content_item(self.server, guid)
         self.assertNotIn("other_field", content)
         self.assertEqual(content, {
             "bundle_id": "1234",
@@ -360,7 +360,7 @@ class TestRebuildMetadata(TestCase):
 
     def test_update_content_item(self):
         guid = "015143da-b75f-407c-81b1-99c4a724341e"
-        self.rebuild_store.update_content_item(self.server, guid, {
+        self.build_store.update_content_item(self.server, guid, {
             "bundle_id": "177",
             "title": "new title",
             "name": "plumber-async",
@@ -371,32 +371,32 @@ class TestRebuildMetadata(TestCase):
             "last_deployed_time": "2021-12-01T12:00:00Z",
             "other_field": "this should be ignored"
         })
-        content = self.rebuild_store.get_content_item(self.server, guid)
+        content = self.build_store.get_content_item(self.server, guid)
         self.assertNotIn("other_field", content)
         self.assertEqual("177", content['bundle_id'])
         self.assertEqual("new title", content['title'])
         self.assertEqual("2021-12-01T12:00:00Z", content['last_deployed_time'])
 
     def test_get_content_item(self):
-        self.assertIsNotNone(self.rebuild_store.get_content_item(self.server, "015143da-b75f-407c-81b1-99c4a724341e"))
-        self.assertIsNone(self.rebuild_store.get_content_item(self.server, "not real"))
-        self.assertIsNone(self.rebuild_store.get_content_item(RSConnectServer("not real", None, False, None), None))
+        self.assertIsNotNone(self.build_store.get_content_item(self.server, "015143da-b75f-407c-81b1-99c4a724341e"))
+        self.assertIsNone(self.build_store.get_content_item(self.server, "not real"))
+        self.assertIsNone(self.build_store.get_content_item(RSConnectServer("not real", None, False, None), None))
 
     def test_remove_content_item(self):
         guid = "015143da-b75f-407c-81b1-99c4a724341e"
-        self.rebuild_store.remove_content_item(self.server, guid, purge=False)
-        items = self.rebuild_store.get_content_items(self.server)
+        self.build_store.remove_content_item(self.server, guid, purge=False)
+        items = self.build_store.get_content_items(self.server)
         self.assertEqual(4, len(items))
         self.assertNotIn(guid, list(map(lambda x: x['guid'], items)))
 
-    def test_set_content_item_rebuild_status(self):
+    def test_set_content_item_build_status(self):
         guid = "015143da-b75f-407c-81b1-99c4a724341e"
-        self.rebuild_store.set_content_item_rebuild_status(self.server, guid, RebuildStatus.COMPLETE)
-        self.assertEqual(RebuildStatus.COMPLETE, self.rebuild_store.get_content_item(self.server, guid)['rsconnect_rebuild_status'])
-        self.rebuild_store.set_content_item_rebuild_status(self.server, guid, RebuildStatus.ERROR)
-        self.assertEqual(RebuildStatus.ERROR, self.rebuild_store.get_content_item(self.server, guid)['rsconnect_rebuild_status'])
+        self.build_store.set_content_item_build_status(self.server, guid, BuildStatus.COMPLETE)
+        self.assertEqual(BuildStatus.COMPLETE, self.build_store.get_content_item(self.server, guid)['rsconnect_build_status'])
+        self.build_store.set_content_item_build_status(self.server, guid, BuildStatus.ERROR)
+        self.assertEqual(BuildStatus.ERROR, self.build_store.get_content_item(self.server, guid)['rsconnect_build_status'])
 
     def test_get_content_items(self):
-        self.assertEqual(5, len(self.rebuild_store.get_content_items(self.server)))
-        self.assertEqual(2, len(self.rebuild_store.get_content_items(self.server, status=RebuildStatus.NEEDS_REBUILD)))
-        self.assertEqual(1, len(self.rebuild_store.get_content_items(self.server, status=RebuildStatus.ERROR)))
+        self.assertEqual(5, len(self.build_store.get_content_items(self.server)))
+        self.assertEqual(2, len(self.build_store.get_content_items(self.server, status=BuildStatus.NEEDS_BUILD)))
+        self.assertEqual(1, len(self.build_store.get_content_items(self.server, status=BuildStatus.ERROR)))
