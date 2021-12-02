@@ -28,7 +28,7 @@ def error(code, reason):
 
     after_this_request(set_code)
 
-    return {"error": reason}
+    return {"error": reason, "code": code}
 
 def safe_delete(key, data: dict):
     try:
@@ -39,7 +39,7 @@ def safe_delete(key, data: dict):
 def _make_json_ready(obj):
     if isinstance(obj, DBObject):
         data = obj.to_dict()
-        for key in obj.excludes:
+        for key in obj.json_excludes:
             safe_delete(key, data)
         obj = data
     elif isinstance(obj, Dict):

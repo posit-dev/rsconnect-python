@@ -21,7 +21,7 @@ def default_url():
     return "http://127.0.0.1:3939"
 
 class DBObject(object):
-    excludes = [] # remove fields from the json response
+    json_excludes = [] # remove fields from the json response
     show = ["id"] # show these fields in the generated HTML
     generated_id = {}
     instances = {}
@@ -100,7 +100,7 @@ class AppMode(Enum):
 
 
 class Application(DBObject):
-    excludes = ["_base_url"]
+    json_excludes = ["_base_url"]
     show = ["id", "guid", "name", "title", "url"]
 
     @classmethod
@@ -166,7 +166,7 @@ class User(DBObject):
 
 
 class Bundle(DBObject):
-    excludes = ["tarball"]
+    json_excludes = ["_tar_data"]
     show = ["id", "app_id"]
 
     def __init__(self, **kwargs):
@@ -174,10 +174,19 @@ class Bundle(DBObject):
         self.app_id = kwargs.get('app_id')
         self.created_time = timestamp()
         self.updated_time = self.created_time
-        self.tarball = kwargs.get('tarball')
+        self._tar_data = kwargs.get('_tar_data')
+        self._tar_file = kwargs.get('_tar_file')
+
+    def read_bundle_data(self):
+        if self._tar_data:
+            return io.BytesIO(self._tar_data)
+        elif self._tar_file:
+            with open(self._tar_file, 'rb') as fh:
+                self._tar_data = fh.read()
+                return io.BytesIO(self._tar_data)
 
     def read_bundle_file(self, file_name):
-        raw_bytes = io.BytesIO(self.tarball)
+        raw_bytes = io.BytesIO(self._tar_data)
         with tarfile.open("r:gz", fileobj=raw_bytes) as tar:
             return tar.extractfile(file_name).read()
 
@@ -205,7 +214,7 @@ class Task(DBObject):
 
 
 class Content(DBObject):
-    excludes = ["_base_url"]
+    json_excludes = ["_base_url"]
     show = ["guid", "name", "app_mode", "r_version", "py_version", "quarto_version"]
 
     def __init__(self, **kwargs):

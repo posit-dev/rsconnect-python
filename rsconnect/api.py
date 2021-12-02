@@ -46,6 +46,7 @@ class RSConnectServer(object):
             # also catches all error conditions which we will report as "not running Connect".
             else:
                 if response.json_data and "error" in response.json_data:
+                    print(response.json_data)
                     code = response.json_data["code"]
                     if code in _error_map:
                         error = _error_map[code]

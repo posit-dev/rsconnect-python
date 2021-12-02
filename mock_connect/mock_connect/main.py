@@ -2,9 +2,10 @@
 This is the main file, run via `flask run`, for the mock Connect server.
 """
 import sys
+from os.path import basename
 
 # noinspection PyPackageRequirements
-from flask import Flask, Blueprint, g, request, url_for
+from flask import Flask, Blueprint, g, request, url_for, send_file
 
 from .data import (
     Application,
@@ -79,7 +80,7 @@ def applications():
 # noinspection PyUnresolvedReferences
 @api.route("applications/<object_id>", methods=["GET", "POST"])
 @endpoint(authenticated=True, cls=Application, writes_json=True)
-def application(connect_app):
+def get_application(connect_app):
     if request.method == "POST":
         connect_app.update_from(request.get_json(force=True))
 
@@ -97,7 +98,7 @@ def config(connect_app):
 @api.route("applications/<object_id>/upload", methods=["POST"])
 @endpoint(authenticated=True, cls=Application, writes_json=True)
 def upload(connect_app):
-    return Bundle(app_id=connect_app.id, tarball=request.data)
+    return Bundle(app_id=connect_app.id, _tar_data=request.data)
 
 
 # noinspection PyUnresolvedReferences
@@ -161,7 +162,7 @@ def python_settings():
 # noinspection PyUnresolvedReferences
 @app.route("/content/apps/<object_id>")
 @endpoint(cls=Application)
-def content(connect_app):
+def get_content(connect_app):
     bundle = connect_app.get_bundle()
     if bundle is None:
         return error(400, "The content has not been deployed.")  # message and status code probably wrong
@@ -171,20 +172,30 @@ def content(connect_app):
 # noinspection PyUnresolvedReferences
 @api.route("v1/content/<object_id>")
 @endpoint(authenticated=True, cls=Content, writes_json=True)
-def get_content_v1(content):
+def v1_get_content(content):
     return content
 
 
 # noinspection PyUnresolvedReferences
 @api.route("v1/content")
 @endpoint(authenticated=True, writes_json=True)
-def content_v1():
+def v1_content():
     return list(Content.get_all_objects())
 
 
-# def bundle_download(self, content_guid, bundle_id):
-#     return self.get("v1/content/%s/bundles/%s/download" % (content_guid, bundle_id), decode_response=False)
-
+# This endpoint is kind of a cheat, we dont actually do any validation
+#  that the requested bundle belongs to this piece of content
+# noinspection PyUnresolvedReferences
+@api.route("v1/content/<content_id>/bundles/<object_id>/download")
+@endpoint(authenticated=True, cls=Bundle)
+def v1_content_bundle_download(bundle:Bundle, content_id):
+    print(content_id)
+    return send_file(
+        bundle.read_bundle_data(),
+        mimetype="application/tar+gzip",
+        as_attachment=True,
+        attachment_filename=basename(bundle._tar_file) if bundle._tar_file else None,
+    ), 200
 
 # def content_deploy(self, content_guid, bundle_id=None):
 #     return self.post("v1/content/%s/deploy" % content_guid, body={"bundle_id": bundle_id})

@@ -38,7 +38,13 @@
       ]
     }
   ],
-  "bundles": [],
+  "bundles": [
+    {
+      "id": 142,
+      "app_id": "18",
+      "_tar_file": "/testdata/bundle.tar.gz"
+    }
+  ],
   "content": [
     {
       "guid": "015143da-b75f-407c-81b1-99c4a724341e",
