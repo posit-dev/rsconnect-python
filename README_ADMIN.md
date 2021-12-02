@@ -41,6 +41,12 @@ $ rsconnect-admin content search --content-type shiny --content-type python-fast
 
 # any content, published or unpublished, where the title contains the text "Stock Report"
 $ rsconnect-admin content search --title-contains "Stock Report"
+
+# published content, results are ordered by when the content was last deployed
+$ rsconnect-admin content search --published --order-by last_deployed
+
+# published content, results are ordered by when the content was created
+$ rsconnect-admin content search --published --order-by created
 ```
 
 
