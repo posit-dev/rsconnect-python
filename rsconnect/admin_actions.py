@@ -3,6 +3,7 @@ Public API for administering content.
 """
 import json
 import time
+import traceback
 
 # This probably breaks python2, can we remove python2.7 support
 # from setup and/or can we require >3 for only the admin tool?
@@ -97,12 +98,6 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
         click.secho("Starting content build (%s)..." % connect_server.url)
         content_build_store.set_build_running(connect_server, True)
 
-        # reset all content_items as NEEDS_BUILD so our progress metrics are accurate.
-        # if we are building content that was part of a previous build, it may not
-        # have been re-added so the status could still be COMPLETE,ERROR,ABORTED, etc.
-        for c in content_items:
-            content_build_store.set_content_item_build_status(connect_server, c['guid'], BuildStatus.NEEDS_BUILD)
-
         # spawn a single thread to monitor progress and report feedback to the user
         build_monitor = ThreadPoolExecutor(max_workers=1)
         summary_future = build_monitor.submit(_monitor_build, connect_server, content_items)
@@ -120,6 +115,7 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
                 content_build_store.set_content_item_build_status(connect_server, guid, BuildStatus.ERROR)
                 if debug:
                     logger.error('%s generated an exception: %s' % (guid, exc))
+                    logger.error(traceback.format_exc())
 
         # all content builds are finished, mark the build as complete
         content_build_store.set_build_running(connect_server, False)
