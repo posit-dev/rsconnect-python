@@ -1,11 +1,13 @@
 import os
 import json
+import shutil
 import tarfile
-from unittest import TestCase
+import unittest
 from click.testing import CliRunner
 
 from rsconnect.admin_main import cli
 from rsconnect import VERSION
+from rsconnect.models import BuildStatus
 
 from .utils import (
     apply_common_args,
@@ -13,20 +15,27 @@ from .utils import (
     require_connect
 )
 
-_bundle_download_dest = "download.tar.gz"
+# run these tests in the order they are defined
+#  because we are integration testing the state file
+unittest.TestLoader.sortTestMethodsUsing = None
 
+_bundle_download_dest = "download.tar.gz"
 _content_guids = [
     "015143da-b75f-407c-81b1-99c4a724341e",
     "4ffc819c-065c-420c-88eb-332db1133317",
     "bcc74209-3a81-4b9c-acd5-d24a597c256c",
 ]
+_test_build_dir = "rsconnect-build-test"
 
-class TestAdminMain(TestCase):
+
+class TestAdminMain(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
         if os.path.exists(_bundle_download_dest):
             os.remove(_bundle_download_dest)
+        if os.path.exists(_test_build_dir):
+            shutil.rmtree(_test_build_dir, ignore_errors=True)
 
     def test_version(self):
         runner = CliRunner()
@@ -72,8 +81,44 @@ class TestAdminMain(TestCase):
         with tarfile.open(_bundle_download_dest, mode='r:gz') as tgz:
             self.assertIsNotNone(tgz.extractfile('manifest.json').read())
 
-    def test_build_add(self):
-        pass
+    def test_build(self):
+        connect_server = require_connect(self)
+        api_key = require_api_key(self)
+        runner = CliRunner()
+
+        # add a content item
+        args = ["build", "add", "-g", _content_guids[0]]
+        apply_common_args(args, server=connect_server, key=api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertTrue(os.path.exists('%s/build.json' % _test_build_dir))
+
+        # list the "tracked" content
+        args = ["build", "ls", "-g", _content_guids[0]]
+        apply_common_args(args, server=connect_server, key=api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        listing = json.loads(result.output)
+        self.assertTrue(len(listing) == 1)
+        self.assertEqual(listing[0]['guid'], _content_guids[0])
+        self.assertEqual(listing[0]['bundle_id'], "176")
+        self.assertEqual(listing[0]['rsconnect_build_status'], BuildStatus.NEEDS_BUILD)
+
+        # run the build
+        # args = ["build", "run", "--debug"]
+        # apply_common_args(args, server=connect_server, key=api_key)
+        # result = runner.invoke(cli, args)
+        # self.assertEqual(result.exit_code, 0, result.output)
+
+        # # check that the build succeeded
+        # args = ["build", "ls", "-g", _content_guids[0]]
+        # apply_common_args(args, server=connect_server, key=api_key)
+        # result = runner.invoke(cli, args)
+        # self.assertEqual(result.exit_code, 0, result.output)
+        # listing = json.loads(result.output)
+        # self.assertTrue(len(listing) == 1)
+        # self.assertEqual(listing[0]['rsconnect_build_status'], BuildStatus.COMPLETE)
+
 
     def test_build_history(self):
         pass
@@ -81,11 +126,5 @@ class TestAdminMain(TestCase):
     def test_build_logs(self):
         pass
 
-    def test_build_ls(self):
-        pass
-
     def test_build_rm(self):
-        pass
-
-    def test_build_run(self):
         pass

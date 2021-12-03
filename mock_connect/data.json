@@ -1,5 +1,16 @@
 {
-  "apps": [],
+  "apps": [
+    {
+      "id": "121",
+      "name": "plumber-async",
+      "title": "plumber-async",
+      "owner_username": "bob",
+      "owner_first_name": "Bobby",
+      "owner_last_name": "McBobface",
+      "owner_email": "bob@rstudio.com",
+      "owner_locked": false
+    }
+  ],
   "users": [
     {
       "api_key": "0123456789abcdef0123456789abcdef",

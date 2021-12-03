@@ -10,6 +10,6 @@ case "${PYTHON_VERSION}" in
   pytest ${PYTEST_ARGS} ./tests/
   ;;
 *)
-  pytest ${PYTEST_ARGS} --mypy ./tests/test_admin_main.py
+  pytest ${PYTEST_ARGS} --mypy ./tests
   ;;
 esac

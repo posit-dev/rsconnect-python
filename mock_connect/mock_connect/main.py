@@ -195,10 +195,18 @@ def v1_content_bundle_download(bundle:Bundle, content_id):
         mimetype="application/tar+gzip",
         as_attachment=True,
         attachment_filename=basename(bundle._tar_file) if bundle._tar_file else None,
-    ), 200
+    )
 
-# def content_deploy(self, content_guid, bundle_id=None):
-#     return self.post("v1/content/%s/deploy" % content_guid, body={"bundle_id": bundle_id})
+
+@api.route("v1/content/<object_id>/build", methods=["POST"])
+@endpoint(authenticated=True, writes_json=True)
+def v1_content_build():
+    bundle_id = request.get_json(force=True).get("bundle_id")
+    if bundle_id is None:
+        return error(400, "bundle_id is required")  # message and status code probably wrong
+
+    task = Task()
+    return {"task_id": task.id}
 
 
 app.register_blueprint(api, url_prefix="/__api__")
