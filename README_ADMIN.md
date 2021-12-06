@@ -147,16 +147,51 @@ The default output format is `JSON` so that the results can be easily piped into
 other command line utilities like [`jq`](https://stedolan.github.io/jq/)
 for further post-processing.
 
-One common use case might be to `rsconnect-admin build add` content for build
-based on the results of a `rsconnect-admin content search`. For example:
+1.  One common use case might be to `rsconnect-admin build add` content for build
+    based on the results of a `rsconnect-admin content search`. For example:
 
-```bash
-# search for all API type content, then
-# for each guid, add it to the "tracked" content items
-$ for guid in $(rsconnect-admin \
-content search \
---published \
---content-type python-api \
---content-type api | jq -r '.[].guid'); do \
-rsconnect-admin build add --guid $guid; done
-```
+    ```bash
+    # search for all API type content, then
+    # for each guid, add it to the "tracked" content items
+    $ for guid in $(rsconnect-admin \
+    content search \
+    --published \
+    --content-type python-api \
+    --content-type api | jq -r '.[].guid'); do \
+    rsconnect-admin build add --guid $guid; done
+    ```
+
+
+2.  One common use for the `search` command might be to find the versions of
+    r and python that are currently in use on your RStudio Connect server before a migration.
+    This information can be used later to help define a set of content images
+    to be used with remote content execution on Kubernetes.
+
+    ```bash
+    # search for all published content, then
+    # for each content item, print the unique r and python version combinations
+    $ rsconnect-admin content search --published | jq -c '{py: .[].py_version, r: .[].r_version}' | sort | uniq
+    {"py":"3.8.2","r":"3.5.3"}
+    {"py":"3.8.2","r":"3.6.3"}
+    {"py":"3.8.2","r":null}
+    {"py":null,"r":"3.5.3"}
+    {"py":null,"r":"3.6.3"}
+    {"py":null,"r":null}
+    ```
+
+3.  TODO: Revisit the `search --order-by` flag and provide example of identifying
+    the 10 most recently deployed pieces of content:
+
+    ```bash
+    $ rsconnect-admin content search --published | jq -c 'limit(10; .[]) | { guid: .guid, last_deployed: .last_deployed_time }'
+    {"guid":"4ffc819c-065c-420c-88eb-332db1133317","last_deployed":"2021-12-02T18:09:11Z"}
+    {"guid":"aa2603f8-1988-484f-a335-193f2c57e6c4","last_deployed":"2021-12-01T20:56:07Z"}
+    {"guid":"051252f0-4f70-438f-9be1-d818a3b5f8d9","last_deployed":"2021-12-01T20:37:01Z"}
+    {"guid":"015143da-b75f-407c-81b1-99c4a724341e","last_deployed":"2021-11-30T16:56:21Z"}
+    {"guid":"bcc74209-3a81-4b9c-acd5-d24a597c256c","last_deployed":"2021-11-30T15:51:07Z"}
+    {"guid":"f21d7767-c99e-4dd4-9b00-ff8ec9ae2f53","last_deployed":"2021-11-23T18:46:28Z"}
+    {"guid":"da4f709c-c383-4fbc-89e2-f032b2d7e91d","last_deployed":"2021-11-23T18:46:28Z"}
+    {"guid":"9180809d-38fd-4730-a0e0-8568c45d87b7","last_deployed":"2021-11-23T15:16:19Z"}
+    {"guid":"2b1d2ab8-927d-4956-bbf9-29798d039bc5","last_deployed":"2021-11-22T18:33:17Z"}
+    {"guid":"c96db3f3-87a1-4df5-9f58-eb109c397718","last_deployed":"2021-11-19T20:25:33Z"}
+    ```
