@@ -609,13 +609,19 @@ def get_build_logs(name, server, api_key, insecure, cacert, guid, task_id, forma
     help="Build all content, even if it is already marked as COMPLETE."
 )
 @click.option(
+    "--poll-wait",
+    type=click.FloatRange(min=.5, clamp=True),
+    default=2,
+    help="Defines the number of seconds between polls when polling for build output. Defaults to 2.",
+)
+@click.option(
     "--debug",
     is_flag=True,
-    help="Log exceptions from background operations."
+    help="Log stacktraces from exceptions during background operations."
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def start_content_build(name, server, api_key, insecure, cacert, parallelism, aborted, error, all, debug, verbose):
+def start_content_build(name, server, api_key, insecure, cacert, parallelism, aborted, error, all, poll_wait, debug, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        build_start(connect_server, parallelism, aborted, error, all, debug)
+        build_start(connect_server, parallelism, aborted, error, all, poll_wait, debug)

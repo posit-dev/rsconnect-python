@@ -84,7 +84,7 @@ def build_history(connect_server, guid):
     return content_build_store.get_build_history(connect_server, guid)
 
 
-def build_start(connect_server, parallelism, aborted=False, error=False, all=False, debug=False):
+def build_start(connect_server, parallelism, aborted=False, error=False, all=False, poll_wait=2, debug=False):
     if content_build_store.get_build_running(connect_server):
         raise RSConnectException("There is already a build running on this server: %s" % connect_server.url)
 
@@ -128,7 +128,7 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
         # spawn a pool of worker threads to perform the content builds
         content_executor = ThreadPoolExecutor(max_workers=parallelism)
         build_result_futures = {
-            content_executor.submit(_build_content_item, connect_server, content):
+            content_executor.submit(_build_content_item, connect_server, content, poll_wait):
             ContentGuidWithBundle(content['guid'], content['bundle_id']) for content in content_items
         }
         for future in as_completed(build_result_futures):
@@ -213,7 +213,10 @@ def _monitor_build(connect_server, content_items):
     return True
 
 
-def _build_content_item(connect_server, content):
+def _build_content_item(connect_server, content, poll_wait):
+    # TODO: Stagger concurrent builds so the first couple builds don't start at the exact same time?
+    # import random
+    # time.sleep(random.uniform(0, 2))
     with RSConnect(connect_server, timeout=120) as client:
         # Pending futures will still try to execute when ThreadPoolExecutor.shutdown() is called
         # so just exit immediately if the current build has been aborted.
@@ -230,7 +233,7 @@ def _build_content_item(connect_server, content):
         with open(log_file, 'w') as log:
             # emit_task_log raises an exception if exit_code != 0
             emit_task_log(connect_server, guid, task_id,
-                log_callback=lambda line: log.write("%s\n" % line), abort_func=content_build_store.aborted)
+                log_callback=lambda line: log.write("%s\n" % line), abort_func=content_build_store.aborted, poll_wait=poll_wait)
 
         if content_build_store.aborted():
             return

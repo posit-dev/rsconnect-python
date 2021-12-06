@@ -187,7 +187,7 @@ class RSConnect(HTTPServer):
         self._server.handle_bad_response(results)
         return results
 
-    def wait_for_task(self, app_id, task_id, log_callback, abort_func=lambda: False, timeout=None):
+    def wait_for_task(self, app_id, task_id, log_callback, abort_func=lambda: False, timeout=None, poll_wait=.5):
         last_status = None
         ending = time.time() + timeout if timeout else 999999999999
 
@@ -203,7 +203,7 @@ class RSConnect(HTTPServer):
             elif abort_func():
                 raise RSConnectException("Task aborted.")
 
-            time.sleep(0.5)
+            time.sleep(poll_wait)
             task_status = self.task_get(task_id, last_status)
             self._server.handle_bad_response(task_status)
             last_status = self.output_task_log(task_status, last_status, log_callback)
@@ -338,7 +338,7 @@ def do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bund
         return result
 
 
-def emit_task_log(connect_server, app_id, task_id, log_callback, abort_func=lambda: False, timeout=None):
+def emit_task_log(connect_server, app_id, task_id, log_callback, abort_func=lambda: False, timeout=None, poll_wait=.5):
     """
     Helper for spooling the deployment log for an app.
 
@@ -354,7 +354,7 @@ def emit_task_log(connect_server, app_id, task_id, log_callback, abort_func=lamb
     of log lines.  The log lines value will be None if a log callback was provided.
     """
     with RSConnect(connect_server) as client:
-        result = client.wait_for_task(app_id, task_id, log_callback, abort_func, timeout)
+        result = client.wait_for_task(app_id, task_id, log_callback, abort_func, timeout, poll_wait)
         connect_server.handle_bad_response(result)
         return result
 
