@@ -1,11 +1,19 @@
 """
 Data models
 """
-import fnmatch
 import os
 import re
 
+import fnmatch
+import semver
 import six
+
+from click import ParamType
+from click.types import StringParamType
+
+_version_search_pattern = r"(^[=><]{1,2})(.*)"
+_content_guid_pattern = r"([^,]*),?(.*)"
+
 
 class BuildStatus(object):
     NEEDS_BUILD = "NEEDS_BUILD" # marked for build
@@ -222,3 +230,73 @@ class GlobSet(object):
         :return: True, if the given path matches any of our glob patterns.
         """
         return any(matcher.matches(path) for matcher in self._matchers)
+
+
+# Strip quotes from string arguments that might be passed in by jq
+#  without the -r flag
+class StrippedString(StringParamType):
+    name = "StrippedString"
+
+    def convert(self, value, param, ctx):
+        value = super(StrippedString, self).convert(value, param, ctx)
+        return value.strip("\"\'")
+
+
+class ContentGuidWithBundle(StrippedString):
+    name = "ContentGuidWithBundle"
+
+    def __init__(self, guid:str=None, bundle_id:str=None):
+        self.guid = guid
+        self.bundle_id = bundle_id
+
+    def __repr__(self):
+        if self.bundle_id:
+            return "%s,%s" % (self.guid, self.bundle_id)
+        return self.guid
+
+    def convert(self, value, param, ctx):
+        value = super(ContentGuidWithBundle, self).convert(value, param, ctx)
+        if isinstance(value, ContentGuidWithBundle):
+            return value
+        if isinstance(value, str):
+            m = re.match(_content_guid_pattern, value)
+            if m is not None:
+                self.guid = m.group(1)
+                if len(m.groups()) == 2:
+                    try:
+                        int(m.group(2))
+                    except ValueError:
+                        self.fail("Failed to parse bundle_id. Expected Int, but found: %s" % m.group(2))
+                    self.bundle_id = m.group(2)
+        return self
+
+
+class VersionSearchFilter(ParamType):
+    name = "VersionSearchFilter"
+
+    def __init__(self, name:str=None, comp:str=None, vers:str=None):
+        self.name = name
+        self.comp = comp
+        self.vers = vers
+
+    # https://click.palletsprojects.com/en/8.0.x/api/#click.ParamType
+    def convert(self, value, param, ctx):
+        if isinstance(value, VersionSearchFilter):
+            return value
+
+        if isinstance(value, str):
+            m = re.match(_version_search_pattern, value)
+            if m is not None:
+                self.comp = m.group(1)
+                self.vers = m.group(2)
+
+                if self.comp in ["<<", "<>", "><", ">>", "=<", "=>", "="]:
+                    self.fail("Failed to parse verison filter: %s is not a valid comparitor" % self.comp)
+
+                try:
+                    semver.parse(self.vers)
+                except ValueError:
+                    self.fail("Failed to parse version info: %s" % self._vers)
+                return self
+
+        self.fail("Failed to parse version filter %s" % value)

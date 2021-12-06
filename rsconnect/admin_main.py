@@ -5,8 +5,6 @@ import json
 from os.path import exists
 
 import click
-from click.types import StringParamType
-import semver
 
 from . import VERSION
 from . import api
@@ -15,7 +13,13 @@ from .actions import (
     set_verbosity,
 )
 from .metadata import ServerStore
-from .models import AppModes, BuildStatus
+from .models import (
+    AppModes,
+    BuildStatus,
+    ContentGuidWithBundle,
+    StrippedString,
+    VersionSearchFilter
+)
 
 # todo: instead of checking these for every command, we could just do this to skip the connection checks:
 # real_server, api_key, insecure, ca_data, from_store = server_store.resolve(name, url, api_key, insecure, ca_data)
@@ -36,8 +40,6 @@ from .admin_actions import (
 
 server_store = ServerStore()
 logging.basicConfig()
-
-_version_search_pattern = r"(^[=><]{1,2})(.*)"
 
 def _verify_build_rm_args(guid, all, purge):
     if guid and all:
@@ -65,46 +67,6 @@ def version():
 @cli.group(no_args_is_help=True, help="Interact with RStudio Connect's content API.")
 def content():
     pass
-
-# Strip quotes from string arguments that might be passed in by jq
-#  without the -r flag
-class StrippedString(StringParamType):
-    name = "StrippedString"
-
-    def convert(self, value, param, ctx):
-        value = super(StrippedString, self).convert(value, param, ctx)
-        return value.strip("\"\'")
-
-
-class VersionSearchFilter(click.ParamType):
-    name = "VersionSearchFilter"
-
-    def __init__(self, name:str=None, comp:str=None, vers:str=None):
-        self.name = name
-        self.comp = comp
-        self.vers = vers
-
-    # https://click.palletsprojects.com/en/8.0.x/api/#click.ParamType
-    def convert(self, value, param, ctx):
-        if isinstance(value, VersionSearchFilter):
-            return value
-
-        if isinstance(value, str):
-            m = re.match(_version_search_pattern, value)
-            if m is not None:
-                self.comp = m.group(1)
-                self.vers = m.group(2)
-
-                if self.comp in ["<<", "<>", "><", ">>", "=<", "=>", "="]:
-                    self.fail("Failed to parse verison filter: %s is not a valid comparitor" % self.comp)
-
-                try:
-                    semver.parse(self.vers)
-                except ValueError:
-                    self.fail("Failed to parse version info: %s" % self._vers)
-                return self
-
-        self.fail("Failed to parse version filter %s" % value)
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @content.command(
@@ -346,25 +308,21 @@ def build():
     "--guid",
     "-g",
     required=True,
-    type=StrippedString(),
-    metavar="TEXT",
-    help="Add a content item by guid.",
-    # TODO: Allow Multiple=True with optional bundle_id separated by a ,
-)
-@click.option(
-    "--bundle-id",
-    type=StrippedString(),
-    metavar="TEXT",
-    help="The bundle ID of the content item to build. By default, the latest bundle is used.",
+    type=ContentGuidWithBundle(),
+    multiple=True,
+    metavar="GUID[,BUNDLE_ID]",
+    help="Add a content item by its guid. This flag can be passed multiple times.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-# todo: add a --timeout flag with sane default?
-def add_content_build(name, server, api_key, insecure, cacert, guid, bundle_id, verbose):
+def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        build_add_content(connect_server, guid, bundle_id)
-        click.secho("Added %s" % guid, err=True)
+        build_add_content(connect_server, guid)
+        if len(guid) == 1:
+            click.secho("Added \"%s\"." % guid[0], err=True)
+        else:
+            click.secho("Bulk added %d content items." % len(guid), err=True)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode

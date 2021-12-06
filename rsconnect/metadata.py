@@ -519,7 +519,7 @@ class ContentBuildStore(DataStore):
             self._data[server.url]['rsconnect_build_running'] = is_running
             self.save()
 
-    def add_content_item(self, server, content, bundle_id):
+    def add_content_item(self, server, content):
         """
         Add an item to the builds for a given server
         """
@@ -532,7 +532,7 @@ class ContentBuildStore(DataStore):
 
             self._data[server.url]['content'][content['guid']] = dict(
                 guid=content['guid'],
-                bundle_id=bundle_id,
+                bundle_id=content['bundle_id'],
                 title=content['title'],
                 name=content['name'],
                 app_mode=content['app_mode'],

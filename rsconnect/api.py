@@ -9,12 +9,13 @@ from rsconnect.http_support import HTTPResponse, HTTPServer, append_to_path, Coo
 from rsconnect.log import logger
 from rsconnect.models import AppModes
 
-_error_map = {
-    4: (
-        "This content has been deployed before but could not be found on the server.\nUse the --new option to "
-        "deploy it as new content."
-    )
-}
+# This error map should be revisited, it can be misleading...
+# _error_map = {
+#     4: (
+#         "This content has been deployed before but could not be found on the server.\nUse the --new option to "
+#         "deploy it as new content."
+#     )
+# }
 
 
 class RSConnectException(Exception):
@@ -46,12 +47,7 @@ class RSConnectServer(object):
             # also catches all error conditions which we will report as "not running Connect".
             else:
                 if response.json_data and "error" in response.json_data:
-                    print(response.json_data)
-                    code = response.json_data["code"]
-                    if code in _error_map:
-                        error = _error_map[code]
-                    else:
-                        error = "The Connect server reported an error: %s" % response.json_data["error"]
+                    error = "The Connect server reported an error: %s" % response.json_data["error"]
                     raise RSConnectException(error)
                 if response.status < 200 or response.status > 299:
                     raise RSConnectException(

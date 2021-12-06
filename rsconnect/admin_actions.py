@@ -20,26 +20,46 @@ from .api import (
     emit_task_log
 )
 from .log import logger
-from .models import BuildStatus
+from .models import (
+    BuildStatus,
+    ContentGuidWithBundle
+)
 from .metadata import ContentBuildStore
 
 content_build_store = ContentBuildStore()
 
-def build_add_content(connect_server, guid, bundle_id=None):
+def build_add_content(connect_server, content_guids_with_bundle):
+    """
+    :param content_guids_with_bundle: list(admin_main.ContentGuidWithBundle)
+    """
+    if content_build_store.get_build_running(connect_server):
+        raise RSConnectException("There is already a build running on this server, " +
+            "please wait for it to finish before adding new content.")
+
     with RSConnect(connect_server, timeout=120) as client:
-        content = client.content_get(guid)
-        if not bundle_id and not content['bundle_id']:
-            raise RSConnectException("This content has never been published to this server. " +
-                "You must specify a bundle_id for the build. Content GUID: %s" % guid)
+        if len(content_guids_with_bundle) == 1:
+            all_content = [client.content_get(content_guids_with_bundle[0].guid)]
         else:
-            bundle_id = bundle_id if bundle_id else content['bundle_id']
+            # if bulk-adding then we just do client side filtering so that we
+            # dont have to make so many requests to connect.
+            all_content = client.search_content()
 
-        if content_build_store.get_build_running(connect_server):
-            raise RSConnectException("There is already a build running on this server, " +
-                "please wait for it to finish before adding new content.")
+        # always filter just in case it's a bulk add
+        guids_to_add = list(map(lambda x: x.guid, content_guids_with_bundle))
+        content_to_add = list(filter(lambda x: x['guid'] in guids_to_add, all_content))
 
-        content_build_store.add_content_item(connect_server, content, bundle_id)
-        content_build_store.set_content_item_build_status(connect_server, content['guid'], BuildStatus.NEEDS_BUILD)
+        # merge the new bundle_ids if they were provided
+        content_to_add = {c['guid']: c for c in content_to_add}
+        for c in content_guids_with_bundle:
+            current_bundle_id = content_to_add[c.guid]['bundle_id']
+            content_to_add[c.guid]['bundle_id'] = c.bundle_id if c.bundle_id else current_bundle_id
+
+        for content in content_to_add.values():
+            if not content['bundle_id']:
+                raise RSConnectException("This content has never been published to this server. " +
+                    "You must specify a bundle_id for the build. Content GUID: %s" % content['guid'])
+            content_build_store.add_content_item(connect_server, content)
+            content_build_store.set_content_item_build_status(connect_server, content['guid'], BuildStatus.NEEDS_BUILD)
 
 
 def build_remove_content(connect_server, guid, all=False, purge=False):
@@ -71,20 +91,22 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
     # if we are re-building any already "tracked" content items, then re-add them to be safe
     if all:
         click.secho("Adding all content to build...", err=True)
-        # only re-add content that is not already marked NEEDS_BUILD
-        items = content_build_store.get_content_items(connect_server)
-        items = list(filter(lambda x: x['rsconnect_build_status'] != BuildStatus.NEEDS_BUILD, items))
-        for content_item in items:
-            build_add_content(connect_server, content_item['guid'], content_item['bundle_id'])
+        all_content = content_build_store.get_content_items(connect_server)
+        all_content = list(map(lambda x: ContentGuidWithBundle(x['guid'], x['bundle_id']), all_content))
+        build_add_content(connect_server, all_content)
     else:
+        aborted_content = []
         if aborted:
             click.secho("Adding ABORTED content to build...", err=True)
-            for content_item in content_build_store.get_content_items(connect_server, status=BuildStatus.ABORTED):
-                build_add_content(connect_server, content_item['guid'], content_item['bundle_id'])
+            aborted_content = content_build_store.get_content_items(connect_server, status=BuildStatus.ABORTED)
+            aborted_content = list(map(lambda x: ContentGuidWithBundle(x['guid'], x['bundle_id']), aborted_content))
+        error_content = []
         if error:
             click.secho("Adding ERROR content to build...", err=True)
-            for content_item in content_build_store.get_content_items(connect_server, status=BuildStatus.ERROR):
-                build_add_content(connect_server, content_item['guid'], content_item['bundle_id'])
+            error_content = content_build_store.get_content_items(connect_server, status=BuildStatus.ERROR)
+            error_content = list(map(lambda x: ContentGuidWithBundle(x['guid'], x['bundle_id']), error_content))
+        if len(aborted_content + error_content) > 0:
+            build_add_content(connect_server, aborted_content + error_content)
 
     content_items = content_build_store.get_content_items(connect_server, status=BuildStatus.NEEDS_BUILD)
     if len(content_items) == 0:
@@ -105,16 +127,19 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
         # https://docs.python.org/3/library/concurrent.futures.html#threadpoolexecutor-example
         # spawn a pool of worker threads to perform the content builds
         content_executor = ThreadPoolExecutor(max_workers=parallelism)
-        build_result_futures = {content_executor.submit(_build_content_item, connect_server, content): content['guid'] for content in content_items}
+        build_result_futures = {
+            content_executor.submit(_build_content_item, connect_server, content):
+            ContentGuidWithBundle(content['guid'], content['bundle_id']) for content in content_items
+        }
         for future in as_completed(build_result_futures):
-            guid = build_result_futures[future]
+            guid_with_bundle = build_result_futures[future]
             try:
                 future.result()
             except Exception as exc:
                 # this exception is logged and re-raised from future thread
-                content_build_store.set_content_item_build_status(connect_server, guid, BuildStatus.ERROR)
+                content_build_store.set_content_item_build_status(connect_server, guid_with_bundle.guid, BuildStatus.ERROR)
+                logger.error('%s generated an exception: %s' % (guid_with_bundle, exc))
                 if debug:
-                    logger.error('%s generated an exception: %s' % (guid, exc))
                     logger.error(traceback.format_exc())
 
         # all content builds are finished, mark the build as complete
@@ -194,7 +219,7 @@ def _build_content_item(connect_server, content):
         # so just exit immediately if the current build has been aborted.
         # ThreadPoolExecutor.shutdown(cancel_futures=) isnt available until py3.9
         if content_build_store.aborted():
-                return
+            return
 
         guid = content['guid']
         content_build_store.ensure_logs_dir(connect_server, guid)
