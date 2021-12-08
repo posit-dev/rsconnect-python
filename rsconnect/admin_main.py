@@ -16,9 +16,9 @@ from .metadata import ServerStore
 from .models import (
     AppModes,
     BuildStatus,
-    ContentGuidWithBundle,
-    StrippedString,
-    VersionSearchFilter
+    ContentGuidWithBundleParamType,
+    StrippedStringParamType,
+    VersionSearchFilterParamType
 )
 
 # todo: instead of checking these for every command, we could just do this to skip the connection checks:
@@ -118,12 +118,12 @@ def content():
 )
 @click.option(
     "--r-version",
-    type=VersionSearchFilter("r_version"),
+    type=VersionSearchFilterParamType("r_version"),
     help="Filter content results by R version.",
 )
 @click.option(
     "--py-version",
-    type=VersionSearchFilter("py_version"),
+    type=VersionSearchFilterParamType("py_version"),
     help="Filter content results by Python version.",
 )
 @click.option(
@@ -182,7 +182,7 @@ def content_search(name, server, api_key, insecure, cacert, published, unpublish
     "-g",
     multiple=True,
     required=True,
-    type=StrippedString(),
+    type=StrippedStringParamType(),
     metavar="TEXT",
     help="The GUID of a content item to describe. This flag can be passed multiple times.",
 )
@@ -232,15 +232,9 @@ def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     "--guid",
     "-g",
     required=True,
-    type=StrippedString(),
-    metavar="TEXT",
+    type=ContentGuidWithBundleParamType(),
+    metavar="GUID[,BUNDLE_ID]",
     help="The GUID of a content item to download.",
-)
-@click.option(
-    "--bundle-id",
-    type=StrippedString(),
-    metavar="TEXT",
-    help="The bundle ID of the content item to download. By default, the latest bundle is downloaded.",
 )
 @click.option(
     "--output",
@@ -255,15 +249,15 @@ def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     help="Overwrite the output file if it already exists.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def content_bundle_download(name, server, api_key, insecure, cacert, guid, bundle_id, output, overwrite, verbose):
+def content_bundle_download(name, server, api_key, insecure, cacert, guid, output, overwrite, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         if exists(output) and not overwrite:
             raise api.RSConnectException("The output file already exists: %s" % output)
 
+        result = download_bundle(connect_server, guid)
         with open(output, 'wb') as f:
-            result = download_bundle(connect_server, guid, bundle_id)
             f.write(result.response_body)
 
 
@@ -308,7 +302,7 @@ def build():
     "--guid",
     "-g",
     required=True,
-    type=ContentGuidWithBundle(),
+    type=ContentGuidWithBundleParamType(),
     multiple=True,
     metavar="GUID[,BUNDLE_ID]",
     help="Add a content item by its guid. This flag can be passed multiple times.",
@@ -361,7 +355,7 @@ def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
 @click.option(
     "--guid",
     "-g",
-    type=StrippedString(),
+    type=StrippedStringParamType(),
     metavar="TEXT",
     help="Remove a content item by guid.",
 )
@@ -428,7 +422,7 @@ def remove_content_build(name, server, api_key, insecure, cacert, guid, all, pur
     "--guid",
     "-g",
     multiple=True,
-    type=StrippedString(),
+    type=StrippedStringParamType(),
     metavar="TEXT",
     help="Check the local build state of a specific content item. This flag can be passed multiple times.",
 )
@@ -478,7 +472,7 @@ def list_content_build(name, server, api_key, insecure, cacert, status, guid, ve
     "--guid",
     "-g",
     required=True,
-    type=StrippedString(),
+    type=StrippedStringParamType(),
     metavar="TEXT",
     help="The guid of the content item.",
 )
@@ -528,14 +522,14 @@ def get_build_history(name, server, api_key, insecure, cacert, guid, verbose):
     "--guid",
     "-g",
     required=True,
-    type=StrippedString(),
+    type=StrippedStringParamType(),
     metavar="TEXT",
     help="The guid of the content item.",
 )
 @click.option(
     "--task-id",
     "-t",
-    type=StrippedString(),
+    type=StrippedStringParamType(),
     metavar="TEXT",
     help="The task ID of the build.",
 )

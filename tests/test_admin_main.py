@@ -128,3 +128,8 @@ class TestAdminMain(unittest.TestCase):
 
     def test_build_rm(self):
         pass
+
+    # TODO: Test abort signal handling by setting the poll_wait and sending ^C
+    #   while a build is running.
+    def test_build_abort(self):
+        pass

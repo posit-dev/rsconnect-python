@@ -567,7 +567,7 @@ def _finalize_deploy(
     of log lines.  The log lines value will be None if a log callback was provided.
     """
     app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle)
-    app_url, log_lines = spool_deployment_log(connect_server, app, log_callback)
+    app_url, log_lines, _ = spool_deployment_log(connect_server, app, log_callback)
     app_store.set(
         connect_server.url,
         abspath(file_name),

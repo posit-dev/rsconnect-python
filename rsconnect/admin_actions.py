@@ -30,7 +30,7 @@ content_build_store = ContentBuildStore()
 
 def build_add_content(connect_server, content_guids_with_bundle):
     """
-    :param content_guids_with_bundle: list(admin_main.ContentGuidWithBundle)
+    :param content_guids_with_bundle: Union[tuple[models.ContentGuidWithBundle], list[models.ContentGuidWithBundle]]
     """
     if content_build_store.get_build_running(connect_server):
         raise RSConnectException("There is already a build running on this server, " +
@@ -48,7 +48,7 @@ def build_add_content(connect_server, content_guids_with_bundle):
         guids_to_add = list(map(lambda x: x.guid, content_guids_with_bundle))
         content_to_add = list(filter(lambda x: x['guid'] in guids_to_add, all_content))
 
-        # merge the new bundle_ids if they were provided
+        # merge the explicit bundle_ids if they were provided
         content_to_add = {c['guid']: c for c in content_to_add}
         for c in content_guids_with_bundle:
             current_bundle_id = content_to_add[c.guid]['bundle_id']
@@ -136,7 +136,7 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
             try:
                 future.result()
             except Exception as exc:
-                # this exception is logged and re-raised from future thread
+                # catch any unexpected exceptions from the future thread
                 content_build_store.set_content_item_build_status(connect_server, guid_with_bundle.guid, BuildStatus.ERROR)
                 logger.error('%s generated an exception: %s' % (guid_with_bundle, exc))
                 if debug:
@@ -145,7 +145,7 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
         # all content builds are finished, mark the build as complete
         content_build_store.set_build_running(connect_server, False)
 
-        # wait for build to complete
+        # wait for the build_monitor thread to resolve its future
         try:
             success = summary_future.result()
         except Exception as exc:
@@ -231,17 +231,24 @@ def _build_content_item(connect_server, content, poll_wait):
         task_id = task_result['task_id']
         log_file = content_build_store.get_build_log(connect_server, guid, task_id)
         with open(log_file, 'w') as log:
-            # emit_task_log raises an exception if exit_code != 0
-            emit_task_log(connect_server, guid, task_id,
-                log_callback=lambda line: log.write("%s\n" % line), abort_func=content_build_store.aborted, poll_wait=poll_wait)
+            _, _, task_status = emit_task_log(connect_server, guid, task_id,
+                log_callback=lambda line: log.write("%s\n" % line),
+                abort_func=content_build_store.aborted,
+                poll_wait=poll_wait,
+                raise_on_error=False
+            )
 
         if content_build_store.aborted():
             return
 
-        # grab the updated content metadata from connect and update our store
+        # grab the updated content metadata from connect and update our store.
         updated_content = client.get_content(guid)
         content_build_store.update_content_item(connect_server, guid, updated_content)
-        content_build_store.set_content_item_build_status(connect_server, guid, BuildStatus.COMPLETE)
+        content_build_store.set_content_item_build_task_result(connect_server, guid, task_status)
+        if task_status["code"] != 0:
+            content_build_store.set_content_item_build_status(connect_server, guid, BuildStatus.ERROR)
+        else:
+            content_build_store.set_content_item_build_status(connect_server, guid, BuildStatus.COMPLETE)
 
 
 def emit_build_log(connect_server, guid, format, task_id=None):
@@ -257,17 +264,20 @@ def emit_build_log(connect_server, guid, format, task_id=None):
         raise RSConnectException("Log file not found for content: %s" % guid)
 
 
-def download_bundle(connect_server, guid, bundle_id):
+def download_bundle(connect_server, guid_with_bundle):
+    """
+    :param guid_with_bundle: models.ContentGuidWithBundle
+    """
     with RSConnect(connect_server, timeout=120) as client:
         # bundle_id not provided so grab the latest
-        if not bundle_id:
-            content = client.get_content(guid)
+        if not guid_with_bundle.bundle_id:
+            content = client.get_content(guid_with_bundle.guid)
             if 'bundle_id' in content and content['bundle_id']:
-                bundle_id = content['bundle_id']
+                guid_with_bundle.bundle_id = content['bundle_id']
             else:
-                raise RSConnectException("There is no current bundle available for this content: %s" % guid)
+                raise RSConnectException("There is no current bundle available for this content: %s" % guid_with_bundle.guid)
 
-        return client.download_bundle(guid, bundle_id)
+        return client.download_bundle(guid_with_bundle.guid, guid_with_bundle.bundle_id)
 
 
 def get_content(connect_server, guid):

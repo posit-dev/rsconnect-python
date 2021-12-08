@@ -553,9 +553,13 @@ class ContentBuildStore(DataStore):
             if not old_content:
                 raise api.RSConnectException("Content not found: %s" % guid)
 
+            # bundle_id is intentionally excluded from this update.
+            # the server's bundle_id is not updated if the build fails, so it could be confusing
+            # for the user if we show the currently deployed bundle_id instead of the one that
+            # failed to build. we also know that bundle_id is always populated during `build add`
+            # so we can instead just continue using the bundle_id stored locally
             old_content.update(dict(
                 guid=guid,
-                bundle_id=content['bundle_id'],
                 title=content['title'],
                 name=content['name'],
                 app_mode=content['app_mode'],
@@ -605,6 +609,22 @@ class ContentBuildStore(DataStore):
         with self._lock:
             content = self.get_content_item(server, guid)
             content['rsconnect_build_status'] = str(status)
+            self.save()
+
+    def set_content_item_build_task_result(self, server, guid, task):
+        """
+        Set the latest task_result for a content build
+        """
+        with self._lock:
+            content = self.get_content_item(server, guid)
+            # status contains the log lines for the build. We have already recorded these in the
+            # log file on disk so we can remove them from the task result before storing it
+            # to reduce the data stored in our `build.json` file
+            remove_keys = ['status', 'last_status']
+            for key in remove_keys:
+                if key in task:
+                    task.pop(key)
+            content['rsconnect_build_task_result'] = task
             self.save()
 
     def get_content_items(self, server, status=None):

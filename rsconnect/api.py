@@ -187,7 +187,7 @@ class RSConnect(HTTPServer):
         self._server.handle_bad_response(results)
         return results
 
-    def wait_for_task(self, app_id, task_id, log_callback, abort_func=lambda: False, timeout=None, poll_wait=.5):
+    def wait_for_task(self, app_id, task_id, log_callback, abort_func=lambda: False, timeout=None, poll_wait=.5, raise_on_error=True):
         last_status = None
         ending = time.time() + timeout if timeout else 999999999999
 
@@ -197,20 +197,33 @@ class RSConnect(HTTPServer):
         else:
             log_lines = None
 
+        sleep_duration = .5
+        time_slept = 0
         while True:
             if time.time() >= ending:
                 raise RSConnectException("Task timed out after %d seconds" % timeout)
             elif abort_func():
                 raise RSConnectException("Task aborted.")
 
-            time.sleep(poll_wait)
-            task_status = self.task_get(task_id, last_status)
-            self._server.handle_bad_response(task_status)
-            last_status = self.output_task_log(task_status, last_status, log_callback)
-            if task_status["finished"]:
-                app_config = self.app_config(app_id)
-                app_url = app_config.get("config_url")
-                return app_url, log_lines
+            # we continue the loop so that we can re-check abort_func() in case there was an interrupt (^C),
+            # otherwise the user would have to wait a full poll_wait cycle before the program would exit.
+            if time_slept <= poll_wait:
+                time_slept += sleep_duration
+                time.sleep(sleep_duration)
+                continue
+            else:
+                time_slept = 0
+                task_status = self.task_get(task_id, last_status)
+                self._server.handle_bad_response(task_status)
+                last_status = self.output_task_log(task_status, last_status, log_callback)
+                if task_status["finished"]:
+                    exit_code = task_status["code"]
+                    if exit_code != 0:
+                        exit_status = "Task exited with status %d." % exit_code
+                        log_callback("Task failed. %s" % exit_status)
+                        if raise_on_error:
+                            raise RSConnectException(exit_status)
+                    return log_lines, task_status
 
     @staticmethod
     def output_task_log(task_status, last_status, log_callback):
@@ -226,17 +239,6 @@ class RSConnect(HTTPServer):
             for line in task_status["status"]:
                 log_callback(line)
             new_last_status = task_status["last_status"]
-
-        if task_status["finished"]:
-            exit_code = task_status["code"]
-            if exit_code != 0:
-                reason = "Task exited with status %d." % exit_code
-                log_callback("Task failed. %s" % reason)
-                if 'result' in task_status:
-                    log_callback("%s: %s" % (task_status['result']['type'], task_status['result']['data']))
-                if 'error' in task_status:
-                    log_callback("Error: %s" % task_status['error'])
-                raise RSConnectException(reason)
 
         return new_last_status
 
@@ -338,7 +340,7 @@ def do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bund
         return result
 
 
-def emit_task_log(connect_server, app_id, task_id, log_callback, abort_func=lambda: False, timeout=None, poll_wait=.5):
+def emit_task_log(connect_server, app_id, task_id, log_callback, abort_func=lambda: False, timeout=None, poll_wait=.5, raise_on_error=True):
     """
     Helper for spooling the deployment log for an app.
 
@@ -350,13 +352,19 @@ def emit_task_log(connect_server, app_id, task_id, log_callback, abort_func=lamb
     If a log callback is provided, then None will be returned for the log lines part
     of the return tuple.
     :param timeout: an optional timeout for the wait operation.
+    :param poll_wait: how long to wait between polls of the task api for status/logs
+    :param raise_on_error: whether to raise an exception when a task is failed, otherwise we
+    return the task_result so we can record the exit code.
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
     with RSConnect(connect_server) as client:
-        result = client.wait_for_task(app_id, task_id, log_callback, abort_func, timeout, poll_wait)
+        result = client.wait_for_task(app_id, task_id, log_callback, abort_func, timeout, poll_wait, raise_on_error)
         connect_server.handle_bad_response(result)
-        return result
+        app_config = client.app_config(app_id)
+        connect_server.handle_bad_response(app_config)
+        app_url = app_config.get("config_url")
+        return (app_url, *result)
 
 
 def retrieve_matching_apps(connect_server, filters=None, limit=None, mapping_function=None):

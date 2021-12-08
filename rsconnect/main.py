@@ -507,7 +507,7 @@ def _deploy_bundle(
 
     with cli_feedback(""):
         click.secho("\nDeployment log:")
-        app_url, _ = spool_deployment_log(connect_server, app, click.echo)
+        app_url, _, _ = spool_deployment_log(connect_server, app, click.echo)
         click.secho("Deployment completed successfully.")
         click.secho("    Dashboard content URL: ", nl=False)
         click.secho(app_url, fg="green")
