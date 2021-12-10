@@ -176,7 +176,7 @@ def _monitor_build(connect_server, content_items):
         error = [item for item in content_items if item['rsconnect_build_status'] == BuildStatus.ERROR]
         running = [item for item in content_items if item['rsconnect_build_status'] == BuildStatus.RUNNING]
         pending = [item for item in content_items if item['rsconnect_build_status'] == BuildStatus.NEEDS_BUILD]
-        logger.info("Build Progress... Running = %d, Pending = %d, Success = %d, Error = %d" %
+        logger.info("Running = %d, Pending = %d, Success = %d, Error = %d" %
             (len(running), len(pending), len(complete), len(error)))
 
     if content_build_store.aborted():
