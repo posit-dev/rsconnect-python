@@ -164,6 +164,21 @@ content search \
 rsconnect-admin build add --guid $guid; done
 ```
 
+#### Bulk add with xargs
+
+Adding content items one at a time can be a slow operation. This is because `rsconnect-admin` must
+fetch metadata for each content item before it is added to the "tracked" content items.
+By providing multiple `--guid` arguments to the `build add` subcommand, we can fetch metadata
+for multiple content items in a single api call, which speeds up the operation sigificantly.
+
+```bash
+# write the guid of every published content item to a file called guids.txt
+rsconnect-admin content search --published | jq '.[].guid' > guids.txt
+
+# bulk-add from the guids.txt by executing a single `rsconnect-admin build add` command
+xargs printf -- '-g %s\n' < guids.txt | xargs rsconnect-admin build add
+```
+
 #### Finding r and python versions
 
 One common use for the `search` command might be to find the versions of
