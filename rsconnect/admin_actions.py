@@ -171,40 +171,35 @@ def _monitor_build(connect_server, content_items):
     """
     start = datetime.now()
     while content_build_store.get_build_running(connect_server) and not content_build_store.aborted():
-        current = datetime.now()
-        duration = current - start
-        # construct a new delta w/o millis since timedelta doesn't allow strfmt
-        rounded_duration = timedelta(seconds=duration.seconds)
-        time.sleep(0.5)
+        time.sleep(5)
         complete = [item for item in content_items if item['rsconnect_build_status'] == BuildStatus.COMPLETE]
         error = [item for item in content_items if item['rsconnect_build_status'] == BuildStatus.ERROR]
         running = [item for item in content_items if item['rsconnect_build_status'] == BuildStatus.RUNNING]
         pending = [item for item in content_items if item['rsconnect_build_status'] == BuildStatus.NEEDS_BUILD]
-        # click.secho("\033[KContent build in progress... (%s) Running = %d, Pending = %d, Success = %d, Error = %d\r" %
-        #     (rounded_duration, len(running), len(pending), len(complete), len(error)), nl=False)
+        logger.info("Build Progress... Running = %d, Pending = %d, Success = %d, Error = %d" %
+            (len(running), len(pending), len(complete), len(error)))
 
     if content_build_store.aborted():
         logger.warn("Build interrupted!")
         aborted_builds = [i['guid'] for i in content_items if i['rsconnect_build_status'] == BuildStatus.RUNNING]
         if len(aborted_builds) > 0:
             logger.warn("Marking %d builds as ABORTED..." % len(aborted_builds))
-            # logger.info("Use `rsconnect-admin build run --aborted` to retry the aborted builds.")
-            # logger.info("Aborted builds:")
             for guid in aborted_builds:
-                # logger.info("\t%s" % guid)
+                logger.warn("Build aborted: %s" % guid)
                 content_build_store.set_content_item_build_status(connect_server, guid, BuildStatus.ABORTED)
         return False
 
-    # TODO: print summary as structured json object instead of a string so that it is easily parsed
-    logger.info("%d/%d content builds completed in %s" % (len(complete) + len(error), len(content_items), rounded_duration))
+    # TODO: print summary as structured json object instead of a string when
+    #   format = json so that it is easily parsed by log aggregators
+    current = datetime.now()
+    duration = current - start
+    # construct a new delta w/o millis since timedelta doesn't allow strfmt
+    rounded_duration = timedelta(seconds=duration.seconds)
+    logger.info("%d/%d content builds completed in %s" %
+        (len(complete) + len(error), len(content_items), rounded_duration))
     logger.info("Success = %d, Error = %d" % (len(complete), len(error)))
     if len(error) > 0:
-        logger.warn("There were %d failures during your build." % len(error))
-        # logger.warn("\tUse `rsconnect-admin build ls --status=ERROR` to list the failed content.")
-        # logger.warn("\tUse `rsconnect-admin build logs --guid` to check the build logs of a specific content build.")
-        # logger.warn("Failed content:")
-        # for c in error:
-        #     logger.warn("Name: %s, GUID: %s" % (c['name'], c['guid']))
+        logger.error("There were %d failures during your build." % len(error))
         return False
     return True
 
@@ -221,6 +216,7 @@ def _build_content_item(connect_server, content, poll_wait):
             return
 
         guid = content['guid']
+        logger.info("Starting build: %s" % guid)
         content_build_store.ensure_logs_dir(connect_server, guid)
         content_build_store.set_content_item_build_status(connect_server, guid, BuildStatus.RUNNING)
         task_result = client.content_build(guid, content.get('bundle_id'))
@@ -242,8 +238,10 @@ def _build_content_item(connect_server, content, poll_wait):
         content_build_store.update_content_item(connect_server, guid, updated_content)
         content_build_store.set_content_item_build_task_result(connect_server, guid, task_status)
         if task_status["code"] != 0:
+            logger.error("Build failed: %s" % guid)
             content_build_store.set_content_item_build_status(connect_server, guid, BuildStatus.ERROR)
         else:
+            logger.info("Build succeeded: %s" % guid)
             content_build_store.set_content_item_build_status(connect_server, guid, BuildStatus.COMPLETE)
 
 
