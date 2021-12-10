@@ -1,5 +1,4 @@
 import errno
-import logging
 import textwrap
 from os.path import abspath, dirname, exists, isdir, join
 
@@ -46,8 +45,6 @@ from .models import AppModes
 
 server_store = ServerStore()
 future_enabled = False
-logging.basicConfig()
-
 
 @click.group(no_args_is_help=True)
 @click.option("--future", "-u", is_flag=True, hidden=True, help="Enables future functionality.")

@@ -90,19 +90,19 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
 
     # if we are re-building any already "tracked" content items, then re-add them to be safe
     if all:
-        click.secho("Adding all content to build...", err=True)
+        logger.info("Adding all content to build...")
         all_content = content_build_store.get_content_items(connect_server)
         all_content = list(map(lambda x: ContentGuidWithBundle(x['guid'], x['bundle_id']), all_content))
         build_add_content(connect_server, all_content)
     else:
         aborted_content = []
         if aborted:
-            click.secho("Adding ABORTED content to build...", err=True)
+            logger.info("Adding ABORTED content to build...")
             aborted_content = content_build_store.get_content_items(connect_server, status=BuildStatus.ABORTED)
             aborted_content = list(map(lambda x: ContentGuidWithBundle(x['guid'], x['bundle_id']), aborted_content))
         error_content = []
         if error:
-            click.secho("Adding ERROR content to build...", err=True)
+            logger.info("Adding ERROR content to build...")
             error_content = content_build_store.get_content_items(connect_server, status=BuildStatus.ERROR)
             error_content = list(map(lambda x: ContentGuidWithBundle(x['guid'], x['bundle_id']), error_content))
         if len(aborted_content + error_content) > 0:
@@ -110,14 +110,14 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
 
     content_items = content_build_store.get_content_items(connect_server, status=BuildStatus.NEEDS_BUILD)
     if len(content_items) == 0:
-        click.secho("Nothing to build...")
-        click.secho("\tUse `rsconnect-admin build add` to mark content for build.")
+        logger.info("Nothing to build...")
+        logger.info("\tUse `rsconnect-admin build add` to mark content for build.")
         return
 
     build_monitor = None
     content_executor = None
     try:
-        click.secho("Starting content build (%s)..." % connect_server.url)
+        logger.info("Starting content build (%s)..." % connect_server.url)
         content_build_store.set_build_running(connect_server, True)
 
         # spawn a single thread to monitor progress and report feedback to the user
@@ -151,7 +151,7 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
         except Exception as exc:
             logger.error(exc)
 
-        click.secho("\nContent build complete.")
+        logger.info("Content build complete.")
         if not success:
             exit(1)
     except KeyboardInterrupt:
@@ -169,7 +169,6 @@ def _monitor_build(connect_server, content_items):
     """
     :return bool: True if the build completed without errors, False otherwise
     """
-    click.secho()
     start = datetime.now()
     while content_build_store.get_build_running(connect_server) and not content_build_store.aborted():
         current = datetime.now()
@@ -181,34 +180,31 @@ def _monitor_build(connect_server, content_items):
         error = [item for item in content_items if item['rsconnect_build_status'] == BuildStatus.ERROR]
         running = [item for item in content_items if item['rsconnect_build_status'] == BuildStatus.RUNNING]
         pending = [item for item in content_items if item['rsconnect_build_status'] == BuildStatus.NEEDS_BUILD]
-        click.secho("\033[KContent build in progress... (%s) Running = %d, Pending = %d, Success = %d, Error = %d\r" %
-            (rounded_duration, len(running), len(pending), len(complete), len(error)), nl=False)
+        # click.secho("\033[KContent build in progress... (%s) Running = %d, Pending = %d, Success = %d, Error = %d\r" %
+        #     (rounded_duration, len(running), len(pending), len(complete), len(error)), nl=False)
 
-    # https://stackoverflow.com/questions/2388090/how-to-delete-and-replace-last-line-in-the-terminal-using-bash
-    click.secho('\033[K')
     if content_build_store.aborted():
-        click.secho("Build interrupted! Marking running builds as ABORTED...")
+        logger.warn("Build interrupted!")
         aborted_builds = [i['guid'] for i in content_items if i['rsconnect_build_status'] == BuildStatus.RUNNING]
         if len(aborted_builds) > 0:
-            click.secho("\tUse `rsconnect-admin build run --aborted` to retry the aborted builds.")
-            click.secho("Aborted builds:")
+            logger.warn("Marking %d builds as ABORTED..." % len(aborted_builds))
+            # logger.info("Use `rsconnect-admin build run --aborted` to retry the aborted builds.")
+            # logger.info("Aborted builds:")
             for guid in aborted_builds:
-                click.secho("\t%s" % guid)
+                # logger.info("\t%s" % guid)
                 content_build_store.set_content_item_build_status(connect_server, guid, BuildStatus.ABORTED)
         return False
 
-    click.secho()
-    click.secho("%d/%d content builds completed in %s" % (len(complete) + len(error), len(content_items), rounded_duration))
-    click.secho("Success = %d, Error = %d" % (len(complete), len(error)))
+    # TODO: print summary as structured json object instead of a string so that it is easily parsed
+    logger.info("%d/%d content builds completed in %s" % (len(complete) + len(error), len(content_items), rounded_duration))
+    logger.info("Success = %d, Error = %d" % (len(complete), len(error)))
     if len(error) > 0:
-        click.secho()
-        click.secho("There were failures during your build.")
-        click.secho("\tUse `rsconnect-admin build ls --status=ERROR` to list the failed content.")
-        click.secho("\tUse `rsconnect-admin build logs --guid` to check the build logs of a specific content build.")
-        # click.secho()
-        # click.secho("Failed content:")
+        logger.warn("There were %d failures during your build." % len(error))
+        # logger.warn("\tUse `rsconnect-admin build ls --status=ERROR` to list the failed content.")
+        # logger.warn("\tUse `rsconnect-admin build logs --guid` to check the build logs of a specific content build.")
+        # logger.warn("Failed content:")
         # for c in error:
-        #     click.secho("\tName: %s, GUID: %s" % (c['name'], c['guid']))
+        #     logger.warn("Name: %s, GUID: %s" % (c['name'], c['guid']))
         return False
     return True
 

@@ -6,6 +6,7 @@ from os.path import exists
 
 import click
 
+from rsconnect.log import LogOutputFormat, logger
 from . import VERSION
 from . import api
 from .actions import (
@@ -39,7 +40,6 @@ from .admin_actions import (
 
 
 server_store = ServerStore()
-logging.basicConfig()
 
 def _verify_build_rm_args(guid, all, purge):
     if guid and all:
@@ -536,8 +536,8 @@ def get_build_history(name, server, api_key, insecure, cacert, guid, verbose):
 @click.option(
     "--format",
     "-f",
-    type=click.Choice(["json", "text"]),
-    default="text",
+    type=click.Choice(LogOutputFormat._all),
+    default=LogOutputFormat.DEFAULT,
     help="The output format of the logs. Defaults to text.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
@@ -609,13 +609,21 @@ def get_build_logs(name, server, api_key, insecure, cacert, guid, task_id, forma
     help="Defines the number of seconds between polls when polling for build output. Defaults to 2.",
 )
 @click.option(
+    "--format",
+    "-f",
+    type=click.Choice(LogOutputFormat._all),
+    default=LogOutputFormat.DEFAULT,
+    help="The output format of the logs. Defaults to text.",
+)
+@click.option(
     "--debug",
     is_flag=True,
     help="Log stacktraces from exceptions during background operations."
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def start_content_build(name, server, api_key, insecure, cacert, parallelism, aborted, error, all, poll_wait, debug, verbose):
+def start_content_build(name, server, api_key, insecure, cacert, parallelism, aborted, error, all, poll_wait, format, debug, verbose):
     set_verbosity(verbose)
+    logger.set_log_output_format(format)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         build_start(connect_server, parallelism, aborted, error, all, poll_wait, debug)

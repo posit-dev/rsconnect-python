@@ -93,7 +93,7 @@ def set_verbosity(verbose):
     if verbose:
         logger.setLevel(logging.DEBUG)
     else:
-        logger.setLevel(logging.WARN)
+        logger.setLevel(logging.INFO)
 
 
 def which_python(python, env=os.environ):
