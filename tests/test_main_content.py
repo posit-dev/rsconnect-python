@@ -5,7 +5,7 @@ import tarfile
 import unittest
 from click.testing import CliRunner
 
-from rsconnect.admin_main import cli
+from rsconnect.main import cli
 from rsconnect import VERSION
 from rsconnect.models import BuildStatus
 
@@ -28,7 +28,7 @@ _content_guids = [
 _test_build_dir = "rsconnect-build-test"
 
 
-class TestAdminMain(unittest.TestCase):
+class TestContentSubcommand(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):

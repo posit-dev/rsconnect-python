@@ -35,20 +35,20 @@ class JsonLogFormatter(logging.Formatter):
         }
         self.datefmt = datefmt
 
-    def usesTime(self) -> bool:
+    def usesTime(self):
         """
         Overwritten to look for the attribute in the format dict values instead of the fmt string.
         """
         return "asctime" in self.fmt_dict.values()
 
-    def formatMessage(self, record) -> dict:
+    def formatMessage(self, record):
         """
         Overwritten to return a dictionary of the relevant LogRecord attributes instead of a string.
         KeyError is raised if an unknown attribute is provided in the fmt_dict.
         """
         return {fmt_key: record.__dict__[fmt_val] for fmt_key, fmt_val in self.fmt_dict.items()}
 
-    def format(self, record) -> str:
+    def format(self, record):
         """
         Mostly the same as the parent's class method, the difference being that a dict is manipulated and dumped as JSON
         instead of a string.

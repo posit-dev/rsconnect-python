@@ -203,9 +203,11 @@ class TestBundle(TestCase):
         self.assertEqual(files, paths[:2])
 
     def test_html_bundle1(self):
+        print(get_dir("pip1"))
         self.do_test_html_bundle(get_dir("pip1"))
 
     def test_html_bundle2(self):
+        print(get_dir("pip2"))
         self.do_test_html_bundle(get_dir("pip2"))
 
     def do_test_html_bundle(self, directory):
