@@ -187,7 +187,7 @@ class RSConnect(HTTPServer):
         self._server.handle_bad_response(results)
         return results
 
-    def wait_for_task(self, app_id, task_id, log_callback, abort_func=lambda: False, timeout=None, poll_wait=.5, raise_on_error=True):
+    def wait_for_task(self, task_id, log_callback, abort_func=lambda: False, timeout=None, poll_wait=.5, raise_on_error=True):
         last_status = None
         ending = time.time() + timeout if timeout else 999999999999
 
@@ -359,7 +359,7 @@ def emit_task_log(connect_server, app_id, task_id, log_callback, abort_func=lamb
     of log lines.  The log lines value will be None if a log callback was provided.
     """
     with RSConnect(connect_server) as client:
-        result = client.wait_for_task(app_id, task_id, log_callback, abort_func, timeout, poll_wait, raise_on_error)
+        result = client.wait_for_task(task_id, log_callback, abort_func, timeout, poll_wait, raise_on_error)
         connect_server.handle_bad_response(result)
         app_config = client.app_config(app_id)
         connect_server.handle_bad_response(app_config)
