@@ -5,11 +5,8 @@ import json
 import time
 import traceback
 
-# This probably breaks python2, can we remove python2.7 support
-# from setup and/or can we require >3 for only the admin tool?
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
-#from multiprocessing.pool import ThreadPool
 
 import semver
 
@@ -54,7 +51,7 @@ def build_add_content(connect_server, content_guids_with_bundle):
         guids_to_add = list(map(lambda x: x.guid, content_guids_with_bundle))
         content_to_add = list(filter(lambda x: x['guid'] in guids_to_add, all_content))
 
-        # merge the explicit bundle_ids if they were provided
+        # merge the provided bundle_ids if they were specified
         content_to_add = {c['guid']: c for c in content_to_add}
         for c in content_guids_with_bundle:
             current_bundle_id = content_to_add[c.guid]['bundle_id']
@@ -232,8 +229,15 @@ def _build_content_item(connect_server, content, poll_wait):
         _content_build_store.update_content_item_last_build_time(guid)
         _content_build_store.set_content_item_build_status(guid, BuildStatus.RUNNING)
         _content_build_store.ensure_logs_dir(guid)
-        task_result = client.content_build(guid, content.get('bundle_id'))
-        task_id = task_result['task_id']
+        try:
+            task_result = client.content_build(guid, content.get('bundle_id'))
+            task_id = task_result['task_id']
+        except RSConnectException:
+            # if we can't submit the build to connect then there is no log file
+            # created on disk. When this happens we need to set the last_build_log
+            # to None so its clear that we submitted a build but it never started
+            _content_build_store.update_content_item_last_build_log(guid, None)
+            raise
         log_file = _content_build_store.get_build_log(guid, task_id)
         with open(log_file, 'w') as log:
             _, _, task_status = emit_task_log(connect_server, guid, task_id,
@@ -242,6 +246,7 @@ def _build_content_item(connect_server, content, poll_wait):
                 poll_wait=poll_wait,
                 raise_on_error=False
             )
+        _content_build_store.update_content_item_last_build_log(guid, log_file)
 
         if _content_build_store.aborted():
             return
@@ -249,7 +254,7 @@ def _build_content_item(connect_server, content, poll_wait):
         # grab the updated content metadata from connect and update our store.
         updated_content = client.get_content(guid)
         _content_build_store.update_content_item(guid, updated_content)
-        _content_build_store.set_content_item_build_task_result(guid, task_status)
+        _content_build_store.set_content_item_last_build_task_result(guid, task_status)
         if task_status["code"] != 0:
             logger.error("Build failed: %s" % guid)
             _content_build_store.set_content_item_build_status(guid, BuildStatus.ERROR)

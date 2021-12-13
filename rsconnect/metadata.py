@@ -460,8 +460,8 @@ class ContentBuildStore(DataStore):
     _BUILD_ABORTED = False
 
     def __init__(self, server, base_dir=os.getenv("CONNECT_ADMIN_BUILD_DIR", DEFAULT_BUILD_DIR)):
-        self._base_dir = base_dir
         self._server = server
+        self._base_dir = os.path.abspath(base_dir)
         self._build_logs_dir = join(self._base_dir, "logs", _normalize_server_url(server.url))
         self._build_state_file = join(self._base_dir, "%s.json" % _normalize_server_url(server.url))
         super(ContentBuildStore, self).__init__(self._build_state_file, chmod=True)
@@ -482,20 +482,16 @@ class ContentBuildStore(DataStore):
         """
         Returns the path to the build log file. This method does not check
         whether the file exists if a task_id is provided.
-        If task_id is not provided, we will return the latest log
-        using the last modified timestamp on the filesystem.
-        If no log files are found, returns None
+        If task_id is not provided, we will return the latest log,
+        specified by rsconnect_last_build_log.
+        If no log file is found, returns None
         """
         log_dir = self.get_build_logs_dir(guid)
         if task_id:
             return join(log_dir, "%s.log" % task_id)
         else:
-            try:
-                log_files = glob.glob(join(log_dir, "*.log"))
-                latest = max(log_files, key=os.path.getctime)
-            except ValueError:
-                latest = None
-            return latest
+            content = self.get_content_item(guid)
+            return content.get('rsconnect_last_build_log')
 
     def get_build_history(self, guid):
         """
@@ -623,7 +619,17 @@ class ContentBuildStore(DataStore):
             if not defer_save:
                 self.save()
 
-    def set_content_item_build_task_result(self, guid, task, defer_save=False):
+    def update_content_item_last_build_log(self, guid, log_file, defer_save=False):
+        """
+        Set the last_build_log filepath for a content build
+        """
+        with self._lock:
+            content = self.get_content_item(guid)
+            content['rsconnect_last_build_log'] = log_file
+            if not defer_save:
+                self.save()
+
+    def set_content_item_last_build_task_result(self, guid, task, defer_save=False):
         """
         Set the latest task_result for a content build
         """
