@@ -352,8 +352,8 @@ def _apply_content_filters(content_list, published, unpublished, content_type, r
 def _order_content_results(content_list, order_by):
     result = iter(content_list)
     if order_by == "last_deployed":
-        result = sorted(result, key=lambda c: c['last_deployed_time'])
+        pass # do nothing, content is ordered by last_deployed by default
     elif order_by == "created":
-        result = sorted(result, key=lambda c: c['created_time'])
+        result = sorted(result, key=lambda c: c['created_time'], reverse=True)
 
     return result
