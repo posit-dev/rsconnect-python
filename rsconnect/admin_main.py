@@ -314,9 +314,9 @@ def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         build_add_content(connect_server, guid)
         if len(guid) == 1:
-            click.secho("Added \"%s\"." % guid[0], err=True)
+            logger.info("Added \"%s\"." % guid[0])
         else:
-            click.secho("Bulk added %d content items." % len(guid), err=True)
+            logger.info("Bulk added %d content items." % len(guid))
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -378,7 +378,7 @@ def remove_content_build(name, server, api_key, insecure, cacert, guid, all, pur
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         _verify_build_rm_args(guid, all, purge)
         build_remove_content(connect_server, guid, all, purge)
-        click.secho("Removed %s" % guid, err=True)
+        logger.info("Removed %s" % guid)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode

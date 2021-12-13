@@ -121,3 +121,4 @@ class RSLogger(logging.LoggerAdapter):
 
 logger = RSLogger()
 logger.addHandler(logging.StreamHandler())
+logger.set_log_output_format(LogOutputFormat.DEFAULT)

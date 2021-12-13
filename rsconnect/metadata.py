@@ -440,11 +440,12 @@ class ContentBuildStore(DataStore):
     The metadata directory for a content build is written in the directory specified by
     CONNECT_ADMIN_BUILD_DIR or the current working directory is none is supplied.
 
-    A single `build.json` file contains "tracked" content for 1-N connect servers.
+    A build-state file contains "tracked" content for a single connect server.
+    The file is named using the normalized server URL for the target server.
     The structure is as follows:
     {
-        "<connect server url>": {
-            "rsconnect_build_running": <bool>,
+        "rsconnect_build_running": <bool>,
+        "rsconnect_content": {
             "<content guid 1>": {
                 "rsconnect_build_status": <models.BuildStatus>,
                 ..., // various content metadata fields returned by the v1/content api
@@ -452,33 +453,32 @@ class ContentBuildStore(DataStore):
             "<content guid 2>": {
                 ...,
             }
-        },
-        "https://another-connect-server:443": {
-            ...,
-        },
-        ...
+        }
     }
     """
 
     _BUILD_ABORTED = False
 
-    def __init__(self, base_dir=os.getenv("CONNECT_ADMIN_BUILD_DIR", DEFAULT_BUILD_DIR)):
+    def __init__(self, server, base_dir=os.getenv("CONNECT_ADMIN_BUILD_DIR", DEFAULT_BUILD_DIR)):
         self._base_dir = base_dir
-        super(ContentBuildStore, self).__init__(join(base_dir, "build.json"), chmod=True)
+        self._server = server
+        self._build_logs_dir = join(self._base_dir, "logs", _normalize_server_url(server.url))
+        self._build_state_file = join(self._base_dir, "%s.json" % _normalize_server_url(server.url))
+        super(ContentBuildStore, self).__init__(self._build_state_file, chmod=True)
 
     def aborted(self):
         return ContentBuildStore._BUILD_ABORTED
 
-    def get_build_logs_dir(self, server, guid):
-        return join(self._base_dir, "logs", _normalize_server_url(server.url), guid)
+    def get_build_logs_dir(self, guid):
+        return join(self._build_logs_dir, guid)
 
-    def ensure_logs_dir(self, server, guid):
-        log_dir = self.get_build_logs_dir(server, guid)
+    def ensure_logs_dir(self, guid):
+        log_dir = self.get_build_logs_dir(guid)
         os.makedirs(log_dir, exist_ok=True)
         if self._chmod:
             os.chmod(log_dir, 0o700)
 
-    def get_build_log(self, server, guid, task_id=None):
+    def get_build_log(self, guid, task_id=None):
         """
         Returns the path to the build log file. This method does not check
         whether the file exists if a task_id is provided.
@@ -486,7 +486,7 @@ class ContentBuildStore(DataStore):
         using the last modified timestamp on the filesystem.
         If no log files are found, returns None
         """
-        log_dir = self.get_build_logs_dir(server, guid)
+        log_dir = self.get_build_logs_dir(guid)
         if task_id:
             return join(log_dir, "%s.log" % task_id)
         else:
@@ -497,11 +497,11 @@ class ContentBuildStore(DataStore):
                 latest = None
             return latest
 
-    def get_build_history(self, server, guid):
+    def get_build_history(self, guid):
         """
         Returns the build history for a given content guid.
         """
-        log_dir = self.get_build_logs_dir(server, guid)
+        log_dir = self.get_build_logs_dir(guid)
         log_files = glob.glob(join(log_dir, '*.log'))
         history = []
         for f in log_files:
@@ -511,26 +511,24 @@ class ContentBuildStore(DataStore):
         history.sort(key=lambda x: x['time'])
         return history
 
-    def get_build_running(self, server):
-        return self._data.get(server.url, {}).get('rsconnect_build_running')
+    def get_build_running(self):
+        return self._data.get('rsconnect_build_running')
 
-    def set_build_running(self, server, is_running):
+    def set_build_running(self, is_running, defer_save=False):
         with self._lock:
-            self._data[server.url]['rsconnect_build_running'] = is_running
-            self.save()
+            self._data['rsconnect_build_running'] = is_running
+            if not defer_save:
+                self.save()
 
-    def add_content_item(self, server, content):
+    def add_content_item(self, content, defer_save=False):
         """
-        Add an item to the builds for a given server
+        Add an item to the tracked content store
         """
         with self._lock:
-            if server.url not in self._data:
-                self._data[server.url] = dict()
+            if 'rsconnect_content' not in self._data:
+                self._data['rsconnect_content'] = dict()
 
-            if 'content' not in self._data[server.url]:
-                self._data[server.url]['content'] = dict()
-
-            self._data[server.url]['content'][content['guid']] = dict(
+            self._data['rsconnect_content'][content['guid']] = dict(
                 guid=content['guid'],
                 bundle_id=content['bundle_id'],
                 title=content['title'],
@@ -542,14 +540,15 @@ class ContentBuildStore(DataStore):
                 last_deployed_time=content['last_deployed_time'],
                 owner_guid=content['owner_guid'],
             )
-            self.save()
+            if not defer_save:
+                self.save()
 
-    def update_content_item(self, server, guid, content):
+    def update_content_item(self, guid, content, defer_save=False):
         """
-        Update an existing item in the builds for a given server
+        Update an existing item in the tracked content store
         """
         with self._lock:
-            old_content = self.get_content_item(server, guid)
+            old_content = self.get_content_item(guid)
             if not old_content:
                 raise api.RSConnectException("Content not found: %s" % guid)
 
@@ -569,54 +568,57 @@ class ContentBuildStore(DataStore):
                 last_deployed_time=content['last_deployed_time'],
                 owner_guid=content['owner_guid'],
             ))
-            self.save()
+            if not defer_save:
+                self.save()
 
-    def get_content_item(self, server, guid):
+    def get_content_item(self, guid):
         """
-        Get a content item from the builds for a given server by guid
+        Get a content item from the tracked content store by guid
         """
-        return self._data.get(server.url, {}).get('content', {}).get(guid)
+        return self._data.get('rsconnect_content', {}).get(guid)
 
-    def _cleanup_content_log_dir(self, server, guid):
+    def _cleanup_content_log_dir(self, guid):
         """
         Delete the local logs directory for a given content item.
         """
-        logs_dir = self.get_build_logs_dir(server, guid)
+        logs_dir = self.get_build_logs_dir(guid)
         try:
             shutil.rmtree(logs_dir)
         except FileNotFoundError:
             pass
 
-    def remove_content_item(self, server, guid, purge=False):
+    def remove_content_item(self, guid, purge=False, defer_save=False):
         """
-        Remove a content item from the builds for a given server by guid.
+        Remove a content item from the tracked content from the state-file.
         If purge is True, cleanup the log files on the local filesystem.
         """
         if purge:
-            self._cleanup_content_log_dir(server, guid)
+            self._cleanup_content_log_dir(guid)
 
         with self._lock:
             try:
-                self._data.get(server.url, {}).get('content', {}).pop(guid)
+                self._data.get('rsconnect_content', {}).pop(guid)
             except KeyError:
                 pass
-            self.save()
+            if not defer_save:
+                self.save()
 
-    def set_content_item_build_status(self, server, guid, status):
+    def set_content_item_build_status(self, guid, status, defer_save=False):
         """
         Set the current status for a content build
         """
         with self._lock:
-            content = self.get_content_item(server, guid)
+            content = self.get_content_item(guid)
             content['rsconnect_build_status'] = str(status)
-            self.save()
+            if not defer_save:
+                self.save()
 
-    def set_content_item_build_task_result(self, server, guid, task):
+    def set_content_item_build_task_result(self, guid, task, defer_save=False):
         """
         Set the latest task_result for a content build
         """
         with self._lock:
-            content = self.get_content_item(server, guid)
+            content = self.get_content_item(guid)
             # status contains the log lines for the build. We have already recorded these in the
             # log file on disk so we can remove them from the task result before storing it
             # to reduce the data stored in our `build.json` file
@@ -625,15 +627,16 @@ class ContentBuildStore(DataStore):
                 if key in task:
                     task.pop(key)
             content['rsconnect_build_task_result'] = task
-            self.save()
+            if not defer_save:
+                self.save()
 
-    def get_content_items(self, server, status=None):
+    def get_content_items(self, status=None):
         """
-        Get all the content items that are tracked for build on the given server.
+        Get all the content items that are tracked for build in the state-file.
         :param status: Filter results by build status
         :return: A list of content items
         """
-        all_content = list(self._data.get(server.url, {}).get('content', {}).values())
+        all_content = list(self._data.get('rsconnect_content', {}).values())
         if status:
             return [item for item in all_content if item['rsconnect_build_status'] == status]
         else:

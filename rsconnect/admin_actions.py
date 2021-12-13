@@ -11,7 +11,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 #from multiprocessing.pool import ThreadPool
 
-import click
 import semver
 
 from .api import (
@@ -26,13 +25,20 @@ from .models import (
 )
 from .metadata import ContentBuildStore
 
-content_build_store = ContentBuildStore()
+_content_build_store = None # type: ContentBuildStore
+def init_content_build_store(connect_server):
+    global _content_build_store
+    if not _content_build_store:
+        logger.info("Initializing ContentBuildStore for %s" % connect_server.url)
+        _content_build_store = ContentBuildStore(connect_server)
+
 
 def build_add_content(connect_server, content_guids_with_bundle):
     """
     :param content_guids_with_bundle: Union[tuple[models.ContentGuidWithBundle], list[models.ContentGuidWithBundle]]
     """
-    if content_build_store.get_build_running(connect_server):
+    init_content_build_store(connect_server)
+    if _content_build_store.get_build_running():
         raise RSConnectException("There is already a build running on this server, " +
             "please wait for it to finish before adding new content.")
 
@@ -58,57 +64,61 @@ def build_add_content(connect_server, content_guids_with_bundle):
             if not content['bundle_id']:
                 raise RSConnectException("This content has never been published to this server. " +
                     "You must specify a bundle_id for the build. Content GUID: %s" % content['guid'])
-            content_build_store.add_content_item(connect_server, content)
-            content_build_store.set_content_item_build_status(connect_server, content['guid'], BuildStatus.NEEDS_BUILD)
+            _content_build_store.add_content_item(content)
+            _content_build_store.set_content_item_build_status(content['guid'], BuildStatus.NEEDS_BUILD)
 
 
 def build_remove_content(connect_server, guid, all=False, purge=False):
-    if content_build_store.get_build_running(connect_server):
+    init_content_build_store(connect_server)
+    if _content_build_store.get_build_running():
         raise RSConnectException("There is a build running on this server, " +
             "please wait for it to finish before removing content.")
     guids = [guid]
     if all:
-        guids = [c['guid'] for c in content_build_store.get_content_items(connect_server)]
+        guids = [c['guid'] for c in _content_build_store.get_content_items()]
     for guid in guids:
-        content_build_store.remove_content_item(connect_server, guid, purge)
+        _content_build_store.remove_content_item(guid, purge)
 
 
 def build_list_content(connect_server, guid, status):
+    init_content_build_store(connect_server)
     if guid:
-        return [content_build_store.get_content_item(connect_server, g) for g in guid]
+        return [_content_build_store.get_content_item(g) for g in guid]
     else:
-        return content_build_store.get_content_items(connect_server, status=status)
+        return _content_build_store.get_content_items(status=status)
 
 
 def build_history(connect_server, guid):
-    return content_build_store.get_build_history(connect_server, guid)
+    init_content_build_store(connect_server)
+    return _content_build_store.get_build_history(guid)
 
 
 def build_start(connect_server, parallelism, aborted=False, error=False, all=False, poll_wait=2, debug=False):
-    if content_build_store.get_build_running(connect_server):
+    init_content_build_store(connect_server)
+    if _content_build_store.get_build_running():
         raise RSConnectException("There is already a build running on this server: %s" % connect_server.url)
 
     # if we are re-building any already "tracked" content items, then re-add them to be safe
     if all:
         logger.info("Adding all content to build...")
-        all_content = content_build_store.get_content_items(connect_server)
+        all_content = _content_build_store.get_content_items()
         all_content = list(map(lambda x: ContentGuidWithBundle(x['guid'], x['bundle_id']), all_content))
         build_add_content(connect_server, all_content)
     else:
         aborted_content = []
         if aborted:
             logger.info("Adding ABORTED content to build...")
-            aborted_content = content_build_store.get_content_items(connect_server, status=BuildStatus.ABORTED)
+            aborted_content = _content_build_store.get_content_items(status=BuildStatus.ABORTED)
             aborted_content = list(map(lambda x: ContentGuidWithBundle(x['guid'], x['bundle_id']), aborted_content))
         error_content = []
         if error:
             logger.info("Adding ERROR content to build...")
-            error_content = content_build_store.get_content_items(connect_server, status=BuildStatus.ERROR)
+            error_content = _content_build_store.get_content_items(status=BuildStatus.ERROR)
             error_content = list(map(lambda x: ContentGuidWithBundle(x['guid'], x['bundle_id']), error_content))
         if len(aborted_content + error_content) > 0:
             build_add_content(connect_server, aborted_content + error_content)
 
-    content_items = content_build_store.get_content_items(connect_server, status=BuildStatus.NEEDS_BUILD)
+    content_items = _content_build_store.get_content_items(status=BuildStatus.NEEDS_BUILD)
     if len(content_items) == 0:
         logger.info("Nothing to build...")
         logger.info("\tUse `rsconnect-admin build add` to mark content for build.")
@@ -118,7 +128,7 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
     content_executor = None
     try:
         logger.info("Starting content build (%s)..." % connect_server.url)
-        content_build_store.set_build_running(connect_server, True)
+        _content_build_store.set_build_running(True)
 
         # spawn a single thread to monitor progress and report feedback to the user
         build_monitor = ThreadPoolExecutor(max_workers=1)
@@ -137,13 +147,13 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
                 future.result()
             except Exception as exc:
                 # catch any unexpected exceptions from the future thread
-                content_build_store.set_content_item_build_status(connect_server, guid_with_bundle.guid, BuildStatus.ERROR)
+                _content_build_store.set_content_item_build_status(guid_with_bundle.guid, BuildStatus.ERROR)
                 logger.error('%s generated an exception: %s' % (guid_with_bundle, exc))
                 if debug:
                     logger.error(traceback.format_exc())
 
         # all content builds are finished, mark the build as complete
-        content_build_store.set_build_running(connect_server, False)
+        _content_build_store.set_build_running(False)
 
         # wait for the build_monitor thread to resolve its future
         try:
@@ -162,15 +172,16 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
         if build_monitor:
             build_monitor.shutdown()
         # make sure that we always mark the build as complete once we finish our cleanup
-        content_build_store.set_build_running(connect_server, False)
+        _content_build_store.set_build_running(False)
 
 
 def _monitor_build(connect_server, content_items):
     """
     :return bool: True if the build completed without errors, False otherwise
     """
+    init_content_build_store(connect_server)
     start = datetime.now()
-    while content_build_store.get_build_running(connect_server) and not content_build_store.aborted():
+    while _content_build_store.get_build_running() and not _content_build_store.aborted():
         time.sleep(5)
         complete = [item for item in content_items if item['rsconnect_build_status'] == BuildStatus.COMPLETE]
         error = [item for item in content_items if item['rsconnect_build_status'] == BuildStatus.ERROR]
@@ -179,14 +190,14 @@ def _monitor_build(connect_server, content_items):
         logger.info("Running = %d, Pending = %d, Success = %d, Error = %d" %
             (len(running), len(pending), len(complete), len(error)))
 
-    if content_build_store.aborted():
+    if _content_build_store.aborted():
         logger.warn("Build interrupted!")
         aborted_builds = [i['guid'] for i in content_items if i['rsconnect_build_status'] == BuildStatus.RUNNING]
         if len(aborted_builds) > 0:
             logger.warn("Marking %d builds as ABORTED..." % len(aborted_builds))
             for guid in aborted_builds:
                 logger.warn("Build aborted: %s" % guid)
-                content_build_store.set_content_item_build_status(connect_server, guid, BuildStatus.ABORTED)
+                _content_build_store.set_content_item_build_status(guid, BuildStatus.ABORTED)
         return False
 
     # TODO: print summary as structured json object instead of a string when
@@ -208,45 +219,47 @@ def _build_content_item(connect_server, content, poll_wait):
     # TODO: Stagger concurrent builds so the first couple builds don't start at the exact same time?
     # import random
     # time.sleep(random.uniform(0, 2))
+    init_content_build_store(connect_server)
     with RSConnect(connect_server, timeout=120) as client:
         # Pending futures will still try to execute when ThreadPoolExecutor.shutdown() is called
         # so just exit immediately if the current build has been aborted.
         # ThreadPoolExecutor.shutdown(cancel_futures=) isnt available until py3.9
-        if content_build_store.aborted():
+        if _content_build_store.aborted():
             return
 
         guid = content['guid']
         logger.info("Starting build: %s" % guid)
-        content_build_store.ensure_logs_dir(connect_server, guid)
-        content_build_store.set_content_item_build_status(connect_server, guid, BuildStatus.RUNNING)
+        _content_build_store.ensure_logs_dir(guid)
+        _content_build_store.set_content_item_build_status(guid, BuildStatus.RUNNING)
         task_result = client.content_build(guid, content.get('bundle_id'))
         task_id = task_result['task_id']
-        log_file = content_build_store.get_build_log(connect_server, guid, task_id)
+        log_file = _content_build_store.get_build_log(guid, task_id)
         with open(log_file, 'w') as log:
             _, _, task_status = emit_task_log(connect_server, guid, task_id,
                 log_callback=lambda line: log.write("%s\n" % line),
-                abort_func=content_build_store.aborted,
+                abort_func=_content_build_store.aborted,
                 poll_wait=poll_wait,
                 raise_on_error=False
             )
 
-        if content_build_store.aborted():
+        if _content_build_store.aborted():
             return
 
         # grab the updated content metadata from connect and update our store.
         updated_content = client.get_content(guid)
-        content_build_store.update_content_item(connect_server, guid, updated_content)
-        content_build_store.set_content_item_build_task_result(connect_server, guid, task_status)
+        _content_build_store.update_content_item(guid, updated_content)
+        _content_build_store.set_content_item_build_task_result(guid, task_status)
         if task_status["code"] != 0:
             logger.error("Build failed: %s" % guid)
-            content_build_store.set_content_item_build_status(connect_server, guid, BuildStatus.ERROR)
+            _content_build_store.set_content_item_build_status(guid, BuildStatus.ERROR)
         else:
             logger.info("Build succeeded: %s" % guid)
-            content_build_store.set_content_item_build_status(connect_server, guid, BuildStatus.COMPLETE)
+            _content_build_store.set_content_item_build_status(guid, BuildStatus.COMPLETE)
 
 
 def emit_build_log(connect_server, guid, format, task_id=None):
-    log_file = content_build_store.get_build_log(connect_server, guid, task_id)
+    init_content_build_store(connect_server)
+    log_file = _content_build_store.get_build_log(guid, task_id)
     if log_file:
         with open(log_file, 'r') as f:
             for line in f.readlines():
