@@ -605,11 +605,21 @@ class ContentBuildStore(DataStore):
 
     def set_content_item_build_status(self, guid, status, defer_save=False):
         """
-        Set the current status for a content build
+        Set the latest status for a content build
         """
         with self._lock:
             content = self.get_content_item(guid)
             content['rsconnect_build_status'] = str(status)
+            if not defer_save:
+                self.save()
+
+    def update_content_item_last_build_time(self, guid, defer_save=False):
+        """
+        Set the last_build_time for a content build
+        """
+        with self._lock:
+            content = self.get_content_item(guid)
+            content['rsconnect_last_build_time'] = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
             if not defer_save:
                 self.save()
 
@@ -621,7 +631,7 @@ class ContentBuildStore(DataStore):
             content = self.get_content_item(guid)
             # status contains the log lines for the build. We have already recorded these in the
             # log file on disk so we can remove them from the task result before storing it
-            # to reduce the data stored in our `build.json` file
+            # to reduce the data stored in our state-file
             remove_keys = ['status', 'last_status']
             for key in remove_keys:
                 if key in task:

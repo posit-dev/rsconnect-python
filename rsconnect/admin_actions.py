@@ -229,8 +229,9 @@ def _build_content_item(connect_server, content, poll_wait):
 
         guid = content['guid']
         logger.info("Starting build: %s" % guid)
-        _content_build_store.ensure_logs_dir(guid)
+        _content_build_store.update_content_item_last_build_time(guid)
         _content_build_store.set_content_item_build_status(guid, BuildStatus.RUNNING)
+        _content_build_store.ensure_logs_dir(guid)
         task_result = client.content_build(guid, content.get('bundle_id'))
         task_id = task_result['task_id']
         log_file = _content_build_store.get_build_log(guid, task_id)
