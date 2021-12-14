@@ -9,7 +9,6 @@ endif
 BUILD_RUNNER = \
 	docker run --rm --name mkdocs \
 		$(DOCKER_RUN_AS) \
-		-e PYTHONPATH=/rsconnect_python \
 		-e VERSION=$(VERSION) \
 		-v $(CURDIR)/../:/rsconnect_python \
 		-w /rsconnect_python/docs \
@@ -28,7 +27,7 @@ image:
 
 .PHONY: build
 build: docs/index.md docs/changelog.md
-	$(BUILD_RUNNER) mkdocs build
+	$(BUILD_RUNNER) /bin/sh -c "pip3 install /rsconnect_python && mkdocs build"
 
 docs/index.md: $(CURDIR)/../README.md
 	python3 patch_admonitions.py
