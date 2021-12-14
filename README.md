@@ -564,3 +564,211 @@ notebook
 nbformat
 nbconvert>=5.6.1
 ```
+
+## Content subcommands
+
+rsconnect-python supports multiple options for interacting with RStudio Connect's
+`/v1/content` API. Both administrators and publishers can use the content subcommands
+to search, download, and rebuild content on RStudio Connect without needing to access the
+dashboard from a browser.
+
+> The `rsconnect content` CLI subcommands are intended to be easily scriptable.
+The default output format is `JSON` so that the results can be easily piped into
+other command line utilities like [`jq`] for further post-processing.
+
+```bash
+$ rsconnect content --help
+Usage: rsconnect content [OPTIONS] COMMAND [ARGS]...
+
+  Interact with RStudio Connect's content API.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  build            Build content on RStudio Connect.
+  describe         Describe a content item on RStudio Connect.
+  download-bundle  Download a content item's source bundle.
+  search           Search for content on RStudio Connect.
+```
+
+### Content Search
+
+The following are some examples of how publishers might use the
+`rsconnect content search` subcommand to find content on RStudio Connect.
+By default, the `rsconnect content search` command will return metadata for ALL
+of the content on a RStudio Connect server, both published and unpublished content.
+
+```bash
+$ rsconnect content search --help
+Usage: rsconnect content search [OPTIONS]
+
+Options:
+  -n, --name TEXT                 The nickname of the RStudio Connect server.
+  -s, --server TEXT               The URL for the RStudio Connect server.
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  RStudio Connect.
+
+  -i, --insecure                  Disable TLS certification/host validation.
+  -c, --cacert FILENAME           The path to trusted TLS CA certificates.
+  --published                     Search only published content.
+  --unpublished                   Search only unpublished content.
+  --content-type [unknown|shiny|rmd-static|rmd-shiny|static|api|tensorflow-saved-model|jupyter-static|python-api|python-dash|python-streamlit|python-bokeh|python-fastapi]
+                                  Filter content results by content type.
+  --r-version VERSIONSEARCHFILTER
+                                  Filter content results by R version.
+  --py-version VERSIONSEARCHFILTER
+                                  Filter content results by Python version.
+  --title-contains TEXT           Filter content results by title.
+  --order-by [created|last_deployed]
+                                  Order content results.
+  -v, --verbose                   Print detailed messages.
+  --help                          Show this message and exit.
+
+$ rsconnect content search
+[
+  {
+    "max_conns_per_process": null,
+    "content_category": "",
+    "load_factor": null,
+    "cluster_name": "Local",
+    "description": "",
+    "bundle_id": "142",
+    "image_name": null,
+    "r_version": null,
+    "content_url": "http://localhost:3939/content/4ffc819c-065c-420c-88eb-332db1133317/",
+    "connection_timeout": null,
+    "min_processes": null,
+    "last_deployed_time": "2021-12-02T18:09:11Z",
+    "name": "logs-api-python",
+    "title": "logs-api-python",
+    "created_time": "2021-07-19T19:17:32Z",
+    "read_timeout": null,
+    "guid": "4ffc819c-065c-420c-88eb-332db1133317",
+    "parameterized": false,
+    "run_as": null,
+    "py_version": "3.8.2",
+    "idle_timeout": null,
+    "app_role": "owner",
+    "access_type": "acl",
+    "app_mode": "python-api",
+    "init_timeout": null,
+    "id": "18",
+    "quarto_version": null,
+    "dashboard_url": "http://localhost:3939/connect/#/apps/4ffc819c-065c-420c-88eb-332db1133317",
+    "run_as_current_user": false,
+    "owner_guid": "edf26318-0027-4d9d-bbbb-54703ebb1855",
+    "max_processes": null
+  },
+  ...
+]
+```
+
+See [this section](#searching-for-content) for more comprehensive usage examples
+of the available search flags.
+
+
+### Content Build
+
+// TODO
+
+
+## Common Usage Examples
+
+### Finding r and python versions
+
+One common use for the `search` command might be to find the versions of
+r and python that are currently in use on your RStudio Connect server before a migration.
+This information can be used later to help define a set of content images
+to be used with remote content execution on Kubernetes.
+
+```bash
+# search for all published content and print the unique r and python version combinations
+$ rsconnect content search --published | jq -c '.[] | {py_version,r_version}' | sort |
+uniq
+{"py_version":"3.8.2","r_version":"3.5.3"}
+{"py_version":"3.8.2","r_version":"3.6.3"}
+{"py_version":"3.8.2","r_version":null}
+{"py_version":null,"r_version":"3.5.3"}
+{"py_version":null,"r_version":"3.6.3"}
+{"py_version":null,"r_version":null}
+```
+
+### Finding recently deployed content
+
+```bash
+# return only the 10 most recently deployed content items
+$ rsconnect content search --order-by last_deployed --published | jq -c 'limit(10; .[]) | { guid, last_deployed_time }'
+{"guid":"4ffc819c-065c-420c-88eb-332db1133317","last_deployed_time":"2021-12-02T18:09:11Z"}
+{"guid":"aa2603f8-1988-484f-a335-193f2c57e6c4","last_deployed_time":"2021-12-01T20:56:07Z"}
+{"guid":"051252f0-4f70-438f-9be1-d818a3b5f8d9","last_deployed_time":"2021-12-01T20:37:01Z"}
+{"guid":"015143da-b75f-407c-81b1-99c4a724341e","last_deployed_time":"2021-11-30T16:56:21Z"}
+{"guid":"bcc74209-3a81-4b9c-acd5-d24a597c256c","last_deployed_time":"2021-11-30T15:51:07Z"}
+{"guid":"f21d7767-c99e-4dd4-9b00-ff8ec9ae2f53","last_deployed_time":"2021-11-23T18:46:28Z"}
+{"guid":"da4f709c-c383-4fbc-89e2-f032b2d7e91d","last_deployed_time":"2021-11-23T18:46:28Z"}
+{"guid":"9180809d-38fd-4730-a0e0-8568c45d87b7","last_deployed_time":"2021-11-23T15:16:19Z"}
+{"guid":"2b1d2ab8-927d-4956-bbf9-29798d039bc5","last_deployed_time":"2021-11-22T18:33:17Z"}
+{"guid":"c96db3f3-87a1-4df5-9f58-eb109c397718","last_deployed_time":"2021-11-19T20:25:33Z"}
+```
+
+### Searching for content
+
+```bash
+# return only published content
+$ rsconnect content search --published
+
+# return only unpublished content
+$ rsconnect content search --unpublished
+
+# return published content where the python version is at least 3.9.0
+$ rsconnect content search --published --py-version ">=3.9.0"
+
+# return published content where the R version is exactly 3.6.3
+$ rsconnect content search --published --r-version "==3.6.3"
+
+# return published content where the content type is a static RMD
+$ rsconnect content search --content-type rmd-static
+
+# return published content where the content type is either shiny OR fast-api
+$ rsconnect content search --content-type shiny --content-type python-fastapi
+
+# return all content, published or unpublished, where the title contains the text "Stock Report"
+$ rsconnect content search --title-contains "Stock Report"
+
+# return published content, results are ordered by when the content was last deployed
+$ rsconnect content search --published --order-by last_deployed
+
+# return published content, results are ordered by when the content was created
+$ rsconnect content search --published --order-by created
+```
+
+### Add from search results
+
+One common use case might be to `rsconnect content build add` content for build
+based on the results of a `rsconnect content search`. For example:
+
+```bash
+# search for all API type content, then
+# for each guid, add it to the "tracked" content items
+$ for guid in $(rsconnect content search \
+--published \
+--content-type python-api \
+--content-type api | jq -r '.[].guid'); do \
+rsconnect content build add --guid $guid; done
+```
+
+### Bulk add with xargs
+
+Adding content items one at a time can be a slow operation. This is because
+`rsconnect content build add` must fetch metadata for each content item before it
+is added to the "tracked" content items. By providing multiple `--guid` arguments
+to the `rsconnect content build add` subcommand, we can fetch metadata for multiple content items
+in a single api call, which speeds up the operation sigificantly.
+
+```bash
+# write the guid of every published content item to a file called guids.txt
+rsconnect content search --published | jq '.[].guid' > guids.txt
+
+# bulk-add from the guids.txt by executing a single `rsconnect content build add` command
+xargs printf -- '-g %s\n' < guids.txt | xargs rsconnect content build add
+```
