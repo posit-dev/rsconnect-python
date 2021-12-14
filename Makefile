@@ -26,8 +26,8 @@ endif
 ifneq ($(CONNECT_API_KEY),)
   TEST_ENV += CONNECT_API_KEY=$(CONNECT_API_KEY)
 endif
-ifneq ($(CONNECT_ADMIN_BUILD_DIR),)
-	TEST_ENV += CONNECT_ADMIN_BUILD_DIR=$(CONNECT_ADMIN_BUILD_DIR)
+ifneq ($(CONNECT_CONTENT_BUILD_DIR),)
+	TEST_ENV += CONNECT_CONTENT_BUILD_DIR=$(CONNECT_CONTENT_BUILD_DIR)
 endif
 
 # NOTE: See the `dist` target for why this exists.
@@ -52,7 +52,7 @@ test-%:
 mock-test-%: clean-stores
 	@$(MAKE) -C mock_connect down image up
 	@sleep 1
-	CONNECT_ADMIN_BUILD_DIR="rsconnect-build-test" \
+	CONNECT_CONTENT_BUILD_DIR="rsconnect-build-test" \
 	CONNECT_SERVER="http://$(HOSTNAME):3939" \
 	CONNECT_API_KEY="0123456789abcdef0123456789abcdef" \
 	$(MAKE) test-$*

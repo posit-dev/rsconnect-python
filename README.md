@@ -572,9 +572,9 @@ rsconnect-python supports multiple options for interacting with RStudio Connect'
 to search, download, and rebuild content on RStudio Connect without needing to access the
 dashboard from a browser.
 
-> The `rsconnect content` CLI subcommands are intended to be easily scriptable.
-The default output format is `JSON` so that the results can be easily piped into
-other command line utilities like [`jq`] for further post-processing.
+> **Note:** The `rsconnect content` CLI subcommands are intended to be easily scriptable.
+> The default output format is `JSON` so that the results can be easily piped into
+> other command line utilities like [`jq`] for further post-processing.
 
 ```bash
 $ rsconnect content --help
@@ -594,10 +594,9 @@ Commands:
 
 ### Content Search
 
-The following are some examples of how publishers might use the
-`rsconnect content search` subcommand to find content on RStudio Connect.
-By default, the `rsconnect content search` command will return metadata for ALL
-of the content on a RStudio Connect server, both published and unpublished content.
+The `rsconnect content search` subcommands can be used by administrators and publishers
+to find specific content on an given RStudio Connect server. The search returns
+metadata for each content item that meets the search criteria.
 
 ```bash
 $ rsconnect content search --help
@@ -636,7 +635,7 @@ $ rsconnect content search
     "bundle_id": "142",
     "image_name": null,
     "r_version": null,
-    "content_url": "http://localhost:3939/content/4ffc819c-065c-420c-88eb-332db1133317/",
+    "content_url": "https://connect.example.org:3939/content/4ffc819c-065c-420c-88eb-332db1133317/",
     "connection_timeout": null,
     "min_processes": null,
     "last_deployed_time": "2021-12-02T18:09:11Z",
@@ -655,7 +654,7 @@ $ rsconnect content search
     "init_timeout": null,
     "id": "18",
     "quarto_version": null,
-    "dashboard_url": "http://localhost:3939/connect/#/apps/4ffc819c-065c-420c-88eb-332db1133317",
+    "dashboard_url": "https://connect.example.org:3939/connect/#/apps/4ffc819c-065c-420c-88eb-332db1133317",
     "run_as_current_user": false,
     "owner_guid": "edf26318-0027-4d9d-bbbb-54703ebb1855",
     "max_processes": null
@@ -670,10 +669,177 @@ of the available search flags.
 
 ### Content Build
 
-// TODO
+> **Note:** The `rsconnect content build` subcommand requires RStudio Connect >= 2021.11.1
+
+RStudio Connect caches R and Python packages in the configured
+[`Server.DataDir`](https://docs.rstudio.com/connect/admin/appendix/configuration/#Server.DataDir).
+Sometimes, these package caches become stale and need to be rebuilt. This refresh
+occurs automatically when an RStudio Connect user visits the content via the
+RStudio Connect dashboard. Some content, however, is high priority or not accessed
+frequently via the dashboard (API content, emailed reports). In these cases, it is possible to
+preemptively build specific content items using the `rsconnect content build` subcommands.
+This way the user does not have to pay the build cost when the content is accessed next.
+
+The following are some common scenarios where performing a content build might be necessary:
+
+- OS upgrade
+- changes to gcc or libc libraries
+- changes to Python or R installations
+- switching from source to binary package repositories or vice versa
+- migrating from local content execution to remote content execution with Kubernetes
+
+> You may use the [`rsconnect content search`](#content-search) subcommand to help
+> identify high priority content items to build.
+
+```
+rsconnect content build --help
+Usage: rsconnect content build [OPTIONS] COMMAND [ARGS]...
+
+  Build content on RStudio Connect. Requires Connect >= 2021.11.1
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  add      Mark a content item for build. Use `build run` to invoke the build
+           on the Connect server.
+
+  history  Get the build history for a content item.
+  logs     Print the logs for a content build.
+  ls       List the content items that are being tracked for build on a given
+           Connect server.
+
+  rm       Remove a content item from the list of content that are tracked for
+           build. Use `build ls` to view the tracked content.
+
+  run      Start building content on a given Connect server.
+```
+
+To build a specific content item, first `add` it to the list of content that is
+"tracked" for building using its GUID.
+
+> **Note:** Metadata for "tracked" content items is stored in a local directory called
+> `rsconnect-build` which will be automatically created in your current working directory.
+> You may set the environment variable `CONNECT_CONTENT_BUILD_DIR` to override this directory location.
+
+```bash
+$ rsconnect content build add --guid 4ffc819c-065c-420c-88eb-332db1133317
+```
+
+> **Note:** See [this section](#add-to-build-from-search-results) for
+> an example of how to add multiple content items in bulk, from the results
+> of a `rsconnect content search` command.
+
+To view all currently "tracked" content items, use the `rsconnect content build ls` subcommand.
+
+```bash
+$ rsconnect content build ls
+```
+
+To view only the "tracked" content items that have not yet been built, use the `--status NEEDS_BUILD` flag.
+
+```bash
+$ rsconnect content build ls --status NEEDS_BUILD
+```
+
+Once the content items have been added, you may initiate a build
+using the `rsconnect content build run` subcommand. This command will attempt to
+build all "tracked" content that has the status `NEEDS_BUILD`.
+
+```bash
+$ rsconnect content build run
+[INFO] 2021-12-14T13:02:45-0500 Initializing ContentBuildStore for https://connect.example.org:3939
+[INFO] 2021-12-14T13:02:45-0500 Starting content build (https://connect.example.org:3939)...
+[INFO] 2021-12-14T13:02:45-0500 Starting build: 4ffc819c-065c-420c-88eb-332db1133317
+[INFO] 2021-12-14T13:02:50-0500 Running = 1, Pending = 0, Success = 0, Error = 0
+[INFO] 2021-12-14T13:02:50-0500 Build succeeded: 4ffc819c-065c-420c-88eb-332db1133317
+[INFO] 2021-12-14T13:02:55-0500 Running = 0, Pending = 0, Success = 1, Error = 0
+[INFO] 2021-12-14T13:02:55-0500 1/1 content builds completed in 0:00:10
+[INFO] 2021-12-14T13:02:55-0500 Success = 1, Error = 0
+[INFO] 2021-12-14T13:02:55-0500 Content build complete.
+```
+
+Sometimes content builds will fail and require debugging by the publisher or administrator.
+Use the `rsconnect content build ls` to identify content builds that resulted in errors
+and inspect the build logs with the `rsconnect content build logs` subcommand.
+
+```
+$ rsconnect content build ls --status ERROR
+[INFO] 2021-12-14T13:07:32-0500 Initializing ContentBuildStore for https://connect.example.org:3939
+[
+  {
+    "rsconnect_build_status": "ERROR",
+    "last_deployed_time": "2021-12-02T18:09:11Z",
+    "owner_guid": "edf26318-0027-4d9d-bbbb-54703ebb1855",
+    "rsconnect_last_build_log": "/Users/david/code/rstudio/rsconnect-python/rsconnect-build/logs/connect_example_org_3939/4ffc819c-065c-420c-88eb-332db1133317/pZoqfBoi6BgpKde5.log",
+    "guid": "4ffc819c-065c-420c-88eb-332db1133317",
+    "rsconnect_build_task_result": {
+      "user_id": 1,
+      "error": "Cannot find compatible environment: no compatible Local environment with Python version 3.9.5",
+      "code": 1,
+      "finished": true,
+      "result": {
+        "data": "An error occurred while building the content",
+        "type": "build-failed-error"
+      },
+      "id": "pZoqfBoi6BgpKde5"
+    },
+    "dashboard_url": "https://connect.example.org:3939/connect/#/apps/4ffc819c-065c-420c-88eb-332db1133317",
+    "name": "logs-api-python",
+    "title": "logs-api-python",
+    "content_url": "https://connect.example.org:3939/content/4ffc819c-065c-420c-88eb-332db1133317/",
+    "bundle_id": "141",
+    "rsconnect_last_build_time": "2021-12-14T18:07:16Z",
+    "created_time": "2021-07-19T19:17:32Z",
+    "app_mode": "python-api"
+  }
+]
+
+$ rsconnect content build logs --guid 4ffc819c-065c-420c-88eb-332db1133317
+[INFO] 2021-12-14T13:09:27-0500 Initializing ContentBuildStore for https://connect.example.org:3939
+Building Python API...
+Cannot find compatible environment: no compatible Local environment with Python version 3.9.5
+Task failed. Task exited with status 1.
+```
 
 
 ## Common Usage Examples
+
+### Searching for content
+
+The following are some examples of how publishers might use the
+`rsconnect content search` subcommand to find content on RStudio Connect.
+By default, the `rsconnect content search` command will return metadata for ALL
+of the content on a RStudio Connect server, both published and unpublished content.
+
+```bash
+# return only published content
+$ rsconnect content search --published
+
+# return only unpublished content
+$ rsconnect content search --unpublished
+
+# return published content where the python version is at least 3.9.0
+$ rsconnect content search --published --py-version ">=3.9.0"
+
+# return published content where the R version is exactly 3.6.3
+$ rsconnect content search --published --r-version "==3.6.3"
+
+# return published content where the content type is a static RMD
+$ rsconnect content search --content-type rmd-static
+
+# return published content where the content type is either shiny OR fast-api
+$ rsconnect content search --content-type shiny --content-type python-fastapi
+
+# return all content, published or unpublished, where the title contains the text "Stock Report"
+$ rsconnect content search --title-contains "Stock Report"
+
+# return published content, results are ordered by when the content was last deployed
+$ rsconnect content search --published --order-by last_deployed
+
+# return published content, results are ordered by when the content was created
+$ rsconnect content search --published --order-by created
+```
 
 ### Finding r and python versions
 
@@ -711,38 +877,7 @@ $ rsconnect content search --order-by last_deployed --published | jq -c 'limit(1
 {"guid":"c96db3f3-87a1-4df5-9f58-eb109c397718","last_deployed_time":"2021-11-19T20:25:33Z"}
 ```
 
-### Searching for content
-
-```bash
-# return only published content
-$ rsconnect content search --published
-
-# return only unpublished content
-$ rsconnect content search --unpublished
-
-# return published content where the python version is at least 3.9.0
-$ rsconnect content search --published --py-version ">=3.9.0"
-
-# return published content where the R version is exactly 3.6.3
-$ rsconnect content search --published --r-version "==3.6.3"
-
-# return published content where the content type is a static RMD
-$ rsconnect content search --content-type rmd-static
-
-# return published content where the content type is either shiny OR fast-api
-$ rsconnect content search --content-type shiny --content-type python-fastapi
-
-# return all content, published or unpublished, where the title contains the text "Stock Report"
-$ rsconnect content search --title-contains "Stock Report"
-
-# return published content, results are ordered by when the content was last deployed
-$ rsconnect content search --published --order-by last_deployed
-
-# return published content, results are ordered by when the content was created
-$ rsconnect content search --published --order-by created
-```
-
-### Add from search results
+### Add to build from search results
 
 One common use case might be to `rsconnect content build add` content for build
 based on the results of a `rsconnect content search`. For example:
@@ -756,8 +891,6 @@ $ for guid in $(rsconnect content search \
 --content-type api | jq -r '.[].guid'); do \
 rsconnect content build add --guid $guid; done
 ```
-
-### Bulk add with xargs
 
 Adding content items one at a time can be a slow operation. This is because
 `rsconnect content build add` must fetch metadata for each content item before it

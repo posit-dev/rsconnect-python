@@ -1645,8 +1645,11 @@ def remove_content_build(name, server, api_key, insecure, cacert, guid, all, pur
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         _validate_build_rm_args(guid, all, purge)
-        build_remove_content(connect_server, guid, all, purge)
-        logger.info("Removed %s" % guid)
+        guids = build_remove_content(connect_server, guid, all, purge)
+        if len(guids) == 1:
+            logger.info("Removed \"%s\"." % guids[0])
+        else:
+            logger.info("Removed %d content items." % len(guids))
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode

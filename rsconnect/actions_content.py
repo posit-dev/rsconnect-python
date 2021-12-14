@@ -66,6 +66,9 @@ def build_add_content(connect_server, content_guids_with_bundle):
 
 
 def build_remove_content(connect_server, guid, all=False, purge=False):
+    """
+    :return: A list of guids of the content items that were removed
+    """
     init_content_build_store(connect_server)
     if _content_build_store.get_build_running():
         raise RSConnectException("There is a build running on this server, " +
@@ -75,6 +78,7 @@ def build_remove_content(connect_server, guid, all=False, purge=False):
         guids = [c['guid'] for c in _content_build_store.get_content_items()]
     for guid in guids:
         _content_build_store.remove_content_item(guid, purge)
+    return guids
 
 
 def build_list_content(connect_server, guid, status):

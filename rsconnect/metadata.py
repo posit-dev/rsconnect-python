@@ -438,7 +438,7 @@ class ContentBuildStore(DataStore):
     Defines a metadata store for information about content builds.
 
     The metadata directory for a content build is written in the directory specified by
-    CONNECT_ADMIN_BUILD_DIR or the current working directory is none is supplied.
+    CONNECT_CONTENT_BUILD_DIR or the current working directory is none is supplied.
 
     A build-state file contains "tracked" content for a single connect server.
     The file is named using the normalized server URL for the target server.
@@ -459,7 +459,7 @@ class ContentBuildStore(DataStore):
 
     _BUILD_ABORTED = False
 
-    def __init__(self, server, base_dir=os.getenv("CONNECT_ADMIN_BUILD_DIR", DEFAULT_BUILD_DIR)):
+    def __init__(self, server, base_dir=os.getenv("CONNECT_CONTENT_BUILD_DIR", DEFAULT_BUILD_DIR)):
         self._server = server
         self._base_dir = os.path.abspath(base_dir)
         self._build_logs_dir = join(self._base_dir, "logs", _normalize_server_url(server.url))
