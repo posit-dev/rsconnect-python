@@ -1,5 +1,12 @@
 # The rsconnect-python CLI and library
 
+!!! warning
+
+    Starting January 2022, RStudio Connect will no longer support Python 2. Please see
+    the [official announcement](https://www.rstudio.com/blog/rstudio-connect-2021-08-python-updates/)
+    for details about this decision. Future versions of this library will require
+    Python >= 3.5 only.
+
 This package provides both a CLI (command-line interface) and a library for interacting
 with and deploying to RStudio Connect. The library is also used by the
 [`rsconnect-jupyter`](https://github.com/rstudio/rsconnect-jupyter) package to deploy
@@ -83,7 +90,7 @@ If you are using the `zsh` shell, use this to enable tab completion.
 eval "$(_RSCONNECT_COMPLETE=source_zsh rsconnect)"
 ```
 
-If you get `command not found: compdef`, you need to add the following lines to your 
+If you get `command not found: compdef`, you need to add the following lines to your
 `.zshrc` before the completion setup:
 
 ```zsh
@@ -542,7 +549,7 @@ rsconnect deploy notebook \
 ```
 
 To selectively hide input cells in a Jupyter notebook, the user needs to follow a two step process:
-1. tag cells with the 'hide_input' tag, 
+1. tag cells with the 'hide_input' tag,
 2. then pass the ' --hide-tagged-input' flag through the cli:
 
 ```
