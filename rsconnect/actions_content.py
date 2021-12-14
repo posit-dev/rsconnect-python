@@ -122,7 +122,7 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
     content_items = _content_build_store.get_content_items(status=BuildStatus.NEEDS_BUILD)
     if len(content_items) == 0:
         logger.info("Nothing to build...")
-        logger.info("\tUse `rsconnect-admin build add` to mark content for build.")
+        logger.info("\tUse `rsconnect content build add` to mark content for build.")
         return
 
     build_monitor = None
