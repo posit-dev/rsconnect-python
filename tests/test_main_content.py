@@ -87,14 +87,14 @@ class TestContentSubcommand(unittest.TestCase):
         runner = CliRunner()
 
         # add a content item
-        args = ["build", "add", "-g", _content_guids[0]]
+        args = ["content", "build", "add", "-g", _content_guids[0]]
         apply_common_args(args, server=connect_server, key=api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertTrue(os.path.exists('%s/build.json' % _test_build_dir))
 
         # list the "tracked" content
-        args = ["build", "ls", "-g", _content_guids[0]]
+        args = ["content", "build", "ls", "-g", _content_guids[0]]
         apply_common_args(args, server=connect_server, key=api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
@@ -118,13 +118,6 @@ class TestContentSubcommand(unittest.TestCase):
         # listing = json.loads(result.output)
         # self.assertTrue(len(listing) == 1)
         # self.assertEqual(listing[0]['rsconnect_build_status'], BuildStatus.COMPLETE)
-
-
-    def test_build_history(self):
-        pass
-
-    def test_build_logs(self):
-        pass
 
     def test_build_rm(self):
         pass

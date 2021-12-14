@@ -5,17 +5,9 @@ RStudio Connect API client and utility functions
 import time
 from _ssl import SSLError
 
-from rsconnect.http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
-from rsconnect.log import logger
-from rsconnect.models import AppModes
-
-# This error map should be revisited, it can be misleading...
-# _error_map = {
-#     4: (
-#         "This content has been deployed before but could not be found on the server.\nUse the --new option to "
-#         "deploy it as new content."
-#     )
-# }
+from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
+from .log import logger
+from .models import AppModes
 
 
 class RSConnectException(Exception):

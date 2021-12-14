@@ -17,9 +17,9 @@ except ImportError:
 
 from os.path import basename, dirname, exists, isdir, join, relpath, splitext
 
-from rsconnect.log import logger
-from rsconnect.models import AppMode, AppModes, GlobSet
-from rsconnect.environment import Environment
+from .log import logger
+from .models import AppMode, AppModes, GlobSet
+from .environment import Environment
 
 # From https://github.com/rstudio/rsconnect/blob/485e05a26041ab8183a220da7a506c9d3a41f1ff/R/bundle.R#L85-L88
 # noinspection SpellCheckingInspection

@@ -13,9 +13,9 @@ from urllib.parse import urlparse
 import shutil
 from threading import Lock
 
-from rsconnect import api
-from rsconnect.log import logger
-from rsconnect.models import AppMode, AppModes
+from . import api
+from .log import logger
+from .models import AppMode, AppModes
 
 
 def config_dirname(platform=sys.platform, env=os.environ):

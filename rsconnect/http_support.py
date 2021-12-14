@@ -6,8 +6,8 @@ import socket
 import ssl
 import os
 
-from rsconnect import VERSION
-from rsconnect.log import logger
+from . import VERSION
+from .log import logger
 from six.moves import http_client as http
 from six.moves.http_cookies import SimpleCookie
 from six.moves.urllib_parse import urlparse, urlencode, urljoin

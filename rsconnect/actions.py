@@ -19,7 +19,7 @@ except ImportError:
 from os.path import abspath, basename, dirname, exists, isdir, join, relpath, splitext
 from pprint import pformat
 
-from rsconnect import api
+from . import api
 from .bundle import (
     make_api_bundle,
     make_api_manifest,
