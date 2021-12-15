@@ -1,5 +1,12 @@
 # The rsconnect-python CLI and library
 
+!!! warning
+
+    Starting January 2022, RStudio Connect will no longer support Python 2. Please see
+    the [official announcement](https://www.rstudio.com/blog/rstudio-connect-2021-08-python-updates/)
+    for details about this decision. Future versions of this library will require
+    Python >= 3.5 only.
+
 This package provides both a CLI (command-line interface) and a library for interacting
 with and deploying to RStudio Connect. The library is also used by the
 [`rsconnect-jupyter`](https://github.com/rstudio/rsconnect-jupyter) package to deploy
