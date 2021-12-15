@@ -45,7 +45,7 @@ jobs:
     - run: make fmt
     - run: make lint
     - run: python setup.py --version
-    - run: make mock-test
+    - run: make mock-test-3.8
   distributions:
     needs: test
     runs-on: ubuntu-latest
