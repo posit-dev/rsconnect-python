@@ -1,14 +1,8 @@
 MKDOCS_IMAGE ?= rstudio/rsconnect:mkdocs
 VERSION ?= NOTSET
 
-DOCKER_RUN_AS =
-ifeq (Linux,$(shell uname))
-	DOCKER_RUN_AS = -u $(shell id -u):$(shell id -g)
-endif
-
 BUILD_RUNNER = \
 	docker run --rm --name mkdocs \
-		$(DOCKER_RUN_AS) \
 		-e VERSION=$(VERSION) \
 		-v $(CURDIR)/../:/rsconnect_python \
 		-w /rsconnect_python/docs \
