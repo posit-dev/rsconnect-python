@@ -2,6 +2,7 @@
   "apps": [
     {
       "id": "121",
+      "guid": "015143da-b75f-407c-81b1-99c4a724341e",
       "name": "plumber-async",
       "title": "plumber-async",
       "owner_username": "bob",

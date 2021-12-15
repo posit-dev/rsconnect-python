@@ -8,6 +8,7 @@ from click.testing import CliRunner
 from rsconnect.main import cli
 from rsconnect import VERSION
 from rsconnect.models import BuildStatus
+from rsconnect.metadata import _normalize_server_url
 
 from .utils import (
     apply_common_args,
@@ -49,7 +50,6 @@ class TestContentSubcommand(unittest.TestCase):
         runner = CliRunner()
         args = ["content", "search"]
         apply_common_args(args, server=connect_server, key=api_key)
-        print(args)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
         response = json.loads(result.output)
@@ -91,7 +91,9 @@ class TestContentSubcommand(unittest.TestCase):
         apply_common_args(args, server=connect_server, key=api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertTrue(os.path.exists('%s/build.json' % _test_build_dir))
+        self.assertTrue(os.path.exists('%s/%s.json' %
+          (_test_build_dir, _normalize_server_url(os.environ.get("CONNECT_SERVER")))
+        ))
 
         # list the "tracked" content
         args = ["content", "build", "ls", "-g", _content_guids[0]]
@@ -105,24 +107,35 @@ class TestContentSubcommand(unittest.TestCase):
         self.assertEqual(listing[0]['rsconnect_build_status'], BuildStatus.NEEDS_BUILD)
 
         # run the build
-        # args = ["build", "run", "--debug"]
-        # apply_common_args(args, server=connect_server, key=api_key)
-        # result = runner.invoke(cli, args)
-        # self.assertEqual(result.exit_code, 0, result.output)
+        args = ["content", "build", "run", "--debug"]
+        apply_common_args(args, server=connect_server, key=api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
 
-        # # check that the build succeeded
-        # args = ["build", "ls", "-g", _content_guids[0]]
-        # apply_common_args(args, server=connect_server, key=api_key)
-        # result = runner.invoke(cli, args)
-        # self.assertEqual(result.exit_code, 0, result.output)
-        # listing = json.loads(result.output)
-        # self.assertTrue(len(listing) == 1)
-        # self.assertEqual(listing[0]['rsconnect_build_status'], BuildStatus.COMPLETE)
+        # check that the build succeeded
+        args = ["content", "build", "ls", "-g", _content_guids[0]]
+        apply_common_args(args, server=connect_server, key=api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        listing = json.loads(result.output)
+        self.assertTrue(len(listing) == 1)
+        self.assertEqual(listing[0]['rsconnect_build_status'], BuildStatus.COMPLETE)
 
     def test_build_rm(self):
-        pass
+        connect_server = require_connect(self)
+        api_key = require_api_key(self)
+        runner = CliRunner()
 
-    # TODO: Test abort signal handling by setting the poll_wait and sending ^C
-    #   while a build is running.
-    def test_build_abort(self):
-        pass
+        # remove a content item
+        args = ["content", "build", "rm", "-g", _content_guids[0]]
+        apply_common_args(args, server=connect_server, key=api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+
+        # check that it was removed
+        args = ["content", "build", "ls"]
+        apply_common_args(args, server=connect_server, key=api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        listing = json.loads(result.output)
+        self.assertEqual(len(listing), 0, result.output)

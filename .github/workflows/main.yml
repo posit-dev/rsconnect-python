@@ -30,7 +30,7 @@ jobs:
     - if: matrix.python-version != '3.5'
       run: make lint
     - run: python setup.py --version
-    - run: make test-${{ matrix.python-version }}
+    - run: make mock-test-${{ matrix.python-version }}
   prerelease-test:
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -45,7 +45,7 @@ jobs:
     - run: make fmt
     - run: make lint
     - run: python setup.py --version
-    - run: make test
+    - run: make mock-test
   distributions:
     needs: test
     runs-on: ubuntu-latest
