@@ -4,4 +4,4 @@ set -o pipefail
 set -o xtrace
 
 : "${PYTEST_ARGS:=-vv --cov=rsconnect --cov-report=term --cov-report=html}"
-pytest ${PYTEST_ARGS} --mypy ./tests/test_main_content.py
+pytest ${PYTEST_ARGS} --mypy ./tests/
