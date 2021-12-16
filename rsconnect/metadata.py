@@ -539,34 +539,6 @@ class ContentBuildStore(DataStore):
             if not defer_save:
                 self.save()
 
-    def update_content_item(self, guid, content, defer_save=False):
-        """
-        Update an existing item in the tracked content store
-        """
-        with self._lock:
-            old_content = self.get_content_item(guid)
-            if not old_content:
-                raise api.RSConnectException("Content not found: %s" % guid)
-
-            # bundle_id is intentionally excluded from this update.
-            # the server's bundle_id is not updated if the build fails, so it could be confusing
-            # for the user if we show the currently deployed bundle_id instead of the one that
-            # failed to build. we also know that bundle_id is always populated during `build add`
-            # so we can instead just continue using the bundle_id stored locally
-            old_content.update(dict(
-                guid=guid,
-                title=content['title'],
-                name=content['name'],
-                app_mode=content['app_mode'],
-                content_url=content['content_url'],
-                dashboard_url=content['dashboard_url'],
-                created_time=content['created_time'],
-                last_deployed_time=content['last_deployed_time'],
-                owner_guid=content['owner_guid'],
-            ))
-            if not defer_save:
-                self.save()
-
     def get_content_item(self, guid):
         """
         Get a content item from the tracked content store by guid

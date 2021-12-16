@@ -11,9 +11,10 @@ from .models import AppModes
 
 
 class RSConnectException(Exception):
-    def __init__(self, message):
+    def __init__(self, message, cause=None):
         super(RSConnectException, self).__init__(message)
         self.message = message
+        self.cause = cause
 
 
 class RSConnectServer(object):
@@ -33,7 +34,8 @@ class RSConnectServer(object):
     def handle_bad_response(self, response):
         if isinstance(response, HTTPResponse):
             if response.exception:
-                raise RSConnectException("Exception trying to connect to %s - %s" % (self.url, response.exception))
+                raise RSConnectException("Exception trying to connect to %s - %s" %
+                  (self.url, response.exception), cause=response.exception)
             # Sometimes an ISP will respond to an unknown server name by returning a friendly
             # search page so trap that since we know we're expecting JSON from Connect.  This
             # also catches all error conditions which we will report as "not running Connect".
@@ -179,7 +181,9 @@ class RSConnect(HTTPServer):
         self._server.handle_bad_response(results)
         return results
 
-    def wait_for_task(self, task_id, log_callback, abort_func=lambda: False, timeout=None, poll_wait=.5, raise_on_error=True):
+    def wait_for_task(self, task_id, log_callback, abort_func=lambda: False,
+        timeout=None, poll_wait=.5, raise_on_error=True):
+
         last_status = None
         ending = time.time() + timeout if timeout else 999999999999
 

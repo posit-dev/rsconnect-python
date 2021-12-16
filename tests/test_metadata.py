@@ -374,26 +374,6 @@ class TestBuildMetadata(TestCase):
             "owner_guid": "edf26318-0027-4d9d-bbbb-54703ebb1855"
         })
 
-    def test_update_content_item(self):
-        guid = "015143da-b75f-407c-81b1-99c4a724341e"
-        self.build_store.update_content_item(guid, {
-            "bundle_id": "asdf", # bundle_id is ignored on update
-            "title": "new title",
-            "name": "plumber-async",
-            "app_mode": "api",
-            "dashboard_url": "https://connect.remote:6443/connect/#/apps/%s" % guid,
-            "content_url": "https://connect.remote:6443/content/%s/" % guid,
-            "created_time": "2021-11-01T20:43:32Z",
-            "last_deployed_time": "2021-12-01T12:00:00Z",
-            "owner_guid": "edf26318-0027-4d9d-bbbb-54703ebb1855",
-            "other_field": "this should be ignored"
-        })
-        content = self.build_store.get_content_item(guid)
-        self.assertNotIn("other_field", content)
-        self.assertEqual("176", content['bundle_id'])
-        self.assertEqual("new title", content['title'])
-        self.assertEqual("2021-12-01T12:00:00Z", content['last_deployed_time'])
-
     def test_get_content_item(self):
         self.assertIsNotNone(self.build_store.get_content_item("015143da-b75f-407c-81b1-99c4a724341e"))
         self.assertIsNone(self.build_store.get_content_item("not real"))

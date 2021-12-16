@@ -135,8 +135,12 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
         build_monitor = ThreadPoolExecutor(max_workers=1)
         summary_future = build_monitor.submit(_monitor_build, connect_server, content_items)
 
+        # TODO: stagger concurrent builds so the first batch of builds don't start at the exact same time.
+        #   this would help resolve a race condidition in the packrat cache.
+        #   or we could just re-run the build...
+
         # https://docs.python.org/3/library/concurrent.futures.html#threadpoolexecutor-example
-        # spawn a pool of worker threads to perform the content builds
+        #   spawn a pool of worker threads to perform the content builds
         content_executor = ThreadPoolExecutor(max_workers=parallelism)
         build_result_futures = {
             content_executor.submit(_build_content_item, connect_server, content, poll_wait):
@@ -217,11 +221,8 @@ def _monitor_build(connect_server, content_items):
 
 
 def _build_content_item(connect_server, content, poll_wait):
-    # TODO: Stagger concurrent builds so the first couple builds don't start at the exact same time?
-    # import random
-    # time.sleep(random.uniform(0, 2))
     init_content_build_store(connect_server)
-    with RSConnect(connect_server, timeout=120) as client:
+    with RSConnect(connect_server) as client:
         # Pending futures will still try to execute when ThreadPoolExecutor.shutdown() is called
         # so just exit immediately if the current build has been aborted.
         # ThreadPoolExecutor.shutdown(cancel_futures=) isnt available until py3.9
@@ -255,9 +256,6 @@ def _build_content_item(connect_server, content, poll_wait):
         if _content_build_store.aborted():
             return
 
-        # grab the updated content metadata from connect and update our store.
-        updated_content = client.get_content(guid)
-        _content_build_store.update_content_item(guid, updated_content)
         _content_build_store.set_content_item_last_build_task_result(guid, task_status)
         if task_status["code"] != 0:
             logger.error("Build failed: %s" % guid)
