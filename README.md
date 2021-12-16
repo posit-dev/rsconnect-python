@@ -578,7 +578,7 @@ dashboard from a browser.
 
 > **Note:** The `rsconnect content` CLI subcommands are intended to be easily scriptable.
 > The default output format is `JSON` so that the results can be easily piped into
-> other command line utilities like [`jq`] for further post-processing.
+> other command line utilities like [`jq`](https://stedolan.github.io/jq/) for further post-processing.
 
 ```bash
 $ rsconnect content --help
