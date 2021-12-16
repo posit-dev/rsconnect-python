@@ -690,7 +690,6 @@ The following are some common scenarios where performing a content build might b
 - changes to gcc or libc libraries
 - changes to Python or R installations
 - switching from source to binary package repositories or vice versa
-- migrating from local content execution to remote content execution with Kubernetes
 
 > You may use the [`rsconnect content search`](#content-search) subcommand to help
 > identify high priority content items to build.
@@ -849,8 +848,6 @@ $ rsconnect content search --published --order-by created
 
 One common use for the `search` command might be to find the versions of
 r and python that are currently in use on your RStudio Connect server before a migration.
-This information can be used later to help define a set of content images
-to be used with remote content execution on Kubernetes.
 
 ```bash
 # search for all published content and print the unique r and python version combinations
