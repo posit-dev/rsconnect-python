@@ -35,10 +35,10 @@ SOURCE_DATE_EPOCH := $(shell date +%s)
 export SOURCE_DATE_EPOCH
 
 .PHONY: all-tests
-all-tests: all-images test-3.5 test-3.6 test-3.7 test-3.8 test-3.9
+all-tests: all-images test-3.5 test-3.6 test-3.7 test-3.8 test-3.9 test-3.10
 
 .PHONY: all-images
-all-images: image-3.5 image-3.6 image-3.7 image-3.8 image-3.9
+all-images: image-3.5 image-3.6 image-3.7 image-3.8 image-3.9 image-3.10
 
 image-%:
 	docker build -t rsconnect-python:$* --build-arg BASE_IMAGE=python:$*-slim .
