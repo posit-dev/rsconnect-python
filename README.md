@@ -691,11 +691,11 @@ The following are some common scenarios where performing a content build might b
 - changes to Python or R installations
 - switching from source to binary package repositories or vice versa
 
-> The `content build` command is non-destructive, meaning that it does nothing to purge
+> **Note:** The `content build` command is non-destructive, meaning that it does nothing to purge
 > existing packrat/python package caches before a build. If you have an
 > existing cache, it should be cleared prior to starting a content build.
 
-> You may use the [`rsconnect content search`](#content-search) subcommand to help
+> **Note:** You may use the [`rsconnect content search`](#content-search) subcommand to help
 > identify high priority content items to build.
 
 ```
