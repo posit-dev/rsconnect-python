@@ -677,12 +677,13 @@ of the available search flags.
 
 RStudio Connect caches R and Python packages in the configured
 [`Server.DataDir`](https://docs.rstudio.com/connect/admin/appendix/configuration/#Server.DataDir).
-Sometimes, these package caches become stale and need to be rebuilt. This refresh
-occurs automatically when an RStudio Connect user visits the content via the
-RStudio Connect dashboard. Some content, however, is high priority or not accessed
-frequently via the dashboard (API content, emailed reports). In these cases, it is possible to
-preemptively build specific content items using the `rsconnect content build` subcommands.
-This way the user does not have to pay the build cost when the content is accessed next.
+Under certain circumstances (examples below), these package caches can become stale
+and need to be rebuilt. This refresh automatically occurs when an RStudio Connect
+user visits the content. You may wish to refresh some content before it is visited
+because it is high priority or is not visited frequently (API content, emailed reports).
+In these cases, it is possible to preemptively build specific content items using
+the `rsconnect content build` subcommands. This way the user does not have to pay
+the build cost when the content is accessed next.
 
 The following are some common scenarios where performing a content build might be necessary:
 
