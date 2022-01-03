@@ -695,6 +695,7 @@ The following are some common scenarios where performing a content build might b
 > **Note:** The `content build` command is non-destructive, meaning that it does nothing to purge
 > existing packrat/python package caches before a build. If you have an
 > existing cache, it should be cleared prior to starting a content build.
+> See the [migration documentation](https://docs.rstudio.com/connect/admin/appendix/cli/#migration) for details.
 
 > **Note:** You may use the [`rsconnect content search`](#content-search) subcommand to help
 > identify high priority content items to build.
