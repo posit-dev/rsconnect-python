@@ -14,17 +14,16 @@ from os import environ
 from os.path import isfile
 from typing import Union
 
+
 def timestamp():
     return datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
-def default_url():
-    return "http://127.0.0.1:3939"
 
 class DBObject(object):
-    json_excludes = [] # remove fields from the json response
-    show = ["id"] # show these fields in the generated HTML
     generated_id = {}
     instances = {}
+    attrs = ["id"]
+    show = ["id"]
 
     @classmethod
     def _get_all_ids(cls):
@@ -47,11 +46,8 @@ class DBObject(object):
     @classmethod
     def get_object(cls, db_id: Union[int, str]):
         name = cls.__name__
-        if name in cls.instances:
-            if db_id in cls.instances[name]:
-                return cls.instances[name][db_id]
-            elif isinstance(db_id, str): # if guid was provided, find by guid instead of id
-                return next(filter(lambda x: x.guid == db_id, cls.instances[name].values()), None)
+        if name in cls.instances and db_id in cls.instances[name]:
+            return cls.instances[name][db_id]
         return None
 
     @classmethod
@@ -62,27 +58,52 @@ class DBObject(object):
         return []
 
     @classmethod
+    def create_from(cls, data: dict):
+        if "id" in data:
+            result = cls.__new__(cls)
+            if "guid" in cls.attrs and "guid" not in data:
+                result.guid = str(uuid.uuid4())
+        else:
+            result = cls()
+
+        result.update_from(data)
+
+        if "id" in data:
+            cls._save(result)
+
+        return result
+
+    @classmethod
     def _save(cls, instance):
         name = cls.__name__
         if name not in cls.instances:
             cls.instances[name] = {}
         cls.instances[name][instance.id] = instance
+        if "guid" in instance.attrs:
+            cls.instances[name][instance.guid] = instance
 
     @classmethod
     def get_table_headers(cls):
         return "<tr><th>%s</th></tr>" % "</th><th>".join(cls.show)
 
-    def __init__(self, id: str = None, needs_guid: bool = False, **kwargs):
-        self.id = int(id) if id else self._next_id()
-        if needs_guid:
-            self.guid = kwargs.get("guid", str(uuid.uuid4()))
+    def __init__(self, needs_uuid: bool = False):
+        self.id = self._next_id()
+
+        if needs_uuid:
+            self.guid = str(uuid.uuid4())
+
         self._save(self)
 
     def update_from(self, data: dict):
-        self.__dict__.update(data)
+        for attr in self.attrs:
+            if attr in data:
+                self.__setattr__(attr, data[attr])
 
     def to_dict(self) -> dict:
-        return self.__dict__.copy()
+        result = {}
+        for attr in self.attrs:
+            result[attr] = self.__getattribute__(attr)
+        return result
 
     def get_table_row(self):
         items = [str(self.__getattribute__(item)) for item in self.show]
@@ -100,7 +121,25 @@ class AppMode(Enum):
 
 
 class Application(DBObject):
-    json_excludes = ["_base_url"]
+    attrs = [
+        "id",
+        "guid",
+        "name",
+        "url",
+        "owner_username",
+        "owner_first_name",
+        "owner_last_name",
+        "owner_email",
+        "owner_locked",
+        "bundle_id",
+        "needs_config",
+        "access_type",
+        "description",
+        "app_mode",
+        "created_time",
+        "title",
+        "last_deployed_time",
+    ]
     show = ["id", "guid", "name", "title", "url"]
 
     @classmethod
@@ -110,17 +149,16 @@ class Application(DBObject):
                 return app
         return None
 
-    def __init__(self, **kwargs):
-        super(Application, self).__init__(needs_guid=True, **kwargs)
-        self._base_url = kwargs.get('_base_url', default_url())
-        self.name = kwargs.get('name')
-        self.title = kwargs.get('title')
-        self.url = "%scontent/%s" % (self._base_url, self.id)
-        self.owner_username = kwargs.get('owner_username')
-        self.owner_first_name = kwargs.get('owner_first_name')
-        self.owner_last_name = kwargs.get('owner_last_name')
-        self.owner_email = kwargs.get('owner_email')
-        self.owner_locked = kwargs.get('owner_locked')
+    def __init__(self, name, title, url, user):
+        super(Application, self).__init__(needs_uuid=True)
+        self.name = name
+        self.title = title
+        self.url = "{0}content/{1}".format(url, self.id)
+        self.owner_username = user.username
+        self.owner_first_name = user.first_name
+        self.owner_last_name = user.last_name
+        self.owner_email = user.email
+        self.owner_locked = user.locked
         self.bundle_id = None
         self.needs_config = True
         self.access_type = None
@@ -141,6 +179,22 @@ class Application(DBObject):
 
 
 class User(DBObject):
+    attrs = [
+        "id",
+        "guid",
+        "username",
+        "first_name",
+        "last_name",
+        "email",
+        "user_role",
+        "password",
+        "confirmed",
+        "locked",
+        "created_time",
+        "updated_time",
+        "active_time",
+        "privileges",
+    ]
     show = ["id", "guid", "username", "first_name", "last_name"]
 
     @classmethod
@@ -149,44 +203,23 @@ class User(DBObject):
             return User.get_object(api_keys[key])
         return None
 
-    def __init__(self, **kwargs):
-        super(User, self).__init__(needs_guid=True, **kwargs)
-        self.username = kwargs.get('username')
-        self.first_name = kwargs.get('first_name')
-        self.last_name = kwargs.get('last_name')
-        self.email = kwargs.get('email')
-        self.user_role = kwargs.get('user_role')
-        self.password = kwargs.get('password')
-        self.confirmed = kwargs.get('confirmed')
-        self.locked = kwargs.get('locked')
-        self.created_time = kwargs.get('created_time')
-        self.updated_time = kwargs.get('updated_time')
-        self.active_time = kwargs.get('active_time')
-        self.privileges = kwargs.get('privileges')
+    def __init__(self):
+        super(User, self).__init__(needs_uuid=True)
 
 
 class Bundle(DBObject):
-    json_excludes = ["_tar_data"]
+    attrs = ["id", "app_id", "created_time", "updated_time"]
     show = ["id", "app_id"]
 
-    def __init__(self, **kwargs):
-        super(Bundle, self).__init__(**kwargs)
-        self.app_id = kwargs.get('app_id')
+    def __init__(self, app: Application, tarball):
+        super(Bundle, self).__init__()
+        self.app_id = app.id
         self.created_time = timestamp()
         self.updated_time = self.created_time
-        self._tar_data = kwargs.get('_tar_data')
-        self._tar_file = kwargs.get('_tar_file')
-
-    def read_bundle_data(self):
-        if self._tar_data:
-            return io.BytesIO(self._tar_data)
-        elif self._tar_file:
-            with open(self._tar_file, 'rb') as fh:
-                self._tar_data = fh.read()
-                return io.BytesIO(self._tar_data)
+        self.tarball = tarball
 
     def read_bundle_file(self, file_name):
-        raw_bytes = io.BytesIO(self._tar_data)
+        raw_bytes = io.BytesIO(self.tarball)
         with tarfile.open("r:gz", fileobj=raw_bytes) as tar:
             return tar.extractfile(file_name).read()
 
@@ -203,52 +236,16 @@ class Bundle(DBObject):
 
 
 class Task(DBObject):
-    def __init__(self, **kwargs):
-        super(Task, self).__init__(**kwargs)
-        self.user_id = kwargs.get('user_id', 0)
-        self.finished = kwargs.get('finished', True)
-        self.code = kwargs.get('code', 0)
-        self.error = kwargs.get('error', "")
-        self.last_status = kwargs.get('last_status', 0)
-        self.status = kwargs.get('status', ["Building static content", "Deploying static content"])
+    attrs = ["id", "user_id", "finished", "code", "error", "last_status", "status"]
 
-
-class Content(DBObject):
-    json_excludes = ["_base_url"]
-    show = ["guid", "name", "app_mode", "r_version", "py_version", "quarto_version"]
-
-    def __init__(self, **kwargs):
-        super(Content, self).__init__(needs_guid=True, **kwargs)
-        self._base_url = kwargs.get('_base_url', default_url())
-        self.name = kwargs.get('name')
-        self.title = self.name + "+ title"
-        self.description = self.name + "+ description"
-        self.bundle_id = kwargs.get('bundle_id')
-        self.app_mode = kwargs.get('app_mode')
-        self.content_category = kwargs.get('content_category')
-        self.content_url = "%scontent/%s/" % (self._base_url, self.guid)
-        self.dashboard_url = "%sconnect/#/apps/%s" % (self._base_url, self.guid)
-        self.created_time = timestamp()
-        self.last_deployed_time = timestamp()
-        self.r_version = kwargs.get('r_version', '4.1.1')
-        self.py_version = kwargs.get('py_version', '3.9.9')
-        self.quarto_version = kwargs.get('quarto_version', '0.2.318')
-        self.owner_guid = kwargs.get('owner_guid')
-        self.access_type = kwargs.get('access_type', 'acl')
-        self.connection_timeout = kwargs.get('connection_timeout')
-        self.read_timeout = kwargs.get('read_timeout')
-        self.init_timeout = kwargs.get('init_timeout')
-        self.idle_timeout = kwargs.get('idle_timeout')
-        self.max_processes = kwargs.get('max_processes')
-        self.min_processes = kwargs.get('min_processes')
-        self.max_conns_per_process = kwargs.get('max_conns_per_process')
-        self.load_factor = kwargs.get('load_factor')
-        self.parameterized = kwargs.get('parameterized', False)
-        self.cluster_name = kwargs.get('cluster_name')
-        self.image_name = kwargs.get('image_name')
-        self.run_as = kwargs.get('run_as')
-        self.run_as_current_user = kwargs.get('run_as_current_user', False)
-        self.app_role = kwargs.get('app_role', "owner")
+    def __init__(self):
+        super(Task, self).__init__()
+        self.user_id = 0
+        self.finished = True
+        self.code = 0
+        self.error = ""
+        self.last_status = 0
+        self.status = ["Building static content", "Deploying static content"]
 
 
 def _apply_pre_fetch_data(data: dict):
@@ -258,7 +255,7 @@ def _apply_pre_fetch_data(data: dict):
                 value = [value]
             cls = tag_map[key]
             for item in value:
-                new_object = cls(**item)
+                new_object = cls.create_from(item)
                 if cls == User and "api_key" in item:
                     api_keys[item["api_key"]] = new_object.id
         else:
@@ -286,13 +283,13 @@ def _format_section(sections, name, rows):
 def get_data_dump():
     ts = ' style="border-style: solid; border-width: 1px"'
     sections = []
-    for cls in (Application, Content, Bundle, Task, User):
+    for cls in (Application, User, Bundle, Task):
         rows = [item.get_table_row() for item in cls.get_all_objects()]
         rows.insert(0, cls.get_table_headers())
         _format_section(sections, cls.__name__, rows)
     rows = ["<tr><th>API Key</th><th>User ID</th></tr>"]
     for key, value in api_keys.items():
-        rows.append("<tr><td>%s</td><td>%s</td></tr>" % (key, value))
+        rows.append("<tr><td>%s</td><td>%s</td</tr" % (key, value))
     _format_section(sections, "API Key", rows)
     text = "\n".join(sections)
     text = text.replace("<th>", "<th%s>" % ts)
@@ -390,16 +387,46 @@ default_server_settings = {
     "git_available": True,
     "documentation_dashboard": False,
 }
-
-tag_map = {
-    "apps": Application,
-    "users": User,
-    "bundles": Bundle,
-    "tasks": Task,
-    "content": Content
-}
-
-api_keys = {}
+tag_map = {"apps": Application, "users": User, "bundles": Bundle, "tasks": Task}
+admin_user = User.create_from(
+    {
+        "guid": "29a74070-2c13-4ef9-a898-cfc6bcf0f275",
+        "username": "admin",
+        "first_name": "Super",
+        "last_name": "User",
+        "email": "admin@example.com",
+        "user_role": "administrator",
+        "password": "",
+        "confirmed": True,
+        "locked": False,
+        "created_time": "2018-08-29T19:25:23.68280816Z",
+        "active_time": "2018-08-30T23:49:18.421238194Z",
+        "updated_time": "2018-08-29T19:25:23.68280816Z",
+        "privileges": [
+            "add_users",
+            "add_vanities",
+            "change_app_permissions",
+            "change_apps",
+            "change_groups",
+            "change_usernames",
+            "change_users",
+            "change_variant_schedule",
+            "create_groups",
+            "edit_run_as",
+            "edit_runtime",
+            "lock_users",
+            "publish_apps",
+            "remove_apps",
+            "remove_groups",
+            "remove_users",
+            "remove_vanities",
+            "view_app_settings",
+            "view_apps",
+        ],
+    }
+)
+# noinspection SpellCheckingInspection
+api_keys = {"0123456789abcdef0123456789abcdef": admin_user.id}
 
 # Handle any pre-fetching we should do.
 _pre_fetch_data()

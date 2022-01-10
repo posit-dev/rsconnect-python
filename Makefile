@@ -26,19 +26,16 @@ endif
 ifneq ($(CONNECT_API_KEY),)
   TEST_ENV += CONNECT_API_KEY=$(CONNECT_API_KEY)
 endif
-ifneq ($(CONNECT_CONTENT_BUILD_DIR),)
-	TEST_ENV += CONNECT_CONTENT_BUILD_DIR=$(CONNECT_CONTENT_BUILD_DIR)
-endif
 
 # NOTE: See the `dist` target for why this exists.
 SOURCE_DATE_EPOCH := $(shell date +%s)
 export SOURCE_DATE_EPOCH
 
 .PHONY: all-tests
-all-tests: all-images test-3.5 test-3.6 test-3.7 test-3.8 test-3.9 test-3.10
+all-tests: all-images test-2.7 test-3.5 test-3.6 test-3.7 test-3.8
 
 .PHONY: all-images
-all-images: image-3.5 image-3.6 image-3.7 image-3.8 image-3.9 image-3.10
+all-images: image-2.7 image-3.5 image-3.6 image-3.7 image-3.8
 
 image-%:
 	docker build -t rsconnect-python:$* --build-arg BASE_IMAGE=python:$*-slim .
@@ -52,15 +49,14 @@ test-%:
 mock-test-%: clean-stores
 	@$(MAKE) -C mock_connect image up
 	@sleep 1
-	trap "$(MAKE) -C mock_connect down" EXIT; \
-	CONNECT_CONTENT_BUILD_DIR="rsconnect-build-test" \
-	CONNECT_SERVER="http://$(HOSTNAME):3939" \
-	CONNECT_API_KEY="0123456789abcdef0123456789abcdef" \
-	$(MAKE) test-$*
+	CONNECT_SERVER=http://$(HOSTNAME):3939 CONNECT_API_KEY=0123456789abcdef0123456789abcdef $(MAKE) test-$*
 	@$(MAKE) -C mock_connect down
 
 fmt-%:
 	$(RUNNER) 'black .'
+
+.PHONY: fmt-2.7
+fmt-2.7: .fmt-unsupported
 
 .PHONY: fmt-3.5
 fmt-3.5: .fmt-unsupported
@@ -81,6 +77,9 @@ lint-%:
 	$(RUNNER) 'black --check --diff rsconnect/'
 	$(RUNNER) 'flake8 rsconnect/'
 	$(RUNNER) 'mypy -p rsconnect'
+
+.PHONY: lint-2.7
+lint-2.7: .lint-unsupported
 
 .PHONY: lint-3.5
 lint-3.5: .lint-unsupported

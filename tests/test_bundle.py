@@ -15,7 +15,7 @@ from rsconnect.bundle import (
     keep_manifest_specified_file,
     to_bytes,
 )
-from .utils import get_dir
+from .test_data_util import get_dir
 
 
 class TestBundle(TestCase):
