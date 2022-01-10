@@ -5,7 +5,7 @@
 #
 MOCK_IMAGE?="rstudio/connect:mock"
 MOCK_HOST?="mock-connect"
-PRE_FETCH_FILE?="data.json"
+PRE_FETCH_FILE?=""
 LOG_FILE?="mock_connect.log"
 
 # Build the image in which the mock server will run.
@@ -16,13 +16,12 @@ image:
 up:
 	@echo "Starting ${MOCK_HOST} ..."
 	@docker run --rm -d -t --init \
-		--name ${MOCK_HOST} \
+	 	--name ${MOCK_HOST} \
 		--volume $(CURDIR):/rsconnect \
-		--volume $(CURDIR)/../tests/testdata:/testdata \
-		--env=FLASK_APP=/rsconnect/mock_connect/main.py \
-		--env=PRE_FETCH_FILE=${PRE_FETCH_FILE} \
-		--publish 3939:3939 \
-		--workdir /rsconnect \
+	 	--env=FLASK_APP=/rsconnect/mock_connect/main.py \
+	 	--env=PRE_FETCH_FILE=${PRE_FETCH_FILE} \
+	 	--publish 3939:3939 \
+	 	--workdir /rsconnect \
 		${MOCK_IMAGE} \
 		flask run --host=0.0.0.0 --port=3939 1>/dev/null
 	@docker logs -f ${MOCK_HOST} > ${LOG_FILE} &

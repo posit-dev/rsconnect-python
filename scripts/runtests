@@ -4,4 +4,12 @@ set -o pipefail
 set -o xtrace
 
 : "${PYTEST_ARGS:=-vv --cov=rsconnect --cov-report=term --cov-report=html}"
-pytest ${PYTEST_ARGS} --mypy ./tests/
+
+case "${PYTHON_VERSION}" in
+2*)
+  pytest ${PYTEST_ARGS} ./tests/
+  ;;
+*)
+  pytest ${PYTEST_ARGS} --mypy ./tests/
+  ;;
+esac

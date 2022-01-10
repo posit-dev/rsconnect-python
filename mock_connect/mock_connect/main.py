@@ -2,16 +2,14 @@
 This is the main file, run via `flask run`, for the mock Connect server.
 """
 import sys
-from os.path import basename
 
 # noinspection PyPackageRequirements
-from flask import Flask, Blueprint, g, request, url_for, send_file
+from flask import Flask, Blueprint, g, request, url_for
 
 from .data import (
     Application,
     AppMode,
     Bundle,
-    Content,
     Task,
     get_data_dump,
     default_server_settings,
@@ -52,16 +50,8 @@ def applications():
         if name and Application.get_app_by_name(name) is not None:
             return error(409, "An object with that name already exists.")
         title = connect_app["title"] if "title" in connect_app else ""
-        return Application(
-            name=name,
-            title=title,
-            owner_username=g.user.username,
-            owner_first_name = g.user.first_name,
-            owner_last_name = g.user.last_name,
-            owner_email = g.user.email,
-            owner_locked = g.user.locked,
-            _base_url=url_for("index", _external=True),
-        )
+
+        return Application(name, title, url_for("index", _external=True), g.user)
     else:
         count = int(request.args.get("count", 10000))
         search = request.args.get("search")
@@ -80,7 +70,7 @@ def applications():
 # noinspection PyUnresolvedReferences
 @api.route("applications/<object_id>", methods=["GET", "POST"])
 @endpoint(authenticated=True, cls=Application, writes_json=True)
-def get_application(connect_app):
+def application(connect_app):
     if request.method == "POST":
         connect_app.update_from(request.get_json(force=True))
 
@@ -98,7 +88,7 @@ def config(connect_app):
 @api.route("applications/<object_id>/upload", methods=["POST"])
 @endpoint(authenticated=True, cls=Application, writes_json=True)
 def upload(connect_app):
-    return Bundle(app_id=connect_app.id, _tar_data=request.data)
+    return Bundle(connect_app, request.data)
 
 
 # noinspection PyUnresolvedReferences
@@ -162,51 +152,11 @@ def python_settings():
 # noinspection PyUnresolvedReferences
 @app.route("/content/apps/<object_id>")
 @endpoint(cls=Application)
-def get_content(connect_app):
+def content(connect_app):
     bundle = connect_app.get_bundle()
     if bundle is None:
         return error(400, "The content has not been deployed.")  # message and status code probably wrong
     return bundle.get_rendered_content()
-
-
-# noinspection PyUnresolvedReferences
-@api.route("v1/content/<object_id>")
-@endpoint(authenticated=True, cls=Content, writes_json=True)
-def v1_get_content(content):
-    return content
-
-
-# noinspection PyUnresolvedReferences
-@api.route("v1/content")
-@endpoint(authenticated=True, writes_json=True)
-def v1_content():
-    return list(Content.get_all_objects())
-
-
-# This endpoint is kind of a cheat, we dont actually do any validation
-#  that the requested bundle belongs to this piece of content
-# noinspection PyUnresolvedReferences
-@api.route("v1/content/<content_id>/bundles/<object_id>/download")
-@endpoint(authenticated=True, cls=Bundle)
-def v1_content_bundle_download(bundle:Bundle, content_id):
-    print(content_id)
-    return send_file(
-        bundle.read_bundle_data(),
-        mimetype="application/tar+gzip",
-        as_attachment=True,
-        attachment_filename=basename(bundle._tar_file) if bundle._tar_file else None,
-    )
-
-
-@api.route("v1/content/<object_id>/build", methods=["POST"])
-@endpoint(authenticated=True, writes_json=True)
-def v1_content_build():
-    bundle_id = request.get_json(force=True).get("bundle_id")
-    if bundle_id is None:
-        return error(400, "bundle_id is required")  # message and status code probably wrong
-
-    task = Task()
-    return {"task_id": task.id}
 
 
 app.register_blueprint(api, url_prefix="/__api__")

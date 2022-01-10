@@ -1,34 +1,11 @@
 """
 Data models
 """
+import fnmatch
 import os
 import re
 
-import fnmatch
-import semver
 import six
-
-from click import ParamType
-from click.types import StringParamType
-
-_version_search_pattern = r"(^[=><]{1,2})(.*)"
-_content_guid_pattern = r"([^,]*),?(.*)"
-
-
-class BuildStatus(object):
-    NEEDS_BUILD = "NEEDS_BUILD" # marked for build
-    RUNNING = "RUNNING" # running now
-    ABORTED = "ABORTED" # cancelled while running
-    COMPLETE = "COMPLETE" # completed successfully
-    ERROR = "ERROR" # completed with an error
-
-    _all = [
-        NEEDS_BUILD,
-        RUNNING,
-        ABORTED,
-        COMPLETE,
-        ERROR
-    ]
 
 
 class AppMode(object):
@@ -230,89 +207,3 @@ class GlobSet(object):
         :return: True, if the given path matches any of our glob patterns.
         """
         return any(matcher.matches(path) for matcher in self._matchers)
-
-
-# Strip quotes from string arguments that might be passed in by jq
-#  without the -r flag
-class StrippedStringParamType(StringParamType):
-    name = "StrippedString"
-
-    def convert(self, value, param, ctx):
-        value = super(StrippedStringParamType, self).convert(value, param, ctx)
-        return value.strip("\"\'")
-
-
-class ContentGuidWithBundle(object):
-    def __init__(self, guid:str=None, bundle_id:str=None):
-        self.guid = guid
-        self.bundle_id = bundle_id
-
-    def __repr__(self):
-        if self.bundle_id:
-            return "%s,%s" % (self.guid, self.bundle_id)
-        return self.guid
-
-
-class ContentGuidWithBundleParamType(StrippedStringParamType):
-    name = "ContentGuidWithBundle"
-
-    def convert(self, value, param, ctx):
-        if isinstance(value, ContentGuidWithBundle):
-            return value
-        if isinstance(value, str):
-            value = super(ContentGuidWithBundleParamType, self).convert(value, param, ctx)
-            m = re.match(_content_guid_pattern, value)
-            if m is not None:
-                guid_with_bundle = ContentGuidWithBundle()
-                guid_with_bundle.guid = m.group(1)
-                if len(m.groups()) == 2 and len(m.group(2)) > 0:
-                    try:
-                        int(m.group(2))
-                    except ValueError:
-                        self.fail("Failed to parse bundle_id. Expected Int, but found: %s" % m.group(2))
-                    guid_with_bundle.bundle_id = m.group(2)
-                return guid_with_bundle
-        self.fail("Failed to parse content guid arg %s" % value)
-
-
-class VersionSearchFilter(object):
-
-    def __init__(self, name:str=None, comp:str=None, vers:str=None):
-        self.name = name
-        self.comp = comp
-        self.vers = vers
-
-    def __repr__(self):
-        return "%s %s %s" % (self.name, self.comp, self.vers)
-
-class VersionSearchFilterParamType(ParamType):
-    name = "VersionSearchFilter"
-
-    def __init__(self, key):
-        """
-        :param key: key refers to the left side of the version comparison.
-        In this case any interpreter in a content result, one of [py_version, r_version, quarto_version]
-        """
-        self.key = key
-
-    def convert(self, value, param, ctx):
-        if isinstance(value, VersionSearchFilter):
-            return value
-
-        if isinstance(value, str):
-            m = re.match(_version_search_pattern, value)
-            if m is not None and len(m.groups()) == 2:
-                version_search = VersionSearchFilter(name=self.key)
-                version_search.comp = m.group(1)
-                version_search.vers = m.group(2)
-
-                if version_search.comp in ["<<", "<>", "><", ">>", "=<", "=>", "="]:
-                    self.fail("Failed to parse verison filter: %s is not a valid comparitor" % version_search.comp)
-
-                try:
-                    semver.parse(version_search.vers)
-                except ValueError:
-                    self.fail("Failed to parse version info: %s" % version_search.vers)
-                return version_search
-
-        self.fail("Failed to parse version filter %s" % value)

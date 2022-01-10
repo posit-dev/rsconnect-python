@@ -4,19 +4,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.7.0] - 2022-01-10
-
-### Added
-
-- Adds `rsconnect content` subcommands for interacting with RStudio Connect's `/v1/content`
-  REST API. This allows users to search, download, and (re)build content. Users should
-  note that the `rsconnect content build` subcommand requires RStudio Connect release 2021.11.1
-  or later.
-
-### Changed
-
-- Support for Python 2.7 has been removed in this release.
-
 ## [1.6.0] - 2021-08-30
 
 ### Added
@@ -45,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rsconnect-python does not inspect the file contents to identify the object name, which must be
   one of the default names that Connect expects (`app`, `application`, `create_app`, or `make_app`).
 
-- Ability to hide code cells when rendering Jupyter notebooks.
+- Ability to hide code cells when rendering Jupyter notebooks. 
 
 After setting up Connect (>=1.9.0) and rsconnect-python, the user can render a Jupyter notebook without its corresponding code cells by passing the ' hide-all-input' flag through the rsconnect cli:
 
