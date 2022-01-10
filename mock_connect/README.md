@@ -8,7 +8,7 @@ Connect.
 ### Restrictions
 
 - The mock RStudio Connect does not support HTTPS connections; only HTTP.
-- Not all Connect endpoints are implements; only those needed to verify `rsconnect-python`
+- Not all Connect endpoints are implemented; only those needed to verify `rsconnect-python`
   functionality.
 
 ## Data Handling
@@ -21,7 +21,7 @@ seeing the results of updating APIs.
 The server comes with only one predefined object defined, the "admin" user.  It does allow
 you to preload data if you wish.  This is intended to provide support for specific testing
 scenarios.  To preload data, create a JSON file containing the data you want loaded.  See
-the [sample](sample.json) file for the basic structure.  Look at the
+the provided [data file](data.json) for the basic structure.  Look at the
 [data code file](mock_connect/data.py) file for supported attributes for each object.
 
 If the JSON data for an object does not contain an `id` attribute, a unique one will be
@@ -59,4 +59,3 @@ The `Makefile` contains several useful targets.
 In the future, the pre-fetch data file will also allow for tailoring server responses based
 on request input.  This makes it significantly easier to simulate a variety of errors so
 that non-happy paths may also be fully tested.
- 
