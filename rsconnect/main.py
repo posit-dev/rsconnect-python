@@ -103,6 +103,13 @@ def server_args(func):
     return wrapper
 
 
+def validate_env_vars(ctx, param, value):
+    for s in value:
+        if not isinstance(s, str) or "=" not in s:
+            raise click.BadParameter("environment variable must be a string in NAME=VALUE format: '{}'".format(s))
+    return [s.split("=", 1) for s in value]
+
+
 def content_args(func):
     @click.option(
         "--new",
@@ -119,6 +126,7 @@ def content_args(func):
         help="Existing app ID or GUID to replace. Cannot be used with --new.",
     )
     @click.option("--title", "-t", help="Title of the content (default is the same as the filename).")
+    @click.option("--environment", "-E", "env_vars", multiple=True, callback=validate_env_vars)
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         return func(*args, **kwargs)
@@ -513,6 +521,7 @@ def _deploy_bundle(
     title,
     title_is_default,
     bundle,
+    env_vars,
 ):
     """
     Does the work of uploading a prepared bundle.
@@ -526,9 +535,10 @@ def _deploy_bundle(
     :param title: the title of the app.
     :param title_is_default: a flag noting whether the title carries a defaulted value.
     :param bundle: the bundle to deploy.
+    :param env_vars: list of NAME=VALUE pairs to be set as the app environment
     """
     with cli_feedback("Uploading bundle"):
-        app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle)
+        app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle, env_vars)
 
     with cli_feedback("Saving deployment data"):
         app_store.set(
@@ -635,6 +645,7 @@ def deploy_notebook(
     extra_files,
     hide_all_input,
     hide_tagged_input,
+    env_vars,
 ):
     set_verbosity(verbose)
 
@@ -683,6 +694,7 @@ def deploy_notebook(
         title,
         default_title,
         bundle,
+        env_vars,
     )
 
 
@@ -699,7 +711,7 @@ def deploy_notebook(
 @server_args
 @content_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
-def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title, verbose, file):
+def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title, verbose, file, env_vars):
     set_verbosity(verbose)
 
     with cli_feedback("Checking arguments"):
@@ -752,6 +764,7 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
         title,
         default_title,
         bundle,
+        env_vars,
     )
 
 
@@ -831,6 +844,7 @@ def generate_deploy_python(app_mode, alias, min_version):
         verbose,
         directory,
         extra_files,
+        env_vars,
     ):
         _deploy_by_framework(
             name,
@@ -849,6 +863,7 @@ def generate_deploy_python(app_mode, alias, min_version):
             verbose,
             directory,
             extra_files,
+            env_vars,
             {
                 AppModes.PYTHON_API: gather_basic_deployment_info_for_api,
                 AppModes.PYTHON_FASTAPI: gather_basic_deployment_info_for_fastapi,
@@ -887,6 +902,7 @@ def _deploy_by_framework(
     verbose,
     directory,
     extra_files,
+    env_vars,
     gatherer,
 ):
     """
@@ -956,6 +972,7 @@ def _deploy_by_framework(
         title,
         default_title,
         bundle,
+        env_vars,
     )
 
 
