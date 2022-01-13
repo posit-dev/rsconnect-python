@@ -413,6 +413,20 @@ containing the API or application.
 When using `rsconnect deploy manifest`, the title is derived from the primary
 filename referenced in the manifest.
 
+### Environment Variables
+You can set environment variables during deployment. Their names and values will be
+passed to RStudio Connect during deployment so you can use them in your code.
+
+For example, if `notebook.ipynb` contains
+```python
+print(os.environ["MYVAR"])
+```
+
+You can set the value of `MYVAR` that will be set when your code runs in RStudio Connect:
+```bash
+rsconnect deploy notebook --environment MYVAR='hello world' notebook.ipynb
+```
+
 ### Network Options
 
 When specifying information that `rsconnect` needs to be able to interact with RStudio
