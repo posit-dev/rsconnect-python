@@ -46,7 +46,7 @@ from rsconnect.actions import (
 from rsconnect.api import RSConnectException, RSConnectServer
 from rsconnect.environment import MakeEnvironment
 
-from .test_data_util import get_manifest_path, get_api_path, get_dir
+from .utils import get_manifest_path, get_api_path, get_dir
 
 
 class TestActions(TestCase):
@@ -57,9 +57,6 @@ class TestActions(TestCase):
     def test_which_python(self):
         with self.assertRaises(RSConnectException):
             which_python("fake.file")
-
-        with self.assertRaises(RSConnectException):
-            which_python(__file__)
 
         self.assertEqual(which_python(sys.executable), sys.executable)
         self.assertEqual(which_python(None), sys.executable)
