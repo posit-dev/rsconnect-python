@@ -6,8 +6,8 @@ import socket
 import ssl
 import os
 
-from rsconnect import VERSION
-from rsconnect.log import logger
+from . import VERSION
+from .log import logger
 from six.moves import http_client as http
 from six.moves.http_cookies import SimpleCookie
 from six.moves.urllib_parse import urlparse, urlencode, urljoin
@@ -207,21 +207,21 @@ class HTTPServer(object):
             self._conn.close()
             self._conn = None
 
-    def get(self, path, query_params=None):
-        return self.request("GET", path, query_params)
+    def get(self, path, query_params=None, decode_response=True):
+        return self.request("GET", path, query_params, decode_response=decode_response)
 
     def post(self, path, query_params=None, body=None):
         return self.request("POST", path, query_params, body)
 
-    def request(self, method, path, query_params=None, body=None, maximum_redirects=5):
+    def request(self, method, path, query_params=None, body=None, maximum_redirects=5, decode_response=True):
         path = self._get_full_path(path)
         extra_headers = None
         if isinstance(body, dict):
             body = json.dumps(body).encode("utf-8")
             extra_headers = {"Content-Type": "application/json; charset=utf-8"}
-        return self._do_request(method, path, query_params, body, maximum_redirects, extra_headers)
+        return self._do_request(method, path, query_params, body, maximum_redirects, extra_headers, decode_response)
 
-    def _do_request(self, method, path, query_params, body, maximum_redirects, extra_headers=None):
+    def _do_request(self, method, path, query_params, body, maximum_redirects, extra_headers=None, decode_response=True):
         full_uri = path
         if query_params is not None:
             full_uri = "%s?%s" % (path, urlencode(query_params))
@@ -247,7 +247,9 @@ class HTTPServer(object):
                 self._conn.request(method, full_uri, body, headers)
 
                 response = self._conn.getresponse()
-                response_body = response.read().decode("utf-8").strip()
+                response_body = response.read()
+                if decode_response:
+                    response_body = response_body.decode("utf-8").strip()
 
                 if logger.is_debugging():
                     logger.debug("Response: %s %s" % (response.status, response.reason))

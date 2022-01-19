@@ -4,7 +4,16 @@ from os.path import join
 from unittest import TestCase
 from click.testing import CliRunner
 
-from .test_data_util import get_dir, get_manifest_path, get_api_path
+from .utils import (
+    apply_common_args,
+    optional_ca_data,
+    optional_target,
+    get_dir,
+    get_manifest_path,
+    get_api_path,
+    require_api_key,
+    require_connect
+)
 from rsconnect.api import RSConnectException
 from rsconnect.main import cli, _validate_deploy_to_args, server_store
 from rsconnect import VERSION
@@ -49,12 +58,11 @@ class TestMain(TestCase):
 
     # noinspection SpellCheckingInspection
     def create_deploy_args(self, deploy_command, target):
-        connect_server = self.require_connect()
-        api_key = self.require_api_key()
-        cadata_file = self.optional_ca_data(None)
-        args = ["deploy", deploy_command, "-s", connect_server, "-k", api_key]
-        if cadata_file is not None:
-            args.extend(["--cacert", cadata_file])
+        connect_server = require_connect(self)
+        api_key = require_api_key(self)
+        cadata_file = optional_ca_data(None)
+        args = ["deploy", deploy_command]
+        apply_common_args(args, server=connect_server, key=api_key, cacert=cadata_file)
         args.append(target)
         return args
 
@@ -72,15 +80,17 @@ class TestMain(TestCase):
         self.assertIn("OK", result.output)
 
     def test_ping_api_key(self):
-        connect_server = self.require_connect()
-        api_key = self.require_api_key()
+        connect_server = require_connect(self)
+        api_key = require_api_key(self)
         runner = CliRunner()
-        result = runner.invoke(cli, ["details", "-s", connect_server, "-k", api_key])
+        args = ["details"]
+        apply_common_args(args, server=connect_server, key=api_key)
+        result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("OK", result.output)
 
     def test_deploy(self):
-        target = self.optional_target(get_dir(join("pip1", "dummy.ipynb")))
+        target = optional_target(get_dir(join("pip1", "dummy.ipynb")))
         runner = CliRunner()
         args = self.create_deploy_args("notebook", target)
         result = runner.invoke(cli, args)
@@ -89,7 +99,7 @@ class TestMain(TestCase):
 
     # noinspection SpellCheckingInspection
     def test_deploy_manifest(self):
-        target = self.optional_target(get_manifest_path("shinyapp"))
+        target = optional_target(get_manifest_path("shinyapp"))
         runner = CliRunner()
         args = self.create_deploy_args("manifest", target)
         result = runner.invoke(cli, args)
@@ -97,7 +107,7 @@ class TestMain(TestCase):
         self.assertIn("OK", result.output)
 
     def test_deploy_api(self):
-        target = self.optional_target(get_api_path("flask"))
+        target = optional_target(get_api_path("flask"))
         runner = CliRunner()
         args = self.create_deploy_args("api", target)
         result = runner.invoke(cli, args)
