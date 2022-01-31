@@ -38,11 +38,11 @@ def _get_proxy():
     if proxyURL:
         logger.info("Using custom proxy server {}".format(proxyURL))
         parsed = urlparse(proxyURL)
+        netloc = parsed.netloc.split(":")
         if parsed.port:
-            netloc = parsed.netloc.split(":")
             proxyHost, proxyPort = ':'.join(netloc[:-1]), parsed.port
         else:
-            proxyHost = parsed.hostname
+            proxyHost = ':'.join(netloc[:-1])
             proxyPort = 8080
 
         return proxyHost, int(proxyPort)
