@@ -1,17 +1,21 @@
 """
 Metadata management objects and utility functions
 """
-
 import base64
 import hashlib
 import json
 import os
+import glob
 import sys
+from datetime import datetime, timezone
 from os.path import abspath, basename, dirname, exists, join
+from urllib.parse import urlparse
+import shutil
+from threading import Lock
 
-from rsconnect import api
-from rsconnect.log import logger
-from rsconnect.models import AppMode, AppModes
+from . import api
+from .log import logger
+from .models import AppMode, AppModes
 
 
 def config_dirname(platform=sys.platform, env=os.environ):
@@ -46,6 +50,11 @@ def makedirs(filepath):
         pass
 
 
+def _normalize_server_url(server_url):
+    url = urlparse(server_url)
+    return url.netloc.replace(".", "_").replace(":", "_")
+
+
 class DataStore(object):
     """
     Defines a base class for a persistent store.  The store supports a primary location and
@@ -58,6 +67,7 @@ class DataStore(object):
         self._chmod = chmod
         self._data = {}
         self._real_path = None
+        self._lock = Lock()
 
         self.load()
 
@@ -90,14 +100,14 @@ class DataStore(object):
         if not self._load_from(self._primary_path) and self._secondary_path:
             self._load_from(self._secondary_path)
 
-    def _get_by_key(self, key):
+    def _get_by_key(self, key, default=None):
         """
         Return a stored value by its key.
 
         :param key: the key for the value to return.
         :return: the associated value or None if there isn't one.
         """
-        return self._data.get(key)
+        return self._data.get(key, default)
 
     def _get_by_value_attr(self, attr, value):
         """
@@ -420,3 +430,202 @@ class AppStore(DataStore):
         # app mode cannot be changed on redeployment
         app_mode = AppModes.get_by_name(metadata.get("app_mode"))
         return app_id, app_mode
+
+
+DEFAULT_BUILD_DIR = join(os.getcwd(), "rsconnect-build")
+class ContentBuildStore(DataStore):
+    """
+    Defines a metadata store for information about content builds.
+
+    The metadata directory for a content build is written in the directory specified by
+    CONNECT_CONTENT_BUILD_DIR or the current working directory is none is supplied.
+
+    A build-state file contains "tracked" content for a single connect server.
+    The file is named using the normalized server URL for the target server.
+    The structure is as follows:
+    {
+        "rsconnect_build_running": <bool>,
+        "rsconnect_content": {
+            "<content guid 1>": {
+                "rsconnect_build_status": <models.BuildStatus>,
+                ..., // various content metadata fields returned by the v1/content api
+            },
+            "<content guid 2>": {
+                ...,
+            }
+        }
+    }
+    """
+
+    _BUILD_ABORTED = False
+
+    def __init__(self, server, base_dir=os.getenv("CONNECT_CONTENT_BUILD_DIR", DEFAULT_BUILD_DIR)):
+        self._server = server
+        self._base_dir = os.path.abspath(base_dir)
+        self._build_logs_dir = join(self._base_dir, "logs", _normalize_server_url(server.url))
+        self._build_state_file = join(self._base_dir, "%s.json" % _normalize_server_url(server.url))
+        super(ContentBuildStore, self).__init__(self._build_state_file, chmod=True)
+
+    def aborted(self):
+        return ContentBuildStore._BUILD_ABORTED
+
+    def get_build_logs_dir(self, guid):
+        return join(self._build_logs_dir, guid)
+
+    def ensure_logs_dir(self, guid):
+        log_dir = self.get_build_logs_dir(guid)
+        os.makedirs(log_dir, exist_ok=True)
+        if self._chmod:
+            os.chmod(log_dir, 0o700)
+
+    def get_build_log(self, guid, task_id=None):
+        """
+        Returns the path to the build log file. This method does not check
+        whether the file exists if a task_id is provided.
+        If task_id is not provided, we will return the latest log,
+        specified by rsconnect_last_build_log.
+        If no log file is found, returns None
+        """
+        log_dir = self.get_build_logs_dir(guid)
+        if task_id:
+            return join(log_dir, "%s.log" % task_id)
+        else:
+            content = self.get_content_item(guid)
+            return content.get('rsconnect_last_build_log')
+
+    def get_build_history(self, guid):
+        """
+        Returns the build history for a given content guid.
+        """
+        log_dir = self.get_build_logs_dir(guid)
+        log_files = glob.glob(join(log_dir, '*.log'))
+        history = []
+        for f in log_files:
+            task_id = basename(f).split('.log')[0]
+            t = datetime.fromtimestamp(os.path.getctime(f), tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S%z')
+            history.append({'time': t, 'task_id': task_id})
+        history.sort(key=lambda x: x['time'])
+        return history
+
+    def get_build_running(self):
+        return self._data.get('rsconnect_build_running')
+
+    def set_build_running(self, is_running, defer_save=False):
+        with self._lock:
+            self._data['rsconnect_build_running'] = is_running
+            if not defer_save:
+                self.save()
+
+    def add_content_item(self, content, defer_save=False):
+        """
+        Add an item to the tracked content store
+        """
+        with self._lock:
+            if 'rsconnect_content' not in self._data:
+                self._data['rsconnect_content'] = dict()
+
+            self._data['rsconnect_content'][content['guid']] = dict(
+                guid=content['guid'],
+                bundle_id=content['bundle_id'],
+                title=content['title'],
+                name=content['name'],
+                app_mode=content['app_mode'],
+                content_url=content["content_url"],
+                dashboard_url=content["dashboard_url"],
+                created_time=content['created_time'],
+                last_deployed_time=content['last_deployed_time'],
+                owner_guid=content['owner_guid'],
+            )
+            if not defer_save:
+                self.save()
+
+    def get_content_item(self, guid):
+        """
+        Get a content item from the tracked content store by guid
+        """
+        return self._data.get('rsconnect_content', {}).get(guid)
+
+    def _cleanup_content_log_dir(self, guid):
+        """
+        Delete the local logs directory for a given content item.
+        """
+        logs_dir = self.get_build_logs_dir(guid)
+        try:
+            shutil.rmtree(logs_dir)
+        except FileNotFoundError:
+            pass
+
+    def remove_content_item(self, guid, purge=False, defer_save=False):
+        """
+        Remove a content item from the tracked content from the state-file.
+        If purge is True, cleanup the log files on the local filesystem.
+        """
+        if purge:
+            self._cleanup_content_log_dir(guid)
+
+        with self._lock:
+            try:
+                self._data.get('rsconnect_content', {}).pop(guid)
+            except KeyError:
+                pass
+            if not defer_save:
+                self.save()
+
+    def set_content_item_build_status(self, guid, status, defer_save=False):
+        """
+        Set the latest status for a content build
+        """
+        with self._lock:
+            content = self.get_content_item(guid)
+            content['rsconnect_build_status'] = str(status)
+            if not defer_save:
+                self.save()
+
+    def update_content_item_last_build_time(self, guid, defer_save=False):
+        """
+        Set the last_build_time for a content build
+        """
+        with self._lock:
+            content = self.get_content_item(guid)
+            content['rsconnect_last_build_time'] = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+            if not defer_save:
+                self.save()
+
+    def update_content_item_last_build_log(self, guid, log_file, defer_save=False):
+        """
+        Set the last_build_log filepath for a content build
+        """
+        with self._lock:
+            content = self.get_content_item(guid)
+            content['rsconnect_last_build_log'] = log_file
+            if not defer_save:
+                self.save()
+
+    def set_content_item_last_build_task_result(self, guid, task, defer_save=False):
+        """
+        Set the latest task_result for a content build
+        """
+        with self._lock:
+            content = self.get_content_item(guid)
+            # status contains the log lines for the build. We have already recorded these in the
+            # log file on disk so we can remove them from the task result before storing it
+            # to reduce the data stored in our state-file
+            remove_keys = ['status', 'last_status']
+            for key in remove_keys:
+                if key in task:
+                    task.pop(key)
+            content['rsconnect_build_task_result'] = task
+            if not defer_save:
+                self.save()
+
+    def get_content_items(self, status=None):
+        """
+        Get all the content items that are tracked for build in the state-file.
+        :param status: Filter results by build status
+        :return: A list of content items
+        """
+        all_content = list(self._data.get('rsconnect_content', {}).values())
+        if status:
+            return [item for item in all_content if item['rsconnect_build_status'] == status]
+        else:
+            return all_content
