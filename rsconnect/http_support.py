@@ -11,7 +11,7 @@ from .log import logger
 from six.moves import http_client as http
 from six.moves.http_cookies import SimpleCookie
 from six.moves.urllib_parse import urlparse, urlencode, urljoin
-
+import base64
 
 _user_agent = "rsconnect-python/%s" % VERSION
 
@@ -217,7 +217,8 @@ class HTTPServer(object):
             extra_headers = {"Content-Type": "application/json; charset=utf-8"}
         return self._do_request(method, path, query_params, body, maximum_redirects, extra_headers, decode_response)
 
-    def _do_request(self, method, path, query_params, body, maximum_redirects, extra_headers=None, decode_response=True):
+    def _do_request(self, method, path, query_params, body, maximum_redirects, extra_headers=None,
+                    decode_response=True):
         full_uri = path
         if query_params is not None:
             full_uri = "%s?%s" % (path, urlencode(query_params))
@@ -280,14 +281,14 @@ class HTTPServer(object):
 
             return self._tweak_response(HTTPResponse(full_uri, response=response, body=response_body))
         except (
-            http.HTTPException,
-            ssl.CertificateError,
-            IOError,
-            OSError,
-            socket.error,
-            socket.herror,
-            socket.gaierror,
-            socket.timeout,
+                http.HTTPException,
+                ssl.CertificateError,
+                IOError,
+                OSError,
+                socket.error,
+                socket.herror,
+                socket.gaierror,
+                socket.timeout,
         ) as exception:
             logger.debug("An exception occurred processing the HTTP request.", exc_info=True)
             return HTTPResponse(full_uri, exception=exception)
