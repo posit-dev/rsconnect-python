@@ -35,19 +35,11 @@ def _create_plain_connection(host_name, port, disable_tls_check, ca_data, timeou
 
 def _get_proxy():
     proxyURL = os.getenv("HTTPS_PROXY")
-    if proxyURL:
-        logger.info("Using custom proxy server {}".format(proxyURL))
-        parsed = urlparse(proxyURL)
-        netloc = parsed.netloc.split(":")
-        if parsed.port:
-            proxyHost, proxyPort = ':'.join(netloc[:-1]), parsed.port
-        else:
-            proxyHost = ':'.join(netloc[:-1])
-            proxyPort = 8080
-
-        return proxyHost, int(proxyPort)
-    else:
-        return None, None
+    logger.info("Using custom proxy server {}".format(proxyURL))
+    if not proxyURL:
+        return None, None, None, None
+    parsed = urlparse(proxyURL)
+    return parsed.username, parsed.password, parsed.hostname, parsed.port or 8080
 
 
 # noinspection PyUnresolvedReferences
@@ -64,6 +56,12 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
     """
     if ca_data is not None and disable_tls_check:
         raise ValueError("Cannot both disable TLS checking and provide a custom certificate")
+    proxyUsername, proxyPassword, proxyHost, proxyPort = _get_proxy()
+    headers = None
+    if proxyUsername and proxyPassword:
+        credentials = '{}:{}'.format(proxyUsername, proxyPassword)
+        credentials = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
+        headers = {'Proxy-Authorization': 'Basic {}'.format(credentials)}
     if ca_data is not None:
         return http.HTTPSConnection(
             host_name,
@@ -72,7 +70,6 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
             context=ssl.create_default_context(cadata=ca_data),
         )
     elif disable_tls_check:
-        proxyHost, proxyPort = _get_proxy()
         if proxyHost is not None:
             tmp = http.HTTPSConnection(
                 proxyHost,
@@ -80,7 +77,7 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
                 timeout=timeout,
                 context=ssl._create_unverified_context(),
             )
-            tmp.set_tunnel(host_name, (port or http.HTTPS_PORT))
+            tmp.set_tunnel(host_name, (port or http.HTTPS_PORT), headers=headers)
         else:
             tmp = http.HTTPSConnection(
                 host_name,
@@ -90,10 +87,9 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
             )
         return tmp
     else:
-        proxyHost, proxyPort = _get_proxy()
         if proxyHost is not None:
             tmp = http.HTTPSConnection(proxyHost, port=proxyPort, timeout=timeout)
-            tmp.set_tunnel(host_name, (port or http.HTTPS_PORT))
+            tmp.set_tunnel(host_name, (port or http.HTTPS_PORT), headers=headers)
         else:
             tmp = http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=timeout)
         return tmp
