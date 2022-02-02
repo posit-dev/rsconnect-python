@@ -19,7 +19,7 @@ except ImportError:
 from os.path import abspath, basename, dirname, exists, isdir, join, relpath, splitext
 from pprint import pformat
 
-from rsconnect import api
+from . import api
 from .bundle import (
     make_api_bundle,
     make_api_manifest,
@@ -46,7 +46,7 @@ _repeating_sub_pattern = re.compile(r"_+")
 
 
 @contextlib.contextmanager
-def cli_feedback(label):
+def cli_feedback(label, stderr=False):
     """Context manager for OK/ERROR feedback from the CLI.
 
     If the enclosed block succeeds, OK will be emitted.
@@ -57,17 +57,17 @@ def cli_feedback(label):
     """
     if label:
         pad = line_width - len(label)
-        click.secho(label + "... " + " " * pad, nl=False)
+        click.secho(label + "... " + " " * pad, nl=False, err=stderr)
         logger.set_in_feedback(True)
 
     def passed():
         if label:
-            click.secho("[OK]", fg="green")
+            click.secho("[OK]", fg="green", err=stderr)
 
     def failed(err):
         if label:
-            click.secho("[ERROR]", fg="red")
-        click.secho(str(err), fg="bright_red")
+            click.secho("[ERROR]", fg="red", err=stderr)
+        click.secho(str(err), fg="bright_red", err=stderr)
         sys.exit(1)
 
     try:
@@ -93,7 +93,7 @@ def set_verbosity(verbose):
     if verbose:
         logger.setLevel(logging.DEBUG)
     else:
-        logger.setLevel(logging.WARN)
+        logger.setLevel(logging.INFO)
 
 
 def which_python(python, env=os.environ):
@@ -567,7 +567,7 @@ def _finalize_deploy(
     of log lines.  The log lines value will be None if a log callback was provided.
     """
     app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle)
-    app_url, log_lines = spool_deployment_log(connect_server, app, log_callback)
+    app_url, log_lines, _ = spool_deployment_log(connect_server, app, log_callback)
     app_store.set(
         connect_server.url,
         abspath(file_name),
