@@ -35,11 +35,21 @@ def _create_plain_connection(host_name, port, disable_tls_check, ca_data, timeou
 
 def _get_proxy():
     proxyURL = os.getenv("HTTPS_PROXY")
-    logger.info("Using custom proxy server {}".format(proxyURL))
     if not proxyURL:
         return None, None, None, None
+    logger.info("Using custom proxy server {}".format(proxyURL))
     parsed = urlparse(proxyURL)
     return parsed.username, parsed.password, parsed.hostname, parsed.port or 8080
+
+
+def _get_proxy_headers(*args, **kwargs):
+    proxyHeaders = None
+    proxyUsername, proxyPassword, _, _ = _get_proxy()
+    if proxyUsername and proxyPassword:
+        credentials = "{}:{}".format(proxyUsername, proxyPassword)
+        credentials = base64.b64encode(credentials.encode("utf-8")).decode("utf-8")
+        proxyHeaders = {"Proxy-Authorization": "Basic {}".format(credentials)}
+    return proxyHeaders
 
 
 # noinspection PyUnresolvedReferences
@@ -56,12 +66,8 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
     """
     if ca_data is not None and disable_tls_check:
         raise ValueError("Cannot both disable TLS checking and provide a custom certificate")
-    proxyUsername, proxyPassword, proxyHost, proxyPort = _get_proxy()
-    headers = None
-    if proxyUsername and proxyPassword:
-        credentials = '{}:{}'.format(proxyUsername, proxyPassword)
-        credentials = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
-        headers = {'Proxy-Authorization': 'Basic {}'.format(credentials)}
+    _, _, proxyHost, proxyPort = _get_proxy()
+    headers = _get_proxy_headers()
     if ca_data is not None:
         return http.HTTPSConnection(
             host_name,
@@ -175,6 +181,7 @@ class HTTPServer(object):
         self._timeout = timeout
         self._headers = {"User-Agent": _user_agent}
         self._conn = None
+        self._proxy_headers = _get_proxy_headers()
 
         self._inject_cookies()
 
@@ -217,12 +224,15 @@ class HTTPServer(object):
             extra_headers = {"Content-Type": "application/json; charset=utf-8"}
         return self._do_request(method, path, query_params, body, maximum_redirects, extra_headers, decode_response)
 
-    def _do_request(self, method, path, query_params, body, maximum_redirects, extra_headers=None,
-                    decode_response=True):
+    def _do_request(
+        self, method, path, query_params, body, maximum_redirects, extra_headers=None, decode_response=True
+    ):
         full_uri = path
         if query_params is not None:
             full_uri = "%s?%s" % (path, urlencode(query_params))
         headers = self._headers.copy()
+        if self._proxy_headers:
+            headers.update(self._proxy_headers)
         if extra_headers is not None:
             headers.update(extra_headers)
         local_connection = False
@@ -281,14 +291,14 @@ class HTTPServer(object):
 
             return self._tweak_response(HTTPResponse(full_uri, response=response, body=response_body))
         except (
-                http.HTTPException,
-                ssl.CertificateError,
-                IOError,
-                OSError,
-                socket.error,
-                socket.herror,
-                socket.gaierror,
-                socket.timeout,
+            http.HTTPException,
+            ssl.CertificateError,
+            IOError,
+            OSError,
+            socket.error,
+            socket.herror,
+            socket.gaierror,
+            socket.timeout,
         ) as exception:
             logger.debug("An exception occurred processing the HTTP request.", exc_info=True)
             return HTTPResponse(full_uri, exception=exception)
