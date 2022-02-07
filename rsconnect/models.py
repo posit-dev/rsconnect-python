@@ -82,7 +82,7 @@ class AppModes(object):
     BOKEH_APP = AppMode(11, "python-bokeh", "Bokeh Application")
     PYTHON_FASTAPI = AppMode(12, "python-fastapi", "Python FastAPI")
     QUARTO_SHINY = AppMode(13, "quarto-shiny", "Quarto Shiny Document")
-    QUARTO_STATIC = AppMode(14, "quarto-static", "Quarto Document", ".Qmd")
+    QUARTO_STATIC = AppMode(14, "quarto-static", "Quarto Document", ".qmd")
 
     _modes = [
         UNKNOWN,
