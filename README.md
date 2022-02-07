@@ -616,7 +616,7 @@ Options:
   -c, --cacert FILENAME           The path to trusted TLS CA certificates.
   --published                     Search only published content.
   --unpublished                   Search only unpublished content.
-  --content-type [unknown|shiny|rmd-static|rmd-shiny|static|api|tensorflow-saved-model|jupyter-static|python-api|python-dash|python-streamlit|python-bokeh|python-fastapi]
+  --content-type [unknown|shiny|rmd-static|rmd-shiny|static|api|tensorflow-saved-model|jupyter-static|python-api|python-dash|python-streamlit|python-bokeh|python-fastapi|quarto-shiny|quarto-static]
                                   Filter content results by content type.
   --r-version VERSIONSEARCHFILTER
                                   Filter content results by R version.
