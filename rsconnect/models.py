@@ -81,6 +81,8 @@ class AppModes(object):
     STREAMLIT_APP = AppMode(10, "python-streamlit", "Streamlit Application")
     BOKEH_APP = AppMode(11, "python-bokeh", "Bokeh Application")
     PYTHON_FASTAPI = AppMode(12, "python-fastapi", "Python FastAPI")
+    SHINY_QUARTO = AppMode(13, "quarto-shiny", "Shiny Quarto Document")
+    STATIC_QUARTO = AppMode(14, "quarto-static", "Quarto Document", ".qmd")
 
     _modes = [
         UNKNOWN,
@@ -96,6 +98,8 @@ class AppModes(object):
         STREAMLIT_APP,
         BOKEH_APP,
         PYTHON_FASTAPI,
+        SHINY_QUARTO,
+        STATIC_QUARTO,
     ]
 
     @classmethod
