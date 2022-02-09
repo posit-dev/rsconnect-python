@@ -66,7 +66,7 @@ class RSConnect(HTTPServer):
             self.key_authorization(server.api_key)
 
     def _tweak_response(self, response):
-        return response.json_data if response.status and response.status == 200 and response.json_data else response
+        return response.json_data if response.status and response.status == 200 and response.json_data is not None else response
 
     def me(self):
         return self.get("me")
