@@ -11,7 +11,7 @@ import six
 from click import ParamType
 from click.types import StringParamType
 
-_version_search_pattern = r"(^[=><]{1,2})(.*)"
+_version_search_pattern = r"(^[=><]{0,2})(.*)"
 _content_guid_pattern = r"([^,]*),?(.*)"
 
 
@@ -310,7 +310,11 @@ class VersionSearchFilterParamType(ParamType):
                 version_search.comp = m.group(1)
                 version_search.vers = m.group(2)
 
-                if version_search.comp in ["<<", "<>", "><", ">>", "=<", "=>", "="]:
+                # default to == if no comparator was provided
+                if not version_search.comp:
+                    version_search.comp = "=="
+
+                if version_search.comp not in [">", "<", ">=", "<=", "=", "=="]:
                     self.fail("Failed to parse verison filter: %s is not a valid comparitor" % version_search.comp)
 
                 try:
