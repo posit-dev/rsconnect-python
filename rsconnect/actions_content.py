@@ -345,7 +345,7 @@ def _apply_content_filters(content_list, published, unpublished, content_type, r
                 return compare == 1
             elif version_filter.comp == "<":
                 return compare == -1
-            elif version_filter.comp == "==":
+            elif version_filter.comp in ["=", "=="]:
                 return compare == 0
             elif version_filter.comp == "<=":
                 return compare <= 0
