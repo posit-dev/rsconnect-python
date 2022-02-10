@@ -821,6 +821,11 @@ The following are some examples of how publishers might use the
 By default, the `rsconnect content search` command will return metadata for ALL
 of the content on a RStudio Connect server, both published and unpublished content.
 
+> **Note:** When using the `--r-version` and `--py-version` flags, users should
+> make sure to quote the arguments to avoid conflicting with your shell. For
+> example, bash would interpret `--py-version >3.0.0` as a shell redirect because of the
+> unquoted `>` character.
+
 ```bash
 # return only published content
 $ rsconnect content search --published
