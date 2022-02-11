@@ -1,7 +1,6 @@
 import errno
 import functools
 import json
-import logging
 import sys
 import textwrap
 from os.path import abspath, dirname, exists, isdir, join
