@@ -126,7 +126,14 @@ def content_args(func):
         help="Existing app ID or GUID to replace. Cannot be used with --new.",
     )
     @click.option("--title", "-t", help="Title of the content (default is the same as the filename).")
-    @click.option("--environment", "-E", "env_vars", multiple=True, callback=validate_env_vars)
+    @click.option(
+        "--environment",
+        "-E",
+        "env_vars",
+        multiple=True,
+        callback=validate_env_vars,
+        help="Set an environment variable as NAME=VALUE. May be specified multiple times. [v1.8.6+]",
+    )
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         return func(*args, **kwargs)
