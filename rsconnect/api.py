@@ -153,7 +153,7 @@ class RSConnect(HTTPServer):
 
         app_guid = app["guid"]
         if env_vars:
-            result = self.app_add_environment_vars(app_guid, env_vars)
+            result = self.app_add_environment_vars(app_guid, list(env_vars.items()))
             self._server.handle_bad_response(result)
 
         if app["title"] != app_title and not title_is_default:

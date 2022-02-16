@@ -1,6 +1,7 @@
 import errno
 import functools
 import json
+import os
 import sys
 import textwrap
 from os.path import abspath, dirname, exists, isdir, join
@@ -107,7 +108,26 @@ def validate_env_vars(ctx, param, value):
     for s in value:
         if not isinstance(s, str) or "=" not in s:
             raise click.BadParameter("environment variable must be a string in NAME=VALUE format: '{}'".format(s))
-    return [s.split("=", 1) for s in value]
+    vars = {}
+    for s in value:
+        name, value = s.split("=", 1)
+        vars[name] = value
+    return vars
+
+
+def validate_inherited_vars(ctx, param, value):
+    for s in value:
+        if s not in os.environ:
+            raise click.BadParameter(
+                "inherited environment variable must be present in the client environment: '{}'".format(s)
+            )
+    return value
+
+
+def all_env_vars(env_vars, inherit_vars):
+    all_vars = {name: os.environ[name] for name in inherit_vars}
+    all_vars.update(env_vars)
+    return all_vars
 
 
 def content_args(func):
@@ -133,6 +153,14 @@ def content_args(func):
         multiple=True,
         callback=validate_env_vars,
         help="Set an environment variable as NAME=VALUE. May be specified multiple times. [v1.8.6+]",
+    )
+    @click.option(
+        "--inherit",
+        "-I",
+        "inherit_vars",
+        multiple=True,
+        callback=validate_inherited_vars,
+        help="Set an environment variable from your current environment with -I NAME. May be specified multiple times. [v1.8.6+]",
     )
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -653,6 +681,7 @@ def deploy_notebook(
     hide_all_input,
     hide_tagged_input,
     env_vars,
+    inherit_vars,
 ):
     set_verbosity(verbose)
 
@@ -701,7 +730,7 @@ def deploy_notebook(
         title,
         default_title,
         bundle,
-        env_vars,
+        all_env_vars(env_vars, inherit_vars),
     )
 
 
@@ -718,7 +747,7 @@ def deploy_notebook(
 @server_args
 @content_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
-def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title, verbose, file, env_vars):
+def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title, verbose, file, env_vars, inherit_vars):
     set_verbosity(verbose)
 
     with cli_feedback("Checking arguments"):
@@ -771,7 +800,7 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
         title,
         default_title,
         bundle,
-        env_vars,
+        all_env_vars(env_vars, inherit_vars),
     )
 
 
@@ -852,6 +881,7 @@ def generate_deploy_python(app_mode, alias, min_version):
         directory,
         extra_files,
         env_vars,
+        inherit_vars,
     ):
         _deploy_by_framework(
             name,
@@ -870,7 +900,7 @@ def generate_deploy_python(app_mode, alias, min_version):
             verbose,
             directory,
             extra_files,
-            env_vars,
+            all_env_vars(env_vars, inherit_vars),
             {
                 AppModes.PYTHON_API: gather_basic_deployment_info_for_api,
                 AppModes.PYTHON_FASTAPI: gather_basic_deployment_info_for_fastapi,
