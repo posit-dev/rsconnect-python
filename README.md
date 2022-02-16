@@ -427,6 +427,11 @@ You can set the value of `MYVAR` that will be set when your code runs in RStudio
 rsconnect deploy notebook --environment MYVAR='hello world' notebook.ipynb
 ```
 
+If you specify environment variables when updating an existing deployment,
+new values will be set for the variables you specify. Other variables will
+remain unchanged. If you don't specify any variables, all of the existing
+variables will remain unchanged.
+
 ### Network Options
 
 When specifying information that `rsconnect` needs to be able to interact with RStudio
