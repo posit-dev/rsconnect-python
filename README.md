@@ -432,6 +432,10 @@ new values will be set for the variables you specify. Other variables will
 remain unchanged. If you don't specify any variables, all of the existing
 variables will remain unchanged.
 
+Environment variables are set on the content item before the content bundle
+is uploaded and deployed. If the deployment fails, the new environment variables
+will still take effect.
+
 ### Network Options
 
 When specifying information that `rsconnect` needs to be able to interact with RStudio
