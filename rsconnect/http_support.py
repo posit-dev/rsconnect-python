@@ -39,6 +39,8 @@ def _get_proxy():
         return None, None, None, None
     logger.info("Using custom proxy server {}".format(proxyURL))
     parsed = urlparse(proxyURL)
+    if parsed.scheme not in {'http', 'https'}:
+        raise Exception("Invalid HTTPS_PROXY scheme (missing http:// or https://")
     return parsed.username, parsed.password, parsed.hostname, parsed.port or 8080
 
 
