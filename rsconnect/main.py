@@ -188,7 +188,21 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
         "on the command line."
     ),
 )
-@server_args
+@click.option("--name", "-n", required=True, help="The nickname of the RStudio Connect server to deploy to.")
+@click.option(
+    "--server",
+    "-s",
+    required=True,
+    envvar="CONNECT_SERVER",
+    help="The URL for the RStudio Connect server to deploy to.",
+)
+@click.option(
+    "--api-key",
+    "-k",
+    required=True,
+    envvar="CONNECT_API_KEY",
+    help="The API key to use to authenticate with RStudio Connect.",
+)
 def add(name, server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
 
