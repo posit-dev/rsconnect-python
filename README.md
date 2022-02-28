@@ -422,23 +422,20 @@ For example, if `notebook.ipynb` contains
 print(os.environ["MYVAR"])
 ```
 
-You can set the value of `MYVAR` that will be set when your code runs in RStudio Connect:
+You can set the value of `MYVAR` that will be set when your code runs in RStudio Connect
+using the `-E/--environment` option:
 ```bash
 rsconnect deploy notebook --environment MYVAR='hello world' notebook.ipynb
 ```
 
 To avoid exposing sensitive values on the command line, you can specify
-"inherited" variables which take their value from the environment in which
-rsconnect-python is running:
+a variable without a value. In this case, it will use the value from the
+environment in which rsconnect-python is running:
 ```bash
 export SECRET_KEY=12345
 
-rsconnect deploy notebook -I SECRET_KEY notebook.ipynb
+rsconnect deploy notebook --environment SECRET_KEY notebook.ipynb
 ```
-
-Inherited variables (`-I`/`--inherit`) are processed first,
-followed by explicit variables (`-E`/`--environment`).
-The last value specified will be used.
 
 If you specify environment variables when updating an existing deployment,
 new values will be set for the variables you provided. Other variables will
