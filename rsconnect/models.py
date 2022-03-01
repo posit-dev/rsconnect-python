@@ -16,19 +16,13 @@ _content_guid_pattern = r"([^,]*),?(.*)"
 
 
 class BuildStatus(object):
-    NEEDS_BUILD = "NEEDS_BUILD" # marked for build
-    RUNNING = "RUNNING" # running now
-    ABORTED = "ABORTED" # cancelled while running
-    COMPLETE = "COMPLETE" # completed successfully
-    ERROR = "ERROR" # completed with an error
+    NEEDS_BUILD = "NEEDS_BUILD"  # marked for build
+    RUNNING = "RUNNING"  # running now
+    ABORTED = "ABORTED"  # cancelled while running
+    COMPLETE = "COMPLETE"  # completed successfully
+    ERROR = "ERROR"  # completed with an error
 
-    _all = [
-        NEEDS_BUILD,
-        RUNNING,
-        ABORTED,
-        COMPLETE,
-        ERROR
-    ]
+    _all = [NEEDS_BUILD, RUNNING, ABORTED, COMPLETE, ERROR]
 
 
 class AppMode(object):
@@ -243,11 +237,11 @@ class StrippedStringParamType(StringParamType):
 
     def convert(self, value, param, ctx):
         value = super(StrippedStringParamType, self).convert(value, param, ctx)
-        return value.strip("\"\'")
+        return value.strip("\"'")
 
 
 class ContentGuidWithBundle(object):
-    def __init__(self, guid:str=None, bundle_id:str=None):
+    def __init__(self, guid: str = None, bundle_id: str = None):
         self.guid = guid
         self.bundle_id = bundle_id
 
@@ -280,14 +274,14 @@ class ContentGuidWithBundleParamType(StrippedStringParamType):
 
 
 class VersionSearchFilter(object):
-
-    def __init__(self, name:str=None, comp:str=None, vers:str=None):
+    def __init__(self, name: str = None, comp: str = None, vers: str = None):
         self.name = name
         self.comp = comp
         self.vers = vers
 
     def __repr__(self):
         return "%s %s %s" % (self.name, self.comp, self.vers)
+
 
 class VersionSearchFilterParamType(ParamType):
     name = "VersionSearchFilter"

@@ -9,14 +9,12 @@ import six
 
 _DATE_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
 
+
 class LogOutputFormat(object):
     TEXT = "text"
     JSON = "json"
     DEFAULT = TEXT
-    _all = [
-        TEXT,
-        JSON
-    ]
+    _all = [TEXT, JSON]
 
 
 class JsonLogFormatter(logging.Formatter):
@@ -27,12 +25,11 @@ class JsonLogFormatter(logging.Formatter):
     @param dict fmt_dict: Key: logging format attribute pairs.
     @param str datefmt: Key: strftime format string
     """
-    def __init__(self, fmt_dict = None, datefmt = _DATE_FORMAT):
-        self.fmt_dict = fmt_dict if fmt_dict is not None else {
-            "timestamp": "asctime",
-            "level": "levelname",
-            "message": "message"
-        }
+
+    def __init__(self, fmt_dict=None, datefmt=_DATE_FORMAT):
+        self.fmt_dict = (
+            fmt_dict if fmt_dict is not None else {"timestamp": "asctime", "level": "levelname", "message": "message"}
+        )
         self.datefmt = datefmt
 
     def usesTime(self):
@@ -118,6 +115,7 @@ class RSLogger(logging.LoggerAdapter):
         from 2.7, we replicate it here.
         """
         self.logger.setLevel(level)
+
 
 logger = RSLogger()
 logger.addHandler(logging.StreamHandler())

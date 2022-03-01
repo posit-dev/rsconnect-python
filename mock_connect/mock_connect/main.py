@@ -56,10 +56,10 @@ def applications():
             name=name,
             title=title,
             owner_username=g.user.username,
-            owner_first_name = g.user.first_name,
-            owner_last_name = g.user.last_name,
-            owner_email = g.user.email,
-            owner_locked = g.user.locked,
+            owner_first_name=g.user.first_name,
+            owner_last_name=g.user.last_name,
+            owner_email=g.user.email,
+            owner_locked=g.user.locked,
             _base_url=url_for("index", _external=True),
         )
     else:
@@ -188,7 +188,7 @@ def v1_content():
 # noinspection PyUnresolvedReferences
 @api.route("v1/content/<content_id>/bundles/<object_id>/download")
 @endpoint(authenticated=True, cls=Bundle)
-def v1_content_bundle_download(bundle:Bundle, content_id):
+def v1_content_bundle_download(bundle: Bundle, content_id):
     print(content_id)
     return send_file(
         bundle.read_bundle_data(),

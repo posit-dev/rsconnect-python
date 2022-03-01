@@ -664,29 +664,29 @@ def deploy_python_fastapi(
     log_callback=None,
 ):
     """
-A function to deploy a Python ASGI API module to RStudio Connect.  Depending on the files involved
-    and network latency, this may take a bit of time.
+    A function to deploy a Python ASGI API module to RStudio Connect.  Depending on the files involved
+        and network latency, this may take a bit of time.
 
-    :param connect_server: the Connect server information.
-    :param directory: the app directory to deploy.
-    :param extra_files: any extra files that should be included in the deploy.
-    :param excludes: a sequence of glob patterns that will exclude matched files.
-    :param entry_point: the module/executable object for the WSGi framework.
-    :param new: a flag to force this as a new deploy.
-    :param app_id: the ID of an existing application to deploy new files for.
-    :param title: an optional title for the deploy.  If this is not provided, ne will
-    be generated.
-    :param python: the optional name of a Python executable.
-    :param conda_mode: use conda to build an environment.yml
-    instead of conda, when conda is not supported on RStudio Connect (version<=1.8.0).
-    :param force_generate: force generating "requirements.txt" or "environment.yml",
-    even if it already exists.
-    :param log_callback: the callback to use to write the log to.  If this is None
-    (the default) the lines from the deployment log will be returned as a sequence.
-    If a log callback is provided, then None will be returned for the log lines part
-    of the return tuple.
-    :return: the ultimate URL where the deployed app may be accessed and the sequence
-    of log lines.  The log lines value will be None if a log callback was provided.
+        :param connect_server: the Connect server information.
+        :param directory: the app directory to deploy.
+        :param extra_files: any extra files that should be included in the deploy.
+        :param excludes: a sequence of glob patterns that will exclude matched files.
+        :param entry_point: the module/executable object for the WSGi framework.
+        :param new: a flag to force this as a new deploy.
+        :param app_id: the ID of an existing application to deploy new files for.
+        :param title: an optional title for the deploy.  If this is not provided, ne will
+        be generated.
+        :param python: the optional name of a Python executable.
+        :param conda_mode: use conda to build an environment.yml
+        instead of conda, when conda is not supported on RStudio Connect (version<=1.8.0).
+        :param force_generate: force generating "requirements.txt" or "environment.yml",
+        even if it already exists.
+        :param log_callback: the callback to use to write the log to.  If this is None
+        (the default) the lines from the deployment log will be returned as a sequence.
+        If a log callback is provided, then None will be returned for the log lines part
+        of the return tuple.
+        :return: the ultimate URL where the deployed app may be accessed and the sequence
+        of log lines.  The log lines value will be None if a log callback was provided.
     """
     return _deploy_by_python_framework(
         connect_server,

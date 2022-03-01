@@ -174,9 +174,9 @@ class TestActions(TestCase):
         self.assertEqual(_make_deployment_name(None, "My _ Title", False), "my_title")
         self.assertEqual(_make_deployment_name(None, "My-Title", False), "my-title")
         # noinspection SpellCheckingInspection
-        self.assertEqual(_make_deployment_name(None, u"M\ry\n \tT\u2103itle", False), "my_title")
-        self.assertEqual(_make_deployment_name(None, u"\r\n\t\u2103", False), "___")
-        self.assertEqual(_make_deployment_name(None, u"\r\n\tR\u2103", False), "__r")
+        self.assertEqual(_make_deployment_name(None, "M\ry\n \tT\u2103itle", False), "my_title")
+        self.assertEqual(_make_deployment_name(None, "\r\n\t\u2103", False), "___")
+        self.assertEqual(_make_deployment_name(None, "\r\n\tR\u2103", False), "__r")
 
     def test_default_title(self):
         self.assertEqual(_default_title("testing.txt"), "testing")
