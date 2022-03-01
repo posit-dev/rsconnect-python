@@ -1,4 +1,4 @@
-black; python_version >= '3.6'
+black == '22.1.0'; python_version >= '3.6'
 click>=7.0.0
 coverage
 flake8
