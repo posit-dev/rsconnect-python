@@ -11,7 +11,7 @@ import six
 from click import ParamType
 from click.types import StringParamType
 
-_version_search_pattern = r"(^[=><]{1,2})(.*)"
+_version_search_pattern = r"(^[=><]{0,2})(.*)"
 _content_guid_pattern = r"([^,]*),?(.*)"
 
 
@@ -81,6 +81,8 @@ class AppModes(object):
     STREAMLIT_APP = AppMode(10, "python-streamlit", "Streamlit Application")
     BOKEH_APP = AppMode(11, "python-bokeh", "Bokeh Application")
     PYTHON_FASTAPI = AppMode(12, "python-fastapi", "Python FastAPI")
+    SHINY_QUARTO = AppMode(13, "quarto-shiny", "Shiny Quarto Document")
+    STATIC_QUARTO = AppMode(14, "quarto-static", "Quarto Document", ".qmd")
 
     _modes = [
         UNKNOWN,
@@ -96,6 +98,8 @@ class AppModes(object):
         STREAMLIT_APP,
         BOKEH_APP,
         PYTHON_FASTAPI,
+        SHINY_QUARTO,
+        STATIC_QUARTO,
     ]
 
     @classmethod
@@ -306,7 +310,11 @@ class VersionSearchFilterParamType(ParamType):
                 version_search.comp = m.group(1)
                 version_search.vers = m.group(2)
 
-                if version_search.comp in ["<<", "<>", "><", ">>", "=<", "=>", "="]:
+                # default to == if no comparator was provided
+                if not version_search.comp:
+                    version_search.comp = "=="
+
+                if version_search.comp not in [">", "<", ">=", "<=", "=", "=="]:
                     self.fail("Failed to parse verison filter: %s is not a valid comparitor" % version_search.comp)
 
                 try:

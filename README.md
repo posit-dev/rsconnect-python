@@ -2,10 +2,9 @@
 
 !!! warning
 
-    Starting January 2022, RStudio Connect will no longer support Python 2. Please see
-    the [official announcement](https://www.rstudio.com/blog/rstudio-connect-2021-08-python-updates/)
-    for details about this decision. Future versions of this library will require
-    Python >= 3.5 only.
+    As of version 1.7.0, rsconnect-python requires Python version 3.5 or higher. Please see the
+    [official announcement](https://www.rstudio.com/blog/rstudio-connect-2021-08-python-updates/)
+    for details about this decision.
 
 This package provides both a CLI (command-line interface) and a library for interacting
 with and deploying to RStudio Connect. The library is also used by the
@@ -649,7 +648,7 @@ Options:
   -c, --cacert FILENAME           The path to trusted TLS CA certificates.
   --published                     Search only published content.
   --unpublished                   Search only unpublished content.
-  --content-type [unknown|shiny|rmd-static|rmd-shiny|static|api|tensorflow-saved-model|jupyter-static|python-api|python-dash|python-streamlit|python-bokeh|python-fastapi]
+  --content-type [unknown|shiny|rmd-static|rmd-shiny|static|api|tensorflow-saved-model|jupyter-static|python-api|python-dash|python-streamlit|python-bokeh|python-fastapi|quarto-shiny|quarto-static]
                                   Filter content results by content type.
   --r-version VERSIONSEARCHFILTER
                                   Filter content results by R version.
@@ -853,6 +852,11 @@ The following are some examples of how publishers might use the
 `rsconnect content search` subcommand to find content on RStudio Connect.
 By default, the `rsconnect content search` command will return metadata for ALL
 of the content on a RStudio Connect server, both published and unpublished content.
+
+> **Note:** When using the `--r-version` and `--py-version` flags, users should
+> make sure to quote the arguments to avoid conflicting with your shell. For
+> example, bash would interpret `--py-version >3.0.0` as a shell redirect because of the
+> unquoted `>` character.
 
 ```bash
 # return only published content
