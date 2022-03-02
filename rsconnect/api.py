@@ -98,6 +98,10 @@ class RSConnect(HTTPServer):
     def app_update(self, app_id, updates):
         return self.post("applications/%s" % app_id, body=updates)
 
+    def app_add_environment_vars(self, app_guid, env_vars):
+        env_body = [dict(name=kv[0], value=kv[1]) for kv in env_vars]
+        return self.patch("v1/content/%s/environment" % app_guid, body=env_body)
+
     def app_deploy(self, app_id, bundle_id=None):
         return self.post("applications/%s/deploy" % app_id, body={"bundle": bundle_id})
 
@@ -138,12 +142,13 @@ class RSConnect(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
-    def deploy(self, app_id, app_name, app_title, title_is_default, tarball):
+    def deploy(self, app_id, app_name, app_title, title_is_default, tarball, env_vars):
         if app_id is None:
             # create an app if id is not provided
             app = self.app_create(app_name)
             self._server.handle_bad_response(app)
             app_id = app["id"]
+
             # Force the title to update.
             title_is_default = False
         else:
@@ -151,6 +156,11 @@ class RSConnect(HTTPServer):
             # raise an error
             app = self.app_get(app_id)
             self._server.handle_bad_response(app)
+
+        app_guid = app["guid"]
+        if env_vars:
+            result = self.app_add_environment_vars(app_guid, list(env_vars.items()))
+            self._server.handle_bad_response(result)
 
         if app["title"] != app_title and not title_is_default:
             self._server.handle_bad_response(self.app_update(app_id, {"title": app_title}))
@@ -324,7 +334,7 @@ def get_app_config(connect_server, app_id):
         return result
 
 
-def do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bundle):
+def do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bundle, env_vars):
     """
     Deploys the specified bundle.
 
@@ -334,11 +344,12 @@ def do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bund
     :param title: the title for the deploy.
     :param title_is_default: a flag noting whether the title carries a defaulted value.
     :param bundle: the bundle to deploy.
+    :param env_vars: list of NAME=VALUE pairs for the app environment
     :return: application information about the deploy.  This includes the ID of the
     task that may be queried for deployment progress.
     """
     with RSConnect(connect_server, timeout=120) as client:
-        result = client.deploy(app_id, name, title, title_is_default, bundle)
+        result = client.deploy(app_id, name, title, title_is_default, bundle, env_vars)
         connect_server.handle_bad_response(result)
         return result
 

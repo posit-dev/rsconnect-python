@@ -1281,7 +1281,7 @@ def create_api_deployment_bundle(
     return make_api_bundle(directory, entry_point, app_mode, environment, extra_files, excludes)
 
 
-def deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle):
+def deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle, env_vars):
     """
     Deploys the specified bundle.
 
@@ -1291,10 +1291,11 @@ def deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle)
     :param title: the title for the deploy.
     :param title_is_default: a flag noting whether the title carries a defaulted value.
     :param bundle: the bundle to deploy.
+    :param env_vars: list of (name, value) pairs for the app environment
     :return: application information about the deploy.  This includes the ID of the
     task that may be queried for deployment progress.
     """
-    return api.do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bundle)
+    return api.do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bundle, env_vars)
 
 
 def spool_deployment_log(connect_server, app, log_callback):

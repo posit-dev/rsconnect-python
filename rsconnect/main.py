@@ -1,5 +1,7 @@
 import errno
+import functools
 import json
+import os
 import sys
 import textwrap
 from os.path import abspath, dirname, exists, isdir, join
@@ -67,6 +69,95 @@ server_store = ServerStore()
 future_enabled = False
 
 
+def server_args(func):
+    @click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
+    @click.option(
+        "--server",
+        "-s",
+        envvar="CONNECT_SERVER",
+        help="The URL for the RStudio Connect server to deploy to.",
+    )
+    @click.option(
+        "--api-key",
+        "-k",
+        envvar="CONNECT_API_KEY",
+        help="The API key to use to authenticate with RStudio Connect.",
+    )
+    @click.option(
+        "--insecure",
+        "-i",
+        envvar="CONNECT_INSECURE",
+        is_flag=True,
+        help="Disable TLS certification/host validation.",
+    )
+    @click.option(
+        "--cacert",
+        "-c",
+        envvar="CONNECT_CA_CERTIFICATE",
+        type=click.File(),
+        help="The path to trusted TLS CA certificates.",
+    )
+    @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def validate_env_vars(ctx, param, all_values):
+    vars = {}
+
+    for s in all_values:
+        if not isinstance(s, str):
+            raise click.BadParameter("environment variable must be a string: '{}'".format(s))
+
+        if "=" in s:
+            name, value = s.split("=", 1)
+            vars[name] = value
+        else:
+            # inherited value from the environment
+            value = os.environ.get(s)
+            if value is None:
+                raise click.BadParameter("'{}' not found in the environment".format(s))
+            vars[s] = value
+
+    return vars
+
+
+def content_args(func):
+    @click.option(
+        "--new",
+        "-N",
+        is_flag=True,
+        help=(
+            "Force a new deployment, even if there is saved metadata from a "
+            "previous deployment. Cannot be used with --app-id."
+        ),
+    )
+    @click.option(
+        "--app-id",
+        "-a",
+        help="Existing app ID or GUID to replace. Cannot be used with --new.",
+    )
+    @click.option("--title", "-t", help="Title of the content (default is the same as the filename).")
+    @click.option(
+        "--environment",
+        "-E",
+        "env_vars",
+        multiple=True,
+        callback=validate_env_vars,
+        help="Set an environment variable. Specify a value with NAME=VALUE, "
+        "or just NAME to use the value from the local environment. "
+        "May be specified multiple times. [v1.8.6+]",
+    )
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 @click.group(no_args_is_help=True)
 @click.option("--future", "-u", is_flag=True, hidden=True, help="Enables future functionality.")
 def cli(future):
@@ -129,17 +220,21 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
         "on the command line."
     ),
 )
-@click.option("--name", "-n", required=True, help="The nickname to associate with the server.")
-@click.option("--server", "-s", required=True, help="The URL for the RStudio Connect server.")
+@click.option("--name", "-n", required=True, help="The nickname of the RStudio Connect server to deploy to.")
+@click.option(
+    "--server",
+    "-s",
+    required=True,
+    envvar="CONNECT_SERVER",
+    help="The URL for the RStudio Connect server to deploy to.",
+)
 @click.option(
     "--api-key",
     "-k",
     required=True,
+    envvar="CONNECT_API_KEY",
     help="The API key to use to authenticate with RStudio Connect.",
 )
-@click.option("--insecure", "-i", is_flag=True, help="Disable TLS certification/host validation.")
-@click.option("--cacert", "-c", type=click.File(), help="The path to trusted TLS CA certificates.")
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def add(name, server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
 
@@ -200,38 +295,7 @@ def list_servers(verbose):
         "information stored as a nickname is still valid."
     ),
 )
-@click.option(
-    "--name",
-    "-n",
-    help="The nickname of the RStudio Connect server to get details for.",
-)
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server to get details for.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with RStudio Connect.",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
-    help="The path to trusted TLS CA certificates.",
-)
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+@server_args
 def details(name, server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
 
@@ -495,6 +559,7 @@ def _deploy_bundle(
     title,
     title_is_default,
     bundle,
+    env_vars,
 ):
     """
     Does the work of uploading a prepared bundle.
@@ -508,9 +573,10 @@ def _deploy_bundle(
     :param title: the title of the app.
     :param title_is_default: a flag noting whether the title carries a defaulted value.
     :param bundle: the bundle to deploy.
+    :param env_vars: list of NAME=VALUE pairs to be set as the app environment
     """
     with cli_feedback("Uploading bundle"):
-        app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle)
+        app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle, env_vars)
 
     with cli_feedback("Saving deployment data"):
         app_store.set(
@@ -555,33 +621,8 @@ def _deploy_bundle(
         "rerun on the Connect server."
     ),
 )
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server to deploy to.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with RStudio Connect.",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
-    help="The path to trusted TLS CA certificates.",
-)
+@server_args
+@content_args
 @click.option(
     "--static",
     "-S",
@@ -592,21 +633,6 @@ def _deploy_bundle(
         "cannot be re-run on the server."
     ),
 )
-@click.option(
-    "--new",
-    "-N",
-    is_flag=True,
-    help=(
-        "Force a new deployment, even if there is saved metadata from a "
-        "previous deployment. Cannot be used with --app-id."
-    ),
-)
-@click.option(
-    "--app-id",
-    "-a",
-    help="Existing app ID or GUID to replace. Cannot be used with --new.",
-)
-@click.option("--title", "-t", help="Title of the content (default is the same as the filename).")
 @click.option(
     "--python",
     "-p",
@@ -629,7 +655,6 @@ def _deploy_bundle(
     is_flag=True,
     help='Force generating "requirements.txt", even if it already exists.',
 )
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 @click.option("--hide-all-input", is_flag=True, default=False, help="Hide all input cells when rendering output")
 @click.option(
     "--hide-tagged-input", is_flag=True, default=False, help="Hide input code cells with the 'hide_input' tag"
@@ -658,6 +683,7 @@ def deploy_notebook(
     extra_files,
     hide_all_input,
     hide_tagged_input,
+    env_vars,
 ):
     set_verbosity(verbose)
 
@@ -706,6 +732,7 @@ def deploy_notebook(
         title,
         default_title,
         bundle,
+        env_vars,
     )
 
 
@@ -719,51 +746,10 @@ def deploy_notebook(
         'refer to a directory that contains a file named "manifest.json".'
     ),
 )
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server to deploy to.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with RStudio Connect.",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
-    help="The path to trusted TLS CA certificates.",
-)
-@click.option(
-    "--new",
-    "-N",
-    is_flag=True,
-    help=(
-        "Force a new deployment, even if there is saved metadata from a "
-        "previous deployment. Cannot be used with --app-id."
-    ),
-)
-@click.option(
-    "--app-id",
-    "-a",
-    help="Existing app ID or GUID to replace. Cannot be used with --new.",
-)
-@click.option("--title", "-t", help="Title of the content (default is the same as the filename).")
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+@server_args
+@content_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
-def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title, verbose, file):
+def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title, verbose, file, env_vars):
     set_verbosity(verbose)
 
     with cli_feedback("Checking arguments"):
@@ -816,6 +802,7 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
         title,
         default_title,
         bundle,
+        env_vars,
     )
 
 
@@ -831,33 +818,8 @@ def generate_deploy_python(app_mode, alias, min_version):
             "existing directory that contains the application code."
         ).format(desc=app_mode.desc()),
     )
-    @click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
-    @click.option(
-        "--server",
-        "-s",
-        envvar="CONNECT_SERVER",
-        help="The URL for the RStudio Connect server to deploy to.",
-    )
-    @click.option(
-        "--api-key",
-        "-k",
-        envvar="CONNECT_API_KEY",
-        help="The API key to use to authenticate with RStudio Connect.",
-    )
-    @click.option(
-        "--insecure",
-        "-i",
-        envvar="CONNECT_INSECURE",
-        is_flag=True,
-        help="Disable TLS certification/host validation.",
-    )
-    @click.option(
-        "--cacert",
-        "-c",
-        envvar="CONNECT_CA_CERTIFICATE",
-        type=click.File(),
-        help="The path to trusted TLS CA certificates.",
-    )
+    @server_args
+    @content_args
     @click.option(
         "--entrypoint",
         "-e",
@@ -874,25 +836,6 @@ def generate_deploy_python(app_mode, alias, min_version):
             "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
             "This option may be repeated."
         ),
-    )
-    @click.option(
-        "--new",
-        "-N",
-        is_flag=True,
-        help=(
-            "Force a new deployment, even if there is saved metadata from a previous deployment. "
-            "Cannot be used with --app-id."
-        ),
-    )
-    @click.option(
-        "--app-id",
-        "-a",
-        help="Existing app ID or GUID to replace. Cannot be used with --new.",
-    )
-    @click.option(
-        "--title",
-        "-t",
-        help="Title of the content (default is the same as the directory).",
     )
     @click.option(
         "--python",
@@ -916,7 +859,6 @@ def generate_deploy_python(app_mode, alias, min_version):
         is_flag=True,
         help='Force generating "requirements.txt", even if it already exists.',
     )
-    @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
     @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
     @click.argument(
         "extra_files",
@@ -940,6 +882,7 @@ def generate_deploy_python(app_mode, alias, min_version):
         verbose,
         directory,
         extra_files,
+        env_vars,
     ):
         _deploy_by_framework(
             name,
@@ -958,6 +901,7 @@ def generate_deploy_python(app_mode, alias, min_version):
             verbose,
             directory,
             extra_files,
+            env_vars,
             {
                 AppModes.PYTHON_API: gather_basic_deployment_info_for_api,
                 AppModes.PYTHON_FASTAPI: gather_basic_deployment_info_for_fastapi,
@@ -996,6 +940,7 @@ def _deploy_by_framework(
     verbose,
     directory,
     extra_files,
+    env_vars,
     gatherer,
 ):
     """
@@ -1065,6 +1010,7 @@ def _deploy_by_framework(
         title,
         default_title,
         bundle,
+        env_vars,
     )
 
 
