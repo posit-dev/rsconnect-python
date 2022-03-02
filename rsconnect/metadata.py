@@ -433,6 +433,8 @@ class AppStore(DataStore):
 
 
 DEFAULT_BUILD_DIR = join(os.getcwd(), "rsconnect-build")
+
+
 class ContentBuildStore(DataStore):
     """
     Defines a metadata store for information about content builds.
@@ -491,28 +493,28 @@ class ContentBuildStore(DataStore):
             return join(log_dir, "%s.log" % task_id)
         else:
             content = self.get_content_item(guid)
-            return content.get('rsconnect_last_build_log')
+            return content.get("rsconnect_last_build_log")
 
     def get_build_history(self, guid):
         """
         Returns the build history for a given content guid.
         """
         log_dir = self.get_build_logs_dir(guid)
-        log_files = glob.glob(join(log_dir, '*.log'))
+        log_files = glob.glob(join(log_dir, "*.log"))
         history = []
         for f in log_files:
-            task_id = basename(f).split('.log')[0]
-            t = datetime.fromtimestamp(os.path.getctime(f), tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S%z')
-            history.append({'time': t, 'task_id': task_id})
-        history.sort(key=lambda x: x['time'])
+            task_id = basename(f).split(".log")[0]
+            t = datetime.fromtimestamp(os.path.getctime(f), tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S%z")
+            history.append({"time": t, "task_id": task_id})
+        history.sort(key=lambda x: x["time"])
         return history
 
     def get_build_running(self):
-        return self._data.get('rsconnect_build_running')
+        return self._data.get("rsconnect_build_running")
 
     def set_build_running(self, is_running, defer_save=False):
         with self._lock:
-            self._data['rsconnect_build_running'] = is_running
+            self._data["rsconnect_build_running"] = is_running
             if not defer_save:
                 self.save()
 
@@ -521,20 +523,20 @@ class ContentBuildStore(DataStore):
         Add an item to the tracked content store
         """
         with self._lock:
-            if 'rsconnect_content' not in self._data:
-                self._data['rsconnect_content'] = dict()
+            if "rsconnect_content" not in self._data:
+                self._data["rsconnect_content"] = dict()
 
-            self._data['rsconnect_content'][content['guid']] = dict(
-                guid=content['guid'],
-                bundle_id=content['bundle_id'],
-                title=content['title'],
-                name=content['name'],
-                app_mode=content['app_mode'],
+            self._data["rsconnect_content"][content["guid"]] = dict(
+                guid=content["guid"],
+                bundle_id=content["bundle_id"],
+                title=content["title"],
+                name=content["name"],
+                app_mode=content["app_mode"],
                 content_url=content["content_url"],
                 dashboard_url=content["dashboard_url"],
-                created_time=content['created_time'],
-                last_deployed_time=content['last_deployed_time'],
-                owner_guid=content['owner_guid'],
+                created_time=content["created_time"],
+                last_deployed_time=content["last_deployed_time"],
+                owner_guid=content["owner_guid"],
             )
             if not defer_save:
                 self.save()
@@ -543,7 +545,7 @@ class ContentBuildStore(DataStore):
         """
         Get a content item from the tracked content store by guid
         """
-        return self._data.get('rsconnect_content', {}).get(guid)
+        return self._data.get("rsconnect_content", {}).get(guid)
 
     def _cleanup_content_log_dir(self, guid):
         """
@@ -565,7 +567,7 @@ class ContentBuildStore(DataStore):
 
         with self._lock:
             try:
-                self._data.get('rsconnect_content', {}).pop(guid)
+                self._data.get("rsconnect_content", {}).pop(guid)
             except KeyError:
                 pass
             if not defer_save:
@@ -577,7 +579,7 @@ class ContentBuildStore(DataStore):
         """
         with self._lock:
             content = self.get_content_item(guid)
-            content['rsconnect_build_status'] = str(status)
+            content["rsconnect_build_status"] = str(status)
             if not defer_save:
                 self.save()
 
@@ -587,7 +589,7 @@ class ContentBuildStore(DataStore):
         """
         with self._lock:
             content = self.get_content_item(guid)
-            content['rsconnect_last_build_time'] = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+            content["rsconnect_last_build_time"] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
             if not defer_save:
                 self.save()
 
@@ -597,7 +599,7 @@ class ContentBuildStore(DataStore):
         """
         with self._lock:
             content = self.get_content_item(guid)
-            content['rsconnect_last_build_log'] = log_file
+            content["rsconnect_last_build_log"] = log_file
             if not defer_save:
                 self.save()
 
@@ -610,11 +612,11 @@ class ContentBuildStore(DataStore):
             # status contains the log lines for the build. We have already recorded these in the
             # log file on disk so we can remove them from the task result before storing it
             # to reduce the data stored in our state-file
-            remove_keys = ['status', 'last_status']
+            remove_keys = ["status", "last_status"]
             for key in remove_keys:
                 if key in task:
                     task.pop(key)
-            content['rsconnect_build_task_result'] = task
+            content["rsconnect_build_task_result"] = task
             if not defer_save:
                 self.save()
 
@@ -624,8 +626,8 @@ class ContentBuildStore(DataStore):
         :param status: Filter results by build status
         :return: A list of content items
         """
-        all_content = list(self._data.get('rsconnect_content', {}).values())
+        all_content = list(self._data.get("rsconnect_content", {}).values())
         if status:
-            return [item for item in all_content if item['rsconnect_build_status'] == status]
+            return [item for item in all_content if item["rsconnect_build_status"] == status]
         else:
             return all_content

@@ -17,8 +17,8 @@ class TestAPI(TestCase):
         self.assertEqual(RSConnect.output_task_log(task_status, 0, output.append), 3)
         self.assertEqual(lines, output)
 
-        task_status['last_status'] = 4
-        task_status['status'] = ["line 4"]
+        task_status["last_status"] = 4
+        task_status["status"] = ["line 4"]
         self.assertEqual(RSConnect.output_task_log(task_status, 3, output.append), 4)
 
         self.assertEqual(len(output), 4)

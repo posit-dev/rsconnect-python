@@ -221,7 +221,9 @@ class HTTPServer(object):
             extra_headers = {"Content-Type": "application/json; charset=utf-8"}
         return self._do_request(method, path, query_params, body, maximum_redirects, extra_headers, decode_response)
 
-    def _do_request(self, method, path, query_params, body, maximum_redirects, extra_headers=None, decode_response=True):
+    def _do_request(
+        self, method, path, query_params, body, maximum_redirects, extra_headers=None, decode_response=True
+    ):
         full_uri = path
         if query_params is not None:
             full_uri = "%s?%s" % (path, urlencode(query_params))
