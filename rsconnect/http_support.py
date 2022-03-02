@@ -213,15 +213,20 @@ class HTTPServer(object):
     def post(self, path, query_params=None, body=None):
         return self.request("POST", path, query_params, body)
 
+    def patch(self, path, query_params=None, body=None):
+        return self.request("PATCH", path, query_params, body)
+
     def request(self, method, path, query_params=None, body=None, maximum_redirects=5, decode_response=True):
         path = self._get_full_path(path)
         extra_headers = None
-        if isinstance(body, dict):
+        if isinstance(body, (dict, list)):
             body = json.dumps(body).encode("utf-8")
             extra_headers = {"Content-Type": "application/json; charset=utf-8"}
         return self._do_request(method, path, query_params, body, maximum_redirects, extra_headers, decode_response)
 
-    def _do_request(self, method, path, query_params, body, maximum_redirects, extra_headers=None, decode_response=True):
+    def _do_request(
+        self, method, path, query_params, body, maximum_redirects, extra_headers=None, decode_response=True
+    ):
         full_uri = path
         if query_params is not None:
             full_uri = "%s?%s" % (path, urlencode(query_params))
