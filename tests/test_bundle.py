@@ -21,7 +21,7 @@ from .utils import get_dir
 class TestBundle(TestCase):
     @staticmethod
     def python_version():
-        return u".".join(map(str, sys.version_info[:3]))
+        return ".".join(map(str, sys.version_info[:3]))
 
     def test_to_bytes(self):
         self.assertEqual(to_bytes(b"abc123"), b"abc123")
@@ -31,8 +31,8 @@ class TestBundle(TestCase):
         self.assertEqual(to_bytes("abc123"), b"abc123")
         self.assertEqual(to_bytes("åbc123"), b"\xc3\xa5bc123")
 
-        self.assertEqual(to_bytes(u"abc123"), b"abc123")
-        self.assertEqual(to_bytes(u"åbc123"), b"\xc3\xa5bc123")
+        self.assertEqual(to_bytes("abc123"), b"abc123")
+        self.assertEqual(to_bytes("åbc123"), b"\xc3\xa5bc123")
 
     def test_source_bundle1(self):
         self.maxDiff = 5000
@@ -68,31 +68,31 @@ class TestBundle(TestCase):
             del manifest["python"]["package_manager"]["version"]
 
             if sys.version_info[0] == 2:
-                ipynb_hash = u"38aa30662bc16e91e6804cf21d7722f7"
+                ipynb_hash = "38aa30662bc16e91e6804cf21d7722f7"
             else:
-                ipynb_hash = u"36873800b48ca5ab54760d60ba06703a"
+                ipynb_hash = "36873800b48ca5ab54760d60ba06703a"
 
             # noinspection SpellCheckingInspection
             self.assertEqual(
                 manifest,
                 {
-                    u"version": 1,
-                    u"metadata": {
-                        u"appmode": u"jupyter-static",
-                        u"entrypoint": u"dummy.ipynb",
+                    "version": 1,
+                    "metadata": {
+                        "appmode": "jupyter-static",
+                        "entrypoint": "dummy.ipynb",
                     },
-                    u"python": {
-                        u"version": self.python_version(),
-                        u"package_manager": {
-                            u"name": u"pip",
-                            u"package_file": u"requirements.txt",
+                    "python": {
+                        "version": self.python_version(),
+                        "package_manager": {
+                            "name": "pip",
+                            "package_file": "requirements.txt",
                         },
                     },
-                    u"files": {
-                        u"dummy.ipynb": {
-                            u"checksum": ipynb_hash,
+                    "files": {
+                        "dummy.ipynb": {
+                            "checksum": ipynb_hash,
                         },
-                        u"requirements.txt": {u"checksum": u"5f2a5e862fe7afe3def4a57bb5cfb214"},
+                        "requirements.txt": {"checksum": "5f2a5e862fe7afe3def4a57bb5cfb214"},
                     },
                 },
             )
@@ -138,31 +138,31 @@ class TestBundle(TestCase):
             del manifest["python"]["package_manager"]["version"]
 
             if sys.version_info[0] == 2:
-                ipynb_hash = u"38aa30662bc16e91e6804cf21d7722f7"
+                ipynb_hash = "38aa30662bc16e91e6804cf21d7722f7"
             else:
-                ipynb_hash = u"36873800b48ca5ab54760d60ba06703a"
+                ipynb_hash = "36873800b48ca5ab54760d60ba06703a"
 
             # noinspection SpellCheckingInspection
             self.assertEqual(
                 manifest,
                 {
-                    u"version": 1,
-                    u"metadata": {
-                        u"appmode": u"jupyter-static",
-                        u"entrypoint": u"dummy.ipynb",
+                    "version": 1,
+                    "metadata": {
+                        "appmode": "jupyter-static",
+                        "entrypoint": "dummy.ipynb",
                     },
-                    u"python": {
-                        u"version": self.python_version(),
-                        u"package_manager": {
-                            u"name": u"pip",
-                            u"package_file": u"requirements.txt",
+                    "python": {
+                        "version": self.python_version(),
+                        "package_manager": {
+                            "name": "pip",
+                            "package_file": "requirements.txt",
                         },
                     },
-                    u"files": {
-                        u"dummy.ipynb": {
-                            u"checksum": ipynb_hash,
+                    "files": {
+                        "dummy.ipynb": {
+                            "checksum": ipynb_hash,
                         },
-                        u"data.csv": {u"checksum": u"f2bd77cc2752b3efbb732b761d2aa3c3"},
+                        "data.csv": {"checksum": "f2bd77cc2752b3efbb732b761d2aa3c3"},
                     },
                 },
             )
@@ -232,10 +232,10 @@ class TestBundle(TestCase):
             self.assertEqual(
                 manifest,
                 {
-                    u"version": 1,
-                    u"metadata": {
-                        u"appmode": u"static",
-                        u"primary_html": u"dummy.html",
+                    "version": 1,
+                    "metadata": {
+                        "appmode": "static",
+                        "primary_html": "dummy.html",
                     },
                 },
             )

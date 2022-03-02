@@ -41,15 +41,15 @@ from .actions import (
     fake_module_file_from_directory,
 )
 from .actions_content import (
-  download_bundle,
-  build_add_content,
-  build_remove_content,
-  build_list_content,
-  build_history,
-  build_start,
-  search_content,
-  get_content,
-  emit_build_log,
+    download_bundle,
+    build_add_content,
+    build_remove_content,
+    build_list_content,
+    build_history,
+    build_start,
+    search_content,
+    get_content,
+    emit_build_log,
 )
 
 from . import api, VERSION
@@ -67,6 +67,7 @@ from .models import (
 
 server_store = ServerStore()
 future_enabled = False
+
 
 def server_args(func):
     @click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
@@ -1281,6 +1282,7 @@ def _validate_build_rm_args(guid, all, purge):
 def content():
     pass
 
+
 # noinspection SpellCheckingInspection,DuplicatedCode
 @content.command(
     name="search",
@@ -1327,7 +1329,7 @@ def content():
     "--content-type",
     type=click.Choice(list(map(str, AppModes._modes))),
     multiple=True,
-    help="Filter content results by content type."
+    help="Filter content results by content type.",
 )
 @click.option(
     "--r-version",
@@ -1350,11 +1352,27 @@ def content():
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 # todo: --format option (json, text)
-def content_search(name, server, api_key, insecure, cacert, published, unpublished, content_type, r_version, py_version, title_contains, order_by, verbose):
+def content_search(
+    name,
+    server,
+    api_key,
+    insecure,
+    cacert,
+    published,
+    unpublished,
+    content_type,
+    r_version,
+    py_version,
+    title_contains,
+    order_by,
+    verbose,
+):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        result = search_content(connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by)
+        result = search_content(
+            connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
+        )
         json.dump(result, sys.stdout, indent=2)
 
 
@@ -1470,7 +1488,7 @@ def content_bundle_download(name, server, api_key, insecure, cacert, guid, outpu
             raise api.RSConnectException("The output file already exists: %s" % output)
 
         result = download_bundle(connect_server, guid)
-        with open(output, 'wb') as f:
+        with open(output, "wb") as f:
             f.write(result.response_body)
 
 
@@ -1478,10 +1496,10 @@ def content_bundle_download(name, server, api_key, insecure, cacert, guid, outpu
 def build():
     pass
 
+
 # noinspection SpellCheckingInspection,DuplicatedCode
 @build.command(
-    name="add",
-    short_help="Mark a content item for build. Use `build run` to invoke the build on the Connect server."
+    name="add", short_help="Mark a content item for build. Use `build run` to invoke the build on the Connect server."
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
@@ -1526,7 +1544,7 @@ def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         build_add_content(connect_server, guid)
         if len(guid) == 1:
-            logger.info("Added \"%s\"." % guid[0])
+            logger.info('Added "%s".' % guid[0])
         else:
             logger.info("Bulk added %d content items." % len(guid))
 
@@ -1534,8 +1552,8 @@ def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
 # noinspection SpellCheckingInspection,DuplicatedCode
 @build.command(
     name="rm",
-    short_help="Remove a content item from the list of content that are tracked for build. " +
-        "Use `build ls` to view the tracked content."
+    short_help="Remove a content item from the list of content that are tracked for build. "
+    + "Use `build ls` to view the tracked content.",
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
@@ -1591,15 +1609,14 @@ def remove_content_build(name, server, api_key, insecure, cacert, guid, all, pur
         _validate_build_rm_args(guid, all, purge)
         guids = build_remove_content(connect_server, guid, all, purge)
         if len(guids) == 1:
-            logger.info("Removed \"%s\"." % guids[0])
+            logger.info('Removed "%s".' % guids[0])
         else:
             logger.info("Removed %d content items." % len(guids))
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @build.command(
-    name="ls",
-    short_help="List the content items that are being tracked for build on a given Connect server."
+    name="ls", short_help="List the content items that are being tracked for build on a given Connect server."
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
@@ -1628,11 +1645,7 @@ def remove_content_build(name, server, api_key, insecure, cacert, guid, all, pur
     type=click.File(),
     help="The path to trusted TLS CA certificates.",
 )
-@click.option(
-    "--status",
-    type=click.Choice(BuildStatus._all),
-    help="Filter results by status of the build operation."
-)
+@click.option("--status", type=click.Choice(BuildStatus._all), help="Filter results by status of the build operation.")
 @click.option(
     "--guid",
     "-g",
@@ -1652,10 +1665,7 @@ def list_content_build(name, server, api_key, insecure, cacert, status, guid, ve
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
-@build.command(
-    name="history",
-    short_help="Get the build history for a content item."
-)
+@build.command(name="history", short_help="Get the build history for a content item.")
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
     "--server",
@@ -1800,26 +1810,14 @@ def get_build_logs(name, server, api_key, insecure, cacert, guid, task_id, forma
     "--parallelism",
     type=click.IntRange(min=1, clamp=True),
     default=1,
-    help="Defines the number of builds that can run concurrently. Defaults to 1."
+    help="Defines the number of builds that can run concurrently. Defaults to 1.",
 )
-@click.option(
-    "--aborted",
-    is_flag=True,
-    help="Build content that is in the ABORTED state."
-)
-@click.option(
-    "--error",
-    is_flag=True,
-    help="Build content that is in the ERROR state."
-)
-@click.option(
-    "--all",
-    is_flag=True,
-    help="Build all content, even if it is already marked as COMPLETE."
-)
+@click.option("--aborted", is_flag=True, help="Build content that is in the ABORTED state.")
+@click.option("--error", is_flag=True, help="Build content that is in the ERROR state.")
+@click.option("--all", is_flag=True, help="Build all content, even if it is already marked as COMPLETE.")
 @click.option(
     "--poll-wait",
-    type=click.FloatRange(min=.5, clamp=True),
+    type=click.FloatRange(min=0.5, clamp=True),
     default=2,
     help="Defines the number of seconds between polls when polling for build output. Defaults to 2.",
 )
@@ -1830,13 +1828,11 @@ def get_build_logs(name, server, api_key, insecure, cacert, guid, task_id, forma
     default=LogOutputFormat.DEFAULT,
     help="The output format of the logs. Defaults to text.",
 )
-@click.option(
-    "--debug",
-    is_flag=True,
-    help="Log stacktraces from exceptions during background operations."
-)
+@click.option("--debug", is_flag=True, help="Log stacktraces from exceptions during background operations.")
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def start_content_build(name, server, api_key, insecure, cacert, parallelism, aborted, error, all, poll_wait, format, debug, verbose):
+def start_content_build(
+    name, server, api_key, insecure, cacert, parallelism, aborted, error, all, poll_wait, format, debug, verbose
+):
     set_verbosity(verbose)
     logger.set_log_output_format(format)
     with cli_feedback("", stderr=True):

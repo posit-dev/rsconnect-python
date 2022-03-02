@@ -30,11 +30,13 @@ def error(code, reason):
 
     return {"error": reason, "code": code}
 
+
 def safe_delete(key, data: dict):
     try:
         del data[key]
     except KeyError:
         pass
+
 
 def _make_json_ready(obj):
     if isinstance(obj, DBObject):

@@ -14,15 +14,18 @@ from os import environ
 from os.path import isfile
 from typing import Union
 
+
 def timestamp():
     return datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+
 
 def default_url():
     return "http://127.0.0.1:3939"
 
+
 class DBObject(object):
-    json_excludes = [] # remove fields from the json response
-    show = ["id"] # show these fields in the generated HTML
+    json_excludes = []  # remove fields from the json response
+    show = ["id"]  # show these fields in the generated HTML
     generated_id = {}
     instances = {}
 
@@ -37,7 +40,7 @@ class DBObject(object):
     def _next_id(cls):
         name = cls.__name__
         if name not in cls.generated_id:
-            cls.generated_id[name] = range(1, sys.maxsize ** 10).__iter__()
+            cls.generated_id[name] = range(1, sys.maxsize**10).__iter__()
         new_id = next(cls.generated_id[name])
         existing_ids = cls._get_all_ids()
         while new_id in existing_ids:
@@ -50,7 +53,7 @@ class DBObject(object):
         if name in cls.instances:
             if db_id in cls.instances[name]:
                 return cls.instances[name][db_id]
-            elif isinstance(db_id, str): # if guid was provided, find by guid instead of id
+            elif isinstance(db_id, str):  # if guid was provided, find by guid instead of id
                 return next(filter(lambda x: x.guid == db_id, cls.instances[name].values()), None)
         return None
 
@@ -112,15 +115,15 @@ class Application(DBObject):
 
     def __init__(self, **kwargs):
         super(Application, self).__init__(needs_guid=True, **kwargs)
-        self._base_url = kwargs.get('_base_url', default_url())
-        self.name = kwargs.get('name')
-        self.title = kwargs.get('title')
+        self._base_url = kwargs.get("_base_url", default_url())
+        self.name = kwargs.get("name")
+        self.title = kwargs.get("title")
         self.url = "%scontent/%s" % (self._base_url, self.id)
-        self.owner_username = kwargs.get('owner_username')
-        self.owner_first_name = kwargs.get('owner_first_name')
-        self.owner_last_name = kwargs.get('owner_last_name')
-        self.owner_email = kwargs.get('owner_email')
-        self.owner_locked = kwargs.get('owner_locked')
+        self.owner_username = kwargs.get("owner_username")
+        self.owner_first_name = kwargs.get("owner_first_name")
+        self.owner_last_name = kwargs.get("owner_last_name")
+        self.owner_email = kwargs.get("owner_email")
+        self.owner_locked = kwargs.get("owner_locked")
         self.bundle_id = None
         self.needs_config = True
         self.access_type = None
@@ -151,18 +154,18 @@ class User(DBObject):
 
     def __init__(self, **kwargs):
         super(User, self).__init__(needs_guid=True, **kwargs)
-        self.username = kwargs.get('username')
-        self.first_name = kwargs.get('first_name')
-        self.last_name = kwargs.get('last_name')
-        self.email = kwargs.get('email')
-        self.user_role = kwargs.get('user_role')
-        self.password = kwargs.get('password')
-        self.confirmed = kwargs.get('confirmed')
-        self.locked = kwargs.get('locked')
-        self.created_time = kwargs.get('created_time')
-        self.updated_time = kwargs.get('updated_time')
-        self.active_time = kwargs.get('active_time')
-        self.privileges = kwargs.get('privileges')
+        self.username = kwargs.get("username")
+        self.first_name = kwargs.get("first_name")
+        self.last_name = kwargs.get("last_name")
+        self.email = kwargs.get("email")
+        self.user_role = kwargs.get("user_role")
+        self.password = kwargs.get("password")
+        self.confirmed = kwargs.get("confirmed")
+        self.locked = kwargs.get("locked")
+        self.created_time = kwargs.get("created_time")
+        self.updated_time = kwargs.get("updated_time")
+        self.active_time = kwargs.get("active_time")
+        self.privileges = kwargs.get("privileges")
 
 
 class Bundle(DBObject):
@@ -171,17 +174,17 @@ class Bundle(DBObject):
 
     def __init__(self, **kwargs):
         super(Bundle, self).__init__(**kwargs)
-        self.app_id = kwargs.get('app_id')
+        self.app_id = kwargs.get("app_id")
         self.created_time = timestamp()
         self.updated_time = self.created_time
-        self._tar_data = kwargs.get('_tar_data')
-        self._tar_file = kwargs.get('_tar_file')
+        self._tar_data = kwargs.get("_tar_data")
+        self._tar_file = kwargs.get("_tar_file")
 
     def read_bundle_data(self):
         if self._tar_data:
             return io.BytesIO(self._tar_data)
         elif self._tar_file:
-            with open(self._tar_file, 'rb') as fh:
+            with open(self._tar_file, "rb") as fh:
                 self._tar_data = fh.read()
                 return io.BytesIO(self._tar_data)
 
@@ -205,12 +208,12 @@ class Bundle(DBObject):
 class Task(DBObject):
     def __init__(self, **kwargs):
         super(Task, self).__init__(**kwargs)
-        self.user_id = kwargs.get('user_id', 0)
-        self.finished = kwargs.get('finished', True)
-        self.code = kwargs.get('code', 0)
-        self.error = kwargs.get('error', "")
-        self.last_status = kwargs.get('last_status', 0)
-        self.status = kwargs.get('status', ["Building static content", "Deploying static content"])
+        self.user_id = kwargs.get("user_id", 0)
+        self.finished = kwargs.get("finished", True)
+        self.code = kwargs.get("code", 0)
+        self.error = kwargs.get("error", "")
+        self.last_status = kwargs.get("last_status", 0)
+        self.status = kwargs.get("status", ["Building static content", "Deploying static content"])
 
 
 class Content(DBObject):
@@ -219,36 +222,36 @@ class Content(DBObject):
 
     def __init__(self, **kwargs):
         super(Content, self).__init__(needs_guid=True, **kwargs)
-        self._base_url = kwargs.get('_base_url', default_url())
-        self.name = kwargs.get('name')
+        self._base_url = kwargs.get("_base_url", default_url())
+        self.name = kwargs.get("name")
         self.title = self.name + "+ title"
         self.description = self.name + "+ description"
-        self.bundle_id = kwargs.get('bundle_id')
-        self.app_mode = kwargs.get('app_mode')
-        self.content_category = kwargs.get('content_category')
+        self.bundle_id = kwargs.get("bundle_id")
+        self.app_mode = kwargs.get("app_mode")
+        self.content_category = kwargs.get("content_category")
         self.content_url = "%scontent/%s/" % (self._base_url, self.guid)
         self.dashboard_url = "%sconnect/#/apps/%s" % (self._base_url, self.guid)
         self.created_time = timestamp()
         self.last_deployed_time = timestamp()
-        self.r_version = kwargs.get('r_version', '4.1.1')
-        self.py_version = kwargs.get('py_version', '3.9.9')
-        self.quarto_version = kwargs.get('quarto_version', '0.2.318')
-        self.owner_guid = kwargs.get('owner_guid')
-        self.access_type = kwargs.get('access_type', 'acl')
-        self.connection_timeout = kwargs.get('connection_timeout')
-        self.read_timeout = kwargs.get('read_timeout')
-        self.init_timeout = kwargs.get('init_timeout')
-        self.idle_timeout = kwargs.get('idle_timeout')
-        self.max_processes = kwargs.get('max_processes')
-        self.min_processes = kwargs.get('min_processes')
-        self.max_conns_per_process = kwargs.get('max_conns_per_process')
-        self.load_factor = kwargs.get('load_factor')
-        self.parameterized = kwargs.get('parameterized', False)
-        self.cluster_name = kwargs.get('cluster_name')
-        self.image_name = kwargs.get('image_name')
-        self.run_as = kwargs.get('run_as')
-        self.run_as_current_user = kwargs.get('run_as_current_user', False)
-        self.app_role = kwargs.get('app_role', "owner")
+        self.r_version = kwargs.get("r_version", "4.1.1")
+        self.py_version = kwargs.get("py_version", "3.9.9")
+        self.quarto_version = kwargs.get("quarto_version", "0.2.318")
+        self.owner_guid = kwargs.get("owner_guid")
+        self.access_type = kwargs.get("access_type", "acl")
+        self.connection_timeout = kwargs.get("connection_timeout")
+        self.read_timeout = kwargs.get("read_timeout")
+        self.init_timeout = kwargs.get("init_timeout")
+        self.idle_timeout = kwargs.get("idle_timeout")
+        self.max_processes = kwargs.get("max_processes")
+        self.min_processes = kwargs.get("min_processes")
+        self.max_conns_per_process = kwargs.get("max_conns_per_process")
+        self.load_factor = kwargs.get("load_factor")
+        self.parameterized = kwargs.get("parameterized", False)
+        self.cluster_name = kwargs.get("cluster_name")
+        self.image_name = kwargs.get("image_name")
+        self.run_as = kwargs.get("run_as")
+        self.run_as_current_user = kwargs.get("run_as_current_user", False)
+        self.app_role = kwargs.get("app_role", "owner")
 
 
 def _apply_pre_fetch_data(data: dict):
@@ -391,13 +394,7 @@ default_server_settings = {
     "documentation_dashboard": False,
 }
 
-tag_map = {
-    "apps": Application,
-    "users": User,
-    "bundles": Bundle,
-    "tasks": Task,
-    "content": Content
-}
+tag_map = {"apps": Application, "users": User, "bundles": Bundle, "tasks": Task, "content": Content}
 
 api_keys = {}
 

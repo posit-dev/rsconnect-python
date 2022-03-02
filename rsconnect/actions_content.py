@@ -10,19 +10,14 @@ from datetime import datetime, timedelta
 
 import semver
 
-from .api import (
-    RSConnect,
-    RSConnectException,
-    emit_task_log
-)
+from .api import RSConnect, RSConnectException, emit_task_log
 from .log import logger
-from .models import (
-    BuildStatus,
-    ContentGuidWithBundle
-)
+from .models import BuildStatus, ContentGuidWithBundle
 from .metadata import ContentBuildStore
 
-_content_build_store = None # type: ContentBuildStore
+_content_build_store = None  # type: ContentBuildStore
+
+
 def init_content_build_store(connect_server):
     global _content_build_store
     if not _content_build_store:
@@ -36,8 +31,10 @@ def build_add_content(connect_server, content_guids_with_bundle):
     """
     init_content_build_store(connect_server)
     if _content_build_store.get_build_running():
-        raise RSConnectException("There is already a build running on this server, " +
-            "please wait for it to finish before adding new content.")
+        raise RSConnectException(
+            "There is already a build running on this server, "
+            + "please wait for it to finish before adding new content."
+        )
 
     with RSConnect(connect_server, timeout=120) as client:
         if len(content_guids_with_bundle) == 1:
@@ -49,20 +46,22 @@ def build_add_content(connect_server, content_guids_with_bundle):
 
         # always filter just in case it's a bulk add
         guids_to_add = list(map(lambda x: x.guid, content_guids_with_bundle))
-        content_to_add = list(filter(lambda x: x['guid'] in guids_to_add, all_content))
+        content_to_add = list(filter(lambda x: x["guid"] in guids_to_add, all_content))
 
         # merge the provided bundle_ids if they were specified
-        content_to_add = {c['guid']: c for c in content_to_add}
+        content_to_add = {c["guid"]: c for c in content_to_add}
         for c in content_guids_with_bundle:
-            current_bundle_id = content_to_add[c.guid]['bundle_id']
-            content_to_add[c.guid]['bundle_id'] = c.bundle_id if c.bundle_id else current_bundle_id
+            current_bundle_id = content_to_add[c.guid]["bundle_id"]
+            content_to_add[c.guid]["bundle_id"] = c.bundle_id if c.bundle_id else current_bundle_id
 
         for content in content_to_add.values():
-            if not content['bundle_id']:
-                raise RSConnectException("This content has never been published to this server. " +
-                    "You must specify a bundle_id for the build. Content GUID: %s" % content['guid'])
+            if not content["bundle_id"]:
+                raise RSConnectException(
+                    "This content has never been published to this server. "
+                    + "You must specify a bundle_id for the build. Content GUID: %s" % content["guid"]
+                )
             _content_build_store.add_content_item(content)
-            _content_build_store.set_content_item_build_status(content['guid'], BuildStatus.NEEDS_BUILD)
+            _content_build_store.set_content_item_build_status(content["guid"], BuildStatus.NEEDS_BUILD)
 
 
 def build_remove_content(connect_server, guid, all=False, purge=False):
@@ -71,11 +70,12 @@ def build_remove_content(connect_server, guid, all=False, purge=False):
     """
     init_content_build_store(connect_server)
     if _content_build_store.get_build_running():
-        raise RSConnectException("There is a build running on this server, " +
-            "please wait for it to finish before removing content.")
+        raise RSConnectException(
+            "There is a build running on this server, " + "please wait for it to finish before removing content."
+        )
     guids = [guid]
     if all:
-        guids = [c['guid'] for c in _content_build_store.get_content_items()]
+        guids = [c["guid"] for c in _content_build_store.get_content_items()]
     for guid in guids:
         _content_build_store.remove_content_item(guid, purge)
     return guids
@@ -103,19 +103,19 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
     if all:
         logger.info("Adding all content to build...")
         all_content = _content_build_store.get_content_items()
-        all_content = list(map(lambda x: ContentGuidWithBundle(x['guid'], x['bundle_id']), all_content))
+        all_content = list(map(lambda x: ContentGuidWithBundle(x["guid"], x["bundle_id"]), all_content))
         build_add_content(connect_server, all_content)
     else:
         aborted_content = []
         if aborted:
             logger.info("Adding ABORTED content to build...")
             aborted_content = _content_build_store.get_content_items(status=BuildStatus.ABORTED)
-            aborted_content = list(map(lambda x: ContentGuidWithBundle(x['guid'], x['bundle_id']), aborted_content))
+            aborted_content = list(map(lambda x: ContentGuidWithBundle(x["guid"], x["bundle_id"]), aborted_content))
         error_content = []
         if error:
             logger.info("Adding ERROR content to build...")
             error_content = _content_build_store.get_content_items(status=BuildStatus.ERROR)
-            error_content = list(map(lambda x: ContentGuidWithBundle(x['guid'], x['bundle_id']), error_content))
+            error_content = list(map(lambda x: ContentGuidWithBundle(x["guid"], x["bundle_id"]), error_content))
         if len(aborted_content + error_content) > 0:
             build_add_content(connect_server, aborted_content + error_content)
 
@@ -143,8 +143,10 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
         #   spawn a pool of worker threads to perform the content builds
         content_executor = ThreadPoolExecutor(max_workers=parallelism)
         build_result_futures = {
-            content_executor.submit(_build_content_item, connect_server, content, poll_wait):
-            ContentGuidWithBundle(content['guid'], content['bundle_id']) for content in content_items
+            content_executor.submit(_build_content_item, connect_server, content, poll_wait): ContentGuidWithBundle(
+                content["guid"], content["bundle_id"]
+            )
+            for content in content_items
         }
         for future in as_completed(build_result_futures):
             guid_with_bundle = build_result_futures[future]
@@ -153,7 +155,7 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
             except Exception as exc:
                 # catch any unexpected exceptions from the future thread
                 _content_build_store.set_content_item_build_status(guid_with_bundle.guid, BuildStatus.ERROR)
-                logger.error('%s generated an exception: %s' % (guid_with_bundle, exc))
+                logger.error("%s generated an exception: %s" % (guid_with_bundle, exc))
                 if debug:
                     logger.error(traceback.format_exc())
 
@@ -188,16 +190,18 @@ def _monitor_build(connect_server, content_items):
     start = datetime.now()
     while _content_build_store.get_build_running() and not _content_build_store.aborted():
         time.sleep(5)
-        complete = [item for item in content_items if item['rsconnect_build_status'] == BuildStatus.COMPLETE]
-        error = [item for item in content_items if item['rsconnect_build_status'] == BuildStatus.ERROR]
-        running = [item for item in content_items if item['rsconnect_build_status'] == BuildStatus.RUNNING]
-        pending = [item for item in content_items if item['rsconnect_build_status'] == BuildStatus.NEEDS_BUILD]
-        logger.info("Running = %d, Pending = %d, Success = %d, Error = %d" %
-            (len(running), len(pending), len(complete), len(error)))
+        complete = [item for item in content_items if item["rsconnect_build_status"] == BuildStatus.COMPLETE]
+        error = [item for item in content_items if item["rsconnect_build_status"] == BuildStatus.ERROR]
+        running = [item for item in content_items if item["rsconnect_build_status"] == BuildStatus.RUNNING]
+        pending = [item for item in content_items if item["rsconnect_build_status"] == BuildStatus.NEEDS_BUILD]
+        logger.info(
+            "Running = %d, Pending = %d, Success = %d, Error = %d"
+            % (len(running), len(pending), len(complete), len(error))
+        )
 
     if _content_build_store.aborted():
         logger.warn("Build interrupted!")
-        aborted_builds = [i['guid'] for i in content_items if i['rsconnect_build_status'] == BuildStatus.RUNNING]
+        aborted_builds = [i["guid"] for i in content_items if i["rsconnect_build_status"] == BuildStatus.RUNNING]
         if len(aborted_builds) > 0:
             logger.warn("Marking %d builds as ABORTED..." % len(aborted_builds))
             for guid in aborted_builds:
@@ -211,8 +215,9 @@ def _monitor_build(connect_server, content_items):
     duration = current - start
     # construct a new delta w/o millis since timedelta doesn't allow strfmt
     rounded_duration = timedelta(seconds=duration.seconds)
-    logger.info("%d/%d content builds completed in %s" %
-        (len(complete) + len(error), len(content_items), rounded_duration))
+    logger.info(
+        "%d/%d content builds completed in %s" % (len(complete) + len(error), len(content_items), rounded_duration)
+    )
     logger.info("Success = %d, Error = %d" % (len(complete), len(error)))
     if len(error) > 0:
         logger.error("There were %d failures during your build." % len(error))
@@ -229,14 +234,14 @@ def _build_content_item(connect_server, content, poll_wait):
         if _content_build_store.aborted():
             return
 
-        guid = content['guid']
+        guid = content["guid"]
         logger.info("Starting build: %s" % guid)
         _content_build_store.update_content_item_last_build_time(guid)
         _content_build_store.set_content_item_build_status(guid, BuildStatus.RUNNING)
         _content_build_store.ensure_logs_dir(guid)
         try:
-            task_result = client.content_build(guid, content.get('bundle_id'))
-            task_id = task_result['task_id']
+            task_result = client.content_build(guid, content.get("bundle_id"))
+            task_id = task_result["task_id"]
         except RSConnectException:
             # if we can't submit the build to connect then there is no log file
             # created on disk. When this happens we need to set the last_build_log
@@ -244,12 +249,15 @@ def _build_content_item(connect_server, content, poll_wait):
             _content_build_store.update_content_item_last_build_log(guid, None)
             raise
         log_file = _content_build_store.get_build_log(guid, task_id)
-        with open(log_file, 'w') as log:
-            _, _, task_status = emit_task_log(connect_server, guid, task_id,
+        with open(log_file, "w") as log:
+            _, _, task_status = emit_task_log(
+                connect_server,
+                guid,
+                task_id,
                 log_callback=lambda line: log.write("%s\n" % line),
                 abort_func=_content_build_store.aborted,
                 poll_wait=poll_wait,
-                raise_on_error=False
+                raise_on_error=False,
             )
         _content_build_store.update_content_item_last_build_log(guid, log_file)
 
@@ -269,7 +277,7 @@ def emit_build_log(connect_server, guid, format, task_id=None):
     init_content_build_store(connect_server)
     log_file = _content_build_store.get_build_log(guid, task_id)
     if log_file:
-        with open(log_file, 'r') as f:
+        with open(log_file, "r") as f:
             for line in f.readlines():
                 if format == "json":
                     yield json.dumps({"message": line}) + "\n"
@@ -287,10 +295,12 @@ def download_bundle(connect_server, guid_with_bundle):
         # bundle_id not provided so grab the latest
         if not guid_with_bundle.bundle_id:
             content = client.get_content(guid_with_bundle.guid)
-            if 'bundle_id' in content and content['bundle_id']:
-                guid_with_bundle.bundle_id = content['bundle_id']
+            if "bundle_id" in content and content["bundle_id"]:
+                guid_with_bundle.bundle_id = content["bundle_id"]
             else:
-                raise RSConnectException("There is no current bundle available for this content: %s" % guid_with_bundle.guid)
+                raise RSConnectException(
+                    "There is no current bundle available for this content: %s" % guid_with_bundle.guid
+                )
 
         return client.download_bundle(guid_with_bundle.guid, guid_with_bundle.bundle_id)
 
@@ -308,26 +318,30 @@ def get_content(connect_server, guid):
         return result
 
 
-def search_content(connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by):
+def search_content(
+    connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
+):
     with RSConnect(connect_server, timeout=120) as client:
         result = client.search_content()
-        result = _apply_content_filters(result, published, unpublished, content_type, r_version, py_version, title_contains)
+        result = _apply_content_filters(
+            result, published, unpublished, content_type, r_version, py_version, title_contains
+        )
         result = _order_content_results(result, order_by)
         return list(result)
 
 
 def _apply_content_filters(content_list, published, unpublished, content_type, r_version, py_version, title_search):
     def content_is_published(item):
-        return item.get('bundle_id') is not None
+        return item.get("bundle_id") is not None
 
     def content_is_unpublished(item):
-        return item.get('bundle_id') is None
+        return item.get("bundle_id") is None
 
     def title_contains(item):
-        return item['title'] is not None and title_search in item['title']
+        return item["title"] is not None and title_search in item["title"]
 
     def apply_content_type_filter(item):
-        return item['app_mode'] is not None and item['app_mode'] in content_type
+        return item["app_mode"] is not None and item["app_mode"] in content_type
 
     def apply_version_filter(items, version_filter):
         def do_filter(item):
@@ -352,6 +366,7 @@ def _apply_content_filters(content_list, published, unpublished, content_type, r
             elif version_filter.comp == ">=":
                 return compare >= 0
             return False
+
         return filter(do_filter, items)
 
     result = iter(content_list)
@@ -373,8 +388,8 @@ def _apply_content_filters(content_list, published, unpublished, content_type, r
 def _order_content_results(content_list, order_by):
     result = iter(content_list)
     if order_by == "last_deployed":
-        pass # do nothing, content is ordered by last_deployed by default
+        pass  # do nothing, content is ordered by last_deployed by default
     elif order_by == "created":
-        result = sorted(result, key=lambda c: c['created_time'], reverse=True)
+        result = sorted(result, key=lambda c: c["created_time"], reverse=True)
 
     return result
