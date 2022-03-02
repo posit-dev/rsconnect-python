@@ -147,7 +147,9 @@ def content_args(func):
         "env_vars",
         multiple=True,
         callback=validate_env_vars,
-        help="Set an environment variable. Specify a value with NAME=VALUE, or just NAME to use the value from the local environment. May be specified multiple times. [v1.8.6+]",
+        help="Set an environment variable. Specify a value with NAME=VALUE, "
+        "or just NAME to use the value from the local environment. "
+        "May be specified multiple times. [v1.8.6+]",
     )
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
