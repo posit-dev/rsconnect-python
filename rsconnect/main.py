@@ -235,6 +235,21 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
     envvar="CONNECT_API_KEY",
     help="The API key to use to authenticate with RStudio Connect.",
 )
+@click.option(
+    "--insecure",
+    "-i",
+    envvar="CONNECT_INSECURE",
+    is_flag=True,
+    help="Disable TLS certification/host validation.",
+)
+@click.option(
+    "--cacert",
+    "-c",
+    envvar="CONNECT_CA_CERTIFICATE",
+    type=click.File(),
+    help="The path to trusted TLS CA certificates.",
+)
+@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def add(name, server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
 
