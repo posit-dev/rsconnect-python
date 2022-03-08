@@ -40,7 +40,11 @@ def _get_proxy():
     parsed = urlparse(proxyURL)
     if parsed.scheme not in ["https"]:
         raise Exception("HTTPS_PROXY scheme must be https://")
-    logger.info("Using custom proxy server {}".format(proxyURL.replace(parsed.password or "", "REDACTED")))
+    redacted_url = "{}://".format(parsed.scheme) 
+    if parsed.username:
+        redacted_url += "{}:{}@".format(parsed.username, "REDACTED")
+    redacted_url += "{}:{}".format(parsed.hostname, parsed.port or 8080)
+    logger.info("Using custom proxy server {}".format(redacted_url))
     return parsed.username, parsed.password, parsed.hostname, parsed.port or 8080
 
 
