@@ -37,10 +37,10 @@ def _get_proxy():
     proxyURL = os.getenv("HTTPS_PROXY")
     if not proxyURL:
         return None, None, None, None
-    logger.info("Using custom proxy server {}".format(proxyURL))
     parsed = urlparse(proxyURL)
-    if parsed.scheme not in ['https']:
+    if parsed.scheme not in ["https"]:
         raise Exception("HTTPS_PROXY scheme must be https://")
+    logger.info("Using custom proxy server {}".format(proxyURL.replace(parsed.password or "", "REDACTED")))
     return parsed.username, parsed.password, parsed.hostname, parsed.port or 8080
 
 
