@@ -527,8 +527,16 @@ def write_quarto_manifest_json(
     manifest, _ = make_quarto_manifest(directory, inspect, app_mode, environment, extra_files, excludes)
     manifest_path = join(directory, "manifest.json")
 
+    write_manifest_json(manifest_path, manifest)
+
+
+def write_manifest_json(manifest_path, manifest):
+    """
+    Write the manifest data as JSON to the named manifest.json with a trailing newline.
+    """
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
+        f.write("\n")
 
 
 def deploy_jupyter_notebook(
@@ -1458,8 +1466,7 @@ def write_notebook_manifest_json(
     for rel_path in extra_files:
         manifest_add_file(manifest_data, rel_path, directory)
 
-    with open(manifest_path, "w") as f:
-        json.dump(manifest_data, f, indent=2)
+    write_manifest_json(manifest_path, manifest_data)
 
     return exists(join(directory, environment.filename))
 
@@ -1520,8 +1527,7 @@ def write_api_manifest_json(
     manifest, _ = make_api_manifest(directory, entry_point, app_mode, environment, extra_files, excludes)
     manifest_path = join(directory, "manifest.json")
 
-    with open(manifest_path, "w") as f:
-        json.dump(manifest, f, indent=2)
+    write_manifest_json(manifest_path, manifest)
 
     return exists(join(directory, environment.filename))
 
