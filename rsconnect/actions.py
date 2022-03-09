@@ -7,9 +7,10 @@ import json
 import logging
 import os
 import re
-import traceback
-import sys
+import shutil
 import subprocess
+import sys
+import traceback
 
 try:
     import typing
@@ -26,6 +27,7 @@ from .bundle import (
     make_manifest_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
+    make_quarto_manifest,
     make_source_manifest,
     manifest_add_buffer,
     manifest_add_file,
@@ -459,6 +461,74 @@ def validate_entry_point(entry_point, directory):
         raise api.RSConnectException('Entry point is not in "module:object" format.')
 
     return entry_point
+
+def locate_quarto(quarto):
+    """
+    Identify a valid Quarto executable. Attempts to find Quarto on the PATH
+    when one is not provided as input.
+    """
+
+    # TODO: Maybe look at well-known locations when not in the PATH, such as
+    # the Quarto installation contained within the RStudio IDE. On macOS, this
+    # would be /Applications/RStudio.app/Contents/MacOS/quarto/bin/quarto.
+    #
+    # The macOS default installation location is /Applications/quarto/bin/quarto.
+    # The Linux default installation location is /opt/quarto/bin/quarto.
+    # Both of those installation locations have symbolic links from /usr/local/bin/quarto.
+    if not quarto:
+        quarto = "quarto"
+    found = shutil.which(quarto)
+    if not found:
+        raise api.RSConnectException('The Quarto installation, "%s", does not exist or is not executable.' % quarto)
+    return found
+
+
+def quarto_inspect(
+        quarto,
+        target,
+        check_output=subprocess.check_output,
+):
+    """
+    Runs 'quarto inspect' against the target and returns its output as a
+    parsed JSON object.
+    """
+    args = [quarto, "inspect", target]
+    try:
+        inspect_json = check_output(args, universal_newlines=True)
+    except subprocess.CalledProcessError as e:
+        raise api.RSConnectException("Error inspecting target: %s" % e.output)
+    return json.loads(inspect_json)
+
+
+def validate_quarto_engines(inspect):
+    """
+    The markdown and jupyter engines are supported. Not knitr.
+    """
+    supported = ["markdown", "jupyter"]
+    engines = inspect.get("engines", [])
+    unsupported = [engine for engine in engines if engine not in supported]
+    if unsupported:
+        raise api.RSConnectException('The following Quarto engine(s) are not supported: %s' % ", ".join(unsupported))
+    return engines
+
+
+def write_quarto_manifest_json(
+        directory,
+        inspect,
+        app_mode = AppModes.STATIC_QUARTO,
+        environment = None,
+        extra_files = None,
+        excludes = None,
+):
+    """
+    """
+
+    extra_files = validate_extra_files(directory, extra_files)
+    manifest, _ = make_quarto_manifest(directory, inspect, app_mode, environment, extra_files, excludes)
+    manifest_path = join(directory, "manifest.json")
+
+    with open(manifest_path, "w") as f:
+        json.dump(manifest, f, indent=2)
 
 
 def deploy_jupyter_notebook(
@@ -1381,7 +1451,7 @@ def write_notebook_manifest_json(
         if app_mode == AppModes.UNKNOWN:
             raise api.RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
 
-    manifest_data = make_source_manifest(file_name, environment, app_mode)
+    manifest_data = make_source_manifest(app_mode, environment, file_name)
     manifest_add_file(manifest_data, file_name, directory)
     manifest_add_buffer(manifest_data, environment.filename, environment.contents)
 
@@ -1454,7 +1524,6 @@ def write_api_manifest_json(
         json.dump(manifest, f, indent=2)
 
     return exists(join(directory, environment.filename))
-
 
 def write_environment_file(environment, directory):
     """

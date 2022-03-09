@@ -27,6 +27,8 @@ from .actions import (
     gather_server_details,
     get_python_env_info,
     is_conda_supported_on_server,
+    locate_quarto,
+    quarto_inspect,
     set_verbosity,
     spool_deployment_log,
     test_api_key,
@@ -35,9 +37,11 @@ from .actions import (
     validate_extra_files,
     validate_file_is_notebook,
     validate_manifest_file,
+    validate_quarto_engines,
     write_api_manifest_json,
     write_environment_file,
     write_notebook_manifest_json,
+    write_quarto_manifest_json,
     fake_module_file_from_directory,
 )
 from .actions_content import (
@@ -1137,6 +1141,97 @@ def write_manifest_notebook(
     else:
         with cli_feedback("Creating %s" % environment.filename):
             write_environment_file(environment, base_dir)
+
+@write_manifest.command(
+    name="quarto",
+    short_help="Create a manifest.json file for Quarto content.",
+    help=(
+        "Create a manifest.json file for a Quarto project for later "
+        "deployment. Should the content use the Quarto Jupyter engine, "
+        'an environment file ("requirements.txt") is created if one does '
+        "not already exist. All files are created in the same directory "
+        "as the project. Requires RStudio Connect 2021.08.0 or later."
+    ),
+)
+@click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.option(
+    "--quarto",
+    "-q",
+    type=click.Path(exists=True),
+    help="Path to Quarto installation.",
+)
+@click.option(
+    "--python",
+    "-p",
+    type=click.Path(exists=True),
+    help="Path to Python interpreter whose environment should be used. "
+    + "The Python environment must have the rsconnect package installed.",
+)
+@click.option(
+    "--force-generate",
+    "-g",
+    is_flag=True,
+    help='Force generating "requirements.txt", even if it already exists.',
+)
+@click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+def write_manifest_quarto(
+        overwrite, exclude, quarto, python, force_generate, verbose, directory, extra_files,
+):
+    set_verbosity(verbose)
+    with cli_feedback("Checking arguments"):
+        extra_files = validate_extra_files(directory, extra_files)
+        manifest_path = join(directory, "manifest.json")
+
+        if exists(manifest_path) and not overwrite:
+            raise api.RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+
+    with cli_feedback("Inspecting Quarto project"):
+        quarto = locate_quarto(quarto)
+        logger.debug("Quarto: %s" % quarto)
+        inspect = quarto_inspect(quarto, directory)
+        engines = validate_quarto_engines(inspect)
+
+    environment = None
+    if "jupyter" in engines:
+        with cli_feedback("Inspecting Python environment"):
+            python, environment = get_python_env_info(directory, python, False, force_generate)
+
+        _warn_on_ignored_conda_env(environment)
+        environment_file_exists = exists(join(directory, environment.filename))
+        if environment_file_exists and not force_generate:
+            click.secho(
+                "    Warning: %s already exists and will not be overwritten." % environment.filename,
+                fg="yellow",
+            )
+        else:
+            with cli_feedback("Creating %s" % environment.filename):
+                write_environment_file(environment, directory)
+        
+    with cli_feedback("Creating manifest.json"):
+        write_quarto_manifest_json(
+            directory,
+            inspect,
+            AppModes.STATIC_QUARTO,
+            environment,
+            extra_files,
+            exclude,
+        )
 
 
 def generate_write_manifest_python(app_mode, alias):

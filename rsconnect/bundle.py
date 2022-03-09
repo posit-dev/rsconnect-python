@@ -40,25 +40,50 @@ directories_to_ignore = [
 
 
 # noinspection SpellCheckingInspection
-def make_source_manifest(entrypoint, environment, app_mode):
+def make_source_manifest(
+        app_mode,
+        environment = None,
+        entrypoint = None,
+        quarto_inspection = None
+):
     # type: (str, Environment, AppMode) -> typing.Dict[str, typing.Any]
-    package_manager = environment.package_manager
 
-    # noinspection SpellCheckingInspection
     manifest = {
         "version": 1,
-        "metadata": {"appmode": app_mode.name(), "entrypoint": entrypoint},
-        "locale": environment.locale,
-        "python": {
+    }
+
+    # When adding locale, add it early so it is ordered immediately after
+    # version.
+    if environment:
+        manifest["locale"] = environment.locale
+        
+    # noinspection SpellCheckingInspection
+    manifest["metadata"] = {
+        "appmode": app_mode.name(),
+    }
+
+    if entrypoint:
+        manifest["metadata"]["entrypoint"] = entrypoint
+
+    if quarto_inspection:
+        manifest["quarto"] = {
+            "version": quarto_inspection["quarto"]["version"],
+            "engines": quarto_inspection["engines"],
+        }
+
+    if environment:
+        package_manager = environment.package_manager
+        manifest["python"] = {
             "version": environment.python,
             "package_manager": {
                 "name": package_manager,
                 "version": getattr(environment, package_manager),
                 "package_file": environment.filename,
             },
-        },
-        "files": {},
-    }
+        }
+
+    manifest["files"] = {}
+    
     return manifest
 
 
@@ -148,7 +173,7 @@ def write_manifest(relative_dir, nb_name, environment, output_dir, hide_all_inpu
     Returns the list of filenames written.
     """
     manifest_filename = "manifest.json"
-    manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
+    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, environment, nb_name)
     if hide_all_input:
         if "jupyter" not in manifest:
             manifest["jupyter"] = {}
@@ -227,7 +252,7 @@ def make_notebook_source_bundle(
     base_dir = dirname(file)
     nb_name = basename(file)
 
-    manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
+    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, environment, nb_name)
     if hide_all_input:
         if "jupyter" not in manifest:
             manifest["jupyter"] = {}
@@ -497,7 +522,7 @@ def make_api_manifest(
         excludes = list(excludes or []) + ["bin/", "lib/"]
 
     relevant_files = _create_api_file_list(directory, environment.filename, extra_files, excludes)
-    manifest = make_source_manifest(entry_point, environment, app_mode)
+    manifest = make_source_manifest(app_mode, environment, entry_point)
 
     manifest_add_buffer(manifest, environment.filename, environment.contents)
 
@@ -541,3 +566,86 @@ def make_api_bundle(
     bundle_file.seek(0)
 
     return bundle_file
+
+def _create_quarto_file_list(
+    directory,  # type: str
+    extra_files=None,  # type: typing.Optional[typing.List[str]]
+    excludes=None,  # type: typing.Optional[typing.List[str]]
+):
+    # type: (...) -> typing.List[str]
+    """
+    Builds a full list of files under the given directory that should be included
+    in a manifest or bundle.  Extra files and excludes are relative to the given
+    directory and work as you'd expect.
+
+    :param directory: the directory to walk for files.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :return: the list of relevant files, relative to the given directory.
+    """
+    # Don't let these top-level files be added via the extra files list.
+    extra_files = extra_files or []
+    skip = ["manifest.json"]
+    extra_files = sorted(list(set(extra_files) - set(skip)))
+
+    # Don't include these top-level files.
+    excludes = list(excludes) if excludes else []
+    excludes.append("manifest.json")
+    excludes.extend(list_environment_dirs(directory))
+    glob_set = create_glob_set(directory, excludes)
+
+    file_list = []
+
+    for subdir, dirs, files in os.walk(directory):
+        for file in files:
+            abs_path = os.path.join(subdir, file)
+            rel_path = os.path.relpath(abs_path, directory)
+
+            if keep_manifest_specified_file(rel_path) and (rel_path in extra_files or not glob_set.matches(abs_path)):
+                file_list.append(rel_path)
+                # Don't add extra files more than once.
+                if rel_path in extra_files:
+                    extra_files.remove(rel_path)
+
+    for rel_path in extra_files:
+        file_list.append(rel_path)
+
+    return sorted(file_list)
+
+
+def make_quarto_manifest(
+    directory,  # type: str
+    inspect,
+    app_mode,  # type: AppMode
+    environment=None,  # type: typing.Optional[Environment]
+    extra_files=None,  # type: typing.Optional[typing.List[str]]
+    excludes=None,  # type: typing.Optional[typing.List[str]]
+):
+    # type: (...) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]
+    """
+    Makes a manifest for an QUARTO.
+
+    :param directory: the directory containing the files to deploy.
+    :param entry_point: the main entry point for the QUARTO.
+    :param app_mode: the app mode to use.
+    :param environment: the Python environment information.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :return: the manifest and a list of the files involved.
+    """
+    if environment:
+        extra_files = list(extra_files or []) + [environment.filename]
+
+    # TODO: Exclude inspect.get("config", {}).get("project", {}).get("output-dir", None)
+    # TODO: Exclude inspect.formats.html.html.pandoc.output-file
+    relevant_files = _create_quarto_file_list(directory, extra_files, excludes)
+    manifest = make_source_manifest(
+        app_mode,
+        environment=environment,
+        quarto_inspection=inspect,
+    )
+
+    for rel_path in relevant_files:
+        manifest_add_file(manifest, rel_path, directory)
+
+    return manifest, relevant_files
