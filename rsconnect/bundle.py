@@ -643,7 +643,6 @@ def make_quarto_manifest(
     if environment:
         extra_files = list(extra_files or []) + [environment.filename]
 
-    # TODO: Exclude inspect.formats.html.html.pandoc.output-file
     excludes = (excludes or [])
     excludes = excludes + [".quarto"]
 
@@ -651,6 +650,13 @@ def make_quarto_manifest(
     output_dir = project_config.get("output-dir", None)
     if output_dir:
         excludes = excludes + [output_dir]
+    else:
+        render_targets = project_config.get("render", [])
+        for target in render_targets:
+            t, _ = splitext(target)
+            # TODO: Single-file inspect would give inspect.formats.html.pandoc.output-file
+            # For foo.qmd, we would get an output-file=foo.html, but foo_files is not available.
+            excludes = excludes + [t + ".html", t + "_files"]
 
     relevant_files = _create_quarto_file_list(directory, extra_files, excludes)
     manifest = make_source_manifest(
