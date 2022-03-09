@@ -494,7 +494,7 @@ def quarto_inspect(
     """
     args = [quarto, "inspect", target]
     try:
-        inspect_json = check_output(args, universal_newlines=True)
+        inspect_json = check_output(args, universal_newlines=True, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         raise api.RSConnectException("Error inspecting target: %s" % e.output)
     return json.loads(inspect_json)
