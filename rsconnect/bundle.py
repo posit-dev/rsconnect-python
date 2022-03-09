@@ -67,9 +67,16 @@ def make_source_manifest(
 
     if quarto_inspection:
         manifest["quarto"] = {
-            "version": quarto_inspection["quarto"]["version"],
-            "engines": quarto_inspection["engines"],
+            "version": quarto_inspection.get("quarto", {}).get("version", "99.9.9"),
+            "engines": quarto_inspection.get("engines", []),
         }
+        project_config = quarto_inspection.get("config", {}).get("project", {})
+        render_targets = project_config.get("render", [])
+        if len(render_targets):
+            manifest["metadata"]["primary_rmd"] = render_targets[0]
+        project_type = project_config.get("type", None)
+        if project_type or len(render_targets) > 1:
+            manifest["metadata"]["content_category"] = "site"
 
     if environment:
         package_manager = environment.package_manager
@@ -636,8 +643,15 @@ def make_quarto_manifest(
     if environment:
         extra_files = list(extra_files or []) + [environment.filename]
 
-    # TODO: Exclude inspect.get("config", {}).get("project", {}).get("output-dir", None)
     # TODO: Exclude inspect.formats.html.html.pandoc.output-file
+    excludes = (excludes or [])
+    excludes = excludes + [".quarto"]
+
+    project_config = inspect.get("config", {}).get("project", {})
+    output_dir = project_config.get("output-dir", None)
+    if output_dir:
+        excludes = excludes + [output_dir]
+
     relevant_files = _create_quarto_file_list(directory, extra_files, excludes)
     manifest = make_source_manifest(
         app_mode,
