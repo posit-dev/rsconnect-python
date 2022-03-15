@@ -15,6 +15,7 @@ from .actions import (
     cli_feedback,
     create_api_deployment_bundle,
     create_notebook_deployment_bundle,
+    create_quarto_deployment_bundle,
     deploy_bundle,
     describe_manifest,
     gather_basic_deployment_info_for_api,
@@ -23,6 +24,7 @@ from .actions import (
     gather_basic_deployment_info_for_streamlit,
     gather_basic_deployment_info_for_bokeh,
     gather_basic_deployment_info_for_notebook,
+    gather_basic_deployment_info_for_quarto,
     gather_basic_deployment_info_from_manifest,
     gather_server_details,
     get_python_env_info,
@@ -824,6 +826,127 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
         env_vars,
     )
 
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@deploy.command(
+    name="quarto",
+    short_help="Deploy Quarto content to RStudio Connect [v2021.08.0+].",
+    help=(
+        "Deploy Quarto content to RStudio Connect."
+    ),
+)
+@server_args
+@content_args
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.option(
+    "--quarto",
+    "-q",
+    type=click.Path(exists=True),
+    help="Path to Quarto installation.",
+)
+@click.option(
+    "--python",
+    "-p",
+    type=click.Path(exists=True),
+    help=(
+        "Path to Python interpreter whose environment should be used. "
+        "The Python environment must have the rsconnect package installed."
+    ),
+)
+@click.option(
+    "--force-generate",
+    "-g",
+    is_flag=True,
+    help='Force generating "requirements.txt", even if it already exists.',
+)
+@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+def deploy_quarto(
+    name,
+    server,
+    api_key,
+    insecure,
+    cacert,
+    new,
+    app_id,
+    title,
+    exclude,
+    quarto,
+    python,
+    force_generate,
+    verbose,
+    directory,
+    extra_files,
+    env_vars,
+):
+    set_verbosity(verbose)
+
+    with cli_feedback("Checking arguments"):
+        module_file = fake_module_file_from_directory(directory)
+        app_store = AppStore(module_file)
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+        extra_files = validate_extra_files(directory, extra_files)
+        (
+            app_id,
+            deployment_name,
+            title,
+            default_title,
+            app_mode,
+        ) = gather_basic_deployment_info_for_quarto(connect_server, app_store, directory, new, app_id, title)
+
+    click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
+
+    _warn_on_ignored_manifest(directory)
+
+    with cli_feedback("Inspecting Quarto project"):
+        quarto = locate_quarto(quarto)
+        logger.debug("Quarto: %s" % quarto)
+        inspect = quarto_inspect(quarto, directory)
+        engines = validate_quarto_engines(inspect)
+
+    python = None
+    environment = None
+    if "jupyter" in engines:
+        _warn_if_no_requirements_file(directory)
+        _warn_if_environment_directory(directory)
+
+        with cli_feedback("Inspecting Python environment"):
+            python, environment = get_python_env_info(module_file, python, False, force_generate)
+
+            _warn_on_ignored_conda_env(environment)
+
+            if force_generate:
+                _warn_on_ignored_requirements(directory, environment.filename)
+
+    with cli_feedback("Creating deployment bundle"):
+        bundle = create_quarto_deployment_bundle(
+            directory, extra_files, exclude, app_mode, inspect, environment, False
+        )
+    _deploy_bundle(
+        connect_server,
+        app_store,
+        directory,
+        app_id,
+        app_mode,
+        deployment_name,
+        title,
+        default_title,
+        bundle,
+        env_vars,
+    )
 
 def generate_deploy_python(app_mode, alias, min_version):
     # noinspection SpellCheckingInspection

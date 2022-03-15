@@ -295,6 +295,36 @@ def make_notebook_source_bundle(
     return bundle_file
 
 
+def make_quarto_source_bundle(
+    directory,  # type: str
+    inspect, # type: typing.Dict[str, typing.Any]
+    app_mode,  # type: AppMode
+    environment=None,  # type: Environment
+    extra_files=None,  # type:  typing.Optional[typing.List[str]]
+    excludes=None,  # type: typing.Optional[typing.List[str]]
+):
+    # type: (...) -> typing.IO[bytes]
+    """Create a bundle containing the specified Quarto content and (optional) python environment.
+
+    Returns a file-like object containing the bundle tarball.
+    """
+    manifest, relevant_files = make_quarto_manifest(directory, inspect, app_mode, environment, extra_files, excludes)
+    bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
+
+    with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
+        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
+        if environment:
+            bundle_add_buffer(bundle, environment.filename, environment.contents)
+
+        for rel_path in relevant_files:
+            bundle_add_file(bundle, rel_path, directory)
+
+    # rewind file pointer
+    bundle_file.seek(0)
+
+    return bundle_file
+
+
 def make_html_manifest(filename):
     # type: (str) -> dict
     # noinspection SpellCheckingInspection
@@ -622,7 +652,7 @@ def _create_quarto_file_list(
 
 def make_quarto_manifest(
     directory,  # type: str
-    inspect,
+    inspect, # type: typing.Dict[str, typing.Any]
     app_mode,  # type: AppMode
     environment=None,  # type: typing.Optional[Environment]
     extra_files=None,  # type: typing.Optional[typing.List[str]]
@@ -643,8 +673,7 @@ def make_quarto_manifest(
     if environment:
         extra_files = list(extra_files or []) + [environment.filename]
 
-    excludes = (excludes or [])
-    excludes = excludes + [".quarto"]
+    excludes = list(excludes or []) + [".quarto"]
 
     project_config = inspect.get("config", {}).get("project", {})
     output_dir = project_config.get("output-dir", None)

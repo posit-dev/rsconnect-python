@@ -27,6 +27,7 @@ from .bundle import (
     make_manifest_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
+    make_quarto_source_bundle,
     make_quarto_manifest,
     make_source_manifest,
     manifest_add_buffer,
@@ -1169,6 +1170,56 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
     )
 
 
+def gather_basic_deployment_info_for_quarto(
+        connect_server,
+        app_store,
+        directory,
+        new,
+        app_id,
+        title):
+    _validate_title(title)
+
+    if new and app_id:
+        raise api.RSConnectException("Specify either a new deploy or an app ID but not both.")
+
+    if app_id is not None:
+        # Don't read app metadata if app-id is specified. Instead, we need
+        # to get this from Connect.
+        app = api.get_app_info(connect_server, app_id)
+        app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
+
+        logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
+    else:
+        app_mode = AppModes.STATIC_QUARTO
+
+    if not new and app_id is None:
+        # Possible redeployment - check for saved metadata.
+        # Use the saved app information unless overridden by the user.
+        app_id, existing_app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
+        if existing_app_mode and app_mode != existing_app_mode:
+            msg = (
+                "Deploying with mode '%s',\n"
+                + "but the existing deployment has mode '%s'.\n"
+                + "Use the --new option to create a new deployment of the desired type."
+            ) % (app_mode.desc(), existing_app_mode.desc())
+            raise api.RSConnectException(msg)
+
+    if directory[-1] == "/":
+        directory = directory[:-1]
+
+    default_title = not bool(title)
+    title = title or _default_title(directory)
+
+    return (
+        app_id,
+        _make_deployment_name(connect_server, title, app_id is None),
+        title,
+        default_title,
+        app_mode,
+    )
+
+
+
 def _generate_gather_basic_deployment_info_for_python(app_mode):
     """
     Generates function to gather the necessary info for performing a deployment by app mode
@@ -1357,6 +1408,39 @@ def create_api_deployment_bundle(
         app_mode = AppModes.PYTHON_API
 
     return make_api_bundle(directory, entry_point, app_mode, environment, extra_files, excludes)
+
+
+def create_quarto_deployment_bundle(
+    directory,
+    extra_files,
+    excludes,
+    app_mode,
+        inspect, 
+    environment,
+    extra_files_need_validating=True,
+):
+    """
+    Create an in-memory bundle, ready to deploy.
+
+    :param directory: the directory that contains the code being deployed.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param entry_point: the module/executable object for the WSGi framework.
+    :param app_mode: the mode of the app being deployed.
+    :param environment: environmental information.
+    :param extra_files_need_validating: a flag indicating whether the list of extra
+    files should be validated or not.  Part of validating includes qualifying each
+    with the specified directory.  If you provide False here, make sure the names
+    are properly qualified first.
+    :return: the bundle.
+    """
+    if extra_files_need_validating:
+        extra_files = validate_extra_files(directory, extra_files)
+
+    if app_mode is None:
+        app_mode = AppModes.STATIC_QUARTO
+
+    return make_quarto_source_bundle(directory, inspect, app_mode, environment, extra_files, excludes)
 
 
 def deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle, env_vars):
