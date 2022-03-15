@@ -563,7 +563,29 @@ def make_html_fileslist(
     return manifest, relevant_files
 
 def infer_entrypoint(path, mimetype):
-    pass
+    if os.path.isfile(path):
+        return path
+    if not os.path.isdir(path):
+        raise ValueError("Entrypoint is not a valid file type or directory.")
+    
+    default_mimetype_entrypoints = {'text/html': 'index.html'}
+    if mimetype not in default_mimetype_entrypoints:
+        raise ValueError("Not supported mimetype inference.")
+
+    entrypoint_candidates = []    
+    mimetype_dict = defaultdict(list)
+
+    for subdir, dirs, files in os.walk(path):
+        for file in files:            
+            abs_path = os.path.join(subdir, file)
+            rel_path = os.path.relpath(abs_path, path)
+            mimetype_dict[guess_type(file)[0]].append((file, rel_path))
+
+    for file, rel_path in mimetype_dict[mimetype]:
+        if file in default_mimetype_entrypoints[mimetype]:
+            entrypoint_candidates.append(rel_path)
+
+    return entrypoint_candidates.pop() if len(entrypoint_candidates) == 1 else None
 
 def make_html_bundle(
     path,  # type: str
