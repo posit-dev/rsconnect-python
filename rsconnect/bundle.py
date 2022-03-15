@@ -384,34 +384,6 @@ def make_manifest_bundle(manifest_path):
     return bundle_file
 
 
-# def make_html_bundle(path):
-#     """Create a bundle, given a manifest.
-
-#     :return: a file-like object containing the bundle tarball.
-#     """
-#     # path = validate_html_path(path)
-
-#     base_dir = dirname(path)
-#     files = list(filter(keep_manifest_specified_file, path.get("files", {}).keys()))
-
-#     # if "manifest.json" in files:
-#     #     # this will be created
-#     #     files.remove("manifest.json")
-
-#     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
-#     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
-#         # # add the manifest first in case we want to partially untar the bundle for inspection
-#         # bundle_add_buffer(bundle, "manifest.json", raw_manifest)
-
-#         for rel_path in files:
-#             bundle_add_file(bundle, rel_path, base_dir)
-
-#     # rewind file pointer
-#     bundle_file.seek(0)
-
-#     return bundle_file
-
-
 def create_glob_set(directory, excludes):
     """
     Takes a list of glob strings and produces a GlobSet for path matching.
