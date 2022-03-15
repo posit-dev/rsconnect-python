@@ -41,12 +41,12 @@ directories_to_ignore = [
 
 # noinspection SpellCheckingInspection
 def make_source_manifest(
-        app_mode,
-        environment = None,
-        entrypoint = None,
-        quarto_inspection = None
+    app_mode,  # type: AppMode
+    environment=None,  # type: typing.Optional[Environment]
+    entrypoint=None,  # type: typing.Optional[str]
+    quarto_inspection=None,  # type: typing.Optional[typing.Dict[str, typing.Any]]
 ):
-    # type: (str, Environment, AppMode) -> typing.Dict[str, typing.Any]
+    # type: (...) -> typing.Dict[str, typing.Any]
 
     manifest = {
         "version": 1,
@@ -56,8 +56,7 @@ def make_source_manifest(
     # version.
     if environment:
         manifest["locale"] = environment.locale
-        
-    # noinspection SpellCheckingInspection
+
     manifest["metadata"] = {
         "appmode": app_mode.name(),
     }
@@ -90,7 +89,7 @@ def make_source_manifest(
         }
 
     manifest["files"] = {}
-    
+
     return manifest
 
 
@@ -297,7 +296,7 @@ def make_notebook_source_bundle(
 
 def make_quarto_source_bundle(
     directory,  # type: str
-    inspect, # type: typing.Dict[str, typing.Any]
+    inspect,  # type: typing.Dict[str, typing.Any]
     app_mode,  # type: AppMode
     environment=None,  # type: Environment
     extra_files=None,  # type:  typing.Optional[typing.List[str]]
@@ -604,6 +603,7 @@ def make_api_bundle(
 
     return bundle_file
 
+
 def _create_quarto_file_list(
     directory,  # type: str
     extra_files=None,  # type: typing.Optional[typing.List[str]]
@@ -652,7 +652,7 @@ def _create_quarto_file_list(
 
 def make_quarto_manifest(
     directory,  # type: str
-    inspect, # type: typing.Dict[str, typing.Any]
+    inspect,  # type: typing.Dict[str, typing.Any]
     app_mode,  # type: AppMode
     environment=None,  # type: typing.Optional[Environment]
     extra_files=None,  # type: typing.Optional[typing.List[str]]

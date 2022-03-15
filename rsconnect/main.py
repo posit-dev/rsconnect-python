@@ -831,9 +831,7 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
 @deploy.command(
     name="quarto",
     short_help="Deploy Quarto content to RStudio Connect [v2021.08.0+].",
-    help=(
-        "Deploy Quarto content to RStudio Connect."
-    ),
+    help="Deploy Quarto content to RStudio Connect.",
 )
 @server_args
 @content_args
@@ -932,9 +930,7 @@ def deploy_quarto(
                 _warn_on_ignored_requirements(directory, environment.filename)
 
     with cli_feedback("Creating deployment bundle"):
-        bundle = create_quarto_deployment_bundle(
-            directory, extra_files, exclude, app_mode, inspect, environment, False
-        )
+        bundle = create_quarto_deployment_bundle(directory, extra_files, exclude, app_mode, inspect, environment, False)
     _deploy_bundle(
         connect_server,
         app_store,
@@ -947,6 +943,7 @@ def deploy_quarto(
         bundle,
         env_vars,
     )
+
 
 def generate_deploy_python(app_mode, alias, min_version):
     # noinspection SpellCheckingInspection
@@ -1265,6 +1262,7 @@ def write_manifest_notebook(
         with cli_feedback("Creating %s" % environment.filename):
             write_environment_file(environment, base_dir)
 
+
 @write_manifest.command(
     name="quarto",
     short_help="Create a manifest.json file for Quarto content.",
@@ -1314,7 +1312,14 @@ def write_manifest_notebook(
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
 def write_manifest_quarto(
-        overwrite, exclude, quarto, python, force_generate, verbose, directory, extra_files,
+    overwrite,
+    exclude,
+    quarto,
+    python,
+    force_generate,
+    verbose,
+    directory,
+    extra_files,
 ):
     set_verbosity(verbose)
     with cli_feedback("Checking arguments"):
@@ -1345,7 +1350,7 @@ def write_manifest_quarto(
         else:
             with cli_feedback("Creating %s" % environment.filename):
                 write_environment_file(environment, directory)
-        
+
     with cli_feedback("Creating manifest.json"):
         write_quarto_manifest_json(
             directory,

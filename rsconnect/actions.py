@@ -463,6 +463,7 @@ def validate_entry_point(entry_point, directory):
 
     return entry_point
 
+
 def locate_quarto(quarto):
     """
     Identify a valid Quarto executable. Attempts to find Quarto on the PATH
@@ -485,9 +486,9 @@ def locate_quarto(quarto):
 
 
 def quarto_inspect(
-        quarto,
-        target,
-        check_output=subprocess.check_output,
+    quarto,
+    target,
+    check_output=subprocess.check_output,
 ):
     """
     Runs 'quarto inspect' against the target and returns its output as a
@@ -509,19 +510,20 @@ def validate_quarto_engines(inspect):
     engines = inspect.get("engines", [])
     unsupported = [engine for engine in engines if engine not in supported]
     if unsupported:
-        raise api.RSConnectException('The following Quarto engine(s) are not supported: %s' % ", ".join(unsupported))
+        raise api.RSConnectException("The following Quarto engine(s) are not supported: %s" % ", ".join(unsupported))
     return engines
 
 
 def write_quarto_manifest_json(
-        directory,
-        inspect,
-        app_mode = AppModes.STATIC_QUARTO,
-        environment = None,
-        extra_files = None,
-        excludes = None,
+    directory,
+    inspect,
+    app_mode=AppModes.STATIC_QUARTO,
+    environment=None,
+    extra_files=None,
+    excludes=None,
 ):
     """
+    Does something. TBD.
     """
 
     extra_files = validate_extra_files(directory, extra_files)
@@ -1170,13 +1172,7 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
     )
 
 
-def gather_basic_deployment_info_for_quarto(
-        connect_server,
-        app_store,
-        directory,
-        new,
-        app_id,
-        title):
+def gather_basic_deployment_info_for_quarto(connect_server, app_store, directory, new, app_id, title):
     _validate_title(title)
 
     if new and app_id:
@@ -1217,7 +1213,6 @@ def gather_basic_deployment_info_for_quarto(
         default_title,
         app_mode,
     )
-
 
 
 def _generate_gather_basic_deployment_info_for_python(app_mode):
@@ -1415,7 +1410,7 @@ def create_quarto_deployment_bundle(
     extra_files,
     excludes,
     app_mode,
-        inspect, 
+    inspect,
     environment,
     extra_files_need_validating=True,
 ):
@@ -1614,6 +1609,7 @@ def write_api_manifest_json(
     write_manifest_json(manifest_path, manifest)
 
     return exists(join(directory, environment.filename))
+
 
 def write_environment_file(environment, directory):
     """
