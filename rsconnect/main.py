@@ -819,7 +819,8 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
         bundle,
         env_vars,
     )
-    
+
+
 @server_args
 @content_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))

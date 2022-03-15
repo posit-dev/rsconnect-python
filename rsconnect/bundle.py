@@ -383,6 +383,7 @@ def make_manifest_bundle(manifest_path):
 
     return bundle_file
 
+
 # def make_html_bundle(path):
 #     """Create a bundle, given a manifest.
 
@@ -409,6 +410,7 @@ def make_manifest_bundle(manifest_path):
 #     bundle_file.seek(0)
 
 #     return bundle_file
+
 
 def create_glob_set(directory, excludes):
     """
@@ -534,6 +536,7 @@ def make_api_manifest(
 
     return manifest, relevant_files
 
+
 def make_html_fileslist(
     path,  # type: str
     entry_point,  # type: str
@@ -550,11 +553,11 @@ def make_html_fileslist(
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :return: the manifest and a list of the files involved.
     """
-    entry_point = entry_point or infer_entrypoint(path, 'text/html')
+    entry_point = entry_point or infer_entrypoint(path, "text/html")
     if is_environment_dir(path):
         excludes = list(excludes or []) + ["bin/", "lib/"]
 
-    relevant_files = _create_api_file_list(path, "", extra_files, excludes)    
+    relevant_files = _create_api_file_list(path, "", extra_files, excludes)
     manifest = make_html_manifest(entry_point)
 
     for rel_path in relevant_files:
@@ -562,21 +565,22 @@ def make_html_fileslist(
 
     return manifest, relevant_files
 
+
 def infer_entrypoint(path, mimetype):
     if os.path.isfile(path):
         return path
     if not os.path.isdir(path):
         raise ValueError("Entrypoint is not a valid file type or directory.")
-    
-    default_mimetype_entrypoints = {'text/html': 'index.html'}
+
+    default_mimetype_entrypoints = {"text/html": "index.html"}
     if mimetype not in default_mimetype_entrypoints:
         raise ValueError("Not supported mimetype inference.")
 
-    entrypoint_candidates = []    
+    entrypoint_candidates = []
     mimetype_dict = defaultdict(list)
 
     for subdir, dirs, files in os.walk(path):
-        for file in files:            
+        for file in files:
             abs_path = os.path.join(subdir, file)
             rel_path = os.path.relpath(abs_path, path)
             mimetype_dict[guess_type(file)[0]].append((file, rel_path))
@@ -586,6 +590,7 @@ def infer_entrypoint(path, mimetype):
             entrypoint_candidates.append(rel_path)
 
     return entrypoint_candidates.pop() if len(entrypoint_candidates) == 1 else None
+
 
 def make_html_bundle(
     path,  # type: str
