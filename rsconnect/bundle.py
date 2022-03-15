@@ -50,7 +50,7 @@ def make_source_manifest(
 
     manifest = {
         "version": 1,
-    }
+    }  # type: typing.Dict[str, typing.Any]
 
     # When adding locale, add it early so it is ordered immediately after
     # version.
