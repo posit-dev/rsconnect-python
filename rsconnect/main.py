@@ -53,7 +53,7 @@ from .actions_content import (
 )
 
 from . import api, VERSION
-from .bundle import is_environment_dir, make_manifest_bundle
+from .bundle import is_environment_dir, make_manifest_bundle, make_html_bundle
 from .log import logger, LogOutputFormat
 from .metadata import ServerStore, AppStore
 from .models import (
@@ -790,6 +790,65 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
     with cli_feedback("Creating deployment bundle"):
         try:
             bundle = make_manifest_bundle(file)
+        except IOError as error:
+            msg = "Unable to include the file %s in the bundle: %s" % (
+                error.filename,
+                error.args[1],
+            )
+            if error.args[0] == errno.ENOENT:
+                msg = "\n".join(
+                    [
+                        msg,
+                        "Since the file is missing but referenced in the manifest, "
+                        "you will need to\nregenerate your manifest.  See the help "
+                        'for the "write-manifest" command or,\nfor non-Python '
+                        'content, run the "deploy other-content" command.',
+                    ]
+                )
+            raise api.RSConnectException(msg)
+
+    _deploy_bundle(
+        connect_server,
+        app_store,
+        file,
+        app_id,
+        app_mode,
+        deployment_name,
+        title,
+        default_title,
+        bundle,
+        env_vars,
+    )
+    
+@server_args
+@content_args
+@click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+def deploy_html(name, server, api_key, insecure, cacert, new, app_id, title, verbose, file, env_vars):
+    set_verbosity(verbose)
+
+    with cli_feedback("Checking arguments"):
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+        file = validate_manifest_file(file)
+        app_store = AppStore(file)
+
+        (
+            app_id,
+            deployment_name,
+            title,
+            default_title,
+            app_mode,
+            package_manager,
+        ) = gather_basic_deployment_info_from_manifest(connect_server, app_store, file, new, app_id, title)
+
+    click.secho('    Deploying %s to server "%s"' % (file, connect_server.url))
+
+    if package_manager == "conda":
+        with cli_feedback("Ensuring Conda is supported"):
+            check_server_capabilities(connect_server, [is_conda_supported_on_server])
+
+    with cli_feedback("Creating deployment bundle"):
+        try:
+            bundle = make_html_bundle(file)
         except IOError as error:
             msg = "Unable to include the file %s in the bundle: %s" % (
                 error.filename,
