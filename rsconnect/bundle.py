@@ -20,6 +20,8 @@ from os.path import basename, dirname, exists, isdir, join, relpath, splitext
 from .log import logger
 from .models import AppMode, AppModes, GlobSet
 from .environment import Environment
+from collections import defaultdict
+from mimetypes import guess_type
 
 # From https://github.com/rstudio/rsconnect/blob/485e05a26041ab8183a220da7a506c9d3a41f1ff/R/bundle.R#L85-L88
 # noinspection SpellCheckingInspection
@@ -381,6 +383,32 @@ def make_manifest_bundle(manifest_path):
 
     return bundle_file
 
+# def make_html_bundle(path):
+#     """Create a bundle, given a manifest.
+
+#     :return: a file-like object containing the bundle tarball.
+#     """
+#     # path = validate_html_path(path)
+
+#     base_dir = dirname(path)
+#     files = list(filter(keep_manifest_specified_file, path.get("files", {}).keys()))
+
+#     # if "manifest.json" in files:
+#     #     # this will be created
+#     #     files.remove("manifest.json")
+
+#     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
+#     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
+#         # # add the manifest first in case we want to partially untar the bundle for inspection
+#         # bundle_add_buffer(bundle, "manifest.json", raw_manifest)
+
+#         for rel_path in files:
+#             bundle_add_file(bundle, rel_path, base_dir)
+
+#     # rewind file pointer
+#     bundle_file.seek(0)
+
+#     return bundle_file
 
 def create_glob_set(directory, excludes):
     """
@@ -505,6 +533,67 @@ def make_api_manifest(
         manifest_add_file(manifest, rel_path, directory)
 
     return manifest, relevant_files
+
+def make_html_fileslist(
+    path,  # type: str
+    entry_point,  # type: str
+    extra_files=None,  # type: typing.Optional[typing.List[str]]
+    excludes=None,  # type: typing.Optional[typing.List[str]]
+):
+    # type: (...) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]
+    """
+    Makes a manifest for static html deployment.
+
+    :param path: the file, or the directory containing the files to deploy.
+    :param entry_point: the main entry point for the API.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :return: the manifest and a list of the files involved.
+    """
+    entry_point = entry_point or infer_entrypoint(path, 'text/html')
+    if is_environment_dir(path):
+        excludes = list(excludes or []) + ["bin/", "lib/"]
+
+    relevant_files = _create_api_file_list(path, "", extra_files, excludes)    
+    manifest = make_html_manifest(entry_point)
+
+    for rel_path in relevant_files:
+        manifest_add_file(manifest, rel_path, path)
+
+    return manifest, relevant_files
+
+def infer_entrypoint(path, mimetype):
+    pass
+
+def make_html_bundle(
+    path,  # type: str
+    entry_point,  # type: str
+    extra_files=None,  # type: typing.Optional[typing.List[str]]
+    excludes=None,  # type: typing.Optional[typing.List[str]]
+):
+    # type: (...) -> typing.IO[bytes]
+    """
+    Create an html bundle, given a path and a manifest.
+
+    :param path: the file, or the directory containing the files to deploy.
+    :param entry_point: the main entry point for the API.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :return: a file-like object containing the bundle tarball.
+    """
+    manifest, relevant_files = make_html_fileslist(path, entry_point, extra_files, excludes)
+    bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
+
+    with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
+        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
+
+        for rel_path in relevant_files:
+            bundle_add_file(bundle, rel_path, path)
+
+    # rewind file pointer
+    bundle_file.seek(0)
+
+    return bundle_file
 
 
 def make_api_bundle(
