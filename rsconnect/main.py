@@ -53,7 +53,13 @@ from .actions_content import (
 )
 
 from . import api, VERSION
-from .bundle import is_environment_dir, make_manifest_bundle, make_html_bundle
+from .bundle import (
+    is_environment_dir,
+    make_manifest_bundle,
+    make_html_bundle,
+    make_html_manifest,
+    infer_entrypoint,
+)
 from .log import logger, LogOutputFormat
 from .metadata import ServerStore, AppStore
 from .models import (
@@ -64,10 +70,6 @@ from .models import (
     VersionSearchFilterParamType,
 )
 
-from bundle import (
-    make_html_manifest,
-    infer_entrypoint,
-)
 
 server_store = ServerStore()
 future_enabled = False
