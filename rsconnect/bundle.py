@@ -303,7 +303,9 @@ def make_quarto_source_bundle(
     excludes=None,  # type: typing.Optional[typing.List[str]]
 ):
     # type: (...) -> typing.IO[bytes]
-    """Create a bundle containing the specified Quarto content and (optional) python environment.
+    """
+    Create a bundle containing the specified Quarto content and (optional)
+    python environment.
 
     Returns a file-like object containing the bundle tarball.
     """
@@ -660,14 +662,14 @@ def make_quarto_manifest(
 ):
     # type: (...) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]
     """
-    Makes a manifest for an QUARTO.
+    Makes a manifest for a Quarto project.
 
-    :param directory: the directory containing the files to deploy.
-    :param entry_point: the main entry point for the QUARTO.
-    :param app_mode: the app mode to use.
-    :param environment: the Python environment information.
-    :param extra_files: a sequence of any extra files to include in the bundle.
-    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param directory: The directory containing the Quarto project.
+    :param inspect: The parsed JSON from a 'quarto inspect' against the project.
+    :param app_mode: The application mode to assume.
+    :param environment: The (optional) Python environment to use.
+    :param extra_files: Any extra files to include in the manifest.
+    :param excludes: A sequence of glob patterns to exclude when enumerating files to bundle.
     :return: the manifest and a list of the files involved.
     """
     if environment:

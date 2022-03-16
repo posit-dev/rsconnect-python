@@ -523,7 +523,14 @@ def write_quarto_manifest_json(
     excludes=None,
 ):
     """
-    Does something. TBD.
+    Creates and writes a manifest.json file for the given Quarto project.
+
+    :param directory: The directory containing the Quarto project.
+    :param inspect: The parsed JSON from a 'quarto inspect' against the project.
+    :param app_mode: The application mode to assume.
+    :param environment: The (optional) Python environment to use.
+    :param extra_files: Any extra files to include in the manifest.
+    :param excludes: A sequence of glob patterns to exclude when enumerating files to bundle.
     """
 
     extra_files = validate_extra_files(directory, extra_files)
@@ -1173,6 +1180,16 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
 
 
 def gather_basic_deployment_info_for_quarto(connect_server, app_store, directory, new, app_id, title):
+    """
+    Helps to gather the necessary info for performing a deployment.
+
+    :param connect_server: The Connect server information.
+    :param app_store: The store for the specified Quarto project directory.
+    :param directory: The target Quarto project directory.
+    :param new: A flag to force a new deployment.
+    :param app_id: The identifier of the content to redeploy.
+    :param title: The content title (optional). A default title is generated when one is not provided.
+    """
     _validate_title(title)
 
     if new and app_id:
