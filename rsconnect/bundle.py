@@ -549,15 +549,15 @@ def infer_entrypoint(path, mimetype):
         raise ValueError("Not supported mimetype inference.")
 
     entrypoint_candidates = []
-    mimetype_dict = defaultdict(list)
+    mimetype_filelist = defaultdict(list)
 
     for subdir, dirs, files in os.walk(path):
         for file in files:
             abs_path = os.path.join(subdir, file)
             rel_path = os.path.relpath(abs_path, path)
-            mimetype_dict[guess_type(file)[0]].append((file, rel_path))
+            mimetype_filelist[guess_type(file)[0]].append((file, rel_path))
 
-    for file, rel_path in mimetype_dict[mimetype]:
+    for file, rel_path in mimetype_filelist[mimetype]:
         if file in default_mimetype_entrypoints[mimetype]:
             entrypoint_candidates.append(rel_path)
 
