@@ -57,8 +57,6 @@ from .bundle import (
     is_environment_dir,
     make_manifest_bundle,
     make_html_bundle,
-    make_html_manifest,
-    infer_entrypoint,
 )
 from .log import logger, LogOutputFormat
 from .metadata import ServerStore, AppStore
