@@ -869,13 +869,9 @@ def deploy_html(
 ):
     set_verbosity(verbose)
 
-    entrypoint = entrypoint or infer_entrypoint(path, "text/html")
-    manifest = make_html_manifest(entrypoint)
-
     with cli_feedback("Checking arguments"):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        manifest = validate_manifest_file(manifest)
-        app_store = AppStore(manifest)
+        app_store = AppStore(path)
 
         (
             app_id,
@@ -883,14 +879,9 @@ def deploy_html(
             title,
             default_title,
             app_mode,
-            package_manager,
-        ) = gather_basic_deployment_info_from_manifest(connect_server, app_store, manifest, new, app_id, title)
+        ) = gather_basic_deployment_info_for_notebook(connect_server, app_store, path, new, app_id, title, True)
 
-    click.secho('    Deploying %s to server "%s"' % (manifest, connect_server.url))
-
-    if package_manager == "conda":
-        with cli_feedback("Ensuring Conda is supported"):
-            check_server_capabilities(connect_server, [is_conda_supported_on_server])
+    click.secho('    Deploying %s to server "%s"' % (path, connect_server.url))
 
     with cli_feedback("Creating deployment bundle"):
         try:
@@ -900,16 +891,6 @@ def deploy_html(
                 error.filename,
                 error.args[1],
             )
-            if error.args[0] == errno.ENOENT:
-                msg = "\n".join(
-                    [
-                        msg,
-                        "Since the file is missing but referenced in the manifest, "
-                        "you will need to\nregenerate your manifest.  See the help "
-                        'for the "write-manifest" command or,\nfor non-Python '
-                        'content, run the "deploy other-content" command.',
-                    ]
-                )
             raise api.RSConnectException(msg)
 
     _deploy_bundle(
