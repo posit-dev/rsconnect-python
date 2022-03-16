@@ -548,20 +548,16 @@ def infer_entrypoint(path, mimetype):
     if mimetype not in default_mimetype_entrypoints:
         raise ValueError("Not supported mimetype inference.")
 
-    entrypoint_candidates = []
     mimetype_filelist = defaultdict(list)
 
-    for subdir, dirs, files in os.walk(path):
+    for _, _, files in os.walk(path):
         for file in files:
-            abs_path = os.path.join(subdir, file)
-            rel_path = os.path.relpath(abs_path, path)
-            mimetype_filelist[guess_type(file)[0]].append((file, rel_path))
+            mimetype_filelist[guess_type(file)[0]].append(file)
+            if file in default_mimetype_entrypoints[mimetype]:
+                return file
+        break  # stop scan after top level
 
-    for file, rel_path in mimetype_filelist[mimetype]:
-        if file in default_mimetype_entrypoints[mimetype]:
-            entrypoint_candidates.append(rel_path)
-
-    return entrypoint_candidates.pop() if len(entrypoint_candidates) == 1 else None
+    return mimetype_filelist[mimetype].pop() if len(mimetype_filelist[mimetype]) == 1 else None
 
 
 def make_html_bundle(
