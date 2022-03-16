@@ -64,6 +64,10 @@ from .models import (
     VersionSearchFilterParamType,
 )
 
+from bundle import (
+    make_html_manifest,
+    infer_entrypoint,
+)
 
 server_store = ServerStore()
 future_enabled = False
@@ -823,14 +827,53 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
 
 @server_args
 @content_args
-@click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
-def deploy_html(name, server, api_key, insecure, cacert, new, app_id, title, verbose, file, env_vars):
+@click.option(
+    "--entrypoint",
+    "-e",
+    help=("The module and executable object which serves as the entry point for the deployment."),
+)
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+def deploy_html(
+    name,
+    server,
+    api_key,
+    insecure,
+    cacert,
+    new,
+    app_id,
+    title,
+    verbose,
+    path,
+    env_vars,
+    entrypoint,
+    extra_files,
+    excludes,
+):
     set_verbosity(verbose)
+
+    entrypoint = entrypoint or infer_entrypoint(path, "text/html")
+    manifest = make_html_manifest(entrypoint)
 
     with cli_feedback("Checking arguments"):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        file = validate_manifest_file(file)
-        app_store = AppStore(file)
+        manifest = validate_manifest_file(manifest)
+        app_store = AppStore(manifest)
 
         (
             app_id,
@@ -839,9 +882,9 @@ def deploy_html(name, server, api_key, insecure, cacert, new, app_id, title, ver
             default_title,
             app_mode,
             package_manager,
-        ) = gather_basic_deployment_info_from_manifest(connect_server, app_store, file, new, app_id, title)
+        ) = gather_basic_deployment_info_from_manifest(connect_server, app_store, manifest, new, app_id, title)
 
-    click.secho('    Deploying %s to server "%s"' % (file, connect_server.url))
+    click.secho('    Deploying %s to server "%s"' % (manifest, connect_server.url))
 
     if package_manager == "conda":
         with cli_feedback("Ensuring Conda is supported"):
@@ -849,7 +892,7 @@ def deploy_html(name, server, api_key, insecure, cacert, new, app_id, title, ver
 
     with cli_feedback("Creating deployment bundle"):
         try:
-            bundle = make_html_bundle(file)
+            bundle = make_html_bundle(path, entrypoint, extra_files, excludes)
         except IOError as error:
             msg = "Unable to include the file %s in the bundle: %s" % (
                 error.filename,
@@ -870,7 +913,7 @@ def deploy_html(name, server, api_key, insecure, cacert, new, app_id, title, ver
     _deploy_bundle(
         connect_server,
         app_store,
-        file,
+        path,
         app_id,
         app_mode,
         deployment_name,
