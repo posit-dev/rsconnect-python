@@ -511,7 +511,7 @@ def make_api_manifest(
 
 def make_html_fileslist(
     path,  # type: str
-    entry_point,  # type: str
+    entrypoint,  # type: str
     extra_files=None,  # type: typing.Optional[typing.List[str]]
     excludes=None,  # type: typing.Optional[typing.List[str]]
 ):
@@ -525,12 +525,12 @@ def make_html_fileslist(
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :return: the manifest and a list of the files involved.
     """
-    entry_point = entry_point or infer_entrypoint(path, "text/html")
+    entrypoint = entrypoint or infer_entrypoint(path, "text/html")
     if is_environment_dir(path):
         excludes = list(excludes or []) + ["bin/", "lib/"]
 
     relevant_files = _create_api_file_list(path, "", extra_files, excludes)
-    manifest = make_html_manifest(entry_point)
+    manifest = make_html_manifest(entrypoint)
 
     for rel_path in relevant_files:
         manifest_add_file(manifest, rel_path, path)
