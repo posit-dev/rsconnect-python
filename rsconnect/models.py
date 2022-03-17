@@ -77,6 +77,7 @@ class AppModes(object):
     PYTHON_FASTAPI = AppMode(12, "python-fastapi", "Python FastAPI")
     SHINY_QUARTO = AppMode(13, "quarto-shiny", "Shiny Quarto Document")
     STATIC_QUARTO = AppMode(14, "quarto-static", "Quarto Document", ".qmd")
+    PYTHON_SHINY = AppMode(15, "python-shiny", "Python Shiny Application")
 
     _modes = [
         UNKNOWN,
@@ -94,6 +95,7 @@ class AppModes(object):
         PYTHON_FASTAPI,
         SHINY_QUARTO,
         STATIC_QUARTO,
+        PYTHON_SHINY,
     ]
 
     @classmethod
