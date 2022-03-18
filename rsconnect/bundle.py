@@ -550,12 +550,11 @@ def infer_entrypoint(path, mimetype):
 
     mimetype_filelist = defaultdict(list)
 
-    for _, _, files in os.walk(path):
-        for file in files:
-            mimetype_filelist[guess_type(file)[0]].append(file)
-            if file in default_mimetype_entrypoints[mimetype]:
-                return file
-        break  # stop scan after top level
+    for file in os.listdir(path):
+        if not os.path.isfile(file): continue
+        mimetype_filelist[guess_type(file)[0]].append(file)
+        if file in default_mimetype_entrypoints[mimetype]:
+            return file
 
     return mimetype_filelist[mimetype].pop() if len(mimetype_filelist[mimetype]) == 1 else None
 
