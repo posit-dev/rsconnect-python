@@ -830,7 +830,7 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
 @click.option(
     "--entrypoint",
     "-e",
-    help=("The module and executable object which serves as the entry point for the html landing page."),
+    help=("The name of the html file that is the landing page."),
 )
 @click.option(
     "--exclude",
