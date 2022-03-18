@@ -24,6 +24,7 @@ from .actions import (
     gather_basic_deployment_info_for_bokeh,
     gather_basic_deployment_info_for_notebook,
     gather_basic_deployment_info_from_manifest,
+    gather_basic_deployment_info_for_html,
     gather_server_details,
     get_python_env_info,
     is_conda_supported_on_server,
@@ -877,7 +878,7 @@ def deploy_html(
             title,
             default_title,
             app_mode,
-        ) = gather_basic_deployment_info_for_notebook(connect_server, app_store, path, new, app_id, title, True)
+        ) = gather_basic_deployment_info_for_html(connect_server, app_store, path, new, app_id, title)
 
     click.secho('    Deploying %s to server "%s"' % (path, connect_server.url))
 
