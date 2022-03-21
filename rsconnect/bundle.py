@@ -476,6 +476,52 @@ def _create_api_file_list(
     return sorted(file_list)
 
 
+def _create_file_list(
+    directory,  # type: str
+    extra_files=None,  # type: typing.Optional[typing.List[str]]
+    excludes=None,  # type: typing.Optional[typing.List[str]]
+):
+    # type: (...) -> typing.List[str]
+    """
+    Builds a full list of files under the given directory that should be included
+    in a manifest or bundle.  Extra files and excludes are relative to the given
+    directory and work as you'd expect.
+
+    :param directory: the directory to walk for files.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :return: the list of relevant files, relative to the given directory.
+    """
+    # Don't let these top-level files be added via the extra files list.
+    extra_files = extra_files or []
+    skip = ["manifest.json"]
+    extra_files = sorted(list(set(extra_files) - set(skip)))
+
+    # Don't include these top-level files.
+    excludes = list(excludes) if excludes else []
+    excludes.append("manifest.json")
+    excludes.extend(list_environment_dirs(directory))
+    glob_set = create_glob_set(directory, excludes)
+
+    file_list = []
+
+    for subdir, dirs, files in os.walk(directory):
+        for file in files:
+            abs_path = os.path.join(subdir, file)
+            rel_path = os.path.relpath(abs_path, directory)
+
+            if keep_manifest_specified_file(rel_path) and (rel_path in extra_files or not glob_set.matches(abs_path)):
+                file_list.append(rel_path)
+                # Don't add extra files more than once.
+                if rel_path in extra_files:
+                    extra_files.remove(rel_path)
+
+    for rel_path in extra_files:
+        file_list.append(rel_path)
+
+    return sorted(file_list)
+
+
 def make_api_manifest(
     directory,  # type: str
     entry_point,  # type: str
