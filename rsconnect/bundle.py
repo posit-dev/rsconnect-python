@@ -598,9 +598,10 @@ def infer_entrypoint(path, mimetype):
     mimetype_filelist = defaultdict(list)
 
     for file in os.listdir(path):
-        if not os.path.isfile(file):
+        rel_path = os.path.join(path, file)
+        if not os.path.isfile(rel_path):
             continue
-        mimetype_filelist[guess_type(file)[0]].append(file)
+        mimetype_filelist[guess_type(file)[0]].append(rel_path)
         if file in default_mimetype_entrypoints[mimetype]:
             return file
 
