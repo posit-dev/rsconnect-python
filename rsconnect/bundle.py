@@ -274,7 +274,7 @@ def make_html_manifest(filename):
             "appmode": "static",
             "primary_html": filename,
         },
-        "files": {}
+        "files": {},
     }
 
 
@@ -604,7 +604,6 @@ def infer_entrypoint(path, mimetype):
         mimetype_filelist[guess_type(file)[0]].append(rel_path)
         if file in default_mimetype_entrypoints[mimetype]:
             return file
-
     return mimetype_filelist[mimetype].pop() if len(mimetype_filelist[mimetype]) == 1 else None
 
 
