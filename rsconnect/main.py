@@ -6,6 +6,7 @@ import sys
 import textwrap
 from os.path import abspath, dirname, exists, isdir, join
 
+
 import click
 from six import text_type
 
@@ -826,6 +827,12 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
     )
 
 
+# noinspection SpellCheckingInspection,DuplicatedCode
+@deploy.command(
+    name="html",
+    short_help="Deploy html content to RStudio Connect.",
+    help=("Deploy an html file, or directory of html files with entrypoint, to RStudio Connect."),
+)
 @server_args
 @content_args
 @click.option(
@@ -834,7 +841,7 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
     help=("The name of the html file that is the landing page."),
 )
 @click.option(
-    "--exclude",
+    "--excludes",
     "-x",
     multiple=True,
     help=(
@@ -843,13 +850,19 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
         "This option may be repeated."
     ),
 )
-@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
-@click.argument(
-    "extra_files",
-    nargs=-1,
-    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+@click.option(
+    "--extra_files",
+    required=False,
+    type=click.Path(exists=True, dir_okay=True, file_okay=True),
 )
-@click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+# @click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True), help=("File or directory of the html content."))
+@click.option(
+    "--path",
+    "-p",
+    required=True,
+    type=click.Path(exists=True, dir_okay=True, file_okay=True),
+    help=("File or directory of the html content."),
+)
 def deploy_html(
     name,
     server,
