@@ -576,7 +576,7 @@ def make_html_fileslist(
     if is_environment_dir(path):
         excludes = list(excludes or []) + ["bin/", "lib/"]
 
-    relevant_files = _create_api_file_list(path, "", extra_files, excludes)
+    relevant_files = _create_file_list(path, extra_files, excludes)
     manifest = make_html_manifest(entrypoint)
 
     for rel_path in relevant_files:
