@@ -855,7 +855,6 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
     required=False,
     type=click.Path(exists=True, dir_okay=True, file_okay=True),
 )
-# @click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True), help=("File or directory of the html content."))
 @click.option(
     "--path",
     "-p",
