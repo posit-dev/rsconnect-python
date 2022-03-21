@@ -29,7 +29,6 @@ from .actions import (
     gather_server_details,
     get_python_env_info,
     is_conda_supported_on_server,
-    locate_quarto,
     quarto_inspect,
     set_verbosity,
     spool_deployment_log,
@@ -40,6 +39,7 @@ from .actions import (
     validate_file_is_notebook,
     validate_manifest_file,
     validate_quarto_engines,
+    which_quarto,
     write_api_manifest_json,
     write_environment_file,
     write_notebook_manifest_json,
@@ -910,7 +910,7 @@ def deploy_quarto(
     _warn_on_ignored_manifest(directory)
 
     with cli_feedback("Inspecting Quarto project"):
-        quarto = locate_quarto(quarto)
+        quarto = which_quarto(quarto)
         logger.debug("Quarto: %s" % quarto)
         inspect = quarto_inspect(quarto, directory)
         engines = validate_quarto_engines(inspect)
@@ -1330,7 +1330,7 @@ def write_manifest_quarto(
             raise api.RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Quarto project"):
-        quarto = locate_quarto(quarto)
+        quarto = which_quarto(quarto)
         logger.debug("Quarto: %s" % quarto)
         inspect = quarto_inspect(quarto, directory)
         engines = validate_quarto_engines(inspect)

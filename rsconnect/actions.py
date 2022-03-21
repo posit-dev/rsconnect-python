@@ -464,25 +464,40 @@ def validate_entry_point(entry_point, directory):
     return entry_point
 
 
-def locate_quarto(quarto):
+def which_quarto(quarto):
     """
     Identify a valid Quarto executable. Attempts to find Quarto on the PATH
-    when one is not provided as input.
+    and in well-known locations when one is not provided as input.
     """
+    if quarto:
+        found = shutil.which(quarto)
+        if not found:
+            raise api.RSConnectException('The Quarto installation, "%s", does not exist or is not executable.' % quarto)
+        return found
 
-    # TODO: Maybe look at well-known locations when not in the PATH, such as
-    # the Quarto installation contained within the RStudio IDE. On macOS, this
-    # would be /Applications/RStudio.app/Contents/MacOS/quarto/bin/quarto.
-    #
-    # The macOS default installation location is /Applications/quarto/bin/quarto.
-    # The Linux default installation location is /opt/quarto/bin/quarto.
-    # Both of those installation locations have symbolic links from /usr/local/bin/quarto.
-    if not quarto:
-        quarto = "quarto"
-    found = shutil.which(quarto)
-    if not found:
-        raise api.RSConnectException('The Quarto installation, "%s", does not exist or is not executable.' % quarto)
-    return found
+    # Fallback -- try to find Quarto when one was not supplied.
+    locations = [
+        # Discover using $PATH
+        "quarto",
+
+        # Location used by some installers, and often-added symbolic link.
+        "/usr/local/bin/quarto",
+
+        # Location used by some installers.
+        "/opt/quarto/bin/quarto",
+
+        # macOS RStudio IDE embedded installation
+        "/Applications/RStudio.app/Contents/MacOS/quarto/bin/quarto",
+
+        # macOS RStudio IDE electron embedded installation; location not final.
+        # see: https://github.com/rstudio/rstudio/issues/10674
+    ]
+
+    for each in locations:
+        found = shutil.which(each)
+        if found:
+            return found
+    raise api.RSConnectException('Unable to locate a Quarto installation.')
 
 
 def quarto_inspect(
