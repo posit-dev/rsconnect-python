@@ -464,10 +464,11 @@ def validate_entry_point(entry_point, directory):
     return entry_point
 
 
-def which_quarto(quarto):
+def which_quarto(quarto = None):
     """
-    Identify a valid Quarto executable. Attempts to find Quarto on the PATH
-    and in well-known locations when one is not provided as input.
+    Identify a valid Quarto executable. When a Quarto location is not provided
+    as input, an attempt is made to discover Quarto from the PATH and other
+    well-known locations.
     """
     if quarto:
         found = shutil.which(quarto)
