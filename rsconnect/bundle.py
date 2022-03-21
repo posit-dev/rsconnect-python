@@ -70,7 +70,8 @@ def manifest_add_file(manifest, rel_path, base_dir):
     The file must be specified as a pathname relative to the notebook directory.
     """
     path = join(base_dir, rel_path)
-
+    if "files" not in manifest:
+        manifest["files"] = {}
     manifest["files"][rel_path] = {"checksum": file_checksum(path)}
 
 
