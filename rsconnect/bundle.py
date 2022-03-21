@@ -274,7 +274,6 @@ def make_html_manifest(filename):
             "appmode": "static",
             "primary_html": filename,
         },
-        "files": {},
     }
 
 
