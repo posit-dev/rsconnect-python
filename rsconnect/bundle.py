@@ -69,7 +69,7 @@ def manifest_add_file(manifest, rel_path, base_dir):
 
     The file must be specified as a pathname relative to the notebook directory.
     """
-    path = join(base_dir, rel_path) if base_dir != rel_path else rel_path
+    path = join(base_dir, rel_path) if os.path.isdir(base_dir) else rel_path
     if "files" not in manifest:
         manifest["files"] = {}
     manifest["files"][rel_path] = {"checksum": file_checksum(path)}
@@ -124,7 +124,7 @@ def bundle_add_file(bundle, rel_path, base_dir):
 
     The file path is relative to the notebook directory.
     """
-    path = join(base_dir, rel_path) if base_dir != rel_path else rel_path
+    path = join(base_dir, rel_path) if os.path.isdir(base_dir) else rel_path
     logger.debug("adding file: %s", rel_path)
     bundle.add(path, arcname=rel_path)
 
