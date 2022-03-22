@@ -517,7 +517,9 @@ def _create_file_list(
                 abs_path = os.path.join(subdir, file)
                 rel_path = os.path.relpath(abs_path, path)
 
-                if keep_manifest_specified_file(rel_path) and (rel_path in extra_files or not glob_set.matches(abs_path)):
+                if keep_manifest_specified_file(rel_path) and (
+                    rel_path in extra_files or not glob_set.matches(abs_path)
+                ):
                     file_list.append(rel_path)
                     # Don't add extra files more than once.
                     if rel_path in extra_files:
