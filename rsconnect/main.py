@@ -850,17 +850,11 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
         "This option may be repeated."
     ),
 )
-@click.option(
-    "--extra_files",
-    required=False,
-    type=click.Path(exists=True, dir_okay=True, file_okay=True),
-)
-@click.option(
-    "--path",
-    "-p",
-    required=True,
-    type=click.Path(exists=True, dir_okay=True, file_okay=True),
-    help=("File or directory of the html content."),
+@click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
 def deploy_html(
     name,
