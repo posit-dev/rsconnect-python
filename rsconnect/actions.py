@@ -1147,7 +1147,6 @@ def _gather_basic_deployment_info_for_framework(
     if new and app_id:
         raise api.RSConnectException("Specify either a new deploy or an app ID but not both.")
 
-    app_mode = AppModes.STATIC
     existing_app_mode = None
     if app_id is None:
         # Possible redeployment - check for saved metadata.
