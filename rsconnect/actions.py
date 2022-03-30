@@ -1014,7 +1014,11 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
     if new and app_id:
         raise api.RSConnectException("Specify either a new deploy or an app ID but not both.")
 
-    app_mode = AppModes.STATIC
+    if static:
+        app_mode = AppModes.STATIC
+    else:
+        app_mode = AppModes.JUPYTER_NOTEBOOK
+
     existing_app_mode = None
     if app_id is None:
         # Possible redeployment - check for saved metadata.
@@ -1033,11 +1037,6 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
             + "Use the --new option to create a new deployment of the desired type."
         ) % (app_mode.desc(), existing_app_mode.desc())
         raise api.RSConnectException(msg)
-
-    if static:
-        app_mode = AppModes.STATIC
-    else:
-        app_mode = AppModes.JUPYTER_NOTEBOOK
 
     default_title = not bool(title)
     title = title or _default_title(file_name)
