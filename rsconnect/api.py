@@ -239,7 +239,7 @@ class RSConnect(HTTPServer):
 
                     err = task_status.get("error")
                     if err:
-                        log_callback(err)
+                        log_callback("Error from Connect server: " + err)
 
                     exit_code = task_status["code"]
                     if exit_code != 0:
