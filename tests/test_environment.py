@@ -24,7 +24,8 @@ class TestEnvironment(TestCase):
 
     def test_get_python_version(self):
         self.assertEqual(
-            get_python_version(MakeEnvironment(package_manager="pip")), self.python_version(),
+            get_python_version(MakeEnvironment(package_manager="pip")),
+            self.python_version(),
         )
 
     def test_get_default_locale(self):

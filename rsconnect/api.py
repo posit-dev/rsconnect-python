@@ -34,8 +34,9 @@ class RSConnectServer(object):
     def handle_bad_response(self, response):
         if isinstance(response, HTTPResponse):
             if response.exception:
-                raise RSConnectException("Exception trying to connect to %s - %s" %
-                  (self.url, response.exception), cause=response.exception)
+                raise RSConnectException(
+                    "Exception trying to connect to %s - %s" % (self.url, response.exception), cause=response.exception
+                )
             # Sometimes an ISP will respond to an unknown server name by returning a friendly
             # search page so trap that since we know we're expecting JSON from Connect.  This
             # also catches all error conditions which we will report as "not running Connect".
@@ -45,7 +46,8 @@ class RSConnectServer(object):
                     raise RSConnectException(error)
                 if response.status < 200 or response.status > 299:
                     raise RSConnectException(
-                        "Received an unexpected response from RStudio Connect: %s %s" % (response.status, response.reason)
+                        "Received an unexpected response from RStudio Connect: %s %s"
+                        % (response.status, response.reason)
                     )
 
 
@@ -66,7 +68,11 @@ class RSConnect(HTTPServer):
             self.key_authorization(server.api_key)
 
     def _tweak_response(self, response):
-        return response.json_data if response.status and response.status == 200 and response.json_data is not None else response
+        return (
+            response.json_data
+            if response.status and response.status == 200 and response.json_data is not None
+            else response
+        )
 
     def me(self):
         return self.get("me")
@@ -91,6 +97,10 @@ class RSConnect(HTTPServer):
 
     def app_update(self, app_id, updates):
         return self.post("applications/%s" % app_id, body=updates)
+
+    def app_add_environment_vars(self, app_guid, env_vars):
+        env_body = [dict(name=kv[0], value=kv[1]) for kv in env_vars]
+        return self.patch("v1/content/%s/environment" % app_guid, body=env_body)
 
     def app_deploy(self, app_id, bundle_id=None):
         return self.post("applications/%s/deploy" % app_id, body={"bundle": bundle_id})
@@ -132,12 +142,13 @@ class RSConnect(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
-    def deploy(self, app_id, app_name, app_title, title_is_default, tarball):
+    def deploy(self, app_id, app_name, app_title, title_is_default, tarball, env_vars):
         if app_id is None:
             # create an app if id is not provided
             app = self.app_create(app_name)
             self._server.handle_bad_response(app)
             app_id = app["id"]
+
             # Force the title to update.
             title_is_default = False
         else:
@@ -145,6 +156,11 @@ class RSConnect(HTTPServer):
             # raise an error
             app = self.app_get(app_id)
             self._server.handle_bad_response(app)
+
+        app_guid = app["guid"]
+        if env_vars:
+            result = self.app_add_environment_vars(app_guid, list(env_vars.items()))
+            self._server.handle_bad_response(result)
 
         if app["title"] != app_title and not title_is_default:
             self._server.handle_bad_response(self.app_update(app_id, {"title": app_title}))
@@ -181,8 +197,9 @@ class RSConnect(HTTPServer):
         self._server.handle_bad_response(results)
         return results
 
-    def wait_for_task(self, task_id, log_callback, abort_func=lambda: False,
-        timeout=None, poll_wait=.5, raise_on_error=True):
+    def wait_for_task(
+        self, task_id, log_callback, abort_func=lambda: False, timeout=None, poll_wait=0.5, raise_on_error=True
+    ):
 
         last_status = None
         ending = time.time() + timeout if timeout else 999999999999
@@ -193,7 +210,7 @@ class RSConnect(HTTPServer):
         else:
             log_lines = None
 
-        sleep_duration = .5
+        sleep_duration = 0.5
         time_slept = 0
         while True:
             if time.time() >= ending:
@@ -317,7 +334,7 @@ def get_app_config(connect_server, app_id):
         return result
 
 
-def do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bundle):
+def do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bundle, env_vars):
     """
     Deploys the specified bundle.
 
@@ -327,16 +344,26 @@ def do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bund
     :param title: the title for the deploy.
     :param title_is_default: a flag noting whether the title carries a defaulted value.
     :param bundle: the bundle to deploy.
+    :param env_vars: list of NAME=VALUE pairs for the app environment
     :return: application information about the deploy.  This includes the ID of the
     task that may be queried for deployment progress.
     """
     with RSConnect(connect_server, timeout=120) as client:
-        result = client.deploy(app_id, name, title, title_is_default, bundle)
+        result = client.deploy(app_id, name, title, title_is_default, bundle, env_vars)
         connect_server.handle_bad_response(result)
         return result
 
 
-def emit_task_log(connect_server, app_id, task_id, log_callback, abort_func=lambda: False, timeout=None, poll_wait=.5, raise_on_error=True):
+def emit_task_log(
+    connect_server,
+    app_id,
+    task_id,
+    log_callback,
+    abort_func=lambda: False,
+    timeout=None,
+    poll_wait=0.5,
+    raise_on_error=True,
+):
     """
     Helper for spooling the deployment log for an app.
 

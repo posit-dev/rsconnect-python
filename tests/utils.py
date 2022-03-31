@@ -4,7 +4,7 @@ from os.path import join, dirname, exists
 from unittest import TestCase
 
 
-def apply_common_args(args:list, server=None, key=None, cacert=None, insecure=False):
+def apply_common_args(args: list, server=None, key=None, cacert=None, insecure=False):
     if server:
         args.extend(["-s", server])
     if key:

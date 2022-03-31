@@ -1,5 +1,7 @@
 import errno
+import functools
 import json
+import os
 import sys
 import textwrap
 from os.path import abspath, dirname, exists, isdir, join
@@ -39,15 +41,15 @@ from .actions import (
     fake_module_file_from_directory,
 )
 from .actions_content import (
-  download_bundle,
-  build_add_content,
-  build_remove_content,
-  build_list_content,
-  build_history,
-  build_start,
-  search_content,
-  get_content,
-  emit_build_log,
+    download_bundle,
+    build_add_content,
+    build_remove_content,
+    build_list_content,
+    build_history,
+    build_start,
+    search_content,
+    get_content,
+    emit_build_log,
 )
 
 from . import api, VERSION
@@ -65,6 +67,96 @@ from .models import (
 
 server_store = ServerStore()
 future_enabled = False
+
+
+def server_args(func):
+    @click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
+    @click.option(
+        "--server",
+        "-s",
+        envvar="CONNECT_SERVER",
+        help="The URL for the RStudio Connect server to deploy to.",
+    )
+    @click.option(
+        "--api-key",
+        "-k",
+        envvar="CONNECT_API_KEY",
+        help="The API key to use to authenticate with RStudio Connect.",
+    )
+    @click.option(
+        "--insecure",
+        "-i",
+        envvar="CONNECT_INSECURE",
+        is_flag=True,
+        help="Disable TLS certification/host validation.",
+    )
+    @click.option(
+        "--cacert",
+        "-c",
+        envvar="CONNECT_CA_CERTIFICATE",
+        type=click.File(),
+        help="The path to trusted TLS CA certificates.",
+    )
+    @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def validate_env_vars(ctx, param, all_values):
+    vars = {}
+
+    for s in all_values:
+        if not isinstance(s, str):
+            raise click.BadParameter("environment variable must be a string: '{}'".format(s))
+
+        if "=" in s:
+            name, value = s.split("=", 1)
+            vars[name] = value
+        else:
+            # inherited value from the environment
+            value = os.environ.get(s)
+            if value is None:
+                raise click.BadParameter("'{}' not found in the environment".format(s))
+            vars[s] = value
+
+    return vars
+
+
+def content_args(func):
+    @click.option(
+        "--new",
+        "-N",
+        is_flag=True,
+        help=(
+            "Force a new deployment, even if there is saved metadata from a "
+            "previous deployment. Cannot be used with --app-id."
+        ),
+    )
+    @click.option(
+        "--app-id",
+        "-a",
+        help="Existing app ID or GUID to replace. Cannot be used with --new.",
+    )
+    @click.option("--title", "-t", help="Title of the content (default is the same as the filename).")
+    @click.option(
+        "--environment",
+        "-E",
+        "env_vars",
+        multiple=True,
+        callback=validate_env_vars,
+        help="Set an environment variable. Specify a value with NAME=VALUE, "
+        "or just NAME to use the value from the local environment. "
+        "May be specified multiple times. [v1.8.6+]",
+    )
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
 
 @click.group(no_args_is_help=True)
 @click.option("--future", "-u", is_flag=True, hidden=True, help="Enables future functionality.")
@@ -128,16 +220,35 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
         "on the command line."
     ),
 )
-@click.option("--name", "-n", required=True, help="The nickname to associate with the server.")
-@click.option("--server", "-s", required=True, help="The URL for the RStudio Connect server.")
+@click.option("--name", "-n", required=True, help="The nickname of the RStudio Connect server to deploy to.")
+@click.option(
+    "--server",
+    "-s",
+    required=True,
+    envvar="CONNECT_SERVER",
+    help="The URL for the RStudio Connect server to deploy to.",
+)
 @click.option(
     "--api-key",
     "-k",
     required=True,
+    envvar="CONNECT_API_KEY",
     help="The API key to use to authenticate with RStudio Connect.",
 )
-@click.option("--insecure", "-i", is_flag=True, help="Disable TLS certification/host validation.")
-@click.option("--cacert", "-c", type=click.File(), help="The path to trusted TLS CA certificates.")
+@click.option(
+    "--insecure",
+    "-i",
+    envvar="CONNECT_INSECURE",
+    is_flag=True,
+    help="Disable TLS certification/host validation.",
+)
+@click.option(
+    "--cacert",
+    "-c",
+    envvar="CONNECT_CA_CERTIFICATE",
+    type=click.File(),
+    help="The path to trusted TLS CA certificates.",
+)
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def add(name, server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
@@ -199,38 +310,7 @@ def list_servers(verbose):
         "information stored as a nickname is still valid."
     ),
 )
-@click.option(
-    "--name",
-    "-n",
-    help="The nickname of the RStudio Connect server to get details for.",
-)
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server to get details for.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with RStudio Connect.",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
-    help="The path to trusted TLS CA certificates.",
-)
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+@server_args
 def details(name, server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
 
@@ -494,6 +574,7 @@ def _deploy_bundle(
     title,
     title_is_default,
     bundle,
+    env_vars,
 ):
     """
     Does the work of uploading a prepared bundle.
@@ -507,9 +588,10 @@ def _deploy_bundle(
     :param title: the title of the app.
     :param title_is_default: a flag noting whether the title carries a defaulted value.
     :param bundle: the bundle to deploy.
+    :param env_vars: list of NAME=VALUE pairs to be set as the app environment
     """
     with cli_feedback("Uploading bundle"):
-        app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle)
+        app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle, env_vars)
 
     with cli_feedback("Saving deployment data"):
         app_store.set(
@@ -554,33 +636,8 @@ def _deploy_bundle(
         "rerun on the Connect server."
     ),
 )
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server to deploy to.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with RStudio Connect.",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
-    help="The path to trusted TLS CA certificates.",
-)
+@server_args
+@content_args
 @click.option(
     "--static",
     "-S",
@@ -591,21 +648,6 @@ def _deploy_bundle(
         "cannot be re-run on the server."
     ),
 )
-@click.option(
-    "--new",
-    "-N",
-    is_flag=True,
-    help=(
-        "Force a new deployment, even if there is saved metadata from a "
-        "previous deployment. Cannot be used with --app-id."
-    ),
-)
-@click.option(
-    "--app-id",
-    "-a",
-    help="Existing app ID or GUID to replace. Cannot be used with --new.",
-)
-@click.option("--title", "-t", help="Title of the content (default is the same as the filename).")
 @click.option(
     "--python",
     "-p",
@@ -620,7 +662,7 @@ def _deploy_bundle(
     "-C",
     is_flag=True,
     hidden=True,
- help="Use Conda to deploy (requires RStudio Connect version 1.8.2 or later)",
+    help="Use Conda to deploy (requires RStudio Connect version 1.8.2 or later)",
 )
 @click.option(
     "--force-generate",
@@ -628,7 +670,6 @@ def _deploy_bundle(
     is_flag=True,
     help='Force generating "requirements.txt", even if it already exists.',
 )
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 @click.option("--hide-all-input", is_flag=True, default=False, help="Hide all input cells when rendering output")
 @click.option(
     "--hide-tagged-input", is_flag=True, default=False, help="Hide input code cells with the 'hide_input' tag"
@@ -657,6 +698,7 @@ def deploy_notebook(
     extra_files,
     hide_all_input,
     hide_tagged_input,
+    env_vars,
 ):
     set_verbosity(verbose)
 
@@ -705,6 +747,7 @@ def deploy_notebook(
         title,
         default_title,
         bundle,
+        env_vars,
     )
 
 
@@ -718,51 +761,10 @@ def deploy_notebook(
         'refer to a directory that contains a file named "manifest.json".'
     ),
 )
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server to deploy to.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with RStudio Connect.",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
-    help="The path to trusted TLS CA certificates.",
-)
-@click.option(
-    "--new",
-    "-N",
-    is_flag=True,
-    help=(
-        "Force a new deployment, even if there is saved metadata from a "
-        "previous deployment. Cannot be used with --app-id."
-    ),
-)
-@click.option(
-    "--app-id",
-    "-a",
-    help="Existing app ID or GUID to replace. Cannot be used with --new.",
-)
-@click.option("--title", "-t", help="Title of the content (default is the same as the filename).")
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+@server_args
+@content_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
-def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title, verbose, file):
+def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title, verbose, file, env_vars):
     set_verbosity(verbose)
 
     with cli_feedback("Checking arguments"):
@@ -815,6 +817,7 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
         title,
         default_title,
         bundle,
+        env_vars,
     )
 
 
@@ -830,33 +833,8 @@ def generate_deploy_python(app_mode, alias, min_version):
             "existing directory that contains the application code."
         ).format(desc=app_mode.desc()),
     )
-    @click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
-    @click.option(
-        "--server",
-        "-s",
-        envvar="CONNECT_SERVER",
-        help="The URL for the RStudio Connect server to deploy to.",
-    )
-    @click.option(
-        "--api-key",
-        "-k",
-        envvar="CONNECT_API_KEY",
-        help="The API key to use to authenticate with RStudio Connect.",
-    )
-    @click.option(
-        "--insecure",
-        "-i",
-        envvar="CONNECT_INSECURE",
-        is_flag=True,
-        help="Disable TLS certification/host validation.",
-    )
-    @click.option(
-        "--cacert",
-        "-c",
-        envvar="CONNECT_CA_CERTIFICATE",
-        type=click.File(),
-        help="The path to trusted TLS CA certificates.",
-    )
+    @server_args
+    @content_args
     @click.option(
         "--entrypoint",
         "-e",
@@ -873,25 +851,6 @@ def generate_deploy_python(app_mode, alias, min_version):
             "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
             "This option may be repeated."
         ),
-    )
-    @click.option(
-        "--new",
-        "-N",
-        is_flag=True,
-        help=(
-            "Force a new deployment, even if there is saved metadata from a previous deployment. "
-            "Cannot be used with --app-id."
-        ),
-    )
-    @click.option(
-        "--app-id",
-        "-a",
-        help="Existing app ID or GUID to replace. Cannot be used with --new.",
-    )
-    @click.option(
-        "--title",
-        "-t",
-        help="Title of the content (default is the same as the directory).",
     )
     @click.option(
         "--python",
@@ -915,7 +874,6 @@ def generate_deploy_python(app_mode, alias, min_version):
         is_flag=True,
         help='Force generating "requirements.txt", even if it already exists.',
     )
-    @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
     @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
     @click.argument(
         "extra_files",
@@ -939,6 +897,7 @@ def generate_deploy_python(app_mode, alias, min_version):
         verbose,
         directory,
         extra_files,
+        env_vars,
     ):
         _deploy_by_framework(
             name,
@@ -957,6 +916,7 @@ def generate_deploy_python(app_mode, alias, min_version):
             verbose,
             directory,
             extra_files,
+            env_vars,
             {
                 AppModes.PYTHON_API: gather_basic_deployment_info_for_api,
                 AppModes.PYTHON_FASTAPI: gather_basic_deployment_info_for_fastapi,
@@ -995,6 +955,7 @@ def _deploy_by_framework(
     verbose,
     directory,
     extra_files,
+    env_vars,
     gatherer,
 ):
     """
@@ -1064,6 +1025,7 @@ def _deploy_by_framework(
         title,
         default_title,
         bundle,
+        env_vars,
     )
 
 
@@ -1121,7 +1083,7 @@ def write_manifest():
     "-C",
     is_flag=True,
     hidden=True,
-help="Use Conda to deploy (requires RStudio Connect version 1.8.2 or later)",
+    help="Use Conda to deploy (requires RStudio Connect version 1.8.2 or later)",
 )
 @click.option(
     "--force-generate",
@@ -1337,6 +1299,7 @@ def _validate_build_rm_args(guid, all, purge):
 def content():
     pass
 
+
 # noinspection SpellCheckingInspection,DuplicatedCode
 @content.command(
     name="search",
@@ -1383,7 +1346,7 @@ def content():
     "--content-type",
     type=click.Choice(list(map(str, AppModes._modes))),
     multiple=True,
-    help="Filter content results by content type."
+    help="Filter content results by content type.",
 )
 @click.option(
     "--r-version",
@@ -1406,11 +1369,27 @@ def content():
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 # todo: --format option (json, text)
-def content_search(name, server, api_key, insecure, cacert, published, unpublished, content_type, r_version, py_version, title_contains, order_by, verbose):
+def content_search(
+    name,
+    server,
+    api_key,
+    insecure,
+    cacert,
+    published,
+    unpublished,
+    content_type,
+    r_version,
+    py_version,
+    title_contains,
+    order_by,
+    verbose,
+):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        result = search_content(connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by)
+        result = search_content(
+            connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
+        )
         json.dump(result, sys.stdout, indent=2)
 
 
@@ -1526,7 +1505,7 @@ def content_bundle_download(name, server, api_key, insecure, cacert, guid, outpu
             raise api.RSConnectException("The output file already exists: %s" % output)
 
         result = download_bundle(connect_server, guid)
-        with open(output, 'wb') as f:
+        with open(output, "wb") as f:
             f.write(result.response_body)
 
 
@@ -1534,10 +1513,10 @@ def content_bundle_download(name, server, api_key, insecure, cacert, guid, outpu
 def build():
     pass
 
+
 # noinspection SpellCheckingInspection,DuplicatedCode
 @build.command(
-    name="add",
-    short_help="Mark a content item for build. Use `build run` to invoke the build on the Connect server."
+    name="add", short_help="Mark a content item for build. Use `build run` to invoke the build on the Connect server."
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
@@ -1582,7 +1561,7 @@ def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         build_add_content(connect_server, guid)
         if len(guid) == 1:
-            logger.info("Added \"%s\"." % guid[0])
+            logger.info('Added "%s".' % guid[0])
         else:
             logger.info("Bulk added %d content items." % len(guid))
 
@@ -1590,8 +1569,8 @@ def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
 # noinspection SpellCheckingInspection,DuplicatedCode
 @build.command(
     name="rm",
-    short_help="Remove a content item from the list of content that are tracked for build. " +
-        "Use `build ls` to view the tracked content."
+    short_help="Remove a content item from the list of content that are tracked for build. "
+    + "Use `build ls` to view the tracked content.",
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
@@ -1647,15 +1626,14 @@ def remove_content_build(name, server, api_key, insecure, cacert, guid, all, pur
         _validate_build_rm_args(guid, all, purge)
         guids = build_remove_content(connect_server, guid, all, purge)
         if len(guids) == 1:
-            logger.info("Removed \"%s\"." % guids[0])
+            logger.info('Removed "%s".' % guids[0])
         else:
             logger.info("Removed %d content items." % len(guids))
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @build.command(
-    name="ls",
-    short_help="List the content items that are being tracked for build on a given Connect server."
+    name="ls", short_help="List the content items that are being tracked for build on a given Connect server."
 )
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
@@ -1684,11 +1662,7 @@ def remove_content_build(name, server, api_key, insecure, cacert, guid, all, pur
     type=click.File(),
     help="The path to trusted TLS CA certificates.",
 )
-@click.option(
-    "--status",
-    type=click.Choice(BuildStatus._all),
-    help="Filter results by status of the build operation."
-)
+@click.option("--status", type=click.Choice(BuildStatus._all), help="Filter results by status of the build operation.")
 @click.option(
     "--guid",
     "-g",
@@ -1708,10 +1682,7 @@ def list_content_build(name, server, api_key, insecure, cacert, status, guid, ve
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
-@build.command(
-    name="history",
-    short_help="Get the build history for a content item."
-)
+@build.command(name="history", short_help="Get the build history for a content item.")
 @click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
 @click.option(
     "--server",
@@ -1856,26 +1827,14 @@ def get_build_logs(name, server, api_key, insecure, cacert, guid, task_id, forma
     "--parallelism",
     type=click.IntRange(min=1, clamp=True),
     default=1,
-    help="Defines the number of builds that can run concurrently. Defaults to 1."
+    help="Defines the number of builds that can run concurrently. Defaults to 1.",
 )
-@click.option(
-    "--aborted",
-    is_flag=True,
-    help="Build content that is in the ABORTED state."
-)
-@click.option(
-    "--error",
-    is_flag=True,
-    help="Build content that is in the ERROR state."
-)
-@click.option(
-    "--all",
-    is_flag=True,
-    help="Build all content, even if it is already marked as COMPLETE."
-)
+@click.option("--aborted", is_flag=True, help="Build content that is in the ABORTED state.")
+@click.option("--error", is_flag=True, help="Build content that is in the ERROR state.")
+@click.option("--all", is_flag=True, help="Build all content, even if it is already marked as COMPLETE.")
 @click.option(
     "--poll-wait",
-    type=click.FloatRange(min=.5, clamp=True),
+    type=click.FloatRange(min=0.5, clamp=True),
     default=2,
     help="Defines the number of seconds between polls when polling for build output. Defaults to 2.",
 )
@@ -1886,13 +1845,11 @@ def get_build_logs(name, server, api_key, insecure, cacert, guid, task_id, forma
     default=LogOutputFormat.DEFAULT,
     help="The output format of the logs. Defaults to text.",
 )
-@click.option(
-    "--debug",
-    is_flag=True,
-    help="Log stacktraces from exceptions during background operations."
-)
+@click.option("--debug", is_flag=True, help="Log stacktraces from exceptions during background operations.")
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def start_content_build(name, server, api_key, insecure, cacert, parallelism, aborted, error, all, poll_wait, format, debug, verbose):
+def start_content_build(
+    name, server, api_key, insecure, cacert, parallelism, aborted, error, all, poll_wait, format, debug, verbose
+):
     set_verbosity(verbose)
     logger.set_log_output_format(format)
     with cli_feedback("", stderr=True):

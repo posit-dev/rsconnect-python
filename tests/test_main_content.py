@@ -10,11 +10,7 @@ from rsconnect import VERSION
 from rsconnect.models import BuildStatus
 from rsconnect.metadata import _normalize_server_url
 
-from .utils import (
-    apply_common_args,
-    require_api_key,
-    require_connect
-)
+from .utils import apply_common_args, require_api_key, require_connect
 
 # run these tests in the order they are defined
 #  because we are integration testing the state file
@@ -30,7 +26,6 @@ _test_build_dir = "rsconnect-build-test"
 
 
 class TestContentSubcommand(unittest.TestCase):
-
     @classmethod
     def tearDownClass(cls):
         if os.path.exists(_bundle_download_dest):
@@ -65,10 +60,10 @@ class TestContentSubcommand(unittest.TestCase):
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
         response = json.loads(result.output)
-        self.assertIn('id', response[0])
-        self.assertIn('id', response[1])
-        self.assertEqual(response[0]['guid'], _content_guids[0])
-        self.assertEqual(response[1]['guid'], _content_guids[1])
+        self.assertIn("id", response[0])
+        self.assertIn("id", response[1])
+        self.assertEqual(response[0]["guid"], _content_guids[0])
+        self.assertEqual(response[1]["guid"], _content_guids[1])
 
     def test_content_download_bundle(self):
         connect_server = require_connect(self)
@@ -78,8 +73,8 @@ class TestContentSubcommand(unittest.TestCase):
         apply_common_args(args, server=connect_server, key=api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
-        with tarfile.open(_bundle_download_dest, mode='r:gz') as tgz:
-            self.assertIsNotNone(tgz.extractfile('manifest.json').read())
+        with tarfile.open(_bundle_download_dest, mode="r:gz") as tgz:
+            self.assertIsNotNone(tgz.extractfile("manifest.json").read())
 
     def test_build(self):
         connect_server = require_connect(self)
@@ -91,9 +86,9 @@ class TestContentSubcommand(unittest.TestCase):
         apply_common_args(args, server=connect_server, key=api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertTrue(os.path.exists('%s/%s.json' %
-          (_test_build_dir, _normalize_server_url(os.environ.get("CONNECT_SERVER")))
-        ))
+        self.assertTrue(
+            os.path.exists("%s/%s.json" % (_test_build_dir, _normalize_server_url(os.environ.get("CONNECT_SERVER"))))
+        )
 
         # list the "tracked" content
         args = ["content", "build", "ls", "-g", _content_guids[0]]
@@ -102,9 +97,9 @@ class TestContentSubcommand(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         listing = json.loads(result.output)
         self.assertTrue(len(listing) == 1)
-        self.assertEqual(listing[0]['guid'], _content_guids[0])
-        self.assertEqual(listing[0]['bundle_id'], "176")
-        self.assertEqual(listing[0]['rsconnect_build_status'], BuildStatus.NEEDS_BUILD)
+        self.assertEqual(listing[0]["guid"], _content_guids[0])
+        self.assertEqual(listing[0]["bundle_id"], "176")
+        self.assertEqual(listing[0]["rsconnect_build_status"], BuildStatus.NEEDS_BUILD)
 
         # run the build
         args = ["content", "build", "run", "--debug"]
@@ -119,7 +114,7 @@ class TestContentSubcommand(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         listing = json.loads(result.output)
         self.assertTrue(len(listing) == 1)
-        self.assertEqual(listing[0]['rsconnect_build_status'], BuildStatus.COMPLETE)
+        self.assertEqual(listing[0]["rsconnect_build_status"], BuildStatus.COMPLETE)
 
     def test_build_rm(self):
         connect_server = require_connect(self)

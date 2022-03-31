@@ -12,7 +12,7 @@ from .utils import (
     get_manifest_path,
     get_api_path,
     require_api_key,
-    require_connect
+    require_connect,
 )
 from rsconnect.api import RSConnectException
 from rsconnect.main import cli, _validate_deploy_to_args, server_store
