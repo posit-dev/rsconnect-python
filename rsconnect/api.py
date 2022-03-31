@@ -237,12 +237,17 @@ class RSConnect(HTTPServer):
                         if data or type:
                             log_callback("%s (%s)" % (data, type))
 
+                    err = task_status.get("error")
+                    if err:
+                        log_callback(err)
+
                     exit_code = task_status["code"]
                     if exit_code != 0:
                         exit_status = "Task exited with status %d." % exit_code
-                        log_callback("Task failed. %s" % exit_status)
                         if raise_on_error:
                             raise RSConnectException(exit_status)
+                        else:
+                            log_callback("Task failed. %s" % exit_status)
                     return log_lines, task_status
 
     @staticmethod
