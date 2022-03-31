@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   so they are available in your code whenever it runs within RStudio Connect.
   Requires RStudio Connect version 1.8.6 or later.
 
+- You can now deploy Quarto projects. This requires RStudio Connect release
+  2021.08.0 or later. Use `rsconnect deploy quarto` to deploy, or `rsconnect
+  write-manifest quarto` to create a manifest file.
+
 ## [1.7.1] - 2022-02-15
 
 ### Added

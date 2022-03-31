@@ -40,25 +40,56 @@ directories_to_ignore = [
 
 
 # noinspection SpellCheckingInspection
-def make_source_manifest(entrypoint, environment, app_mode):
-    # type: (str, Environment, AppMode) -> typing.Dict[str, typing.Any]
-    package_manager = environment.package_manager
+def make_source_manifest(
+    app_mode,  # type: AppMode
+    environment=None,  # type: typing.Optional[Environment]
+    entrypoint=None,  # type: typing.Optional[str]
+    quarto_inspection=None,  # type: typing.Optional[typing.Dict[str, typing.Any]]
+):
+    # type: (...) -> typing.Dict[str, typing.Any]
 
-    # noinspection SpellCheckingInspection
     manifest = {
         "version": 1,
-        "metadata": {"appmode": app_mode.name(), "entrypoint": entrypoint},
-        "locale": environment.locale,
-        "python": {
+    }  # type: typing.Dict[str, typing.Any]
+
+    # When adding locale, add it early so it is ordered immediately after
+    # version.
+    if environment:
+        manifest["locale"] = environment.locale
+
+    manifest["metadata"] = {
+        "appmode": app_mode.name(),
+    }
+
+    if entrypoint:
+        manifest["metadata"]["entrypoint"] = entrypoint
+
+    if quarto_inspection:
+        manifest["quarto"] = {
+            "version": quarto_inspection.get("quarto", {}).get("version", "99.9.9"),
+            "engines": quarto_inspection.get("engines", []),
+        }
+        project_config = quarto_inspection.get("config", {}).get("project", {})
+        render_targets = project_config.get("render", [])
+        if len(render_targets):
+            manifest["metadata"]["primary_rmd"] = render_targets[0]
+        project_type = project_config.get("type", None)
+        if project_type or len(render_targets) > 1:
+            manifest["metadata"]["content_category"] = "site"
+
+    if environment:
+        package_manager = environment.package_manager
+        manifest["python"] = {
             "version": environment.python,
             "package_manager": {
                 "name": package_manager,
                 "version": getattr(environment, package_manager),
                 "package_file": environment.filename,
             },
-        },
-        "files": {},
-    }
+        }
+
+    manifest["files"] = {}
+
     return manifest
 
 
@@ -148,7 +179,7 @@ def write_manifest(relative_dir, nb_name, environment, output_dir, hide_all_inpu
     Returns the list of filenames written.
     """
     manifest_filename = "manifest.json"
-    manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
+    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, environment, nb_name)
     if hide_all_input:
         if "jupyter" not in manifest:
             manifest["jupyter"] = {}
@@ -227,7 +258,7 @@ def make_notebook_source_bundle(
     base_dir = dirname(file)
     nb_name = basename(file)
 
-    manifest = make_source_manifest(nb_name, environment, AppModes.JUPYTER_NOTEBOOK)
+    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, environment, nb_name)
     if hide_all_input:
         if "jupyter" not in manifest:
             manifest["jupyter"] = {}
@@ -260,6 +291,38 @@ def make_notebook_source_bundle(
             bundle_add_file(bundle, rel_path, base_dir)
 
     bundle_file.seek(0)
+    return bundle_file
+
+
+def make_quarto_source_bundle(
+    directory,  # type: str
+    inspect,  # type: typing.Dict[str, typing.Any]
+    app_mode,  # type: AppMode
+    environment=None,  # type: Environment
+    extra_files=None,  # type:  typing.Optional[typing.List[str]]
+    excludes=None,  # type: typing.Optional[typing.List[str]]
+):
+    # type: (...) -> typing.IO[bytes]
+    """
+    Create a bundle containing the specified Quarto content and (optional)
+    python environment.
+
+    Returns a file-like object containing the bundle tarball.
+    """
+    manifest, relevant_files = make_quarto_manifest(directory, inspect, app_mode, environment, extra_files, excludes)
+    bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
+
+    with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
+        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
+        if environment:
+            bundle_add_buffer(bundle, environment.filename, environment.contents)
+
+        for rel_path in relevant_files:
+            bundle_add_file(bundle, rel_path, directory)
+
+    # rewind file pointer
+    bundle_file.seek(0)
+
     return bundle_file
 
 
@@ -497,7 +560,7 @@ def make_api_manifest(
         excludes = list(excludes or []) + ["bin/", "lib/"]
 
     relevant_files = _create_api_file_list(directory, environment.filename, extra_files, excludes)
-    manifest = make_source_manifest(entry_point, environment, app_mode)
+    manifest = make_source_manifest(app_mode, environment, entry_point)
 
     manifest_add_buffer(manifest, environment.filename, environment.contents)
 
@@ -541,3 +604,99 @@ def make_api_bundle(
     bundle_file.seek(0)
 
     return bundle_file
+
+
+def _create_quarto_file_list(
+    directory,  # type: str
+    extra_files=None,  # type: typing.Optional[typing.List[str]]
+    excludes=None,  # type: typing.Optional[typing.List[str]]
+):
+    # type: (...) -> typing.List[str]
+    """
+    Builds a full list of files under the given directory that should be included
+    in a manifest or bundle.  Extra files and excludes are relative to the given
+    directory and work as you'd expect.
+
+    :param directory: the directory to walk for files.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :return: the list of relevant files, relative to the given directory.
+    """
+    # Don't let these top-level files be added via the extra files list.
+    extra_files = extra_files or []
+    skip = ["manifest.json"]
+    extra_files = sorted(list(set(extra_files) - set(skip)))
+
+    # Don't include these top-level files.
+    excludes = list(excludes) if excludes else []
+    excludes.append("manifest.json")
+    excludes.extend(list_environment_dirs(directory))
+    glob_set = create_glob_set(directory, excludes)
+
+    file_list = []
+
+    for subdir, dirs, files in os.walk(directory):
+        for file in files:
+            abs_path = os.path.join(subdir, file)
+            rel_path = os.path.relpath(abs_path, directory)
+
+            if keep_manifest_specified_file(rel_path) and (rel_path in extra_files or not glob_set.matches(abs_path)):
+                file_list.append(rel_path)
+                # Don't add extra files more than once.
+                if rel_path in extra_files:
+                    extra_files.remove(rel_path)
+
+    for rel_path in extra_files:
+        file_list.append(rel_path)
+
+    return sorted(file_list)
+
+
+def make_quarto_manifest(
+    directory,  # type: str
+    inspect,  # type: typing.Dict[str, typing.Any]
+    app_mode,  # type: AppMode
+    environment=None,  # type: typing.Optional[Environment]
+    extra_files=None,  # type: typing.Optional[typing.List[str]]
+    excludes=None,  # type: typing.Optional[typing.List[str]]
+):
+    # type: (...) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]
+    """
+    Makes a manifest for a Quarto project.
+
+    :param directory: The directory containing the Quarto project.
+    :param inspect: The parsed JSON from a 'quarto inspect' against the project.
+    :param app_mode: The application mode to assume.
+    :param environment: The (optional) Python environment to use.
+    :param extra_files: Any extra files to include in the manifest.
+    :param excludes: A sequence of glob patterns to exclude when enumerating files to bundle.
+    :return: the manifest and a list of the files involved.
+    """
+    if environment:
+        extra_files = list(extra_files or []) + [environment.filename]
+
+    excludes = list(excludes or []) + [".quarto"]
+
+    project_config = inspect.get("config", {}).get("project", {})
+    output_dir = project_config.get("output-dir", None)
+    if output_dir:
+        excludes = excludes + [output_dir]
+    else:
+        render_targets = project_config.get("render", [])
+        for target in render_targets:
+            t, _ = splitext(target)
+            # TODO: Single-file inspect would give inspect.formats.html.pandoc.output-file
+            # For foo.qmd, we would get an output-file=foo.html, but foo_files is not available.
+            excludes = excludes + [t + ".html", t + "_files"]
+
+    relevant_files = _create_quarto_file_list(directory, extra_files, excludes)
+    manifest = make_source_manifest(
+        app_mode,
+        environment=environment,
+        quarto_inspection=inspect,
+    )
+
+    for rel_path in relevant_files:
+        manifest_add_file(manifest, rel_path, directory)
+
+    return manifest, relevant_files
