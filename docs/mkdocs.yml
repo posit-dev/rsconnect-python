@@ -1,4 +1,4 @@
-site_name: 'RStudio Connect: rsconnect-python Library'
+site_name: 'RStudio Connect: rsconnect-python'
 
 markdown_extensions:
   - toc:
@@ -14,11 +14,9 @@ markdown_extensions:
 plugins:
   - macros
   - search
-  - mkapi
 
 nav:
   - index.md
-  - API: mkapi/api/rsconnect
   - changelog.md
 
 theme:
