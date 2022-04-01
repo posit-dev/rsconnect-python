@@ -11,7 +11,7 @@ from .log import logger
 from six.moves import http_client as http
 from six.moves.http_cookies import SimpleCookie
 from six.moves.urllib_parse import urlparse, urlencode, urljoin
-
+import base64
 
 _user_agent = "rsconnect-python/%s" % VERSION
 
@@ -35,19 +35,27 @@ def _create_plain_connection(host_name, port, disable_tls_check, ca_data, timeou
 
 def _get_proxy():
     proxyURL = os.getenv("HTTPS_PROXY")
-    if proxyURL:
-        logger.info("Using custom proxy server {}".format(proxyURL))
-        parsed = urlparse(proxyURL)
-        netloc = parsed.netloc.split(":")
-        if len(netloc) > 1:
-            proxyHost, proxyPort = netloc
-        else:
-            proxyHost = netloc
-            proxyPort = 8080
+    if not proxyURL:
+        return None, None, None, None
+    parsed = urlparse(proxyURL)
+    if parsed.scheme not in ["https"]:
+        raise Exception("HTTPS_PROXY scheme must be https://")
+    redacted_url = "{}://".format(parsed.scheme) 
+    if parsed.username:
+        redacted_url += "{}:{}@".format(parsed.username, "REDACTED")
+    redacted_url += "{}:{}".format(parsed.hostname, parsed.port or 8080)
+    logger.info("Using custom proxy server {}".format(redacted_url))
+    return parsed.username, parsed.password, parsed.hostname, parsed.port or 8080
 
-        return proxyHost, int(proxyPort)
-    else:
-        return None, None
+
+def _get_proxy_headers(*args, **kwargs):
+    proxyHeaders = None
+    proxyUsername, proxyPassword, _, _ = _get_proxy()
+    if proxyUsername and proxyPassword:
+        credentials = "{}:{}".format(proxyUsername, proxyPassword)
+        credentials = base64.b64encode(credentials.encode("utf-8")).decode("utf-8")
+        proxyHeaders = {"Proxy-Authorization": "Basic {}".format(credentials)}
+    return proxyHeaders
 
 
 # noinspection PyUnresolvedReferences
@@ -64,6 +72,8 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
     """
     if ca_data is not None and disable_tls_check:
         raise ValueError("Cannot both disable TLS checking and provide a custom certificate")
+    _, _, proxyHost, proxyPort = _get_proxy()
+    headers = _get_proxy_headers()
     if ca_data is not None:
         return http.HTTPSConnection(
             host_name,
@@ -72,7 +82,6 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
             context=ssl.create_default_context(cadata=ca_data),
         )
     elif disable_tls_check:
-        proxyHost, proxyPort = _get_proxy()
         if proxyHost is not None:
             tmp = http.HTTPSConnection(
                 proxyHost,
@@ -80,7 +89,7 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
                 timeout=timeout,
                 context=ssl._create_unverified_context(),
             )
-            tmp.set_tunnel(host_name, (port or http.HTTPS_PORT))
+            tmp.set_tunnel(host_name, (port or http.HTTPS_PORT), headers=headers)
         else:
             tmp = http.HTTPSConnection(
                 host_name,
@@ -90,10 +99,9 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
             )
         return tmp
     else:
-        proxyHost, proxyPort = _get_proxy()
         if proxyHost is not None:
             tmp = http.HTTPSConnection(proxyHost, port=proxyPort, timeout=timeout)
-            tmp.set_tunnel(host_name, (port or http.HTTPS_PORT))
+            tmp.set_tunnel(host_name, (port or http.HTTPS_PORT), headers=headers)
         else:
             tmp = http.HTTPSConnection(host_name, port=(port or http.HTTPS_PORT), timeout=timeout)
         return tmp
@@ -179,6 +187,7 @@ class HTTPServer(object):
         self._timeout = timeout
         self._headers = {"User-Agent": _user_agent}
         self._conn = None
+        self._proxy_headers = _get_proxy_headers()
 
         self._inject_cookies()
 
@@ -231,6 +240,8 @@ class HTTPServer(object):
         if query_params is not None:
             full_uri = "%s?%s" % (path, urlencode(query_params))
         headers = self._headers.copy()
+        if self._proxy_headers:
+            headers.update(self._proxy_headers)
         if extra_headers is not None:
             headers.update(extra_headers)
         local_connection = False

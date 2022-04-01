@@ -230,12 +230,24 @@ class RSConnect(HTTPServer):
                 self._server.handle_bad_response(task_status)
                 last_status = self.output_task_log(task_status, last_status, log_callback)
                 if task_status["finished"]:
+                    result = task_status.get("result")
+                    if isinstance(result, dict):
+                        data = result.get("data", "")
+                        type = result.get("type", "")
+                        if data or type:
+                            log_callback("%s (%s)" % (data, type))
+
+                    err = task_status.get("error")
+                    if err:
+                        log_callback("Error from Connect server: " + err)
+
                     exit_code = task_status["code"]
                     if exit_code != 0:
                         exit_status = "Task exited with status %d." % exit_code
-                        log_callback("Task failed. %s" % exit_status)
                         if raise_on_error:
                             raise RSConnectException(exit_status)
+                        else:
+                            log_callback("Task failed. %s" % exit_status)
                     return log_lines, task_status
 
     @staticmethod
