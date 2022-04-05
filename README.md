@@ -338,6 +338,10 @@ rsconnect
 venv
 ```
 
+Any directory that appears to be a Python virtual environment (by containing
+`bin/python`) will also be excluded.
+
+
 #### Package Dependencies
 
 If a `requirements.txt` file exists in the API/application directory, it will be
