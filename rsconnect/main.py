@@ -1036,6 +1036,7 @@ def deploy_html(
         env_vars,
     )
 
+
 def generate_deploy_python(app_mode, alias, min_version):
     # noinspection SpellCheckingInspection
     @deploy.command(

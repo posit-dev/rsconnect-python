@@ -464,7 +464,7 @@ def validate_entry_point(entry_point, directory):
     return entry_point
 
 
-def which_quarto(quarto = None):
+def which_quarto(quarto=None):
     """
     Identify a valid Quarto executable. When a Quarto location is not provided
     as input, an attempt is made to discover Quarto from the PATH and other
@@ -480,16 +480,12 @@ def which_quarto(quarto = None):
     locations = [
         # Discover using $PATH
         "quarto",
-
         # Location used by some installers, and often-added symbolic link.
         "/usr/local/bin/quarto",
-
         # Location used by some installers.
         "/opt/quarto/bin/quarto",
-
         # macOS RStudio IDE embedded installation
         "/Applications/RStudio.app/Contents/MacOS/quarto/bin/quarto",
-
         # macOS RStudio IDE electron embedded installation; location not final.
         # see: https://github.com/rstudio/rstudio/issues/10674
     ]
@@ -498,7 +494,7 @@ def which_quarto(quarto = None):
         found = shutil.which(each)
         if found:
             return found
-    raise api.RSConnectException('Unable to locate a Quarto installation.')
+    raise api.RSConnectException("Unable to locate a Quarto installation.")
 
 
 def quarto_inspect(
