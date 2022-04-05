@@ -1072,7 +1072,7 @@ def gather_basic_deployment_info_for_html(connect_server, app_store, path, new, 
             # Use the saved app information unless overridden by the user.
             app_id, existing_app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
             logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
-        elif app_id:
+        elif app_id is not None:
             # Don't read app metadata if app-id is specified. Instead, we need
             # to get this from Connect.
             app = api.get_app_info(connect_server, app_id)
