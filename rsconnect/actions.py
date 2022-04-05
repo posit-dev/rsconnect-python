@@ -7,9 +7,10 @@ import json
 import logging
 import os
 import re
-import traceback
-import sys
+import shutil
 import subprocess
+import sys
+import traceback
 
 try:
     import typing
@@ -26,6 +27,8 @@ from .bundle import (
     make_manifest_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
+    make_quarto_source_bundle,
+    make_quarto_manifest,
     make_source_manifest,
     manifest_add_buffer,
     manifest_add_file,
@@ -459,6 +462,107 @@ def validate_entry_point(entry_point, directory):
         raise api.RSConnectException('Entry point is not in "module:object" format.')
 
     return entry_point
+
+
+def which_quarto(quarto = None):
+    """
+    Identify a valid Quarto executable. When a Quarto location is not provided
+    as input, an attempt is made to discover Quarto from the PATH and other
+    well-known locations.
+    """
+    if quarto:
+        found = shutil.which(quarto)
+        if not found:
+            raise api.RSConnectException('The Quarto installation, "%s", does not exist or is not executable.' % quarto)
+        return found
+
+    # Fallback -- try to find Quarto when one was not supplied.
+    locations = [
+        # Discover using $PATH
+        "quarto",
+
+        # Location used by some installers, and often-added symbolic link.
+        "/usr/local/bin/quarto",
+
+        # Location used by some installers.
+        "/opt/quarto/bin/quarto",
+
+        # macOS RStudio IDE embedded installation
+        "/Applications/RStudio.app/Contents/MacOS/quarto/bin/quarto",
+
+        # macOS RStudio IDE electron embedded installation; location not final.
+        # see: https://github.com/rstudio/rstudio/issues/10674
+    ]
+
+    for each in locations:
+        found = shutil.which(each)
+        if found:
+            return found
+    raise api.RSConnectException('Unable to locate a Quarto installation.')
+
+
+def quarto_inspect(
+    quarto,
+    target,
+    check_output=subprocess.check_output,
+):
+    """
+    Runs 'quarto inspect' against the target and returns its output as a
+    parsed JSON object.
+    """
+    args = [quarto, "inspect", target]
+    try:
+        inspect_json = check_output(args, universal_newlines=True, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        raise api.RSConnectException("Error inspecting target: %s" % e.output)
+    return json.loads(inspect_json)
+
+
+def validate_quarto_engines(inspect):
+    """
+    The markdown and jupyter engines are supported. Not knitr.
+    """
+    supported = ["markdown", "jupyter"]
+    engines = inspect.get("engines", [])
+    unsupported = [engine for engine in engines if engine not in supported]
+    if unsupported:
+        raise api.RSConnectException("The following Quarto engine(s) are not supported: %s" % ", ".join(unsupported))
+    return engines
+
+
+def write_quarto_manifest_json(
+    directory,
+    inspect,
+    app_mode=AppModes.STATIC_QUARTO,
+    environment=None,
+    extra_files=None,
+    excludes=None,
+):
+    """
+    Creates and writes a manifest.json file for the given Quarto project.
+
+    :param directory: The directory containing the Quarto project.
+    :param inspect: The parsed JSON from a 'quarto inspect' against the project.
+    :param app_mode: The application mode to assume.
+    :param environment: The (optional) Python environment to use.
+    :param extra_files: Any extra files to include in the manifest.
+    :param excludes: A sequence of glob patterns to exclude when enumerating files to bundle.
+    """
+
+    extra_files = validate_extra_files(directory, extra_files)
+    manifest, _ = make_quarto_manifest(directory, inspect, app_mode, environment, extra_files, excludes)
+    manifest_path = join(directory, "manifest.json")
+
+    write_manifest_json(manifest_path, manifest)
+
+
+def write_manifest_json(manifest_path, manifest):
+    """
+    Write the manifest data as JSON to the named manifest.json with a trailing newline.
+    """
+    with open(manifest_path, "w") as f:
+        json.dump(manifest, f, indent=2)
+        f.write("\n")
 
 
 def deploy_jupyter_notebook(
@@ -1095,6 +1199,59 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
     )
 
 
+def gather_basic_deployment_info_for_quarto(connect_server, app_store, directory, new, app_id, title):
+    """
+    Helps to gather the necessary info for performing a deployment.
+
+    :param connect_server: The Connect server information.
+    :param app_store: The store for the specified Quarto project directory.
+    :param directory: The target Quarto project directory.
+    :param new: A flag to force a new deployment.
+    :param app_id: The identifier of the content to redeploy.
+    :param title: The content title (optional). A default title is generated when one is not provided.
+    """
+    _validate_title(title)
+
+    if new and app_id:
+        raise api.RSConnectException("Specify either a new deploy or an app ID but not both.")
+
+    if app_id is not None:
+        # Don't read app metadata if app-id is specified. Instead, we need
+        # to get this from Connect.
+        app = api.get_app_info(connect_server, app_id)
+        app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
+
+        logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
+    else:
+        app_mode = AppModes.STATIC_QUARTO
+
+    if not new and app_id is None:
+        # Possible redeployment - check for saved metadata.
+        # Use the saved app information unless overridden by the user.
+        app_id, existing_app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
+        if existing_app_mode and app_mode != existing_app_mode:
+            msg = (
+                "Deploying with mode '%s',\n"
+                + "but the existing deployment has mode '%s'.\n"
+                + "Use the --new option to create a new deployment of the desired type."
+            ) % (app_mode.desc(), existing_app_mode.desc())
+            raise api.RSConnectException(msg)
+
+    if directory[-1] == "/":
+        directory = directory[:-1]
+
+    default_title = not bool(title)
+    title = title or _default_title(directory)
+
+    return (
+        app_id,
+        _make_deployment_name(connect_server, title, app_id is None),
+        title,
+        default_title,
+        app_mode,
+    )
+
+
 def _generate_gather_basic_deployment_info_for_python(app_mode):
     """
     Generates function to gather the necessary info for performing a deployment by app mode
@@ -1285,6 +1442,39 @@ def create_api_deployment_bundle(
     return make_api_bundle(directory, entry_point, app_mode, environment, extra_files, excludes)
 
 
+def create_quarto_deployment_bundle(
+    directory,
+    extra_files,
+    excludes,
+    app_mode,
+    inspect,
+    environment,
+    extra_files_need_validating=True,
+):
+    """
+    Create an in-memory bundle, ready to deploy.
+
+    :param directory: the directory that contains the code being deployed.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param entry_point: the module/executable object for the WSGi framework.
+    :param app_mode: the mode of the app being deployed.
+    :param environment: environmental information.
+    :param extra_files_need_validating: a flag indicating whether the list of extra
+    files should be validated or not.  Part of validating includes qualifying each
+    with the specified directory.  If you provide False here, make sure the names
+    are properly qualified first.
+    :return: the bundle.
+    """
+    if extra_files_need_validating:
+        extra_files = validate_extra_files(directory, extra_files)
+
+    if app_mode is None:
+        app_mode = AppModes.STATIC_QUARTO
+
+    return make_quarto_source_bundle(directory, inspect, app_mode, environment, extra_files, excludes)
+
+
 def deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle, env_vars):
     """
     Deploys the specified bundle.
@@ -1385,15 +1575,14 @@ def write_notebook_manifest_json(
         if app_mode == AppModes.UNKNOWN:
             raise api.RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
 
-    manifest_data = make_source_manifest(file_name, environment, app_mode)
+    manifest_data = make_source_manifest(app_mode, environment, file_name)
     manifest_add_file(manifest_data, file_name, directory)
     manifest_add_buffer(manifest_data, environment.filename, environment.contents)
 
     for rel_path in extra_files:
         manifest_add_file(manifest_data, rel_path, directory)
 
-    with open(manifest_path, "w") as f:
-        json.dump(manifest_data, f, indent=2)
+    write_manifest_json(manifest_path, manifest_data)
 
     return exists(join(directory, environment.filename))
 
@@ -1454,8 +1643,7 @@ def write_api_manifest_json(
     manifest, _ = make_api_manifest(directory, entry_point, app_mode, environment, extra_files, excludes)
     manifest_path = join(directory, "manifest.json")
 
-    with open(manifest_path, "w") as f:
-        json.dump(manifest, f, indent=2)
+    write_manifest_json(manifest_path, manifest)
 
     return exists(join(directory, environment.filename))
 
