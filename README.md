@@ -321,6 +321,22 @@ The following shows an example of an extra file taking precedence:
 rsconnect deploy dash --exclude “*.csv” dash-app/ important_data.csv
 ```
 
+Some directories are excluded by default, to prevent bundling and uploading files that are not needed or might interfere with the deployment process:
+
+```
+.Rproj.user
+.env
+.git
+.svn
+.venv
+__pycache__
+env
+packrat
+renv
+rsconnect-python
+rsconnect
+venv
+```
 
 #### Package Dependencies
 
