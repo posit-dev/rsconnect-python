@@ -997,7 +997,6 @@ def deploy_html(
     excludes,
 ):
     set_verbosity(verbose)
-    path = abspath(path)
 
     with cli_feedback("Checking arguments"):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)

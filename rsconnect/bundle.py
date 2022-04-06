@@ -15,7 +15,7 @@ try:
 except ImportError:
     typing = None
 
-from os.path import basename, dirname, exists, isdir, join, relpath, splitext
+from os.path import basename, dirname, exists, isdir, join, relpath, splitext, isfile
 
 from .log import logger
 from .models import AppMode, AppModes, GlobSet
@@ -297,6 +297,7 @@ def make_notebook_source_bundle(
     return bundle_file
 
 
+#
 def make_quarto_source_bundle(
     directory,  # type: str
     inspect,  # type: typing.Dict[str, typing.Any]
@@ -539,58 +540,6 @@ def _create_api_file_list(
     return sorted(file_list)
 
 
-def _create_file_list(
-    path,  # type: str
-    extra_files=None,  # type: typing.Optional[typing.List[str]]
-    excludes=None,  # type: typing.Optional[typing.List[str]]
-):
-    # type: (...) -> typing.List[str]
-    """
-    Builds a full list of files under the given path that should be included
-    in a manifest or bundle.  Extra files and excludes are relative to the given
-    path and work as you'd expect.
-
-    :param path: the path to walk for files.
-    :param extra_files: a sequence of any extra files to include in the bundle.
-    :param excludes: a sequence of glob patterns that will exclude matched files.
-    :return: the list of relevant files, relative to the given path.
-    """
-    # Don't let these top-level files be added via the extra files list.
-    extra_files = extra_files or []
-    skip = ["manifest.json"]
-    extra_files = sorted(list(set(extra_files) - set(skip)))
-
-    # Don't include these top-level files.
-    excludes = list(excludes) if excludes else []
-    excludes.append("manifest.json")
-    if not os.path.isfile(path):
-        excludes.extend(list_environment_dirs(path))
-    glob_set = create_glob_set(path, excludes)
-
-    file_list = []
-
-    for rel_path in extra_files:
-        file_list.append(rel_path)
-
-    if os.path.isfile(path):
-        file_list.append(path)
-    else:
-        for subdir, dirs, files in os.walk(path):
-            for file in files:
-                abs_path = os.path.join(subdir, file)
-                rel_path = os.path.relpath(abs_path, path)
-
-                if keep_manifest_specified_file(rel_path) and (
-                    rel_path in extra_files or not glob_set.matches(abs_path)
-                ):
-                    file_list.append(rel_path)
-                    # Don't add extra files more than once.
-                    if rel_path in extra_files:
-                        extra_files.remove(rel_path)
-
-    return sorted(file_list)
-
-
 def make_api_manifest(
     directory,  # type: str
     entry_point,  # type: str
@@ -625,7 +574,7 @@ def make_api_manifest(
     return manifest, relevant_files
 
 
-def make_html_fileslist(
+def make_html_bundle_content(
     path,  # type: str
     entrypoint,  # type: str
     extra_files=None,  # type: typing.Optional[typing.List[str]]
@@ -642,10 +591,49 @@ def make_html_fileslist(
     :return: the manifest and a list of the files involved.
     """
     entrypoint = entrypoint or infer_entrypoint(path, "text/html")
+
+    if path.startswith(os.curdir):
+        path = relpath(path)
+    if entrypoint.startswith(os.curdir):
+        entrypoint = relpath(entrypoint)
+    extra_files = [relpath(f) if isfile(f) and f.startswith(os.curdir) else f for f in extra_files]
+
     if is_environment_dir(path):
         excludes = list(excludes or []) + ["bin/", "lib/"]
 
-    relevant_files = _create_file_list(path, extra_files, excludes)
+    extra_files = extra_files or []
+    skip = ["manifest.json"]
+    extra_files = sorted(list(set(extra_files) - set(skip)))
+
+    # Don't include these top-level files.
+    excludes = list(excludes) if excludes else []
+    excludes.append("manifest.json")
+    if not isfile(path):
+        excludes.extend(list_environment_dirs(path))
+    glob_set = create_glob_set(path, excludes)
+
+    file_list = []
+
+    for rel_path in extra_files:
+        file_list.append(rel_path)
+
+    if isfile(path):
+        file_list.append(path)
+    else:
+        for subdir, dirs, files in os.walk(path):
+            for file in files:
+                abs_path = os.path.join(subdir, file)
+                rel_path = os.path.relpath(abs_path, path)
+
+                if keep_manifest_specified_file(rel_path) and (
+                    rel_path in extra_files or not glob_set.matches(abs_path)
+                ):
+                    file_list.append(rel_path)
+                    # Don't add extra files more than once.
+                    if rel_path in extra_files:
+                        extra_files.remove(rel_path)
+
+    relevant_files = sorted(file_list)
     manifest = make_html_manifest(entrypoint)
 
     for rel_path in relevant_files:
@@ -692,7 +680,7 @@ def make_html_bundle(
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :return: a file-like object containing the bundle tarball.
     """
-    manifest, relevant_files = make_html_fileslist(path, entry_point, extra_files, excludes)
+    manifest, relevant_files = make_html_bundle_content(path, entry_point, extra_files, excludes)
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
 
     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
