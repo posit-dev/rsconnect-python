@@ -464,7 +464,7 @@ def validate_entry_point(entry_point, directory):
     return entry_point
 
 
-def which_quarto(quarto = None):
+def which_quarto(quarto=None):
     """
     Identify a valid Quarto executable. When a Quarto location is not provided
     as input, an attempt is made to discover Quarto from the PATH and other
@@ -480,16 +480,12 @@ def which_quarto(quarto = None):
     locations = [
         # Discover using $PATH
         "quarto",
-
         # Location used by some installers, and often-added symbolic link.
         "/usr/local/bin/quarto",
-
         # Location used by some installers.
         "/opt/quarto/bin/quarto",
-
         # macOS RStudio IDE embedded installation
         "/Applications/RStudio.app/Contents/MacOS/quarto/bin/quarto",
-
         # macOS RStudio IDE electron embedded installation; location not final.
         # see: https://github.com/rstudio/rstudio/issues/10674
     ]
@@ -498,7 +494,7 @@ def which_quarto(quarto = None):
         found = shutil.which(each)
         if found:
             return found
-    raise api.RSConnectException('Unable to locate a Quarto installation.')
+    raise api.RSConnectException("Unable to locate a Quarto installation.")
 
 
 def quarto_inspect(
@@ -1141,6 +1137,56 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
 
     default_title = not bool(title)
     title = title or _default_title(file_name)
+
+    return (
+        app_id,
+        _make_deployment_name(connect_server, title, app_id is None),
+        title,
+        default_title,
+        app_mode,
+    )
+
+
+def gather_basic_deployment_info_for_html(connect_server, app_store, path, new, app_id, title):
+    """
+    Helps to gather the necessary info for performing a static html (re)deployment.
+
+    :param connect_server: the Connect server information.
+    :param app_store: the store for the specified file
+    :param path: the primary file or directory being deployed.
+    :param new: a flag noting whether we should force a new deployment.
+    :param app_id: the ID of the app to redeploy.
+    :param title: an optional title.  If this isn't specified, a default title will
+    be generated.
+    :return: the app ID, name, title information and mode for the deployment.
+    """
+
+    if new and app_id:
+        raise api.RSConnectException("Specify either a new deploy or an app ID but not both.")
+
+    app_mode = AppModes.STATIC
+    existing_app_mode = None
+    if not new:
+        if app_id is None:
+            # Possible redeployment - check for saved metadata.
+            # Use the saved app information unless overridden by the user.
+            app_id, existing_app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
+            logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
+        elif app_id is not None:
+            # Don't read app metadata if app-id is specified. Instead, we need
+            # to get this from Connect.
+            app = api.get_app_info(connect_server, app_id)
+            existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
+        if existing_app_mode and app_mode != existing_app_mode:
+            msg = (
+                "Deploying with mode '%s',\n"
+                + "but the existing deployment has mode '%s'.\n"
+                + "Use the --new option to create a new deployment of the desired type."
+            ) % (app_mode.desc(), existing_app_mode.desc())
+            raise api.RSConnectException(msg)
+
+    default_title = not bool(title)
+    title = title or _default_title(path)
 
     return (
         app_id,

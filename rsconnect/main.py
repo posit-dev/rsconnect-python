@@ -6,6 +6,7 @@ import sys
 import textwrap
 from os.path import abspath, dirname, exists, isdir, join
 
+
 import click
 from six import text_type
 
@@ -26,6 +27,7 @@ from .actions import (
     gather_basic_deployment_info_for_notebook,
     gather_basic_deployment_info_for_quarto,
     gather_basic_deployment_info_from_manifest,
+    gather_basic_deployment_info_for_html,
     gather_server_details,
     get_python_env_info,
     is_conda_supported_on_server,
@@ -59,7 +61,11 @@ from .actions_content import (
 )
 
 from . import api, VERSION
-from .bundle import is_environment_dir, make_manifest_bundle
+from .bundle import (
+    is_environment_dir,
+    make_manifest_bundle,
+    make_html_bundle,
+)
 from .log import logger, LogOutputFormat
 from .metadata import ServerStore, AppStore
 from .models import (
@@ -935,6 +941,91 @@ def deploy_quarto(
         connect_server,
         app_store,
         directory,
+        app_id,
+        app_mode,
+        deployment_name,
+        title,
+        default_title,
+        bundle,
+        env_vars,
+    )
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@deploy.command(
+    name="html",
+    short_help="Deploy html content to RStudio Connect.",
+    help=("Deploy an html file, or directory of html files with entrypoint, to RStudio Connect."),
+)
+@server_args
+@content_args
+@click.option(
+    "--entrypoint",
+    "-e",
+    help=("The name of the html file that is the landing page."),
+)
+@click.option(
+    "--excludes",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+def deploy_html(
+    name,
+    server,
+    api_key,
+    insecure,
+    cacert,
+    new,
+    app_id,
+    title,
+    verbose,
+    path,
+    env_vars,
+    entrypoint,
+    extra_files,
+    excludes,
+):
+    set_verbosity(verbose)
+
+    with cli_feedback("Checking arguments"):
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+        app_store = AppStore(path)
+
+        (
+            app_id,
+            deployment_name,
+            title,
+            default_title,
+            app_mode,
+        ) = gather_basic_deployment_info_for_html(connect_server, app_store, path, new, app_id, title)
+
+    click.secho('    Deploying %s to server "%s"' % (path, connect_server.url))
+
+    with cli_feedback("Creating deployment bundle"):
+        try:
+            bundle = make_html_bundle(path, entrypoint, extra_files, excludes)
+        except IOError as error:
+            msg = "Unable to include the file %s in the bundle: %s" % (
+                error.filename,
+                error.args[1],
+            )
+            raise api.RSConnectException(msg)
+
+    _deploy_bundle(
+        connect_server,
+        app_store,
+        path,
         app_id,
         app_mode,
         deployment_name,

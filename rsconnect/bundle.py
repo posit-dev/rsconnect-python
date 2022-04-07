@@ -15,11 +15,13 @@ try:
 except ImportError:
     typing = None
 
-from os.path import basename, dirname, exists, isdir, join, relpath, splitext
+from os.path import basename, dirname, exists, isdir, join, relpath, splitext, isfile
 
 from .log import logger
 from .models import AppMode, AppModes, GlobSet
 from .environment import Environment
+from collections import defaultdict
+from mimetypes import guess_type
 
 # From https://github.com/rstudio/rsconnect/blob/485e05a26041ab8183a220da7a506c9d3a41f1ff/R/bundle.R#L85-L88
 # noinspection SpellCheckingInspection
@@ -98,8 +100,9 @@ def manifest_add_file(manifest, rel_path, base_dir):
 
     The file must be specified as a pathname relative to the notebook directory.
     """
-    path = join(base_dir, rel_path)
-
+    path = join(base_dir, rel_path) if os.path.isdir(base_dir) else rel_path
+    if "files" not in manifest:
+        manifest["files"] = {}
     manifest["files"][rel_path] = {"checksum": file_checksum(path)}
 
 
@@ -152,8 +155,8 @@ def bundle_add_file(bundle, rel_path, base_dir):
 
     The file path is relative to the notebook directory.
     """
+    path = join(base_dir, rel_path) if os.path.isdir(base_dir) else rel_path
     logger.debug("adding file: %s", rel_path)
-    path = join(base_dir, rel_path)
     bundle.add(path, arcname=rel_path)
 
 
@@ -294,6 +297,7 @@ def make_notebook_source_bundle(
     return bundle_file
 
 
+#
 def make_quarto_source_bundle(
     directory,  # type: str
     inspect,  # type: typing.Dict[str, typing.Any]
@@ -568,6 +572,127 @@ def make_api_manifest(
         manifest_add_file(manifest, rel_path, directory)
 
     return manifest, relevant_files
+
+
+def make_html_bundle_content(
+    path,  # type: str
+    entrypoint,  # type: str
+    extra_files=None,  # type: typing.Optional[typing.List[str]]
+    excludes=None,  # type: typing.Optional[typing.List[str]]
+):
+    # type: (...) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]
+    """
+    Makes a manifest for static html deployment.
+
+    :param path: the file, or the directory containing the files to deploy.
+    :param entry_point: the main entry point for the API.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :return: the manifest and a list of the files involved.
+    """
+    entrypoint = entrypoint or infer_entrypoint(path, "text/html")
+
+    if path.startswith(os.curdir):
+        path = relpath(path)
+    if entrypoint.startswith(os.curdir):
+        entrypoint = relpath(entrypoint)
+    extra_files = [relpath(f) if isfile(f) and f.startswith(os.curdir) else f for f in extra_files]
+
+    if is_environment_dir(path):
+        excludes = list(excludes or []) + ["bin/", "lib/"]
+
+    extra_files = extra_files or []
+    skip = ["manifest.json"]
+    extra_files = sorted(list(set(extra_files) - set(skip)))
+
+    # Don't include these top-level files.
+    excludes = list(excludes) if excludes else []
+    excludes.append("manifest.json")
+    if not isfile(path):
+        excludes.extend(list_environment_dirs(path))
+    glob_set = create_glob_set(path, excludes)
+
+    file_list = []
+
+    for rel_path in extra_files:
+        file_list.append(rel_path)
+
+    if isfile(path):
+        file_list.append(path)
+    else:
+        for subdir, dirs, files in os.walk(path):
+            for file in files:
+                abs_path = os.path.join(subdir, file)
+                rel_path = os.path.relpath(abs_path, path)
+
+                if keep_manifest_specified_file(rel_path) and (
+                    rel_path in extra_files or not glob_set.matches(abs_path)
+                ):
+                    file_list.append(rel_path)
+                    # Don't add extra files more than once.
+                    if rel_path in extra_files:
+                        extra_files.remove(rel_path)
+
+    relevant_files = sorted(file_list)
+    manifest = make_html_manifest(entrypoint)
+
+    for rel_path in relevant_files:
+        manifest_add_file(manifest, rel_path, path)
+
+    return manifest, relevant_files
+
+
+def infer_entrypoint(path, mimetype):
+    if os.path.isfile(path):
+        return path
+    if not os.path.isdir(path):
+        raise ValueError("Entrypoint is not a valid file type or directory.")
+
+    default_mimetype_entrypoints = {"text/html": "index.html"}
+    if mimetype not in default_mimetype_entrypoints:
+        raise ValueError("Not supported mimetype inference.")
+
+    mimetype_filelist = defaultdict(list)
+
+    for file in os.listdir(path):
+        rel_path = os.path.join(path, file)
+        if not os.path.isfile(rel_path):
+            continue
+        mimetype_filelist[guess_type(file)[0]].append(rel_path)
+        if file in default_mimetype_entrypoints[mimetype]:
+            return file
+    return mimetype_filelist[mimetype].pop() if len(mimetype_filelist[mimetype]) == 1 else None
+
+
+def make_html_bundle(
+    path,  # type: str
+    entry_point,  # type: str
+    extra_files=None,  # type: typing.Optional[typing.List[str]]
+    excludes=None,  # type: typing.Optional[typing.List[str]]
+):
+    # type: (...) -> typing.IO[bytes]
+    """
+    Create an html bundle, given a path and a manifest.
+
+    :param path: the file, or the directory containing the files to deploy.
+    :param entry_point: the main entry point for the API.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :return: a file-like object containing the bundle tarball.
+    """
+    manifest, relevant_files = make_html_bundle_content(path, entry_point, extra_files, excludes)
+    bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
+
+    with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
+        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
+
+        for rel_path in relevant_files:
+            bundle_add_file(bundle, rel_path, path)
+
+    # rewind file pointer
+    bundle_file.seek(0)
+
+    return bundle_file
 
 
 def make_api_bundle(
