@@ -1,4 +1,4 @@
-# The rsconnect-python CLI and library
+# The rsconnect-python CLI
 
 !!! warning
 
@@ -6,8 +6,8 @@
     [official announcement](https://www.rstudio.com/blog/rstudio-connect-2021-08-python-updates/)
     for details about this decision.
 
-This package provides both a CLI (command-line interface) and a library for interacting
-with and deploying to RStudio Connect. The library is also used by the
+This package provides a CLI (command-line interface) for interacting
+with and deploying to RStudio Connect. This is also used by the
 [`rsconnect-jupyter`](https://github.com/rstudio/rsconnect-jupyter) package to deploy
 Jupyter notebooks via the Jupyter web console. Many types of content supported by RStudio
 Connect may be deployed by this package, including WSGI-style APIs, Dash, Streamlit, and
