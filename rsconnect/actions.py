@@ -1261,20 +1261,20 @@ def gather_basic_deployment_info_for_quarto(connect_server, app_store, directory
     if new and app_id:
         raise api.RSConnectException("Specify either a new deploy or an app ID but not both.")
 
-    if app_id is not None:
-        # Don't read app metadata if app-id is specified. Instead, we need
-        # to get this from Connect.
-        app = api.get_app_info(connect_server, app_id)
-        app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
+    app_mode = AppModes.STATIC_QUARTO
 
-        logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
-    else:
-        app_mode = AppModes.STATIC_QUARTO
-
-    if not new and app_id is None:
-        # Possible redeployment - check for saved metadata.
-        # Use the saved app information unless overridden by the user.
-        app_id, existing_app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
+    existing_app_mode = None
+    if not new:
+        if app_id is None:
+            # Possible redeployment - check for saved metadata.
+            # Use the saved app information unless overridden by the user.
+            app_id, existing_app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
+            logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
+        elif app_id is not None:
+            # Don't read app metadata if app-id is specified. Instead, we need
+            # to get this from Connect.
+            app = api.get_app_info(connect_server, app_id)
+            existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
         if existing_app_mode and app_mode != existing_app_mode:
             msg = (
                 "Deploying with mode '%s',\n"
