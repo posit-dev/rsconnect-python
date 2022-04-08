@@ -1,4 +1,4 @@
-# The rsconnect-python CLI and library
+# The rsconnect-python CLI
 
 !!! warning
 
@@ -6,8 +6,8 @@
     [official announcement](https://www.rstudio.com/blog/rstudio-connect-2021-08-python-updates/)
     for details about this decision.
 
-This package provides both a CLI (command-line interface) and a library for interacting
-with and deploying to RStudio Connect. The library is also used by the
+This package provides a CLI (command-line interface) for interacting
+with and deploying to RStudio Connect. This is also used by the
 [`rsconnect-jupyter`](https://github.com/rstudio/rsconnect-jupyter) package to deploy
 Jupyter notebooks via the Jupyter web console. Many types of content supported by RStudio
 Connect may be deployed by this package, including WSGI-style APIs, Dash, Streamlit, and
@@ -320,6 +320,26 @@ The following shows an example of an extra file taking precedence:
 ```bash
 rsconnect deploy dash --exclude “*.csv” dash-app/ important_data.csv
 ```
+
+Some directories are excluded by default, to prevent bundling and uploading files that are not needed or might interfere with the deployment process:
+
+```
+.Rproj.user
+.env
+.git
+.svn
+.venv
+__pycache__
+env
+packrat
+renv
+rsconnect-python
+rsconnect
+venv
+```
+
+Any directory that appears to be a Python virtual environment (by containing
+`bin/python`) will also be excluded.
 
 
 #### Package Dependencies
