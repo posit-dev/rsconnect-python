@@ -1,2 +1,3 @@
 --extra-index-url https://rstudio.github.io/pyshiny-site/pypi/
 shiny
+websockets
