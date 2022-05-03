@@ -1,7 +1,6 @@
 Pygments
 markdown
 markdown-include
-mkapi
 mkdocs
 mkdocs-exclude
 mkdocs-macros-plugin
