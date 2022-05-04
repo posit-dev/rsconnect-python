@@ -1521,7 +1521,7 @@ def create_quarto_deployment_bundle(
     return make_quarto_source_bundle(directory, inspect, app_mode, environment, extra_files, excludes)
 
 
-def deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle, env_vars):
+def deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle, env_vars=None):
     """
     Deploys the specified bundle.
 
