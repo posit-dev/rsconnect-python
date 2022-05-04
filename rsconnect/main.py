@@ -28,6 +28,7 @@ from .actions import (
     gather_basic_deployment_info_for_quarto,
     gather_basic_deployment_info_from_manifest,
     gather_basic_deployment_info_for_html,
+    gather_basic_deployment_info_for_shiny,
     gather_server_details,
     get_python_env_info,
     is_conda_supported_on_server,
@@ -1138,6 +1139,7 @@ def generate_deploy_python(app_mode, alias, min_version):
                 AppModes.DASH_APP: gather_basic_deployment_info_for_dash,
                 AppModes.STREAMLIT_APP: gather_basic_deployment_info_for_streamlit,
                 AppModes.BOKEH_APP: gather_basic_deployment_info_for_bokeh,
+                AppModes.PYTHON_SHINY: gather_basic_deployment_info_for_shiny,
             }[app_mode],
         )
 
@@ -1150,7 +1152,7 @@ deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias=
 deploy_dash_app = generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
 deploy_streamlit_app = generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
 deploy_bokeh_app = generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
-
+deploy_shiny = generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0")
 
 # noinspection SpellCheckingInspection
 def _deploy_by_framework(
@@ -1541,6 +1543,7 @@ write_manifest_fastapi = generate_write_manifest_python(AppModes.PYTHON_FASTAPI,
 write_manifest_dash = generate_write_manifest_python(AppModes.DASH_APP, alias="dash")
 write_manifest_streamlit = generate_write_manifest_python(AppModes.STREAMLIT_APP, alias="streamlit")
 write_manifest_bokeh = generate_write_manifest_python(AppModes.BOKEH_APP, alias="bokeh")
+write_manifest_shiny = generate_write_manifest_python(AppModes.PYTHON_SHINY, alias="shiny")
 
 
 # noinspection SpellCheckingInspection
