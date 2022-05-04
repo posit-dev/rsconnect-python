@@ -980,59 +980,14 @@ def deploy_quarto(
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
-def deploy_html(
-    name,
-    server,
-    api_key,
-    insecure,
-    cacert,
-    new,
-    app_id,
-    title,
-    verbose,
-    path,
-    env_vars,
-    entrypoint,
-    extra_files,
-    excludes,
-):
-    set_verbosity(verbose)
-
-    with cli_feedback("Checking arguments"):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        app_store = AppStore(path)
-
-        (
-            app_id,
-            deployment_name,
-            title,
-            default_title,
-            app_mode,
-        ) = gather_basic_deployment_info_for_html(connect_server, app_store, path, new, app_id, title)
-
-    click.secho('    Deploying %s to server "%s"' % (path, connect_server.url))
-
-    with cli_feedback("Creating deployment bundle"):
-        try:
-            bundle = make_html_bundle(path, entrypoint, extra_files, excludes)
-        except IOError as error:
-            msg = "Unable to include the file %s in the bundle: %s" % (
-                error.filename,
-                error.args[1],
-            )
-            raise api.RSConnectException(msg)
-
-    _deploy_bundle(
-        connect_server,
-        app_store,
-        path,
-        app_id,
-        app_mode,
-        deployment_name,
-        title,
-        default_title,
-        bundle,
-        env_vars,
+def deploy_html(*args, **kwargs):
+    rsce = api.RSConnectExecutor(*args, **kwargs)
+    (
+        rsce
+        .validate_server()
+        .validate_app_mode(default_app_mode=AppModes.STATIC)
+        .make_bundle()
+        .deploy_bundle()
     )
 
 

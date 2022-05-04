@@ -8,6 +8,11 @@ from _ssl import SSLError
 from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
 from .log import logger
 from .models import AppModes
+from six import text_type
+from .metadata import ServerStore, AppStore
+from .actions import test_server, test_api_key, _default_title, _make_deployment_name, cli_feedback
+from .bundle import make_html_bundle
+from main import _deploy_bundle
 
 
 class RSConnectException(Exception):
@@ -266,6 +271,148 @@ class RSConnect(HTTPServer):
             new_last_status = task_status["last_status"]
 
         return new_last_status
+
+
+class RSConnectExecutor:
+    def __init__(self, *args, **kwargs) -> None:
+        print(kwargs)
+        self.d = kwargs
+
+    def validate_server(self, *args, **kwargs):
+        """
+        Validate that the user gave us enough information to talk to a Connect server.
+
+        :param name: the nickname, if any, specified by the user.
+        :param url: the URL, if any, specified by the user.
+        :param api_key: the API key, if any, specified by the user.
+        :param insecure: a flag noting whether TLS host/validation should be skipped.
+        :param ca_cert: the name of a CA certs file containing certificates to use.
+        :param api_key_is_required: a flag that notes whether the API key is required or may
+        be omitted.
+        """
+        name = self.d['name']
+        url = self.d['url']
+        api_key = self.d['api_key']
+        insecure = self.d['insecure']
+        ca_cert = self.d['ca_cert']
+        api_key_is_required = self.d['api_key_is_required']
+
+        server_store = ServerStore()
+        
+        ca_data = ca_cert and text_type(ca_cert.read())
+
+        if name and url:
+            raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both.")
+
+        real_server, api_key, insecure, ca_data, from_store = server_store.resolve(name, url, api_key, insecure, ca_data)
+
+        # This can happen if the user specifies neither --name or --server and there's not
+        # a single default to go with.
+        if not real_server:
+            raise RSConnectException("You must specify one of -n/--name or -s/--server.")
+
+        connect_server = RSConnectServer(real_server, None, insecure, ca_data)
+
+        # If our info came from the command line, make sure the URL really works.
+        if not from_store:
+            connect_server, _ = test_server(connect_server)
+
+        connect_server.api_key = api_key
+
+        if not connect_server.api_key:
+            if api_key_is_required:
+                raise RSConnectException('An API key must be specified for "%s".' % connect_server.url)
+            return connect_server
+
+        # If our info came from the command line, make sure the key really works.
+        if not from_store:
+            _ = test_api_key(connect_server)
+
+        self.d['connect_server'] = connect_server
+
+        return self
+
+    def make_bundle(self, *args, **kwargs):
+        path = self.d['path']
+        app_id = self.d['app_id']
+        connect_server = self.d['connect_server']
+        entrypoint = self.d['entrypoint']
+        extra_files = self.d['extra_files']
+        excludes = self.d['excludes']
+        title = self.d['title']
+
+        self.d['app_store'] = AppStore(path)
+        self.d['default_title'] = not bool(title)
+        self.d['title'] = title or _default_title(path)
+        self.d['deployment_name'] = _make_deployment_name(connect_server, self.d['title'], app_id is None)
+
+        with cli_feedback("Creating deployment bundle"):
+            try:
+                bundle = make_html_bundle(path, entrypoint, extra_files, excludes)
+            except IOError as error:
+                msg = "Unable to include the file %s in the bundle: %s" % (
+                    error.filename,
+                    error.args[1],
+                )
+                raise RSConnectException(msg)
+        
+        self.d['bundle'] = bundle
+
+        return self
+
+    def deploy_bundle(self, *args, **kwargs):        
+        _deploy_bundle(
+            self.d['connect_server'],
+            self.d['app_store'],
+            self.d['path'],
+            self.d['app_id'],
+            self.d['app_mode'],
+            self.d['deployment_name'],
+            self.d['title'],
+            self.d['default_title'],
+            self.d['bundle'],
+            self.d['env_vars'],
+        )
+
+        return self
+
+    def make_manifest(self, *args, **kwargs):
+        pass
+
+    def validate_app_mode(self, *args, **kwargs):
+        connect_server = self.d['connect_server']
+        app_store = self.d['app_store']
+        new = self.d['new']
+        app_id = self.d['app_id']
+        default_app_mode = kwargs['default_app_mode']
+        self.d | kwargs
+
+        if new and app_id:
+            raise RSConnectException("Specify either a new deploy or an app ID but not both.")
+
+        app_mode = default_app_mode
+        existing_app_mode = None
+        if not new:
+            if app_id is None:
+                # Possible redeployment - check for saved metadata.
+                # Use the saved app information unless overridden by the user.
+                app_id, existing_app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
+                logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
+            elif app_id is not None:
+                # Don't read app metadata if app-id is specified. Instead, we need
+                # to get this from Connect.
+                app = get_app_info(connect_server, app_id)
+                existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
+            if existing_app_mode and app_mode != existing_app_mode:
+                msg = (
+                    "Deploying with mode '%s',\n"
+                    + "but the existing deployment has mode '%s'.\n"
+                    + "Use the --new option to create a new deployment of the desired type."
+                ) % (app_mode.desc(), existing_app_mode.desc())
+                raise RSConnectException(msg)    
+        
+        self.d['app_mode'] = app_mode
+        return self
 
 
 def verify_server(connect_server):
