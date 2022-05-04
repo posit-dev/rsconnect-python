@@ -142,7 +142,7 @@ class RSConnect(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
-    def deploy(self, app_id, app_name, app_title, title_is_default, tarball, env_vars):
+    def deploy(self, app_id, app_name, app_title, title_is_default, tarball, env_vars=None):
         if app_id is None:
             # create an app if id is not provided
             app = self.app_create(app_name)
