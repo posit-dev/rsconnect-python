@@ -587,6 +587,7 @@ def _deploy_bundle(
     title_is_default,
     bundle,
     env_vars,
+    image,
 ):
     """
     Does the work of uploading a prepared bundle.
@@ -601,11 +602,13 @@ def _deploy_bundle(
     :param title_is_default: a flag noting whether the title carries a defaulted value.
     :param bundle: the bundle to deploy.
     :param env_vars: list of NAME=VALUE pairs to be set as the app environment
+    :param image: an optional docker image for off-host execution.
     """
     with cli_feedback("Uploading bundle"):
-        app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle, env_vars)
+        app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle, env_vars, image)
 
     with cli_feedback("Saving deployment data"):
+        # Note we are NOT saving image into the deployment record for now.
         app_store.set(
             connect_server.url,
             abspath(primary_path),
@@ -686,6 +689,12 @@ def _deploy_bundle(
 @click.option(
     "--hide-tagged-input", is_flag=True, default=False, help="Hide input code cells with the 'hide_input' tag"
 )
+@click.option(
+    "--image",
+    "-m",
+    help="Target content image to be used (only applicable if the "
+    "RStudio Connect server is configured to use off-host execution).",
+)
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
     "extra_files",
@@ -711,6 +720,7 @@ def deploy_notebook(
     hide_all_input,
     hide_tagged_input,
     env_vars,
+    image,
 ):
     set_verbosity(verbose)
 
@@ -718,13 +728,15 @@ def deploy_notebook(
         app_store = AppStore(file)
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         extra_files = validate_extra_files(dirname(file), extra_files)
-        (
+        (app_id, deployment_name, title, default_title, app_mode,) = gather_basic_deployment_info_for_notebook(
+            connect_server,
+            app_store,
+            file,
+            new,
             app_id,
-            deployment_name,
             title,
-            default_title,
-            app_mode,
-        ) = gather_basic_deployment_info_for_notebook(connect_server, app_store, file, new, app_id, title, static)
+            static,
+        )
 
     click.secho('    Deploying %s to server "%s"' % (file, connect_server.url))
 
@@ -760,6 +772,7 @@ def deploy_notebook(
         default_title,
         bundle,
         env_vars,
+        image,
     )
 
 
@@ -776,7 +789,19 @@ def deploy_notebook(
 @server_args
 @content_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
-def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title, verbose, file, env_vars):
+def deploy_manifest(
+    name,
+    server,
+    api_key,
+    insecure,
+    cacert,
+    new,
+    app_id,
+    title,
+    verbose,
+    file,
+    env_vars,
+):
     set_verbosity(verbose)
 
     with cli_feedback("Checking arguments"):
@@ -791,7 +816,13 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
             default_title,
             app_mode,
             package_manager,
-        ) = gather_basic_deployment_info_from_manifest(connect_server, app_store, file, new, app_id, title)
+        ) = gather_basic_deployment_info_from_manifest(
+            connect_server,
+            app_store,
+            file,
+            new,
+            app_id,
+        )
 
     click.secho('    Deploying %s to server "%s"' % (file, connect_server.url))
 
@@ -830,6 +861,7 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
         default_title,
         bundle,
         env_vars,
+        image,
     )
 
 
@@ -872,6 +904,12 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
     is_flag=True,
     help='Force generating "requirements.txt", even if it already exists.',
 )
+@click.option(
+    "--image",
+    "-m",
+    help="Target content image to be used (only applicable if the "
+    "RStudio Connect server is configured to use off-host execution).",
+)
 @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @click.argument(
     "extra_files",
@@ -895,6 +933,7 @@ def deploy_quarto(
     directory,
     extra_files,
     env_vars,
+    image,
 ):
     set_verbosity(verbose)
 
@@ -903,13 +942,14 @@ def deploy_quarto(
         app_store = AppStore(module_file)
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         extra_files = validate_extra_files(directory, extra_files)
-        (
+        (app_id, deployment_name, title, default_title, app_mode) = gather_basic_deployment_info_for_quarto(
+            connect_server,
+            app_store,
+            directory,
+            new,
             app_id,
-            deployment_name,
             title,
-            default_title,
-            app_mode,
-        ) = gather_basic_deployment_info_for_quarto(connect_server, app_store, directory, new, app_id, title)
+        )
 
     click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
 
@@ -937,6 +977,7 @@ def deploy_quarto(
 
     with cli_feedback("Creating deployment bundle"):
         bundle = create_quarto_deployment_bundle(directory, extra_files, exclude, app_mode, inspect, environment, False)
+
     _deploy_bundle(
         connect_server,
         app_store,
@@ -948,6 +989,7 @@ def deploy_quarto(
         default_title,
         bundle,
         env_vars,
+        image,
     )
 
 
@@ -974,6 +1016,12 @@ def deploy_quarto(
         "This option may be repeated."
     ),
 )
+@click.option(
+    "--image",
+    "-m",
+    help="Target content image to be used (only applicable if the "
+    "RStudio Connect server is configured to use off-host execution).",
+)
 @click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
     "extra_files",
@@ -995,6 +1043,7 @@ def deploy_html(
     entrypoint,
     extra_files,
     excludes,
+    image,
 ):
     set_verbosity(verbose)
 
@@ -1002,13 +1051,14 @@ def deploy_html(
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         app_store = AppStore(path)
 
-        (
+        (app_id, deployment_name, title, default_title, app_mode) = gather_basic_deployment_info_for_html(
+            connect_server,
+            app_store,
+            path,
+            new,
             app_id,
-            deployment_name,
             title,
-            default_title,
-            app_mode,
-        ) = gather_basic_deployment_info_for_html(connect_server, app_store, path, new, app_id, title)
+        )
 
     click.secho('    Deploying %s to server "%s"' % (path, connect_server.url))
 
@@ -1033,6 +1083,7 @@ def deploy_html(
         default_title,
         bundle,
         env_vars,
+        image,
     )
 
 
@@ -1089,6 +1140,12 @@ def generate_deploy_python(app_mode, alias, min_version):
         is_flag=True,
         help='Force generating "requirements.txt", even if it already exists.',
     )
+    @click.option(
+        "--image",
+        "-m",
+        help="Target content image to be used (only applicable if the "
+        "RStudio Connect server is configured to use off-host execution).",
+    )
     @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
     @click.argument(
         "extra_files",
@@ -1113,6 +1170,7 @@ def generate_deploy_python(app_mode, alias, min_version):
         directory,
         extra_files,
         env_vars,
+        image,
     ):
         _deploy_by_framework(
             name,
@@ -1139,6 +1197,7 @@ def generate_deploy_python(app_mode, alias, min_version):
                 AppModes.STREAMLIT_APP: gather_basic_deployment_info_for_streamlit,
                 AppModes.BOKEH_APP: gather_basic_deployment_info_for_bokeh,
             }[app_mode],
+            image,
         )
 
     return deploy_app
@@ -1172,6 +1231,7 @@ def _deploy_by_framework(
     extra_files,
     env_vars,
     gatherer,
+    image,
 ):
     """
     A common function for deploying APIs, as well as Dash, Streamlit, and Bokeh apps.
@@ -1195,6 +1255,7 @@ def _deploy_by_framework(
     :param directory: the directory of the thing to deploy.
     :param extra_files: any extra files that should be included.
     :param gatherer: the function to use to gather basic information.
+    :param image: an optional docker image for off-host execution.
     """
     set_verbosity(verbose)
 
@@ -1241,6 +1302,7 @@ def _deploy_by_framework(
         default_title,
         bundle,
         env_vars,
+        image,
     )
 
 
@@ -1309,6 +1371,12 @@ def write_manifest():
 @click.option("--hide-all-input", help="Hide all input cells when rendering output")
 @click.option("--hide-tagged-input", is_flag=True, default=None, help="Hide input code cells with the 'hide_input' tag")
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+@click.option(
+    "--image",
+    "-m",
+    help="Target content image to be used (only applicable if the "
+    "RStudio Connect server is configured to use off-host execution).",
+)
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
     "extra_files",
@@ -1316,7 +1384,16 @@ def write_manifest():
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
 def write_manifest_notebook(
-    overwrite, python, conda, force_generate, verbose, file, extra_files, hide_all_input=None, hide_tagged_input=None
+    overwrite,
+    python,
+    conda,
+    force_generate,
+    verbose,
+    file,
+    extra_files,
+    image=None,  # type: str
+    hide_all_input=None,
+    hide_tagged_input=None,
 ):
     set_verbosity(verbose)
     with cli_feedback("Checking arguments"):
@@ -1342,6 +1419,7 @@ def write_manifest_notebook(
             extra_files,
             hide_all_input,
             hide_tagged_input,
+            image,
         )
 
     if environment_file_exists and not force_generate:
@@ -1396,6 +1474,12 @@ def write_manifest_notebook(
     help='Force generating "requirements.txt", even if it already exists.',
 )
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+@click.option(
+    "--image",
+    "-m",
+    help="Target content image to be used (only applicable if the "
+    "RStudio Connect server is configured to use off-host execution).",
+)
 @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @click.argument(
     "extra_files",
@@ -1411,6 +1495,7 @@ def write_manifest_quarto(
     verbose,
     directory,
     extra_files,
+    image,
 ):
     set_verbosity(verbose)
     with cli_feedback("Checking arguments"):
@@ -1450,6 +1535,7 @@ def write_manifest_quarto(
             environment,
             extra_files,
             exclude,
+            image,
         )
 
 
@@ -1503,6 +1589,12 @@ def generate_write_manifest_python(app_mode, alias):
         help='Force generating "requirements.txt", even if it already exists.',
     )
     @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+    @click.option(
+        "--image",
+        "-m",
+        help="Target content image to be used (only applicable if the "
+        "RStudio Connect server is configured to use off-host execution).",
+    )
     @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
     @click.argument(
         "extra_files",
@@ -1519,6 +1611,7 @@ def generate_write_manifest_python(app_mode, alias):
         verbose,
         directory,
         extra_files,
+        image,
     ):
         _write_framework_manifest(
             overwrite,
@@ -1531,6 +1624,7 @@ def generate_write_manifest_python(app_mode, alias):
             directory,
             extra_files,
             app_mode,
+            image,
         )
 
     return manifest_writer
@@ -1555,6 +1649,7 @@ def _write_framework_manifest(
     directory,
     extra_files,
     app_mode,
+    image,
 ):
     """
     A common function for writing manifests for APIs as well as Dash, Streamlit, and Bokeh apps.
@@ -1571,6 +1666,7 @@ def _write_framework_manifest(
     :param directory: the directory of the thing to deploy.
     :param extra_files: any extra files that should be included.
     :param app_mode: the app mode to use.
+    :param image: an optional docker image for off-host execution.
     """
     set_verbosity(verbose)
 
@@ -1589,7 +1685,13 @@ def _write_framework_manifest(
 
     with cli_feedback("Creating manifest.json"):
         environment_file_exists = write_api_manifest_json(
-            directory, entrypoint, environment, app_mode, extra_files, exclude
+            directory,
+            entrypoint,
+            environment,
+            image,
+            app_mode,
+            extra_files,
+            exclude,
         )
 
     if environment_file_exists and not force_generate:
