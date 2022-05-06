@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import traceback
+from deprecated import deprecated
 
 try:
     import typing
@@ -181,6 +182,7 @@ def _to_server_check_list(url):
     return [item % url for item in items]
 
 
+@deprecated(reason="The API has been moved")
 def test_server(connect_server):
     """
     Test whether the given server can be reached and is running Connect.  The server
@@ -211,7 +213,7 @@ def test_server(connect_server):
     # If we're here, nothing worked.
     raise api.RSConnectException("\n".join(failures))
 
-
+@deprecated(reason="The API has been moved")
 def test_api_key(connect_server):
     """
     Test that an API Key may be used to authenticate with the given RStudio Connect server.
@@ -222,7 +224,7 @@ def test_api_key(connect_server):
     """
     return api.verify_api_key(connect_server)
 
-
+@deprecated(reason="The API has been moved")
 def gather_server_details(connect_server):
     """
     Builds a dictionary containing the version of RStudio Connect that is running
