@@ -986,7 +986,7 @@ def deploy_html(*args, **kwargs):
         rsce
         .validate_server()
         .validate_app_mode(default_app_mode=AppModes.STATIC)
-        .make_bundle()
+        .make_bundle(make_bundle_func=make_html_bundle)
         .deploy_bundle()
     )
 

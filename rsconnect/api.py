@@ -12,8 +12,6 @@ from six import text_type
 from six.moves.urllib_parse import urlparse
 from .metadata import ServerStore, AppStore
 from .actions import _to_server_check_list, _default_title, _make_deployment_name, cli_feedback
-from .bundle import make_html_bundle
-from main import _deploy_bundle
 from deprecated import deprecated
 
 
@@ -390,7 +388,7 @@ class RSConnect(HTTPServer):
 class RSConnectExecutor:
     def __init__(self, *args, **kwargs) -> None:
         print(kwargs)
-        self.d = kwargs
+        self.d = kwargs      
 
     def validate_server(self, *args, **kwargs):
         """
@@ -442,17 +440,16 @@ class RSConnectExecutor:
         if not from_store:
             _ = connect_server.test_api_key()
 
-        self.d['connect_server'] = connect_server
+        self.connect_server = connect_server
+        self.connect = RSConnect(self.connect_server)
 
         return self
 
     def make_bundle(self, *args, **kwargs):
+        make_bundle_func = kwargs['make_bundle_func']
         path = self.d['path']
         app_id = self.d['app_id']
-        connect_server = self.d['connect_server']
-        entrypoint = self.d['entrypoint']
-        extra_files = self.d['extra_files']
-        excludes = self.d['excludes']
+        connect_server = self.connect_server        
         title = self.d['title']
 
         self.d['app_store'] = AppStore(path)
@@ -462,7 +459,7 @@ class RSConnectExecutor:
 
         with cli_feedback("Creating deployment bundle"):
             try:
-                bundle = make_html_bundle(path, entrypoint, extra_files, excludes)
+                bundle = make_bundle_func(self.d)
             except IOError as error:
                 msg = "Unable to include the file %s in the bundle: %s" % (
                     error.filename,
@@ -475,8 +472,8 @@ class RSConnectExecutor:
         return self
 
     def deploy_bundle(self, *args, **kwargs):        
-        _deploy_bundle(
-            self.d['connect_server'],
+        do_bundle_deploy(
+            self.connect_server,
             self.d['app_store'],
             self.d['path'],
             self.d['app_id'],
@@ -494,12 +491,12 @@ class RSConnectExecutor:
         pass
 
     def validate_app_mode(self, *args, **kwargs):
+        self.d | kwargs
         connect_server = self.d['connect_server']
         app_store = self.d['app_store']
         new = self.d['new']
         app_id = self.d['app_id']
         default_app_mode = kwargs['default_app_mode']
-        self.d | kwargs
 
         if new and app_id:
             raise RSConnectException("Specify either a new deploy or an app ID but not both.")
