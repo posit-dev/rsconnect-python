@@ -55,118 +55,6 @@ class RSConnectServer(object):
                         % (response.status, response.reason)
                     )
 
-    def verify_server(self):
-        """
-        Verify that the given server information represents a Connect instance that is
-        reachable, active and appears to be actually running RStudio Connect.  If the
-        check is successful, the server settings for the Connect server is returned.
-
-        :return: the server settings from the Connect server.
-        """
-        uri = urlparse(self.url)
-        if not uri.netloc:
-            raise RSConnectException('Invalid server URL: "%s"' % self.url)
-
-        try:
-            with RSConnect(self) as client:
-                result = client.server_settings()
-                self.handle_bad_response(result)
-                return result
-        except SSLError as ssl_error:
-            raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
-
-
-    def verify_api_key(self):
-        """
-        Verify that an API Key may be used to authenticate with the given RStudio Connect server.
-        If the API key verifies, we return the username of the associated user.
-
-        :return: the username of the user to whom the API key belongs.
-        """
-        with RSConnect(self) as client:
-            result = client.me()
-            if isinstance(result, HTTPResponse):
-                if result.json_data and "code" in result.json_data and result.json_data["code"] == 30:
-                    raise RSConnectException("The specified API key is not valid.")
-                raise RSConnectException("Could not verify the API key: %s %s" % (result.status, result.reason))
-            return result["username"]
-
-
-    def get_python_info(self):
-        """
-        Return information about versions of Python that are installed on the indicated
-        Connect server.
-
-        :return: the Python installation information from Connect.
-        """
-        with RSConnect(self) as client:
-            result = client.python_settings()
-            self.handle_bad_response(result)
-            return result
-            
-    def test_server(self):
-        """
-        Test whether the given server can be reached and is running Connect.  The server
-        may be provided with or without a scheme.  If a scheme is omitted, the server will
-        be tested with both `https` and `http` until one of them works.
-
-        :param connect_server: the Connect server information.
-        :return: a second server object with any scheme expansions applied and the server
-        settings from the server.
-        """
-        failures = []
-        for test in _to_server_check_list(self.url):
-            try:
-                result = self.verify_server()
-                return self, result
-            except RSConnectException as exc:
-                failures.append("    %s - failed to verify as RStudio Connect (%s)." % (test, str(exc)))
-
-        # In case the user may need https instead of http...
-        if len(failures) == 1 and self.url.startswith("http://"):
-            failures.append('    Do you need to use "https://%s"?' % self.url[7:])
-
-        # If we're here, nothing worked.
-        raise RSConnectException("\n".join(failures))
-
-
-    def test_api_key(self):
-        """
-        Test that an API Key may be used to authenticate with the given RStudio Connect server.
-        If the API key verifies, we return the username of the associated user.
-
-        :return: the username of the user to whom the API key belongs.
-        """
-        return self.verify_api_key()
-
-
-    def gather_server_details(self):
-        """
-        Builds a dictionary containing the version of RStudio Connect that is running
-        and the versions of Python installed there.
-
-        :return: a three-entry dictionary.  The key 'connect' will refer to the version
-        of Connect that was found.  The key `python` will refer to a sequence of version
-        strings for all the versions of Python that are installed.  The key `conda` will
-        refer to data about whether Connect is configured to support Conda environments.
-        """
-
-        def _to_sort_key(text):
-            parts = [part.zfill(5) for part in text.split(".")]
-            return "".join(parts)
-
-        server_settings = self.verify_server()
-        python_settings = self.get_python_info()
-        python_versions = sorted([item["version"] for item in python_settings["installations"]], key=_to_sort_key)
-        conda_settings = {"supported": python_settings["conda_enabled"] if "conda_enabled" in python_settings else False}
-        return {
-            "connect": server_settings["version"],
-            "python": {
-                "api_enabled": python_settings["api_enabled"] if "api_enabled" in python_settings else False,
-                "versions": python_versions,
-            },
-            "conda": conda_settings,
-        }
 
 class RSConnect(HTTPServer):
     def __init__(self, server, cookies=None, timeout=30):
@@ -454,7 +342,7 @@ class RSConnectExecutor:
 
         # If our info came from the command line, make sure the key really works.
         if not from_store:
-            _ = connect_server.test_api_key()
+            _ = self.verify_api_key()
 
         self.connect_server = connect_server
         self.connect = RSConnect(self.connect_server)
@@ -543,6 +431,110 @@ class RSConnectExecutor:
         
         d['app_mode'] = app_mode
         return self
+
+    def verify_server(self):
+        """
+        Verify that the given server information represents a Connect instance that is
+        reachable, active and appears to be actually running RStudio Connect.  If the
+        check is successful, the server settings for the Connect server is returned.
+
+        :return: the server settings from the Connect server.
+        """
+        uri = urlparse(self.url)
+        if not uri.netloc:
+            raise RSConnectException('Invalid server URL: "%s"' % self.url)
+
+        try:
+            with RSConnect(self.connect_server) as client:
+                result = client.server_settings()
+                self.handle_bad_response(result)
+                return result
+        except SSLError as ssl_error:
+            raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
+
+
+    def verify_api_key(self):
+        """
+        Verify that an API Key may be used to authenticate with the given RStudio Connect server.
+        If the API key verifies, we return the username of the associated user.
+
+        :return: the username of the user to whom the API key belongs.
+        """
+        with RSConnect(self.connect_server) as client:
+            result = client.me()
+            if isinstance(result, HTTPResponse):
+                if result.json_data and "code" in result.json_data and result.json_data["code"] == 30:
+                    raise RSConnectException("The specified API key is not valid.")
+                raise RSConnectException("Could not verify the API key: %s %s" % (result.status, result.reason))
+            return result["username"]
+
+    @property
+    def python_info(self):
+        """
+        Return information about versions of Python that are installed on the indicated
+        Connect server.
+
+        :return: the Python installation information from Connect.
+        """
+        with RSConnect(self.connect_server) as client:
+            result = client.python_settings()
+            self.handle_bad_response(result)
+            return result
+
+
+    def test_server(self):
+        """
+        Test whether the given server can be reached and is running Connect.  The server
+        may be provided with or without a scheme.  If a scheme is omitted, the server will
+        be tested with both `https` and `http` until one of them works.
+
+        :param connect_server: the Connect server information.
+        :return: a second server object with any scheme expansions applied and the server
+        settings from the server.
+        """
+        failures = []
+        for test in _to_server_check_list(self.url):
+            try:
+                result = self.verify_server()
+                return self, result
+            except RSConnectException as exc:
+                failures.append("    %s - failed to verify as RStudio Connect (%s)." % (test, str(exc)))
+
+        # In case the user may need https instead of http...
+        if len(failures) == 1 and self.url.startswith("http://"):
+            failures.append('    Do you need to use "https://%s"?' % self.url[7:])
+
+        # If we're here, nothing worked.
+        raise RSConnectException("\n".join(failures))
+
+    @property
+    def server_details(self):
+        """
+        Builds a dictionary containing the version of RStudio Connect that is running
+        and the versions of Python installed there.
+
+        :return: a three-entry dictionary.  The key 'connect' will refer to the version
+        of Connect that was found.  The key `python` will refer to a sequence of version
+        strings for all the versions of Python that are installed.  The key `conda` will
+        refer to data about whether Connect is configured to support Conda environments.
+        """
+
+        def _to_sort_key(text):
+            parts = [part.zfill(5) for part in text.split(".")]
+            return "".join(parts)
+
+        server_settings = self.verify_server()
+        python_settings = self.get_python_info()
+        python_versions = sorted([item["version"] for item in python_settings["installations"]], key=_to_sort_key)
+        conda_settings = {"supported": python_settings["conda_enabled"] if "conda_enabled" in python_settings else False}
+        return {
+            "connect": server_settings["version"],
+            "python": {
+                "api_enabled": python_settings["api_enabled"] if "api_enabled" in python_settings else False,
+                "versions": python_versions,
+            },
+            "conda": conda_settings,
+        }
 
 @deprecated(reason="The API has been moved")
 def verify_server(connect_server):
