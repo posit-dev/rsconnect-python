@@ -388,7 +388,22 @@ class RSConnect(HTTPServer):
 class RSConnectExecutor:
     def __init__(self, *args, **kwargs) -> None:
         print(kwargs)
-        self.d = kwargs      
+        self.reset()
+        self.state = kwargs
+
+    def reset(self):
+        self._d = None
+        self.connect_server = None
+        self.connect = None
+        return self
+    
+    @property
+    def state(self):
+        return self._d
+
+    @state.setter
+    def state(self, **kwargs):
+        self._d = kwargs
 
     def validate_server(self, *args, **kwargs):
         """
@@ -402,12 +417,13 @@ class RSConnectExecutor:
         :param api_key_is_required: a flag that notes whether the API key is required or may
         be omitted.
         """
-        name = self.d['name']
-        url = self.d['url']
-        api_key = self.d['api_key']
-        insecure = self.d['insecure']
-        ca_cert = self.d['ca_cert']
-        api_key_is_required = self.d['api_key_is_required']
+        d = self.state
+        name = d['name']
+        url = d['url']
+        api_key = d['api_key']
+        insecure = d['insecure']
+        ca_cert = d['ca_cert']
+        api_key_is_required = d['api_key_is_required']
 
         server_store = ServerStore()
         
@@ -447,19 +463,20 @@ class RSConnectExecutor:
 
     def make_bundle(self, *args, **kwargs):
         make_bundle_func = kwargs['make_bundle_func']
-        path = self.d['path']
-        app_id = self.d['app_id']
+        d = self.state
+        path = d['path']
+        app_id = d['app_id']
         connect_server = self.connect_server        
-        title = self.d['title']
+        title = d['title']
 
-        self.d['app_store'] = AppStore(path)
-        self.d['default_title'] = not bool(title)
-        self.d['title'] = title or _default_title(path)
-        self.d['deployment_name'] = _make_deployment_name(connect_server, self.d['title'], app_id is None)
+        d['app_store'] = AppStore(path)
+        d['default_title'] = not bool(title)
+        d['title'] = title or _default_title(path)
+        d['deployment_name'] = _make_deployment_name(connect_server, d['title'], app_id is None)
 
         with cli_feedback("Creating deployment bundle"):
             try:
-                bundle = make_bundle_func(self.d)
+                bundle = make_bundle_func(d)
             except IOError as error:
                 msg = "Unable to include the file %s in the bundle: %s" % (
                     error.filename,
@@ -467,22 +484,23 @@ class RSConnectExecutor:
                 )
                 raise RSConnectException(msg)
         
-        self.d['bundle'] = bundle
+        d['bundle'] = bundle
 
         return self
 
-    def deploy_bundle(self, *args, **kwargs):        
+    def deploy_bundle(self, *args, **kwargs):   
+        d = self.state     
         do_bundle_deploy(
             self.connect_server,
-            self.d['app_store'],
-            self.d['path'],
-            self.d['app_id'],
-            self.d['app_mode'],
-            self.d['deployment_name'],
-            self.d['title'],
-            self.d['default_title'],
-            self.d['bundle'],
-            self.d['env_vars'],
+            d['app_store'],
+            d['path'],
+            d['app_id'],
+            d['app_mode'],
+            d['deployment_name'],
+            d['title'],
+            d['default_title'],
+            d['bundle'],
+            d['env_vars'],
         )
 
         return self
@@ -491,11 +509,12 @@ class RSConnectExecutor:
         pass
 
     def validate_app_mode(self, *args, **kwargs):
-        self.d | kwargs
-        connect_server = self.d['connect_server']
-        app_store = self.d['app_store']
-        new = self.d['new']
-        app_id = self.d['app_id']
+        d = self.state
+        d['default_app_mode'] = kwargs['default_app_mode'] if 'default_app_mode' in kwargs else None
+        connect_server = d['connect_server']
+        app_store = d['app_store']
+        new = d['new']
+        app_id = d['app_id']
         default_app_mode = kwargs['default_app_mode']
 
         if new and app_id:
@@ -522,7 +541,7 @@ class RSConnectExecutor:
                 ) % (app_mode.desc(), existing_app_mode.desc())
                 raise RSConnectException(msg)    
         
-        self.d['app_mode'] = app_mode
+        d['app_mode'] = app_mode
         return self
 
 @deprecated(reason="The API has been moved")
