@@ -373,21 +373,6 @@ class TestBundle(TestCase):
         # extra_files=None,  # type: typing.Optional[typing.List[str]]
         # excludes=None,  # type: typing.Optional[typing.List[str]]
 
-        # Files used within this test
-        fp = open(join(temp, "requirements.txt"), "w")
-        fp.write("dash\n")
-        fp.write("pandas\n")
-        fp.close()
-        fp = open(join(temp, "a"), "w")
-        fp.write("This is file a\n")
-        fp.close()
-        fp = open(join(temp, "b"), "w")
-        fp.write("This is file b\n")
-        fp.close()
-        fp = open(join(temp, "c"), "w")
-        fp.write("This is file c\n")
-        fp.close()
-
         # No optional parameters
         manifest, _ = make_quarto_manifest(
             temp,
@@ -430,6 +415,12 @@ class TestBundle(TestCase):
             },
         )
 
+        # Files used within this test
+        fp = open(join(temp, "requirements.txt"), "w")
+        fp.write("dash\n")
+        fp.write("pandas\n")
+        fp.close()
+
         # include environment parameter
         manifest, _ = make_quarto_manifest(
             temp,
@@ -467,6 +458,15 @@ class TestBundle(TestCase):
         )
 
         # include extra_files parameter
+        fp = open(join(temp, "a"), "w")
+        fp.write("This is file a\n")
+        fp.close()
+        fp = open(join(temp, "b"), "w")
+        fp.write("This is file b\n")
+        fp.close()
+        fp = open(join(temp, "c"), "w")
+        fp.write("This is file c\n")
+        fp.close()
         manifest, _ = make_quarto_manifest(
             temp,
             {
@@ -523,7 +523,7 @@ class TestBundle(TestCase):
         # image=None,  # type: str
 
         # No optional parameters
-        manifest = make_html_manifest("abc.html")
+        manifest = make_html_manifest("abc.html", None)
         print(f"{manifest}")
         self.assertEqual(
             manifest,

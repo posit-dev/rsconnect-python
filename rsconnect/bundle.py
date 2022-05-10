@@ -178,7 +178,9 @@ def bundle_add_buffer(bundle, filename, contents):
     bundle.addfile(file_info, buf)
 
 
-def write_manifest(relative_dir, nb_name, environment, output_dir, hide_all_input=False, hide_tagged_input=False):
+def write_manifest(
+    relative_dir, nb_name, environment, output_dir, hide_all_input=False, hide_tagged_input=False, image=None
+):
     # type: (...) -> typing.Tuple[list, list]
     """Create a manifest for source publishing the specified notebook.
 
@@ -188,7 +190,7 @@ def write_manifest(relative_dir, nb_name, environment, output_dir, hide_all_inpu
     Returns the list of filenames written.
     """
     manifest_filename = "manifest.json"
-    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, environment, nb_name)
+    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, image, environment, nb_name)
     if hide_all_input:
         if "jupyter" not in manifest:
             manifest["jupyter"] = {}
@@ -342,7 +344,7 @@ def make_quarto_source_bundle(
 
 def make_html_manifest(
     filename,
-    image=None,
+    image,
 ):
     # type: (str, str) -> dict
     # noinspection SpellCheckingInspection
@@ -807,7 +809,7 @@ def _create_quarto_file_list(
 
 def make_quarto_manifest(
     directory,  # type: str
-    inspect,  # type: typing.Dict[str, typing.Any]
+    quarto_inspection,  # type: typing.Dict[str, typing.Any]
     app_mode,  # type: AppMode
     image=None,  # type: str
     environment=None,  # type: typing.Optional[Environment]
@@ -819,7 +821,7 @@ def make_quarto_manifest(
     Makes a manifest for a Quarto project.
 
     :param directory: The directory containing the Quarto project.
-    :param inspect: The parsed JSON from a 'quarto inspect' against the project.
+    :param quarto_inspection: The parsed JSON from a 'quarto inspect' against the project.
     :param app_mode: The application mode to assume.
     :param image: an optional docker image for off-host execution.
     :param environment: The (optional) Python environment to use.
@@ -832,7 +834,7 @@ def make_quarto_manifest(
 
     excludes = list(excludes or []) + [".quarto"]
 
-    project_config = inspect.get("config", {}).get("project", {})
+    project_config = quarto_inspection.get("config", {}).get("project", {})
     output_dir = project_config.get("output-dir", None)
     if output_dir:
         excludes = excludes + [output_dir]
@@ -848,8 +850,9 @@ def make_quarto_manifest(
     manifest = make_source_manifest(
         app_mode,
         image,
-        environment=environment,
-        quarto_inspection=inspect,
+        environment,
+        None,
+        quarto_inspection,
     )
 
     for rel_path in relevant_files:

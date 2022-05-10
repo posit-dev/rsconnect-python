@@ -1650,7 +1650,7 @@ def write_notebook_manifest_json(
     extra_files,
     hide_all_input,
     hide_tagged_input,
-    image=None,  # type: str
+    image=None,  # type: typing.Optional[str]
 ):
     """
     Creates and writes a manifest.json file for the given entry point file.  If

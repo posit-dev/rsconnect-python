@@ -587,7 +587,6 @@ def _deploy_bundle(
     title_is_default,
     bundle,
     env_vars,
-    image,
 ):
     """
     Does the work of uploading a prepared bundle.
@@ -605,7 +604,7 @@ def _deploy_bundle(
     :param image: an optional docker image for off-host execution.
     """
     with cli_feedback("Uploading bundle"):
-        app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle, env_vars, image)
+        app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle, env_vars)
 
     with cli_feedback("Saving deployment data"):
         # Note we are NOT saving image into the deployment record for now.
@@ -759,7 +758,7 @@ def deploy_notebook(
 
     with cli_feedback("Creating deployment bundle"):
         bundle = create_notebook_deployment_bundle(
-            file, extra_files, app_mode, python, environment, False, hide_all_input, hide_tagged_input
+            file, extra_files, app_mode, python, environment, image, False, hide_all_input, hide_tagged_input
         )
     _deploy_bundle(
         connect_server,
@@ -772,7 +771,6 @@ def deploy_notebook(
         default_title,
         bundle,
         env_vars,
-        image,
     )
 
 
@@ -816,12 +814,14 @@ def deploy_manifest(
             default_title,
             app_mode,
             package_manager,
+            _,
         ) = gather_basic_deployment_info_from_manifest(
             connect_server,
             app_store,
             file,
             new,
             app_id,
+            title,
         )
 
     click.secho('    Deploying %s to server "%s"' % (file, connect_server.url))
@@ -861,7 +861,6 @@ def deploy_manifest(
         default_title,
         bundle,
         env_vars,
-        image,
     )
 
 
@@ -976,7 +975,9 @@ def deploy_quarto(
                 _warn_on_ignored_requirements(directory, environment.filename)
 
     with cli_feedback("Creating deployment bundle"):
-        bundle = create_quarto_deployment_bundle(directory, extra_files, exclude, app_mode, inspect, environment, False)
+        bundle = create_quarto_deployment_bundle(
+            directory, extra_files, exclude, app_mode, inspect, environment, image, False
+        )
 
     _deploy_bundle(
         connect_server,
@@ -989,7 +990,6 @@ def deploy_quarto(
         default_title,
         bundle,
         env_vars,
-        image,
     )
 
 
@@ -1064,7 +1064,7 @@ def deploy_html(
 
     with cli_feedback("Creating deployment bundle"):
         try:
-            bundle = make_html_bundle(path, entrypoint, extra_files, excludes)
+            bundle = make_html_bundle(path, entrypoint, image, extra_files, excludes)
         except IOError as error:
             msg = "Unable to include the file %s in the bundle: %s" % (
                 error.filename,
@@ -1083,7 +1083,6 @@ def deploy_html(
         default_title,
         bundle,
         env_vars,
-        image,
     )
 
 
@@ -1289,7 +1288,9 @@ def _deploy_by_framework(
         _warn_on_ignored_requirements(directory, environment.filename)
 
     with cli_feedback("Creating deployment bundle"):
-        bundle = create_api_deployment_bundle(directory, extra_files, exclude, entrypoint, app_mode, environment, False)
+        bundle = create_api_deployment_bundle(
+            directory, extra_files, exclude, entrypoint, app_mode, environment, image, False
+        )
 
     _deploy_bundle(
         connect_server,
@@ -1302,7 +1303,6 @@ def _deploy_by_framework(
         default_title,
         bundle,
         env_vars,
-        image,
     )
 
 
