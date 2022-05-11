@@ -336,7 +336,7 @@ class TestBundle(TestCase):
             AppModes.PYTHON_API,
             entrypoint="main.py",
         )
-        print(f"{manifest}")
+        # print(manifest)
         self.assertEqual(
             manifest,
             {"version": 1, "metadata": {"appmode": "python-api", "entrypoint": "main.py"}, "files": {}},
@@ -351,7 +351,7 @@ class TestBundle(TestCase):
                 "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
             },
         )
-        print(f"{manifest}")
+        # print(manifest)
         self.assertEqual(
             manifest,
             {
@@ -524,7 +524,7 @@ class TestBundle(TestCase):
 
         # No optional parameters
         manifest = make_html_manifest("abc.html", None)
-        print(f"{manifest}")
+        # print(manifest)
         self.assertEqual(
             manifest,
             {
@@ -538,7 +538,7 @@ class TestBundle(TestCase):
 
         # include image parameter
         manifest = make_html_manifest("abc.html", image="rstudio/connect:bionic")
-        print(f"{manifest}")
+        # print(manifest)
         self.assertEqual(
             manifest,
             {
