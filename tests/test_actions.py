@@ -220,85 +220,13 @@ class TestActions(TestCase):
         directory = get_api_path("flask")
         server = RSConnectServer("https://www.bogus.com", "bogus")
         with self.assertRaises(RSConnectException):
-            deploy_python_api(server, directory, [], [], "bogus")
-
-    def test_deploy_dash_app_signature(self):
-        self.assertEqual(
-            str(signature(deploy_dash_app)),
-            "({})".format(
-                ", ".join(
-                    [
-                        "connect_server",
-                        "directory",
-                        "extra_files",
-                        "excludes",
-                        "entry_point",
-                        "image=None",
-                        "new=False",
-                        "app_id=None",
-                        "title=None",
-                        "python=None",
-                        "conda_mode=False",
-                        "force_generate=False",
-                        "log_callback=None",
-                    ]
-                )
-            ),
-        )
+            deploy_python_api(server, directory, [], [], "bogus", None, False, None, None, None, False, False, None)
 
     def test_deploy_dash_app_docs(self):
         self.assertTrue("Dash app" in deploy_dash_app.__doc__)
 
-    def test_deploy_streamlit_app_signature(self):
-        self.assertEqual(
-            str(signature(deploy_streamlit_app)),
-            "({})".format(
-                ", ".join(
-                    [
-                        "connect_server",
-                        "directory",
-                        "extra_files",
-                        "excludes",
-                        "entry_point",
-                        "image=None",
-                        "new=False",
-                        "app_id=None",
-                        "title=None",
-                        "python=None",
-                        "conda_mode=False",
-                        "force_generate=False",
-                        "log_callback=None",
-                    ]
-                )
-            ),
-        )
-
     def test_deploy_streamlit_app_docs(self):
         self.assertTrue("Streamlit app" in deploy_streamlit_app.__doc__)
-
-    def test_deploy_bokeh_app_signature(self):
-        self.assertEqual(
-            str(signature(deploy_bokeh_app)),
-            "({})".format(
-                ", ".join(
-                    [
-                        "connect_server",
-                        "directory",
-                        "extra_files",
-                        "excludes",
-                        "entry_point",
-                        "image=None",
-                        "new=False",
-                        "app_id=None",
-                        "title=None",
-                        "python=None",
-                        "conda_mode=False",
-                        "force_generate=False",
-                        "log_callback=None",
-                    ]
-                )
-            ),
-        )
 
     def test_deploy_bokeh_app_docs(self):
         self.assertTrue("Bokeh app" in deploy_bokeh_app.__doc__)
@@ -314,17 +242,17 @@ class TestActions(TestCase):
     def test_create_notebook_deployment_bundle_validates(self):
         file_name = get_dir(join("pip1", "requirements.txt"))
         with self.assertRaises(RSConnectException):
-            create_notebook_deployment_bundle(file_name, [], None, None, None)
+            create_notebook_deployment_bundle(file_name, [], None, None, None, None, True, False, False)
         file_name = get_dir(join("pip1", "dummy.ipynb"))
         with self.assertRaises(RSConnectException):
-            create_notebook_deployment_bundle(file_name, ["bogus"], None, None, None)
+            create_notebook_deployment_bundle(file_name, ["bogus"], None, None, None, None, True, False, False)
 
     def test_create_api_deployment_bundle_validates(self):
         directory = get_api_path("flask")
         with self.assertRaises(RSConnectException):
-            create_api_deployment_bundle(directory, [], [], "bogus:bogus:bogus", None, None)
+            create_api_deployment_bundle(directory, [], [], "bogus:bogus:bogus", None, None, None, None)
         with self.assertRaises(RSConnectException):
-            create_api_deployment_bundle(directory, ["bogus"], [], "app:app", None, None)
+            create_api_deployment_bundle(directory, ["bogus"], [], "app:app", MakeEnvironment(), None, None, True)
 
     def test_inspect_environment(self):
         environment = inspect_environment(sys.executable, get_dir("pip1"))

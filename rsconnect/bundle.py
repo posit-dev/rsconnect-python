@@ -43,13 +43,12 @@ directories_to_ignore = [
 
 # noinspection SpellCheckingInspection
 def make_source_manifest(
-    app_mode,  # type: AppMode
-    image=None,  # type: str
-    environment=None,  # type: typing.Optional[Environment]
-    entrypoint=None,  # type: typing.Optional[str]
-    quarto_inspection=None,  # type: typing.Optional[typing.Dict[str, typing.Any]]
-):
-    # type: (...) -> typing.Dict[str, typing.Any]
+    app_mode: AppMode,
+    image: str,
+    environment: Environment,
+    entrypoint: str,
+    quarto_inspection: typing.Dict[str, typing.Any],
+) -> typing.Dict[str, typing.Any]:
 
     manifest = {
         "version": 1,
@@ -179,9 +178,14 @@ def bundle_add_buffer(bundle, filename, contents):
 
 
 def write_manifest(
-    relative_dir, nb_name, environment, output_dir, hide_all_input=False, hide_tagged_input=False, image=None
-):
-    # type: (...) -> typing.Tuple[list, list]
+    relative_dir: str,
+    nb_name: str,
+    environment: Environment,
+    output_dir: str,
+    hide_all_input: bool,
+    hide_tagged_input: bool,
+    image: str,
+) -> typing.Tuple[list, list]:
     """Create a manifest for source publishing the specified notebook.
 
     The manifest will be written to `manifest.json` in the output directory..
@@ -190,7 +194,7 @@ def write_manifest(
     Returns the list of filenames written.
     """
     manifest_filename = "manifest.json"
-    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, image, environment, nb_name)
+    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, image, environment, nb_name, None)
     if hide_all_input:
         if "jupyter" not in manifest:
             manifest["jupyter"] = {}
@@ -253,14 +257,13 @@ def list_files(base_dir, include_sub_dirs, walk=os.walk):
 
 
 def make_notebook_source_bundle(
-    file,  # type: str
-    environment,  # type: Environment
-    image=None,  # type: str
-    extra_files=None,  # type:  typing.Optional[typing.List[str]]
-    hide_all_input=False,
-    hide_tagged_input=False,
-):
-    # type: (...) -> typing.IO[bytes]
+    file: str,
+    environment: Environment,
+    image: str,
+    extra_files: typing.List[str],
+    hide_all_input: bool,
+    hide_tagged_input: bool,
+) -> typing.IO[bytes]:
     """Create a bundle containing the specified notebook and python environment.
 
     Returns a file-like object containing the bundle tarball.
@@ -270,7 +273,7 @@ def make_notebook_source_bundle(
     base_dir = dirname(file)
     nb_name = basename(file)
 
-    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, image, environment, nb_name)
+    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, image, environment, nb_name, None)
     if hide_all_input:
         if "jupyter" not in manifest:
             manifest["jupyter"] = {}
@@ -308,15 +311,14 @@ def make_notebook_source_bundle(
 
 #
 def make_quarto_source_bundle(
-    directory,  # type: str
-    inspect,  # type: typing.Dict[str, typing.Any]
-    app_mode,  # type: AppMode
-    image=None,  # type: str
-    environment=None,  # type: Environment
-    extra_files=None,  # type:  typing.Optional[typing.List[str]]
-    excludes=None,  # type: typing.Optional[typing.List[str]]
-):
-    # type: (...) -> typing.IO[bytes]
+    directory: str,
+    inspect: typing.Dict[str, typing.Any],
+    app_mode: AppMode,
+    image: str,
+    environment: Environment,
+    extra_files: typing.List[str],
+    excludes: typing.List[str],
+) -> typing.IO[bytes]:
     """
     Create a bundle containing the specified Quarto content and (optional)
     python environment.
@@ -343,10 +345,9 @@ def make_quarto_source_bundle(
 
 
 def make_html_manifest(
-    filename,
-    image,
-):
-    # type: (str, str) -> dict
+    filename: str,
+    image: str,
+) -> typing.Dict[str, typing.Any]:
     # noinspection SpellCheckingInspection
     manifest = {
         "version": 1,
@@ -363,15 +364,17 @@ def make_html_manifest(
 
 
 def make_notebook_html_bundle(
-    filename,  # type: str
-    python,  # type: str
-    image=None,  # type: str
-    hide_all_input=False,
-    hide_tagged_input=False,
-    check_output=subprocess.check_output,  # type: typing.Callable
-):
-    # type: (...) -> typing.IO[bytes]
+    filename: str,
+    python: str,
+    image: str,
+    hide_all_input: bool,
+    hide_tagged_input: bool,
+    check_output: typing.Callable,  # used to default to subprocess.check_output
+) -> typing.IO[bytes]:
     # noinspection SpellCheckingInspection
+    if check_output is None:
+        check_output = subprocess.check_output
+
     cmd = [
         python,
         "-m",
@@ -562,15 +565,14 @@ def _create_api_file_list(
 
 
 def make_api_manifest(
-    directory,  # type: str
-    entry_point,  # type: str
-    app_mode,  # type: AppMode
-    environment,  # type: Environment
-    image=None,  # type: str
-    extra_files=None,  # type: typing.Optional[typing.List[str]]
-    excludes=None,  # type: typing.Optional[typing.List[str]]
-):
-    # type: (...) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]
+    directory: str,
+    entry_point: str,
+    app_mode: AppMode,
+    environment: Environment,
+    image: str,
+    extra_files: typing.List[str],
+    excludes: typing.List[str],
+) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]:
     """
     Makes a manifest for an API.
 
@@ -587,7 +589,7 @@ def make_api_manifest(
         excludes = list(excludes or []) + ["bin/", "lib/"]
 
     relevant_files = _create_api_file_list(directory, environment.filename, extra_files, excludes)
-    manifest = make_source_manifest(app_mode, image, environment, entry_point)
+    manifest = make_source_manifest(app_mode, image, environment, entry_point, None)
 
     manifest_add_buffer(manifest, environment.filename, environment.contents)
 
@@ -598,13 +600,12 @@ def make_api_manifest(
 
 
 def make_html_bundle_content(
-    path,  # type: str
-    entrypoint,  # type: str
-    image=None,  # type: str
-    extra_files=None,  # type: typing.Optional[typing.List[str]]
-    excludes=None,  # type: typing.Optional[typing.List[str]]
-):
-    # type: (...) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]
+    path: str,
+    entrypoint: str,
+    image: str,
+    extra_files: typing.List[str],
+    excludes: typing.List[str],
+) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]:
     """
     Makes a manifest for static html deployment.
 
@@ -689,13 +690,12 @@ def infer_entrypoint(path, mimetype):
 
 
 def make_html_bundle(
-    path,  # type: str
-    entry_point,  # type: str
-    image=None,  # type: str
-    extra_files=None,  # type: typing.Optional[typing.List[str]]
-    excludes=None,  # type: typing.Optional[typing.List[str]]
-):
-    # type: (...) -> typing.IO[bytes]
+    path: str,
+    entry_point: str,
+    image: str,
+    extra_files: typing.List[str],
+    excludes: typing.List[str],
+) -> typing.IO[bytes]:
     """
     Create an html bundle, given a path and a manifest.
 
@@ -722,15 +722,14 @@ def make_html_bundle(
 
 
 def make_api_bundle(
-    directory,  # type: str
-    entry_point,  # type: str
-    app_mode,  # type: AppMode
-    environment,  # type: Environment
-    image=None,  # type: str
-    extra_files=None,  # type: typing.Optional[typing.List[str]]
-    excludes=None,  # type: typing.Optional[typing.List[str]]
-):
-    # type: (...) -> typing.IO[bytes]
+    directory: str,
+    entry_point: str,
+    app_mode: AppMode,
+    environment: Environment,
+    image: str,
+    extra_files: typing.List[str],
+    excludes: typing.List[str],
+) -> typing.IO[bytes]:
     """
     Create an API bundle, given a directory path and a manifest.
 
@@ -762,11 +761,10 @@ def make_api_bundle(
 
 
 def _create_quarto_file_list(
-    directory,  # type: str
-    extra_files=None,  # type: typing.Optional[typing.List[str]]
-    excludes=None,  # type: typing.Optional[typing.List[str]]
-):
-    # type: (...) -> typing.List[str]
+    directory: str,
+    extra_files: typing.List[str],
+    excludes: typing.List[str],
+) -> typing.List[str]:
     """
     Builds a full list of files under the given directory that should be included
     in a manifest or bundle.  Extra files and excludes are relative to the given
@@ -808,15 +806,14 @@ def _create_quarto_file_list(
 
 
 def make_quarto_manifest(
-    directory,  # type: str
-    quarto_inspection,  # type: typing.Dict[str, typing.Any]
-    app_mode,  # type: AppMode
-    image=None,  # type: str
-    environment=None,  # type: typing.Optional[Environment]
-    extra_files=None,  # type: typing.Optional[typing.List[str]]
-    excludes=None,  # type: typing.Optional[typing.List[str]]
-):
-    # type: (...) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]
+    directory: str,
+    quarto_inspection: typing.Dict[str, typing.Any],
+    app_mode: AppMode,
+    image: str,
+    environment: Environment,
+    extra_files: typing.List[str],
+    excludes: typing.List[str],
+) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]:
     """
     Makes a manifest for a Quarto project.
 

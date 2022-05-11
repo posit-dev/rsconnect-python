@@ -3,6 +3,7 @@ import functools
 import json
 import os
 import sys
+import typing
 import textwrap
 from os.path import abspath, dirname, exists, isdir, join
 
@@ -788,17 +789,17 @@ def deploy_notebook(
 @content_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 def deploy_manifest(
-    name,
-    server,
-    api_key,
-    insecure,
-    cacert,
-    new,
-    app_id,
-    title,
-    verbose,
-    file,
-    env_vars,
+    name: str,
+    server: str,
+    api_key: str,
+    insecure: bool,
+    cacert: str,
+    new: bool,
+    app_id: int,
+    title: str,
+    verbose: bool,
+    file: str,
+    env_vars: typing.Dict[str, str],
 ):
     set_verbosity(verbose)
 
