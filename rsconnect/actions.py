@@ -325,6 +325,8 @@ def _make_deployment_name(connect_server, title, force_unique):
     unique.
     :return: a name for a deployment based on its title.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
+
     # First, Generate a default name from the given title.
     name = _name_sub_pattern.sub("", title.lower()).replace(" ", "_")
     name = _repeating_sub_pattern.sub("_", name)[:64].rjust(3, "_")

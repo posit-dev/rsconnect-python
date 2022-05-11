@@ -11,7 +11,8 @@ from .models import AppModes
 from six import text_type
 from six.moves.urllib_parse import urlparse
 from .metadata import ServerStore, AppStore
-from .actions import _to_server_check_list, _default_title, _make_deployment_name, cli_feedback
+from .actions import _to_server_check_list, _default_title, cli_feedback
+import re
 from warnings import warn
 
 
@@ -355,13 +356,12 @@ class RSConnectExecutor:
         path = self.get("path", **kwargs)
         app_id = self.get("app_id", **kwargs)
         title = self.get("title", **kwargs)
-        connect_server = self.connect_server
 
         d = self.state
         d["app_store"] = AppStore(path)
         d["default_title"] = not bool(title)
         d["title"] = title or _default_title(path)
-        d["deployment_name"] = _make_deployment_name(connect_server, d["title"], app_id is None)
+        d["deployment_name"] = self.make_deployment_name(d["title"], app_id is None)
 
         with cli_feedback("Creating deployment bundle"):
             try:
@@ -534,6 +534,36 @@ class RSConnectExecutor:
             },
             "conda": conda_settings,
         }
+
+    def make_deployment_name(self, title, force_unique):
+        """
+        Produce a name for a deployment based on its title.  It is assumed that the
+        title is already defaulted and validated as appropriate (meaning the title
+        isn't None or empty).
+
+        We follow the same rules for doing this as the R rsconnect package does.  See
+        the title.R code in https://github.com/rstudio/rsconnect/R with the exception
+        that we collapse repeating underscores and, if the name is too short, it is
+        padded to the left with underscores.
+
+        :param connect_server: the information needed to interact with the Connect server.
+        :param title: the title to start with.
+        :param force_unique: a flag noting whether the generated name must be forced to be
+        unique.
+        :return: a name for a deployment based on its title.
+        """
+        _name_sub_pattern = re.compile(r"[^A-Za-z0-9_ -]+")
+        _repeating_sub_pattern = re.compile(r"_+")
+
+        # First, Generate a default name from the given title.
+        name = _name_sub_pattern.sub("", title.lower()).replace(" ", "_")
+        name = _repeating_sub_pattern.sub("_", name)[:64].rjust(3, "_")
+
+        # Now, make sure it's unique, if needed.
+        if force_unique:
+            name = find_unique_name(self.connect_server, name)
+
+        return name
 
 
 def verify_server(connect_server):
