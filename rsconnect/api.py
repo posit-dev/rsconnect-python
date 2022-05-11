@@ -291,7 +291,7 @@ class RSConnectExecutor:
 
     def get(self, *args, **kwargs):
         key = args[0]
-        return kwargs[key] or self.state[key]
+        return kwargs.get(key) or self.state.get(key)
 
     def validate_server(self, *args, **kwargs):
         """
@@ -305,13 +305,12 @@ class RSConnectExecutor:
         :param api_key_is_required: a flag that notes whether the API key is required or may
         be omitted.
         """
-        d = self.state
-        name = d['name']
-        url = d['url']
-        api_key = d['api_key']
-        insecure = d['insecure']
-        ca_cert = d['ca_cert']
-        api_key_is_required = d['api_key_is_required']
+        name = self.get('name', **kwargs)
+        url = self.get('url', **kwargs)
+        api_key = self.get('api_key', **kwargs)
+        insecure = self.get('insecure', **kwargs)
+        ca_cert = self.get('ca_cert', **kwargs)
+        api_key_is_required = self.get('api_key_is_required', **kwargs)
 
         server_store = ServerStore()
         
@@ -350,13 +349,13 @@ class RSConnectExecutor:
         return self
 
     def make_bundle(self, *args, **kwargs):
-        make_bundle_func = kwargs['make_bundle_func']
-        d = self.state
-        path = d['path']
-        app_id = d['app_id']
+        make_bundle_func = self.get('make_bundle_func', **kwargs)
+        path = self.get('path', **kwargs)
+        app_id = self.get('app_id', **kwargs)
+        title = self.get('title', **kwargs)
         connect_server = self.connect_server        
-        title = d['title']
 
+        d = self.state
         d['app_store'] = AppStore(path)
         d['default_title'] = not bool(title)
         d['title'] = title or _default_title(path)
@@ -377,18 +376,17 @@ class RSConnectExecutor:
         return self
 
     def deploy_bundle(self, *args, **kwargs):   
-        d = self.state     
         do_bundle_deploy(
             self.connect_server,
-            d['app_store'],
-            d['path'],
-            d['app_id'],
-            d['app_mode'],
-            d['deployment_name'],
-            d['title'],
-            d['default_title'],
-            d['bundle'],
-            d['env_vars'],
+            self.get('app_store', **kwargs),
+            self.get('path', **kwargs),
+            self.get('app_id', **kwargs),
+            self.get('app_mode', **kwargs),
+            self.get('deployment_name', **kwargs),
+            self.get('title', **kwargs),
+            self.get('default_title', **kwargs),
+            self.get('bundle', **kwargs),
+            self.get('env_vars', **kwargs),
         )
 
         return self
@@ -397,13 +395,11 @@ class RSConnectExecutor:
         pass
 
     def validate_app_mode(self, *args, **kwargs):
-        d = self.state
-        d['default_app_mode'] = kwargs['default_app_mode'] if 'default_app_mode' in kwargs else None
-        connect_server = d['connect_server']
-        app_store = d['app_store']
-        new = d['new']
-        app_id = d['app_id']
-        default_app_mode = kwargs['default_app_mode']
+        connect_server = self.get('connect_server', **kwargs)
+        app_store = self.get('app_store', **kwargs)
+        new = self.get('new', **kwargs)
+        app_id = self.get('app_id', **kwargs)
+        default_app_mode = self.get('default_app_mode', **kwargs)
 
         if new and app_id:
             raise RSConnectException("Specify either a new deploy or an app ID but not both.")
@@ -429,7 +425,8 @@ class RSConnectExecutor:
                 ) % (app_mode.desc(), existing_app_mode.desc())
                 raise RSConnectException(msg)    
         
-        d['app_mode'] = app_mode
+        self.state['default_app_mode'] = default_app_mode
+        self.state['app_mode'] = app_mode
         return self
 
     def verify_server(self):
