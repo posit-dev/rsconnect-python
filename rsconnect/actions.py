@@ -171,6 +171,7 @@ def _to_server_check_list(url):
     :param url: the server URL text to start with.
     :return: a list of server strings to test.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     # urlparse will end up with an empty netloc in this case.
     if "//" not in url:
         items = ["https://%s", "http://%s"]
@@ -360,6 +361,7 @@ def _default_title(file_name):
     :param file_name: the name from which the title will be derived.
     :return: the derived title.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     # Make sure we have enough of a path to derive text from.
     file_name = abspath(file_name)
     # noinspection PyTypeChecker

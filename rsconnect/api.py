@@ -11,10 +11,11 @@ from .models import AppModes
 from six import text_type
 from six.moves.urllib_parse import urlparse
 from .metadata import ServerStore, AppStore
-from .actions import _to_server_check_list, _default_title, cli_feedback
+from .actions import cli_feedback
 import re
 from warnings import warn
 from .exception import RSConnectException
+from os.path import abspath, basename
 
 
 class RSConnectServer(object):
@@ -859,3 +860,38 @@ def find_unique_name(connect_server, name):
         name = test
 
     return name
+
+
+def _to_server_check_list(url):
+    """
+    Build a list of servers to check from the given one.  If the specified server
+    appears not to have a scheme, then we'll provide https and http variants to test.
+
+    :param url: the server URL text to start with.
+    :return: a list of server strings to test.
+    """
+    # urlparse will end up with an empty netloc in this case.
+    if "//" not in url:
+        items = ["https://%s", "http://%s"]
+    # urlparse would parse this correctly and end up with an empty scheme.
+    elif url.startswith("//"):
+        items = ["https:%s", "http:%s"]
+    else:
+        items = ["%s"]
+
+    return [item % url for item in items]
+
+
+def _default_title(file_name):
+    """
+    Produce a default content title from the given file path.  The result is
+    guaranteed to be between 3 and 1024 characters long, as required by RStudio
+    Connect.
+
+    :param file_name: the name from which the title will be derived.
+    :return: the derived title.
+    """
+    # Make sure we have enough of a path to derive text from.
+    file_name = abspath(file_name)
+    # noinspection PyTypeChecker
+    return basename(file_name).rsplit(".", 1)[0][:1024].rjust(3, "0")
