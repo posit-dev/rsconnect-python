@@ -192,7 +192,7 @@ def test_server(connect_server):
     :return: a second server object with any scheme expansions applied and the server
     settings from the server.
     """
-    warn('This method has been moved and will be deprecated.', DeprecationWarning, stacklevel=2)
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     url = connect_server.url
     key = connect_server.api_key
     insecure = connect_server.insecure
@@ -213,6 +213,7 @@ def test_server(connect_server):
     # If we're here, nothing worked.
     raise api.RSConnectException("\n".join(failures))
 
+
 def test_api_key(connect_server):
     """
     Test that an API Key may be used to authenticate with the given RStudio Connect server.
@@ -221,8 +222,9 @@ def test_api_key(connect_server):
     :param connect_server: the Connect server information.
     :return: the username of the user to whom the API key belongs.
     """
-    warn('This method has been moved and will be deprecated.', DeprecationWarning, stacklevel=2)
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     return api.verify_api_key(connect_server)
+
 
 def gather_server_details(connect_server):
     """
@@ -235,7 +237,7 @@ def gather_server_details(connect_server):
     strings for all the versions of Python that are installed.  The key `conda` will
     refer to data about whether Connect is configured to support Conda environments.
     """
-    warn('This method has been moved and will be deprecated.', DeprecationWarning, stacklevel=2)
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
 
     def _to_sort_key(text):
         parts = [part.zfill(5) for part in text.split(".")]

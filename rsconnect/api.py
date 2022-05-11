@@ -284,7 +284,7 @@ class RSConnectExecutor:
         self.connect_server = None
         self.connect = None
         return self
-    
+
     @property
     def state(self):
         return self._d
@@ -305,21 +305,23 @@ class RSConnectExecutor:
         :param api_key_is_required: a flag that notes whether the API key is required or may
         be omitted.
         """
-        name = self.get('name', **kwargs)
-        url = self.get('url', **kwargs)
-        api_key = self.get('api_key', **kwargs)
-        insecure = self.get('insecure', **kwargs)
-        ca_cert = self.get('ca_cert', **kwargs)
-        api_key_is_required = self.get('api_key_is_required', **kwargs)
+        name = self.get("name", **kwargs)
+        url = self.get("url", **kwargs)
+        api_key = self.get("api_key", **kwargs)
+        insecure = self.get("insecure", **kwargs)
+        ca_cert = self.get("ca_cert", **kwargs)
+        api_key_is_required = self.get("api_key_is_required", **kwargs)
 
         server_store = ServerStore()
-        
+
         ca_data = ca_cert and text_type(ca_cert.read())
 
         if name and url:
             raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both.")
 
-        real_server, api_key, insecure, ca_data, from_store = server_store.resolve(name, url, api_key, insecure, ca_data)
+        real_server, api_key, insecure, ca_data, from_store = server_store.resolve(
+            name, url, api_key, insecure, ca_data
+        )
 
         # This can happen if the user specifies neither --name or --server and there's not
         # a single default to go with.
@@ -349,17 +351,17 @@ class RSConnectExecutor:
         return self
 
     def make_bundle(self, *args, **kwargs):
-        make_bundle_func = self.get('make_bundle_func', **kwargs)
-        path = self.get('path', **kwargs)
-        app_id = self.get('app_id', **kwargs)
-        title = self.get('title', **kwargs)
-        connect_server = self.connect_server        
+        make_bundle_func = self.get("make_bundle_func", **kwargs)
+        path = self.get("path", **kwargs)
+        app_id = self.get("app_id", **kwargs)
+        title = self.get("title", **kwargs)
+        connect_server = self.connect_server
 
         d = self.state
-        d['app_store'] = AppStore(path)
-        d['default_title'] = not bool(title)
-        d['title'] = title or _default_title(path)
-        d['deployment_name'] = _make_deployment_name(connect_server, d['title'], app_id is None)
+        d["app_store"] = AppStore(path)
+        d["default_title"] = not bool(title)
+        d["title"] = title or _default_title(path)
+        d["deployment_name"] = _make_deployment_name(connect_server, d["title"], app_id is None)
 
         with cli_feedback("Creating deployment bundle"):
             try:
@@ -370,23 +372,23 @@ class RSConnectExecutor:
                     error.args[1],
                 )
                 raise RSConnectException(msg)
-        
-        d['bundle'] = bundle
+
+        d["bundle"] = bundle
 
         return self
 
-    def deploy_bundle(self, *args, **kwargs):   
+    def deploy_bundle(self, *args, **kwargs):
         do_bundle_deploy(
             self.connect_server,
-            self.get('app_store', **kwargs),
-            self.get('path', **kwargs),
-            self.get('app_id', **kwargs),
-            self.get('app_mode', **kwargs),
-            self.get('deployment_name', **kwargs),
-            self.get('title', **kwargs),
-            self.get('default_title', **kwargs),
-            self.get('bundle', **kwargs),
-            self.get('env_vars', **kwargs),
+            self.get("app_store", **kwargs),
+            self.get("path", **kwargs),
+            self.get("app_id", **kwargs),
+            self.get("app_mode", **kwargs),
+            self.get("deployment_name", **kwargs),
+            self.get("title", **kwargs),
+            self.get("default_title", **kwargs),
+            self.get("bundle", **kwargs),
+            self.get("env_vars", **kwargs),
         )
 
         return self
@@ -395,11 +397,11 @@ class RSConnectExecutor:
         pass
 
     def validate_app_mode(self, *args, **kwargs):
-        connect_server = self.get('connect_server', **kwargs)
-        app_store = self.get('app_store', **kwargs)
-        new = self.get('new', **kwargs)
-        app_id = self.get('app_id', **kwargs)
-        default_app_mode = self.get('default_app_mode', **kwargs)
+        connect_server = self.get("connect_server", **kwargs)
+        app_store = self.get("app_store", **kwargs)
+        new = self.get("new", **kwargs)
+        app_id = self.get("app_id", **kwargs)
+        default_app_mode = self.get("default_app_mode", **kwargs)
 
         if new and app_id:
             raise RSConnectException("Specify either a new deploy or an app ID but not both.")
@@ -423,10 +425,10 @@ class RSConnectExecutor:
                     + "but the existing deployment has mode '%s'.\n"
                     + "Use the --new option to create a new deployment of the desired type."
                 ) % (app_mode.desc(), existing_app_mode.desc())
-                raise RSConnectException(msg)    
-        
-        self.state['default_app_mode'] = default_app_mode
-        self.state['app_mode'] = app_mode
+                raise RSConnectException(msg)
+
+        self.state["default_app_mode"] = default_app_mode
+        self.state["app_mode"] = app_mode
         return self
 
     def verify_server(self):
@@ -448,7 +450,6 @@ class RSConnectExecutor:
                 return result
         except SSLError as ssl_error:
             raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
-
 
     def verify_api_key(self):
         """
@@ -477,7 +478,6 @@ class RSConnectExecutor:
             result = client.python_settings()
             self.handle_bad_response(result)
             return result
-
 
     def test_server(self):
         """
@@ -523,7 +523,9 @@ class RSConnectExecutor:
         server_settings = self.verify_server()
         python_settings = self.get_python_info()
         python_versions = sorted([item["version"] for item in python_settings["installations"]], key=_to_sort_key)
-        conda_settings = {"supported": python_settings["conda_enabled"] if "conda_enabled" in python_settings else False}
+        conda_settings = {
+            "supported": python_settings["conda_enabled"] if "conda_enabled" in python_settings else False
+        }
         return {
             "connect": server_settings["version"],
             "python": {
@@ -532,6 +534,7 @@ class RSConnectExecutor:
             },
             "conda": conda_settings,
         }
+
 
 def verify_server(connect_server):
     """
@@ -542,7 +545,7 @@ def verify_server(connect_server):
     :param connect_server: the Connect server information.
     :return: the server settings from the Connect server.
     """
-    warn('This method has been moved and will be deprecated.', DeprecationWarning, stacklevel=2)
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     try:
         with RSConnect(connect_server) as client:
             result = client.server_settings()
@@ -550,6 +553,7 @@ def verify_server(connect_server):
             return result
     except SSLError as ssl_error:
         raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
+
 
 def verify_api_key(connect_server):
     """
@@ -559,7 +563,7 @@ def verify_api_key(connect_server):
     :param connect_server: the Connect server information, including the API key to test.
     :return: the username of the user to whom the API key belongs.
     """
-    warn('This method has been moved and will be deprecated.', DeprecationWarning, stacklevel=2)
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
 
     with RSConnect(connect_server) as client:
         result = client.me()
@@ -569,6 +573,7 @@ def verify_api_key(connect_server):
             raise RSConnectException("Could not verify the API key: %s %s" % (result.status, result.reason))
         return result["username"]
 
+
 def get_python_info(connect_server):
     """
     Return information about versions of Python that are installed on the indicated
@@ -577,7 +582,7 @@ def get_python_info(connect_server):
     :param connect_server: the Connect server information.
     :return: the Python installation information from Connect.
     """
-    warn('This method has been moved and will be deprecated.', DeprecationWarning, stacklevel=2)
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
 
     with RSConnect(connect_server) as client:
         result = client.python_settings()
