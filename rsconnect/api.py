@@ -12,7 +12,7 @@ from six import text_type
 from six.moves.urllib_parse import urlparse
 from .metadata import ServerStore, AppStore
 from .actions import _to_server_check_list, _default_title, _make_deployment_name, cli_feedback
-from deprecated import deprecated
+from warnings import warn
 
 
 class RSConnectException(Exception):
@@ -533,7 +533,6 @@ class RSConnectExecutor:
             "conda": conda_settings,
         }
 
-@deprecated(reason="The API has been moved")
 def verify_server(connect_server):
     """
     Verify that the given server information represents a Connect instance that is
@@ -543,6 +542,7 @@ def verify_server(connect_server):
     :param connect_server: the Connect server information.
     :return: the server settings from the Connect server.
     """
+    warn('This method has been moved and will be deprecated.', DeprecationWarning, stacklevel=2)
     try:
         with RSConnect(connect_server) as client:
             result = client.server_settings()
@@ -551,7 +551,6 @@ def verify_server(connect_server):
     except SSLError as ssl_error:
         raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
 
-@deprecated(reason="The API has been moved")
 def verify_api_key(connect_server):
     """
     Verify that an API Key may be used to authenticate with the given RStudio Connect server.
@@ -560,6 +559,8 @@ def verify_api_key(connect_server):
     :param connect_server: the Connect server information, including the API key to test.
     :return: the username of the user to whom the API key belongs.
     """
+    warn('This method has been moved and will be deprecated.', DeprecationWarning, stacklevel=2)
+
     with RSConnect(connect_server) as client:
         result = client.me()
         if isinstance(result, HTTPResponse):
@@ -568,7 +569,6 @@ def verify_api_key(connect_server):
             raise RSConnectException("Could not verify the API key: %s %s" % (result.status, result.reason))
         return result["username"]
 
-@deprecated(reason="The API has been moved")
 def get_python_info(connect_server):
     """
     Return information about versions of Python that are installed on the indicated
@@ -577,6 +577,8 @@ def get_python_info(connect_server):
     :param connect_server: the Connect server information.
     :return: the Python installation information from Connect.
     """
+    warn('This method has been moved and will be deprecated.', DeprecationWarning, stacklevel=2)
+
     with RSConnect(connect_server) as client:
         result = client.python_settings()
         connect_server.handle_bad_response(result)
