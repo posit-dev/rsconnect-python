@@ -361,7 +361,7 @@ class RSConnectExecutor:
 
     def make_bundle(self, *args, **kwargs):
         make_bundle_func = self.get("make_bundle_func", **kwargs)
-        path = self.get("path", **kwargs)
+        path = self.get("path", **kwargs) or self.get("file", **kwargs) or self.get("directory", **kwargs)
         app_id = self.get("app_id", **kwargs)
         title = self.get("title", **kwargs)
 
@@ -372,7 +372,7 @@ class RSConnectExecutor:
         d["deployment_name"] = self.make_deployment_name(d["title"], app_id is None)
 
         try:
-            bundle = make_bundle_func(d)
+            bundle = make_bundle_func(**d)
         except IOError as error:
             msg = "Unable to include the file %s in the bundle: %s" % (
                 error.filename,
