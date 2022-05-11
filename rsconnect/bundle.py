@@ -576,7 +576,7 @@ def make_api_manifest(
 
 def make_html_bundle_content(
     path,  # type: str
-    entrypoint,  # type: str
+    entrypoint=None,  # type: str
     extra_files=None,  # type: typing.Optional[typing.List[str]]
     excludes=None,  # type: typing.Optional[typing.List[str]]
 ):
@@ -590,7 +590,7 @@ def make_html_bundle_content(
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :return: the manifest and a list of the files involved.
     """
-    entrypoint = entrypoint or infer_entrypoint(path, "text/html")
+    entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/html")
 
     if path.startswith(os.curdir):
         path = relpath(path)
@@ -642,7 +642,9 @@ def make_html_bundle_content(
     return manifest, relevant_files
 
 
-def infer_entrypoint(path, mimetype):
+def infer_entrypoint(*args, **kwargs):
+    path = kwargs.get("path")
+    mimetype = kwargs.get("mimetype")
     if os.path.isfile(path):
         return path
     if not os.path.isdir(path):
@@ -664,12 +666,7 @@ def infer_entrypoint(path, mimetype):
     return mimetype_filelist[mimetype].pop() if len(mimetype_filelist[mimetype]) == 1 else None
 
 
-def make_html_bundle(
-    path,  # type: str
-    entry_point,  # type: str
-    extra_files=None,  # type: typing.Optional[typing.List[str]]
-    excludes=None,  # type: typing.Optional[typing.List[str]]
-):
+def make_html_bundle(*args, **kwargs):
     # type: (...) -> typing.IO[bytes]
     """
     Create an html bundle, given a path and a manifest.
@@ -680,7 +677,11 @@ def make_html_bundle(
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :return: a file-like object containing the bundle tarball.
     """
-    manifest, relevant_files = make_html_bundle_content(path, entry_point, extra_files, excludes)
+    path = kwargs.get("path")
+    entrypoint = kwargs.get("entrypoint")
+    extra_files = kwargs.get("extra_files")
+    excludes = kwargs.get("excludes")
+    manifest, relevant_files = make_html_bundle_content(path, entrypoint, extra_files, excludes)
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
 
     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
