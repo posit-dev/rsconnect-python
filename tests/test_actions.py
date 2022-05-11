@@ -43,8 +43,9 @@ from rsconnect.actions import (
     validate_extra_files,
     which_python,
 )
-from rsconnect.api import RSConnectException, RSConnectServer
+from rsconnect.api import RSConnectServer
 from rsconnect.environment import MakeEnvironment
+from rsconnect.exception import RSConnectException
 
 from .utils import get_manifest_path, get_api_path, get_dir
 

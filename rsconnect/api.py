@@ -14,13 +14,7 @@ from .metadata import ServerStore, AppStore
 from .actions import _to_server_check_list, _default_title, cli_feedback
 import re
 from warnings import warn
-
-
-class RSConnectException(Exception):
-    def __init__(self, message, cause=None):
-        super(RSConnectException, self).__init__(message)
-        self.message = message
-        self.cause = cause
+from .exception import RSConnectException
 
 
 class RSConnectServer(object):

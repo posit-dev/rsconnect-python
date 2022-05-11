@@ -14,7 +14,7 @@ from .utils import (
     require_api_key,
     require_connect,
 )
-from rsconnect.api import RSConnectException
+from rsconnect.exception import RSConnectException
 from rsconnect.main import cli, _validate_deploy_to_args, server_store
 from rsconnect import VERSION
 

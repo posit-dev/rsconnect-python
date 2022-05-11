@@ -75,7 +75,7 @@ from .models import (
     StrippedStringParamType,
     VersionSearchFilterParamType,
 )
-
+from .exception import RSConnectException
 
 server_store = ServerStore()
 future_enabled = False
@@ -374,21 +374,21 @@ def remove(name, server, verbose):
 
     with cli_feedback("Checking arguments"):
         if name and server:
-            raise api.RSConnectException("You must specify only one of -n/--name or -s/--server.")
+            raise RSConnectException("You must specify only one of -n/--name or -s/--server.")
 
         if not (name or server):
-            raise api.RSConnectException("You must specify one of -n/--name or -s/--server.")
+            raise RSConnectException("You must specify one of -n/--name or -s/--server.")
 
         if name:
             if server_store.remove_by_name(name):
                 message = 'Removed nickname "%s".' % name
             else:
-                raise api.RSConnectException('Nickname "%s" was not found.' % name)
+                raise RSConnectException('Nickname "%s" was not found.' % name)
         else:  # the user specified -s/--server
             if server_store.remove_by_url(server):
                 message = 'Removed URL "%s".' % server
             else:
-                raise api.RSConnectException('URL "%s" was not found.' % server)
+                raise RSConnectException('URL "%s" was not found.' % server)
 
     if message:
         click.echo(message)
@@ -474,14 +474,14 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_r
     ca_data = ca_cert and text_type(ca_cert.read())
 
     if name and url:
-        raise api.RSConnectException("You must specify only one of -n/--name or -s/--server, not both.")
+        raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both.")
 
     real_server, api_key, insecure, ca_data, from_store = server_store.resolve(name, url, api_key, insecure, ca_data)
 
     # This can happen if the user specifies neither --name or --server and there's not
     # a single default to go with.
     if not real_server:
-        raise api.RSConnectException("You must specify one of -n/--name or -s/--server.")
+        raise RSConnectException("You must specify one of -n/--name or -s/--server.")
 
     connect_server = api.RSConnectServer(real_server, None, insecure, ca_data)
 
@@ -493,7 +493,7 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_r
 
     if not connect_server.api_key:
         if api_key_is_required:
-            raise api.RSConnectException('An API key must be specified for "%s".' % connect_server.url)
+            raise RSConnectException('An API key must be specified for "%s".' % connect_server.url)
         return connect_server
 
     # If our info came from the command line, make sure the key really works.
@@ -817,7 +817,7 @@ def deploy_manifest(name, server, api_key, insecure, cacert, new, app_id, title,
                         'content, run the "deploy other-content" command.',
                     ]
                 )
-            raise api.RSConnectException(msg)
+            raise RSConnectException(msg)
 
     _deploy_bundle(
         connect_server,
@@ -983,8 +983,7 @@ def deploy_quarto(
 def deploy_html(*args, **kwargs):
     rsce = api.RSConnectExecutor(*args, **kwargs)
     (
-        rsce
-        .validate_server()
+        rsce.validate_server()
         .validate_app_mode(default_app_mode=AppModes.STATIC)
         .make_bundle(make_bundle_func=make_html_bundle)
         .deploy_bundle()
@@ -1282,7 +1281,7 @@ def write_manifest_notebook(
         manifest_path = join(base_dir, "manifest.json")
 
         if exists(manifest_path) and not overwrite:
-            raise api.RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
         python, environment = get_python_env_info(file, python, conda, force_generate)
@@ -1373,7 +1372,7 @@ def write_manifest_quarto(
         manifest_path = join(directory, "manifest.json")
 
         if exists(manifest_path) and not overwrite:
-            raise api.RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Quarto project"):
         quarto = which_quarto(quarto)
@@ -1535,7 +1534,7 @@ def _write_framework_manifest(
         manifest_path = join(directory, "manifest.json")
 
         if exists(manifest_path) and not overwrite:
-            raise api.RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
         _, environment = get_python_env_info(directory, python, conda, force_generate)
@@ -1559,9 +1558,9 @@ def _write_framework_manifest(
 
 def _validate_build_rm_args(guid, all, purge):
     if guid and all:
-        raise api.RSConnectException("You must specify only one of -g/--guid or --all, not both.")
+        raise RSConnectException("You must specify only one of -g/--guid or --all, not both.")
     if not guid and not all:
-        raise api.RSConnectException("You must specify one of -g/--guid or --all.")
+        raise RSConnectException("You must specify one of -g/--guid or --all.")
 
 
 @cli.group(no_args_is_help=True, help="Interact with RStudio Connect's content API.")
@@ -1771,7 +1770,7 @@ def content_bundle_download(name, server, api_key, insecure, cacert, guid, outpu
     with cli_feedback("", stderr=True):
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         if exists(output) and not overwrite:
-            raise api.RSConnectException("The output file already exists: %s" % output)
+            raise RSConnectException("The output file already exists: %s" % output)
 
         result = download_bundle(connect_server, guid)
         with open(output, "wb") as f:

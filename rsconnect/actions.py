@@ -12,6 +12,7 @@ import subprocess
 import sys
 import traceback
 from warnings import warn
+from .exception import RSConnectException
 
 try:
     import typing
@@ -77,7 +78,7 @@ def cli_feedback(label, stderr=False):
     try:
         yield
         passed()
-    except api.RSConnectException as exc:
+    except RSConnectException as exc:
         failed("Error: " + exc.message)
     except EnvironmentException as exc:
         failed("Error: " + str(exc))
@@ -110,7 +111,7 @@ def which_python(python, env=os.environ):
     """
     if python:
         if not (exists(python) and os.access(python, os.X_OK)):
-            raise api.RSConnectException('The file, "%s", does not exist or is not executable.' % python)
+            raise RSConnectException('The file, "%s", does not exist or is not executable.' % python)
         return python
 
     if "RETICULATE_PYTHON" in env:
@@ -144,7 +145,7 @@ def inspect_environment(
     try:
         environment_json = check_output(args, universal_newlines=True)
     except subprocess.CalledProcessError as e:
-        raise api.RSConnectException("Error inspecting environment: %s" % e.output)
+        raise RSConnectException("Error inspecting environment: %s" % e.output)
     return MakeEnvironment(**json.loads(environment_json))  # type: ignore
 
 
@@ -158,7 +159,7 @@ def _verify_server(connect_server):
     """
     uri = urlparse(connect_server.url)
     if not uri.netloc:
-        raise api.RSConnectException('Invalid server URL: "%s"' % connect_server.url)
+        raise RSConnectException('Invalid server URL: "%s"' % connect_server.url)
     return api.verify_server(connect_server)
 
 
@@ -203,7 +204,7 @@ def test_server(connect_server):
             connect_server = api.RSConnectServer(test, key, insecure, ca_data)
             result = _verify_server(connect_server)
             return connect_server, result
-        except api.RSConnectException as exc:
+        except RSConnectException as exc:
             failures.append("    %s - failed to verify as RStudio Connect (%s)." % (test, str(exc)))
 
     # In case the user may need https instead of http...
@@ -211,7 +212,7 @@ def test_server(connect_server):
         failures.append('    Do you need to use "https://%s"?' % url[7:])
 
     # If we're here, nothing worked.
-    raise api.RSConnectException("\n".join(failures))
+    raise RSConnectException("\n".join(failures))
 
 
 def test_api_key(connect_server):
@@ -305,7 +306,7 @@ def check_server_capabilities(connect_server, capability_functions, details_sour
                 message = function.__doc__[index + 7 :].strip()
             else:
                 message = "The server does not satisfy the %s capability check." % function.__name__
-            raise api.RSConnectException(message)
+            raise RSConnectException(message)
 
 
 def _make_deployment_name(connect_server, title, force_unique):
@@ -347,7 +348,7 @@ def _validate_title(title):
     """
     if title:
         if not (3 <= len(title) <= 1024):
-            raise api.RSConnectException("A title must be between 3-1024 characters long.")
+            raise RSConnectException("A title must be between 3-1024 characters long.")
 
 
 def _default_title(file_name):
@@ -390,7 +391,7 @@ def validate_file_is_notebook(file_name):
     """
     file_suffix = splitext(file_name)[1].lower()
     if file_suffix != ".ipynb" or not exists(file_name):
-        raise api.RSConnectException("A Jupyter notebook (.ipynb) file is required here.")
+        raise RSConnectException("A Jupyter notebook (.ipynb) file is required here.")
 
 
 def validate_extra_files(directory, extra_files):
@@ -410,9 +411,9 @@ def validate_extra_files(directory, extra_files):
             # It's an error if we have to leave the given dir to get to the extra
             # file.
             if extra_file.startswith("../"):
-                raise api.RSConnectException("%s must be under %s." % (extra_file, directory))
+                raise RSConnectException("%s must be under %s." % (extra_file, directory))
             if not exists(join(directory, extra_file)):
-                raise api.RSConnectException("Could not find file %s under %s" % (extra, directory))
+                raise RSConnectException("Could not find file %s under %s" % (extra, directory))
             result.append(extra_file)
     return result
 
@@ -428,7 +429,7 @@ def validate_manifest_file(file_or_directory):
     if isdir(file_or_directory):
         file_or_directory = join(file_or_directory, "manifest.json")
     if basename(file_or_directory) != "manifest.json" or not exists(file_or_directory):
-        raise api.RSConnectException("A manifest.json file or a directory containing one is required here.")
+        raise RSConnectException("A manifest.json file or a directory containing one is required here.")
     return file_or_directory
 
 
@@ -465,7 +466,7 @@ def validate_entry_point(entry_point, directory):
     parts = entry_point.split(":")
 
     if len(parts) > 2:
-        raise api.RSConnectException('Entry point is not in "module:object" format.')
+        raise RSConnectException('Entry point is not in "module:object" format.')
 
     return entry_point
 
@@ -479,7 +480,7 @@ def which_quarto(quarto=None):
     if quarto:
         found = shutil.which(quarto)
         if not found:
-            raise api.RSConnectException('The Quarto installation, "%s", does not exist or is not executable.' % quarto)
+            raise RSConnectException('The Quarto installation, "%s", does not exist or is not executable.' % quarto)
         return found
 
     # Fallback -- try to find Quarto when one was not supplied.
@@ -500,7 +501,7 @@ def which_quarto(quarto=None):
         found = shutil.which(each)
         if found:
             return found
-    raise api.RSConnectException("Unable to locate a Quarto installation.")
+    raise RSConnectException("Unable to locate a Quarto installation.")
 
 
 def quarto_inspect(
@@ -516,7 +517,7 @@ def quarto_inspect(
     try:
         inspect_json = check_output(args, universal_newlines=True, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
-        raise api.RSConnectException("Error inspecting target: %s" % e.output)
+        raise RSConnectException("Error inspecting target: %s" % e.output)
     return json.loads(inspect_json)
 
 
@@ -528,7 +529,7 @@ def validate_quarto_engines(inspect):
     engines = inspect.get("engines", [])
     unsupported = [engine for engine in engines if engine not in supported]
     if unsupported:
-        raise api.RSConnectException("The following Quarto engine(s) are not supported: %s" % ", ".join(unsupported))
+        raise RSConnectException("The following Quarto engine(s) are not supported: %s" % ", ".join(unsupported))
     return engines
 
 
@@ -1118,7 +1119,7 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
     _validate_title(title)
 
     if new and app_id:
-        raise api.RSConnectException("Specify either a new deploy or an app ID but not both.")
+        raise RSConnectException("Specify either a new deploy or an app ID but not both.")
 
     if static:
         app_mode = AppModes.STATIC
@@ -1143,7 +1144,7 @@ def gather_basic_deployment_info_for_notebook(connect_server, app_store, file_na
                 + "but the existing deployment has mode '%s'.\n"
                 + "Use the --new option to create a new deployment of the desired type."
             ) % (app_mode.desc(), existing_app_mode.desc())
-            raise api.RSConnectException(msg)
+            raise RSConnectException(msg)
 
     default_title = not bool(title)
     title = title or _default_title(file_name)
@@ -1172,7 +1173,7 @@ def gather_basic_deployment_info_for_html(connect_server, app_store, path, new, 
     """
 
     if new and app_id:
-        raise api.RSConnectException("Specify either a new deploy or an app ID but not both.")
+        raise RSConnectException("Specify either a new deploy or an app ID but not both.")
 
     app_mode = AppModes.STATIC
     existing_app_mode = None
@@ -1193,7 +1194,7 @@ def gather_basic_deployment_info_for_html(connect_server, app_store, path, new, 
                 + "but the existing deployment has mode '%s'.\n"
                 + "Use the --new option to create a new deployment of the desired type."
             ) % (app_mode.desc(), existing_app_mode.desc())
-            raise api.RSConnectException(msg)
+            raise RSConnectException(msg)
 
     default_title = not bool(title)
     title = title or _default_title(path)
@@ -1226,7 +1227,7 @@ def gather_basic_deployment_info_from_manifest(connect_server, app_store, file_n
     _validate_title(title)
 
     if new and app_id:
-        raise api.RSConnectException("Specify either a new deploy or an app ID but not both.")
+        raise RSConnectException("Specify either a new deploy or an app ID but not both.")
 
     source_manifest, _ = read_manifest_file(file_name)
     # noinspection SpellCheckingInspection
@@ -1265,7 +1266,7 @@ def gather_basic_deployment_info_for_quarto(connect_server, app_store, directory
     _validate_title(title)
 
     if new and app_id:
-        raise api.RSConnectException("Specify either a new deploy or an app ID but not both.")
+        raise RSConnectException("Specify either a new deploy or an app ID but not both.")
 
     app_mode = AppModes.STATIC_QUARTO
 
@@ -1287,7 +1288,7 @@ def gather_basic_deployment_info_for_quarto(connect_server, app_store, directory
                 + "but the existing deployment has mode '%s'.\n"
                 + "Use the --new option to create a new deployment of the desired type."
             ) % (app_mode.desc(), existing_app_mode.desc())
-            raise api.RSConnectException(msg)
+            raise RSConnectException(msg)
 
     if directory[-1] == "/":
         directory = directory[:-1]
@@ -1355,7 +1356,7 @@ def _gather_basic_deployment_info_for_framework(
     _validate_title(title)
 
     if new and app_id:
-        raise api.RSConnectException("Specify either a new deploy or an app ID but not both.")
+        raise RSConnectException("Specify either a new deploy or an app ID but not both.")
 
     existing_app_mode = None
     if not new:
@@ -1375,7 +1376,7 @@ def _gather_basic_deployment_info_for_framework(
                 + "but the existing deployment has mode '%s'.\n"
                 + "Use the --new option to create a new deployment of the desired type."
             ) % (app_mode.desc(), existing_app_mode.desc())
-            raise api.RSConnectException(msg)
+            raise RSConnectException(msg)
 
     if directory[-1] == "/":
         directory = directory[:-1]
@@ -1410,7 +1411,7 @@ def get_python_env_info(file_name, python, conda_mode=False, force_generate=Fals
     logger.debug("Python: %s" % python)
     environment = inspect_environment(python, dirname(file_name), conda_mode=conda_mode, force_generate=force_generate)
     if environment.error:
-        raise api.RSConnectException(environment.error)
+        raise RSConnectException(environment.error)
     logger.debug("Python: %s" % python)
     logger.debug("Environment: %s" % pformat(environment._asdict()))
 
@@ -1454,7 +1455,7 @@ def create_notebook_deployment_bundle(
         except subprocess.CalledProcessError as exc:
             # Jupyter rendering failures are often due to
             # user code failing, vs. an internal failure of rsconnect-python.
-            raise api.RSConnectException(str(exc))
+            raise RSConnectException(str(exc))
     else:
         return make_notebook_source_bundle(file_name, environment, extra_files, hide_all_input, hide_tagged_input)
 
@@ -1625,7 +1626,7 @@ def write_notebook_manifest_json(
         _, extension = splitext(file_name)
         app_mode = AppModes.get_by_extension(extension, True)
         if app_mode == AppModes.UNKNOWN:
-            raise api.RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
+            raise RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
 
     manifest_data = make_source_manifest(app_mode, environment, file_name)
     manifest_add_file(manifest_data, file_name, directory)
