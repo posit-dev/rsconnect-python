@@ -277,7 +277,7 @@ class RSConnectExecutor:
     def __init__(self, *args, **kwargs) -> None:
         print(kwargs)
         self.reset()
-        self.state = kwargs
+        self._d = kwargs
 
     def reset(self):
         self._d = None
@@ -288,10 +288,6 @@ class RSConnectExecutor:
     @property
     def state(self):
         return self._d
-
-    @state.setter
-    def state(self, **kwargs):
-        self._d = kwargs
 
     def get(self, *args, **kwargs):
         key = args[0]
