@@ -11,7 +11,6 @@ from .models import AppModes
 from six import text_type
 from six.moves.urllib_parse import urlparse
 from .metadata import ServerStore, AppStore
-from .actions import cli_feedback
 import re
 from warnings import warn
 from .exception import RSConnectException
@@ -358,15 +357,14 @@ class RSConnectExecutor:
         d["title"] = title or _default_title(path)
         d["deployment_name"] = self.make_deployment_name(d["title"], app_id is None)
 
-        with cli_feedback("Creating deployment bundle"):
-            try:
-                bundle = make_bundle_func(d)
-            except IOError as error:
-                msg = "Unable to include the file %s in the bundle: %s" % (
-                    error.filename,
-                    error.args[1],
-                )
-                raise RSConnectException(msg)
+        try:
+            bundle = make_bundle_func(d)
+        except IOError as error:
+            msg = "Unable to include the file %s in the bundle: %s" % (
+                error.filename,
+                error.args[1],
+            )
+            raise RSConnectException(msg)
 
         d["bundle"] = bundle
 
