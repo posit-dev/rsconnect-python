@@ -293,6 +293,10 @@ class RSConnectExecutor:
     def state(self, **kwargs):
         self._d = kwargs
 
+    def get(self, *args, **kwargs):
+        key = args[0]
+        return kwargs[key] or self.state[key]
+
     def validate_server(self, *args, **kwargs):
         """
         Validate that the user gave us enough information to talk to a Connect server.
