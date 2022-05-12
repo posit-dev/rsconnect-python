@@ -302,6 +302,10 @@ class RSConnectExecutor:
         key = args[0]
         return kwargs.get(key) or self.state.get(key)
 
+    def pipe(self, func, *args, **kwargs):
+        func(*args, **kwargs)
+        return self
+
     def validate_server(self, *args, **kwargs):
         """
         Validate that the user gave us enough information to talk to a Connect server.
