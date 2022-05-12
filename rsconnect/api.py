@@ -384,18 +384,15 @@ class RSConnectExecutor:
         return self
 
     def deploy_bundle(self, *args, **kwargs):
-        do_bundle_deploy(
-            self.connect_server,
-            self.get("app_store", **kwargs),
-            self.get("path", **kwargs),
+        result = self.connect.deploy(
             self.get("app_id", **kwargs),
-            self.get("app_mode", **kwargs),
             self.get("deployment_name", **kwargs),
             self.get("title", **kwargs),
             self.get("default_title", **kwargs),
             self.get("bundle", **kwargs),
             self.get("env_vars", **kwargs),
         )
+        self.connect_server.handle_bad_response(result)
 
         return self
 
