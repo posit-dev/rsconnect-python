@@ -315,12 +315,11 @@ class RSConnectExecutor:
         be omitted.
         """
         name = self.get("name", **kwargs)
-        url = self.get("url", **kwargs)
+        url = self.get("server", **kwargs)
         api_key = self.get("api_key", **kwargs)
         insecure = self.get("insecure", **kwargs)
         ca_cert = self.get("ca_cert", **kwargs)
         api_key_is_required = self.get("api_key_is_required", **kwargs)
-
         server_store = ServerStore()
 
         ca_data = ca_cert and text_type(ca_cert.read())
@@ -404,8 +403,9 @@ class RSConnectExecutor:
         pass
 
     def validate_app_mode(self, *args, **kwargs):
-        connect_server = self.get("connect_server", **kwargs)
-        app_store = self.get("app_store", **kwargs)
+        connect_server = self.connect_server
+        path = self.get("path", **kwargs) or self.get("directory", **kwargs) or self.get("file", **kwargs)
+        app_store = AppStore(path)
         new = self.get("new", **kwargs)
         app_id = self.get("app_id", **kwargs)
         default_app_mode = self.get("default_app_mode", **kwargs)
