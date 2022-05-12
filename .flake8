@@ -15,3 +15,6 @@ exclude = .git,.venv,.venv2,.venv3,__pycache__,.cache
 extend_ignore = E203,E231,E302
 
 # vim:filetype=dosini
+
+per-file-ignores =
+     tests/test_metadata.py: E501

@@ -80,6 +80,7 @@ deps-%:
 lint-%:
 	$(RUNNER) 'black --check --diff rsconnect/'
 	$(RUNNER) 'flake8 rsconnect/'
+	$(RUNNER) 'flake8 tests/'
 	$(RUNNER) 'mypy -p rsconnect'
 
 .PHONY: lint-3.5

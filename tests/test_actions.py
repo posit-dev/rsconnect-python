@@ -14,8 +14,6 @@ from unittest import TestCase
 
 import pytest
 
-from funcsigs import signature
-
 import rsconnect.actions
 
 from rsconnect import api
