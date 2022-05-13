@@ -12,9 +12,9 @@ from rsconnect.metadata import AppStore, ServerStore, ContentBuildStore, _normal
 class TestServerMetadata(TestCase):
     def setUp(self):
         # Use temporary stores, to keep each test isolated
-        temp = tempfile.mkdtemp()
-        self.server_store = ServerStore(base_dir=temp)
-        self.server_store_path = join(temp, "servers.json")
+        self.tempDir = tempfile.mkdtemp()
+        self.server_store = ServerStore(base_dir=self.tempDir)
+        self.server_store_path = join(self.tempDir, "servers.json")
         self.assertFalse(exists(self.server_store_path))
 
         self.server_store.set("foo", "http://connect.local", "notReallyAnApiKey", ca_data="/certs/connect")
@@ -22,8 +22,8 @@ class TestServerMetadata(TestCase):
         self.assertEqual(len(self.server_store.get_all_servers()), 2, "Unexpected servers after setup")
 
     def tearDown(self):
-        # clean up our temporary store
-        shutil.rmtree(self.server_store_path)
+        # clean up our temp test directory created with tempfile.mkdtemp()
+        shutil.rmtree(self.tempDir)
 
     def test_add(self):
         self.assertEqual(
