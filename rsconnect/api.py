@@ -351,7 +351,7 @@ class RSConnectExecutor:
         if not connect_server.api_key:
             if api_key_is_required:
                 raise RSConnectException('An API key must be specified for "%s".' % connect_server.url)
-            return connect_server
+            return self
 
         # If our info came from the command line, make sure the key really works.
         if not from_store:
