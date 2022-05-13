@@ -471,35 +471,41 @@ class RSConnectExecutor:
         Verify that the given server information represents a Connect instance that is
         reachable, active and appears to be actually running RStudio Connect.  If the
         check is successful, the server settings for the Connect server is returned.
-
-        :return: the server settings from the Connect server.
         """
         uri = urlparse(self.url)
         if not uri.netloc:
             raise RSConnectException('Invalid server URL: "%s"' % self.url)
 
         try:
-            with RSConnect(self.connect_server) as client:
-                result = client.server_settings()
-                self.handle_bad_response(result)
-                return result
+            result = self.connect.server_settings()
+            self.connect_server.handle_bad_response(result)
         except SSLError as ssl_error:
             raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
+        return self
+
+    @property
+    def server_settings(self):
+        result = self.connect.server_settings()
+        self.connect_server.handle_bad_response(result)
+        return result
 
     def verify_api_key(self):
         """
         Verify that an API Key may be used to authenticate with the given RStudio Connect server.
         If the API key verifies, we return the username of the associated user.
-
-        :return: the username of the user to whom the API key belongs.
         """
-        with RSConnect(self.connect_server) as client:
-            result = client.me()
-            if isinstance(result, HTTPResponse):
-                if result.json_data and "code" in result.json_data and result.json_data["code"] == 30:
-                    raise RSConnectException("The specified API key is not valid.")
-                raise RSConnectException("Could not verify the API key: %s %s" % (result.status, result.reason))
-            return result["username"]
+        result = self.connect.me()
+        if isinstance(result, HTTPResponse):
+            if result.json_data and "code" in result.json_data and result.json_data["code"] == 30:
+                raise RSConnectException("The specified API key is not valid.")
+            raise RSConnectException("Could not verify the API key: %s %s" % (result.status, result.reason))
+        return self
+
+    @property
+    def api_username(self):
+        result = self.connect.me()
+        self.connect_server.handle_bad_response(result)
+        return result["username"]
 
     @property
     def python_info(self):
@@ -509,10 +515,9 @@ class RSConnectExecutor:
 
         :return: the Python installation information from Connect.
         """
-        with RSConnect(self.connect_server) as client:
-            result = client.python_settings()
-            self.handle_bad_response(result)
-            return result
+        result = self.connect.python_settings()
+        self.connect_server.handle_bad_response(result)
+        return result
 
     def test_server(self):
         """
@@ -555,8 +560,8 @@ class RSConnectExecutor:
             parts = [part.zfill(5) for part in text.split(".")]
             return "".join(parts)
 
-        server_settings = self.verify_server()
-        python_settings = self.get_python_info()
+        server_settings = self.server_settings()
+        python_settings = self.python_info()
         python_versions = sorted([item["version"] for item in python_settings["installations"]], key=_to_sort_key)
         conda_settings = {
             "supported": python_settings["conda_enabled"] if "conda_enabled" in python_settings else False
