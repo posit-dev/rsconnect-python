@@ -983,9 +983,14 @@ def deploy_html(*args, **kwargs):
     rsce = api.RSConnectExecutor(*args, **kwargs)
     (
         rsce.validate_server()
-        .validate_app_mode(default_app_mode=AppModes.STATIC)
-        .make_bundle(make_bundle_func=make_html_bundle)
-        .deploy_bundle()
+        .pipe(click.secho, "Validating App Mode", nl=False)
+        .validate_app_mode(default_app_mode=AppModes.STATIC).pipe(click.secho, " [OK]", fg="green")
+        .pipe(click.secho, "Making bundle", nl=False)
+        .make_bundle(make_bundle_func=make_html_bundle).pipe(click.secho, " [OK]", fg="green")
+        .pipe(click.secho, "Deploying bundle", nl=False)
+        .deploy_bundle().pipe(click.secho, " [OK]", fg="green")  
+        .pipe(click.secho, "Save deployed info", nl=False)
+        .save_deployed_info().pipe(click.secho, " [OK]", fg="green")  
     )
 
 
