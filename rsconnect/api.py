@@ -364,7 +364,12 @@ class RSConnectExecutor:
 
     def make_bundle(self, *args, **kwargs):
         make_bundle_func = self.get("make_bundle_func", **kwargs)
-        path = self.get("path", **kwargs) or self.get("file", **kwargs) or self.get("file_name", **kwargs) or self.get("directory", **kwargs)
+        path = (
+            self.get("path", **kwargs)
+            or self.get("file", **kwargs)
+            or self.get("file_name", **kwargs)
+            or self.get("directory", **kwargs)
+        )
         app_id = self.get("app_id", **kwargs)
         title = self.get("title", **kwargs)
 
@@ -397,23 +402,28 @@ class RSConnectExecutor:
             self.get("env_vars", **kwargs),
         )
         self.connect_server.handle_bad_response(result)
-        self.state['deployed_info'] = result
+        self.state["deployed_info"] = result
         return self
 
     def save_deployed_info(self, *args, **kwargs):
-        app_store = self.get('app_store', *args, **kwargs)
-        path = self.get("path", **kwargs) or self.get("file", **kwargs) or self.get("file_name", **kwargs) or self.get("directory", **kwargs)
-        deployed_info = self.get('deployed_info', *args, **kwargs)
+        app_store = self.get("app_store", *args, **kwargs)
+        path = (
+            self.get("path", **kwargs)
+            or self.get("file", **kwargs)
+            or self.get("file_name", **kwargs)
+            or self.get("directory", **kwargs)
+        )
+        deployed_info = self.get("deployed_info", *args, **kwargs)
 
         app_store.set(
             self.connect_server.url,
             abspath(path),
-            deployed_info['app_url'],
+            deployed_info["app_url"],
             deployed_info["app_id"],
             deployed_info["app_guid"],
-            deployed_info['title'],
+            deployed_info["title"],
             self.state["app_mode"],
-        )        
+        )
 
         return self
 
