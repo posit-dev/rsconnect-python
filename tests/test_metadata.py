@@ -1,8 +1,8 @@
+import shutil
 import tempfile
 
 from unittest import TestCase
 from os.path import exists, join
-from os import remove
 
 from rsconnect.api import RSConnectServer
 from rsconnect.models import BuildStatus
@@ -23,7 +23,7 @@ class TestServerMetadata(TestCase):
 
     def tearDown(self):
         # clean up our temporary store
-        remove(self.server_store_path)
+        shutil.rmtree(self.server_store_path)
 
     def test_add(self):
         self.assertEqual(
