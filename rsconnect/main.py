@@ -980,6 +980,10 @@ def deploy_quarto(
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
 def deploy_html(*args, **kwargs):
+    path = kwargs.get("path")
+    entrypoint = kwargs.get("entrypoint")
+    extra_files = kwargs.get("extra_files")
+    excludes = kwargs.get("excludes")
     rsce = api.RSConnectExecutor(*args, **kwargs)
     (
         rsce.validate_server()
@@ -987,7 +991,7 @@ def deploy_html(*args, **kwargs):
         .validate_app_mode(default_app_mode=AppModes.STATIC)
         .pipe(click.secho, " [OK]", fg="green")
         .pipe(click.secho, "Making bundle", nl=False)
-        .make_bundle(make_bundle_func=make_html_bundle)
+        .make_bundle(make_html_bundle, path, entrypoint, extra_files, excludes)
         .pipe(click.secho, " [OK]", fg="green")
         .pipe(click.secho, "Deploying bundle", nl=False)
         .deploy_bundle()
