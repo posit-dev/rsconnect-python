@@ -1017,12 +1017,6 @@ def deploy_quarto(
         "This option may be repeated."
     ),
 )
-@click.option(
-    "--image",
-    "-m",
-    help="Target content image to be used (only applicable if the "
-    "RStudio Connect server is configured to use off-host execution).",
-)
 @click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
     "extra_files",
