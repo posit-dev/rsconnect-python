@@ -344,7 +344,7 @@ class RSConnectExecutor:
 
         # If our info came from the command line, make sure the URL really works.
         if not from_store:
-            connect_server, _ = connect_server.test_server()
+            self.server_settings
 
         connect_server.api_key = api_key
 
@@ -465,27 +465,13 @@ class RSConnectExecutor:
         self.state["app_mode"] = app_mode
         return self
 
-    def verify_server(self):
-        """
-        Verify that the given server information represents a Connect instance that is
-        reachable, active and appears to be actually running RStudio Connect.  If the
-        check is successful, the server settings for the Connect server is returned.
-        """
-        uri = urlparse(self.url)
-        if not uri.netloc:
-            raise RSConnectException('Invalid server URL: "%s"' % self.url)
-
+    @property
+    def server_settings(self):
         try:
             result = self.connect.server_settings()
             self.connect_server.handle_bad_response(result)
         except SSLError as ssl_error:
             raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
-        return self
-
-    @property
-    def server_settings(self):
-        result = self.connect.server_settings()
-        self.connect_server.handle_bad_response(result)
         return result
 
     def verify_api_key(self):
@@ -518,31 +504,6 @@ class RSConnectExecutor:
         self.connect_server.handle_bad_response(result)
         return result
 
-    def test_server(self):
-        """
-        Test whether the given server can be reached and is running Connect.  The server
-        may be provided with or without a scheme.  If a scheme is omitted, the server will
-        be tested with both `https` and `http` until one of them works.
-
-        :param connect_server: the Connect server information.
-        :return: a second server object with any scheme expansions applied and the server
-        settings from the server.
-        """
-        failures = []
-        for test in _to_server_check_list(self.url):
-            try:
-                result = self.verify_server()
-                return self, result
-            except RSConnectException as exc:
-                failures.append("    %s - failed to verify as RStudio Connect (%s)." % (test, str(exc)))
-
-        # In case the user may need https instead of http...
-        if len(failures) == 1 and self.url.startswith("http://"):
-            failures.append('    Do you need to use "https://%s"?' % self.url[7:])
-
-        # If we're here, nothing worked.
-        raise RSConnectException("\n".join(failures))
-
     @property
     def server_details(self):
         """
@@ -559,8 +520,8 @@ class RSConnectExecutor:
             parts = [part.zfill(5) for part in text.split(".")]
             return "".join(parts)
 
-        server_settings = self.server_settings()
-        python_settings = self.python_info()
+        server_settings = self.server_settings
+        python_settings = self.python_info
         python_versions = sorted([item["version"] for item in python_settings["installations"]], key=_to_sort_key)
         conda_settings = {
             "supported": python_settings["conda_enabled"] if "conda_enabled" in python_settings else False
