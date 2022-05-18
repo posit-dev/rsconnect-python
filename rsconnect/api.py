@@ -2,19 +2,28 @@
 RStudio Connect API client and utility functions
 """
 
+from os.path import abspath, basename
 import time
 from _ssl import SSLError
-
+import re
+from warnings import warn
+from six import text_type
+from rsconnect.instrumentation import (
+    _warn_if_environment_directory,
+    _warn_if_no_requirements_file,
+    _warn_on_ignored_manifest,
+    _warn_on_ignored_requirements,
+    are_apis_supported_on_server,
+    fake_module_file_from_directory,
+    get_python_env_info,
+    validate_entry_point,
+    validate_extra_files,
+)
 from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
 from .log import logger
 from .models import AppModes
-from six import text_type
-from six.moves.urllib_parse import urlparse
 from .metadata import ServerStore, AppStore
-import re
-from warnings import warn
 from .exception import RSConnectException
-from os.path import abspath, basename
 
 
 class RSConnectServer(object):
@@ -391,6 +400,64 @@ class RSConnectExecutor:
 
         return self
 
+    def create_python_environment(self, *args, **kwargs):
+        directory = self.get("directory", **kwargs)
+        extra_files = self.get("extra_files", **kwargs)
+        force_generate = self.get("force_generate", **kwargs)
+        python = self.get("python", **kwargs)
+        conda = self.get("conda", **kwargs)
+        entrypoint = self.get("entrypoint", **kwargs)
+        module_file = fake_module_file_from_directory(directory)
+        extra_files = validate_extra_files(directory, extra_files)
+
+        # click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
+
+        entrypoint = validate_entry_point(entrypoint, directory)
+        self.state["entrypoint"] = entrypoint
+        _warn_on_ignored_manifest(directory)
+        _warn_if_no_requirements_file(directory)
+        _warn_if_environment_directory(directory)
+
+        # with cli_feedback("Inspecting Python environment"):
+        _, environment = get_python_env_info(module_file, python, conda, force_generate)
+
+        # with cli_feedback("Checking server capabilities"):
+        checks = [are_apis_supported_on_server]
+        self.check_server_capabilities(checks)
+
+        if force_generate:
+            _warn_on_ignored_requirements(directory, environment.filename)
+
+        self.state["environment"] = environment
+        return self
+
+    def check_server_capabilities(self, capability_functions):
+        """
+        Uses a sequence of functions that check for capabilities in a Connect server.  The
+        server settings data is retrieved by the gather_server_details() function.
+
+        Each function provided must accept one dictionary argument which will be the server
+        settings data returned by the gather_server_details() function.  That function must
+        return a boolean value.  It must also contain a docstring which itself must contain
+        an ":error:" tag as the last thing in the docstring.  If the function returns False,
+        an exception is raised with the function's ":error:" text as its message.
+
+        :param capability_functions: a sequence of functions that will be called.
+        :param details_source: the source for obtaining server details, gather_server_details(),
+        by default.
+        """
+        details = self.server_details
+
+        for function in capability_functions:
+            if not function(details):
+                index = function.__doc__.find(":error:") if function.__doc__ else -1
+                if index >= 0:
+                    message = function.__doc__[index + 7 :].strip()
+                else:
+                    message = "The server does not satisfy the %s capability check." % function.__name__
+                raise RSConnectException(message)
+        return self
+
     def deploy_bundle(self, *args, **kwargs):
         result = self.connect.deploy(
             self.get("app_id", **kwargs),
@@ -402,6 +469,10 @@ class RSConnectExecutor:
         )
         self.connect_server.handle_bad_response(result)
         self.state["deployed_info"] = result
+        app_url, log_lines, _ = emit_task_log(self.connect_server, result["app_id"], result["task_id"], None)
+        print(f"\n{app_url = }")
+        for line in log_lines:
+            print(line)
         return self
 
     def save_deployed_info(self, *args, **kwargs):

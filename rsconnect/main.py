@@ -64,6 +64,7 @@ from .bundle import (
     is_environment_dir,
     make_manifest_bundle,
     make_html_bundle,
+    make_api_bundle,
 )
 from .log import logger, LogOutputFormat
 from .metadata import ServerStore, AppStore
@@ -998,6 +999,99 @@ def deploy_html(*args, **kwargs):
     )
 
 
+def generate_deploy_python_refactor(app_mode, alias, min_version):
+    # noinspection SpellCheckingInspection
+    @deploy.command(
+        name=alias,
+        short_help="Deploy a {desc} to RStudio Connect [v{version}+].".format(
+            desc=app_mode.desc(), version=min_version
+        ),
+        help=(
+            'Deploy a {desc} module to RStudio Connect. The "directory" argument must refer to an '
+            "existing directory that contains the application code."
+        ).format(desc=app_mode.desc()),
+    )
+    @server_args
+    @content_args
+    @click.option(
+        "--entrypoint",
+        "-e",
+        help=(
+            "The module and executable object which serves as the entry point for the {desc} (defaults to app)"
+        ).format(desc=app_mode.desc()),
+    )
+    @click.option(
+        "--exclude",
+        "-x",
+        multiple=True,
+        help=(
+            "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+            "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+            "This option may be repeated."
+        ),
+    )
+    @click.option(
+        "--python",
+        "-p",
+        type=click.Path(exists=True),
+        help=(
+            "Path to Python interpreter whose environment should be used. "
+            "The Python environment must have the rsconnect package installed."
+        ),
+    )
+    @click.option(
+        "--conda",
+        "-C",
+        is_flag=True,
+        hidden=True,
+        help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
+    )
+    @click.option(
+        "--force-generate",
+        "-g",
+        is_flag=True,
+        help='Force generating "requirements.txt", even if it already exists.',
+    )
+    @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+    @click.argument(
+        "extra_files",
+        nargs=-1,
+        type=click.Path(exists=True, dir_okay=False, file_okay=True),
+    )
+    def deploy_app(*args, **kwargs):
+        rsce = api.RSConnectExecutor(*args, **kwargs)
+        (
+            rsce.validate_server()
+            .pipe(click.secho, "Validating App Mode", nl=False)
+            .validate_app_mode(default_app_mode=AppModes.PYTHON_API)
+            .pipe(click.secho, " [OK]", fg="green")
+            .pipe(click.secho, "create_python_environment", nl=False)
+            .create_python_environment()
+            .pipe(print, rsce.state)
+            .pipe(click.secho, " [OK]", fg="green")
+            .pipe(click.secho, "make_bundle", nl=False)
+            .make_bundle(
+                make_api_bundle,
+                rsce.state["directory"],
+                rsce.state["entrypoint"],
+                AppModes.PYTHON_FASTAPI,
+                rsce.state["environment"],
+                rsce.state["extra_files"],
+                rsce.state["exclude"],
+            )
+            .pipe(print, rsce.state["bundle"])
+            .pipe(click.secho, " [OK]", fg="green")
+            .pipe(click.secho, "deploy_bundle", nl=False)
+            .deploy_bundle()
+            .pipe(click.secho, " [OK]", fg="green")
+            .pipe(click.secho, "save_deployed_info", nl=False)
+            .save_deployed_info()
+            .pipe(click.secho, " [OK]", fg="green")
+        )
+
+    return deploy_app
+
+
 def generate_deploy_python(app_mode, alias, min_version):
     # noinspection SpellCheckingInspection
     @deploy.command(
@@ -1108,7 +1202,9 @@ def generate_deploy_python(app_mode, alias, min_version):
 
 deploy_api = generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="api", min_version="1.8.2")
 # TODO: set fastapi min_version correctly
-deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0")
+deploy_fastapi = generate_deploy_python_refactor(
+    app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0"
+)
 deploy_dash_app = generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
 deploy_streamlit_app = generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
 deploy_bokeh_app = generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
