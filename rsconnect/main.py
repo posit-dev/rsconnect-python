@@ -988,7 +988,13 @@ def deploy_html(*args, **kwargs):
         .validate_app_mode(default_app_mode=AppModes.STATIC)
         .pipe(click.secho, " [OK]", fg="green")
         .pipe(click.secho, "Making bundle", nl=False)
-        .make_bundle(make_html_bundle, kwargs["path"], kwargs["entrypoint"], kwargs["extra_files"], kwargs["excludes"])
+        .make_bundle(
+            make_html_bundle,
+            rsce.state["path"],
+            rsce.state["entrypoint"],
+            rsce.state["extra_files"],
+            rsce.state["excludes"],
+        )
         .pipe(click.secho, " [OK]", fg="green")
         .pipe(click.secho, "Deploying bundle", nl=False)
         .deploy_bundle()
