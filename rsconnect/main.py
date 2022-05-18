@@ -691,9 +691,9 @@ def _deploy_bundle(
 )
 @click.option(
     "--image",
-    "-m",
-    help="Target content image to be used (only applicable if the "
-    "RStudio Connect server is configured to use off-host execution).",
+    "-I",
+    help="Target image to be used during content execution (only applicable if the RStudio Connect "
+      "server is configured to use off-host execution)",
 )
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
@@ -906,9 +906,9 @@ def deploy_manifest(
 )
 @click.option(
     "--image",
-    "-m",
-    help="Target content image to be used (only applicable if the "
-    "RStudio Connect server is configured to use off-host execution).",
+    "-I",
+    help="Target image to be used during content execution (only applicable if the RStudio Connect "
+      "server is configured to use off-host execution)",
 )
 @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @click.argument(
@@ -1136,9 +1136,9 @@ def generate_deploy_python(app_mode, alias, min_version):
     )
     @click.option(
         "--image",
-        "-m",
-        help="Target content image to be used (only applicable if the "
-        "RStudio Connect server is configured to use off-host execution).",
+        "-I",
+        help="Target image to be used during content execution (only applicable if the RStudio Connect "
+        "server is configured to use off-host execution)",
     )
     @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
     @click.argument(
@@ -1368,9 +1368,9 @@ def write_manifest():
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
 @click.option(
     "--image",
-    "-m",
-    help="Target content image to be used (only applicable if the "
-    "RStudio Connect server is configured to use off-host execution).",
+    "-I",
+    help="Target image to be used during content execution (only applicable if the RStudio Connect "
+      "server is configured to use off-host execution)",
 )
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
@@ -1471,9 +1471,9 @@ def write_manifest_notebook(
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
 @click.option(
     "--image",
-    "-m",
-    help="Target content image to be used (only applicable if the "
-    "RStudio Connect server is configured to use off-host execution).",
+    "-I",
+    help="Target image to be used during content execution (only applicable if the RStudio Connect "
+      "server is configured to use off-host execution)",
 )
 @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @click.argument(
@@ -1586,9 +1586,9 @@ def generate_write_manifest_python(app_mode, alias):
     @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
     @click.option(
         "--image",
-        "-m",
-        help="Target content image to be used (only applicable if the "
-        "RStudio Connect server is configured to use off-host execution).",
+        "-I",
+        help="Target image to be used during content execution (only applicable if the RStudio Connect "
+        "server is configured to use off-host execution)",
     )
     @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
     @click.argument(
