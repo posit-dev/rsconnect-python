@@ -17,6 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   2021.08.0 or later. Use `rsconnect deploy quarto` to deploy, or `rsconnect
   write-manifest quarto` to create a manifest file.
 
+- An `image` command line option has been added to the `write-manifest` and
+  `deploy` commands to specify the target image to be used on the RStudio Connect 
+  server during content execution. This is only supported for the `api`, `bokeh`, `dash`, 
+  `fastapi`, `notebook`, `quarto` and `streamlit` sub-commands. It is only 
+  applicable if the RStudio Connect server is configured to use off-host execution.
+
+
 ## [1.7.1] - 2022-02-15
 
 ### Added
