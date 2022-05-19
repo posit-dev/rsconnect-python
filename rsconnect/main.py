@@ -1080,7 +1080,7 @@ def generate_deploy_python_refactor(app_mode, alias, min_version):
                 make_api_bundle,
                 rsce.state["directory"],
                 rsce.state["entrypoint"],
-                AppModes.PYTHON_FASTAPI,
+                app_mode,
                 rsce.state["environment"],
                 rsce.state["extra_files"],
                 rsce.state["exclude"],
@@ -1212,7 +1212,9 @@ deploy_fastapi = generate_deploy_python_refactor(
     app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0"
 )
 deploy_dash_app = generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
-deploy_streamlit_app = generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
+deploy_streamlit_app = generate_deploy_python_refactor(
+    app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4"
+)
 deploy_bokeh_app = generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
 
 
