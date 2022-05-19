@@ -5,7 +5,6 @@ from unittest import TestCase
 from os.path import dirname, join
 
 from rsconnect.environment import (
-    Environment,
     EnvironmentException,
     MakeEnvironment,
     detect_environment,

@@ -2,6 +2,7 @@
 import json
 import sys
 import tarfile
+import tempfile
 
 from unittest import TestCase
 from os.path import dirname, join
@@ -14,7 +15,12 @@ from rsconnect.bundle import (
     make_notebook_source_bundle,
     keep_manifest_specified_file,
     to_bytes,
+    make_source_manifest,
+    make_quarto_manifest,
+    make_html_manifest,
 )
+from rsconnect.models import AppModes
+from rsconnect.environment import Environment
 from .utils import get_dir
 
 
@@ -44,7 +50,7 @@ class TestBundle(TestCase):
         # runs in the notebook server. We need the introspection to run in
         # the kernel environment and not the notebook server environment.
         environment = detect_environment(directory)
-        with make_notebook_source_bundle(nb_path, environment) as bundle, tarfile.open(
+        with make_notebook_source_bundle(nb_path, environment, None, None, False, False) as bundle, tarfile.open(
             mode="r:gz", fileobj=bundle
         ) as tar:
 
@@ -108,9 +114,9 @@ class TestBundle(TestCase):
         # the kernel environment and not the notebook server environment.
         environment = detect_environment(directory)
 
-        with make_notebook_source_bundle(nb_path, environment, extra_files=["data.csv"]) as bundle, tarfile.open(
-            mode="r:gz", fileobj=bundle
-        ) as tar:
+        with make_notebook_source_bundle(
+            nb_path, environment, "rstudio/connect:bionic", ["data.csv"], False, False
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
 
             names = sorted(tar.getnames())
             self.assertEqual(
@@ -158,6 +164,7 @@ class TestBundle(TestCase):
                             "package_file": "requirements.txt",
                         },
                     },
+                    "environment": {"image": "rstudio/connect:bionic"},
                     "files": {
                         "dummy.ipynb": {
                             "checksum": ipynb_hash,
@@ -212,7 +219,7 @@ class TestBundle(TestCase):
         self.maxDiff = 5000
         nb_path = join(directory, "dummy.ipynb")
 
-        bundle = make_notebook_html_bundle(nb_path, sys.executable)
+        bundle = make_notebook_html_bundle(nb_path, sys.executable, None, False, False, None)
 
         tar = tarfile.open(mode="r:gz", fileobj=bundle)
 
@@ -268,3 +275,302 @@ class TestBundle(TestCase):
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
             manifest_names = sorted(filter(keep_manifest_specified_file, manifest["files"].keys()))
             self.assertEqual(tar_names, manifest_names)
+
+    def test_make_source_manifest(self):
+        # Verify the optional parameters
+        # image=None,  # type: str
+        # environment=None,  # type: typing.Optional[Environment]
+        # entrypoint=None,  # type: typing.Optional[str]
+        # quarto_inspection=None,  # type: typing.Optional[typing.Dict[str, typing.Any]]
+
+        # No optional parameters
+        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None, None)
+        self.assertEqual(
+            manifest,
+            {"version": 1, "metadata": {"appmode": "python-api"}, "files": {}},
+        )
+
+        # include image parameter
+        manifest = make_source_manifest(AppModes.PYTHON_API, "rstudio/connect:bionic", None, None, None)
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {"appmode": "python-api"},
+                "environment": {"image": "rstudio/connect:bionic"},
+                "files": {},
+            },
+        )
+
+        # include environment parameter
+        manifest = make_source_manifest(
+            AppModes.PYTHON_API,
+            None,
+            Environment(
+                conda=None,
+                contents="",
+                error=None,
+                filename="requirements.txt",
+                locale="en_US.UTF-8",
+                package_manager="pip",
+                pip="22.0.4",
+                python="3.9.12",
+                source="file",
+            ),
+            None,
+            None,
+        )
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "locale": "en_US.UTF-8",
+                "metadata": {"appmode": "python-api"},
+                "python": {
+                    "version": "3.9.12",
+                    "package_manager": {"name": "pip", "version": "22.0.4", "package_file": "requirements.txt"},
+                },
+                "files": {},
+            },
+        )
+
+        # include entrypoint parameter
+        manifest = make_source_manifest(
+            AppModes.PYTHON_API,
+            None,
+            None,
+            "main.py",
+            None,
+        )
+        # print(manifest)
+        self.assertEqual(
+            manifest,
+            {"version": 1, "metadata": {"appmode": "python-api", "entrypoint": "main.py"}, "files": {}},
+        )
+
+        # include quarto_inspection parameter
+        manifest = make_source_manifest(
+            AppModes.PYTHON_API,
+            None,
+            None,
+            None,
+            {
+                "quarto": {"version": "0.9.16"},
+                "engines": ["jupyter"],
+                "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
+            },
+        )
+        # print(manifest)
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {
+                    "appmode": "python-api",
+                },
+                "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
+                "files": {},
+            },
+        )
+
+    def test_make_quarto_manifest(self):
+        temp = tempfile.mkdtemp()
+
+        # Verify the optional parameters
+        # image=None,  # type: str
+        # environment=None,  # type: typing.Optional[Environment]
+        # extra_files=None,  # type: typing.Optional[typing.List[str]]
+        # excludes=None,  # type: typing.Optional[typing.List[str]]
+
+        # No optional parameters
+        manifest, _ = make_quarto_manifest(
+            temp,
+            {
+                "quarto": {"version": "0.9.16"},
+                "engines": ["jupyter"],
+                "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
+            },
+            AppModes.SHINY_QUARTO,
+            None,
+            None,
+            None,
+            None,
+        )
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {"appmode": "quarto-shiny"},
+                "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
+                "files": {},
+            },
+        )
+
+        # include image parameter
+        manifest, _ = make_quarto_manifest(
+            temp,
+            {
+                "quarto": {"version": "0.9.16"},
+                "engines": ["jupyter"],
+                "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
+            },
+            AppModes.SHINY_QUARTO,
+            "rstudio/connect:bionic",
+            None,
+            None,
+            None,
+        )
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {"appmode": "quarto-shiny"},
+                "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
+                "environment": {"image": "rstudio/connect:bionic"},
+                "files": {},
+            },
+        )
+
+        # Files used within this test
+        fp = open(join(temp, "requirements.txt"), "w")
+        fp.write("dash\n")
+        fp.write("pandas\n")
+        fp.close()
+
+        # include environment parameter
+        manifest, _ = make_quarto_manifest(
+            temp,
+            {
+                "quarto": {"version": "0.9.16"},
+                "engines": ["jupyter"],
+                "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
+            },
+            AppModes.SHINY_QUARTO,
+            None,
+            Environment(
+                conda=None,
+                contents="",
+                error=None,
+                filename="requirements.txt",
+                locale="en_US.UTF-8",
+                package_manager="pip",
+                pip="22.0.4",
+                python="3.9.12",
+                source="file",
+            ),
+            None,
+            None,
+        )
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "locale": "en_US.UTF-8",
+                "metadata": {"appmode": "quarto-shiny"},
+                "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
+                "python": {
+                    "version": "3.9.12",
+                    "package_manager": {"name": "pip", "version": "22.0.4", "package_file": "requirements.txt"},
+                },
+                "files": {"requirements.txt": {"checksum": "6f83f7f33bf6983dd474ecbc6640a26b"}},
+            },
+        )
+
+        # include extra_files parameter
+        fp = open(join(temp, "a"), "w")
+        fp.write("This is file a\n")
+        fp.close()
+        fp = open(join(temp, "b"), "w")
+        fp.write("This is file b\n")
+        fp.close()
+        fp = open(join(temp, "c"), "w")
+        fp.write("This is file c\n")
+        fp.close()
+        manifest, _ = make_quarto_manifest(
+            temp,
+            {
+                "quarto": {"version": "0.9.16"},
+                "engines": ["jupyter"],
+                "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
+            },
+            AppModes.SHINY_QUARTO,
+            None,
+            None,
+            ["a", "b", "c"],
+            None,
+        )
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {"appmode": "quarto-shiny"},
+                "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
+                "files": {
+                    "a": {"checksum": "4a3eb92956aa3e16a9f0a84a43c943e7"},
+                    "b": {"checksum": "b249e5b536d30e6282cea227f3a73669"},
+                    "c": {"checksum": "53b36f1d5b6f7fb2cfaf0c15af7ffb2d"},
+                    "requirements.txt": {"checksum": "6f83f7f33bf6983dd474ecbc6640a26b"},
+                },
+            },
+        )
+
+        # include excludes parameter
+        manifest, _ = make_quarto_manifest(
+            temp,
+            {
+                "quarto": {"version": "0.9.16"},
+                "engines": ["jupyter"],
+                "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
+            },
+            AppModes.SHINY_QUARTO,
+            None,
+            None,
+            ["a", "b", "c"],
+            ["requirements.txt"],
+        )
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {"appmode": "quarto-shiny"},
+                "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
+                "files": {
+                    "a": {"checksum": "4a3eb92956aa3e16a9f0a84a43c943e7"},
+                    "b": {"checksum": "b249e5b536d30e6282cea227f3a73669"},
+                    "c": {"checksum": "53b36f1d5b6f7fb2cfaf0c15af7ffb2d"},
+                },
+            },
+        )
+
+    def test_make_html_manifest(self):
+        # Verify the optional parameters
+        # image=None,  # type: str
+
+        # No optional parameters
+        manifest = make_html_manifest("abc.html", None)
+        # print(manifest)
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {
+                    "appmode": "static",
+                    "primary_html": "abc.html",
+                },
+            },
+        )
+
+        # include image parameter
+        manifest = make_html_manifest("abc.html", image="rstudio/connect:bionic")
+        # print(manifest)
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {
+                    "appmode": "static",
+                    "primary_html": "abc.html",
+                },
+                "environment": {"image": "rstudio/connect:bionic"},
+            },
+        )

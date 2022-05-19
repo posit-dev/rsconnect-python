@@ -1,3 +1,4 @@
+import shutil
 import tempfile
 
 from unittest import TestCase
@@ -10,9 +11,19 @@ from rsconnect.metadata import AppStore, ServerStore, ContentBuildStore, _normal
 
 class TestServerMetadata(TestCase):
     def setUp(self):
-        self.server_store = ServerStore()
+        # Use temporary stores, to keep each test isolated
+        self.tempDir = tempfile.mkdtemp()
+        self.server_store = ServerStore(base_dir=self.tempDir)
+        self.server_store_path = join(self.tempDir, "servers.json")
+        self.assertFalse(exists(self.server_store_path))
+
         self.server_store.set("foo", "http://connect.local", "notReallyAnApiKey", ca_data="/certs/connect")
         self.server_store.set("bar", "http://connect.remote", "differentApiKey", insecure=True)
+        self.assertEqual(len(self.server_store.get_all_servers()), 2, "Unexpected servers after setup")
+
+    def tearDown(self):
+        # clean up our temp test directory created with tempfile.mkdtemp()
+        shutil.rmtree(self.tempDir)
 
     def test_add(self):
         self.assertEqual(
@@ -133,7 +144,7 @@ class TestServerMetadata(TestCase):
         self.assertEqual(server_store.get_all_servers(), server_store2.get_all_servers())
 
     def test_get_path(self):
-        self.assertIn("rsconnect-python", self.server_store.get_path())
+        self.assertIn("servers.json", self.server_store.get_path())
 
 
 class TestAppMetadata(TestCase):
