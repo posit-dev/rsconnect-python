@@ -9,7 +9,6 @@ from .exception import RSConnectException
 from .log import logger
 from .bundle import is_environment_dir
 from .environment import MakeEnvironment
-import click
 
 
 def fake_module_file_from_directory(directory):
@@ -89,21 +88,6 @@ def _warn_if_environment_directory(directory):
             "    Warning: The deployment directory appears to be a python virtual environment.\n"
             "             Excluding the 'bin' and 'lib' directories.",
             fg="yellow",
-        )
-
-
-def _warn_on_ignored_conda_env(environment):
-    """
-    Checks for a discovered Conda environment and produces a warning that it will be ignored when
-    Conda was not requested.  The warning is only shown if we're in "future" mode since we don't
-    yet want to advertise Conda support.
-
-    :param environment: The Python environment that was discovered.
-    """
-    if future_enabled and environment.package_manager != "conda" and environment.conda is not None:
-        click.echo(
-            "    Using %s for package management; the current Conda environment will be ignored."
-            % environment.package_manager
         )
 
 
