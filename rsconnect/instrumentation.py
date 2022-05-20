@@ -8,7 +8,12 @@ from pprint import pformat
 from .exception import RSConnectException
 from .log import logger
 from .bundle import is_environment_dir
-from .environment import MakeEnvironment
+from .environment import Environment, MakeEnvironment
+
+try:
+    import typing
+except ImportError:
+    typing = None
 
 
 def fake_module_file_from_directory(directory):
