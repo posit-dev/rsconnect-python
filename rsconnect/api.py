@@ -18,6 +18,7 @@ from rsconnect.instrumentation import (
     get_python_env_info,
     validate_entry_point,
     validate_extra_files,
+    logged,
 )
 from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
 from .log import logger
@@ -315,6 +316,7 @@ class RSConnectExecutor:
         func(*args, **kwargs)
         return self
 
+    @logged("Validating server...")
     def validate_server(self, *args, **kwargs):
         """
         Validate that the user gave us enough information to talk to a Connect server.
@@ -371,6 +373,7 @@ class RSConnectExecutor:
 
         return self
 
+    @logged("Making bundle ...")
     def make_bundle(self, func, *args, **kwargs):
         path = (
             self.get("path", **kwargs)
@@ -458,6 +461,7 @@ class RSConnectExecutor:
                 raise RSConnectException(message)
         return self
 
+    @logged("Deploying bundle ...")
     def deploy_bundle(self, *args, **kwargs):
         result = self.connect.deploy(
             self.get("app_id", **kwargs),
@@ -475,6 +479,7 @@ class RSConnectExecutor:
         #     print(line)
         return self
 
+    @logged("Saving deployed information...")
     def save_deployed_info(self, *args, **kwargs):
         app_store = self.get("app_store", *args, **kwargs)
         path = (
@@ -500,6 +505,7 @@ class RSConnectExecutor:
     def make_manifest(self, *args, **kwargs):
         pass
 
+    @logged("Validating app mode...")
     def validate_app_mode(self, *args, **kwargs):
         connect_server = self.connect_server
         path = self.get("path", **kwargs) or self.get("directory", **kwargs) or self.get("file", **kwargs)

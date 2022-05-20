@@ -1027,24 +1027,17 @@ def deploy_html(*args, **kwargs):
     rsce = api.RSConnectExecutor(*args, **kwargs)
     (
         rsce.validate_server()
-        .pipe(click.secho, "Validating App Mode", nl=False)
         .validate_app_mode(default_app_mode=AppModes.STATIC)
-        .pipe(click.secho, " [OK]", fg="green")
-        .pipe(click.secho, "Making bundle", nl=False)
         .make_bundle(
             make_html_bundle,
-            rsce.state["path"],
-            rsce.state["entrypoint"],
-            rsce.state["extra_files"],
-            rsce.state["excludes"],
+            kwargs.get("path"),
+            kwargs.get("entrypoint"),
+            kwargs.get("image"),
+            kwargs.get("extra_files"),
+            kwargs.get("excludes"),
         )
-        .pipe(click.secho, " [OK]", fg="green")
-        .pipe(click.secho, "Deploying bundle", nl=False)
         .deploy_bundle()
-        .pipe(click.secho, " [OK]", fg="green")
-        .pipe(click.secho, "Save deployed info", nl=False)
         .save_deployed_info()
-        .pipe(click.secho, " [OK]", fg="green")
     )
 
 
@@ -1111,31 +1104,20 @@ def generate_deploy_python_refactor(app_mode, alias, min_version):
         rsce = api.RSConnectExecutor(*args, **kwargs)
         (
             rsce.validate_server()
-            .pipe(click.secho, "Validating App Mode", nl=False)
             .validate_app_mode(default_app_mode=AppModes.PYTHON_API)
-            .pipe(click.secho, " [OK]", fg="green")
-            .pipe(click.secho, "create_python_environment", nl=False)
             .create_python_environment()
-            .pipe(print, rsce.state)
-            .pipe(click.secho, " [OK]", fg="green")
-            .pipe(click.secho, "make_bundle", nl=False)
             .make_bundle(
                 make_api_bundle,
                 rsce.state["directory"],
                 rsce.state["entrypoint"],
                 app_mode,
                 rsce.state["environment"],
+                kwargs.get("image"),
                 rsce.state["extra_files"],
                 rsce.state["exclude"],
             )
-            .pipe(print, rsce.state["bundle"])
-            .pipe(click.secho, " [OK]", fg="green")
-            .pipe(click.secho, "deploy_bundle", nl=False)
             .deploy_bundle()
-            .pipe(click.secho, " [OK]", fg="green")
-            .pipe(click.secho, "save_deployed_info", nl=False)
             .save_deployed_info()
-            .pipe(click.secho, " [OK]", fg="green")
         )
 
     return deploy_app
