@@ -1,3 +1,4 @@
+from functools import wraps
 import sys
 import click
 import os
@@ -5,6 +6,7 @@ from os.path import abspath, basename, dirname, exists, join, relpath
 import json
 import subprocess
 from pprint import pformat
+import logging
 from .exception import RSConnectException
 from .log import logger
 from .bundle import is_environment_dir
@@ -14,6 +16,57 @@ try:
     import typing
 except ImportError:
     typing = None
+
+
+class ConsoleFormatter(logging.Formatter):
+
+    green = "\x1b[32;20m"
+    yellow = "\x1b[33;20m"
+    red = "\x1b[31;20m"
+    format = "%(message)s"
+    reset = "\x1b[0m"
+
+    FORMATS = {
+        logging.DEBUG: green + format + reset,
+        logging.INFO: reset + format + reset,
+        logging.WARNING: yellow + format + reset,
+        logging.ERROR: red + format + reset,
+        logging.CRITICAL: red + format + reset,
+    }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
+
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+console_handler = logging.StreamHandler()
+console_handler.terminator = ""
+console_handler.setLevel(logging.DEBUG)
+console_handler.setFormatter(ConsoleFormatter())
+logger.addHandler(console_handler)
+logger.propagate = False
+
+
+def logged(label):
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kw):
+            logger.info(label)
+            result = None
+            try:
+                result = f(*args, **kw)
+            except Exception as exc:
+                logger.error(" \t[ERROR]: {}\n".format(str(exc)))
+                raise
+            logger.debug(" \t[OK]\n")
+            return result
+
+        return wrapper
+
+    return decorator
 
 
 def fake_module_file_from_directory(directory):
