@@ -313,8 +313,7 @@ class RSConnectExecutor:
         return kwargs.get(key) or self.state.get(key)
 
     def pipe(self, func, *args, **kwargs):
-        func(*args, **kwargs)
-        return self
+        return func(*args, **kwargs)
 
     @logged("Validating server...")
     def validate_server(self, *args, **kwargs):
