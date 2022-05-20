@@ -469,10 +469,10 @@ class RSConnectExecutor:
         )
         self.connect_server.handle_bad_response(result)
         self.state["deployed_info"] = result
-        app_url, log_lines, _ = emit_task_log(self.connect_server, result["app_id"], result["task_id"], None)
-        print(f"\n{app_url = }")
-        for line in log_lines:
-            print(line)
+        # app_url, log_lines, _ = emit_task_log(self.connect_server, result["app_id"], result["task_id"], None)
+        # print(f"\n{app_url = }")
+        # for line in log_lines:
+        #     print(line)
         return self
 
     def save_deployed_info(self, *args, **kwargs):
