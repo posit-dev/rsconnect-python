@@ -1,7 +1,6 @@
 from unittest import TestCase
 
 from rsconnect.api import RSConnect
-from rsconnect.exception import RSConnectException
 
 
 class TestAPI(TestCase):
