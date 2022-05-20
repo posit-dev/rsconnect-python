@@ -8,7 +8,6 @@ import subprocess
 from pprint import pformat
 import logging
 from .exception import RSConnectException
-from .log import logger
 from .bundle import is_environment_dir
 from .environment import Environment, MakeEnvironment
 
