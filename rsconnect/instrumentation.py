@@ -73,6 +73,16 @@ def logged(logger, label):
 console_logged = partial(logged, console_logger)
 
 
+# generic logger
+connect_logger = logging.getLogger("connect_logger")
+connect_logger.setLevel(logging.DEBUG)
+connect_handler = logging.StreamHandler()
+connect_handler.terminator = "\n"
+connect_handler.setLevel(logging.DEBUG)
+connect_handler.setFormatter(ConsoleFormatter())
+connect_logger.addHandler(connect_handler)
+
+
 def fake_module_file_from_directory(directory):
     """
     Takes a directory and invents a properly named file that though possibly fake,
