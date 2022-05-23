@@ -473,10 +473,47 @@ class RSConnectExecutor:
         )
         self.connect_server.handle_bad_response(result)
         self.state["deployed_info"] = result
-        # app_url, log_lines, _ = emit_task_log(self.connect_server, result["app_id"], result["task_id"], None)
-        # print(f"\n{app_url = }")
-        # for line in log_lines:
-        #     print(line)
+        return self
+
+    def emit_task_log(
+        self,
+        app_id=None,
+        task_id=None,
+        log_callback=None,
+        abort_func=lambda: False,
+        timeout=None,
+        poll_wait=0.5,
+        raise_on_error=True,
+    ):
+        """
+        Helper for spooling the deployment log for an app.
+
+        :param connect_server: the Connect server information.
+        :param app_id: the ID of the app that was deployed.
+        :param task_id: the ID of the task that is tracking the deployment of the app..
+        :param log_callback: the callback to use to write the log to.  If this is None
+        (the default) the lines from the deployment log will be returned as a sequence.
+        If a log callback is provided, then None will be returned for the log lines part
+        of the return tuple.
+        :param timeout: an optional timeout for the wait operation.
+        :param poll_wait: how long to wait between polls of the task api for status/logs
+        :param raise_on_error: whether to raise an exception when a task is failed, otherwise we
+        return the task_result so we can record the exit code.
+        """
+        app_id = self.state["deployed_info"]["app_id"] or app_id
+        task_id = self.state["deployed_info"]["task_id"] or task_id
+        client = self.connect
+        log_lines, _ = client.wait_for_task(task_id, log_callback.info, abort_func, timeout, poll_wait, raise_on_error)
+        self.connect_server.handle_bad_response(log_lines)
+        app_config = client.app_config(app_id)
+        self.connect_server.handle_bad_response(app_config)
+        app_dashboard_url = app_config.get("config_url")
+        log_callback.info("Deployment completed successfully.")
+        log_callback.info("\t Dashboard content URL: ")
+        log_callback.debug(app_dashboard_url)
+        log_callback.info("\t Direct content URL: ")
+        log_callback.debug(self.state["deployed_info"]["app_url"])
+
         return self
 
     @console_logged("Saving deployed information...")

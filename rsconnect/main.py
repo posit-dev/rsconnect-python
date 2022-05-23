@@ -77,6 +77,7 @@ from .models import (
     VersionSearchFilterParamType,
 )
 from .exception import RSConnectException
+from .instrumentation import connect_logger
 
 server_store = ServerStore()
 future_enabled = False
@@ -1118,6 +1119,7 @@ def generate_deploy_python_refactor(app_mode, alias, min_version):
             )
             .deploy_bundle()
             .save_deployed_info()
+            .emit_task_log(log_callback=connect_logger)
         )
 
     return deploy_app
@@ -1241,6 +1243,7 @@ def generate_deploy_python(app_mode, alias, min_version):
 
 deploy_api = generate_deploy_python_refactor(app_mode=AppModes.PYTHON_API, alias="api", min_version="1.8.2")
 # TODO: set fastapi min_version correctly
+# deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0")
 deploy_fastapi = generate_deploy_python_refactor(
     app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0"
 )
