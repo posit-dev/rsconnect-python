@@ -23,15 +23,15 @@ class ConsoleFormatter(logging.Formatter):
     green = "\x1b[32;20m"
     yellow = "\x1b[33;20m"
     red = "\x1b[31;20m"
-    format = "%(message)s"
+    msg_format = "%(message)s"
     reset = "\x1b[0m"
 
     FORMATS = {
-        logging.DEBUG: green + format + reset,
-        logging.INFO: reset + format + reset,
-        logging.WARNING: yellow + format + reset,
-        logging.ERROR: red + format + reset,
-        logging.CRITICAL: red + format + reset,
+        logging.DEBUG: green + msg_format + reset,
+        logging.INFO: reset + msg_format + reset,
+        logging.WARNING: yellow + msg_format + reset,
+        logging.ERROR: red + msg_format + reset,
+        logging.CRITICAL: red + msg_format + reset,
     }
 
     def format(self, record):
