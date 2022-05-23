@@ -1038,7 +1038,6 @@ def deploy_html(
     entrypoint,
     extra_files,
     excludes,
-    image,
 ):
     set_verbosity(verbose)
 
@@ -1059,7 +1058,7 @@ def deploy_html(
 
     with cli_feedback("Creating deployment bundle"):
         try:
-            bundle = make_html_bundle(path, entrypoint, image, extra_files, excludes)
+            bundle = make_html_bundle(path, entrypoint, "", extra_files, excludes)
         except IOError as error:
             msg = "Unable to include the file %s in the bundle: %s" % (
                 error.filename,
