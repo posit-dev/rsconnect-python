@@ -1,4 +1,4 @@
-from functools import wraps
+from functools import partial, wraps
 import sys
 import click
 import os
@@ -10,6 +10,7 @@ import logging
 from .exception import RSConnectException
 from .bundle import is_environment_dir
 from .environment import Environment, MakeEnvironment
+from .log import logger
 
 try:
     import typing
@@ -39,17 +40,18 @@ class ConsoleFormatter(logging.Formatter):
         return formatter.format(record)
 
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+console_logger = logging.getLogger("console")
+console_logger.setLevel(logging.DEBUG)
+
+# create console handler
 console_handler = logging.StreamHandler()
 console_handler.terminator = ""
 console_handler.setLevel(logging.DEBUG)
 console_handler.setFormatter(ConsoleFormatter())
-logger.addHandler(console_handler)
-logger.propagate = False
+console_logger.addHandler(console_handler)
 
 
-def logged(label):
+def logged(logger, label):
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kw):
@@ -66,6 +68,9 @@ def logged(label):
         return wrapper
 
     return decorator
+
+
+console_logged = partial(logged, console_logger)
 
 
 def fake_module_file_from_directory(directory):
