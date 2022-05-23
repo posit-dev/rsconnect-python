@@ -67,7 +67,7 @@ from .bundle import (
     make_html_bundle,
     make_api_bundle,
 )
-from .log import logger, LogOutputFormat
+from .log import logger, LogOutputFormat, connect_logger
 from .metadata import ServerStore, AppStore
 from .models import (
     AppModes,
@@ -77,7 +77,6 @@ from .models import (
     VersionSearchFilterParamType,
 )
 from .exception import RSConnectException
-from .instrumentation import connect_logger
 
 server_store = ServerStore()
 future_enabled = False

@@ -18,10 +18,9 @@ from rsconnect.instrumentation import (
     get_python_env_info,
     validate_entry_point,
     validate_extra_files,
-    console_logged,
 )
 from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
-from .log import logger
+from .log import logger, console_logged
 from .models import AppModes
 from .metadata import ServerStore, AppStore
 from .exception import RSConnectException

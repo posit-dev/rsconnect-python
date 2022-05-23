@@ -1,4 +1,3 @@
-from functools import partial, wraps
 import sys
 import click
 import os
@@ -6,7 +5,6 @@ from os.path import abspath, basename, dirname, exists, join, relpath
 import json
 import subprocess
 from pprint import pformat
-import logging
 from .exception import RSConnectException
 from .bundle import is_environment_dir
 from .environment import Environment, MakeEnvironment
@@ -16,71 +14,6 @@ try:
     import typing
 except ImportError:
     typing = None
-
-
-class ConsoleFormatter(logging.Formatter):
-
-    green = "\x1b[32;20m"
-    yellow = "\x1b[33;20m"
-    red = "\x1b[31;20m"
-    msg_format = "%(message)s"
-    reset = "\x1b[0m"
-
-    FORMATS = {
-        logging.DEBUG: green + msg_format + reset,
-        logging.INFO: reset + msg_format + reset,
-        logging.WARNING: yellow + msg_format + reset,
-        logging.ERROR: red + msg_format + reset,
-        logging.CRITICAL: red + msg_format + reset,
-    }
-
-    def format(self, record):
-        log_fmt = self.FORMATS.get(record.levelno)
-        formatter = logging.Formatter(log_fmt)
-        return formatter.format(record)
-
-
-console_logger = logging.getLogger("console")
-console_logger.setLevel(logging.DEBUG)
-
-# create console handler
-console_handler = logging.StreamHandler()
-console_handler.terminator = ""
-console_handler.setLevel(logging.DEBUG)
-console_handler.setFormatter(ConsoleFormatter())
-console_logger.addHandler(console_handler)
-
-
-def logged(logger, label):
-    def decorator(f):
-        @wraps(f)
-        def wrapper(*args, **kw):
-            logger.info(label)
-            result = None
-            try:
-                result = f(*args, **kw)
-            except Exception as exc:
-                logger.error(" \t[ERROR]: {}\n".format(str(exc)))
-                raise
-            logger.debug(" \t[OK]\n")
-            return result
-
-        return wrapper
-
-    return decorator
-
-
-console_logged = partial(logged, console_logger)
-
-
-# generic logger
-connect_logger = logging.getLogger("connect_logger")
-connect_logger.setLevel(logging.DEBUG)
-connect_handler = logging.StreamHandler()
-connect_handler.terminator = "\n"
-connect_handler.setLevel(logging.DEBUG)
-connect_handler.setFormatter(ConsoleFormatter())
-connect_logger.addHandler(connect_handler)
 
 
 def fake_module_file_from_directory(directory):
