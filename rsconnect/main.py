@@ -62,10 +62,12 @@ from .actions_content import (
 
 from . import api, VERSION
 from .bundle import (
+    default_title_from_manifest,
     is_environment_dir,
     make_manifest_bundle,
     make_html_bundle,
     make_api_bundle,
+    read_manifest_app_mode,
 )
 from .log import logger, LogOutputFormat, connect_logger
 from .metadata import ServerStore, AppStore
@@ -801,67 +803,24 @@ def deploy_manifest(
     file: str,
     env_vars: typing.Dict[str, str],
 ):
+    kwargs = locals()
     set_verbosity(verbose)
 
-    with cli_feedback("Checking arguments"):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        file = validate_manifest_file(file)
-        app_store = AppStore(file)
+    file_name = validate_manifest_file(file)
+    app_mode = read_manifest_app_mode(file_name)
+    kwargs["title"] = title or default_title_from_manifest(file)
 
-        (
-            app_id,
-            deployment_name,
-            title,
-            default_title,
-            app_mode,
-            package_manager,
-            _,
-        ) = gather_basic_deployment_info_from_manifest(
-            connect_server,
-            app_store,
-            file,
-            new,
-            app_id,
-            title,
+    rsce = api.RSConnectExecutor(**kwargs)
+    (
+        rsce.validate_server()
+        .validate_app_mode(app_mode=app_mode)
+        .make_bundle(
+            make_manifest_bundle,
+            kwargs.get("file"),
         )
-
-    click.secho('    Deploying %s to server "%s"' % (file, connect_server.url))
-
-    if package_manager == "conda":
-        with cli_feedback("Ensuring Conda is supported"):
-            check_server_capabilities(connect_server, [is_conda_supported_on_server])
-
-    with cli_feedback("Creating deployment bundle"):
-        try:
-            bundle = make_manifest_bundle(file)
-        except IOError as error:
-            msg = "Unable to include the file %s in the bundle: %s" % (
-                error.filename,
-                error.args[1],
-            )
-            if error.args[0] == errno.ENOENT:
-                msg = "\n".join(
-                    [
-                        msg,
-                        "Since the file is missing but referenced in the manifest, "
-                        "you will need to\nregenerate your manifest.  See the help "
-                        'for the "write-manifest" command or,\nfor non-Python '
-                        'content, run the "deploy other-content" command.',
-                    ]
-                )
-            raise RSConnectException(msg)
-
-    _deploy_bundle(
-        connect_server,
-        app_store,
-        file,
-        app_id,
-        app_mode,
-        deployment_name,
-        title,
-        default_title,
-        bundle,
-        env_vars,
+        .deploy_bundle()
+        .save_deployed_info()
+        .emit_task_log(log_callback=connect_logger)
     )
 
 
