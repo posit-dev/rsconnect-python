@@ -1,4 +1,3 @@
-import errno
 import functools
 import json
 import os
