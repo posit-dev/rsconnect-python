@@ -548,12 +548,11 @@ class RSConnectExecutor:
         app_store = AppStore(path)
         new = self.get("new", **kwargs)
         app_id = self.get("app_id", **kwargs)
-        default_app_mode = self.get("default_app_mode", **kwargs)
+        app_mode = self.get("app_mode", **kwargs)
 
         if new and app_id:
             raise RSConnectException("Specify either a new deploy or an app ID but not both.")
 
-        app_mode = default_app_mode
         existing_app_mode = None
         if not new:
             if app_id is None:
@@ -574,7 +573,6 @@ class RSConnectExecutor:
                 ) % (app_mode.desc(), existing_app_mode.desc())
                 raise RSConnectException(msg)
 
-        self.state["default_app_mode"] = default_app_mode
         self.state["app_mode"] = app_mode
         return self
 
