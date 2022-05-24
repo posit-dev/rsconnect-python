@@ -1027,7 +1027,7 @@ def deploy_html(*args, **kwargs):
     rsce = api.RSConnectExecutor(*args, **kwargs)
     (
         rsce.validate_server()
-        .validate_app_mode(default_app_mode=AppModes.STATIC)
+        .validate_app_mode(app_mode=AppModes.STATIC)
         .make_bundle(
             make_html_bundle,
             kwargs.get("path"),
@@ -1038,6 +1038,7 @@ def deploy_html(*args, **kwargs):
         )
         .deploy_bundle()
         .save_deployed_info()
+        .emit_task_log(log_callback=connect_logger)
     )
 
 
@@ -1104,7 +1105,7 @@ def generate_deploy_python_refactor(app_mode, alias, min_version):
         rsce = api.RSConnectExecutor(*args, **kwargs)
         (
             rsce.validate_server()
-            .validate_app_mode(default_app_mode=AppModes.PYTHON_API)
+            .validate_app_mode(app_mode=AppModes.PYTHON_API)
             .create_python_environment()
             .make_bundle(
                 make_api_bundle,
