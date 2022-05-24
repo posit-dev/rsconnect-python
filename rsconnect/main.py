@@ -27,7 +27,6 @@ from .actions import (
     gather_basic_deployment_info_for_bokeh,
     gather_basic_deployment_info_for_notebook,
     gather_basic_deployment_info_for_quarto,
-    gather_basic_deployment_info_from_manifest,
     gather_server_details,
     get_python_env_info,
     is_conda_supported_on_server,
