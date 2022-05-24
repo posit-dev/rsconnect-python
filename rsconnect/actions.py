@@ -372,6 +372,7 @@ def _default_title_from_manifest(the_manifest, manifest_file):
     """
     Produce a default content title from the contents of a manifest.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     filename = None
 
     metadata = the_manifest.get("metadata")

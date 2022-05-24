@@ -9,19 +9,22 @@ import os
 import subprocess
 import tarfile
 import tempfile
+import re
 
 try:
     import typing
 except ImportError:
     typing = None
 
-from os.path import basename, dirname, exists, isdir, join, relpath, splitext, isfile
+from os.path import basename, dirname, exists, isdir, join, relpath, splitext, isfile, abspath
 
 from .log import logger
 from .models import AppMode, AppModes, GlobSet
 from .environment import Environment
 from collections import defaultdict
 from mimetypes import guess_type
+
+_module_pattern = re.compile(r"^[A-Za-z0-9_]+:[A-Za-z0-9_]+$")
 
 # From https://github.com/rstudio/rsconnect/blob/485e05a26041ab8183a220da7a506c9d3a41f1ff/R/bundle.R#L85-L88
 # noinspection SpellCheckingInspection
@@ -428,6 +431,50 @@ def keep_manifest_specified_file(relative_path):
         if relative_path.startswith(ignore_me):
             return False
     return True
+
+
+def _default_title(file_name):
+    """
+    Produce a default content title from the given file path.  The result is
+    guaranteed to be between 3 and 1024 characters long, as required by RStudio
+    Connect.
+
+    :param file_name: the name from which the title will be derived.
+    :return: the derived title.
+    """
+    # Make sure we have enough of a path to derive text from.
+    file_name = abspath(file_name)
+    # noinspection PyTypeChecker
+    return basename(file_name).rsplit(".", 1)[0][:1024].rjust(3, "0")
+
+
+def _default_title_from_manifest(the_manifest, manifest_file):
+    """
+    Produce a default content title from the contents of a manifest.
+    """
+    filename = None
+
+    metadata = the_manifest.get("metadata")
+    if metadata:
+        # noinspection SpellCheckingInspection
+        filename = metadata.get("entrypoint") or metadata.get("primary_rmd") or metadata.get("primary_html")
+        # If the manifest is for an API, revert to using the parent directory.
+        if filename and _module_pattern.match(filename):
+            filename = None
+    return _default_title(filename or dirname(manifest_file))
+
+
+def read_manifest_app_mode(file):
+    source_manifest, _ = read_manifest_file(file)
+    # noinspection SpellCheckingInspection
+    app_mode = AppModes.get_by_name(source_manifest["metadata"]["appmode"])
+    return app_mode
+
+
+def default_title_from_manifest(file):
+    source_manifest, _ = read_manifest_file(file)
+    title = _default_title_from_manifest(source_manifest, file)
+    return title
 
 
 def read_manifest_file(manifest_path):
