@@ -368,7 +368,7 @@ def make_notebook_html_bundle(
     python: str,
     hide_all_input: bool = False,
     hide_tagged_input: bool = False,
-    image: str = False,
+    image: str = None,
     check_output: typing.Callable = subprocess.check_output,  # used to default to subprocess.check_output
 ) -> typing.IO[bytes]:
     # noinspection SpellCheckingInspection
