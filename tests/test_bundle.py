@@ -51,7 +51,7 @@ class TestBundle(TestCase):
         # the kernel environment and not the notebook server environment.
         environment = detect_environment(directory)
         with make_notebook_source_bundle(
-            nb_path, environment, hide_all_input=False, hide_tagged_input=False, image=None
+            nb_path, environment, None, hide_all_input=False, hide_tagged_input=False, image=None
         ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
 
             names = sorted(tar.getnames())
