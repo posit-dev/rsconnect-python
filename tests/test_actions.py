@@ -218,7 +218,7 @@ class TestActions(TestCase):
         directory = get_api_path("flask")
         server = RSConnectServer("https://www.bogus.com", "bogus")
         with self.assertRaises(RSConnectException):
-            deploy_python_api(server, directory, [], [], "bogus", None, False, None, None, None, False, False, None)
+            deploy_python_api(server, directory, [], [], "bogus", False, None, None, None, False, False, None, None)
 
     def test_deploy_dash_app_docs(self):
         self.assertTrue("Dash app" in deploy_dash_app.__doc__)
@@ -250,7 +250,7 @@ class TestActions(TestCase):
         with self.assertRaises(RSConnectException):
             create_api_deployment_bundle(directory, [], [], "bogus:bogus:bogus", None, None, None, None)
         with self.assertRaises(RSConnectException):
-            create_api_deployment_bundle(directory, ["bogus"], [], "app:app", MakeEnvironment(), None, None, True)
+            create_api_deployment_bundle(directory, ["bogus"], [], "app:app", MakeEnvironment(), None, True, None)
 
     def test_inspect_environment(self):
         environment = inspect_environment(sys.executable, get_dir("pip1"))

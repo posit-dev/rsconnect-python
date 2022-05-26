@@ -44,10 +44,10 @@ directories_to_ignore = [
 # noinspection SpellCheckingInspection
 def make_source_manifest(
     app_mode: AppMode,
-    image: str,
     environment: Environment,
     entrypoint: str,
     quarto_inspection: typing.Dict[str, typing.Any],
+    image: str = None,
 ) -> typing.Dict[str, typing.Any]:
 
     manifest = {
@@ -194,7 +194,7 @@ def write_manifest(
     Returns the list of filenames written.
     """
     manifest_filename = "manifest.json"
-    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, image, environment, nb_name, None)
+    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, environment, nb_name, None, image)
     if hide_all_input:
         if "jupyter" not in manifest:
             manifest["jupyter"] = {}
@@ -273,7 +273,7 @@ def make_notebook_source_bundle(
     base_dir = dirname(file)
     nb_name = basename(file)
 
-    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, image, environment, nb_name, None)
+    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, environment, nb_name, None, image)
     if hide_all_input:
         if "jupyter" not in manifest:
             manifest["jupyter"] = {}
@@ -314,10 +314,10 @@ def make_quarto_source_bundle(
     directory: str,
     inspect: typing.Dict[str, typing.Any],
     app_mode: AppMode,
-    image: str,
     environment: Environment,
     extra_files: typing.List[str],
     excludes: typing.List[str],
+    image: str = None,
 ) -> typing.IO[bytes]:
     """
     Create a bundle containing the specified Quarto content and (optional)
@@ -326,7 +326,7 @@ def make_quarto_source_bundle(
     Returns a file-like object containing the bundle tarball.
     """
     manifest, relevant_files = make_quarto_manifest(
-        directory, inspect, app_mode, image, environment, extra_files, excludes
+        directory, inspect, app_mode, environment, extra_files, excludes, image
     )
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
 
@@ -346,7 +346,7 @@ def make_quarto_source_bundle(
 
 def make_html_manifest(
     filename: str,
-    image: str,
+    image: str = None,
 ) -> typing.Dict[str, typing.Any]:
     # noinspection SpellCheckingInspection
     manifest = {
@@ -569,9 +569,9 @@ def make_api_manifest(
     entry_point: str,
     app_mode: AppMode,
     environment: Environment,
-    image: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
+    image: str = None,
 ) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]:
     """
     Makes a manifest for an API.
@@ -580,16 +580,16 @@ def make_api_manifest(
     :param entry_point: the main entry point for the API.
     :param app_mode: the app mode to use.
     :param environment: the Python environment information.
-    :param image: an optional docker image for off-host execution.
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: the manifest and a list of the files involved.
     """
     if is_environment_dir(directory):
         excludes = list(excludes or []) + ["bin/", "lib/"]
 
     relevant_files = _create_api_file_list(directory, environment.filename, extra_files, excludes)
-    manifest = make_source_manifest(app_mode, image, environment, entry_point, None)
+    manifest = make_source_manifest(app_mode, environment, entry_point, None, image)
 
     manifest_add_buffer(manifest, environment.filename, environment.contents)
 
@@ -602,9 +602,9 @@ def make_api_manifest(
 def make_html_bundle_content(
     path: str,
     entrypoint: str,
-    image: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
+    image: str = None,
 ) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]:
     """
     Makes a manifest for static html deployment.
@@ -613,6 +613,7 @@ def make_html_bundle_content(
     :param entry_point: the main entry point for the API.
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: the manifest and a list of the files involved.
     """
     entrypoint = entrypoint or infer_entrypoint(path, "text/html")
@@ -692,21 +693,21 @@ def infer_entrypoint(path, mimetype):
 def make_html_bundle(
     path: str,
     entry_point: str,
-    image: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
+    image: str = None,
 ) -> typing.IO[bytes]:
     """
     Create an html bundle, given a path and a manifest.
 
     :param path: the file, or the directory containing the files to deploy.
     :param entry_point: the main entry point for the API.
-    :param image: an optional docker image for off-host execution.
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: a file-like object containing the bundle tarball.
     """
-    manifest, relevant_files = make_html_bundle_content(path, entry_point, image, extra_files, excludes)
+    manifest, relevant_files = make_html_bundle_content(path, entry_point, extra_files, excludes, image)
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
 
     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
@@ -726,9 +727,9 @@ def make_api_bundle(
     entry_point: str,
     app_mode: AppMode,
     environment: Environment,
-    image: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
+    image: str = None,
 ) -> typing.IO[bytes]:
     """
     Create an API bundle, given a directory path and a manifest.
@@ -737,13 +738,13 @@ def make_api_bundle(
     :param entry_point: the main entry point for the API.
     :param app_mode: the app mode to use.
     :param environment: the Python environment information.
-    :param image: an optional docker image for off-host execution.
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: a file-like object containing the bundle tarball.
     """
     manifest, relevant_files = make_api_manifest(
-        directory, entry_point, app_mode, environment, image, extra_files, excludes
+        directory, entry_point, app_mode, environment, extra_files, excludes, image
     )
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
 
@@ -809,10 +810,10 @@ def make_quarto_manifest(
     directory: str,
     quarto_inspection: typing.Dict[str, typing.Any],
     app_mode: AppMode,
-    image: str,
     environment: Environment,
     extra_files: typing.List[str],
     excludes: typing.List[str],
+    image: str = None,
 ) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]:
     """
     Makes a manifest for a Quarto project.
@@ -820,10 +821,10 @@ def make_quarto_manifest(
     :param directory: The directory containing the Quarto project.
     :param quarto_inspection: The parsed JSON from a 'quarto inspect' against the project.
     :param app_mode: The application mode to assume.
-    :param image: an optional docker image for off-host execution.
     :param environment: The (optional) Python environment to use.
     :param extra_files: Any extra files to include in the manifest.
     :param excludes: A sequence of glob patterns to exclude when enumerating files to bundle.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: the manifest and a list of the files involved.
     """
     if environment:
@@ -846,10 +847,10 @@ def make_quarto_manifest(
     relevant_files = _create_quarto_file_list(directory, extra_files, excludes)
     manifest = make_source_manifest(
         app_mode,
-        image,
         environment,
         None,
         quarto_inspection,
+        image,
     )
 
     for rel_path in relevant_files:

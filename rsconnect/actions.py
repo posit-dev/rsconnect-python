@@ -533,7 +533,7 @@ def write_quarto_manifest_json(
     environment: Environment,
     extra_files: typing.List[str],
     excludes: typing.List[str],
-    image: str,
+    image: str = None,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given Quarto project.
@@ -544,11 +544,11 @@ def write_quarto_manifest_json(
     :param environment: The (optional) Python environment to use.
     :param extra_files: Any extra files to include in the manifest.
     :param excludes: A sequence of glob patterns to exclude when enumerating files to bundle.
-    :param image: the docker image to be specified for off-host execution (or None if no image is specified).
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
     """
 
     extra_files = validate_extra_files(directory, extra_files)
-    manifest, _ = make_quarto_manifest(directory, inspect, app_mode, image, environment, extra_files, excludes)
+    manifest, _ = make_quarto_manifest(directory, inspect, app_mode, environment, extra_files, excludes, image)
     manifest_path = join(directory, "manifest.json")
 
     write_manifest_json(manifest_path, manifest)
@@ -567,7 +567,6 @@ def deploy_jupyter_notebook(
     connect_server: api.RSConnectServer,
     file_name: str,
     extra_files: typing.List[str],
-    image: str,
     new: bool,
     app_id: int,
     title: str,
@@ -578,6 +577,7 @@ def deploy_jupyter_notebook(
     log_callback: typing.Callable,
     hide_all_input: bool,
     hide_tagged_input: bool,
+    image: str = None,
 ) -> typing.Tuple[typing.Any, typing.List]:
     """
     A function to deploy a Jupyter notebook to Connect.  Depending on the files involved
@@ -586,7 +586,6 @@ def deploy_jupyter_notebook(
     :param connect_server: the Connect server information.
     :param file_name: the Jupyter notebook file to deploy.
     :param extra_files: any extra files that should be included in the deploy.
-    :param image: an optional docker image for off-host execution, previous default = None.
     :param new: a flag indicating a new deployment, previous default = False.
     :param app_id: the ID of an existing application to deploy new files for, previous default = None.
     :param title: an optional title for the deploy.  If this is not provided, one will
@@ -605,6 +604,7 @@ def deploy_jupyter_notebook(
     :param hide_all_input: if True, will hide all input cells when rendering output.  Previous default = False.
     :param hide_tagged_input: If True, will hide input code cells with the 'hide_input' tag when rendering
     output. Previous default = False.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
@@ -670,7 +670,6 @@ def _finalize_deploy(
     (the default) the lines from the deployment log will be returned as a sequence.
     If a log callback is provided, then None will be returned for the log lines part
     of the return tuple.
-    :param image: an optional docker image for off-host execution.
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
@@ -707,7 +706,6 @@ def deploy_python_api(
     extra_files: typing.List[str],
     excludes: typing.List[str],
     entry_point: str,
-    image: str,
     new: bool,
     app_id: int,
     title: str,
@@ -715,6 +713,7 @@ def deploy_python_api(
     conda_mode: bool,
     force_generate: bool,
     log_callback: typing.Callable,
+    image: str = None,
 ) -> typing.Tuple[str, typing.Union[list, None]]:
     """
     A function to deploy a Python WSGi API module to Connect.  Depending on the files involved
@@ -725,7 +724,6 @@ def deploy_python_api(
     :param extra_files: any extra files that should be included in the deploy.
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param entry_point: the module/executable object for the WSGi framework.
-    :param image: an optional docker image for off-host execution. Previous default = None.
     :param new: a flag to force this as a new deploy. Previous default = False.
     :param app_id: the ID of an existing application to deploy new files for. Previous default = None.
     :param title: an optional title for the deploy.  If this is not provided, one will
@@ -739,6 +737,7 @@ def deploy_python_api(
     (the default) the lines from the deployment log will be returned as a sequence.
     If a log callback is provided, then None will be returned for the log lines part
     of the return tuple. Previous default = None.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
@@ -766,7 +765,6 @@ def deploy_python_fastapi(
     extra_files: typing.List[str],
     excludes: typing.List[str],
     entry_point: str,
-    image: str,
     new: bool,
     app_id: int,
     title: str,
@@ -774,6 +772,7 @@ def deploy_python_fastapi(
     conda_mode: bool,
     force_generate: bool,
     log_callback: typing.Callable,
+    image: str = None,
 ) -> typing.Tuple[str, typing.Union[list, None]]:
     """
     A function to deploy a Python ASGI API module to RStudio Connect.  Depending on the files involved
@@ -784,7 +783,6 @@ def deploy_python_fastapi(
         :param extra_files: any extra files that should be included in the deploy.
         :param excludes: a sequence of glob patterns that will exclude matched files.
         :param entry_point: the module/executable object for the WSGi framework.
-        :param image: an optional docker image for off-host execution. Previous default = None.
         :param new: a flag to force this as a new deploy. Previous default = False.
         :param app_id: the ID of an existing application to deploy new files for. Previous default = None.
         :param title: an optional title for the deploy.  If this is not provided, one will
@@ -798,6 +796,7 @@ def deploy_python_fastapi(
         (the default) the lines from the deployment log will be returned as a sequence.
         If a log callback is provided, then None will be returned for the log lines part
         of the return tuple. Previous default = None.
+        :param image: the optional docker image to be specified for off-host execution. Default = None.
         :return: the ultimate URL where the deployed app may be accessed and the sequence
         of log lines.  The log lines value will be None if a log callback was provided.
     """
@@ -825,7 +824,6 @@ def deploy_dash_app(
     extra_files: typing.List[str],
     excludes: typing.List[str],
     entry_point: str,
-    image: str,
     new: bool,
     app_id: int,
     title: str,
@@ -833,6 +831,7 @@ def deploy_dash_app(
     conda_mode: bool,
     force_generate: bool,
     log_callback: typing.Callable,
+    image: str = None,
 ) -> typing.Tuple[str, typing.Union[list, None]]:
     """
     A function to deploy a Python Dash app module to Connect.  Depending on the files involved
@@ -843,7 +842,6 @@ def deploy_dash_app(
     :param extra_files: any extra files that should be included in the deploy.
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param entry_point: the module/executable object for the WSGi framework.
-    :param image: an optional docker image for off-host execution. Previous default = None.
     :param new: a flag to force this as a new deploy. Previous default = False.
     :param app_id: the ID of an existing application to deploy new files for. Previous default = None.
     :param title: an optional title for the deploy.  If this is not provided, one will
@@ -857,6 +855,7 @@ def deploy_dash_app(
     (the default) the lines from the deployment log will be returned as a sequence.
     If a log callback is provided, then None will be returned for the log lines part
     of the return tuple. Previous default = None.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
@@ -884,7 +883,6 @@ def deploy_streamlit_app(
     extra_files: typing.List[str],
     excludes: typing.List[str],
     entry_point: str,
-    image: str,
     new: bool,
     app_id: int,
     title: str,
@@ -892,6 +890,7 @@ def deploy_streamlit_app(
     conda_mode: bool,
     force_generate: bool,
     log_callback: typing.Callable,
+    image: str = None,
 ) -> typing.Tuple[str, typing.Union[list, None]]:
     """
     A function to deploy a Python Streamlit app module to Connect.  Depending on the files involved
@@ -902,7 +901,6 @@ def deploy_streamlit_app(
     :param extra_files: any extra files that should be included in the deploy.
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param entry_point: the module/executable object for the WSGi framework.
-    :param image: an optional docker image for off-host execution. Previous default = None.
     :param new: a flag to force this as a new deploy. Previous default = False.
     :param app_id: the ID of an existing application to deploy new files for. Previous default = None.
     :param title: an optional title for the deploy.  If this is not provided, one will
@@ -916,6 +914,7 @@ def deploy_streamlit_app(
     (the default) the lines from the deployment log will be returned as a sequence.
     If a log callback is provided, then None will be returned for the log lines part
     of the return tuple. Previous default = None.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
@@ -943,7 +942,6 @@ def deploy_bokeh_app(
     extra_files: typing.List[str],
     excludes: typing.List[str],
     entry_point: str,
-    image: str,
     new: bool,
     app_id: int,
     title: str,
@@ -951,6 +949,7 @@ def deploy_bokeh_app(
     conda_mode: bool,
     force_generate: bool,
     log_callback: typing.Callable,
+    image: str = None,
 ) -> typing.Tuple[str, typing.Union[list, None]]:
     """
     A function to deploy a Python Bokeh app module to Connect.  Depending on the files involved
@@ -961,7 +960,6 @@ def deploy_bokeh_app(
     :param extra_files: any extra files that should be included in the deploy.
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param entry_point: the module/executable object for the WSGi framework.
-    :param image: an optional docker image for off-host execution. Previous default = None.
     :param new: a flag to force this as a new deploy. Previous default = False.
     :param app_id: the ID of an existing application to deploy new files for. Previous default = None.
     :param title: an optional title for the deploy.  If this is not provided, one will
@@ -975,6 +973,7 @@ def deploy_bokeh_app(
     (the default) the lines from the deployment log will be returned as a sequence.
     If a log callback is provided, then None will be returned for the log lines part
     of the return tuple. Previous default = None.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
@@ -1056,7 +1055,7 @@ def _deploy_by_python_framework(
         force_generate=force_generate,
     )
     bundle = create_api_deployment_bundle(
-        directory, extra_files, excludes, entry_point, app_mode, environment, image, True
+        directory, extra_files, excludes, entry_point, app_mode, environment, True, image
     )
     return _finalize_deploy(
         connect_server,
@@ -1142,7 +1141,6 @@ def gather_basic_deployment_info_for_notebook(
     :param title: an optional title.  If this isn't specified, a default title will
     be generated.
     :param static: a flag to note whether a static document should be deployed.
-    :param image: an optional docker image for off-host execution.
     :return: the app ID, name, title information and mode for the deployment.
     """
     validate_file_is_notebook(file_name)
@@ -1541,8 +1539,8 @@ def create_api_deployment_bundle(
     entry_point: str,
     app_mode: AppMode,
     environment: Environment,
-    image: str,
     extra_files_need_validating: bool,
+    image: str = None,
 ) -> typing.IO[bytes]:
     """
     Create an in-memory bundle, ready to deploy.
@@ -1553,11 +1551,11 @@ def create_api_deployment_bundle(
     :param entry_point: the module/executable object for the WSGi framework.
     :param app_mode: the mode of the app being deployed.
     :param environment: environmental information.
-    :param image: an optional docker image for off-host execution. Previous default = None.
     :param extra_files_need_validating: a flag indicating whether the list of extra
     files should be validated or not.  Part of validating includes qualifying each
     with the specified directory.  If you provide False here, make sure the names
     are properly qualified first. Previous default = True.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: the bundle.
     """
     entry_point = validate_entry_point(entry_point, directory)
@@ -1568,7 +1566,7 @@ def create_api_deployment_bundle(
     if app_mode is None:
         app_mode = AppModes.PYTHON_API
 
-    return make_api_bundle(directory, entry_point, app_mode, environment, image, extra_files, excludes)
+    return make_api_bundle(directory, entry_point, app_mode, environment, extra_files, excludes, image)
 
 
 def create_quarto_deployment_bundle(
@@ -1578,8 +1576,8 @@ def create_quarto_deployment_bundle(
     app_mode: AppMode,
     inspect: typing.Dict[str, typing.Any],
     environment: Environment,
-    image: str,
     extra_files_need_validating: bool,
+    image: str = None,
 ) -> typing.IO[bytes]:
     """
     Create an in-memory bundle, ready to deploy.
@@ -1590,11 +1588,11 @@ def create_quarto_deployment_bundle(
     :param entry_point: the module/executable object for the WSGi framework.
     :param app_mode: the mode of the app being deployed.
     :param environment: environmental information.
-    :param image: an optional docker image for off-host execution. Previous default = None.
     :param extra_files_need_validating: a flag indicating whether the list of extra
     files should be validated or not.  Part of validating includes qualifying each
     with the specified directory.  If you provide False here, make sure the names
     are properly qualified first. Previous default = True.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: the bundle.
     """
     if extra_files_need_validating:
@@ -1603,7 +1601,7 @@ def create_quarto_deployment_bundle(
     if app_mode is None:
         app_mode = AppModes.STATIC_QUARTO
 
-    return make_quarto_source_bundle(directory, inspect, app_mode, image, environment, extra_files, excludes)
+    return make_quarto_source_bundle(directory, inspect, app_mode, environment, extra_files, excludes, image)
 
 
 def deploy_bundle(
@@ -1725,7 +1723,7 @@ def write_notebook_manifest_json(
         if app_mode == AppModes.UNKNOWN:
             raise api.RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
 
-    manifest_data = make_source_manifest(app_mode, image, environment, file_name, None)
+    manifest_data = make_source_manifest(app_mode, environment, file_name, None, image)
     manifest_add_file(manifest_data, file_name, directory)
     manifest_add_buffer(manifest_data, environment.filename, environment.contents)
 
@@ -1741,11 +1739,11 @@ def create_api_manifest_and_environment_file(
     directory: str,
     entry_point: str,
     environment: Environment,
-    image: str,
     app_mode: AppMode,
     extra_files: typing.List[str],
     excludes: typing.List[str],
     force: bool,
+    image: str = None,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given Python API entry point.  If
@@ -1756,16 +1754,16 @@ def create_api_manifest_and_environment_file(
     :param entry_point: the module/executable object for the WSGi framework.
     :param environment: the Python environment to start with.  This should be what's
     returned by the inspect_environment() function.
-    :param image: an optional docker image for off-host execution. Previous default = None.
     :param app_mode: the application mode to assume. Previous default = AppModes.PYTHON_API.
     :param extra_files: any extra files that should be included in the manifest. Previous default = None.
     :param excludes: a sequence of glob patterns that will exclude matched files. Previous default = None.
     :param force: if True, forces the environment file to be written. even if it
     already exists. Previous default = True.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return:
     """
     if (
-        not write_api_manifest_json(directory, entry_point, environment, image, app_mode, extra_files, excludes)
+        not write_api_manifest_json(directory, entry_point, environment, app_mode, extra_files, excludes, image)
         or force
     ):
         write_environment_file(environment, directory)
@@ -1775,10 +1773,10 @@ def write_api_manifest_json(
     directory: str,
     entry_point: str,
     environment: Environment,
-    image: str,
     app_mode: AppMode,
     extra_files: typing.List[str],
     excludes: typing.List[str],
+    image: str = None,
 ) -> bool:
     """
     Creates and writes a manifest.json file for the given entry point file.  If
@@ -1789,15 +1787,15 @@ def write_api_manifest_json(
     :param entry_point: the module/executable object for the WSGi framework.
     :param environment: the Python environment to start with.  This should be what's
     returned by the inspect_environment() function.
-    :param image: an optional docker image for off-host execution. Previous default = None.
     :param app_mode: the application mode to assume. Previous default = AppModes.PYTHON_API.
     :param extra_files: any extra files that should be included in the manifest. Previous default = None.
     :param excludes: a sequence of glob patterns that will exclude matched files. Previous default = None.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
     """
     extra_files = validate_extra_files(directory, extra_files)
-    manifest, _ = make_api_manifest(directory, entry_point, app_mode, environment, image, extra_files, excludes)
+    manifest, _ = make_api_manifest(directory, entry_point, app_mode, environment, extra_files, excludes, image)
     manifest_path = join(directory, "manifest.json")
 
     write_manifest_json(manifest_path, manifest)

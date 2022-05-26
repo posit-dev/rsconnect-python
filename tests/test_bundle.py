@@ -291,7 +291,7 @@ class TestBundle(TestCase):
         )
 
         # include image parameter
-        manifest = make_source_manifest(AppModes.PYTHON_API, "rstudio/connect:bionic", None, None, None)
+        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None, "rstudio/connect:bionic")
         self.assertEqual(
             manifest,
             {
@@ -305,7 +305,6 @@ class TestBundle(TestCase):
         # include environment parameter
         manifest = make_source_manifest(
             AppModes.PYTHON_API,
-            None,
             Environment(
                 conda=None,
                 contents="",
@@ -317,6 +316,7 @@ class TestBundle(TestCase):
                 python="3.9.12",
                 source="file",
             ),
+            None,
             None,
             None,
         )
@@ -338,8 +338,8 @@ class TestBundle(TestCase):
         manifest = make_source_manifest(
             AppModes.PYTHON_API,
             None,
-            None,
             "main.py",
+            None,
             None,
         )
         # print(manifest)
@@ -353,12 +353,12 @@ class TestBundle(TestCase):
             AppModes.PYTHON_API,
             None,
             None,
-            None,
             {
                 "quarto": {"version": "0.9.16"},
                 "engines": ["jupyter"],
                 "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
             },
+            None,
         )
         # print(manifest)
         self.assertEqual(
@@ -415,10 +415,10 @@ class TestBundle(TestCase):
                 "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
             },
             AppModes.SHINY_QUARTO,
+            None,
+            None,
+            None,
             "rstudio/connect:bionic",
-            None,
-            None,
-            None,
         )
         self.assertEqual(
             manifest,
@@ -446,7 +446,6 @@ class TestBundle(TestCase):
                 "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
             },
             AppModes.SHINY_QUARTO,
-            None,
             Environment(
                 conda=None,
                 contents="",
@@ -458,6 +457,7 @@ class TestBundle(TestCase):
                 python="3.9.12",
                 source="file",
             ),
+            None,
             None,
             None,
         )
@@ -495,8 +495,8 @@ class TestBundle(TestCase):
             },
             AppModes.SHINY_QUARTO,
             None,
-            None,
             ["a", "b", "c"],
+            None,
             None,
         )
         self.assertEqual(
@@ -524,9 +524,9 @@ class TestBundle(TestCase):
             },
             AppModes.SHINY_QUARTO,
             None,
-            None,
             ["a", "b", "c"],
             ["requirements.txt"],
+            None,
         )
         self.assertEqual(
             manifest,
