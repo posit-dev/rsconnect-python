@@ -115,7 +115,10 @@ class TestBundle(TestCase):
         environment = detect_environment(directory)
 
         with make_notebook_source_bundle(
-            nb_path, environment, "rstudio/connect:bionic", ["data.csv"], False, False
+            nb_path,
+            environment,
+            ["data.csv"],
+            image="rstudio/connect:bionic",
         ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
 
             names = sorted(tar.getnames())
