@@ -1501,9 +1501,9 @@ def create_notebook_deployment_bundle(
     python: str,
     environment: Environment,
     extra_files_need_validating: bool,
-    hide_all_input: bool = False,
-    hide_tagged_input: bool = False,
-    image: str = None,
+    hide_all_input: bool,
+    hide_tagged_input: bool,
+    image: str,
 ) -> typing.IO[bytes]:
     """
     Create an in-memory bundle, ready to deploy.
@@ -1534,8 +1534,8 @@ def create_notebook_deployment_bundle(
             return make_notebook_html_bundle(
                 file_name,
                 python,
-                hide_all_input=hide_all_input,
-                hide_tagged_input=hide_tagged_input,
+                hide_all_input,
+                hide_tagged_input,
                 image=image,
                 check_output=None,
             )
@@ -1548,8 +1548,8 @@ def create_notebook_deployment_bundle(
             file_name,
             environment,
             extra_files,
-            hide_all_input=hide_all_input,
-            hide_tagged_input=hide_tagged_input,
+            hide_all_input,
+            hide_tagged_input,
             image=image,
         )
 

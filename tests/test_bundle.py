@@ -50,9 +50,9 @@ class TestBundle(TestCase):
         # runs in the notebook server. We need the introspection to run in
         # the kernel environment and not the notebook server environment.
         environment = detect_environment(directory)
-        with make_notebook_source_bundle(nb_path, environment, None, None, False, False) as bundle, tarfile.open(
-            mode="r:gz", fileobj=bundle
-        ) as tar:
+        with make_notebook_source_bundle(
+            nb_path, environment, hide_all_input=False, hide_tagged_input=False, image=None
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
 
             names = sorted(tar.getnames())
             self.assertEqual(
@@ -118,6 +118,8 @@ class TestBundle(TestCase):
             nb_path,
             environment,
             ["data.csv"],
+            hide_all_input=False,
+            hide_tagged_input=False,
             image="rstudio/connect:bionic",
         ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
 
@@ -222,7 +224,9 @@ class TestBundle(TestCase):
         self.maxDiff = 5000
         nb_path = join(directory, "dummy.ipynb")
 
-        bundle = make_notebook_html_bundle(nb_path, sys.executable, None, False, False, None)
+        bundle = make_notebook_html_bundle(
+            nb_path, sys.executable, hide_all_input=False, hide_tagged_input=False, image=None, check_output=None
+        )
 
         tar = tarfile.open(mode="r:gz", fileobj=bundle)
 
