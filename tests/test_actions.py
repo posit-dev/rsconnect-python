@@ -240,10 +240,14 @@ class TestActions(TestCase):
     def test_create_notebook_deployment_bundle_validates(self):
         file_name = get_dir(join("pip1", "requirements.txt"))
         with self.assertRaises(RSConnectException):
-            create_notebook_deployment_bundle(file_name, [], None, None, None, None)
+            create_notebook_deployment_bundle(
+                file_name, [], None, None, None, True, hide_all_input=False, hide_tagged_input=False, image=None
+            )
         file_name = get_dir(join("pip1", "dummy.ipynb"))
         with self.assertRaises(RSConnectException):
-            create_notebook_deployment_bundle(file_name, ["bogus"], None, None, None, None)
+            create_notebook_deployment_bundle(
+                file_name, ["bogus"], None, None, None, True, hide_all_input=False, hide_tagged_input=False, image=None
+            )
 
     def test_create_api_deployment_bundle_validates(self):
         directory = get_api_path("flask")
