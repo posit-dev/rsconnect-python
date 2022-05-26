@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - You can now deploy static content such as html and its associated assets with 
   `rsconnect deploy html`.
 
+- An optional `image` parameter has been added to the applicable functions to support
+  target content image. This parameter defaults to `None` if not provided.
+
 ## [1.7.1] - 2022-02-15
 
 ### Added
