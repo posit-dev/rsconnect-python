@@ -625,7 +625,15 @@ def deploy_jupyter_notebook(
         force_generate=force_generate,
     )
     bundle = create_notebook_deployment_bundle(
-        file_name, extra_files, app_mode, python, environment, image, True, hide_all_input, hide_tagged_input
+        file_name,
+        extra_files,
+        app_mode,
+        python,
+        environment,
+        True,
+        hide_all_input=hide_all_input,
+        hide_tagged_input=hide_tagged_input,
+        image=image,
     )
     return _finalize_deploy(
         connect_server,
@@ -1537,7 +1545,12 @@ def create_notebook_deployment_bundle(
             raise api.RSConnectException(str(exc))
     else:
         return make_notebook_source_bundle(
-            file_name, environment, image, extra_files, hide_all_input, hide_tagged_input
+            file_name,
+            environment,
+            extra_files,
+            hide_all_input=hide_all_input,
+            hide_tagged_input=hide_tagged_input,
+            image=image,
         )
 
 
