@@ -625,7 +625,15 @@ def deploy_jupyter_notebook(
         force_generate=force_generate,
     )
     bundle = create_notebook_deployment_bundle(
-        file_name, extra_files, app_mode, python, environment, image, True, hide_all_input, hide_tagged_input
+        file_name,
+        extra_files,
+        app_mode,
+        python,
+        environment,
+        True,
+        hide_all_input=hide_all_input,
+        hide_tagged_input=hide_tagged_input,
+        image=image,
     )
     return _finalize_deploy(
         connect_server,
@@ -1490,10 +1498,10 @@ def create_notebook_deployment_bundle(
     app_mode: AppMode,
     python: str,
     environment: Environment,
-    image: str,
     extra_files_need_validating: bool,
     hide_all_input: bool,
     hide_tagged_input: bool,
+    image: str,
 ) -> typing.IO[bytes]:
     """
     Create an in-memory bundle, ready to deploy.
@@ -1521,14 +1529,26 @@ def create_notebook_deployment_bundle(
 
     if app_mode == AppModes.STATIC:
         try:
-            return make_notebook_html_bundle(file_name, python, image, hide_all_input, hide_tagged_input, None)
+            return make_notebook_html_bundle(
+                file_name,
+                python,
+                hide_all_input,
+                hide_tagged_input,
+                image=image,
+                check_output=None,
+            )
         except subprocess.CalledProcessError as exc:
             # Jupyter rendering failures are often due to
             # user code failing, vs. an internal failure of rsconnect-python.
             raise api.RSConnectException(str(exc))
     else:
         return make_notebook_source_bundle(
-            file_name, environment, image, extra_files, hide_all_input, hide_tagged_input
+            file_name,
+            environment,
+            extra_files,
+            hide_all_input,
+            hide_tagged_input,
+            image=image,
         )
 
 

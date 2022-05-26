@@ -184,7 +184,7 @@ def write_manifest(
     output_dir: str,
     hide_all_input: bool,
     hide_tagged_input: bool,
-    image: str,
+    image: str = None,
 ) -> typing.Tuple[list, list]:
     """Create a manifest for source publishing the specified notebook.
 
@@ -259,10 +259,10 @@ def list_files(base_dir, include_sub_dirs, walk=os.walk):
 def make_notebook_source_bundle(
     file: str,
     environment: Environment,
-    image: str,
     extra_files: typing.List[str],
     hide_all_input: bool,
     hide_tagged_input: bool,
+    image: str = None,
 ) -> typing.IO[bytes]:
     """Create a bundle containing the specified notebook and python environment.
 
@@ -366,10 +366,10 @@ def make_html_manifest(
 def make_notebook_html_bundle(
     filename: str,
     python: str,
-    image: str,
     hide_all_input: bool,
     hide_tagged_input: bool,
-    check_output: typing.Callable,  # used to default to subprocess.check_output
+    image: str = None,
+    check_output: typing.Callable = subprocess.check_output,  # used to default to subprocess.check_output
 ) -> typing.IO[bytes]:
     # noinspection SpellCheckingInspection
     if check_output is None:
