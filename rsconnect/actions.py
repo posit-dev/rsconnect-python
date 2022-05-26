@@ -1029,7 +1029,7 @@ def _deploy_by_python_framework(
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param entry_point: the module/executable object for the WSGi framework.
     :param gatherer: the function to use to gather basic information.
-    :param image: an optional docker image for off-host execution. Previous default = None.
+    :param image: the docker image to be specified for off-host execution. Use None if not specified.
     :param new: a flag to force this as a new deploy. Previous default = False.
     :param app_id: the ID of an existing application to deploy new files for. Previous default = None.
     :param title: an optional title for the deploy.  If this is not provided, one will
@@ -1501,7 +1501,7 @@ def create_notebook_deployment_bundle(
     extra_files_need_validating: bool,
     hide_all_input: bool,
     hide_tagged_input: bool,
-    image: str,
+    image: str = None,
 ) -> typing.IO[bytes]:
     """
     Create an in-memory bundle, ready to deploy.
@@ -1511,7 +1511,6 @@ def create_notebook_deployment_bundle(
     :param app_mode: the mode of the app being deployed.
     :param python: information about the version of Python being used.
     :param environment: environmental information.
-    :param image: an optional docker image for off-host execution. Previous default = None.
     :param extra_files_need_validating: a flag indicating whether the list of extra
      files should be validated or not.  Part of validating includes qualifying each
     with the parent directory of the notebook file.  If you provide False here, make
@@ -1519,6 +1518,7 @@ def create_notebook_deployment_bundle(
     :param hide_all_input: if True, will hide all input cells when rendering output. Previous default = False.
     :param hide_tagged_input: If True, will hide input code cells with
     the 'hide_input' tag when rendering output.  Previous default = False.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
 
     :return: the bundle.
     """
@@ -1673,7 +1673,7 @@ def create_notebook_manifest_and_environment_file(
     force: bool,
     hide_all_input: bool,
     hide_tagged_input: bool,
-    image: str,
+    image: str = None,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given notebook entry point file.
@@ -1711,7 +1711,7 @@ def write_notebook_manifest_json(
     extra_files: typing.List[str],
     hide_all_input: bool,
     hide_tagged_input: bool,
-    image: str,
+    image: str = None,
 ) -> bool:
     """
     Creates and writes a manifest.json file for the given entry point file.  If
@@ -1728,7 +1728,7 @@ def write_notebook_manifest_json(
     :param hide_all_input: if True, will hide all input cells when rendering output. Previous default = False.
     :param hide_tagged_input: If True, will hide input code cells with the 'hide_input' tag
     when rendering output.  Previous default = False.
-    :param image: an optional docker image for off-host execution. Previous default = None.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
     """

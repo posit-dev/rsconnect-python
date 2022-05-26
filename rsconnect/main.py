@@ -719,7 +719,7 @@ def deploy_notebook(
     hide_all_input,
     hide_tagged_input,
     env_vars,
-    image,
+    image: str = None,
 ):
     set_verbosity(verbose)
 
@@ -758,7 +758,7 @@ def deploy_notebook(
 
     with cli_feedback("Creating deployment bundle"):
         bundle = create_notebook_deployment_bundle(
-            file, extra_files, app_mode, python, environment, image, False, hide_all_input, hide_tagged_input
+            file, extra_files, app_mode, python, environment, False, hide_all_input, hide_tagged_input, image
         )
     _deploy_bundle(
         connect_server,
@@ -1162,7 +1162,7 @@ def generate_deploy_python(app_mode, alias, min_version):
         directory,
         extra_files,
         env_vars,
-        image,
+        image: str = None,
     ):
         _deploy_by_framework(
             name,
@@ -1488,7 +1488,7 @@ def write_manifest_quarto(
     verbose,
     directory,
     extra_files,
-    image,
+    image: str = None,
 ):
     set_verbosity(verbose)
     with cli_feedback("Checking arguments"):
@@ -1604,7 +1604,7 @@ def generate_write_manifest_python(app_mode, alias):
         verbose,
         directory,
         extra_files,
-        image,
+        image: str = None,
     ):
         _write_framework_manifest(
             overwrite,
