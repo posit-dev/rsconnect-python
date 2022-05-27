@@ -225,7 +225,11 @@ class TestBundle(TestCase):
         nb_path = join(directory, "dummy.ipynb")
 
         bundle = make_notebook_html_bundle(
-            nb_path, sys.executable, hide_all_input=False, hide_tagged_input=False, image=None, check_output=None
+            nb_path,
+            sys.executable,
+            hide_all_input=False,
+            hide_tagged_input=False,
+            image=None,
         )
 
         tar = tarfile.open(mode="r:gz", fileobj=bundle)

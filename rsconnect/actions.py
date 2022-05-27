@@ -1535,7 +1535,6 @@ def create_notebook_deployment_bundle(
                 hide_all_input,
                 hide_tagged_input,
                 image=image,
-                check_output=None,
             )
         except subprocess.CalledProcessError as exc:
             # Jupyter rendering failures are often due to

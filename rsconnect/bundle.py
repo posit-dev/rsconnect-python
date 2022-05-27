@@ -369,12 +369,9 @@ def make_notebook_html_bundle(
     hide_all_input: bool,
     hide_tagged_input: bool,
     image: str = None,
-    check_output: typing.Callable = subprocess.check_output,  # used to default to subprocess.check_output
+    check_output: typing.Callable = subprocess.check_output,
 ) -> typing.IO[bytes]:
     # noinspection SpellCheckingInspection
-    if check_output is None:
-        check_output = subprocess.check_output
-
     cmd = [
         python,
         "-m",
