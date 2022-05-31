@@ -435,21 +435,6 @@ def keep_manifest_specified_file(relative_path):
     return True
 
 
-def _default_title(file_name):
-    """
-    Produce a default content title from the given file path.  The result is
-    guaranteed to be between 3 and 1024 characters long, as required by RStudio
-    Connect.
-
-    :param file_name: the name from which the title will be derived.
-    :return: the derived title.
-    """
-    # Make sure we have enough of a path to derive text from.
-    file_name = abspath(file_name)
-    # noinspection PyTypeChecker
-    return basename(file_name).rsplit(".", 1)[0][:1024].rjust(3, "0")
-
-
 def _default_title_from_manifest(the_manifest, manifest_file):
     """
     Produce a default content title from the contents of a manifest.
@@ -934,22 +919,6 @@ def _default_title(file_name):
     file_name = abspath(file_name)
     # noinspection PyTypeChecker
     return basename(file_name).rsplit(".", 1)[0][:1024].rjust(3, "0")
-
-
-def _default_title_from_manifest(the_manifest, manifest_file):
-    """
-    Produce a default content title from the contents of a manifest.
-    """
-    filename = None
-
-    metadata = the_manifest.get("metadata")
-    if metadata:
-        # noinspection SpellCheckingInspection
-        filename = metadata.get("entrypoint") or metadata.get("primary_rmd") or metadata.get("primary_html")
-        # If the manifest is for an API, revert to using the parent directory.
-        if filename and _module_pattern.match(filename):
-            filename = None
-    return _default_title(filename or dirname(manifest_file))
 
 
 def validate_file_is_notebook(file_name):
