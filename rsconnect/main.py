@@ -15,7 +15,6 @@ from .actions import (
     check_server_capabilities,
     cli_feedback,
     create_api_deployment_bundle,
-    create_notebook_deployment_bundle,
     create_quarto_deployment_bundle,
     deploy_bundle,
     describe_manifest,
@@ -24,7 +23,6 @@ from .actions import (
     gather_basic_deployment_info_for_dash,
     gather_basic_deployment_info_for_streamlit,
     gather_basic_deployment_info_for_bokeh,
-    gather_basic_deployment_info_for_notebook,
     gather_basic_deployment_info_for_quarto,
     gather_server_details,
     get_python_env_info,
@@ -65,6 +63,7 @@ from .bundle import (
     make_manifest_bundle,
     make_html_bundle,
     make_api_bundle,
+    make_notebook_source_bundle,
     read_manifest_app_mode,
 )
 from .log import logger, LogOutputFormat, connect_logger
@@ -721,56 +720,36 @@ def deploy_notebook(
     env_vars,
     image: str = None,
 ):
+    kwargs = locals()
     set_verbosity(verbose)
 
-    with cli_feedback("Checking arguments"):
-        app_store = AppStore(file)
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        extra_files = validate_extra_files(dirname(file), extra_files)
-        (app_id, deployment_name, title, default_title, app_mode,) = gather_basic_deployment_info_for_notebook(
-            connect_server,
-            app_store,
-            file,
-            new,
-            app_id,
-            title,
-            static,
-        )
-
-    click.secho('    Deploying %s to server "%s"' % (file, connect_server.url))
+    kwargs["extra_files"] = validate_extra_files(dirname(file), extra_files)
 
     base_dir = dirname(file)
     _warn_on_ignored_manifest(base_dir)
     _warn_if_no_requirements_file(base_dir)
     _warn_if_environment_directory(base_dir)
-
-    with cli_feedback("Inspecting Python environment"):
-        python, environment = get_python_env_info(file, python, conda, force_generate)
-
-    if environment.package_manager == "conda":
-        with cli_feedback("Ensuring Conda is supported"):
-            check_server_capabilities(connect_server, [is_conda_supported_on_server])
-    else:
-        _warn_on_ignored_conda_env(environment)
+    python, environment = get_python_env_info(file, python, conda, force_generate)
 
     if force_generate:
         _warn_on_ignored_requirements(base_dir, environment.filename)
 
-    with cli_feedback("Creating deployment bundle"):
-        bundle = create_notebook_deployment_bundle(
-            file, extra_files, app_mode, python, environment, False, hide_all_input, hide_tagged_input, image
+    rsce = api.RSConnectExecutor(**kwargs)
+    (
+        rsce.validate_server()
+        .validate_app_mode(app_mode=AppModes.JUPYTER_NOTEBOOK)
+        .make_bundle(
+            make_notebook_source_bundle,
+            file,
+            environment,
+            kwargs["extra_files"],
+            hide_all_input,
+            hide_tagged_input,
+            image=image,
         )
-    _deploy_bundle(
-        connect_server,
-        app_store,
-        file,
-        app_id,
-        app_mode,
-        deployment_name,
-        title,
-        default_title,
-        bundle,
-        env_vars,
+        .deploy_bundle()
+        .save_deployed_info()
+        .emit_task_log(log_callback=connect_logger)
     )
 
 
