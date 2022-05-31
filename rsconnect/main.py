@@ -602,7 +602,6 @@ def _deploy_bundle(
     :param title_is_default: a flag noting whether the title carries a defaulted value.
     :param bundle: the bundle to deploy.
     :param env_vars: list of NAME=VALUE pairs to be set as the app environment
-    :param image: an optional docker image for off-host execution.
     """
     with cli_feedback("Uploading bundle"):
         app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle, env_vars)
@@ -693,7 +692,7 @@ def _deploy_bundle(
     "--image",
     "-I",
     help="Target image to be used during content execution (only applicable if the RStudio Connect "
-      "server is configured to use off-host execution)",
+    "server is configured to use off-host execution)",
 )
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
@@ -720,7 +719,7 @@ def deploy_notebook(
     hide_all_input,
     hide_tagged_input,
     env_vars,
-    image,
+    image: str = None,
 ):
     set_verbosity(verbose)
 
@@ -759,7 +758,7 @@ def deploy_notebook(
 
     with cli_feedback("Creating deployment bundle"):
         bundle = create_notebook_deployment_bundle(
-            file, extra_files, app_mode, python, environment, image, False, hide_all_input, hide_tagged_input
+            file, extra_files, app_mode, python, environment, False, hide_all_input, hide_tagged_input, image
         )
     _deploy_bundle(
         connect_server,
@@ -908,7 +907,7 @@ def deploy_manifest(
     "--image",
     "-I",
     help="Target image to be used during content execution (only applicable if the RStudio Connect "
-      "server is configured to use off-host execution)",
+    "server is configured to use off-host execution)",
 )
 @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @click.argument(
@@ -977,7 +976,7 @@ def deploy_quarto(
 
     with cli_feedback("Creating deployment bundle"):
         bundle = create_quarto_deployment_bundle(
-            directory, extra_files, exclude, app_mode, inspect, environment, image, False
+            directory, extra_files, exclude, app_mode, inspect, environment, False, image
         )
 
     _deploy_bundle(
@@ -1058,7 +1057,7 @@ def deploy_html(
 
     with cli_feedback("Creating deployment bundle"):
         try:
-            bundle = make_html_bundle(path, entrypoint, "", extra_files, excludes)
+            bundle = make_html_bundle(path, entrypoint, extra_files, excludes, None)
         except IOError as error:
             msg = "Unable to include the file %s in the bundle: %s" % (
                 error.filename,
@@ -1163,7 +1162,7 @@ def generate_deploy_python(app_mode, alias, min_version):
         directory,
         extra_files,
         env_vars,
-        image,
+        image: str = None,
     ):
         _deploy_by_framework(
             name,
@@ -1283,7 +1282,7 @@ def _deploy_by_framework(
 
     with cli_feedback("Creating deployment bundle"):
         bundle = create_api_deployment_bundle(
-            directory, extra_files, exclude, entrypoint, app_mode, environment, image, False
+            directory, extra_files, exclude, entrypoint, app_mode, environment, False, image
         )
 
     _deploy_bundle(
@@ -1369,7 +1368,7 @@ def write_manifest():
     "--image",
     "-I",
     help="Target image to be used during content execution (only applicable if the RStudio Connect "
-      "server is configured to use off-host execution)",
+    "server is configured to use off-host execution)",
 )
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
@@ -1472,7 +1471,7 @@ def write_manifest_notebook(
     "--image",
     "-I",
     help="Target image to be used during content execution (only applicable if the RStudio Connect "
-      "server is configured to use off-host execution)",
+    "server is configured to use off-host execution)",
 )
 @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @click.argument(
@@ -1489,7 +1488,7 @@ def write_manifest_quarto(
     verbose,
     directory,
     extra_files,
-    image,
+    image: str = None,
 ):
     set_verbosity(verbose)
     with cli_feedback("Checking arguments"):
@@ -1605,7 +1604,7 @@ def generate_write_manifest_python(app_mode, alias):
         verbose,
         directory,
         extra_files,
-        image,
+        image: str = None,
     ):
         _write_framework_manifest(
             overwrite,
@@ -1682,10 +1681,10 @@ def _write_framework_manifest(
             directory,
             entrypoint,
             environment,
-            image,
             app_mode,
             extra_files,
             exclude,
+            image,
         )
 
     if environment_file_exists and not force_generate:

@@ -50,9 +50,9 @@ class TestBundle(TestCase):
         # runs in the notebook server. We need the introspection to run in
         # the kernel environment and not the notebook server environment.
         environment = detect_environment(directory)
-        with make_notebook_source_bundle(nb_path, environment, None, None, False, False) as bundle, tarfile.open(
-            mode="r:gz", fileobj=bundle
-        ) as tar:
+        with make_notebook_source_bundle(
+            nb_path, environment, None, hide_all_input=False, hide_tagged_input=False, image=None
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
 
             names = sorted(tar.getnames())
             self.assertEqual(
@@ -115,7 +115,12 @@ class TestBundle(TestCase):
         environment = detect_environment(directory)
 
         with make_notebook_source_bundle(
-            nb_path, environment, "rstudio/connect:bionic", ["data.csv"], False, False
+            nb_path,
+            environment,
+            ["data.csv"],
+            hide_all_input=False,
+            hide_tagged_input=False,
+            image="rstudio/connect:bionic",
         ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
 
             names = sorted(tar.getnames())
@@ -219,7 +224,13 @@ class TestBundle(TestCase):
         self.maxDiff = 5000
         nb_path = join(directory, "dummy.ipynb")
 
-        bundle = make_notebook_html_bundle(nb_path, sys.executable, None, False, False, None)
+        bundle = make_notebook_html_bundle(
+            nb_path,
+            sys.executable,
+            hide_all_input=False,
+            hide_tagged_input=False,
+            image=None,
+        )
 
         tar = tarfile.open(mode="r:gz", fileobj=bundle)
 
@@ -291,7 +302,7 @@ class TestBundle(TestCase):
         )
 
         # include image parameter
-        manifest = make_source_manifest(AppModes.PYTHON_API, "rstudio/connect:bionic", None, None, None)
+        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None, "rstudio/connect:bionic")
         self.assertEqual(
             manifest,
             {
@@ -305,7 +316,6 @@ class TestBundle(TestCase):
         # include environment parameter
         manifest = make_source_manifest(
             AppModes.PYTHON_API,
-            None,
             Environment(
                 conda=None,
                 contents="",
@@ -317,6 +327,7 @@ class TestBundle(TestCase):
                 python="3.9.12",
                 source="file",
             ),
+            None,
             None,
             None,
         )
@@ -338,8 +349,8 @@ class TestBundle(TestCase):
         manifest = make_source_manifest(
             AppModes.PYTHON_API,
             None,
-            None,
             "main.py",
+            None,
             None,
         )
         # print(manifest)
@@ -353,12 +364,12 @@ class TestBundle(TestCase):
             AppModes.PYTHON_API,
             None,
             None,
-            None,
             {
                 "quarto": {"version": "0.9.16"},
                 "engines": ["jupyter"],
                 "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
             },
+            None,
         )
         # print(manifest)
         self.assertEqual(
@@ -415,10 +426,10 @@ class TestBundle(TestCase):
                 "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
             },
             AppModes.SHINY_QUARTO,
+            None,
+            None,
+            None,
             "rstudio/connect:bionic",
-            None,
-            None,
-            None,
         )
         self.assertEqual(
             manifest,
@@ -446,7 +457,6 @@ class TestBundle(TestCase):
                 "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
             },
             AppModes.SHINY_QUARTO,
-            None,
             Environment(
                 conda=None,
                 contents="",
@@ -458,6 +468,7 @@ class TestBundle(TestCase):
                 python="3.9.12",
                 source="file",
             ),
+            None,
             None,
             None,
         )
@@ -495,8 +506,8 @@ class TestBundle(TestCase):
             },
             AppModes.SHINY_QUARTO,
             None,
-            None,
             ["a", "b", "c"],
+            None,
             None,
         )
         self.assertEqual(
@@ -524,9 +535,9 @@ class TestBundle(TestCase):
             },
             AppModes.SHINY_QUARTO,
             None,
-            None,
             ["a", "b", "c"],
             ["requirements.txt"],
+            None,
         )
         self.assertEqual(
             manifest,
