@@ -947,18 +947,34 @@ def deploy_quarto(
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
-def deploy_html(*args, **kwargs):
-    rsce = api.RSConnectExecutor(*args, **kwargs)
+def deploy_html(
+    name,
+    server,
+    api_key,
+    insecure,
+    cacert,
+    new,
+    app_id,
+    title,
+    verbose,
+    path,
+    env_vars,
+    entrypoint,
+    extra_files,
+    excludes,
+):
+    kwargs = locals()
+
+    rsce = api.RSConnectExecutor(**kwargs)
     (
         rsce.validate_server()
         .validate_app_mode(app_mode=AppModes.STATIC)
         .make_bundle(
             make_html_bundle,
-            kwargs.get("path"),
-            kwargs.get("entrypoint"),
-            kwargs.get("image"),
-            kwargs.get("extra_files"),
-            kwargs.get("excludes"),
+            path,
+            entrypoint,
+            extra_files,
+            excludes,
         )
         .deploy_bundle()
         .save_deployed_info()
