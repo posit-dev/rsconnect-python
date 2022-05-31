@@ -7,9 +7,15 @@ import io
 import json
 import os
 import subprocess
+import sys
 import tarfile
 import tempfile
 import re
+from pprint import pformat
+from collections import defaultdict
+from mimetypes import guess_type
+import click
+
 
 try:
     import typing
@@ -20,9 +26,8 @@ from os.path import basename, dirname, exists, isdir, join, relpath, splitext, i
 
 from .log import logger
 from .models import AppMode, AppModes, GlobSet
-from .environment import Environment
-from collections import defaultdict
-from mimetypes import guess_type
+from .environment import Environment, MakeEnvironment
+from .exception import RSConnectException
 
 _module_pattern = re.compile(r"^[A-Za-z0-9_]+:[A-Za-z0-9_]+$")
 
@@ -902,3 +907,290 @@ def make_quarto_manifest(
         manifest_add_file(manifest, rel_path, directory)
 
     return manifest, relevant_files
+
+
+def _validate_title(title):
+    """
+    If the user specified a title, validate that it meets Connect's length requirements.
+    If the validation fails, an exception is raised.  Otherwise,
+
+    :param title: the title to validate.
+    """
+    if title:
+        if not (3 <= len(title) <= 1024):
+            raise RSConnectException("A title must be between 3-1024 characters long.")
+
+
+def _default_title(file_name):
+    """
+    Produce a default content title from the given file path.  The result is
+    guaranteed to be between 3 and 1024 characters long, as required by RStudio
+    Connect.
+
+    :param file_name: the name from which the title will be derived.
+    :return: the derived title.
+    """
+    # Make sure we have enough of a path to derive text from.
+    file_name = abspath(file_name)
+    # noinspection PyTypeChecker
+    return basename(file_name).rsplit(".", 1)[0][:1024].rjust(3, "0")
+
+
+def _default_title_from_manifest(the_manifest, manifest_file):
+    """
+    Produce a default content title from the contents of a manifest.
+    """
+    filename = None
+
+    metadata = the_manifest.get("metadata")
+    if metadata:
+        # noinspection SpellCheckingInspection
+        filename = metadata.get("entrypoint") or metadata.get("primary_rmd") or metadata.get("primary_html")
+        # If the manifest is for an API, revert to using the parent directory.
+        if filename and _module_pattern.match(filename):
+            filename = None
+    return _default_title(filename or dirname(manifest_file))
+
+
+def validate_file_is_notebook(file_name):
+    """
+    Validate that the given file is a Jupyter Notebook. If it isn't, an exception is
+    thrown.  A file must exist and have the '.ipynb' extension.
+
+    :param file_name: the name of the file to validate.
+    """
+    file_suffix = splitext(file_name)[1].lower()
+    if file_suffix != ".ipynb" or not exists(file_name):
+        raise RSConnectException("A Jupyter notebook (.ipynb) file is required here.")
+
+
+def validate_extra_files(directory, extra_files):
+    """
+    If the user specified a list of extra files, validate that they all exist and are
+    beneath the given directory and, if so, return a list of them made relative to that
+    directory.
+
+    :param directory: the directory that the extra files must be relative to.
+    :param extra_files: the list of extra files to qualify and validate.
+    :return: the extra files qualified by the directory.
+    """
+    result = []
+    if extra_files:
+        for extra in extra_files:
+            extra_file = relpath(extra, directory)
+            # It's an error if we have to leave the given dir to get to the extra
+            # file.
+            if extra_file.startswith("../"):
+                raise RSConnectException("%s must be under %s." % (extra_file, directory))
+            if not exists(join(directory, extra_file)):
+                raise RSConnectException("Could not find file %s under %s" % (extra, directory))
+            result.append(extra_file)
+    return result
+
+
+def validate_manifest_file(file_or_directory):
+    """
+    Validates that the name given represents either an existing manifest.json file or
+    a directory that contains one.  If not, an exception is raised.
+
+    :param file_or_directory: the name of the manifest file or directory that contains it.
+    :return: the real path to the manifest file.
+    """
+    if isdir(file_or_directory):
+        file_or_directory = join(file_or_directory, "manifest.json")
+    if basename(file_or_directory) != "manifest.json" or not exists(file_or_directory):
+        raise RSConnectException("A manifest.json file or a directory containing one is required here.")
+    return file_or_directory
+
+
+def get_default_entrypoint(directory):
+    candidates = ["app", "application", "main", "api"]
+    files = set(os.listdir(directory))
+
+    for candidate in candidates:
+        filename = candidate + ".py"
+        if filename in files:
+            return candidate
+
+    # if only one python source file, use it
+    python_files = list(filter(lambda s: s.endswith(".py"), files))
+    if len(python_files) == 1:
+        return python_files[0][:-3]
+
+    logger.warning("Can't determine entrypoint; defaulting to 'app'")
+    return "app"
+
+
+def validate_entry_point(entry_point, directory):
+    """
+    Validates the entry point specified by the user, expanding as necessary.  If the
+    user specifies nothing, a module of "app" is assumed.  If the user specifies a
+    module only, the object is assumed to be the same name as the module.
+
+    :param entry_point: the entry point as specified by the user.
+    :return: the fully expanded and validated entry point and the module file name..
+    """
+    if not entry_point:
+        entry_point = get_default_entrypoint(directory)
+
+    parts = entry_point.split(":")
+
+    if len(parts) > 2:
+        raise RSConnectException('Entry point is not in "module:object" format.')
+
+    return entry_point
+
+
+def _warn_on_ignored_manifest(directory):
+    """
+    Checks for the existence of a file called manifest.json in the given directory.
+    If it's there, a warning noting that it will be ignored will be printed.
+
+    :param directory: the directory to check in.
+    """
+    if exists(join(directory, "manifest.json")):
+        click.secho(
+            "    Warning: the existing manifest.json file will not be used or considered.",
+            fg="yellow",
+        )
+
+
+def _warn_if_no_requirements_file(directory):
+    """
+    Checks for the existence of a file called requirements.txt in the given directory.
+    If it's not there, a warning will be printed.
+
+    :param directory: the directory to check in.
+    """
+    if not exists(join(directory, "requirements.txt")):
+        click.secho(
+            "    Warning: Capturing the environment using 'pip freeze'.\n"
+            "             Consider creating a requirements.txt file instead.",
+            fg="yellow",
+        )
+
+
+def _warn_if_environment_directory(directory):
+    """
+    Issue a warning if the deployment directory is itself a virtualenv (yikes!).
+
+    :param directory: the directory to check in.
+    """
+    if is_environment_dir(directory):
+        click.secho(
+            "    Warning: The deployment directory appears to be a python virtual environment.\n"
+            "             Excluding the 'bin' and 'lib' directories.",
+            fg="yellow",
+        )
+
+
+def _warn_on_ignored_requirements(directory, requirements_file_name):
+    """
+    Checks for the existence of a file called manifest.json in the given directory.
+    If it's there, a warning noting that it will be ignored will be printed.
+
+    :param directory: the directory to check in.
+    :param requirements_file_name: the name of the requirements file.
+    """
+    if exists(join(directory, requirements_file_name)):
+        click.secho(
+            "    Warning: the existing %s file will not be used or considered." % requirements_file_name,
+            fg="yellow",
+        )
+
+
+def fake_module_file_from_directory(directory: str):
+    """
+    Takes a directory and invents a properly named file that though possibly fake,
+    can be used for other name/title derivation.
+
+    :param directory: the directory to start with.
+    :return: the directory plus the (potentially) fake module file.
+    """
+    app_name = abspath(directory)
+    app_name = dirname(app_name) if app_name.endswith(os.path.sep) else basename(app_name)
+    return join(directory, app_name + ".py")
+
+
+def are_apis_supported_on_server(connect_details):
+    """
+    Returns whether or not the Connect server has Python itself enabled and its license allows
+    for API usage.  This controls whether APIs may be deployed..
+
+    :param connect_details: details about a Connect server as returned by gather_server_details()
+    :return: boolean True if the Connect server supports Python APIs or not or False if not.
+    :error: The RStudio Connect server does not allow for Python APIs.
+    """
+    return connect_details["python"]["api_enabled"]
+
+
+def which_python(python, env=os.environ):
+    """Determine which python binary should be used.
+
+    In priority order:
+    * --python specified on the command line
+    * RETICULATE_PYTHON defined in the environment
+    * the python binary running this script
+    """
+    if python:
+        if not (exists(python) and os.access(python, os.X_OK)):
+            raise RSConnectException('The file, "%s", does not exist or is not executable.' % python)
+        return python
+
+    if "RETICULATE_PYTHON" in env:
+        return os.path.expanduser(env["RETICULATE_PYTHON"])
+
+    return sys.executable
+
+
+def inspect_environment(
+    python,  # type: str
+    directory,  # type: str
+    conda_mode=False,  # type: bool
+    force_generate=False,  # type: bool
+    check_output=subprocess.check_output,  # type: typing.Callable
+):
+    # type: (...) -> Environment
+    """Run the environment inspector using the specified python binary.
+
+    Returns a dictionary of information about the environment,
+    or containing an "error" field if an error occurred.
+    """
+    flags = []
+    if conda_mode:
+        flags.append("c")
+    if force_generate:
+        flags.append("f")
+    args = [python, "-m", "rsconnect.environment"]
+    if len(flags) > 0:
+        args.append("-" + "".join(flags))
+    args.append(directory)
+    try:
+        environment_json = check_output(args, universal_newlines=True)
+    except subprocess.CalledProcessError as e:
+        raise RSConnectException("Error inspecting environment: %s" % e.output)
+    return MakeEnvironment(**json.loads(environment_json))  # type: ignore
+
+
+def get_python_env_info(file_name, python, conda_mode=False, force_generate=False):
+    """
+    Gathers the python and environment information relating to the specified file
+    with an eye to deploy it.
+
+    :param file_name: the primary file being deployed.
+    :param python: the optional name of a Python executable.
+    :param conda_mode: inspect the environment assuming Conda
+    :param force_generate: force generating "requirements.txt" or "environment.yml",
+    even if it already exists.
+    :return: information about the version of Python in use plus some environmental
+    stuff.
+    """
+    python = which_python(python)
+    logger.debug("Python: %s" % python)
+    environment = inspect_environment(python, dirname(file_name), conda_mode=conda_mode, force_generate=force_generate)
+    if environment.error:
+        raise RSConnectException(environment.error)
+    logger.debug("Python: %s" % python)
+    logger.debug("Environment: %s" % pformat(environment._asdict()))
+
+    return python, environment

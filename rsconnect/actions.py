@@ -347,6 +347,7 @@ def _validate_title(title):
 
     :param title: the title to validate.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     if title:
         if not (3 <= len(title) <= 1024):
             raise RSConnectException("A title must be between 3-1024 characters long.")
@@ -392,6 +393,7 @@ def validate_file_is_notebook(file_name):
 
     :param file_name: the name of the file to validate.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     file_suffix = splitext(file_name)[1].lower()
     if file_suffix != ".ipynb" or not exists(file_name):
         raise RSConnectException("A Jupyter notebook (.ipynb) file is required here.")
@@ -407,6 +409,7 @@ def validate_extra_files(directory, extra_files):
     :param extra_files: the list of extra files to qualify and validate.
     :return: the extra files qualified by the directory.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     result = []
     if extra_files:
         for extra in extra_files:
@@ -429,6 +432,7 @@ def validate_manifest_file(file_or_directory):
     :param file_or_directory: the name of the manifest file or directory that contains it.
     :return: the real path to the manifest file.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     if isdir(file_or_directory):
         file_or_directory = join(file_or_directory, "manifest.json")
     if basename(file_or_directory) != "manifest.json" or not exists(file_or_directory):
@@ -437,6 +441,7 @@ def validate_manifest_file(file_or_directory):
 
 
 def get_default_entrypoint(directory):
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     candidates = ["app", "application", "main", "api"]
     files = set(os.listdir(directory))
 
@@ -463,6 +468,7 @@ def validate_entry_point(entry_point, directory):
     :param entry_point: the entry point as specified by the user.
     :return: the fully expanded and validated entry point and the module file name..
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     if not entry_point:
         entry_point = get_default_entrypoint(directory)
 
@@ -713,6 +719,7 @@ def fake_module_file_from_directory(directory: str):
     :param directory: the directory to start with.
     :return: the directory plus the (potentially) fake module file.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     app_name = abspath(directory)
     app_name = dirname(app_name) if app_name.endswith(os.path.sep) else basename(app_name)
     return join(directory, app_name + ".py")
