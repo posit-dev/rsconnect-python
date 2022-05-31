@@ -23,7 +23,6 @@ from .actions import (
     gather_basic_deployment_info_for_dash,
     gather_basic_deployment_info_for_streamlit,
     gather_basic_deployment_info_for_bokeh,
-    gather_basic_deployment_info_for_quarto,
     gather_server_details,
     get_python_env_info,
     is_conda_supported_on_server,
@@ -870,23 +869,11 @@ def deploy_quarto(
     env_vars,
     image,
 ):
+    kwargs = locals()
     set_verbosity(verbose)
 
-    with cli_feedback("Checking arguments"):
-        module_file = fake_module_file_from_directory(directory)
-        app_store = AppStore(module_file)
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        extra_files = validate_extra_files(directory, extra_files)
-        (app_id, deployment_name, title, default_title, app_mode) = gather_basic_deployment_info_for_quarto(
-            connect_server,
-            app_store,
-            directory,
-            new,
-            app_id,
-            title,
-        )
-
-    click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
+    module_file = fake_module_file_from_directory(directory)
+    kwargs["extra_files"] = validate_extra_files(directory, extra_files)
 
     _warn_on_ignored_manifest(directory)
 
@@ -910,22 +897,24 @@ def deploy_quarto(
             if force_generate:
                 _warn_on_ignored_requirements(directory, environment.filename)
 
-    with cli_feedback("Creating deployment bundle"):
-        bundle = create_quarto_deployment_bundle(
-            directory, extra_files, exclude, app_mode, inspect, environment, False, image
+    rsce = api.RSConnectExecutor(**kwargs)
+    (
+        rsce.validate_server()
+        .validate_app_mode(app_mode=AppModes.STATIC_QUARTO)
+        .make_bundle(
+            create_quarto_deployment_bundle,
+            directory,
+            kwargs["extra_files"],
+            exclude,
+            AppModes.STATIC_QUARTO,
+            inspect,
+            environment,
+            False,
+            image=image,
         )
-
-    _deploy_bundle(
-        connect_server,
-        app_store,
-        directory,
-        app_id,
-        app_mode,
-        deployment_name,
-        title,
-        default_title,
-        bundle,
-        env_vars,
+        .deploy_bundle()
+        .save_deployed_info()
+        .emit_task_log(log_callback=connect_logger)
     )
 
 
