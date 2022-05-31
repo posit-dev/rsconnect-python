@@ -1041,21 +1041,42 @@ def generate_deploy_python_refactor(app_mode, alias, min_version):
         nargs=-1,
         type=click.Path(exists=True, dir_okay=False, file_okay=True),
     )
-    def deploy_app(*args, **kwargs):
-        rsce = api.RSConnectExecutor(*args, **kwargs)
+    def deploy_app(
+        name,
+        server,
+        api_key,
+        insecure,
+        cacert,
+        entrypoint,
+        exclude,
+        new,
+        app_id,
+        title,
+        python,
+        conda,
+        force_generate,
+        verbose,
+        directory,
+        extra_files,
+        env_vars,
+        image: str = None,
+    ):
+        kwargs = locals()
+
+        rsce = api.RSConnectExecutor(**kwargs)
         (
             rsce.validate_server()
             .validate_app_mode(app_mode=AppModes.PYTHON_API)
             .create_python_environment()
             .make_bundle(
                 make_api_bundle,
-                rsce.state["directory"],
+                directory,
                 rsce.state["entrypoint"],
                 app_mode,
                 rsce.state["environment"],
-                kwargs.get("image"),
-                rsce.state["extra_files"],
-                rsce.state["exclude"],
+                extra_files,
+                exclude,
+                image=image,
             )
             .deploy_bundle()
             .save_deployed_info()
