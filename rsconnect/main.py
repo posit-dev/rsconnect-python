@@ -64,6 +64,10 @@ from .bundle import (
     make_api_bundle,
     make_notebook_source_bundle,
     read_manifest_app_mode,
+    write_notebook_manifest_json,
+    write_api_manifest_json,
+    write_environment_file,
+    write_quarto_manifest_json,
 )
 from .log import logger, LogOutputFormat, connect_logger
 from .metadata import ServerStore, AppStore

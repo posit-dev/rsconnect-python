@@ -1163,3 +1163,239 @@ def get_python_env_info(file_name, python, conda_mode=False, force_generate=Fals
     logger.debug("Environment: %s" % pformat(environment._asdict()))
 
     return python, environment
+
+
+def create_notebook_manifest_and_environment_file(
+    entry_point_file: str,
+    environment: Environment,
+    app_mode: AppMode,
+    extra_files: typing.List[str],
+    force: bool,
+    hide_all_input: bool,
+    hide_tagged_input: bool,
+    image: str = None,
+) -> None:
+    """
+    Creates and writes a manifest.json file for the given notebook entry point file.
+    If the related environment file (requirements.txt, environment.yml, etc.) doesn't
+    exist (or force is set to True), the environment file will also be written.
+
+    :param entry_point_file: the entry point file (Jupyter notebook, etc.) to build
+    the manifest for.
+    :param environment: the Python environment to start with.  This should be what's
+    returned by the inspect_environment() function.
+    :param app_mode: the application mode to assume.  If this is None, the extension
+    portion of the entry point file name will be used to derive one. Previous default = None.
+    :param extra_files: any extra files that should be included in the manifest. Previous default = None.
+    :param force: if True, forces the environment file to be written. even if it
+    already exists. Previous default = True.
+    :param hide_all_input: if True, will hide all input cells when rendering output.  Previous default = False.
+    :param hide_tagged_input: If True, will hide input code cells with the 'hide_input' tag
+    when rendering output.   Previous default = False.
+    :param image: an optional docker image for off-host execution. Previous default = None.
+    :return:
+    """
+    if (
+        not write_notebook_manifest_json(
+            entry_point_file, environment, app_mode, extra_files, hide_all_input, hide_tagged_input, image
+        )
+        or force
+    ):
+        write_environment_file(environment, dirname(entry_point_file))
+
+
+def write_notebook_manifest_json(
+    entry_point_file: str,
+    environment: Environment,
+    app_mode: AppMode,
+    extra_files: typing.List[str],
+    hide_all_input: bool,
+    hide_tagged_input: bool,
+    image: str = None,
+) -> bool:
+    """
+    Creates and writes a manifest.json file for the given entry point file.  If
+    the application mode is not provided, an attempt will be made to resolve one
+    based on the extension portion of the entry point file.
+
+    :param entry_point_file: the entry point file (Jupyter notebook, etc.) to build
+    the manifest for.
+    :param environment: the Python environment to start with.  This should be what's
+    returned by the inspect_environment() function.
+    :param app_mode: the application mode to assume.  If this is None, the extension
+    portion of the entry point file name will be used to derive one. Previous default = None.
+    :param extra_files: any extra files that should be included in the manifest. Previous default = None.
+    :param hide_all_input: if True, will hide all input cells when rendering output. Previous default = False.
+    :param hide_tagged_input: If True, will hide input code cells with the 'hide_input' tag
+    when rendering output.  Previous default = False.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :return: whether or not the environment file (requirements.txt, environment.yml,
+    etc.) that goes along with the manifest exists.
+    """
+    extra_files = validate_extra_files(dirname(entry_point_file), extra_files)
+    directory = dirname(entry_point_file)
+    file_name = basename(entry_point_file)
+    manifest_path = join(directory, "manifest.json")
+
+    if app_mode is None:
+        _, extension = splitext(file_name)
+        app_mode = AppModes.get_by_extension(extension, True)
+        if app_mode == AppModes.UNKNOWN:
+            raise RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
+
+    manifest_data = make_source_manifest(app_mode, environment, file_name, None, image)
+    manifest_add_file(manifest_data, file_name, directory)
+    manifest_add_buffer(manifest_data, environment.filename, environment.contents)
+
+    for rel_path in extra_files:
+        manifest_add_file(manifest_data, rel_path, directory)
+
+    write_manifest_json(manifest_path, manifest_data)
+
+    return exists(join(directory, environment.filename))
+
+
+def create_api_manifest_and_environment_file(
+    directory: str,
+    entry_point: str,
+    environment: Environment,
+    app_mode: AppMode,
+    extra_files: typing.List[str],
+    excludes: typing.List[str],
+    force: bool,
+    image: str = None,
+) -> None:
+    """
+    Creates and writes a manifest.json file for the given Python API entry point.  If
+    the related environment file (requirements.txt, environment.yml, etc.) doesn't
+    exist (or force is set to True), the environment file will also be written.
+
+    :param directory: the root directory of the Python API.
+    :param entry_point: the module/executable object for the WSGi framework.
+    :param environment: the Python environment to start with.  This should be what's
+    returned by the inspect_environment() function.
+    :param app_mode: the application mode to assume. Previous default = AppModes.PYTHON_API.
+    :param extra_files: any extra files that should be included in the manifest. Previous default = None.
+    :param excludes: a sequence of glob patterns that will exclude matched files. Previous default = None.
+    :param force: if True, forces the environment file to be written. even if it
+    already exists. Previous default = True.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :return:
+    """
+    if (
+        not write_api_manifest_json(directory, entry_point, environment, app_mode, extra_files, excludes, image)
+        or force
+    ):
+        write_environment_file(environment, directory)
+
+
+def write_api_manifest_json(
+    directory: str,
+    entry_point: str,
+    environment: Environment,
+    app_mode: AppMode,
+    extra_files: typing.List[str],
+    excludes: typing.List[str],
+    image: str = None,
+) -> bool:
+    """
+    Creates and writes a manifest.json file for the given entry point file.  If
+    the application mode is not provided, an attempt will be made to resolve one
+    based on the extension portion of the entry point file.
+
+    :param directory: the root directory of the Python API.
+    :param entry_point: the module/executable object for the WSGi framework.
+    :param environment: the Python environment to start with.  This should be what's
+    returned by the inspect_environment() function.
+    :param app_mode: the application mode to assume. Previous default = AppModes.PYTHON_API.
+    :param extra_files: any extra files that should be included in the manifest. Previous default = None.
+    :param excludes: a sequence of glob patterns that will exclude matched files. Previous default = None.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :return: whether or not the environment file (requirements.txt, environment.yml,
+    etc.) that goes along with the manifest exists.
+    """
+    extra_files = validate_extra_files(directory, extra_files)
+    manifest, _ = make_api_manifest(directory, entry_point, app_mode, environment, extra_files, excludes, image)
+    manifest_path = join(directory, "manifest.json")
+
+    write_manifest_json(manifest_path, manifest)
+
+    return exists(join(directory, environment.filename))
+
+
+def write_environment_file(
+    environment: Environment,
+    directory: str,
+) -> None:
+    """
+    Writes the environment file (requirements.txt, environment.yml, etc.) to the
+    specified directory.
+
+    :param environment: the Python environment to start with.  This should be what's
+    returned by the inspect_environment() function.
+    :param directory: the directory where the file should be written.
+    """
+    environment_file_path = join(directory, environment.filename)
+    with open(environment_file_path, "w") as f:
+        f.write(environment.contents)
+
+
+def describe_manifest(
+    file_name: str,
+) -> typing.Tuple[str, str]:
+    """
+    Determine the entry point and/or primary file from the given manifest file.
+    If no entry point is recorded in the manifest, then None will be returned for
+    that.  The same is true for the primary document.  None will be returned for
+    both if the file doesn't exist or doesn't look like a manifest file.
+
+    :param file_name: the name of the manifest file to read.
+    :return: the entry point and primary document from the manifest.
+    """
+    if basename(file_name) == "manifest.json" and exists(file_name):
+        manifest, _ = read_manifest_file(file_name)
+        metadata = manifest.get("metadata")
+        if metadata:
+            # noinspection SpellCheckingInspection
+            return (
+                metadata.get("entrypoint"),
+                metadata.get("primary_rmd") or metadata.get("primary_html"),
+            )
+    return None, None
+
+
+def write_quarto_manifest_json(
+    directory: str,
+    inspect: typing.Any,
+    app_mode: AppMode,
+    environment: Environment,
+    extra_files: typing.List[str],
+    excludes: typing.List[str],
+    image: str = None,
+) -> None:
+    """
+    Creates and writes a manifest.json file for the given Quarto project.
+
+    :param directory: The directory containing the Quarto project.
+    :param inspect: The parsed JSON from a 'quarto inspect' against the project.
+    :param app_mode: The application mode to assume (such as AppModes.STATIC_QUARTO)
+    :param environment: The (optional) Python environment to use.
+    :param extra_files: Any extra files to include in the manifest.
+    :param excludes: A sequence of glob patterns to exclude when enumerating files to bundle.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
+    """
+
+    extra_files = validate_extra_files(directory, extra_files)
+    manifest, _ = make_quarto_manifest(directory, inspect, app_mode, environment, extra_files, excludes, image)
+    manifest_path = join(directory, "manifest.json")
+
+    write_manifest_json(manifest_path, manifest)
+
+
+def write_manifest_json(manifest_path, manifest):
+    """
+    Write the manifest data as JSON to the named manifest.json with a trailing newline.
+    """
+    with open(manifest_path, "w") as f:
+        json.dump(manifest, f, indent=2)
+        f.write("\n")

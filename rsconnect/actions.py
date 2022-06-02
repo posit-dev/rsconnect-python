@@ -562,7 +562,7 @@ def write_quarto_manifest_json(
     :param excludes: A sequence of glob patterns to exclude when enumerating files to bundle.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
     """
-
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     extra_files = validate_extra_files(directory, extra_files)
     manifest, _ = make_quarto_manifest(directory, inspect, app_mode, environment, extra_files, excludes, image)
     manifest_path = join(directory, "manifest.json")
@@ -574,6 +574,7 @@ def write_manifest_json(manifest_path, manifest):
     """
     Write the manifest data as JSON to the named manifest.json with a trailing newline.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
         f.write("\n")
@@ -1711,6 +1712,7 @@ def create_notebook_manifest_and_environment_file(
     :param image: an optional docker image for off-host execution. Previous default = None.
     :return:
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     if (
         not write_notebook_manifest_json(
             entry_point_file, environment, app_mode, extra_files, hide_all_input, hide_tagged_input, image
@@ -1748,6 +1750,7 @@ def write_notebook_manifest_json(
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     extra_files = validate_extra_files(dirname(entry_point_file), extra_files)
     directory = dirname(entry_point_file)
     file_name = basename(entry_point_file)
@@ -1798,6 +1801,7 @@ def create_api_manifest_and_environment_file(
     :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return:
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     if (
         not write_api_manifest_json(directory, entry_point, environment, app_mode, extra_files, excludes, image)
         or force
@@ -1830,6 +1834,7 @@ def write_api_manifest_json(
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     extra_files = validate_extra_files(directory, extra_files)
     manifest, _ = make_api_manifest(directory, entry_point, app_mode, environment, extra_files, excludes, image)
     manifest_path = join(directory, "manifest.json")
@@ -1851,6 +1856,7 @@ def write_environment_file(
     returned by the inspect_environment() function.
     :param directory: the directory where the file should be written.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     environment_file_path = join(directory, environment.filename)
     with open(environment_file_path, "w") as f:
         f.write(environment.contents)
@@ -1868,6 +1874,7 @@ def describe_manifest(
     :param file_name: the name of the manifest file to read.
     :return: the entry point and primary document from the manifest.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     if basename(file_name) == "manifest.json" and exists(file_name):
         manifest, _ = read_manifest_file(file_name)
         metadata = manifest.get("metadata")
