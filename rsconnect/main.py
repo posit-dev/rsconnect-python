@@ -717,7 +717,7 @@ def deploy_notebook(
     hide_all_input,
     hide_tagged_input,
     env_vars,
-    image: str = None,
+    image,
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -1059,7 +1059,7 @@ def generate_deploy_python_refactor(app_mode, alias, min_version):
         directory,
         extra_files,
         env_vars,
-        image: str = None,
+        image,
     ):
         kwargs = locals()
 
@@ -1169,7 +1169,7 @@ def generate_deploy_python(app_mode, alias, min_version):
         directory,
         extra_files,
         env_vars,
-        image: str = None,
+        image,
     ):
         _deploy_by_framework(
             name,
@@ -1396,7 +1396,7 @@ def write_manifest_notebook(
     verbose,
     file,
     extra_files,
-    image=None,  # type: str
+    image,
     hide_all_input=None,
     hide_tagged_input=None,
 ):
@@ -1500,7 +1500,7 @@ def write_manifest_quarto(
     verbose,
     directory,
     extra_files,
-    image: str = None,
+    image,
 ):
     set_verbosity(verbose)
     with cli_feedback("Checking arguments"):
@@ -1616,7 +1616,7 @@ def generate_write_manifest_python(app_mode, alias):
         verbose,
         directory,
         extra_files,
-        image: str = None,
+        image,
     ):
         _write_framework_manifest(
             overwrite,
