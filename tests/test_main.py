@@ -95,7 +95,6 @@ class TestMain(TestCase):
         args = self.create_deploy_args("notebook", target)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("OK", result.output)
 
     # noinspection SpellCheckingInspection
     def test_deploy_manifest(self):
@@ -104,7 +103,6 @@ class TestMain(TestCase):
         args = self.create_deploy_args("manifest", target)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("OK", result.output)
 
     def test_deploy_api(self):
         target = optional_target(get_api_path("flask"))
@@ -112,4 +110,3 @@ class TestMain(TestCase):
         args = self.create_deploy_args("api", target)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("OK", result.output)
