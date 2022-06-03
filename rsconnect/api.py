@@ -401,38 +401,6 @@ class RSConnectExecutor:
 
         return self
 
-    @console_logged("Creating Python environment...")
-    def create_python_environment(self, *args, **kwargs):
-        directory = self.get("directory", **kwargs)
-        extra_files = self.get("extra_files", **kwargs)
-        force_generate = self.get("force_generate", **kwargs)
-        python = self.get("python", **kwargs)
-        conda = self.get("conda", **kwargs)
-        entrypoint = self.get("entrypoint", **kwargs)
-        module_file = fake_module_file_from_directory(directory)
-        extra_files = validate_extra_files(directory, extra_files)
-
-        # click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
-
-        entrypoint = validate_entry_point(entrypoint, directory)
-        self.state["entrypoint"] = entrypoint
-        _warn_on_ignored_manifest(directory)
-        _warn_if_no_requirements_file(directory)
-        _warn_if_environment_directory(directory)
-
-        # with cli_feedback("Inspecting Python environment"):
-        _, environment = get_python_env_info(module_file, python, conda, force_generate)
-
-        # with cli_feedback("Checking server capabilities"):
-        checks = [are_apis_supported_on_server]
-        self.check_server_capabilities(checks)
-
-        if force_generate:
-            _warn_on_ignored_requirements(directory, environment.filename)
-
-        self.state["environment"] = environment
-        return self
-
     def check_server_capabilities(self, capability_functions):
         """
         Uses a sequence of functions that check for capabilities in a Connect server.  The

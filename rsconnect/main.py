@@ -11,7 +11,6 @@ import click
 from six import text_type
 
 from .actions import (
-    are_apis_supported_on_server,
     check_server_capabilities,
     cli_feedback,
     create_api_deployment_bundle,
@@ -31,17 +30,8 @@ from .actions import (
     spool_deployment_log,
     test_api_key,
     test_server,
-    validate_entry_point,
-    validate_extra_files,
-    validate_file_is_notebook,
-    validate_manifest_file,
     validate_quarto_engines,
     which_quarto,
-    write_api_manifest_json,
-    write_environment_file,
-    write_notebook_manifest_json,
-    write_quarto_manifest_json,
-    fake_module_file_from_directory,
 )
 from .actions_content import (
     download_bundle,
@@ -57,6 +47,8 @@ from .actions_content import (
 
 from . import api, VERSION
 from .bundle import (
+    are_apis_supported_on_server,
+    create_python_environment,
     default_title_from_manifest,
     is_environment_dir,
     make_manifest_bundle,
@@ -68,6 +60,11 @@ from .bundle import (
     write_api_manifest_json,
     write_environment_file,
     write_quarto_manifest_json,
+    validate_entry_point,
+    validate_extra_files,
+    validate_file_is_notebook,
+    validate_manifest_file,
+    fake_module_file_from_directory,
 )
 from .log import logger, LogOutputFormat, connect_logger
 from .metadata import ServerStore, AppStore
@@ -1072,18 +1069,26 @@ def generate_deploy_python_refactor(app_mode, alias, min_version):
         image,
     ):
         kwargs = locals()
+        entrypoint = validate_entry_point(entrypoint, directory)
+        environment = create_python_environment(
+            directory,
+            extra_files,
+            force_generate,
+            python,
+            conda,
+        )
 
         rsce = api.RSConnectExecutor(**kwargs)
         (
             rsce.validate_server()
             .validate_app_mode(app_mode=AppModes.PYTHON_API)
-            .create_python_environment()
+            .check_server_capabilities([are_apis_supported_on_server])
             .make_bundle(
                 make_api_bundle,
                 directory,
-                rsce.state["entrypoint"],
+                entrypoint,
                 app_mode,
-                rsce.state["environment"],
+                environment,
                 extra_files,
                 exclude,
                 image=image,

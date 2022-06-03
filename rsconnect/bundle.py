@@ -14,6 +14,7 @@ import re
 from pprint import pformat
 from collections import defaultdict
 from mimetypes import guess_type
+from typing import List
 import click
 
 
@@ -1399,3 +1400,28 @@ def write_manifest_json(manifest_path, manifest):
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
         f.write("\n")
+
+
+def create_python_environment(
+    directory: str = None,
+    extra_files: List[str] = None,
+    force_generate: bool = False,
+    python: str = None,
+    conda: bool = False,
+):
+    module_file = fake_module_file_from_directory(directory)
+    extra_files = validate_extra_files(directory, extra_files)
+
+    # click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
+
+    _warn_on_ignored_manifest(directory)
+    _warn_if_no_requirements_file(directory)
+    _warn_if_environment_directory(directory)
+
+    # with cli_feedback("Inspecting Python environment"):
+    _, environment = get_python_env_info(module_file, python, conda, force_generate)
+
+    if force_generate:
+        _warn_on_ignored_requirements(directory, environment.filename)
+
+    return environment
