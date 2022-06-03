@@ -281,10 +281,15 @@ class RSConnectExecutor:
         return self
 
     def setup_connect_server(self, *args, **kwargs):
+        name = self.get("name", **kwargs)
         url = self.get("server", **kwargs)
         api_key = self.get("api_key", **kwargs)
         insecure = self.get("insecure", **kwargs) or False
         ca_data = self.get("ca_data", **kwargs)
+        if name and url:
+            raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both.")
+
+        url, api_key, insecure, ca_data, _ = ServerStore().resolve(name, url, api_key, insecure, ca_data)
         self.connect_server = RSConnectServer(url, api_key, insecure, ca_data)
 
     def setup_connect(self, *args, **kwargs):
