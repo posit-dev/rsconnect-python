@@ -1039,6 +1039,12 @@ def generate_deploy_python_refactor(app_mode, alias, min_version):
         is_flag=True,
         help='Force generating "requirements.txt", even if it already exists.',
     )
+    @click.option(
+        "--image",
+        "-I",
+        help="Target image to be used during content execution (only applicable if the RStudio Connect "
+        "server is configured to use off-host execution)",
+    )
     @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
     @click.argument(
         "extra_files",
