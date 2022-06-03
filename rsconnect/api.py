@@ -460,8 +460,8 @@ class RSConnectExecutor:
         :param raise_on_error: whether to raise an exception when a task is failed, otherwise we
         return the task_result so we can record the exit code.
         """
-        app_id = self.state["deployed_info"]["app_id"] or app_id
-        task_id = self.state["deployed_info"]["task_id"] or task_id
+        app_id = app_id or self.state["deployed_info"]["app_id"]
+        task_id = task_id or self.state["deployed_info"]["task_id"]
         client = self.connect
         log_lines, _ = client.wait_for_task(task_id, log_callback.info, abort_func, timeout, poll_wait, raise_on_error)
         self.connect_server.handle_bad_response(log_lines)
