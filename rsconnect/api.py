@@ -268,7 +268,6 @@ class RSConnect(HTTPServer):
 
 class RSConnectExecutor:
     def __init__(self, *args, **kwargs) -> None:
-        print(kwargs)
         self.reset()
         self._d = kwargs
         self.setup_connect_server(*args, **kwargs)
@@ -499,9 +498,6 @@ class RSConnectExecutor:
         )
 
         return self
-
-    def make_manifest(self, *args, **kwargs):
-        pass
 
     @console_logged("Validating app mode...")
     def validate_app_mode(self, *args, **kwargs):

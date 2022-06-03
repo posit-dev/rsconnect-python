@@ -268,6 +268,7 @@ def are_apis_supported_on_server(connect_details):
     :return: boolean True if the Connect server supports Python APIs or not or False if not.
     :error: The RStudio Connect server does not allow for Python APIs.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     return connect_details["python"]["api_enabled"]
 
 
