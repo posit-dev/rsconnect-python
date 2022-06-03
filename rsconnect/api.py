@@ -267,33 +267,45 @@ class RSConnect(HTTPServer):
 
 
 class RSConnectExecutor:
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        name: str = None,
+        url: str = None,
+        api_key: str = None,
+        insecure: bool = False,
+        cacert=None,
+        cookies=None,
+        timeout: int = 30,
+        **kwargs
+    ) -> None:
         self.reset()
         self._d = kwargs
-        self.setup_connect_server(*args, **kwargs)
-        self.setup_connect(*args, **kwargs)
+        self.setup_connect_server(name, url, api_key, insecure, cacert)
+        self.setup_connect(cookies, timeout)
 
     def reset(self):
         self._d = None
         self.connect_server = None
         self.connect = None
+        self._name = None
         return self
 
-    def setup_connect_server(self, *args, **kwargs):
-        name = self.get("name", **kwargs)
-        url = self.get("server", **kwargs)
-        api_key = self.get("api_key", **kwargs)
-        insecure = self.get("insecure", **kwargs) or False
-        ca_data = self.get("ca_data", **kwargs)
+    def setup_connect_server(
+        self,
+        name: str = None,
+        url: str = None,
+        api_key: str = None,
+        insecure: bool = False,
+        cacert=None,
+    ):
         if name and url:
             raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both.")
 
-        url, api_key, insecure, ca_data, _ = ServerStore().resolve(name, url, api_key, insecure, ca_data)
-        self.connect_server = RSConnectServer(url, api_key, insecure, ca_data)
+        url, api_key, insecure, cacert, _ = ServerStore().resolve(name, url, api_key, insecure, cacert)
+        self.connect_server = RSConnectServer(url, api_key, insecure, cacert)
+        self._name = name
 
-    def setup_connect(self, *args, **kwargs):
-        cookies = self.get("cookies", **kwargs)
-        timeout = self.get("timeout", **kwargs) or 30
+    def setup_connect(self, cookies=None, timeout=30, **kwargs):
         self.connect = RSConnect(self.connect_server, cookies, timeout)
 
     @property
@@ -308,7 +320,16 @@ class RSConnectExecutor:
         return func(*args, **kwargs)
 
     @console_logged("Validating server...")
-    def validate_server(self, *args, **kwargs):
+    def validate_server(
+        self,
+        name: str = None,
+        url: str = None,
+        api_key: str = None,
+        insecure: bool = False,
+        cacert=None,
+        api_key_is_required: bool = False,
+        **kwargs
+    ):
         """
         Validate that the user gave us enough information to talk to a Connect server.
 
@@ -316,19 +337,18 @@ class RSConnectExecutor:
         :param url: the URL, if any, specified by the user.
         :param api_key: the API key, if any, specified by the user.
         :param insecure: a flag noting whether TLS host/validation should be skipped.
-        :param ca_cert: the name of a CA certs file containing certificates to use.
+        :param cacert: the name of a CA certs file containing certificates to use.
         :param api_key_is_required: a flag that notes whether the API key is required or may
         be omitted.
         """
-        name = self.get("name", **kwargs)
-        url = self.get("server", **kwargs)
-        api_key = self.get("api_key", **kwargs)
-        insecure = self.get("insecure", **kwargs)
-        ca_cert = self.get("ca_cert", **kwargs)
-        api_key_is_required = self.get("api_key_is_required", **kwargs)
+        url = url or self.connect_server.url
+        api_key = api_key or self.connect_server.api_key
+        insecure = insecure or self.connect_server.insecure
+        cacert = cacert or self.connect_server.ca_data
+        api_key_is_required = api_key_is_required or self.get("api_key_is_required", **kwargs)
         server_store = ServerStore()
 
-        ca_data = ca_cert and text_type(ca_cert.read())
+        ca_data = cacert and text_type(cacert.read())
 
         if name and url:
             raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both.")
