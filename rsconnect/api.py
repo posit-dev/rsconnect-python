@@ -8,17 +8,6 @@ from _ssl import SSLError
 import re
 from warnings import warn
 from six import text_type
-from .bundle import (
-    _warn_if_environment_directory,
-    _warn_if_no_requirements_file,
-    _warn_on_ignored_manifest,
-    _warn_on_ignored_requirements,
-    are_apis_supported_on_server,
-    get_python_env_info,
-    fake_module_file_from_directory,
-    validate_entry_point,
-    validate_extra_files,
-)
 from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
 from .log import logger, console_logged
 from .models import AppModes
