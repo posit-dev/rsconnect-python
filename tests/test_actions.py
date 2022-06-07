@@ -14,7 +14,6 @@ import pytest
 
 import rsconnect.actions
 
-from rsconnect import api
 
 from rsconnect.actions import (
     _make_deployment_name,
