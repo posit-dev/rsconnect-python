@@ -4,6 +4,7 @@ RStudio Connect API client and utility functions
 
 from os.path import abspath, basename
 import time
+from typing import IO
 from _ssl import SSLError
 import re
 from warnings import warn
@@ -273,14 +274,14 @@ class RSConnectExecutor:
         url: str = None,
         api_key: str = None,
         insecure: bool = False,
-        cacert=None,
+        cacert: IO = None,
         cookies=None,
         timeout: int = 30,
         **kwargs
     ) -> None:
         self.reset()
         self._d = kwargs
-        self.setup_connect_server(name, url, api_key, insecure, cacert)
+        self.setup_connect_server(name, url or kwargs.get("server"), api_key, insecure, cacert)
         self.setup_connect(cookies, timeout)
 
     def reset(self):
@@ -326,7 +327,7 @@ class RSConnectExecutor:
         url: str = None,
         api_key: str = None,
         insecure: bool = False,
-        cacert=None,
+        cacert: IO = None,
         api_key_is_required: bool = False,
         **kwargs
     ):
@@ -337,18 +338,20 @@ class RSConnectExecutor:
         :param url: the URL, if any, specified by the user.
         :param api_key: the API key, if any, specified by the user.
         :param insecure: a flag noting whether TLS host/validation should be skipped.
-        :param cacert: the name of a CA certs file containing certificates to use.
+        :param cacert: the file object of a CA certs file containing certificates to use.
         :param api_key_is_required: a flag that notes whether the API key is required or may
         be omitted.
         """
         url = url or self.connect_server.url
         api_key = api_key or self.connect_server.api_key
         insecure = insecure or self.connect_server.insecure
-        cacert = cacert or self.connect_server.ca_data
         api_key_is_required = api_key_is_required or self.get("api_key_is_required", **kwargs)
         server_store = ServerStore()
 
-        ca_data = cacert and text_type(cacert.read())
+        if cacert:
+            ca_data = text_type(cacert.read())
+        else:
+            ca_data = self.connect_server.ca_data
 
         if name and url:
             raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both.")
