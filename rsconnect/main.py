@@ -723,7 +723,7 @@ def deploy_notebook(
     kwargs = locals()
     set_verbosity(verbose)
 
-    kwargs["extra_files"] = validate_extra_files(dirname(file), extra_files)
+    kwargs["extra_files"] = extra_files = validate_extra_files(dirname(file), extra_files)
 
     base_dir = dirname(file)
     _warn_on_ignored_manifest(base_dir)
@@ -742,7 +742,7 @@ def deploy_notebook(
             make_notebook_source_bundle,
             file,
             environment,
-            kwargs["extra_files"],
+            extra_files,
             hide_all_input,
             hide_tagged_input,
             image=image,
@@ -874,7 +874,7 @@ def deploy_quarto(
     set_verbosity(verbose)
 
     module_file = fake_module_file_from_directory(directory)
-    kwargs["extra_files"] = validate_extra_files(directory, extra_files)
+    kwargs["extra_files"] = extra_files = validate_extra_files(directory, extra_files)
 
     _warn_on_ignored_manifest(directory)
 
@@ -905,7 +905,7 @@ def deploy_quarto(
         .make_bundle(
             create_quarto_deployment_bundle,
             directory,
-            kwargs["extra_files"],
+            extra_files,
             exclude,
             AppModes.STATIC_QUARTO,
             inspect,
