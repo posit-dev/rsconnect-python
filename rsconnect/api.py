@@ -9,6 +9,7 @@ from _ssl import SSLError
 import re
 from warnings import warn
 from six import text_type
+import gc
 from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
 from .log import logger, console_logged
 from .models import AppModes
@@ -289,6 +290,12 @@ class RSConnectExecutor:
         self.connect_server = None
         self.connect = None
         self._name = None
+        gc.collect()
+        return self
+
+    def drop_context(self):
+        self._d = None
+        gc.collect()
         return self
 
     def setup_connect_server(
