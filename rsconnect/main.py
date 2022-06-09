@@ -326,16 +326,16 @@ def list_servers(verbose):
 def details(name, server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
 
-    with cli_feedback("Checking arguments"):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert, api_key_is_required=False)
+    ce = api.RSConnectExecutor(name, server, api_key, insecure, cacert)
+    ce.validate_server()
 
-    click.echo("    RStudio Connect URL: %s" % connect_server.url)
+    click.echo("    RStudio Connect URL: %s" % ce.connect_server.url)
 
-    if not connect_server.api_key:
+    if not ce.connect_server.api_key:
         return
 
     with cli_feedback("Gathering details"):
-        server_details = gather_server_details(connect_server)
+        server_details = ce.server_details
 
     connect_version = server_details["connect"]
     apis_allowed = server_details["python"]["api_enabled"]
