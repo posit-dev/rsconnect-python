@@ -23,3 +23,16 @@ class TestAPI(TestCase):
 
         self.assertEqual(len(output), 4)
         self.assertEqual(output[3], "line 4")
+
+    def test_to_server_check_list(self):
+        a_list = _to_server_check_list("no-scheme")
+
+        self.assertEqual(a_list, ["https://no-scheme", "http://no-scheme"])
+
+        a_list = _to_server_check_list("//no-scheme")
+
+        self.assertEqual(a_list, ["https://no-scheme", "http://no-scheme"])
+
+        a_list = _to_server_check_list("scheme://no-scheme")
+
+        self.assertEqual(a_list, ["scheme://no-scheme"])

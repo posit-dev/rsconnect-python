@@ -47,19 +47,6 @@ class TestActions(TestCase):
         with self.assertRaises(RSConnectException):
             _verify_server(RSConnectServer("fake-url", None))
 
-    def test_to_server_check_list(self):
-        a_list = _to_server_check_list("no-scheme")
-
-        self.assertEqual(a_list, ["https://no-scheme", "http://no-scheme"])
-
-        a_list = _to_server_check_list("//no-scheme")
-
-        self.assertEqual(a_list, ["https://no-scheme", "http://no-scheme"])
-
-        a_list = _to_server_check_list("scheme://no-scheme")
-
-        self.assertEqual(a_list, ["scheme://no-scheme"])
-
     def test_check_server_capabilities(self):
         no_api_support = {"python": {"api_enabled": False}}
         api_support = {"python": {"api_enabled": True}}
