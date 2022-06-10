@@ -22,8 +22,6 @@ from .actions import (
     gather_basic_deployment_info_for_dash,
     gather_basic_deployment_info_for_streamlit,
     gather_basic_deployment_info_for_bokeh,
-    gather_server_details,
-    get_python_env_info,
     is_conda_supported_on_server,
     quarto_inspect,
     set_verbosity,
@@ -65,6 +63,7 @@ from .bundle import (
     validate_file_is_notebook,
     validate_manifest_file,
     fake_module_file_from_directory,
+    get_python_env_info,
 )
 from .log import logger, LogOutputFormat, connect_logger
 from .metadata import ServerStore, AppStore

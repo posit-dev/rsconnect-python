@@ -16,8 +16,6 @@ import rsconnect.actions
 
 
 from rsconnect.actions import (
-    _make_deployment_name,
-    _to_server_check_list,
     _verify_server,
     are_apis_supported_on_server,
     check_server_capabilities,
