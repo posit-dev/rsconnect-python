@@ -1,9 +1,18 @@
 from unittest import TestCase
-
-from rsconnect.api import RSConnect
+from .utils import (
+    require_api_key,
+    require_connect,
+)
+from rsconnect.api import RSConnect, RSConnectExecutor, _to_server_check_list
 
 
 class TestAPI(TestCase):
+    def test_executor_init(self):
+        connect_server = require_connect(self)
+        api_key = require_api_key(self)
+        ce = RSConnectExecutor(None, connect_server, api_key, True, None)
+        self.assertEqual(ce.connect_server.url, connect_server)
+
     def test_output_task_log(self):
         lines = ["line 1", "line 2", "line 3"]
         task_status = {
