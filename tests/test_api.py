@@ -36,3 +36,18 @@ class TestAPI(TestCase):
         a_list = _to_server_check_list("scheme://no-scheme")
 
         self.assertEqual(a_list, ["scheme://no-scheme"])
+
+    def test_make_deployment_name(self):
+        connect_server = require_connect(self)
+        api_key = require_api_key(self)
+        ce = RSConnectExecutor(None, connect_server, api_key, True, None)
+        self.assertEqual(ce.make_deployment_name("title", False), "title")
+        self.assertEqual(ce.make_deployment_name("Title", False), "title")
+        self.assertEqual(ce.make_deployment_name("My Title", False), "my_title")
+        self.assertEqual(ce.make_deployment_name("My  Title", False), "my_title")
+        self.assertEqual(ce.make_deployment_name("My _ Title", False), "my_title")
+        self.assertEqual(ce.make_deployment_name("My-Title", False), "my-title")
+        # noinspection SpellCheckingInspection
+        self.assertEqual(ce.make_deployment_name("M\ry\n \tT\u2103itle", False), "my_title")
+        self.assertEqual(ce.make_deployment_name("\r\n\t\u2103", False), "___")
+        self.assertEqual(ce.make_deployment_name("\r\n\tR\u2103", False), "__r")

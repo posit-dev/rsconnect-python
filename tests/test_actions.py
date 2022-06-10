@@ -103,18 +103,6 @@ class TestActions(TestCase):
             "The server does not satisfy the fake_cap_with_doc capability check.",
         )
 
-    def test_make_deployment_name(self):
-        self.assertEqual(_make_deployment_name(None, "title", False), "title")
-        self.assertEqual(_make_deployment_name(None, "Title", False), "title")
-        self.assertEqual(_make_deployment_name(None, "My Title", False), "my_title")
-        self.assertEqual(_make_deployment_name(None, "My  Title", False), "my_title")
-        self.assertEqual(_make_deployment_name(None, "My _ Title", False), "my_title")
-        self.assertEqual(_make_deployment_name(None, "My-Title", False), "my-title")
-        # noinspection SpellCheckingInspection
-        self.assertEqual(_make_deployment_name(None, "M\ry\n \tT\u2103itle", False), "my_title")
-        self.assertEqual(_make_deployment_name(None, "\r\n\t\u2103", False), "___")
-        self.assertEqual(_make_deployment_name(None, "\r\n\tR\u2103", False), "__r")
-
     def test_deploy_python_api_validates(self):
         directory = get_api_path("flask")
         server = RSConnectServer("https://www.bogus.com", "bogus")
