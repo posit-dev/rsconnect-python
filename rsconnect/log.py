@@ -4,6 +4,7 @@ Logging wrapper and shared instance
 import json
 import logging
 from functools import partial, wraps
+import sys
 import click
 import six
 
@@ -118,7 +119,7 @@ class RSLogger(logging.LoggerAdapter):
 
 
 logger = RSLogger()
-logger.addHandler(logging.StreamHandler())
+logger.addHandler(logging.StreamHandler(sys.stdout))
 logger.set_log_output_format(LogOutputFormat.DEFAULT)
 
 
@@ -148,7 +149,7 @@ console_logger = logging.getLogger("console")
 console_logger.setLevel(logging.DEBUG)
 
 # create console handler
-console_handler = logging.StreamHandler()
+console_handler = logging.StreamHandler(sys.stdout)
 console_handler.terminator = ""
 console_handler.setLevel(logging.DEBUG)
 console_handler.setFormatter(ConsoleFormatter())
@@ -180,7 +181,7 @@ console_logged = partial(logged, console_logger)
 # generic logger
 connect_logger = logging.getLogger("connect_logger")
 connect_logger.setLevel(logging.DEBUG)
-connect_handler = logging.StreamHandler()
+connect_handler = logging.StreamHandler(sys.stdout)
 connect_handler.terminator = "\n"
 connect_handler.setLevel(logging.DEBUG)
 connect_handler.setFormatter(ConsoleFormatter())
