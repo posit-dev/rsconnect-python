@@ -466,13 +466,13 @@ class RSConnectExecutor:
 
     def emit_task_log(
         self,
-        app_id=None,
-        task_id=None,
-        log_callback=None,
-        abort_func=lambda: False,
-        timeout=None,
-        poll_wait=0.5,
-        raise_on_error=True,
+        app_id: int = None,
+        task_id: int = None,
+        log_callback: Callable = None,
+        abort_func: Callable = lambda: False,
+        timeout: int = None,
+        poll_wait: float = 0.5,
+        raise_on_error: bool = True,
     ):
         """
         Helper for spooling the deployment log for an app.
