@@ -505,7 +505,11 @@ def quarto_inspect(
     """
     Runs 'quarto inspect' against the target and returns its output as a
     parsed JSON object.
+
+    The JSON result has different structure depending on whether or not the
+    target is a directory or a file.
     """
+
     args = [quarto, "inspect", target]
     try:
         inspect_json = check_output(args, universal_newlines=True, stderr=subprocess.STDOUT)
@@ -527,7 +531,7 @@ def validate_quarto_engines(inspect):
 
 
 def write_quarto_manifest_json(
-    directory: str,
+    file_or_directory: str,
     inspect: typing.Any,
     app_mode: AppMode,
     environment: Environment,
@@ -538,7 +542,7 @@ def write_quarto_manifest_json(
     """
     Creates and writes a manifest.json file for the given Quarto project.
 
-    :param directory: The directory containing the Quarto project.
+    :param file_or_directory: The Quarto document or the directory containing the Quarto project.
     :param inspect: The parsed JSON from a 'quarto inspect' against the project.
     :param app_mode: The application mode to assume (such as AppModes.STATIC_QUARTO)
     :param environment: The (optional) Python environment to use.
@@ -547,10 +551,20 @@ def write_quarto_manifest_json(
     :param image: the optional docker image to be specified for off-host execution. Default = None.
     """
 
-    extra_files = validate_extra_files(directory, extra_files)
-    manifest, _ = make_quarto_manifest(directory, inspect, app_mode, environment, extra_files, excludes, image)
-    manifest_path = join(directory, "manifest.json")
+    manifest, _ = make_quarto_manifest(
+        file_or_directory,
+        inspect,
+        app_mode,
+        environment,
+        extra_files,
+        excludes,
+        image,
+    )
 
+    base_dir = file_or_directory
+    if not isdir(file_or_directory):
+        base_dir = dirname(file_or_directory)
+    manifest_path = join(base_dir, "manifest.json")
     write_manifest_json(manifest_path, manifest)
 
 
@@ -1307,7 +1321,7 @@ def gather_basic_deployment_info_from_manifest(
 def gather_basic_deployment_info_for_quarto(
     connect_server: api.RSConnectServer,
     app_store: AppStore,
-    directory: str,
+    file_or_directory: str,
     new: bool,
     app_id: int,
     title: str,
@@ -1317,7 +1331,7 @@ def gather_basic_deployment_info_for_quarto(
 
     :param connect_server: The Connect server information.
     :param app_store: The store for the specified Quarto project directory.
-    :param directory: The target Quarto project directory.
+    :param file_or_directory: The Quarto document or directory containing the Quarto project.
     :param new: A flag to force a new deployment.
     :param app_id: The identifier of the content to redeploy.
     :param title: The content title (optional). A default title is generated when one is not provided.
@@ -1349,11 +1363,11 @@ def gather_basic_deployment_info_for_quarto(
             ) % (app_mode.desc(), existing_app_mode.desc())
             raise api.RSConnectException(msg)
 
-    if directory[-1] == "/":
-        directory = directory[:-1]
+    if file_or_directory[-1] == "/":
+        file_or_directory = file_or_directory[:-1]
 
     default_title = not bool(title)
-    title = title or _default_title(directory)
+    title = title or _default_title(file_or_directory)
 
     return (
         app_id,
@@ -1589,19 +1603,18 @@ def create_api_deployment_bundle(
 
 
 def create_quarto_deployment_bundle(
-    directory: str,
+    file_or_directory: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
     app_mode: AppMode,
     inspect: typing.Dict[str, typing.Any],
     environment: Environment,
-    extra_files_need_validating: bool,
     image: str = None,
 ) -> typing.IO[bytes]:
     """
     Create an in-memory bundle, ready to deploy.
 
-    :param directory: the directory that contains the code being deployed.
+    :param file_or_directory: The Quarto document or the directory containing the Quarto project.
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param entry_point: the module/executable object for the WSGi framework.
@@ -1614,13 +1627,10 @@ def create_quarto_deployment_bundle(
     :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: the bundle.
     """
-    if extra_files_need_validating:
-        extra_files = validate_extra_files(directory, extra_files)
-
     if app_mode is None:
         app_mode = AppModes.STATIC_QUARTO
 
-    return make_quarto_source_bundle(directory, inspect, app_mode, environment, extra_files, excludes, image)
+    return make_quarto_source_bundle(file_or_directory, inspect, app_mode, environment, extra_files, excludes, image)
 
 
 def deploy_bundle(
