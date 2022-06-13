@@ -11,21 +11,11 @@ import click
 from six import text_type
 
 from .actions import (
-    check_server_capabilities,
     cli_feedback,
-    create_api_deployment_bundle,
     create_quarto_deployment_bundle,
-    deploy_bundle,
     describe_manifest,
-    gather_basic_deployment_info_for_api,
-    gather_basic_deployment_info_for_fastapi,
-    gather_basic_deployment_info_for_dash,
-    gather_basic_deployment_info_for_streamlit,
-    gather_basic_deployment_info_for_bokeh,
-    is_conda_supported_on_server,
     quarto_inspect,
     set_verbosity,
-    spool_deployment_log,
     test_api_key,
     test_server,
     validate_quarto_engines,
@@ -575,69 +565,6 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
         )
 
 
-def _deploy_bundle(
-    connect_server,
-    app_store,
-    primary_path,
-    app_id,
-    app_mode,
-    name,
-    title,
-    title_is_default,
-    bundle,
-    env_vars,
-):
-    """
-    Does the work of uploading a prepared bundle.
-
-    :param connect_server: the Connect server information.
-    :param app_store: the store where data is saved about deployments.
-    :param primary_path: the base path (file or directory) that's being deployed.
-    :param app_id: the ID of the app.
-    :param app_mode: the mode of the app.
-    :param name: the name of the app.
-    :param title: the title of the app.
-    :param title_is_default: a flag noting whether the title carries a defaulted value.
-    :param bundle: the bundle to deploy.
-    :param env_vars: list of NAME=VALUE pairs to be set as the app environment
-    """
-    with cli_feedback("Uploading bundle"):
-        app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle, env_vars)
-
-    with cli_feedback("Saving deployment data"):
-        # Note we are NOT saving image into the deployment record for now.
-        app_store.set(
-            connect_server.url,
-            abspath(primary_path),
-            app["app_url"],
-            app["app_id"],
-            app["app_guid"],
-            title,
-            app_mode,
-        )
-
-    with cli_feedback(""):
-        click.secho("\nDeployment log:")
-        app_url, _, _ = spool_deployment_log(connect_server, app, click.echo)
-        click.secho("Deployment completed successfully.")
-        click.secho("    Dashboard content URL: ", nl=False)
-        click.secho(app_url, fg="green")
-        click.secho("    Direct content URL: ", nl=False)
-        click.secho(app["app_url"], fg="green")
-
-        # save the config URL, replacing the old app URL we got during deployment
-        # (which is the Open Solo URL).
-        app_store.set(
-            connect_server.url,
-            abspath(primary_path),
-            app_url,
-            app["app_id"],
-            app["app_guid"],
-            app["title"],
-            app_mode,
-        )
-
-
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="notebook",
@@ -982,7 +909,7 @@ def deploy_html(
     )
 
 
-def generate_deploy_python_refactor(app_mode, alias, min_version):
+def generate_deploy_python(app_mode, alias, min_version):
     # noinspection SpellCheckingInspection
     @deploy.command(
         name=alias,
@@ -1100,229 +1027,13 @@ def generate_deploy_python_refactor(app_mode, alias, min_version):
     return deploy_app
 
 
-def generate_deploy_python(app_mode, alias, min_version):
-    # noinspection SpellCheckingInspection
-    @deploy.command(
-        name=alias,
-        short_help="Deploy a {desc} to RStudio Connect [v{version}+].".format(
-            desc=app_mode.desc(), version=min_version
-        ),
-        help=(
-            'Deploy a {desc} module to RStudio Connect. The "directory" argument must refer to an '
-            "existing directory that contains the application code."
-        ).format(desc=app_mode.desc()),
-    )
-    @server_args
-    @content_args
-    @click.option(
-        "--entrypoint",
-        "-e",
-        help=(
-            "The module and executable object which serves as the entry point for the {desc} (defaults to app)"
-        ).format(desc=app_mode.desc()),
-    )
-    @click.option(
-        "--exclude",
-        "-x",
-        multiple=True,
-        help=(
-            "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
-            "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
-            "This option may be repeated."
-        ),
-    )
-    @click.option(
-        "--python",
-        "-p",
-        type=click.Path(exists=True),
-        help=(
-            "Path to Python interpreter whose environment should be used. "
-            "The Python environment must have the rsconnect package installed."
-        ),
-    )
-    @click.option(
-        "--conda",
-        "-C",
-        is_flag=True,
-        hidden=True,
-        help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
-    )
-    @click.option(
-        "--force-generate",
-        "-g",
-        is_flag=True,
-        help='Force generating "requirements.txt", even if it already exists.',
-    )
-    @click.option(
-        "--image",
-        "-I",
-        help="Target image to be used during content execution (only applicable if the RStudio Connect "
-        "server is configured to use off-host execution)",
-    )
-    @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
-    @click.argument(
-        "extra_files",
-        nargs=-1,
-        type=click.Path(exists=True, dir_okay=False, file_okay=True),
-    )
-    def deploy_app(
-        name,
-        server,
-        api_key,
-        insecure,
-        cacert,
-        entrypoint,
-        exclude,
-        new,
-        app_id,
-        title,
-        python,
-        conda,
-        force_generate,
-        verbose,
-        directory,
-        extra_files,
-        env_vars,
-        image,
-    ):
-        _deploy_by_framework(
-            name,
-            server,
-            api_key,
-            insecure,
-            cacert,
-            entrypoint,
-            exclude,
-            new,
-            app_id,
-            title,
-            python,
-            conda,
-            force_generate,
-            verbose,
-            directory,
-            extra_files,
-            env_vars,
-            {
-                AppModes.PYTHON_API: gather_basic_deployment_info_for_api,
-                AppModes.PYTHON_FASTAPI: gather_basic_deployment_info_for_fastapi,
-                AppModes.DASH_APP: gather_basic_deployment_info_for_dash,
-                AppModes.STREAMLIT_APP: gather_basic_deployment_info_for_streamlit,
-                AppModes.BOKEH_APP: gather_basic_deployment_info_for_bokeh,
-            }[app_mode],
-            image,
-        )
-
-    return deploy_app
-
-
-deploy_api = generate_deploy_python_refactor(app_mode=AppModes.PYTHON_API, alias="api", min_version="1.8.2")
+deploy_api = generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="api", min_version="1.8.2")
 # TODO: set fastapi min_version correctly
 # deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0")
-deploy_fastapi = generate_deploy_python_refactor(
-    app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0"
-)
-deploy_dash_app = generate_deploy_python_refactor(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
-deploy_streamlit_app = generate_deploy_python_refactor(
-    app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4"
-)
-deploy_bokeh_app = generate_deploy_python_refactor(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
-
-
-# noinspection SpellCheckingInspection
-def _deploy_by_framework(
-    name,
-    server,
-    api_key,
-    insecure,
-    cacert,
-    entrypoint,
-    exclude,
-    new,
-    app_id,
-    title,
-    python,
-    conda,
-    force_generate,
-    verbose,
-    directory,
-    extra_files,
-    env_vars,
-    gatherer,
-    image,
-):
-    """
-    A common function for deploying APIs, as well as Dash, Streamlit, and Bokeh apps.
-
-    :param name: the nickname of the Connect server to use.
-    :param server: the URL of the Connect server to use.
-    :param api_key: the API key to use to authenticate with Connect.
-    :param insecure: a flag noting whether insecure TLS should be used.
-    :param cacert: a path to a CA certificates file to use with TLS.
-    :param entrypoint: the entry point for the thing being deployed.
-    :param exclude: a sequence of exclude glob patterns to exclude files
-                    from the deploy.
-    :param new: a flag to force the deploy to be new.
-    :param app_id: the ID of the app to redeploy.
-    :param title: the title to use for the app.
-    :param python: a path to the Python executable to use.
-    :param conda: a flag to note whether Conda should be used/assumed..
-    :param force_generate: a flag to force the generation of manifest and
-                           requirements file.
-    :param verbose: a flag to produce more (debugging) output.
-    :param directory: the directory of the thing to deploy.
-    :param extra_files: any extra files that should be included.
-    :param gatherer: the function to use to gather basic information.
-    :param image: an optional docker image for off-host execution.
-    """
-    set_verbosity(verbose)
-
-    with cli_feedback("Checking arguments"):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        module_file = fake_module_file_from_directory(directory)
-        extra_files = validate_extra_files(directory, extra_files)
-        app_store = AppStore(module_file)
-        entrypoint, app_id, deployment_name, title, default_title, app_mode = gatherer(
-            connect_server, app_store, directory, entrypoint, new, app_id, title
-        )
-
-    click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
-
-    _warn_on_ignored_manifest(directory)
-    _warn_if_no_requirements_file(directory)
-    _warn_if_environment_directory(directory)
-
-    with cli_feedback("Inspecting Python environment"):
-        _, environment = get_python_env_info(module_file, python, conda, force_generate)
-
-    with cli_feedback("Checking server capabilities"):
-        checks = [are_apis_supported_on_server]
-        if environment.package_manager == "conda":
-            checks.append(is_conda_supported_on_server)
-        check_server_capabilities(connect_server, checks)
-
-    _warn_on_ignored_conda_env(environment)
-
-    if force_generate:
-        _warn_on_ignored_requirements(directory, environment.filename)
-
-    with cli_feedback("Creating deployment bundle"):
-        bundle = create_api_deployment_bundle(
-            directory, extra_files, exclude, entrypoint, app_mode, environment, False, image
-        )
-
-    _deploy_bundle(
-        connect_server,
-        app_store,
-        directory,
-        app_id,
-        app_mode,
-        deployment_name,
-        title,
-        default_title,
-        bundle,
-        env_vars,
-    )
+deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0")
+deploy_dash_app = generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
+deploy_streamlit_app = generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
+deploy_bokeh_app = generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
 
 
 @deploy.command(
