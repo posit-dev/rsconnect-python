@@ -320,8 +320,7 @@ class RSConnectExecutor:
     def state(self):
         return self._d
 
-    def get(self, *args, **kwargs):
-        key = args[0]
+    def get(self, key: str, *args, **kwargs):
         return kwargs.get(key) or self.state.get(key)
 
     def pipe(self, func, *args, **kwargs):
