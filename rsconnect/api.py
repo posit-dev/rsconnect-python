@@ -283,12 +283,12 @@ class RSConnectExecutor:
         self.reset()
         self._d = kwargs
         self.setup_connect_server(name, url or kwargs.get("server"), api_key, insecure, cacert)
-        self.setup_connect(cookies, timeout)
+        self.setup_client(cookies, timeout)
 
     def reset(self):
         self._d = None
         self.connect_server = None
-        self.connect = None
+        self.client = None
         self._name = None
         gc.collect()
         return self
@@ -313,8 +313,8 @@ class RSConnectExecutor:
         self.connect_server = RSConnectServer(url, api_key, insecure, cacert)
         self._name = name
 
-    def setup_connect(self, cookies=None, timeout=30, **kwargs):
-        self.connect = RSConnect(self.connect_server, cookies, timeout)
+    def setup_client(self, cookies=None, timeout=30, **kwargs):
+        self.client = RSConnect(self.connect_server, cookies, timeout)
 
     @property
     def state(self):
@@ -390,7 +390,7 @@ class RSConnectExecutor:
             _ = self.verify_api_key()
 
         self.connect_server = connect_server
-        self.connect = RSConnect(self.connect_server)
+        self.client = RSConnect(self.connect_server)
 
         return self
 
@@ -453,7 +453,7 @@ class RSConnectExecutor:
 
     @console_logged("Deploying bundle ...")
     def deploy_bundle(self, *args, **kwargs):
-        result = self.connect.deploy(
+        result = self.client.deploy(
             self.get("app_id", **kwargs),
             self.get("deployment_name", **kwargs),
             self.get("title", **kwargs),
@@ -492,10 +492,11 @@ class RSConnectExecutor:
         """
         app_id = app_id or self.state["deployed_info"]["app_id"]
         task_id = task_id or self.state["deployed_info"]["task_id"]
-        client = self.connect
-        log_lines, _ = client.wait_for_task(task_id, log_callback.info, abort_func, timeout, poll_wait, raise_on_error)
+        log_lines, _ = self.client.wait_for_task(
+            task_id, log_callback.info, abort_func, timeout, poll_wait, raise_on_error
+        )
         self.connect_server.handle_bad_response(log_lines)
-        app_config = client.app_config(app_id)
+        app_config = self.client.app_config(app_id)
         self.connect_server.handle_bad_response(app_config)
         app_dashboard_url = app_config.get("config_url")
         log_callback.info("Deployment completed successfully.")
@@ -567,7 +568,7 @@ class RSConnectExecutor:
     @property
     def server_settings(self):
         try:
-            result = self.connect.server_settings()
+            result = self.client.server_settings()
             self.connect_server.handle_bad_response(result)
         except SSLError as ssl_error:
             raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
@@ -578,7 +579,7 @@ class RSConnectExecutor:
         Verify that an API Key may be used to authenticate with the given RStudio Connect server.
         If the API key verifies, we return the username of the associated user.
         """
-        result = self.connect.me()
+        result = self.client.me()
         if isinstance(result, HTTPResponse):
             if result.json_data and "code" in result.json_data and result.json_data["code"] == 30:
                 raise RSConnectException("The specified API key is not valid.")
@@ -587,7 +588,7 @@ class RSConnectExecutor:
 
     @property
     def api_username(self):
-        result = self.connect.me()
+        result = self.client.me()
         self.connect_server.handle_bad_response(result)
         return result["username"]
 
@@ -599,7 +600,7 @@ class RSConnectExecutor:
 
         :return: the Python installation information from Connect.
         """
-        result = self.connect.python_settings()
+        result = self.client.python_settings()
         self.connect_server.handle_bad_response(result)
         return result
 
