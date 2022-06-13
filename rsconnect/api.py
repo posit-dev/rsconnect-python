@@ -4,7 +4,7 @@ RStudio Connect API client and utility functions
 
 from os.path import abspath, basename
 import time
-from typing import IO
+from typing import IO, Callable
 from _ssl import SSLError
 import re
 from warnings import warn
@@ -394,7 +394,7 @@ class RSConnectExecutor:
         return self
 
     @console_logged("Making bundle ...")
-    def make_bundle(self, func, *args, **kwargs):
+    def make_bundle(self, func: Callable, *args, **kwargs):
         path = (
             self.get("path", **kwargs)
             or self.get("file", **kwargs)
