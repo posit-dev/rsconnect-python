@@ -467,7 +467,7 @@ class RSConnectExecutor:
         app_id: int = None,
         task_id: int = None,
         log_callback=None,
-        abort_func: bool = lambda: False,
+        abort_func: Callable[[], bool] = lambda: False,
         timeout: int = None,
         poll_wait: float = 0.5,
         raise_on_error: bool = True,
