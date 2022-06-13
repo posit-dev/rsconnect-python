@@ -289,7 +289,6 @@ class RSConnectExecutor:
         self._d = None
         self.connect_server = None
         self.client = None
-        self._name = None
         gc.collect()
         return self
 
@@ -311,7 +310,6 @@ class RSConnectExecutor:
 
         url, api_key, insecure, cacert, _ = ServerStore().resolve(name, url, api_key, insecure, cacert)
         self.connect_server = RSConnectServer(url, api_key, insecure, cacert)
-        self._name = name
 
     def setup_client(self, cookies=None, timeout=30, **kwargs):
         self.client = RSConnect(self.connect_server, cookies, timeout)
