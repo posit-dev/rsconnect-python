@@ -11,7 +11,7 @@ from warnings import warn
 from six import text_type
 import gc
 from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
-from .log import logger, console_logged
+from .log import logger, console_logged, connect_logger
 from .models import AppModes
 from .metadata import ServerStore, AppStore
 from .exception import RSConnectException
@@ -466,7 +466,7 @@ class RSConnectExecutor:
         self,
         app_id: int = None,
         task_id: int = None,
-        log_callback=None,
+        log_callback=connect_logger,
         abort_func: Callable[[], bool] = lambda: False,
         timeout: int = None,
         poll_wait: float = 0.5,

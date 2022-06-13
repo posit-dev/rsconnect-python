@@ -56,7 +56,7 @@ from .bundle import (
     fake_module_file_from_directory,
     get_python_env_info,
 )
-from .log import logger, LogOutputFormat, connect_logger
+from .log import logger, LogOutputFormat
 from .metadata import ServerStore, AppStore
 from .models import (
     AppModes,
@@ -676,7 +676,7 @@ def deploy_notebook(
         )
         .deploy_bundle()
         .save_deployed_info()
-        .emit_task_log(log_callback=connect_logger)
+        .emit_task_log()
     )
 
 
@@ -723,7 +723,7 @@ def deploy_manifest(
         )
         .deploy_bundle()
         .save_deployed_info()
-        .emit_task_log(log_callback=connect_logger)
+        .emit_task_log()
     )
 
 
@@ -842,7 +842,7 @@ def deploy_quarto(
         )
         .deploy_bundle()
         .save_deployed_info()
-        .emit_task_log(log_callback=connect_logger)
+        .emit_task_log()
     )
 
 
@@ -906,7 +906,7 @@ def deploy_html(
         )
         .deploy_bundle()
         .save_deployed_info()
-        .emit_task_log(log_callback=connect_logger)
+        .emit_task_log()
     )
 
 
@@ -1022,7 +1022,7 @@ def generate_deploy_python(app_mode, alias, min_version):
             )
             .deploy_bundle()
             .save_deployed_info()
-            .emit_task_log(log_callback=connect_logger)
+            .emit_task_log()
         )
 
     return deploy_app
