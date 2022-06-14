@@ -175,6 +175,32 @@ def logged(logger, label):
     return decorator
 
 
+def cls_logged(label):  # uses logger provided by a class' self.logger
+    def decorator(method):
+        @wraps(method)
+        def wrapper(self, *args, **kw):
+            logger = self.logger
+            if logger:
+                logger.info(label)
+            result = None
+            try:
+                result = method(self, *args, **kw)
+            except Exception as exc:
+                msg = " \t[ERROR]: {}\n"
+                if logger:
+                    logger.error(msg.format(str(exc)))
+                else:
+                    print(msg)
+                raise
+            if logger:
+                logger.debug(" \t[OK]\n")
+            return result
+
+        return wrapper
+
+    return decorator
+
+
 console_logged = partial(logged, console_logger)
 
 
