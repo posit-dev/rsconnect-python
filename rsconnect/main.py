@@ -868,7 +868,13 @@ def deploy_manifest(
 @deploy.command(
     name="quarto",
     short_help="Deploy Quarto content to RStudio Connect [v2021.08.0+].",
-    help="Deploy Quarto content to RStudio Connect.",
+    help=(
+        "Deploy a Quarto document or project to RStudio Connect. Should the content use the Quarto Jupyter engine, "
+        'an environment file ("requirements.txt") is created and included in the deployment if one does '
+        "not already exist. Requires RStudio Connect 2021.08.0 or later."
+        "\n\n"
+        "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
+    ),
 )
 @server_args
 @content_args
@@ -1433,11 +1439,13 @@ def write_manifest_notebook(
     name="quarto",
     short_help="Create a manifest.json file for Quarto content.",
     help=(
-        "Create a manifest.json file for a Quarto project for later "
+        "Create a manifest.json file for a Quarto document or project for later "
         "deployment. Should the content use the Quarto Jupyter engine, "
         'an environment file ("requirements.txt") is created if one does '
         "not already exist. All files are created in the same directory "
         "as the project. Requires RStudio Connect 2021.08.0 or later."
+        "\n\n"
+        "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
     ),
 )
 @click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
