@@ -407,7 +407,7 @@ class RSConnectExecutor:
 
         d = self.state
         d["app_store"] = AppStore(path)
-        d["default_title"] = not bool(title)
+        d["title_is_default"] = not bool(title)
         d["title"] = title or _default_title(path)
         d["deployment_name"] = self.make_deployment_name(d["title"], app_id is None)
 
@@ -457,7 +457,7 @@ class RSConnectExecutor:
         app_id: int = None,
         deployment_name: str = None,
         title: str = None,
-        default_title: bool = False,
+        title_is_default: bool = False,
         bundle: IO = None,
         env_vars=None,
     ):
@@ -465,7 +465,7 @@ class RSConnectExecutor:
             app_id or self.get("app_id"),
             deployment_name or self.get("deployment_name"),
             title or self.get("title"),
-            default_title or self.get("default_title"),
+            title_is_default or self.get("title_is_default"),
             bundle or self.get("bundle"),
             env_vars or self.get("env_vars"),
         )
