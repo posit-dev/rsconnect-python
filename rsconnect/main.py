@@ -1533,8 +1533,7 @@ def content_search(
 ):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert)
-        ce.validate_server()
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         result = search_content(
             ce.connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
         )
@@ -1587,8 +1586,7 @@ def content_search(
 def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert)
-        ce.validate_server()
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         result = get_content(ce.connect_server, guid)
         json.dump(result, sys.stdout, indent=2)
 
@@ -1649,8 +1647,7 @@ def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
 def content_bundle_download(name, server, api_key, insecure, cacert, guid, output, overwrite, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert)
-        ce.validate_server()
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         if exists(output) and not overwrite:
             raise RSConnectException("The output file already exists: %s" % output)
 
@@ -1708,8 +1705,7 @@ def build():
 def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert)
-        ce.validate_server()
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         build_add_content(ce.connect_server, guid)
         if len(guid) == 1:
             logger.info('Added "%s".' % guid[0])
@@ -1773,8 +1769,7 @@ def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
 def remove_content_build(name, server, api_key, insecure, cacert, guid, all, purge, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert)
-        ce.validate_server()
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         _validate_build_rm_args(guid, all, purge)
         guids = build_remove_content(ce.connect_server, guid, all, purge)
         if len(guids) == 1:
@@ -1828,8 +1823,7 @@ def remove_content_build(name, server, api_key, insecure, cacert, guid, all, pur
 def list_content_build(name, server, api_key, insecure, cacert, status, guid, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert)
-        ce.validate_server()
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         result = build_list_content(ce.connect_server, guid, status)
         json.dump(result, sys.stdout, indent=2)
 
@@ -1940,8 +1934,7 @@ def get_build_history(name, server, api_key, insecure, cacert, guid, verbose):
 def get_build_logs(name, server, api_key, insecure, cacert, guid, task_id, format, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert)
-        ce.validate_server()
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         for line in emit_build_log(ce.connect_server, guid, format, task_id):
             sys.stdout.write(line)
 
@@ -2008,8 +2001,7 @@ def start_content_build(
     set_verbosity(verbose)
     logger.set_log_output_format(format)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert)
-        ce.validate_server()
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         build_start(ce.connect_server, parallelism, aborted, error, all, poll_wait, debug)
 
 
