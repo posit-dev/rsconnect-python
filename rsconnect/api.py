@@ -452,14 +452,22 @@ class RSConnectExecutor:
         return self
 
     @cls_logged("Deploying bundle ...")
-    def deploy_bundle(self, *args, **kwargs):
+    def deploy_bundle(
+        self,
+        app_id: int = None,
+        deployment_name: str = None,
+        title: str = None,
+        default_title: bool = False,
+        bundle: IO = None,
+        env_vars=None,
+    ):
         result = self.client.deploy(
-            self.get("app_id", **kwargs),
-            self.get("deployment_name", **kwargs),
-            self.get("title", **kwargs),
-            self.get("default_title", **kwargs),
-            self.get("bundle", **kwargs),
-            self.get("env_vars", **kwargs),
+            app_id or self.get("app_id"),
+            deployment_name or self.get("deployment_name"),
+            title or self.get("title"),
+            default_title or self.get("default_title"),
+            bundle or self.get("bundle"),
+            env_vars or self.get("env_vars"),
         )
         self.connect_server.handle_bad_response(result)
         self.state["deployed_info"] = result
