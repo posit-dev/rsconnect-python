@@ -11,7 +11,7 @@ from warnings import warn
 from six import text_type
 import gc
 from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
-from .log import logger, console_logged, connect_logger
+from .log import logger, connect_logger, cls_logged, console_logger
 from .models import AppModes
 from .metadata import ServerStore, AppStore
 from .exception import RSConnectException
@@ -278,17 +278,20 @@ class RSConnectExecutor:
         cacert: IO = None,
         cookies=None,
         timeout: int = 30,
+        logger=console_logger,
         **kwargs
     ) -> None:
         self.reset()
         self._d = kwargs
         self.setup_connect_server(name, url or kwargs.get("server"), api_key, insecure, cacert)
         self.setup_client(cookies, timeout)
+        self.logger = logger
 
     def reset(self):
         self._d = None
         self.connect_server = None
         self.client = None
+        self.logger = None
         gc.collect()
         return self
 
@@ -324,7 +327,7 @@ class RSConnectExecutor:
     def pipe(self, func, *args, **kwargs):
         return func(*args, **kwargs)
 
-    @console_logged("Validating server...")
+    @cls_logged("Validating server...")
     def validate_server(
         self,
         name: str = None,
@@ -391,7 +394,7 @@ class RSConnectExecutor:
 
         return self
 
-    @console_logged("Making bundle ...")
+    @cls_logged("Making bundle ...")
     def make_bundle(self, func: Callable, *args, **kwargs):
         path = (
             self.get("path", **kwargs)
@@ -448,7 +451,7 @@ class RSConnectExecutor:
                 raise RSConnectException(message)
         return self
 
-    @console_logged("Deploying bundle ...")
+    @cls_logged("Deploying bundle ...")
     def deploy_bundle(self, *args, **kwargs):
         result = self.client.deploy(
             self.get("app_id", **kwargs),
@@ -504,7 +507,7 @@ class RSConnectExecutor:
 
         return self
 
-    @console_logged("Saving deployed information...")
+    @cls_logged("Saving deployed information...")
     def save_deployed_info(self, *args, **kwargs):
         app_store = self.get("app_store", *args, **kwargs)
         path = (
@@ -527,7 +530,7 @@ class RSConnectExecutor:
 
         return self
 
-    @console_logged("Validating app mode...")
+    @cls_logged("Validating app mode...")
     def validate_app_mode(self, *args, **kwargs):
         connect_server = self.connect_server
         path = self.get("path", **kwargs) or self.get("directory", **kwargs) or self.get("file", **kwargs)
