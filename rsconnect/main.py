@@ -73,13 +73,13 @@ future_enabled = False
 
 def cli_exception_handler(func):
     @wraps(func)
-    def wrapper(func):
+    def wrapper(*args, **kwargs):
         def failed(err):
-            click.secho(str(err), fg="bright_red")
+            click.secho(str(err), fg="bright_red", err=False)
             sys.exit(1)
 
         try:
-            result = func()
+            result = func(*args, **kwargs)
         except RSConnectException as exc:
             failed("Error: " + exc.message)
         except EnvironmentException as exc:
@@ -326,7 +326,6 @@ def list_servers(verbose):
                 click.echo()
 
 
-@cli_exception_handler
 # noinspection SpellCheckingInspection
 @cli.command(
     short_help="Show details about an RStudio Connect server.",
@@ -338,6 +337,7 @@ def list_servers(verbose):
     ),
 )
 @server_args
+@cli_exception_handler
 def details(name, server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
 
@@ -590,7 +590,6 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
         )
 
 
-@cli_exception_handler
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="notebook",
@@ -651,6 +650,7 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@cli_exception_handler
 def deploy_notebook(
     name,
     server,
@@ -705,7 +705,6 @@ def deploy_notebook(
     )
 
 
-@cli_exception_handler
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="manifest",
@@ -719,6 +718,7 @@ def deploy_notebook(
 @server_args
 @content_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+@cli_exception_handler
 def deploy_manifest(
     name: str,
     server: str,
@@ -753,7 +753,6 @@ def deploy_manifest(
     )
 
 
-@cli_exception_handler
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="quarto",
@@ -805,6 +804,7 @@ def deploy_manifest(
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@cli_exception_handler
 def deploy_quarto(
     name,
     server,
@@ -873,7 +873,6 @@ def deploy_quarto(
     )
 
 
-@cli_exception_handler
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="html",
@@ -903,6 +902,7 @@ def deploy_quarto(
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@cli_exception_handler
 def deploy_html(
     name,
     server,
@@ -939,7 +939,6 @@ def deploy_html(
 
 
 def generate_deploy_python(app_mode, alias, min_version):
-    @cli_exception_handler
     # noinspection SpellCheckingInspection
     @deploy.command(
         name=alias,
@@ -1004,6 +1003,7 @@ def generate_deploy_python(app_mode, alias, min_version):
         nargs=-1,
         type=click.Path(exists=True, dir_okay=False, file_okay=True),
     )
+    @cli_exception_handler
     def deploy_app(
         name,
         server,
@@ -1476,7 +1476,6 @@ def content():
     pass
 
 
-@cli_exception_handler
 # noinspection SpellCheckingInspection,DuplicatedCode
 @content.command(
     name="search",
@@ -1546,6 +1545,7 @@ def content():
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 # todo: --format option (json, text)
+@cli_exception_handler
 def content_search(
     name,
     server,
