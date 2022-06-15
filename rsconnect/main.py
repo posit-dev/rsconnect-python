@@ -316,8 +316,7 @@ def list_servers(verbose):
 def details(name, server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
 
-    ce = RSConnectExecutor(name, server, api_key, insecure, cacert)
-    ce.validate_server()
+    ce = RSConnectExecutor(name, server, api_key, insecure, cacert).validate_server()
 
     click.echo("    RStudio Connect URL: %s" % ce.connect_server.url)
 
@@ -709,7 +708,7 @@ def deploy_manifest(
     kwargs = locals()
     set_verbosity(verbose)
 
-    file_name = validate_manifest_file(file)
+    file_name = kwargs["file"] = validate_manifest_file(file)
     app_mode = read_manifest_app_mode(file_name)
     kwargs["title"] = title or default_title_from_manifest(file)
 
@@ -719,7 +718,7 @@ def deploy_manifest(
         .validate_app_mode(app_mode=app_mode)
         .make_bundle(
             make_manifest_bundle,
-            kwargs.get("file"),
+            file_name,
         )
         .deploy_bundle()
         .save_deployed_info()
