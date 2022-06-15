@@ -310,6 +310,8 @@ class RSConnectExecutor:
     ):
         if name and url:
             raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both.")
+        if not name and not url:
+            raise RSConnectException("You must specify one of -n/--name or -s/--server.")
 
         url, api_key, insecure, cacert, _ = ServerStore().resolve(name, url, api_key, insecure, cacert)
         self.connect_server = RSConnectServer(url, api_key, insecure, cacert)
@@ -362,6 +364,8 @@ class RSConnectExecutor:
 
         if name and url:
             raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both.")
+        if not name and not url:
+            raise RSConnectException("You must specify one of -n/--name or -s/--server.")
 
         real_server, api_key, insecure, ca_data, from_store = server_store.resolve(
             name, url, api_key, insecure, ca_data
