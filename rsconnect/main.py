@@ -2,14 +2,15 @@ import functools
 import json
 import os
 import sys
+import traceback
 import typing
 import textwrap
-from os.path import abspath, dirname, exists, isdir, join
-
-
 import click
 from six import text_type
-
+from os.path import abspath, dirname, exists, isdir, join
+from functools import wraps
+from .environment import EnvironmentException
+from .exception import RSConnectException
 from .actions import (
     cli_feedback,
     create_quarto_deployment_bundle,
@@ -65,10 +66,33 @@ from .models import (
     StrippedStringParamType,
     VersionSearchFilterParamType,
 )
-from .exception import RSConnectException
 
 server_store = ServerStore()
 future_enabled = False
+
+
+def cli_exception_handler(func):
+    @wraps(func)
+    def wrapper(func):
+        def failed(err):
+            click.secho(str(err), fg="bright_red")
+            sys.exit(1)
+
+        try:
+            result = func()
+        except RSConnectException as exc:
+            failed("Error: " + exc.message)
+        except EnvironmentException as exc:
+            failed("Error: " + str(exc))
+        except Exception as exc:
+            if click.get_current_context("verbose"):
+                traceback.print_exc()
+            failed("Internal error: " + str(exc))
+        finally:
+            logger.set_in_feedback(False)
+        return result
+
+    return wrapper
 
 
 def server_args(func):
@@ -302,6 +326,7 @@ def list_servers(verbose):
                 click.echo()
 
 
+@cli_exception_handler
 # noinspection SpellCheckingInspection
 @cli.command(
     short_help="Show details about an RStudio Connect server.",
@@ -565,6 +590,7 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
         )
 
 
+@cli_exception_handler
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="notebook",
@@ -679,6 +705,7 @@ def deploy_notebook(
     )
 
 
+@cli_exception_handler
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="manifest",
@@ -726,6 +753,7 @@ def deploy_manifest(
     )
 
 
+@cli_exception_handler
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="quarto",
@@ -845,6 +873,7 @@ def deploy_quarto(
     )
 
 
+@cli_exception_handler
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="html",
@@ -910,6 +939,7 @@ def deploy_html(
 
 
 def generate_deploy_python(app_mode, alias, min_version):
+    @cli_exception_handler
     # noinspection SpellCheckingInspection
     @deploy.command(
         name=alias,
@@ -1446,6 +1476,7 @@ def content():
     pass
 
 
+@cli_exception_handler
 # noinspection SpellCheckingInspection,DuplicatedCode
 @content.command(
     name="search",
