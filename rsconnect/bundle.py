@@ -14,7 +14,6 @@ import re
 from pprint import pformat
 from collections import defaultdict
 from mimetypes import guess_type
-from typing import List
 import click
 
 
