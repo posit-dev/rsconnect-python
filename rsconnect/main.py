@@ -689,7 +689,7 @@ def deploy_notebook(
     ce = RSConnectExecutor(**kwargs)
     (
         ce.validate_server()
-        .validate_app_mode(app_mode=AppModes.JUPYTER_NOTEBOOK)
+        .validate_app_mode(app_mode=AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC)
         .make_bundle(
             make_notebook_source_bundle,
             file,
