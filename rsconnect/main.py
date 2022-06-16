@@ -44,6 +44,7 @@ from .bundle import (
     make_manifest_bundle,
     make_html_bundle,
     make_api_bundle,
+    make_notebook_html_bundle,
     make_notebook_source_bundle,
     read_manifest_app_mode,
     write_notebook_manifest_json,
@@ -676,6 +677,7 @@ def deploy_notebook(
     set_verbosity(verbose)
 
     kwargs["extra_files"] = extra_files = validate_extra_files(dirname(file), extra_files)
+    app_mode = AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC
 
     base_dir = dirname(file)
     _warn_on_ignored_manifest(base_dir)
@@ -687,10 +689,18 @@ def deploy_notebook(
         _warn_on_ignored_requirements(base_dir, environment.filename)
 
     ce = RSConnectExecutor(**kwargs)
-    (
-        ce.validate_server()
-        .validate_app_mode(app_mode=AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC)
-        .make_bundle(
+    ce.validate_server().validate_app_mode(app_mode=app_mode)
+    if app_mode == AppModes.STATIC:
+        ce.make_bundle(
+            make_notebook_html_bundle,
+            file,
+            python,
+            hide_all_input,
+            hide_tagged_input,
+            image=image,
+        )
+    else:
+        ce.make_bundle(
             make_notebook_source_bundle,
             file,
             environment,
@@ -699,10 +709,7 @@ def deploy_notebook(
             hide_tagged_input,
             image=image,
         )
-        .deploy_bundle()
-        .save_deployed_info()
-        .emit_task_log()
-    )
+    ce.deploy_bundle().save_deployed_info().emit_task_log()
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
