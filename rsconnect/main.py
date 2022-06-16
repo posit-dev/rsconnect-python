@@ -1033,9 +1033,9 @@ def generate_deploy_python(app_mode, alias, min_version):
     ):
         kwargs = locals()
         entrypoint = validate_entry_point(entrypoint, directory)
+        kwargs["extra_files"] = extra_files = validate_extra_files(directory, extra_files)
         environment = create_python_environment(
             directory,
-            extra_files,
             force_generate,
             python,
             conda,

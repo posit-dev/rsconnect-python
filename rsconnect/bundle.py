@@ -1404,13 +1404,11 @@ def write_manifest_json(manifest_path, manifest):
 
 def create_python_environment(
     directory: str = None,
-    extra_files: List[str] = None,
     force_generate: bool = False,
     python: str = None,
     conda: bool = False,
 ):
     module_file = fake_module_file_from_directory(directory)
-    extra_files = validate_extra_files(directory, extra_files)
 
     # click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
 
