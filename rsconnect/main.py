@@ -868,7 +868,13 @@ def deploy_manifest(
 @deploy.command(
     name="quarto",
     short_help="Deploy Quarto content to RStudio Connect [v2021.08.0+].",
-    help="Deploy Quarto content to RStudio Connect.",
+    help=(
+        "Deploy a Quarto document or project to RStudio Connect. Should the content use the Quarto Jupyter engine, "
+        'an environment file ("requirements.txt") is created and included in the deployment if one does '
+        "not already exist. Requires RStudio Connect 2021.08.0 or later."
+        "\n\n"
+        "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
+    ),
 )
 @server_args
 @content_args
@@ -909,7 +915,7 @@ def deploy_manifest(
     help="Target image to be used during content execution (only applicable if the RStudio Connect "
     "server is configured to use off-host execution)",
 )
-@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.argument("file_or_directory", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
     "extra_files",
     nargs=-1,
@@ -929,42 +935,46 @@ def deploy_quarto(
     python,
     force_generate,
     verbose,
-    directory,
+    file_or_directory,
     extra_files,
     env_vars,
     image,
 ):
     set_verbosity(verbose)
 
+    base_dir = file_or_directory
+    if not isdir(file_or_directory):
+        base_dir = dirname(file_or_directory)
+
     with cli_feedback("Checking arguments"):
-        module_file = fake_module_file_from_directory(directory)
+        module_file = fake_module_file_from_directory(file_or_directory)
         app_store = AppStore(module_file)
         connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        extra_files = validate_extra_files(directory, extra_files)
+        extra_files = validate_extra_files(base_dir, extra_files)
         (app_id, deployment_name, title, default_title, app_mode) = gather_basic_deployment_info_for_quarto(
             connect_server,
             app_store,
-            directory,
+            file_or_directory,
             new,
             app_id,
             title,
         )
 
-    click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
+    click.secho('    Deploying %s to server "%s"' % (file_or_directory, connect_server.url))
 
-    _warn_on_ignored_manifest(directory)
+    _warn_on_ignored_manifest(base_dir)
 
     with cli_feedback("Inspecting Quarto project"):
         quarto = which_quarto(quarto)
         logger.debug("Quarto: %s" % quarto)
-        inspect = quarto_inspect(quarto, directory)
+        inspect = quarto_inspect(quarto, file_or_directory)
         engines = validate_quarto_engines(inspect)
 
     python = None
     environment = None
     if "jupyter" in engines:
-        _warn_if_no_requirements_file(directory)
-        _warn_if_environment_directory(directory)
+        _warn_if_no_requirements_file(base_dir)
+        _warn_if_environment_directory(base_dir)
 
         with cli_feedback("Inspecting Python environment"):
             python, environment = get_python_env_info(module_file, python, False, force_generate)
@@ -972,17 +982,17 @@ def deploy_quarto(
             _warn_on_ignored_conda_env(environment)
 
             if force_generate:
-                _warn_on_ignored_requirements(directory, environment.filename)
+                _warn_on_ignored_requirements(base_dir, environment.filename)
 
     with cli_feedback("Creating deployment bundle"):
         bundle = create_quarto_deployment_bundle(
-            directory, extra_files, exclude, app_mode, inspect, environment, False, image
+            file_or_directory, extra_files, exclude, app_mode, inspect, environment, image
         )
 
     _deploy_bundle(
         connect_server,
         app_store,
-        directory,
+        file_or_directory,
         app_id,
         app_mode,
         deployment_name,
@@ -1429,11 +1439,13 @@ def write_manifest_notebook(
     name="quarto",
     short_help="Create a manifest.json file for Quarto content.",
     help=(
-        "Create a manifest.json file for a Quarto project for later "
+        "Create a manifest.json file for a Quarto document or project for later "
         "deployment. Should the content use the Quarto Jupyter engine, "
         'an environment file ("requirements.txt") is created if one does '
         "not already exist. All files are created in the same directory "
         "as the project. Requires RStudio Connect 2021.08.0 or later."
+        "\n\n"
+        "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
     ),
 )
 @click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
@@ -1473,7 +1485,7 @@ def write_manifest_notebook(
     help="Target image to be used during content execution (only applicable if the RStudio Connect "
     "server is configured to use off-host execution)",
 )
-@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.argument("file_or_directory", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
     "extra_files",
     nargs=-1,
@@ -1486,14 +1498,19 @@ def write_manifest_quarto(
     python,
     force_generate,
     verbose,
-    directory,
+    file_or_directory,
     extra_files,
     image: str = None,
 ):
     set_verbosity(verbose)
+
+    base_dir = file_or_directory
+    if not isdir(file_or_directory):
+        base_dir = dirname(file_or_directory)
+
     with cli_feedback("Checking arguments"):
-        extra_files = validate_extra_files(directory, extra_files)
-        manifest_path = join(directory, "manifest.json")
+        extra_files = validate_extra_files(base_dir, extra_files)
+        manifest_path = join(base_dir, "manifest.json")
 
         if exists(manifest_path) and not overwrite:
             raise api.RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
@@ -1501,16 +1518,16 @@ def write_manifest_quarto(
     with cli_feedback("Inspecting Quarto project"):
         quarto = which_quarto(quarto)
         logger.debug("Quarto: %s" % quarto)
-        inspect = quarto_inspect(quarto, directory)
+        inspect = quarto_inspect(quarto, file_or_directory)
         engines = validate_quarto_engines(inspect)
 
     environment = None
     if "jupyter" in engines:
         with cli_feedback("Inspecting Python environment"):
-            python, environment = get_python_env_info(directory, python, False, force_generate)
+            python, environment = get_python_env_info(base_dir, python, False, force_generate)
 
         _warn_on_ignored_conda_env(environment)
-        environment_file_exists = exists(join(directory, environment.filename))
+        environment_file_exists = exists(join(base_dir, environment.filename))
         if environment_file_exists and not force_generate:
             click.secho(
                 "    Warning: %s already exists and will not be overwritten." % environment.filename,
@@ -1518,11 +1535,11 @@ def write_manifest_quarto(
             )
         else:
             with cli_feedback("Creating %s" % environment.filename):
-                write_environment_file(environment, directory)
+                write_environment_file(environment, base_dir)
 
     with cli_feedback("Creating manifest.json"):
         write_quarto_manifest_json(
-            directory,
+            file_or_directory,
             inspect,
             AppModes.STATIC_QUARTO,
             environment,

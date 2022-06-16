@@ -309,9 +309,8 @@ def make_notebook_source_bundle(
     return bundle_file
 
 
-#
 def make_quarto_source_bundle(
-    directory: str,
+    file_or_directory: str,
     inspect: typing.Dict[str, typing.Any],
     app_mode: AppMode,
     environment: Environment,
@@ -326,9 +325,13 @@ def make_quarto_source_bundle(
     Returns a file-like object containing the bundle tarball.
     """
     manifest, relevant_files = make_quarto_manifest(
-        directory, inspect, app_mode, environment, extra_files, excludes, image
+        file_or_directory, inspect, app_mode, environment, extra_files, excludes, image
     )
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
+
+    base_dir = file_or_directory
+    if not isdir(file_or_directory):
+        base_dir = basename(file_or_directory)
 
     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
         bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
@@ -336,7 +339,7 @@ def make_quarto_source_bundle(
             bundle_add_buffer(bundle, environment.filename, environment.contents)
 
         for rel_path in relevant_files:
-            bundle_add_file(bundle, rel_path, directory)
+            bundle_add_file(bundle, rel_path, base_dir)
 
     # rewind file pointer
     bundle_file.seek(0)
@@ -804,7 +807,7 @@ def _create_quarto_file_list(
 
 
 def make_quarto_manifest(
-    directory: str,
+    file_or_directory: str,
     quarto_inspection: typing.Dict[str, typing.Any],
     app_mode: AppMode,
     environment: Environment,
@@ -815,7 +818,7 @@ def make_quarto_manifest(
     """
     Makes a manifest for a Quarto project.
 
-    :param directory: The directory containing the Quarto project.
+    :param file_or_directory: The Quarto document or the directory containing the Quarto project.
     :param quarto_inspection: The parsed JSON from a 'quarto inspect' against the project.
     :param app_mode: The application mode to assume.
     :param environment: The (optional) Python environment to use.
@@ -827,21 +830,29 @@ def make_quarto_manifest(
     if environment:
         extra_files = list(extra_files or []) + [environment.filename]
 
-    excludes = list(excludes or []) + [".quarto"]
+    base_dir = file_or_directory
+    if isdir(file_or_directory):
+        # Directory as a Quarto project.
+        excludes = list(excludes or []) + [".quarto"]
 
-    project_config = quarto_inspection.get("config", {}).get("project", {})
-    output_dir = project_config.get("output-dir", None)
-    if output_dir:
-        excludes = excludes + [output_dir]
+        project_config = quarto_inspection.get("config", {}).get("project", {})
+        output_dir = project_config.get("output-dir", None)
+        if output_dir:
+            excludes = excludes + [output_dir]
+        else:
+            render_targets = project_config.get("render", [])
+            for target in render_targets:
+                t, _ = splitext(target)
+                # TODO: Single-file inspect would give inspect.formats.html.pandoc.output-file
+                # For foo.qmd, we would get an output-file=foo.html, but foo_files is not available.
+                excludes = excludes + [t + ".html", t + "_files"]
+
+        relevant_files = _create_quarto_file_list(base_dir, extra_files, excludes)
     else:
-        render_targets = project_config.get("render", [])
-        for target in render_targets:
-            t, _ = splitext(target)
-            # TODO: Single-file inspect would give inspect.formats.html.pandoc.output-file
-            # For foo.qmd, we would get an output-file=foo.html, but foo_files is not available.
-            excludes = excludes + [t + ".html", t + "_files"]
+        # Standalone Quarto document
+        base_dir = dirname(file_or_directory)
+        relevant_files = [file_or_directory] + extra_files
 
-    relevant_files = _create_quarto_file_list(directory, extra_files, excludes)
     manifest = make_source_manifest(
         app_mode,
         environment,
@@ -851,6 +862,6 @@ def make_quarto_manifest(
     )
 
     for rel_path in relevant_files:
-        manifest_add_file(manifest, rel_path, directory)
+        manifest_add_file(manifest, rel_path, base_dir)
 
     return manifest, relevant_files
