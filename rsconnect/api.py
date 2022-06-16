@@ -276,6 +276,7 @@ class RSConnectExecutor:
         api_key: str = None,
         insecure: bool = False,
         cacert: IO = None,
+        ca_data: str = None,
         cookies=None,
         timeout: int = 30,
         logger=console_logger,
@@ -283,7 +284,7 @@ class RSConnectExecutor:
     ) -> None:
         self.reset()
         self._d = kwargs
-        self.setup_connect_server(name, url or kwargs.get("server"), api_key, insecure, cacert)
+        self.setup_connect_server(name, url or kwargs.get("server"), api_key, insecure, cacert, ca_data)
         self.setup_client(cookies, timeout)
         self.logger = logger
 
@@ -306,15 +307,19 @@ class RSConnectExecutor:
         url: str = None,
         api_key: str = None,
         insecure: bool = False,
-        cacert=None,
+        cacert: IO = None,
+        ca_data: str = None,
     ):
         if name and url:
             raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both.")
         if not name and not url:
             raise RSConnectException("You must specify one of -n/--name or -s/--server.")
 
-        url, api_key, insecure, cacert, _ = ServerStore().resolve(name, url, api_key, insecure, cacert)
-        self.connect_server = RSConnectServer(url, api_key, insecure, cacert)
+        if cacert and not ca_data:
+            ca_data = text_type(cacert.read())
+
+        url, api_key, insecure, ca_data, _ = ServerStore().resolve(name, url, api_key, insecure, ca_data)
+        self.connect_server = RSConnectServer(url, api_key, insecure, ca_data)
 
     def setup_client(self, cookies=None, timeout=30, **kwargs):
         self.client = RSConnect(self.connect_server, cookies, timeout)
