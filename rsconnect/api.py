@@ -288,6 +288,10 @@ class RSConnectExecutor:
         self.setup_client(cookies, timeout)
         self.logger = logger
 
+    @classmethod
+    def fromConnectServer(cls, server, **kwargs):
+        return cls(url=server.url, api_key=server.api_key, insecure=server.insecure, ca_data=server.ca_data, **kwargs)
+
     def reset(self):
         self._d = None
         self.connect_server = None
