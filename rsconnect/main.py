@@ -1044,7 +1044,7 @@ def generate_deploy_python(app_mode, alias, min_version):
         ce = RSConnectExecutor(**kwargs)
         (
             ce.validate_server()
-            .validate_app_mode(app_mode=AppModes.PYTHON_API)
+            .validate_app_mode(app_mode=app_mode)
             .check_server_capabilities([are_apis_supported_on_server])
             .make_bundle(
                 make_api_bundle,
