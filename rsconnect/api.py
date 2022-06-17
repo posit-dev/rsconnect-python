@@ -418,10 +418,12 @@ class RSConnectExecutor:
         )
         app_id = self.get("app_id", **kwargs)
         title = self.get("title", **kwargs)
+        app_store = self.get("app_store", *args, **kwargs)
+        if not app_store:
+            module_file = fake_module_file_from_directory(path)
+            self.state["app_store"] = app_store = AppStore(module_file)
 
         d = self.state
-        module_file = fake_module_file_from_directory(path)
-        d["app_store"] = AppStore(module_file)
         d["title_is_default"] = not bool(title)
         d["title"] = title or _default_title(path)
         d["deployment_name"] = self.make_deployment_name(d["title"], app_id is None)
@@ -557,7 +559,10 @@ class RSConnectExecutor:
     def validate_app_mode(self, *args, **kwargs):
         connect_server = self.connect_server
         path = self.get("path", **kwargs) or self.get("directory", **kwargs) or self.get("file", **kwargs)
-        app_store = AppStore(path)
+        app_store = self.get("app_store", *args, **kwargs)
+        if not app_store:
+            module_file = fake_module_file_from_directory(path)
+            self.state["app_store"] = app_store = AppStore(module_file)
         new = self.get("new", **kwargs)
         app_id = self.get("app_id", **kwargs)
         app_mode = self.get("app_mode", **kwargs)
