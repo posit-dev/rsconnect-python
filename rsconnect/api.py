@@ -10,6 +10,7 @@ import re
 from warnings import warn
 from six import text_type
 import gc
+from .bundle import fake_module_file_from_directory
 from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
 from .log import logger, connect_logger, cls_logged, console_logger
 from .models import AppModes
@@ -419,7 +420,8 @@ class RSConnectExecutor:
         title = self.get("title", **kwargs)
 
         d = self.state
-        d["app_store"] = AppStore(path)
+        module_file = fake_module_file_from_directory(path)
+        d["app_store"] = AppStore(module_file)
         d["title_is_default"] = not bool(title)
         d["title"] = title or _default_title(path)
         d["deployment_name"] = self.make_deployment_name(d["title"], app_id is None)
