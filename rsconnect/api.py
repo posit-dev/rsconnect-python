@@ -415,6 +415,7 @@ class RSConnectExecutor:
             or self.get("file", **kwargs)
             or self.get("file_name", **kwargs)
             or self.get("directory", **kwargs)
+            or self.get("file_or_directory", **kwargs)
         )
         app_id = self.get("app_id", **kwargs)
         title = self.get("title", **kwargs)
@@ -540,6 +541,7 @@ class RSConnectExecutor:
             or self.get("file", **kwargs)
             or self.get("file_name", **kwargs)
             or self.get("directory", **kwargs)
+            or self.get("file_or_directory", **kwargs)
         )
         deployed_info = self.get("deployed_info", *args, **kwargs)
 
@@ -558,7 +560,13 @@ class RSConnectExecutor:
     @cls_logged("Validating app mode...")
     def validate_app_mode(self, *args, **kwargs):
         connect_server = self.connect_server
-        path = self.get("path", **kwargs) or self.get("directory", **kwargs) or self.get("file", **kwargs)
+        path = (
+            self.get("path", **kwargs)
+            or self.get("file", **kwargs)
+            or self.get("file_name", **kwargs)
+            or self.get("directory", **kwargs)
+            or self.get("file_or_directory", **kwargs)
+        )
         app_store = self.get("app_store", *args, **kwargs)
         if not app_store:
             module_file = fake_module_file_from_directory(path)
