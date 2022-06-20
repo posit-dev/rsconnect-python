@@ -590,6 +590,7 @@ class RSConnectExecutor:
                 ) % (app_mode.desc(), existing_app_mode.desc())
                 raise RSConnectException(msg)
 
+        self.state["app_id"] = app_id
         self.state["app_mode"] = app_mode
         return self
 
