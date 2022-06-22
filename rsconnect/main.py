@@ -226,7 +226,7 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
 
 # noinspection SpellCheckingInspection
 @cli.command(
-    short_help="Define a nickname for an RStudio Connect server.",
+    short_help="Define a nickname for an RStudio Connect or shinyapps.io server and credential.",
     help=(
         "Associate a simple nickname with the information needed to interact with an RStudio Connect server. "
         "Specifying an existing nickname will cause its stored information to be replaced by what is given "
@@ -235,16 +235,22 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
 )
 @click.option("--name", "-n", required=True, help="The nickname of the RStudio Connect server to deploy to.")
 @click.option(
+    "--target",
+    "-t",
+    type=click.Choice(["connect", "shinyapps"]),
+    default="connect",
+    envvar="RSCONNECT_SERVER_TYPE",
+    help="The target platform of this credential (Connect or shinyapps.io).",
+)
+@click.option(
     "--server",
     "-s",
-    required=True,
     envvar="CONNECT_SERVER",
     help="The URL for the RStudio Connect server to deploy to.",
 )
 @click.option(
     "--api-key",
     "-k",
-    required=True,
     envvar="CONNECT_API_KEY",
     help="The API key to use to authenticate with RStudio Connect.",
 )
@@ -262,27 +268,79 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
     type=click.File(),
     help="The path to trusted TLS CA certificates.",
 )
+@click.option(
+    "--token",
+    "-T",
+    envvar="SHINYAPPS_TOKEN",
+    help="The shinyapps.io token.",
+)
+@click.option(
+    "--secret",
+    "-S",
+    envvar="SHINYAPPS_SECRET",
+    help="The shinyapps.io token secret.",
+)
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def add(name, server, api_key, insecure, cacert, verbose):
+def add(name, target, server, api_key, insecure, cacert, token, secret, verbose):
     set_verbosity(verbose)
 
     old_server = server_store.get_by_name(name)
 
-    # Server must be pingable and the API key must work to be added.
-    real_server, _ = _test_server_and_api(server, api_key, insecure, cacert)
+    # validate options
+    if target == "connect":
+        # # disallowed
+        # if token is not None:
+        #     raise api.RSConnectException("Token may not be specified when using target type 'connect'.")
+        # if secret is not None:
+        #     raise api.RSConnectException("Secret may not be specified when using target type 'connect'.")
 
-    server_store.set(
-        name,
-        real_server.url,
-        real_server.api_key,
-        real_server.insecure,
-        real_server.ca_data,
-    )
-
-    if old_server:
-        click.echo('Updated server "%s" with URL %s' % (name, real_server.url))
+        # required
+        if server is None:
+            raise api.RSConnectException("Server must be specified when using target type 'connect'.")
+        if api_key is None:
+            raise api.RSConnectException("API key must be specified when using target type 'connect'.")
     else:
-        click.echo('Added server "%s" with URL %s' % (name, real_server.url))
+        # # disallowed
+        # if api_key is not None:
+        #     raise api.RSConnectException("API key may not be specified when using target type 'shinyapps'.")
+        # if insecure is not None:
+        #     raise api.RSConnectException("Insecure may not be specified when using target type 'shinyapps'.")
+        # if cacert is not None:
+        #     raise api.RSConnectException("CA certificate may not be specified when using target type 'shinyapps'.")
+
+        # required
+        if token is None:
+            raise api.RSConnectException("Server must be specified when using target type 'shinyapps'.")
+        if secret is None:
+            raise api.RSConnectException("API key must be specified when using target type 'shinyapps'.")
+
+    if target == "connect":
+        # Server must be pingable and the API key must work to be added.
+        real_server, _ = _test_server_and_api(server, api_key, insecure, cacert)
+
+        server_store.set(
+            name,
+            target,
+            real_server.url,
+            real_server.api_key,
+            real_server.insecure,
+            real_server.ca_data,
+        )
+
+        if old_server:
+            click.echo('Updated Connect server "%s" with URL %s' % (name, real_server.url))
+        else:
+            click.echo('Added Connect server "%s" with URL %s' % (name, real_server.url))
+    else:
+        shinyapps_server = api.ShinyappsServer(server or "https://api.shinyapps.io", name, token, secret)
+        # TODO (mslynch): check credential and account here
+        server_store.set(
+            name, target, shinyapps_server.url, token=shinyapps_server.token, secret=shinyapps_server.secret
+        )
+        if old_server:
+            click.echo('Added shinyapps.io credential "%s".' % name)
+        else:
+            click.echo('Updated shinyapps.io credential "%s".' % name)
 
 
 @cli.command(
@@ -459,7 +517,7 @@ def deploy():
     pass
 
 
-def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_required=True):
+def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_required=True) -> api.RemoteServer:
     """
     Validate that the user gave us enough information to talk to a Connect server.
 
@@ -470,38 +528,44 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_r
     :param ca_cert: the name of a CA certs file containing certificates to use.
     :param api_key_is_required: a flag that notes whether the API key is required or may
     be omitted.
-    :return: a ConnectServer object that carries all the right info.
+    :return: a ConnectServer or ShinyappsServer object that carries all the right info.
     """
     ca_data = ca_cert and text_type(ca_cert.read())
 
     if name and url:
         raise api.RSConnectException("You must specify only one of -n/--name or -s/--server, not both.")
 
-    real_server, api_key, insecure, ca_data, from_store = server_store.resolve(name, url, api_key, insecure, ca_data)
+    server_data = server_store.resolve(name, url, api_key, insecure, ca_data)
 
     # This can happen if the user specifies neither --name or --server and there's not
     # a single default to go with.
-    if not real_server:
+    if not server_data.url:
         raise api.RSConnectException("You must specify one of -n/--name or -s/--server.")
 
-    connect_server = api.RSConnectServer(real_server, None, insecure, ca_data)
+    if server_data.target == "connect":
 
-    # If our info came from the command line, make sure the URL really works.
-    if not from_store:
-        connect_server, _ = test_server(connect_server)
+        connect_server = api.RSConnectServer(server_data.url, None, server_data.insecure, server_data.ca_data)
 
-    connect_server.api_key = api_key
+        # If our info came from the command line, make sure the URL really works.
+        if not server_data.from_store:
+            connect_server, _ = test_server(connect_server)
 
-    if not connect_server.api_key:
-        if api_key_is_required:
-            raise api.RSConnectException('An API key must be specified for "%s".' % connect_server.url)
+        connect_server.api_key = server_data.api_key
+
+        if not connect_server.api_key:
+            if api_key_is_required:
+                raise api.RSConnectException('An API key must be specified for "%s".' % connect_server.url)
+            return connect_server
+
+        # If our info came from the command line, make sure the key really works.
+        if not server_data.from_store:
+            _ = test_api_key(connect_server)
+
         return connect_server
-
-    # If our info came from the command line, make sure the key really works.
-    if not from_store:
-        _ = test_api_key(connect_server)
-
-    return connect_server
+    else:
+        # TODO (mslynch): validate shinyapps data
+        # TODO (mslynch): replace nickname with account name
+        return api.ShinyappsServer(server_data.url, server_data.name, server_data.token, server_data.secret)
 
 
 def _warn_on_ignored_manifest(directory):
@@ -578,7 +642,7 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
 
 
 def _deploy_bundle(
-    connect_server,
+    remote_server: api.RemoteServer,
     app_store,
     primary_path,
     app_id,
@@ -589,10 +653,10 @@ def _deploy_bundle(
     bundle,
     env_vars,
 ):
-    """
+    """œ
     Does the work of uploading a prepared bundle.
 
-    :param connect_server: the Connect server information.
+    :param remote_server: the Connect server information.
     :param app_store: the store where data is saved about deployments.
     :param primary_path: the base path (file or directory) that's being deployed.
     :param app_id: the ID of the app.
@@ -604,12 +668,12 @@ def _deploy_bundle(
     :param env_vars: list of NAME=VALUE pairs to be set as the app environment
     """
     with cli_feedback("Uploading bundle"):
-        app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle, env_vars)
+        app = deploy_bundle(remote_server, app_id, name, title, title_is_default, bundle, env_vars)
 
     with cli_feedback("Saving deployment data"):
         # Note we are NOT saving image into the deployment record for now.
         app_store.set(
-            connect_server.url,
+            remote_server.url,
             abspath(primary_path),
             app["app_url"],
             app["app_id"],
@@ -618,26 +682,27 @@ def _deploy_bundle(
             app_mode,
         )
 
-    with cli_feedback(""):
-        click.secho("\nDeployment log:")
-        app_url, _, _ = spool_deployment_log(connect_server, app, click.echo)
-        click.secho("Deployment completed successfully.")
-        click.secho("    Dashboard content URL: ", nl=False)
-        click.secho(app_url, fg="green")
-        click.secho("    Direct content URL: ", nl=False)
-        click.secho(app["app_url"], fg="green")
+    if isinstance(remote_server, api.RSConnectServer):
+        with cli_feedback(""):
+            click.secho("\nDeployment log:")
+            app_url, _, _ = spool_deployment_log(remote_server, app, click.echo)
+            click.secho("Deployment completed successfully.")
+            click.secho("    Dashboard content URL: ", nl=False)
+            click.secho(app_url, fg="green")
+            click.secho("    Direct content URL: ", nl=False)
+            click.secho(app["app_url"], fg="green")
 
-        # save the config URL, replacing the old app URL we got during deployment
-        # (which is the Open Solo URL).
-        app_store.set(
-            connect_server.url,
-            abspath(primary_path),
-            app_url,
-            app["app_id"],
-            app["app_guid"],
-            app["title"],
-            app_mode,
-        )
+            # save the config URL, replacing the old app URL we got during deployment
+            # (which is the Open Solo URL).
+            app_store.set(
+                remote_server.url,
+                abspath(primary_path),
+                app_url,
+                app["app_id"],
+                app["app_guid"],
+                app["title"],
+                app_mode,
+            )
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -1262,15 +1327,15 @@ def _deploy_by_framework(
     set_verbosity(verbose)
 
     with cli_feedback("Checking arguments"):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+        remote_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
         module_file = fake_module_file_from_directory(directory)
         extra_files = validate_extra_files(directory, extra_files)
         app_store = AppStore(module_file)
         entrypoint, app_id, deployment_name, title, default_title, app_mode = gatherer(
-            connect_server, app_store, directory, entrypoint, new, app_id, title
+            remote_server, app_store, directory, entrypoint, new, app_id, title
         )
 
-    click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
+    click.secho('    Deploying %s to server "%s"' % (directory, remote_server.url))
 
     _warn_on_ignored_manifest(directory)
     _warn_if_no_requirements_file(directory)
@@ -1279,11 +1344,13 @@ def _deploy_by_framework(
     with cli_feedback("Inspecting Python environment"):
         _, environment = get_python_env_info(module_file, python, conda, force_generate)
 
-    with cli_feedback("Checking server capabilities"):
-        checks = [are_apis_supported_on_server]
-        if environment.package_manager == "conda":
-            checks.append(is_conda_supported_on_server)
-        check_server_capabilities(connect_server, checks)
+    # TODO (mslynch): check shinyapps capabilities? hard-code? skip?
+    if isinstance(remote_server, api.RSConnectServer):
+        with cli_feedback("Checking server capabilities"):
+            checks = [are_apis_supported_on_server]
+            if environment.package_manager == "conda":
+                checks.append(is_conda_supported_on_server)
+            check_server_capabilities(remote_server, checks)
 
     _warn_on_ignored_conda_env(environment)
 
@@ -1296,7 +1363,7 @@ def _deploy_by_framework(
         )
 
     _deploy_bundle(
-        connect_server,
+        remote_server,
         app_store,
         directory,
         app_id,

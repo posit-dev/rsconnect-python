@@ -304,7 +304,7 @@ def check_server_capabilities(connect_server, capability_functions, details_sour
             raise api.RSConnectException(message)
 
 
-def _make_deployment_name(connect_server, title, force_unique) -> str:
+def _make_deployment_name(remote_server: api.RemoteServer, title: str, force_unique: bool) -> str:
     """
     Produce a name for a deployment based on its title.  It is assumed that the
     title is already defaulted and validated as appropriate (meaning the title
@@ -315,7 +315,7 @@ def _make_deployment_name(connect_server, title, force_unique) -> str:
     that we collapse repeating underscores and, if the name is too short, it is
     padded to the left with underscores.
 
-    :param connect_server: the information needed to interact with the Connect server.
+    :param remote_server: the information needed to interact with the Connect server.
     :param title: the title to start with.
     :param force_unique: a flag noting whether the generated name must be forced to be
     unique.
@@ -327,7 +327,12 @@ def _make_deployment_name(connect_server, title, force_unique) -> str:
 
     # Now, make sure it's unique, if needed.
     if force_unique:
-        name = api.find_unique_name(connect_server, name)
+        if isinstance(remote_server, api.RSConnectServer):
+            name = api.find_unique_name(remote_server, name)
+        else:
+            # TODO (mslynch): is this necessary to check?
+            pass
+            # raise NotImplementedError("TODO (mslynch): find unique name from lucid-server")
 
     return name
 
@@ -1384,7 +1389,7 @@ def _generate_gather_basic_deployment_info_for_python(app_mode: AppMode) -> typi
     """
 
     def gatherer(
-        connect_server: api.RSConnectServer,
+        remote_server: api.RemoteServer,
         app_store: AppStore,
         directory: str,
         entry_point: str,
@@ -1393,7 +1398,7 @@ def _generate_gather_basic_deployment_info_for_python(app_mode: AppMode) -> typi
         title: str,
     ) -> typing.Tuple[str, int, str, str, bool, AppMode]:
         return _gather_basic_deployment_info_for_framework(
-            connect_server,
+            remote_server,
             app_store,
             directory,
             entry_point,
@@ -1414,7 +1419,7 @@ gather_basic_deployment_info_for_bokeh = _generate_gather_basic_deployment_info_
 
 
 def _gather_basic_deployment_info_for_framework(
-    connect_server: api.RSConnectServer,
+    remote_server: api.RemoteServer,
     app_store: AppStore,
     directory: str,
     entry_point: str,
@@ -1426,7 +1431,7 @@ def _gather_basic_deployment_info_for_framework(
     """
     Helps to gather the necessary info for performing a deployment.
 
-    :param connect_server: the Connect server information.
+    :param remote_server: the server information.
     :param app_store: the store for the specified directory.
     :param directory: the primary file being deployed.
     :param entry_point: the entry point for the API in '<module>:<object> format.  if
@@ -1451,13 +1456,17 @@ def _gather_basic_deployment_info_for_framework(
         if app_id is None:
             # Possible redeployment - check for saved metadata.
             # Use the saved app information unless overridden by the user.
-            app_id, existing_app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
+            app_id, existing_app_mode = app_store.resolve(remote_server.url, app_id, app_mode)
             logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
         elif app_id is not None:
             # Don't read app metadata if app-id is specified. Instead, we need
             # to get this from Connect.
-            app = api.get_app_info(connect_server, app_id)
-            existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
+            if isinstance(remote_server, api.RSConnectServer):
+                app = api.get_app_info(remote_server, app_id)
+                existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
+            else:
+                # TODO this
+                raise NotImplementedError("TODO (mslynch): get app mode from lucid-server")
         if existing_app_mode and app_mode != existing_app_mode:
             msg = (
                 "Deploying with mode '%s',\n"
@@ -1475,7 +1484,7 @@ def _gather_basic_deployment_info_for_framework(
     return (
         entry_point,
         app_id,
-        _make_deployment_name(connect_server, title, app_id is None),
+        _make_deployment_name(remote_server, title, app_id is None),
         title,
         default_title,
         app_mode,
@@ -1634,7 +1643,7 @@ def create_quarto_deployment_bundle(
 
 
 def deploy_bundle(
-    connect_server: api.RSConnectServer,
+    remote_server: api.RemoteServer,
     app_id: int,
     name: str,
     title: str,
@@ -1645,7 +1654,7 @@ def deploy_bundle(
     """
     Deploys the specified bundle.
 
-    :param connect_server: the Connect server information.
+    :param remote_server: the server information.
     :param app_id: the ID of the app to deploy, if this is a redeploy.
     :param name: the name for the deploy.
     :param title: the title for the deploy.
@@ -1655,7 +1664,7 @@ def deploy_bundle(
     :return: application information about the deploy.  This includes the ID of the
     task that may be queried for deployment progress.
     """
-    return api.do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bundle, env_vars)
+    return api.do_bundle_deploy(remote_server, app_id, name, title, title_is_default, bundle, env_vars)
 
 
 def spool_deployment_log(connect_server, app, log_callback):
