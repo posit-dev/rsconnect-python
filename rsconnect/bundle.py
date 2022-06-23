@@ -654,6 +654,7 @@ def make_html_bundle_content(
     :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: the manifest and a list of the files involved.
     """
+    extra_files = list(extra_files) if extra_files else []
     entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/html")
 
     if path.startswith(os.curdir):
