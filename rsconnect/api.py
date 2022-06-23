@@ -290,8 +290,14 @@ class RSConnectExecutor:
         self.logger = logger
 
     @classmethod
-    def fromConnectServer(cls, server, **kwargs):
-        return cls(url=server.url, api_key=server.api_key, insecure=server.insecure, ca_data=server.ca_data, **kwargs)
+    def fromConnectServer(cls, connect_server, **kwargs):
+        return cls(
+            url=connect_server.url,
+            api_key=connect_server.api_key,
+            insecure=connect_server.insecure,
+            ca_data=connect_server.ca_data,
+            **kwargs,
+        )
 
     def reset(self):
         self._d = None
