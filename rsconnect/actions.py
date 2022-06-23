@@ -11,21 +11,16 @@ import shutil
 import subprocess
 import sys
 import traceback
+from typing import IO
 from warnings import warn
-from .exception import RSConnectException
-
-try:
-    import typing
-except ImportError:
-    typing = None
-
 from os.path import abspath, basename, dirname, exists, isdir, join, relpath, splitext
 from pprint import pformat
-
+from .exception import RSConnectException
 from . import api
 from .bundle import (
     make_api_bundle,
     make_api_manifest,
+    make_html_bundle,
     make_manifest_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
@@ -40,9 +35,15 @@ from .environment import Environment, MakeEnvironment, EnvironmentException
 from .log import logger
 from .metadata import AppStore
 from .models import AppModes, AppMode
+from .api import RSConnectExecutor, filter_out_server_info
 
 import click
 from six.moves.urllib_parse import urlparse
+
+try:
+    import typing
+except ImportError:
+    typing = None
 
 line_width = 45
 _module_pattern = re.compile(r"^[A-Za-z0-9_]+:[A-Za-z0-9_]+$")
@@ -595,6 +596,47 @@ def write_manifest_json(manifest_path, manifest):
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
         f.write("\n")
+
+
+def deploy_html(
+    connect_server: api.RSConnectServer = None,
+    path: str = None,
+    entrypoint: str = None,
+    extra_files=None,
+    excludes=None,
+    title: str = None,
+    env_vars=None,
+    verbose: bool = False,
+    new: bool = False,
+    app_id: str = None,
+    name: str = None,
+    server: str = None,
+    api_key: str = None,
+    insecure: bool = False,
+    cacert: IO = None,
+):
+    kwargs = locals()
+    ce = None
+    if connect_server:
+        kwargs = filter_out_server_info(**kwargs)
+        ce = RSConnectExecutor.fromConnectServer(connect_server, **kwargs)
+    else:
+        ce = RSConnectExecutor(**kwargs)
+
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=AppModes.STATIC)
+        .make_bundle(
+            make_html_bundle,
+            path,
+            entrypoint,
+            extra_files,
+            excludes,
+        )
+        .deploy_bundle()
+        .save_deployed_info()
+        .emit_task_log()
+    )
 
 
 def deploy_jupyter_notebook(

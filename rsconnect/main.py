@@ -35,7 +35,7 @@ from .actions_content import (
 )
 
 from . import api, VERSION
-from .api import RSConnectExecutor
+from .api import RSConnectExecutor, filter_out_server_info
 from .bundle import (
     are_apis_supported_on_server,
     create_python_environment,
@@ -919,24 +919,30 @@ def deploy_quarto(
 )
 @cli_exception_handler
 def deploy_html(
-    name,
-    server,
-    api_key,
-    insecure,
-    cacert,
-    new,
-    app_id,
-    title,
-    verbose,
-    path,
-    env_vars,
-    entrypoint,
-    extra_files,
-    excludes,
+    connect_server: api.RSConnectServer = None,
+    path: str = None,
+    entrypoint: str = None,
+    extra_files=None,
+    excludes=None,
+    title: str = None,
+    env_vars=None,
+    verbose: bool = False,
+    new: bool = False,
+    app_id: str = None,
+    name: str = None,
+    server: str = None,
+    api_key: str = None,
+    insecure: bool = False,
+    cacert: typing.IO = None,
 ):
     kwargs = locals()
+    ce = None
+    if connect_server:
+        kwargs = filter_out_server_info(**kwargs)
+        ce = RSConnectExecutor.fromConnectServer(connect_server, **kwargs)
+    else:
+        ce = RSConnectExecutor(**kwargs)
 
-    ce = RSConnectExecutor(**kwargs)
     (
         ce.validate_server()
         .validate_app_mode(app_mode=AppModes.STATIC)
