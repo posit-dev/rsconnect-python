@@ -709,6 +709,12 @@ class RSConnectExecutor:
         return name
 
 
+def filter_out_server_info(**kwargs):
+    server_fields = {"connect_server", "name", "server", "api_key", "insecure", "cacert"}
+    new_kwargs = {k: v for k, v in kwargs.items() if k not in server_fields}
+    return new_kwargs
+
+
 def verify_server(connect_server):
     """
     Verify that the given server information represents a Connect instance that is
