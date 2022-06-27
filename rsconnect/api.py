@@ -340,19 +340,7 @@ class ShinyappsClient(HTTPServer):
     def get_extra_headers(self, url, method, body):
         canonical_request_method = method.upper()
         canonical_request_path = parse.urlparse(url).path
-
-        # TODO (mslynch): there has got to be a better way than this
-        timetuple = datetime.datetime.utcnow().utctimetuple()
-        canonical_request_date = "%s, %02d %s %04d %02d:%02d:%02d %s" % (
-            ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][timetuple[6]],
-            timetuple[2],
-            ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][timetuple[1] - 1],
-            timetuple[0],
-            timetuple[3],
-            timetuple[4],
-            timetuple[5],
-            "GMT",
-        )
+        canonical_request_date = datetime.datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
 
         # get request checksum
         md5 = hashlib.md5()
@@ -384,9 +372,6 @@ class ShinyappsClient(HTTPServer):
 
     def get_accounts(self):
         return self.get("/v1/accounts/")
-
-    # def get_current_user(self):
-    #     return self.get('v1/users/me')
 
     def create_bundle(self, application_id: int, content_type: str, content_length: int, checksum: str):
         bundle_data = {

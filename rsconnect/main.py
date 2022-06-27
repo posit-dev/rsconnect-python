@@ -333,7 +333,7 @@ def add(name, target, server, api_key, insecure, cacert, token, secret, verbose)
             click.echo('Added Connect server "%s" with URL %s' % (name, real_server.url))
     else:
         shinyapps_server = api.ShinyappsServer(server or "https://api.shinyapps.io", name, token, secret)
-        # TODO (mslynch): check credential and account here
+        # TODO (mslynch): test credential and account against server here
         server_store.set(
             name, target, shinyapps_server.url, token=shinyapps_server.token, secret=shinyapps_server.secret
         )
