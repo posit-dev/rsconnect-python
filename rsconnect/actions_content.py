@@ -14,6 +14,7 @@ from .api import RSConnectClient, RSConnectException, emit_task_log
 from .log import logger
 from .models import BuildStatus, ContentGuidWithBundle
 from .metadata import ContentBuildStore
+from .exception import RSConnectException
 
 _content_build_store = None  # type: ContentBuildStore
 

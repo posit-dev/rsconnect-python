@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 import shutil
 from threading import Lock
 
-from . import api
+from .exception import RSConnectException
 from .log import logger
 from .models import AppMode, AppModes
 
@@ -344,7 +344,7 @@ class ServerStore(DataStore):
         if name:
             entry = self.get_by_name(name)
             if not entry:
-                raise api.RSConnectException('The nickname, "%s", does not exist.' % name)
+                raise RSConnectException('The nickname, "%s", does not exist.' % name)
         elif url:
             entry = self.get_by_url(url)
         else:
