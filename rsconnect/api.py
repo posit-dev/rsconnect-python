@@ -93,6 +93,13 @@ class RSConnectServer(AbstractRemoteServer):
         self.cookie_jar = CookieJar()
 
 
+class S3Server(AbstractRemoteServer):
+    remote_name = 'S3'
+
+    def __init__(self, url: str):
+        self.url = url
+
+
 RemoteServer = typing.Union[ShinyappsServer, RSConnectServer]
 
 
@@ -243,7 +250,7 @@ class RSConnectClient(HTTPServer):
         return results
 
     def wait_for_task(
-        self, task_id, log_callback, abort_func=lambda: False, timeout=None, poll_wait=0.5, raise_on_error=True
+            self, task_id, log_callback, abort_func=lambda: False, timeout=None, poll_wait=0.5, raise_on_error=True
     ):
 
         last_status = None
@@ -391,6 +398,9 @@ class ShinyappsClient(HTTPServer):
     def get_task(self, task_id):
         return self.get(f"/v1/tasks/{task_id}", query_params={"legacy": "true"})
 
+    def get_current_user(self):
+        return self.get('/v1/users/me')
+
     def wait_until_task_is_successful(self, task_id, timeout=60):
         counter = 1
         status = None
@@ -426,8 +436,6 @@ class ShinyappsClient(HTTPServer):
         self._server.handle_bad_response(application)
 
         bundle = self.create_bundle(application.json_data["id"], "application/x-tar", bundle_size, bundle_hash)
-
-        # TODO (mslynch) _server isn't meant to handle S3 errors
         self._server.handle_bad_response(bundle)
 
         return {"app_id": application.json_data["id"], "app_url": application.json_data["url"], **bundle.json_data}
@@ -548,18 +556,19 @@ def do_bundle_deploy(remote_server: RemoteServer, app_id, name, title, title_is_
                 app_id, name, title, title_is_default, bundle_size, bundle_hash, env_vars
             )
 
-        parsed_upload_url = urlparse(prepare_deploy_result["presigned_url"])
+        upload_url = prepare_deploy_result["presigned_url"]
+        parsed_upload_url = urlparse(upload_url)
         with S3Client(f"{parsed_upload_url.scheme}://{parsed_upload_url.netloc}", timeout=120) as client:
             upload_result = client.upload(
-                prepare_deploy_result["presigned_url"],
+                upload_url,
                 prepare_deploy_result["presigned_checksum"],
                 bundle_size,
                 contents,
             )
-            remote_server.handle_bad_response(upload_result)
+            S3Server(upload_url).handle_bad_response(upload_result)
 
         with ShinyappsClient(remote_server, timeout=120) as client:
-            deploy_result = client.do_deploy(prepare_deploy_result["id"], prepare_deploy_result["app_id"])
+            client.do_deploy(prepare_deploy_result["id"], prepare_deploy_result["app_id"])
 
         webbrowser.open_new(prepare_deploy_result["app_url"])
 
@@ -567,14 +576,14 @@ def do_bundle_deploy(remote_server: RemoteServer, app_id, name, title, title_is_
 
 
 def emit_task_log(
-    connect_server,
-    app_id,
-    task_id,
-    log_callback,
-    abort_func=lambda: False,
-    timeout=None,
-    poll_wait=0.5,
-    raise_on_error=True,
+        connect_server,
+        app_id,
+        task_id,
+        log_callback,
+        abort_func=lambda: False,
+        timeout=None,
+        poll_wait=0.5,
+        raise_on_error=True,
 ):
     """
     Helper for spooling the deployment log for an app.

@@ -47,7 +47,7 @@ from .actions import (
     write_environment_file,
     write_notebook_manifest_json,
     write_quarto_manifest_json,
-    fake_module_file_from_directory,
+    fake_module_file_from_directory, test_shinyapps_server,
 )
 from .actions_content import (
     download_bundle,
@@ -223,6 +223,10 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
 
     return real_server, me
 
+def _test_shinyappsio_creds(server: api.ShinyappsServer):
+    with cli_feedback("Checking shinyapps.io credential"):
+        test_shinyapps_server(server)
+
 
 # noinspection SpellCheckingInspection
 @cli.command(
@@ -333,7 +337,8 @@ def add(name, target, server, api_key, insecure, cacert, token, secret, verbose)
             click.echo('Added Connect server "%s" with URL %s' % (name, real_server.url))
     else:
         shinyapps_server = api.ShinyappsServer(server or "https://api.shinyapps.io", name, token, secret)
-        # TODO (mslynch): test credential and account against server here
+        _test_shinyappsio_creds(shinyapps_server)
+
         server_store.set(
             name, target, shinyapps_server.url, token=shinyapps_server.token, secret=shinyapps_server.secret
         )
@@ -518,6 +523,7 @@ def deploy():
 
 
 def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_required=True) -> api.RemoteServer:
+    # TODO (mslynch): accept non-saved credentials here (maybe)?
     """
     Validate that the user gave us enough information to talk to a Connect server.
 
@@ -563,9 +569,15 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_r
 
         return connect_server
     else:
-        # TODO (mslynch): validate shinyapps data
         # TODO (mslynch): replace nickname with account name
-        return api.ShinyappsServer(server_data.url, server_data.name, server_data.token, server_data.secret)
+        if not server_data.token:
+            raise api.RSConnectException("A token must be specified.")
+        if not server_data.token:
+            raise api.RSConnectException("A secret must be specified.")
+
+        server = api.ShinyappsServer(server_data.url, server_data.name, server_data.token, server_data.secret)
+        test_shinyapps_server(server)
+        return server
 
 
 def _warn_on_ignored_manifest(directory):

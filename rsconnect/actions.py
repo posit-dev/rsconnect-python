@@ -212,6 +212,15 @@ def test_server(connect_server):
     raise api.RSConnectException("\n".join(failures))
 
 
+def test_shinyapps_server(server: api.ShinyappsServer):
+    with api.ShinyappsClient(server) as client:
+        try:
+            result = client.get_current_user()
+            server.handle_bad_response(result)
+        except api.RSConnectException as exc:
+            raise api.RSConnectException(f"Failed to verify with shinyapps.io ({str(exc)}).")
+
+
 def test_api_key(connect_server):
     """
     Test that an API Key may be used to authenticate with the given RStudio Connect server.
