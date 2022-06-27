@@ -1,7 +1,6 @@
 """
 RStudio Connect API client and utility functions
 """
-
 from os.path import abspath, basename
 import time
 from typing import IO, Callable
@@ -11,6 +10,19 @@ from warnings import warn
 from six import text_type
 import gc
 from .bundle import fake_module_file_from_directory
+import base64
+import datetime
+import hashlib
+import hmac
+import time
+import typing
+import webbrowser
+from _ssl import SSLError
+from urllib import parse
+from urllib.parse import urlparse
+import click
+
+
 from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
 from .log import logger, connect_logger, cls_logged, console_logger
 from .models import AppModes
@@ -18,19 +30,18 @@ from .metadata import ServerStore, AppStore
 from .exception import RSConnectException
 
 
-class RSConnectServer(object):
-    """
-    A simple class to encapsulate the information needed to interact with an
-    instance of the Connect server.
-    """
-
-    def __init__(self, url, api_key, insecure=False, ca_data=None):
-        self.url = url
-        self.api_key = api_key
-        self.insecure = insecure
-        self.ca_data = ca_data
-        # This is specifically not None.
-        self.cookie_jar = CookieJar()
+class AbstractRemoteServer:
+    # @property
+    # @abc.abstractmethod
+    # def url(self) -> str:
+    #     pass
+    #
+    # @property
+    # @abc.abstractmethod
+    # def remote_name(self) -> str:
+    #     pass
+    url: str
+    remote_name: str
 
     def handle_bad_response(self, response):
         if isinstance(response, HTTPResponse):
@@ -42,21 +53,63 @@ class RSConnectServer(object):
             # search page so trap that since we know we're expecting JSON from Connect.  This
             # also catches all error conditions which we will report as "not running Connect".
             else:
-                if response.json_data and "error" in response.json_data:
-                    error = "The Connect server reported an error: %s" % response.json_data["error"]
+                if response.json_data and "error" in response.json_data and response.json_data["error"] is not None:
+                    error = "%s reported an error: %s" % (self.remote_name, response.json_data["error"])
                     raise RSConnectException(error)
                 if response.status < 200 or response.status > 299:
                     raise RSConnectException(
-                        "Received an unexpected response from RStudio Connect: %s %s"
-                        % (response.status, response.reason)
+                        "Received an unexpected response from %s: %s %s"
+                        % (self.remote_name, response.status, response.reason)
                     )
 
 
-class RSConnect(HTTPServer):
-    def __init__(self, server, cookies=None, timeout=30):
+class ShinyappsServer(AbstractRemoteServer):
+    """
+    A simple class to encapsulate the information needed to interact with an
+    instance of the shinyapps.io server.
+    """
+
+    remote_name = "shinyapps.io"
+
+    def __init__(self, url: str, account_name: str, token: str, secret: str):
+        self.url = url
+        self.account_name = account_name
+        self.token = token
+        self.secret = secret
+
+
+class RSConnectServer(AbstractRemoteServer):
+    """
+    A simple class to encapsulate the information needed to interact with an
+    instance of the Connect server.
+    """
+
+    remote_name = "RStudio Connect"
+
+    def __init__(self, url, api_key, insecure=False, ca_data=None):
+        self.url = url
+        self.api_key = api_key
+        self.insecure = insecure
+        self.ca_data = ca_data
+        # This is specifically not None.
+        self.cookie_jar = CookieJar()
+
+
+class S3Server(AbstractRemoteServer):
+    remote_name = "S3"
+
+    def __init__(self, url: str):
+        self.url = url
+
+
+RemoteServer = typing.Union[ShinyappsServer, RSConnectServer]
+
+
+class RSConnectClient(HTTPServer):
+    def __init__(self, server: RSConnectServer, cookies=None, timeout=30):
         if cookies is None:
             cookies = server.cookie_jar
-        super(RSConnect, self).__init__(
+        super().__init__(
             append_to_path(server.url, "__api__"),
             server.insecure,
             server.ca_data,
@@ -269,6 +322,135 @@ class RSConnect(HTTPServer):
         return new_last_status
 
 
+class S3Client(HTTPServer):
+    def upload(self, path, presigned_checksum, bundle_size, contents):
+        headers = {
+            "content-type": "application/x-tar",
+            "content-length": str(bundle_size),
+            "content-md5": presigned_checksum,
+        }
+        return self.put(path, headers=headers, body=contents, decode_response=False)
+
+
+class ShinyappsClient(HTTPServer):
+    def __init__(self, shinyapps_server: ShinyappsServer, timeout: int = 30):
+        self._token = shinyapps_server.token
+        self._key = base64.b64decode(shinyapps_server.secret)
+        self._server = shinyapps_server
+        super().__init__(shinyapps_server.url, timeout=timeout)
+
+    def _get_canonical_request(self, method, path, timestamp, content_hash):
+        return "\n".join([method, path, timestamp, content_hash])
+
+    def _get_canonical_request_signature(self, request):
+        result = hmac.new(self._key, request.encode(), hashlib.sha256).hexdigest()
+        return base64.b64encode(result.encode()).decode()
+
+    def get_extra_headers(self, url, method, body):
+        canonical_request_method = method.upper()
+        canonical_request_path = parse.urlparse(url).path
+        canonical_request_date = datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+        # get request checksum
+        md5 = hashlib.md5()
+        body = body or b""
+        body_bytes = body if isinstance(body, bytes) else body.encode()
+        md5.update(body_bytes)
+        canonical_request_checksum = md5.hexdigest()
+
+        canonical_request = self._get_canonical_request(
+            canonical_request_method, canonical_request_path, canonical_request_date, canonical_request_checksum
+        )
+
+        signature = self._get_canonical_request_signature(canonical_request)
+
+        return {
+            "X-Auth-Token": "{0}".format(self._token),
+            "X-Auth-Signature": "{0}; version=1".format(signature),
+            "Date": canonical_request_date,
+            "X-Content-Checksum": canonical_request_checksum,
+        }
+
+    def create_application(self, account_id, application_name):
+        application_data = {
+            "account": account_id,
+            "name": application_name,
+            "template": "shiny",
+        }
+        return self.post("/v1/applications/", body=application_data)
+
+    def get_accounts(self):
+        return self.get("/v1/accounts/")
+
+    def create_bundle(self, application_id: int, content_type: str, content_length: int, checksum: str):
+        bundle_data = {
+            "application": application_id,
+            "content_type": content_type,
+            "content_length": content_length,
+            "checksum": checksum,
+        }
+        return self.post("/v1/bundles", body=bundle_data)
+
+    def set_bundle_status(self, bundle_id, bundle_status):
+        return self.post(f"/v1/bundles/{bundle_id}/status", body={"status": bundle_status})
+
+    def deploy_application(self, bundle_id, app_id):
+        return self.post(f"/v1/applications/{app_id}/deploy", body={"bundle": bundle_id, "rebuild": False})
+
+    def get_task(self, task_id):
+        return self.get(f"/v1/tasks/{task_id}", query_params={"legacy": "true"})
+
+    def get_current_user(self):
+        return self.get("/v1/users/me")
+
+    def wait_until_task_is_successful(self, task_id, timeout=60):
+        counter = 1
+        status = None
+
+        while counter < timeout and status not in ["success", "failed", "error"]:
+            task = self.get_task(task_id)
+            self._server.handle_bad_response(task)
+            status = task.json_data["status"]
+            description = task.json_data["description"]
+
+            click.secho(f"Waiting: {status} - {description}")
+
+            if status == "success":
+                break
+
+            time.sleep(2)
+            counter += 1
+        click.secho(f"Task done: {description}")
+
+    def prepare_deploy(self, app_id, app_name, app_title, title_is_default, bundle_size, bundle_hash, env_vars=None):
+        accounts = self.get_accounts()
+        self._server.handle_bad_response(accounts)
+        account = next(
+            filter(lambda account: account["name"] == self._server.account_name, accounts.json_data["accounts"]), None
+        )
+        # TODO: also check this during `add` command
+        if account is None:
+            raise RSConnectException(
+                "No account found by name : %s for given user credential" % self._server.account_name
+            )
+
+        application = self.create_application(account["id"], app_name)
+        self._server.handle_bad_response(application)
+
+        bundle = self.create_bundle(application.json_data["id"], "application/x-tar", bundle_size, bundle_hash)
+        self._server.handle_bad_response(bundle)
+
+        return {"app_id": application.json_data["id"], "app_url": application.json_data["url"], **bundle.json_data}
+
+    def do_deploy(self, bundle_id, app_id):
+        bundle_status_response = self.set_bundle_status(bundle_id, "ready")
+        self._server.handle_bad_response(bundle_status_response)
+
+        deploy_task = self.deploy_application(bundle_id, app_id)
+        self._server.handle_bad_response(deploy_task)
+        self.wait_until_task_is_successful(deploy_task.json_data["id"])
+
+
 class RSConnectExecutor:
     def __init__(
         self,
@@ -333,7 +515,7 @@ class RSConnectExecutor:
         self.connect_server = RSConnectServer(url, api_key, insecure, ca_data)
 
     def setup_client(self, cookies=None, timeout=30, **kwargs):
-        self.client = RSConnect(self.connect_server, cookies, timeout)
+        self.client = RSConnectClient(self.connect_server, cookies, timeout)
 
     @property
     def state(self):
@@ -410,7 +592,7 @@ class RSConnectExecutor:
             _ = self.verify_api_key()
 
         self.connect_server = connect_server
-        self.client = RSConnect(self.connect_server)
+        self.client = RSConnectClient(self.connect_server)
 
         return self
 
@@ -726,7 +908,7 @@ def verify_server(connect_server):
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     try:
-        with RSConnect(connect_server) as client:
+        with RSConnectClient(connect_server) as client:
             result = client.server_settings()
             connect_server.handle_bad_response(result)
             return result
@@ -743,8 +925,8 @@ def verify_api_key(connect_server):
     :return: the username of the user to whom the API key belongs.
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
+    with RSConnectClient(connect_server) as client:
 
-    with RSConnect(connect_server) as client:
         result = client.me()
         if isinstance(result, HTTPResponse):
             if result.json_data and "code" in result.json_data and result.json_data["code"] == 30:
@@ -762,8 +944,8 @@ def get_python_info(connect_server):
     :return: the Python installation information from Connect.
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
+    with RSConnectClient(connect_server) as client:
 
-    with RSConnect(connect_server) as client:
         result = client.python_settings()
         connect_server.handle_bad_response(result)
         return result
@@ -777,7 +959,7 @@ def get_app_info(connect_server, app_id):
     :param app_id: the ID (numeric or GUID) of the application to get info for.
     :return: the Python installation information from Connect.
     """
-    with RSConnect(connect_server) as client:
+    with RSConnectClient(connect_server) as client:
         result = client.app_get(app_id)
         connect_server.handle_bad_response(result)
         return result
@@ -792,17 +974,17 @@ def get_app_config(connect_server, app_id):
     :param app_id: the ID (numeric or GUID) of the application to get the info for.
     :return: the Python installation information from Connect.
     """
-    with RSConnect(connect_server) as client:
+    with RSConnectClient(connect_server) as client:
         result = client.app_config(app_id)
         connect_server.handle_bad_response(result)
         return result
 
 
-def do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bundle, env_vars):
+def do_bundle_deploy(remote_server: RemoteServer, app_id, name, title, title_is_default, bundle, env_vars):
     """
     Deploys the specified bundle.
 
-    :param connect_server: the Connect server information.
+    :param remote_server: the server information.
     :param app_id: the ID of the app to deploy, if this is a redeploy.
     :param name: the name for the deploy.
     :param title: the title for the deploy.
@@ -812,10 +994,38 @@ def do_bundle_deploy(connect_server, app_id, name, title, title_is_default, bund
     :return: application information about the deploy.  This includes the ID of the
     task that may be queried for deployment progress.
     """
-    with RSConnect(connect_server, timeout=120) as client:
-        result = client.deploy(app_id, name, title, title_is_default, bundle, env_vars)
-        connect_server.handle_bad_response(result)
-        return result
+    if isinstance(remote_server, RSConnectServer):
+        with RSConnectClient(remote_server, timeout=120) as client:
+            result = client.deploy(app_id, name, title, title_is_default, bundle, env_vars)
+            remote_server.handle_bad_response(result)
+            return result
+    else:
+        contents = bundle.read()
+        bundle_size = len(contents)
+        bundle_hash = hashlib.md5(contents).hexdigest()
+
+        with ShinyappsClient(remote_server, timeout=120) as client:
+            prepare_deploy_result = client.prepare_deploy(
+                app_id, name, title, title_is_default, bundle_size, bundle_hash, env_vars
+            )
+
+        upload_url = prepare_deploy_result["presigned_url"]
+        parsed_upload_url = urlparse(upload_url)
+        with S3Client(f"{parsed_upload_url.scheme}://{parsed_upload_url.netloc}", timeout=120) as client:
+            upload_result = client.upload(
+                upload_url,
+                prepare_deploy_result["presigned_checksum"],
+                bundle_size,
+                contents,
+            )
+            S3Server(upload_url).handle_bad_response(upload_result)
+
+        with ShinyappsClient(remote_server, timeout=120) as client:
+            client.do_deploy(prepare_deploy_result["id"], prepare_deploy_result["app_id"])
+
+        webbrowser.open_new(prepare_deploy_result["app_url"])
+
+        return {"app_url": prepare_deploy_result["app_url"], "app_id": prepare_deploy_result["id"], "app_guid": None}
 
 
 def emit_task_log(
@@ -845,7 +1055,7 @@ def emit_task_log(
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    with RSConnect(connect_server) as client:
+    with RSConnectClient(connect_server) as client:
         result = client.wait_for_task(task_id, log_callback, abort_func, timeout, poll_wait, raise_on_error)
         connect_server.handle_bad_response(result)
         app_config = client.app_config(app_id)
@@ -880,7 +1090,7 @@ def retrieve_matching_apps(connect_server, filters=None, limit=None, mapping_fun
     maximum = limit
     finished = False
 
-    with RSConnect(connect_server) as client:
+    with RSConnectClient(connect_server) as client:
         while not finished:
             response = client.app_search(search_filters)
             connect_server.handle_bad_response(response)

@@ -3,7 +3,7 @@ from .utils import (
     require_api_key,
     require_connect,
 )
-from rsconnect.api import RSConnect, RSConnectExecutor, _to_server_check_list
+from rsconnect.api import RSConnectClient, RSConnectExecutor, _to_server_check_list
 
 
 class TestAPI(TestCase):
@@ -23,12 +23,12 @@ class TestAPI(TestCase):
         }
         output = []
 
-        self.assertEqual(RSConnect.output_task_log(task_status, 0, output.append), 3)
+        self.assertEqual(RSConnectClient.output_task_log(task_status, 0, output.append), 3)
         self.assertEqual(lines, output)
 
         task_status["last_status"] = 4
         task_status["status"] = ["line 4"]
-        self.assertEqual(RSConnect.output_task_log(task_status, 3, output.append), 4)
+        self.assertEqual(RSConnectClient.output_task_log(task_status, 3, output.append), 4)
 
         self.assertEqual(len(output), 4)
         self.assertEqual(output[3], "line 4")

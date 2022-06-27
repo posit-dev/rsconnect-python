@@ -21,6 +21,7 @@ from .actions import (
     test_server,
     validate_quarto_engines,
     which_quarto,
+    test_shinyapps_server,
 )
 from .actions_content import (
     download_bundle,
@@ -238,9 +239,14 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
     return real_server, me
 
 
+def _test_shinyappsio_creds(server: api.ShinyappsServer):
+    with cli_feedback("Checking shinyapps.io credential"):
+        test_shinyapps_server(server)
+
+
 # noinspection SpellCheckingInspection
 @cli.command(
-    short_help="Define a nickname for an RStudio Connect server.",
+    short_help="Define a nickname for an RStudio Connect or shinyapps.io server and credential.",
     help=(
         "Associate a simple nickname with the information needed to interact with an RStudio Connect server. "
         "Specifying an existing nickname will cause its stored information to be replaced by what is given "
@@ -249,16 +255,22 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
 )
 @click.option("--name", "-n", required=True, help="The nickname of the RStudio Connect server to deploy to.")
 @click.option(
+    "--target",
+    "-t",
+    type=click.Choice(["connect", "shinyapps"]),
+    default="connect",
+    envvar="RSCONNECT_SERVER_TYPE",
+    help="The target platform of this credential (Connect or shinyapps.io).",
+)
+@click.option(
     "--server",
     "-s",
-    required=True,
     envvar="CONNECT_SERVER",
     help="The URL for the RStudio Connect server to deploy to.",
 )
 @click.option(
     "--api-key",
     "-k",
-    required=True,
     envvar="CONNECT_API_KEY",
     help="The API key to use to authenticate with RStudio Connect.",
 )
@@ -276,27 +288,80 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
     type=click.File(),
     help="The path to trusted TLS CA certificates.",
 )
+@click.option(
+    "--token",
+    "-T",
+    envvar="SHINYAPPS_TOKEN",
+    help="The shinyapps.io token.",
+)
+@click.option(
+    "--secret",
+    "-S",
+    envvar="SHINYAPPS_SECRET",
+    help="The shinyapps.io token secret.",
+)
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def add(name, server, api_key, insecure, cacert, verbose):
+def add(name, target, server, api_key, insecure, cacert, token, secret, verbose):
     set_verbosity(verbose)
 
     old_server = server_store.get_by_name(name)
 
-    # Server must be pingable and the API key must work to be added.
-    real_server, _ = _test_server_and_api(server, api_key, insecure, cacert)
+    # validate options
+    if target == "connect":
+        # # disallowed
+        # if token is not None:
+        #     raise RSConnectException("Token may not be specified when using target type 'connect'.")
+        # if secret is not None:
+        #     raise RSConnectException("Secret may not be specified when using target type 'connect'.")
 
-    server_store.set(
-        name,
-        real_server.url,
-        real_server.api_key,
-        real_server.insecure,
-        real_server.ca_data,
-    )
-
-    if old_server:
-        click.echo('Updated server "%s" with URL %s' % (name, real_server.url))
+        # required
+        if server is None:
+            raise RSConnectException("Server must be specified when using target type 'connect'.")
+        if api_key is None:
+            raise RSConnectException("API key must be specified when using target type 'connect'.")
     else:
-        click.echo('Added server "%s" with URL %s' % (name, real_server.url))
+        # # disallowed
+        # if api_key is not None:
+        #     raise RSConnectException("API key may not be specified when using target type 'shinyapps'.")
+        # if insecure is not None:
+        #     raise RSConnectException("Insecure may not be specified when using target type 'shinyapps'.")
+        # if cacert is not None:
+        #     raise RSConnectException("CA certificate may not be specified when using target type 'shinyapps'.")
+
+        # required
+        if token is None:
+            raise RSConnectException("Server must be specified when using target type 'shinyapps'.")
+        if secret is None:
+            raise RSConnectException("API key must be specified when using target type 'shinyapps'.")
+
+    if target == "connect":
+        # Server must be pingable and the API key must work to be added.
+        real_server, _ = _test_server_and_api(server, api_key, insecure, cacert)
+
+        server_store.set(
+            name,
+            target,
+            real_server.url,
+            real_server.api_key,
+            real_server.insecure,
+            real_server.ca_data,
+        )
+
+        if old_server:
+            click.echo('Updated Connect server "%s" with URL %s' % (name, real_server.url))
+        else:
+            click.echo('Added Connect server "%s" with URL %s' % (name, real_server.url))
+    else:
+        shinyapps_server = api.ShinyappsServer(server or "https://api.shinyapps.io", name, token, secret)
+        _test_shinyappsio_creds(shinyapps_server)
+
+        server_store.set(
+            name, target, shinyapps_server.url, token=shinyapps_server.token, secret=shinyapps_server.secret
+        )
+        if old_server:
+            click.echo('Added shinyapps.io credential "%s".' % name)
+        else:
+            click.echo('Updated shinyapps.io credential "%s".' % name)
 
 
 @cli.command(
@@ -473,7 +538,8 @@ def deploy():
     pass
 
 
-def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_required=True):
+def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_required=True) -> api.RemoteServer:
+    # TODO (mslynch): accept non-saved credentials here (maybe)?
     """
     Validate that the user gave us enough information to talk to a Connect server.
 
@@ -484,38 +550,50 @@ def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_r
     :param ca_cert: the name of a CA certs file containing certificates to use.
     :param api_key_is_required: a flag that notes whether the API key is required or may
     be omitted.
-    :return: a ConnectServer object that carries all the right info.
+    :return: a ConnectServer or ShinyappsServer object that carries all the right info.
     """
     ca_data = ca_cert and text_type(ca_cert.read())
 
     if name and url:
         raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both.")
 
-    real_server, api_key, insecure, ca_data, from_store = server_store.resolve(name, url, api_key, insecure, ca_data)
+    server_data = server_store.resolve(name, url, api_key, insecure, ca_data)
 
     # This can happen if the user specifies neither --name or --server and there's not
     # a single default to go with.
-    if not real_server:
+    if not server_data.url:
         raise RSConnectException("You must specify one of -n/--name or -s/--server.")
 
-    connect_server = api.RSConnectServer(real_server, None, insecure, ca_data)
+    if server_data.target == "connect":
 
-    # If our info came from the command line, make sure the URL really works.
-    if not from_store:
-        connect_server, _ = test_server(connect_server)
+        connect_server = api.RSConnectServer(server_data.url, None, server_data.insecure, server_data.ca_data)
 
-    connect_server.api_key = api_key
+        # If our info came from the command line, make sure the URL really works.
+        if not server_data.from_store:
+            connect_server, _ = test_server(connect_server)
 
-    if not connect_server.api_key:
-        if api_key_is_required:
-            raise RSConnectException('An API key must be specified for "%s".' % connect_server.url)
+        connect_server.api_key = server_data.api_key
+
+        if not connect_server.api_key:
+            if api_key_is_required:
+                raise RSConnectException('An API key must be specified for "%s".' % connect_server.url)
+            return connect_server
+
+        # If our info came from the command line, make sure the key really works.
+        if not server_data.from_store:
+            _ = test_api_key(connect_server)
+
         return connect_server
+    else:
+        # TODO (mslynch): replace nickname with account name
+        if not server_data.token:
+            raise RSConnectException("A token must be specified.")
+        if not server_data.token:
+            raise RSConnectException("A secret must be specified.")
 
-    # If our info came from the command line, make sure the key really works.
-    if not from_store:
-        _ = test_api_key(connect_server)
-
-    return connect_server
+        server = api.ShinyappsServer(server_data.url, server_data.name, server_data.token, server_data.secret)
+        test_shinyapps_server(server)
+        return server
 
 
 def _warn_on_ignored_manifest(directory):

@@ -21,7 +21,7 @@ from rsconnect import VERSION
 
 class TestMain(TestCase):
     def test_validate_deploy_to_args(self):
-        server_store.set("fake", "http://example.com", None)
+        server_store.set("fake", "connect", "http://example.com", None)
 
         try:
             with self.assertRaises(RSConnectException):
@@ -110,3 +110,48 @@ class TestMain(TestCase):
         args = self.create_deploy_args("api", target)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("OK", result.output)
+
+    def test_add_connect(self):
+        connect_server = self.require_connect()
+        api_key = self.require_api_key()
+        runner = CliRunner()
+        result = runner.invoke(cli, ["add", "--name", "my-connect", "--server", connect_server, "--api-key", api_key])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("OK", result.output)
+
+    def test_add_shinyapps(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "add",
+                "--target",
+                "shinyapps",
+                "--name",
+                "my-shinyapps",
+                "--token",
+                "someToken",
+                "--secret",
+                "c29tZVNlY3JldAo=",
+            ],
+        )
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("shinyapps.io credential", result.output)
+
+    def test_add_shinyapps_missing_options(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "add",
+                "--target",
+                "shinyapps",
+                "--name",
+                "my-shinyapps",
+                "--token",
+                "someToken",
+            ],
+        )
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertEqual(str(result.exception), "API key must be specified when using target type 'shinyapps'.")
