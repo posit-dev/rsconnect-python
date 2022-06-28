@@ -260,14 +260,6 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
 )
 @click.option("--name", "-n", required=True, help="The nickname of the RStudio Connect server to deploy to.")
 @click.option(
-    "--target",
-    "-t",
-    type=click.Choice(["connect", "shinyapps"]),
-    default="connect",
-    envvar="RSCONNECT_SERVER_TYPE",
-    help="The target platform of this credential (Connect or shinyapps.io).",
-)
-@click.option(
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
@@ -306,46 +298,44 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
     help="The shinyapps.io token secret.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def add(name, target, server, api_key, insecure, cacert, token, secret, verbose):
+def add(name, server, api_key, insecure, cacert, token, secret, verbose):
     set_verbosity(verbose)
+
+    connect_options = {"--api-key": api_key, "--insecure": insecure, "--cacert": cacert}
+    shinyapps_options = {"--token": token, "--secret": secret}
+
+    present_connect_options = [k for k, v in connect_options.items() if v]
+    present_shinyapps_options = [k for k, v in shinyapps_options.items() if v]
+
+    if present_connect_options and present_shinyapps_options:
+        raise api.RSConnectException(
+            f"Connect options ({', '.join(present_connect_options)}) may not be passed alongside "
+            f"shinyapps.io options ({', '.join(present_shinyapps_options)})."
+        )
 
     old_server = server_store.get_by_name(name)
 
-    # validate options
-    if target == "connect":
-        # # disallowed
-        # if token is not None:
-        #     raise api.RSConnectException("Token may not be specified when using target type 'connect'.")
-        # if secret is not None:
-        #     raise api.RSConnectException("Secret may not be specified when using target type 'connect'.")
+    if present_shinyapps_options:
+        if len(present_shinyapps_options) != 2:
+            raise api.RSConnectException("--token and --secret must both be provided for shinyapps.io.")
 
-        # required
-        if server is None:
-            raise api.RSConnectException("Server must be specified when using target type 'connect'.")
-        if api_key is None:
-            raise api.RSConnectException("API key must be specified when using target type 'connect'.")
+        shinyapps_server = api.ShinyappsServer(server or "https://api.shinyapps.io", name, token, secret)
+        _test_shinyappsio_creds(shinyapps_server)
+
+        server_store.set(
+            name, 'shinyapps', shinyapps_server.url, token=shinyapps_server.token, secret=shinyapps_server.secret
+        )
+        if old_server:
+            click.echo('Updated shinyapps.io credential "%s".' % name)
+        else:
+            click.echo('Added shinyapps.io credential "%s".' % name)
     else:
-        # # disallowed
-        # if api_key is not None:
-        #     raise api.RSConnectException("API key may not be specified when using target type 'shinyapps'.")
-        # if insecure is not None:
-        #     raise api.RSConnectException("Insecure may not be specified when using target type 'shinyapps'.")
-        # if cacert is not None:
-        #     raise api.RSConnectException("CA certificate may not be specified when using target type 'shinyapps'.")
-
-        # required
-        if token is None:
-            raise api.RSConnectException("Server must be specified when using target type 'shinyapps'.")
-        if secret is None:
-            raise api.RSConnectException("API key must be specified when using target type 'shinyapps'.")
-
-    if target == "connect":
         # Server must be pingable and the API key must work to be added.
         real_server, _ = _test_server_and_api(server, api_key, insecure, cacert)
 
         server_store.set(
             name,
-            target,
+            'connect',
             real_server.url,
             real_server.api_key,
             real_server.insecure,
@@ -356,17 +346,6 @@ def add(name, target, server, api_key, insecure, cacert, token, secret, verbose)
             click.echo('Updated Connect server "%s" with URL %s' % (name, real_server.url))
         else:
             click.echo('Added Connect server "%s" with URL %s' % (name, real_server.url))
-    else:
-        shinyapps_server = api.ShinyappsServer(server or "https://api.shinyapps.io", name, token, secret)
-        _test_shinyappsio_creds(shinyapps_server)
-
-        server_store.set(
-            name, target, shinyapps_server.url, token=shinyapps_server.token, secret=shinyapps_server.secret
-        )
-        if old_server:
-            click.echo('Added shinyapps.io credential "%s".' % name)
-        else:
-            click.echo('Updated shinyapps.io credential "%s".' % name)
 
 
 @cli.command(

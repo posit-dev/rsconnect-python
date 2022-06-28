@@ -142,18 +142,20 @@ class TestMain(TestCase):
         self.assertIn("shinyapps.io credential", result.output)
 
     def test_add_shinyapps_missing_options(self):
-        runner = CliRunner()
-        result = runner.invoke(
-            cli,
-            [
-                "add",
-                "--target",
-                "shinyapps",
-                "--name",
-                "my-shinyapps",
-                "--token",
-                "someToken",
-            ],
-        )
-        self.assertEqual(result.exit_code, 1, result.output)
-        self.assertEqual(str(result.exception), "API key must be specified when using target type 'shinyapps'.")
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY")
+        try:
+            runner = CliRunner()
+            result = runner.invoke(
+                cli,
+                [
+                    "add",
+                    "--name",
+                    "my-shinyapps",
+                    "--token",
+                    "someToken",
+                ],
+            )
+            self.assertEqual(result.exit_code, 1, result.output)
+            self.assertEqual(str(result.exception), "--token and --secret must both be provided for shinyapps.io.")
+        finally:
+            os.environ["CONNECT_API_KEY"] = original_api_key_value
