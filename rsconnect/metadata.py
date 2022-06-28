@@ -361,7 +361,7 @@ class ServerStore(DataStore):
                 entry["url"],
                 True,
                 insecure=entry.get("insecure"),
-                ca_data=entry.get("ca_cert"),
+                ca_data=entry.get("ca_data"),
                 api_key=entry.get("api_key"),
                 token=entry.get("token"),
                 secret=entry.get("secret"),
