@@ -93,9 +93,7 @@ class TestServerMetadata(TestCase):
         self.assertEqual(servers[2]["url"], "http://connect.local")
 
     def check_resolve_call(self, name, server, api_key, insecure, ca_cert, should_be_from_store):
-        server_data = self.server_store.resolve(
-            name, server, api_key, insecure, ca_cert
-        )
+        server_data = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
 
         self.assertEqual(server_data.url, "http://connect.local")
         self.assertEqual(server_data.api_key, "notReallyAnApiKey")
@@ -128,9 +126,7 @@ class TestServerMetadata(TestCase):
             True,
             "fake-cert",
         )
-        server_data = self.server_store.resolve(
-            name, server, api_key, insecure, ca_cert
-        )
+        server_data = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
 
         self.assertEqual(server_data.url, "https://secured.connect")
         self.assertEqual(server_data.api_key, "an-api-key")

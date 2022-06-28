@@ -1,4 +1,5 @@
 import os
+import unittest
 from os.path import join
 
 from unittest import TestCase
@@ -119,6 +120,8 @@ class TestMain(TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("OK", result.output)
 
+    # TODO (mslynch): mock shinyapps.io
+    @unittest.skip
     def test_add_shinyapps(self):
         runner = CliRunner()
         result = runner.invoke(

@@ -55,7 +55,11 @@ class AbstractRemoteServer:
             # also catches all error conditions which we will report as "not running Connect".
             else:
                 if response.json_data and "error" in response.json_data and response.json_data["error"] is not None:
-                    error = "%s reported an error: %s" % (self.remote_name, response.json_data["error"])
+                    error = "%s reported an error (calling %s): %s" % (
+                        self.remote_name,
+                        response.full_uri,
+                        response.json_data["error"],
+                    )
                     raise RSConnectException(error)
                 if response.status < 200 or response.status > 299:
                     raise RSConnectException(
@@ -97,7 +101,7 @@ class RSConnectServer(AbstractRemoteServer):
 
 
 class S3Server(AbstractRemoteServer):
-    remote_name = 'S3'
+    remote_name = "S3"
 
     def __init__(self, url: str):
         self.url = url
@@ -253,7 +257,7 @@ class RSConnectClient(HTTPServer):
         return results
 
     def wait_for_task(
-            self, task_id, log_callback, abort_func=lambda: False, timeout=None, poll_wait=0.5, raise_on_error=True
+        self, task_id, log_callback, abort_func=lambda: False, timeout=None, poll_wait=0.5, raise_on_error=True
     ):
 
         last_status = None
@@ -333,13 +337,15 @@ class RSConnectExecutor:
         cacert: IO = None,
         ca_data: str = None,
         cookies=None,
+        token: str = None,
+        secret: str = None,
         timeout: int = 30,
         logger=console_logger,
         **kwargs
     ) -> None:
         self.reset()
         self._d = kwargs
-        self.setup_connect_server(name, url or kwargs.get("server"), api_key, insecure, cacert, ca_data)
+        self.setup_remote_server(name, url or kwargs.get("server"), api_key, insecure, cacert, ca_data)
         self.setup_client(cookies, timeout)
         self.logger = logger
 
@@ -355,7 +361,7 @@ class RSConnectExecutor:
 
     def reset(self):
         self._d = None
-        self.connect_server = None
+        self.remote_server = None
         self.client = None
         self.logger = None
         gc.collect()
@@ -366,7 +372,7 @@ class RSConnectExecutor:
         gc.collect()
         return self
 
-    def setup_connect_server(
+    def setup_remote_server(
         self,
         name: str = None,
         url: str = None,
@@ -384,13 +390,21 @@ class RSConnectExecutor:
             ca_data = text_type(cacert.read())
 
         server_data = ServerStore().resolve(name, url, api_key, insecure, ca_data)
-        self.connect_server = RSConnectServer(server_data.url,
-                                              server_data.api_key,
-                                              server_data.insecure,
-                                              server_data.ca_data)
+
+        if server_data.api_key is not None:
+            self.remote_server = RSConnectServer(
+                server_data.url, server_data.api_key, server_data.insecure, server_data.ca_data
+            )
+        else:
+            self.remote_server = ShinyappsServer(
+                server_data.url, server_data.name, server_data.token, server_data.secret
+            )
 
     def setup_client(self, cookies=None, timeout=30, **kwargs):
-        self.client = RSConnectClient(self.connect_server, cookies, timeout)
+        if isinstance(self.remote_server, RSConnectServer):
+            self.client = RSConnectClient(self.remote_server, cookies, timeout)
+        else:
+            self.client = ShinyappsClient(self.remote_server)
 
     @property
     def state(self):
@@ -411,10 +425,12 @@ class RSConnectExecutor:
         insecure: bool = False,
         cacert: IO = None,
         api_key_is_required: bool = False,
+        token: str = None,
+        secret: str = None,
         **kwargs
     ):
         """
-        Validate that the user gave us enough information to talk to a Connect server.
+        Validate that the user gave us enough information to talk to shinyapps.io or a Connect server.
 
         :param name: the nickname, if any, specified by the user.
         :param url: the URL, if any, specified by the user.
@@ -423,26 +439,31 @@ class RSConnectExecutor:
         :param cacert: the file object of a CA certs file containing certificates to use.
         :param api_key_is_required: a flag that notes whether the API key is required or may
         be omitted.
+        :param token: The shinyapps.io authentication token.
+        :param secret: The shinyapps.io authentication secret.
         """
-        url = url or self.connect_server.url
-        api_key = api_key or self.connect_server.api_key
-        insecure = insecure or self.connect_server.insecure
-        api_key_is_required = api_key_is_required or self.get("api_key_is_required", **kwargs)
-        server_store = ServerStore()
-
+        url = url or self.remote_server.url
+        ca_data = None
         if cacert:
             ca_data = text_type(cacert.read())
+        if isinstance(self.remote_server, RSConnectServer):
+            api_key = api_key or self.remote_server.api_key
+            insecure = insecure or self.remote_server.insecure
+            if not ca_data:
+                ca_data = self.remote_server.ca_data
         else:
-            ca_data = self.connect_server.ca_data
+            token = token or self.remote_server.token
+            secret = secret or self.remote_server.secret
+
+        api_key_is_required = api_key_is_required or self.get("api_key_is_required", **kwargs)
+        server_store = ServerStore()
 
         if name and url:
             raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both")
         if not name and not url:
             raise RSConnectException("You must specify one of -n/--name or -s/--server.")
 
-        server_data = server_store.resolve(
-            name, url, api_key, insecure, ca_data
-        )
+        server_data = server_store.resolve(name, url, api_key, insecure, ca_data)
 
         # This can happen if the user specifies neither --name or --server and there's not
         # a single default to go with.
@@ -453,7 +474,7 @@ class RSConnectExecutor:
 
         # If our info came from the command line, make sure the URL really works.
         if not server_data.from_store:
-            self.server_settings
+            self.server_settings()
 
         connect_server.api_key = api_key
 
@@ -466,8 +487,8 @@ class RSConnectExecutor:
         if not server_data.from_store:
             _ = self.verify_api_key()
 
-        self.connect_server = connect_server
-        self.client = RSConnectClient(self.connect_server)
+        self.remote_server = connect_server
+        self.client = RSConnectClient(self.remote_server)
 
         return self
 
@@ -520,6 +541,10 @@ class RSConnectExecutor:
         :param details_source: the source for obtaining server details, gather_server_details(),
         by default.
         """
+        # TODO (mslynch): check shinyapps capabilities
+        if isinstance(self.remote_server, ShinyappsServer):
+            return self
+
         details = self.server_details
 
         for function in capability_functions:
@@ -542,17 +567,62 @@ class RSConnectExecutor:
         bundle: IO = None,
         env_vars=None,
     ):
-        result = self.client.deploy(
-            app_id or self.get("app_id"),
-            deployment_name or self.get("deployment_name"),
-            title or self.get("title"),
-            title_is_default or self.get("title_is_default"),
-            bundle or self.get("bundle"),
-            env_vars or self.get("env_vars"),
-        )
-        self.connect_server.handle_bad_response(result)
-        self.state["deployed_info"] = result
-        return self
+        app_id = app_id or self.get("app_id")
+        deployment_name = deployment_name or self.get("deployment_name")
+        title = title or self.get("title")
+        title_is_default = title_is_default or self.get("title_is_default")
+        bundle = bundle or self.get("bundle")
+        env_vars = env_vars or self.get("env_vars")
+
+        if isinstance(self.remote_server, RSConnectServer):
+            result = self.client.deploy(
+                app_id,
+                deployment_name,
+                title,
+                title_is_default,
+                bundle,
+                env_vars,
+            )
+            self.remote_server.handle_bad_response(result)
+            self.state["deployed_info"] = result
+            return self
+        else:
+            contents = bundle.read()
+            bundle_size = len(contents)
+            bundle_hash = hashlib.md5(contents).hexdigest()
+
+            prepare_deploy_result = self.client.prepare_deploy(
+                app_id,
+                deployment_name,
+                title,
+                title_is_default,
+                bundle_size,
+                bundle_hash,
+                env_vars,
+            )
+
+            upload_url = prepare_deploy_result["presigned_url"]
+            parsed_upload_url = urlparse(upload_url)
+            with S3Client(f"{parsed_upload_url.scheme}://{parsed_upload_url.netloc}", timeout=120) as s3_client:
+                upload_result = s3_client.upload(
+                    f"{parsed_upload_url.path}?{parsed_upload_url.query}",
+                    prepare_deploy_result["presigned_checksum"],
+                    bundle_size,
+                    contents,
+                )
+                S3Server(upload_url).handle_bad_response(upload_result)
+
+            self.client.do_deploy(prepare_deploy_result["id"], prepare_deploy_result["app_id"])
+
+            webbrowser.open_new(prepare_deploy_result["app_url"])
+
+            self.state["deployed_info"] = {
+                "app_url": prepare_deploy_result["app_url"],
+                "app_id": prepare_deploy_result["id"],
+                "app_guid": None,
+                "title": title,
+            }
+            return self
 
     def emit_task_log(
         self,
@@ -567,7 +637,6 @@ class RSConnectExecutor:
         """
         Helper for spooling the deployment log for an app.
 
-        :param connect_server: the Connect server information.
         :param app_id: the ID of the app that was deployed.
         :param task_id: the ID of the task that is tracking the deployment of the app..
         :param log_callback: the callback to use to write the log to.  If this is None
@@ -579,20 +648,21 @@ class RSConnectExecutor:
         :param raise_on_error: whether to raise an exception when a task is failed, otherwise we
         return the task_result so we can record the exit code.
         """
-        app_id = app_id or self.state["deployed_info"]["app_id"]
-        task_id = task_id or self.state["deployed_info"]["task_id"]
-        log_lines, _ = self.client.wait_for_task(
-            task_id, log_callback.info, abort_func, timeout, poll_wait, raise_on_error
-        )
-        self.connect_server.handle_bad_response(log_lines)
-        app_config = self.client.app_config(app_id)
-        self.connect_server.handle_bad_response(app_config)
-        app_dashboard_url = app_config.get("config_url")
-        log_callback.info("Deployment completed successfully.")
-        log_callback.info("\t Dashboard content URL: ")
-        log_callback.debug(app_dashboard_url)
-        log_callback.info("\t Direct content URL: ")
-        log_callback.debug(self.state["deployed_info"]["app_url"])
+        if isinstance(self.remote_server, RSConnectServer):
+            app_id = app_id or self.state["deployed_info"]["app_id"]
+            task_id = task_id or self.state["deployed_info"]["task_id"]
+            log_lines, _ = self.client.wait_for_task(
+                task_id, log_callback.info, abort_func, timeout, poll_wait, raise_on_error
+            )
+            self.remote_server.handle_bad_response(log_lines)
+            app_config = self.client.app_config(app_id)
+            self.remote_server.handle_bad_response(app_config)
+            app_dashboard_url = app_config.get("config_url")
+            log_callback.info("Deployment completed successfully.")
+            log_callback.info("\t Dashboard content URL: ")
+            log_callback.debug(app_dashboard_url)
+            log_callback.info("\t Direct content URL: ")
+            log_callback.debug(self.state["deployed_info"]["app_url"])
 
         return self
 
@@ -609,7 +679,7 @@ class RSConnectExecutor:
         deployed_info = self.get("deployed_info", *args, **kwargs)
 
         app_store.set(
-            self.connect_server.url,
+            self.remote_server.url,
             abspath(path),
             deployed_info["app_url"],
             deployed_info["app_id"],
@@ -622,7 +692,7 @@ class RSConnectExecutor:
 
     @cls_logged("Validating app mode...")
     def validate_app_mode(self, *args, **kwargs):
-        connect_server = self.connect_server
+        connect_server = self.remote_server
         path = (
             self.get("path", **kwargs)
             or self.get("file", **kwargs)
@@ -669,7 +739,7 @@ class RSConnectExecutor:
     def server_settings(self):
         try:
             result = self.client.server_settings()
-            self.connect_server.handle_bad_response(result)
+            self.remote_server.handle_bad_response(result)
         except SSLError as ssl_error:
             raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
         return result
@@ -689,7 +759,7 @@ class RSConnectExecutor:
     @property
     def api_username(self):
         result = self.client.me()
-        self.connect_server.handle_bad_response(result)
+        self.remote_server.handle_bad_response(result)
         return result["username"]
 
     @property
@@ -701,7 +771,7 @@ class RSConnectExecutor:
         :return: the Python installation information from Connect.
         """
         result = self.client.python_settings()
-        self.connect_server.handle_bad_response(result)
+        self.remote_server.handle_bad_response(result)
         return result
 
     @property
@@ -761,7 +831,7 @@ class RSConnectExecutor:
 
         # Now, make sure it's unique, if needed.
         if force_unique:
-            name = find_unique_name(self.connect_server, name)
+            name = find_unique_name(self.remote_server, name)
 
         return name
 
@@ -799,7 +869,7 @@ class ShinyappsClient(HTTPServer):
     def get_extra_headers(self, url, method, body):
         canonical_request_method = method.upper()
         canonical_request_path = parse.urlparse(url).path
-        canonical_request_date = datetime.datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
+        canonical_request_date = datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
 
         # get request checksum
         md5 = hashlib.md5()
@@ -851,7 +921,7 @@ class ShinyappsClient(HTTPServer):
         return self.get(f"/v1/tasks/{task_id}", query_params={"legacy": "true"})
 
     def get_current_user(self):
-        return self.get('/v1/users/me')
+        return self.get("/v1/users/me")
 
     def wait_until_task_is_successful(self, task_id, timeout=60):
         counter = 1
@@ -1033,14 +1103,14 @@ def do_bundle_deploy(remote_server: RemoteServer, app_id, name, title, title_is_
 
 
 def emit_task_log(
-        connect_server,
-        app_id,
-        task_id,
-        log_callback,
-        abort_func=lambda: False,
-        timeout=None,
-        poll_wait=0.5,
-        raise_on_error=True,
+    connect_server,
+    app_id,
+    task_id,
+    log_callback,
+    abort_func=lambda: False,
+    timeout=None,
+    poll_wait=0.5,
+    raise_on_error=True,
 ):
     """
     Helper for spooling the deployment log for an app.
