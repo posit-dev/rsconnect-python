@@ -502,20 +502,36 @@ class RSConnectExecutor:
         insecure: bool = False,
         cacert: IO = None,
         ca_data: str = None,
+        account_name: str = None,
+        token: str = None,
+        secret: str = None,
     ):
         if name and url:
             raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both.")
         if not name and not url:
             raise RSConnectException("You must specify one of -n/--name or -s/--server.")
-
+        if api_key and (token or secret):
+            raise RSConnectException("You must specify either only 1) an api key, or 2) a token and a secret.")
         if cacert and not ca_data:
             ca_data = text_type(cacert.read())
 
-        url, api_key, insecure, ca_data, _ = ServerStore().resolve(name, url, api_key, insecure, ca_data)
-        self.connect_server = RSConnectServer(url, api_key, insecure, ca_data)
+        server_data = ServerStore().resolve(name, url, api_key, insecure, ca_data)
+        if server_data.api_key:
+            self.connect_server = RSConnectServer(
+                server_data.url, server_data.api_key, server_data.insecure, server_data.ca_data
+            )
+        elif server_data.token and server_data.secret:
+            self.connect_server = ShinyappsServer(server_data.url, account_name, server_data.token, server_data.secret)
+        else:
+            raise RSConnectException("Unable to infer Connect server.")
 
     def setup_client(self, cookies=None, timeout=30, **kwargs):
-        self.client = RSConnectClient(self.connect_server, cookies, timeout)
+        if isinstance(self.connect_server, RSConnectServer):
+            self.client = RSConnectClient(self.connect_server, cookies, timeout)
+        elif isinstance(self.connect_server, ShinyappsServer):
+            self.client = ShinyappsClient(self.connect_server, timeout)
+        else:
+            raise RSConnectException("Unable to infer Connect client.")
 
     @property
     def state(self):
