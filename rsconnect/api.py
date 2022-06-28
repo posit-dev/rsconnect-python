@@ -532,10 +532,8 @@ class RSConnectExecutor:
         self.connect_server.handle_bad_response(app_config)
         app_dashboard_url = app_config.get("config_url")
         log_callback.info("Deployment completed successfully.")
-        log_callback.info("\t Dashboard content URL: ")
-        log_callback.debug(app_dashboard_url)
-        log_callback.info("\t Direct content URL: ")
-        log_callback.debug(self.state["deployed_info"]["app_url"])
+        log_callback.info("\t Dashboard content URL: %s", app_dashboard_url)
+        log_callback.info("\t Direct content URL: %s", self.state["deployed_info"]["app_url"])
 
         return self
 
