@@ -511,7 +511,8 @@ class RSConnectExecutor:
         d = self.state
         d["title_is_default"] = not bool(title)
         d["title"] = title or _default_title(path)
-        d["deployment_name"] = self.make_deployment_name(d["title"], app_id is None)
+        force_unique_name = app_id is None and isinstance(self.remote_server, RSConnectServer)
+        d["deployment_name"] = self.make_deployment_name(d["title"], force_unique_name)
 
         try:
             bundle = func(*args, **kwargs)
