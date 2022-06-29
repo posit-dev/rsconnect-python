@@ -397,7 +397,7 @@ class RSConnectExecutor:
             )
         else:
             self.remote_server = ShinyappsServer(
-                server_data.url, server_data.name, server_data.token, server_data.secret
+                server_data.url, server_data.account, server_data.token, server_data.secret
             )
 
     def setup_client(self, cookies=None, timeout=30, **kwargs):
@@ -1103,7 +1103,6 @@ def do_bundle_deploy(remote_server: RemoteServer, app_id, name, title, title_is_
             remote_server.handle_bad_response(result)
             return result
     else:
-        raise Exception('whuh oh')
         contents = bundle.read()
         bundle_size = len(contents)
         bundle_hash = hashlib.md5(contents).hexdigest()

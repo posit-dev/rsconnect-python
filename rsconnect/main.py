@@ -286,6 +286,12 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
     help="The path to trusted TLS CA certificates.",
 )
 @click.option(
+    "--account",
+    "-a",
+    envvar="SHINYAPPS_ACCOUNT",
+    help="The shinyapps.io account name.",
+)
+@click.option(
     "--token",
     "-T",
     envvar="SHINYAPPS_TOKEN",
@@ -298,11 +304,11 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
     help="The shinyapps.io token secret.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def add(name, server, api_key, insecure, cacert, token, secret, verbose):
+def add(name, server, api_key, insecure, cacert, account, token, secret, verbose):
     set_verbosity(verbose)
 
     connect_options = {"--api-key": api_key, "--insecure": insecure, "--cacert": cacert}
-    shinyapps_options = {"--token": token, "--secret": secret}
+    shinyapps_options = {"--token": token, "--secret": secret, "--account": account}
 
     present_connect_options = [k for k, v in connect_options.items() if v]
     present_shinyapps_options = [k for k, v in shinyapps_options.items() if v]
@@ -315,15 +321,21 @@ def add(name, server, api_key, insecure, cacert, token, secret, verbose):
 
     old_server = server_store.get_by_name(name)
 
-    if present_shinyapps_options:
-        if len(present_shinyapps_options) != 2:
-            raise api.RSConnectException("--token and --secret must both be provided for shinyapps.io.")
+    print(locals())
 
-        shinyapps_server = api.ShinyappsServer(server or "https://api.shinyapps.io", name, token, secret)
+    if present_shinyapps_options:
+        if len(present_shinyapps_options) != 3:
+            raise api.RSConnectException("--account, --token, and --secret must all be provided for shinyapps.io.")
+        shinyapps_server = api.ShinyappsServer(server or "https://api.shinyapps.io", account, token, secret)
         _test_shinyappsio_creds(shinyapps_server)
 
         server_store.set(
-            name, "shinyapps", shinyapps_server.url, token=shinyapps_server.token, secret=shinyapps_server.secret
+            name,
+            "shinyapps",
+            shinyapps_server.url,
+            account=shinyapps_server.account_name,
+            token=shinyapps_server.token,
+            secret=shinyapps_server.secret,
         )
         if old_server:
             click.echo('Updated shinyapps.io credential "%s".' % name)
@@ -728,6 +740,18 @@ def deploy_notebook(
 )
 @server_args
 @content_args
+@click.option(
+    "--token",
+    "-T",
+    envvar="SHINYAPPS_TOKEN",
+    help="The shinyapps.io token.",
+)
+@click.option(
+    "--secret",
+    "-S",
+    envvar="SHINYAPPS_SECRET",
+    help="The shinyapps.io token secret.",
+)
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @cli_exception_handler
 def deploy_manifest(
@@ -736,6 +760,8 @@ def deploy_manifest(
     api_key: str,
     insecure: bool,
     cacert: typing.IO,
+    token: str,
+    secret: str,
     new: bool,
     app_id: str,
     title: str,
