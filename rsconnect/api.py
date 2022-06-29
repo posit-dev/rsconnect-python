@@ -541,7 +541,7 @@ class RSConnectExecutor:
         :param details_source: the source for obtaining server details, gather_server_details(),
         by default.
         """
-        # TODO (mslynch): check shinyapps capabilities
+        # TODO (mslynch): check shinyapps capabilities?
         if isinstance(self.remote_server, ShinyappsServer):
             return self
 
@@ -594,31 +594,28 @@ class RSConnectExecutor:
             prepare_deploy_result = self.client.prepare_deploy(
                 app_id,
                 deployment_name,
-                title,
-                title_is_default,
                 bundle_size,
                 bundle_hash,
-                env_vars,
             )
 
-            upload_url = prepare_deploy_result["presigned_url"]
+            upload_url = prepare_deploy_result.presigned_url
             parsed_upload_url = urlparse(upload_url)
             with S3Client(f"{parsed_upload_url.scheme}://{parsed_upload_url.netloc}", timeout=120) as s3_client:
                 upload_result = s3_client.upload(
                     f"{parsed_upload_url.path}?{parsed_upload_url.query}",
-                    prepare_deploy_result["presigned_checksum"],
+                    prepare_deploy_result.presigned_checksum,
                     bundle_size,
                     contents,
                 )
                 S3Server(upload_url).handle_bad_response(upload_result)
 
-            self.client.do_deploy(prepare_deploy_result["id"], prepare_deploy_result["app_id"])
+            self.client.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
 
-            webbrowser.open_new(prepare_deploy_result["app_url"])
+            webbrowser.open_new(prepare_deploy_result.app_url)
 
             self.state["deployed_info"] = {
-                "app_url": prepare_deploy_result["app_url"],
-                "app_id": prepare_deploy_result["id"],
+                "app_url": prepare_deploy_result.app_url,
+                "app_id": prepare_deploy_result.app_id,
                 "app_guid": None,
                 "title": title,
             }
@@ -668,7 +665,7 @@ class RSConnectExecutor:
 
     @cls_logged("Saving deployed information...")
     def save_deployed_info(self, *args, **kwargs):
-        app_store = self.get("app_store", *args, **kwargs)
+        app_store: AppStore = self.get("app_store", *args, **kwargs)
         path = (
             self.get("path", **kwargs)
             or self.get("file", **kwargs)
@@ -692,7 +689,6 @@ class RSConnectExecutor:
 
     @cls_logged("Validating app mode...")
     def validate_app_mode(self, *args, **kwargs):
-        connect_server = self.remote_server
         path = (
             self.get("path", **kwargs)
             or self.get("file", **kwargs)
@@ -716,13 +712,17 @@ class RSConnectExecutor:
             if app_id is None:
                 # Possible redeployment - check for saved metadata.
                 # Use the saved app information unless overridden by the user.
-                app_id, existing_app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
+                app_id, existing_app_mode = app_store.resolve(self.remote_server.url, app_id, app_mode)
                 logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
             elif app_id is not None:
                 # Don't read app metadata if app-id is specified. Instead, we need
-                # to get this from Connect.
-                app = get_app_info(connect_server, app_id)
-                existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
+                # to get this from the remote.
+                if isinstance(self.remote_server, RSConnectServer):
+                    app = get_app_info(self.remote_server, app_id)
+                    existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
+                else:
+                    app = get_shinyapp_info(self.remote_server, app_id)
+                    existing_app_mode = AppModes.get_by_cloud_name(app.json_data["mode"])
             if existing_app_mode and app_mode != existing_app_mode:
                 msg = (
                     "Deploying with mode '%s',\n"
@@ -852,6 +852,15 @@ class S3Client(HTTPServer):
         return self.put(path, headers=headers, body=contents, decode_response=False)
 
 
+class PrepareDeployResult:
+    def __init__(self, app_id: int, app_url: str, bundle_id: int, presigned_url: str, presigned_checksum: str):
+        self.app_id = app_id
+        self.app_url = app_url
+        self.bundle_id = bundle_id
+        self.presigned_url = presigned_url
+        self.presigned_checksum = presigned_checksum
+
+
 class ShinyappsClient(HTTPServer):
     def __init__(self, shinyapps_server: ShinyappsServer, timeout: int = 30):
         self._token = shinyapps_server.token
@@ -890,6 +899,9 @@ class ShinyappsClient(HTTPServer):
             "Date": canonical_request_date,
             "X-Content-Checksum": canonical_request_checksum,
         }
+
+    def get_application(self, application_id):
+        return self.get(f"/v1/applications/{application_id}")
 
     def create_application(self, account_id, application_name):
         application_data = {
@@ -942,11 +954,11 @@ class ShinyappsClient(HTTPServer):
             counter += 1
         click.secho(f"Task done: {description}")
 
-    def prepare_deploy(self, app_id, app_name, app_title, title_is_default, bundle_size, bundle_hash, env_vars=None):
+    def prepare_deploy(self, app_id: typing.Optional[str], app_name: str, bundle_size: int, bundle_hash: str):
         accounts = self.get_accounts()
         self._server.handle_bad_response(accounts)
         account = next(
-            filter(lambda account: account["name"] == self._server.account_name, accounts.json_data["accounts"]), None
+            filter(lambda acct: acct["name"] == self._server.account_name, accounts.json_data["accounts"]), None
         )
         # TODO: also check this during `add` command
         if account is None:
@@ -954,13 +966,24 @@ class ShinyappsClient(HTTPServer):
                 "No account found by name : %s for given user credential" % self._server.account_name
             )
 
-        application = self.create_application(account["id"], app_name)
+        if app_id is None:
+            application = self.create_application(account["id"], app_name)
+        else:
+            application = self.get_application(app_id)
         self._server.handle_bad_response(application)
+        app_id = application.json_data["id"]
+        app_url = application.json_data["url"]
 
-        bundle = self.create_bundle(application.json_data["id"], "application/x-tar", bundle_size, bundle_hash)
+        bundle = self.create_bundle(app_id, "application/x-tar", bundle_size, bundle_hash)
         self._server.handle_bad_response(bundle)
 
-        return {"app_id": application.json_data["id"], "app_url": application.json_data["url"], **bundle.json_data}
+        return PrepareDeployResult(
+            int(app_id),
+            app_url,
+            int(bundle.json_data["id"]),
+            bundle.json_data["presigned_url"],
+            bundle.json_data["presigned_checksum"],
+        )
 
     def do_deploy(self, bundle_id, app_id):
         bundle_status_response = self.set_bundle_status(bundle_id, "ready")
@@ -1039,6 +1062,13 @@ def get_app_info(connect_server, app_id):
         return result
 
 
+def get_shinyapp_info(server, app_id):
+    with ShinyappsClient(server) as client:
+        result = client.get_application(app_id)
+        server.handle_bad_response(result)
+        return result
+
+
 def get_app_config(connect_server, app_id):
     """
     Return the configuration information for an application that has been created
@@ -1074,32 +1104,36 @@ def do_bundle_deploy(remote_server: RemoteServer, app_id, name, title, title_is_
             remote_server.handle_bad_response(result)
             return result
     else:
+        raise Exception('whuh oh')
         contents = bundle.read()
         bundle_size = len(contents)
         bundle_hash = hashlib.md5(contents).hexdigest()
 
         with ShinyappsClient(remote_server, timeout=120) as client:
-            prepare_deploy_result = client.prepare_deploy(
-                app_id, name, title, title_is_default, bundle_size, bundle_hash, env_vars
-            )
+            prepare_deploy_result = client.prepare_deploy(app_id, name, bundle_size, bundle_hash)
 
-        upload_url = prepare_deploy_result["presigned_url"]
+        upload_url = prepare_deploy_result.presigned_url
         parsed_upload_url = urlparse(upload_url)
         with S3Client(f"{parsed_upload_url.scheme}://{parsed_upload_url.netloc}", timeout=120) as client:
             upload_result = client.upload(
                 upload_url,
-                prepare_deploy_result["presigned_checksum"],
+                prepare_deploy_result.presigned_checksum,
                 bundle_size,
                 contents,
             )
             S3Server(upload_url).handle_bad_response(upload_result)
 
         with ShinyappsClient(remote_server, timeout=120) as client:
-            client.do_deploy(prepare_deploy_result["id"], prepare_deploy_result["app_id"])
+            client.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
 
-        webbrowser.open_new(prepare_deploy_result["app_url"])
+        webbrowser.open_new(prepare_deploy_result.app_url)
 
-        return {"app_url": prepare_deploy_result["app_url"], "app_id": prepare_deploy_result["id"], "app_guid": None}
+        return {
+            "app_url": prepare_deploy_result.app_url,
+            "app_id": prepare_deploy_result.app_id,
+            "app_guid": None,
+            "title": title,
+        }
 
 
 def emit_task_log(

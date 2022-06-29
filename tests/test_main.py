@@ -15,27 +15,11 @@ from .utils import (
     require_api_key,
     require_connect,
 )
-from rsconnect.exception import RSConnectException
-from rsconnect.main import cli, _validate_deploy_to_args, server_store
+from rsconnect.main import cli
 from rsconnect import VERSION
 
 
 class TestMain(TestCase):
-    def test_validate_deploy_to_args(self):
-        server_store.set("fake", "connect", "http://example.com", None)
-
-        try:
-            with self.assertRaises(RSConnectException):
-                _validate_deploy_to_args("name", "url", None, False, None)
-
-            with self.assertRaises(RSConnectException):
-                _validate_deploy_to_args(None, None, None, False, None)
-
-            with self.assertRaises(RSConnectException):
-                _validate_deploy_to_args("fake", None, None, False, None)
-        finally:
-            server_store.remove_by_name("fake")
-
     def require_connect(self):
         connect_server = os.environ.get("CONNECT_SERVER", None)
         if connect_server is None:

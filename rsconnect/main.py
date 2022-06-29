@@ -323,7 +323,7 @@ def add(name, server, api_key, insecure, cacert, token, secret, verbose):
         _test_shinyappsio_creds(shinyapps_server)
 
         server_store.set(
-            name, 'shinyapps', shinyapps_server.url, token=shinyapps_server.token, secret=shinyapps_server.secret
+            name, "shinyapps", shinyapps_server.url, token=shinyapps_server.token, secret=shinyapps_server.secret
         )
         if old_server:
             click.echo('Updated shinyapps.io credential "%s".' % name)
@@ -335,7 +335,7 @@ def add(name, server, api_key, insecure, cacert, token, secret, verbose):
 
         server_store.set(
             name,
-            'connect',
+            "connect",
             real_server.url,
             real_server.api_key,
             real_server.insecure,
@@ -520,64 +520,6 @@ def info(file):
 @cli.group(no_args_is_help=True, help="Deploy content to RStudio Connect.")
 def deploy():
     pass
-
-
-def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_required=True) -> api.RemoteServer:
-    # TODO (mslynch): accept non-saved credentials here (maybe)?
-    """
-    Validate that the user gave us enough information to talk to a Connect server.
-
-    :param name: the nickname, if any, specified by the user.
-    :param url: the URL, if any, specified by the user.
-    :param api_key: the API key, if any, specified by the user.
-    :param insecure: a flag noting whether TLS host/validation should be skipped.
-    :param ca_cert: the name of a CA certs file containing certificates to use.
-    :param api_key_is_required: a flag that notes whether the API key is required or may
-    be omitted.
-    :return: a ConnectServer or ShinyappsServer object that carries all the right info.
-    """
-    ca_data = ca_cert and text_type(ca_cert.read())
-
-    if name and url:
-        raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both")
-
-    server_data = server_store.resolve(name, url, api_key, insecure, ca_data)
-
-    # This can happen if the user specifies neither --name or --server and there's not
-    # a single default to go with.
-    if not server_data.url:
-        raise api.RSConnectException("You must specify one of -n/--name or -s/--server.")
-
-    if server_data.target == "connect":
-
-        connect_server = api.RSConnectServer(server_data.url, None, server_data.insecure, server_data.ca_data)
-
-        # If our info came from the command line, make sure the URL really works.
-        if not server_data.from_store:
-            connect_server, _ = test_server(connect_server)
-
-        connect_server.api_key = server_data.api_key
-
-    if not connect_server.api_key:
-        if api_key_is_required:
-            raise RSConnectException('An API key must be specified for "%s".' % connect_server.url)
-        return connect_server
-
-        # If our info came from the command line, make sure the key really works.
-        if not server_data.from_store:
-            _ = test_api_key(connect_server)
-
-        return connect_server
-    else:
-        # TODO (mslynch): replace nickname with account name
-        if not server_data.token:
-            raise api.RSConnectException("A token must be specified.")
-        if not server_data.token:
-            raise api.RSConnectException("A secret must be specified.")
-
-        server = api.ShinyappsServer(server_data.url, server_data.name, server_data.token, server_data.secret)
-        test_shinyapps_server(server)
-        return server
 
 
 def _warn_on_ignored_manifest(directory):
