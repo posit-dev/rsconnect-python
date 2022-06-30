@@ -222,7 +222,6 @@ class ServerData:
     def __init__(
         self,
         name: str,
-        target: str,
         url: str,
         from_store: bool,
         api_key: typing.Optional[str] = None,
@@ -233,7 +232,6 @@ class ServerData:
         secret: typing.Optional[str] = None,
     ):
         self.name = name
-        self.target = target
         self.url = url
         self.from_store = from_store
         self.api_key = api_key
@@ -319,7 +317,7 @@ class ServerStore(DataStore):
         """
         return self._remove_by_value_attr("name", "url", url)
 
-    def resolve(self, name, url, api_key, insecure, ca_data, target="connect"):
+    def resolve(self, name, url, api_key, insecure, ca_data, account, token, secret):
         """
         This function will resolve the given inputs into a set of server information.
         It assumes that either `name` or `url` is provided.
@@ -340,6 +338,9 @@ class ServerStore(DataStore):
         :param api_key: the API key provided on the command line.
         :param insecure: the insecure flag provided on the command line.
         :param ca_data: the CA certification data provided on the command line.
+        :param account: the shinyapps.io account name.
+        :param :token: the shinyapps.io auth token.
+        :param :secret: the shinyapps.io auth secret.
         :return: the information needed to interact with the resolved server and whether
         it came from the store or the arguments.
         """
@@ -359,7 +360,6 @@ class ServerStore(DataStore):
         if entry:
             return ServerData(
                 name,
-                entry["target"],
                 entry["url"],
                 True,
                 insecure=entry.get("insecure"),
@@ -372,13 +372,14 @@ class ServerStore(DataStore):
         else:
             return ServerData(
                 name,
-                # TODO (mslynch): this function needs to receive target
-                "connect",
                 url,
                 False,
                 insecure=insecure,
                 ca_data=ca_data,
                 api_key=api_key,
+                account=account,
+                token=token,
+                secret=secret,
             )
 
 

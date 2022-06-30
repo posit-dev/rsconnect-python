@@ -305,6 +305,7 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def add(name, server, api_key, insecure, cacert, account, token, secret, verbose):
+
     set_verbosity(verbose)
 
     connect_options = {"--api-key": api_key, "--insecure": insecure, "--cacert": cacert}
@@ -320,8 +321,6 @@ def add(name, server, api_key, insecure, cacert, account, token, secret, verbose
         )
 
     old_server = server_store.get_by_name(name)
-
-    print(locals())
 
     if present_shinyapps_options:
         if len(present_shinyapps_options) != 3:
@@ -741,6 +740,14 @@ def deploy_notebook(
 @server_args
 @content_args
 @click.option(
+    "--account",
+    "-a",
+    envvar="SHINYAPPS_ACCOUNT",
+    help="The shinyapps.io account name.",
+)
+@server_args
+@content_args
+@click.option(
     "--token",
     "-T",
     envvar="SHINYAPPS_TOKEN",
@@ -760,6 +767,7 @@ def deploy_manifest(
     api_key: str,
     insecure: bool,
     cacert: typing.IO,
+    account: str,
     token: str,
     secret: str,
     new: bool,
