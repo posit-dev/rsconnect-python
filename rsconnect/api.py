@@ -397,6 +397,8 @@ class RSConnectExecutor:
             )
         elif server_data.token and server_data.secret:
             self.connect_server = ShinyappsServer(server_data.url, account_name, server_data.token, server_data.secret)
+        elif token and secret:
+            self.connect_server = ShinyappsServer(url, account_name, token, secret)            
         else:
             raise RSConnectException("Unable to infer Connect server.")
 
