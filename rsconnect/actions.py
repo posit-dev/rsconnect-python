@@ -1537,8 +1537,8 @@ def _gather_basic_deployment_info_for_framework(
                 app = api.get_app_info(remote_server, app_id)
                 existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
             else:
-                # TODO this
-                raise NotImplementedError("TODO (mslynch): get app mode from lucid-server")
+                app = api.get_shinyapp_info(remote_server, app_id)
+                existing_app_mode = AppModes.get_by_cloud_name(app.json_data["mode"])
         if existing_app_mode and app_mode != existing_app_mode:
             msg = (
                 "Deploying with mode '%s',\n"
