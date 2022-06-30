@@ -420,12 +420,15 @@ class RSConnectExecutor:
             api_key = server_data.api_key
             insecure = server_data.insecure
             ca_data = server_data.ca_data
+            account = server_data.account
             token = server_data.token
             secret = server_data.secret
         self.is_server_from_store = server_data.from_store
 
-        if target == "connect":
+        if api_key:
             self.remote_server = RSConnectServer(url, api_key, insecure, ca_data)
+        elif token and secret:
+            self.remote_server = ShinyappsServer(url, account, token, secret)
         else:
             self.remote_server = ShinyappsServer(url, account, token, secret)
 
@@ -448,17 +451,80 @@ class RSConnectExecutor:
         return func(*args, **kwargs)
 
     @cls_logged("Validating server...")
-    def validate_server(self):
+    def validate_server(
+        self,
+        name: str = None,
+        url: str = None,
+        api_key: str = None,
+        insecure: bool = False,
+        cacert: IO = None,
+        api_key_is_required: bool = False,
+        account_name: str = None,
+        token: str = None,
+        secret: str = None,
+    ):
+        if (url and api_key) or isinstance(self.remote_server, RSConnectServer):
+            self.validate_connect_server(name, url, api_key, insecure, cacert, api_key_is_required)
+        elif (url and token and secret) or isinstance(self.remote_server, ShinyappsServer):
+            self.validate_shinyapps_server(url, account_name, token, secret)
+        else:
+            raise RSConnectException("Unable to validate server from information provided.")
+
+        return self
+
+    def validate_connect_server(
+        self,
+        name: str = None,
+        url: str = None,
+        api_key: str = None,
+        insecure: bool = False,
+        cacert: IO = None,
+        api_key_is_required: bool = False,
+        **kwargs
+    ):
         """
         Validate that the user gave us enough information to talk to shinyapps.io or a Connect server.
         """
-        if isinstance(self.remote_server, RSConnectServer):
-            # If our info came from the command line, make sure the URL and key really work.
-            if not self.is_server_from_store:
-                self.server_settings
-                _ = self.verify_api_key()
-        else:
-            self.client.get_current_user()
+        url = url or self.remote_server.url
+        api_key = api_key or self.remote_server.api_key
+        insecure = insecure or self.remote_server.insecure
+        api_key_is_required = api_key_is_required or self.get("api_key_is_required", **kwargs)
+
+        ca_data = None
+        if cacert:
+            ca_data = text_type(cacert.read())
+        api_key = api_key or self.remote_server.api_key
+        insecure = insecure or self.remote_server.insecure
+        if not ca_data:
+            ca_data = self.remote_server.ca_data
+
+        api_key_is_required = api_key_is_required or self.get("api_key_is_required", **kwargs)
+
+        if name and url:
+            raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both")
+        if not name and not url:
+            raise RSConnectException("You must specify one of -n/--name or -s/--server.")
+
+        server_data = ServerStore().resolve(name, url)
+        connect_server = RSConnectServer(url, None, insecure, ca_data)
+
+        # If our info came from the command line, make sure the URL really works.
+        if not server_data.from_store:
+            self.server_settings
+
+        connect_server.api_key = api_key
+
+        if not connect_server.api_key:
+            if api_key_is_required:
+                raise RSConnectException('An API key must be specified for "%s".' % connect_server.url)
+            return self
+
+        # If our info came from the command line, make sure the key really works.
+        if not server_data.from_store:
+            _ = self.verify_api_key(connect_server)
+
+        self.remote_server = connect_server
+        self.client = RSConnectClient(self.remote_server)
 
         return self
 

@@ -277,12 +277,11 @@ class ServerStore(DataStore):
         """
         return self._get_sorted_values(lambda s: s["name"])
 
-    def set(self, name, url, target, api_key=None, insecure=False, ca_data=None, account=None, token=None, secret=None):
+    def set(self, name, url, api_key=None, insecure=False, ca_data=None, account=None, token=None, secret=None):
         """
         Add (or update) information about a Connect server
 
         :param name: the nickname for the Connect server.
-        :param target: the type of target (connect/shinyapps).
         :param url: the full URL for the Connect server.
         :param api_key: the API key to use to authenticate with the Connect server.
         :param insecure: a flag to disable TLS verification.
@@ -295,7 +294,7 @@ class ServerStore(DataStore):
             name=name,
             url=url,
         )
-        if target == "connect":
+        if api_key:
             target_data = dict(api_key=api_key, insecure=insecure, ca_cert=ca_data)
         else:
             target_data = dict(account=account, token=token, secret=secret)

@@ -17,12 +17,11 @@ class TestServerMetadata(TestCase):
         self.server_store_path = join(self.tempDir, "servers.json")
         self.assertFalse(exists(self.server_store_path))
 
-        self.server_store.set("foo", "http://connect.local", "connect", "notReallyAnApiKey", ca_data="/certs/connect")
-        self.server_store.set("bar", "http://connect.remote", "connect", "differentApiKey", insecure=True)
+        self.server_store.set("foo", "http://connect.local", "notReallyAnApiKey", ca_data="/certs/connect")
+        self.server_store.set("bar", "http://connect.remote", "differentApiKey", insecure=True)
         self.server_store.set(
             "baz",
             "https://shinyapps.io",
-            "shinyapps",
             account="someAccount",
             token="someToken",
             secret="c29tZVNlY3JldAo=",
