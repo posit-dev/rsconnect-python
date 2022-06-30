@@ -1,19 +1,25 @@
 """
 RStudio Connect API client and utility functions
 """
+from os.path import abspath, basename
+import time
+from typing import IO, Callable
+from _ssl import SSLError
+import re
+from warnings import warn
+from six import text_type
+import gc
 import base64
 import datetime
 import hashlib
 import hmac
-
-from os.path import abspath, basename
-import time
 import typing
 import webbrowser
-from typing import IO, Callable
 from _ssl import SSLError
 from urllib import parse
 from urllib.parse import urlparse
+import click
+
 
 import re
 from warnings import warn
@@ -27,6 +33,7 @@ from .log import logger, connect_logger, cls_logged, console_logger
 from .models import AppModes
 from .metadata import ServerStore, AppStore
 from .exception import RSConnectException
+from .bundle import _default_title, fake_module_file_from_directory
 
 
 class AbstractRemoteServer:
@@ -407,23 +414,28 @@ class RSConnectExecutor:
         if cacert and not ca_data:
             ca_data = text_type(cacert.read())
 
-        server_data = ServerStore().resolve(name, url, api_key, insecure, ca_data, account, token, secret)
+        server_data = ServerStore().resolve(name, url)
+        if server_data.from_store:
+            url = server_data.url
+            api_key = server_data.api_key
+            insecure = server_data.insecure
+            ca_data = server_data.ca_data
+            token = server_data.token
+            secret = server_data.secret
         self.is_server_from_store = server_data.from_store
 
-        if target == "connect":
-            self.remote_server = RSConnectServer(
-                server_data.url, server_data.api_key, server_data.insecure, server_data.ca_data
-            )
+        if target == 'connect':
+            self.remote_server = RSConnectServer(url, api_key, insecure, ca_data)
         else:
-            self.remote_server = ShinyappsServer(
-                server_data.url, server_data.account, server_data.token, server_data.secret
-            )
+            self.remote_server = ShinyappsServer(url, account, token, secret)
 
     def setup_client(self, cookies=None, timeout=30, **kwargs):
         if isinstance(self.remote_server, RSConnectServer):
             self.client = RSConnectClient(self.remote_server, cookies, timeout)
+        elif isinstance(self.remote_server, ShinyappsServer):
+            self.client = ShinyappsClient(self.remote_server, timeout)
         else:
-            self.client = ShinyappsClient(self.remote_server)
+            raise RSConnectException("Unable to infer Connect client.")
 
     @property
     def state(self):
@@ -449,6 +461,22 @@ class RSConnectExecutor:
             self.client.get_current_user()
 
         return self
+
+    def validate_shinyapps_server(
+        self, url: str = None, account_name: str = None, token: str = None, secret: str = None, **kwargs
+    ):
+        url = url or self.remote_server.url
+        account_name = account_name or self.remote_server.account_name
+        token = token or self.remote_server.token
+        secret = secret or self.remote_server.secret
+        server = ShinyappsServer(url, account_name, token, secret)
+
+        with ShinyappsClient(server) as client:
+            try:
+                result = client.get_current_user()
+                server.handle_bad_response(result)
+            except RSConnectException as exc:
+                raise RSConnectException(f"Failed to verify with shinyapps.io ({str(exc)}).")
 
     @cls_logged("Making bundle ...")
     def make_bundle(self, func: Callable, *args, **kwargs):
@@ -703,16 +731,21 @@ class RSConnectExecutor:
             raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
         return result
 
-    def verify_api_key(self):
+    def verify_api_key(self, server=None):
         """
         Verify that an API Key may be used to authenticate with the given RStudio Connect server.
         If the API key verifies, we return the username of the associated user.
         """
-        result = self.client.me()
-        if isinstance(result, HTTPResponse):
-            if result.json_data and "code" in result.json_data and result.json_data["code"] == 30:
-                raise RSConnectException("The specified API key is not valid.")
-            raise RSConnectException("Could not verify the API key: %s %s" % (result.status, result.reason))
+        if not server:
+            server = self.remote_server
+        if isinstance(server, ShinyappsServer):
+            raise RSConnectException("Shinnyapps server does not use an API key.")
+        with RSConnectClient(server) as client:
+            result = client.me()
+            if isinstance(result, HTTPResponse):
+                if result.json_data and "code" in result.json_data and result.json_data["code"] == 30:
+                    raise RSConnectException("The specified API key is not valid.")
+                raise RSConnectException("Could not verify the API key: %s %s" % (result.status, result.reason))
         return self
 
     @property
@@ -904,7 +937,7 @@ class ShinyappsClient(HTTPServer):
             status = task.json_data["status"]
             description = task.json_data["description"]
 
-            print("\nWaiting: {} - {}".format(status, description))
+            print("Waiting: {} - {}".format(status, description))
 
             if status == "success":
                 break
@@ -981,7 +1014,6 @@ def verify_api_key(connect_server):
     :return: the username of the user to whom the API key belongs.
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-
     with RSConnectClient(connect_server) as client:
         result = client.me()
         if isinstance(result, HTTPResponse):
@@ -1000,7 +1032,6 @@ def get_python_info(connect_server):
     :return: the Python installation information from Connect.
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-
     with RSConnectClient(connect_server) as client:
         result = client.python_settings()
         connect_server.handle_bad_response(result)
@@ -1043,11 +1074,11 @@ def get_app_config(connect_server, app_id):
         return result
 
 
-def do_bundle_deploy(remote_server: RemoteServer, app_id, name, title, title_is_default, bundle, env_vars):
+def do_bundle_deploy(connect_server: RemoteServer, app_id, name, title, title_is_default, bundle, env_vars):
     """
     Deploys the specified bundle.
 
-    :param remote_server: the server information.
+    :param connect_server: the server information.
     :param app_id: the ID of the app to deploy, if this is a redeploy.
     :param name: the name for the deploy.
     :param title: the title for the deploy.
@@ -1057,17 +1088,17 @@ def do_bundle_deploy(remote_server: RemoteServer, app_id, name, title, title_is_
     :return: application information about the deploy.  This includes the ID of the
     task that may be queried for deployment progress.
     """
-    if isinstance(remote_server, RSConnectServer):
-        with RSConnectClient(remote_server, timeout=120) as client:
+    if isinstance(connect_server, RSConnectServer):
+        with RSConnectClient(connect_server, timeout=120) as client:
             result = client.deploy(app_id, name, title, title_is_default, bundle, env_vars)
-            remote_server.handle_bad_response(result)
+            connect_server.handle_bad_response(result)
             return result
     else:
         contents = bundle.read()
         bundle_size = len(contents)
         bundle_hash = hashlib.md5(contents).hexdigest()
 
-        with ShinyappsClient(remote_server, timeout=120) as client:
+        with ShinyappsClient(connect_server, timeout=120) as client:
             prepare_deploy_result = client.prepare_deploy(app_id, name, bundle_size, bundle_hash)
 
         upload_url = prepare_deploy_result.presigned_url
@@ -1081,7 +1112,7 @@ def do_bundle_deploy(remote_server: RemoteServer, app_id, name, title, title_is_
             )
             S3Server(upload_url).handle_bad_response(upload_result)
 
-        with ShinyappsClient(remote_server, timeout=120) as client:
+        with ShinyappsClient(connect_server, timeout=120) as client:
             client.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
 
         webbrowser.open_new(prepare_deploy_result.app_url)

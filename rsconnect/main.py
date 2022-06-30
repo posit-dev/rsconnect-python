@@ -21,11 +21,6 @@ from .actions import (
     test_server,
     validate_quarto_engines,
     which_quarto,
-    write_api_manifest_json,
-    write_environment_file,
-    write_notebook_manifest_json,
-    write_quarto_manifest_json,
-    fake_module_file_from_directory,
     test_shinyapps_server,
 )
 from .actions_content import (

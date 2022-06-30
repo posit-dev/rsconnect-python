@@ -4,13 +4,11 @@ Public API for administering content.
 import json
 import time
 import traceback
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
-
 import semver
 
-from .api import RSConnectClient, RSConnectException, emit_task_log
+from .api import RSConnectClient, emit_task_log
 from .log import logger
 from .models import BuildStatus, ContentGuidWithBundle
 from .metadata import ContentBuildStore

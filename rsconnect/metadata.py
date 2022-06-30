@@ -277,7 +277,7 @@ class ServerStore(DataStore):
         """
         return self._get_sorted_values(lambda s: s["name"])
 
-    def set(self, name, target, url, api_key=None, insecure=False, ca_data=None, account=None, token=None, secret=None):
+    def set(self, name, url, api_key=None, insecure=False, ca_data=None, token=None, secret=None):
         """
         Add (or update) information about a Connect server
 
@@ -292,13 +292,10 @@ class ServerStore(DataStore):
         :param secret: shinyapps.io secret.
         """
         common_data = dict(
-            target=target,
+            name=name,
             url=url,
         )
-        if target == "connect":
-            target_data = dict(api_key=api_key, insecure=insecure, ca_cert=ca_data)
-        else:
-            target_data = dict(account=account, token=token, secret=secret)
+        target_data = dict(api_key=api_key, insecure=insecure, ca_data=ca_data, token=token, secret=secret)
         self._set(name, {**common_data, **target_data})
 
     def remove_by_name(self, name):
@@ -317,7 +314,7 @@ class ServerStore(DataStore):
         """
         return self._remove_by_value_attr("name", "url", url)
 
-    def resolve(self, name, url, api_key, insecure, ca_data, account, token, secret):
+    def resolve(self, name, url):
         """
         This function will resolve the given inputs into a set of server information.
         It assumes that either `name` or `url` is provided.
@@ -335,12 +332,6 @@ class ServerStore(DataStore):
 
         :param name: the nickname to look for.
         :param url: the Connect server URL to look for.
-        :param api_key: the API key provided on the command line.
-        :param insecure: the insecure flag provided on the command line.
-        :param ca_data: the CA certification data provided on the command line.
-        :param account: the shinyapps.io account name.
-        :param :token: the shinyapps.io auth token.
-        :param :secret: the shinyapps.io auth secret.
         :return: the information needed to interact with the resolved server and whether
         it came from the store or the arguments.
         """
@@ -363,7 +354,7 @@ class ServerStore(DataStore):
                 entry["url"],
                 True,
                 insecure=entry.get("insecure"),
-                ca_data=entry.get("ca_cert"),
+                ca_data=entry.get("ca_data"),
                 api_key=entry.get("api_key"),
                 account=entry.get("account"),
                 token=entry.get("token"),
@@ -374,12 +365,6 @@ class ServerStore(DataStore):
                 name,
                 url,
                 False,
-                insecure=insecure,
-                ca_data=ca_data,
-                api_key=api_key,
-                account=account,
-                token=token,
-                secret=secret,
             )
 
 
