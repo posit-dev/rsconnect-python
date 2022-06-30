@@ -396,6 +396,7 @@ class RSConnectExecutor:
             api_key = server_data.api_key
             insecure = server_data.insecure
             ca_data = server_data.ca_data
+            account_name = server_data.account
             token = server_data.token
             secret = server_data.secret
 
