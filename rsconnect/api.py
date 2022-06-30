@@ -552,6 +552,27 @@ class RSConnectExecutor:
         insecure: bool = False,
         cacert: IO = None,
         api_key_is_required: bool = False,
+        account_name: str = None,
+        token: str = None,
+        secret: str = None,
+    ):
+        if (url and api_key) or isinstance(self.connect_server, RSConnectServer):
+            self.validate_connect_server(name, url, api_key, insecure, cacert, api_key_is_required)
+        elif (url and token and secret) or isinstance(self.connect_server, ShinyappsServer):
+            self.validate_shinyapps_server(url, account_name, token, secret)
+        else:
+            raise RSConnectException("Unable to validate server from information provided.")
+
+        return self
+
+    def validate_connect_server(
+        self,
+        name: str = None,
+        url: str = None,
+        api_key: str = None,
+        insecure: bool = False,
+        cacert: IO = None,
+        api_key_is_required: bool = False,
         **kwargs
     ):
         """
@@ -569,7 +590,6 @@ class RSConnectExecutor:
         api_key = api_key or self.connect_server.api_key
         insecure = insecure or self.connect_server.insecure
         api_key_is_required = api_key_is_required or self.get("api_key_is_required", **kwargs)
-        server_store = ServerStore()
 
         if cacert:
             ca_data = text_type(cacert.read())
@@ -581,19 +601,11 @@ class RSConnectExecutor:
         if not name and not url:
             raise RSConnectException("You must specify one of -n/--name or -s/--server.")
 
-        real_server, api_key, insecure, ca_data, from_store = server_store.resolve(
-            name, url, api_key, insecure, ca_data
-        )
-
-        # This can happen if the user specifies neither --name or --server and there's not
-        # a single default to go with.
-        if not real_server:
-            raise RSConnectException("You must specify one of -n/--name or -s/--server.")
-
-        connect_server = RSConnectServer(real_server, None, insecure, ca_data)
+        server_data = ServerStore().resolve(name, url, api_key, insecure, ca_data)
+        connect_server = RSConnectServer(url, None, insecure, ca_data)
 
         # If our info came from the command line, make sure the URL really works.
-        if not from_store:
+        if not server_data.from_store:
             self.server_settings
 
         connect_server.api_key = api_key
@@ -604,13 +616,29 @@ class RSConnectExecutor:
             return self
 
         # If our info came from the command line, make sure the key really works.
-        if not from_store:
-            _ = self.verify_api_key()
+        if not server_data.from_store:
+            _ = self.verify_api_key(connect_server)
 
         self.connect_server = connect_server
         self.client = RSConnectClient(self.connect_server)
 
         return self
+
+    def validate_shinyapps_server(
+        self, url: str = None, account_name: str = None, token: str = None, secret: str = None, **kwargs
+    ):
+        url = url or self.connect_server.url
+        account_name = account_name or self.connect_server.account_name
+        token = token or self.connect_server.token
+        secret = secret or self.connect_server.secret
+        server = ShinyappsServer(url, account_name, token, secret)
+
+        with ShinyappsClient(server) as client:
+            try:
+                result = client.get_current_user()
+                server.handle_bad_response(result)
+            except RSConnectException as exc:
+                raise RSConnectException(f"Failed to verify with shinyapps.io ({str(exc)}).")
 
     @cls_logged("Making bundle ...")
     def make_bundle(self, func: Callable, *args, **kwargs):
@@ -815,16 +843,21 @@ class RSConnectExecutor:
             raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
         return result
 
-    def verify_api_key(self):
+    def verify_api_key(self, server=None):
         """
         Verify that an API Key may be used to authenticate with the given RStudio Connect server.
         If the API key verifies, we return the username of the associated user.
         """
-        result = self.client.me()
-        if isinstance(result, HTTPResponse):
-            if result.json_data and "code" in result.json_data and result.json_data["code"] == 30:
-                raise RSConnectException("The specified API key is not valid.")
-            raise RSConnectException("Could not verify the API key: %s %s" % (result.status, result.reason))
+        if not server:
+            server = self.connect_server
+        if isinstance(server, ShinyappsServer):
+            raise RSConnectException("Shinnyapps server does not use an API key.")
+        with RSConnectClient(server) as client:
+            result = client.me()
+            if isinstance(result, HTTPResponse):
+                if result.json_data and "code" in result.json_data and result.json_data["code"] == 30:
+                    raise RSConnectException("The specified API key is not valid.")
+                raise RSConnectException("Could not verify the API key: %s %s" % (result.status, result.reason))
         return self
 
     @property
