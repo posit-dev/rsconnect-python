@@ -1,4 +1,5 @@
 import os
+import unittest
 from os.path import join
 
 from unittest import TestCase
@@ -14,27 +15,11 @@ from .utils import (
     require_api_key,
     require_connect,
 )
-from rsconnect.exception import RSConnectException
-from rsconnect.main import cli, _validate_deploy_to_args, server_store
+from rsconnect.main import cli
 from rsconnect import VERSION
 
 
 class TestMain(TestCase):
-    def test_validate_deploy_to_args(self):
-        server_store.set("fake", "connect", "http://example.com", None)
-
-        try:
-            with self.assertRaises(RSConnectException):
-                _validate_deploy_to_args("name", "url", None, False, None)
-
-            with self.assertRaises(RSConnectException):
-                _validate_deploy_to_args(None, None, None, False, None)
-
-            with self.assertRaises(RSConnectException):
-                _validate_deploy_to_args("fake", None, None, False, None)
-        finally:
-            server_store.remove_by_name("fake")
-
     def require_connect(self):
         connect_server = os.environ.get("CONNECT_SERVER", None)
         if connect_server is None:
@@ -110,7 +95,6 @@ class TestMain(TestCase):
         args = self.create_deploy_args("api", target)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("OK", result.output)
 
     def test_add_connect(self):
         connect_server = self.require_connect()
@@ -120,6 +104,8 @@ class TestMain(TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("OK", result.output)
 
+    # TODO (mslynch): mock shinyapps.io
+    @unittest.skip
     def test_add_shinyapps(self):
         runner = CliRunner()
         result = runner.invoke(
@@ -140,18 +126,20 @@ class TestMain(TestCase):
         self.assertIn("shinyapps.io credential", result.output)
 
     def test_add_shinyapps_missing_options(self):
-        runner = CliRunner()
-        result = runner.invoke(
-            cli,
-            [
-                "add",
-                "--target",
-                "shinyapps",
-                "--name",
-                "my-shinyapps",
-                "--token",
-                "someToken",
-            ],
-        )
-        self.assertEqual(result.exit_code, 1, result.output)
-        self.assertEqual(str(result.exception), "API key must be specified when using target type 'shinyapps'.")
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY")
+        try:
+            runner = CliRunner()
+            result = runner.invoke(
+                cli,
+                [
+                    "add",
+                    "--name",
+                    "my-shinyapps",
+                    "--token",
+                    "someToken",
+                ],
+            )
+            self.assertEqual(result.exit_code, 1, result.output)
+            self.assertEqual(str(result.exception), "--token and --secret must both be provided for shinyapps.io.")
+        finally:
+            os.environ["CONNECT_API_KEY"] = original_api_key_value

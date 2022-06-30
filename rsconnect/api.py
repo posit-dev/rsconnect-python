@@ -9,12 +9,10 @@ import re
 from warnings import warn
 from six import text_type
 import gc
-from .bundle import fake_module_file_from_directory
 import base64
 import datetime
 import hashlib
 import hmac
-import time
 import typing
 import webbrowser
 from _ssl import SSLError
@@ -22,12 +20,12 @@ from urllib import parse
 from urllib.parse import urlparse
 import click
 
-
 from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
 from .log import logger, connect_logger, cls_logged, console_logger
 from .models import AppModes
 from .metadata import ServerStore, AppStore
 from .exception import RSConnectException
+from .bundle import _default_title, fake_module_file_from_directory
 
 
 class AbstractRemoteServer:
@@ -54,12 +52,16 @@ class AbstractRemoteServer:
             # also catches all error conditions which we will report as "not running Connect".
             else:
                 if response.json_data and "error" in response.json_data and response.json_data["error"] is not None:
-                    error = "%s reported an error: %s" % (self.remote_name, response.json_data["error"])
+                    error = "%s reported an error (calling %s): %s" % (
+                        self.remote_name,
+                        response.full_uri,
+                        response.json_data["error"],
+                    )
                     raise RSConnectException(error)
                 if response.status < 200 or response.status > 299:
                     raise RSConnectException(
-                        "Received an unexpected response from %s: %s %s"
-                        % (self.remote_name, response.status, response.reason)
+                        "Received an unexpected response from %s (calling %s): %s %s"
+                        % (self.remote_name, response.full_uri, response.status, response.reason)
                     )
 
 
@@ -322,135 +324,6 @@ class RSConnectClient(HTTPServer):
         return new_last_status
 
 
-class S3Client(HTTPServer):
-    def upload(self, path, presigned_checksum, bundle_size, contents):
-        headers = {
-            "content-type": "application/x-tar",
-            "content-length": str(bundle_size),
-            "content-md5": presigned_checksum,
-        }
-        return self.put(path, headers=headers, body=contents, decode_response=False)
-
-
-class ShinyappsClient(HTTPServer):
-    def __init__(self, shinyapps_server: ShinyappsServer, timeout: int = 30):
-        self._token = shinyapps_server.token
-        self._key = base64.b64decode(shinyapps_server.secret)
-        self._server = shinyapps_server
-        super().__init__(shinyapps_server.url, timeout=timeout)
-
-    def _get_canonical_request(self, method, path, timestamp, content_hash):
-        return "\n".join([method, path, timestamp, content_hash])
-
-    def _get_canonical_request_signature(self, request):
-        result = hmac.new(self._key, request.encode(), hashlib.sha256).hexdigest()
-        return base64.b64encode(result.encode()).decode()
-
-    def get_extra_headers(self, url, method, body):
-        canonical_request_method = method.upper()
-        canonical_request_path = parse.urlparse(url).path
-        canonical_request_date = datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
-
-        # get request checksum
-        md5 = hashlib.md5()
-        body = body or b""
-        body_bytes = body if isinstance(body, bytes) else body.encode()
-        md5.update(body_bytes)
-        canonical_request_checksum = md5.hexdigest()
-
-        canonical_request = self._get_canonical_request(
-            canonical_request_method, canonical_request_path, canonical_request_date, canonical_request_checksum
-        )
-
-        signature = self._get_canonical_request_signature(canonical_request)
-
-        return {
-            "X-Auth-Token": "{0}".format(self._token),
-            "X-Auth-Signature": "{0}; version=1".format(signature),
-            "Date": canonical_request_date,
-            "X-Content-Checksum": canonical_request_checksum,
-        }
-
-    def create_application(self, account_id, application_name):
-        application_data = {
-            "account": account_id,
-            "name": application_name,
-            "template": "shiny",
-        }
-        return self.post("/v1/applications/", body=application_data)
-
-    def get_accounts(self):
-        return self.get("/v1/accounts/")
-
-    def create_bundle(self, application_id: int, content_type: str, content_length: int, checksum: str):
-        bundle_data = {
-            "application": application_id,
-            "content_type": content_type,
-            "content_length": content_length,
-            "checksum": checksum,
-        }
-        return self.post("/v1/bundles", body=bundle_data)
-
-    def set_bundle_status(self, bundle_id, bundle_status):
-        return self.post(f"/v1/bundles/{bundle_id}/status", body={"status": bundle_status})
-
-    def deploy_application(self, bundle_id, app_id):
-        return self.post(f"/v1/applications/{app_id}/deploy", body={"bundle": bundle_id, "rebuild": False})
-
-    def get_task(self, task_id):
-        return self.get(f"/v1/tasks/{task_id}", query_params={"legacy": "true"})
-
-    def get_current_user(self):
-        return self.get("/v1/users/me")
-
-    def wait_until_task_is_successful(self, task_id, timeout=60):
-        counter = 1
-        status = None
-
-        while counter < timeout and status not in ["success", "failed", "error"]:
-            task = self.get_task(task_id)
-            self._server.handle_bad_response(task)
-            status = task.json_data["status"]
-            description = task.json_data["description"]
-
-            click.secho(f"Waiting: {status} - {description}")
-
-            if status == "success":
-                break
-
-            time.sleep(2)
-            counter += 1
-        click.secho(f"Task done: {description}")
-
-    def prepare_deploy(self, app_id, app_name, app_title, title_is_default, bundle_size, bundle_hash, env_vars=None):
-        accounts = self.get_accounts()
-        self._server.handle_bad_response(accounts)
-        account = next(
-            filter(lambda account: account["name"] == self._server.account_name, accounts.json_data["accounts"]), None
-        )
-        # TODO: also check this during `add` command
-        if account is None:
-            raise RSConnectException(
-                "No account found by name : %s for given user credential" % self._server.account_name
-            )
-
-        application = self.create_application(account["id"], app_name)
-        self._server.handle_bad_response(application)
-
-        bundle = self.create_bundle(application.json_data["id"], "application/x-tar", bundle_size, bundle_hash)
-        self._server.handle_bad_response(bundle)
-
-        return {"app_id": application.json_data["id"], "app_url": application.json_data["url"], **bundle.json_data}
-
-    def do_deploy(self, bundle_id, app_id):
-        bundle_status_response = self.set_bundle_status(bundle_id, "ready")
-        self._server.handle_bad_response(bundle_status_response)
-
-        deploy_task = self.deploy_application(bundle_id, app_id)
-        self._server.handle_bad_response(deploy_task)
-        self.wait_until_task_is_successful(deploy_task.json_data["id"])
-
-
 class RSConnectExecutor:
     def __init__(
         self,
@@ -461,6 +334,8 @@ class RSConnectExecutor:
         cacert: IO = None,
         ca_data: str = None,
         cookies=None,
+        token: str = None,
+        secret: str = None,
         timeout: int = 30,
         logger=console_logger,
         **kwargs
@@ -576,7 +451,7 @@ class RSConnectExecutor:
         **kwargs
     ):
         """
-        Validate that the user gave us enough information to talk to a Connect server.
+        Validate that the user gave us enough information to talk to shinyapps.io or a Connect server.
 
         :param name: the nickname, if any, specified by the user.
         :param url: the URL, if any, specified by the user.
@@ -585,19 +460,30 @@ class RSConnectExecutor:
         :param cacert: the file object of a CA certs file containing certificates to use.
         :param api_key_is_required: a flag that notes whether the API key is required or may
         be omitted.
+        :param token: The shinyapps.io authentication token.
+        :param secret: The shinyapps.io authentication secret.
         """
         url = url or self.connect_server.url
         api_key = api_key or self.connect_server.api_key
         insecure = insecure or self.connect_server.insecure
         api_key_is_required = api_key_is_required or self.get("api_key_is_required", **kwargs)
 
+        ca_data = None
         if cacert:
             ca_data = text_type(cacert.read())
+        if isinstance(self.connect_server, RSConnectServer):
+            api_key = api_key or self.connect_server.api_key
+            insecure = insecure or self.connect_server.insecure
+            if not ca_data:
+                ca_data = self.connect_server.ca_data
         else:
-            ca_data = self.connect_server.ca_data
+            token = token or self.connect_server.token
+            secret = secret or self.connect_server.secret
+
+        api_key_is_required = api_key_is_required or self.get("api_key_is_required", **kwargs)
 
         if name and url:
-            raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both.")
+            raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both")
         if not name and not url:
             raise RSConnectException("You must specify one of -n/--name or -s/--server.")
 
@@ -659,7 +545,8 @@ class RSConnectExecutor:
         d = self.state
         d["title_is_default"] = not bool(title)
         d["title"] = title or _default_title(path)
-        d["deployment_name"] = self.make_deployment_name(d["title"], app_id is None)
+        force_unique_name = app_id is None and isinstance(self.connect_server, RSConnectServer)
+        d["deployment_name"] = self.make_deployment_name(d["title"], force_unique_name)
 
         try:
             bundle = func(*args, **kwargs)
@@ -689,6 +576,10 @@ class RSConnectExecutor:
         :param details_source: the source for obtaining server details, gather_server_details(),
         by default.
         """
+        # TODO (mslynch): check shinyapps capabilities?
+        if isinstance(self.connect_server, ShinyappsServer):
+            return self
+
         details = self.server_details
 
         for function in capability_functions:
@@ -711,17 +602,59 @@ class RSConnectExecutor:
         bundle: IO = None,
         env_vars=None,
     ):
-        result = self.client.deploy(
-            app_id or self.get("app_id"),
-            deployment_name or self.get("deployment_name"),
-            title or self.get("title"),
-            title_is_default or self.get("title_is_default"),
-            bundle or self.get("bundle"),
-            env_vars or self.get("env_vars"),
-        )
-        self.connect_server.handle_bad_response(result)
-        self.state["deployed_info"] = result
-        return self
+        app_id = app_id or self.get("app_id")
+        deployment_name = deployment_name or self.get("deployment_name")
+        title = title or self.get("title")
+        title_is_default = title_is_default or self.get("title_is_default")
+        bundle = bundle or self.get("bundle")
+        env_vars = env_vars or self.get("env_vars")
+
+        if isinstance(self.connect_server, RSConnectServer):
+            result = self.client.deploy(
+                app_id,
+                deployment_name,
+                title,
+                title_is_default,
+                bundle,
+                env_vars,
+            )
+            self.connect_server.handle_bad_response(result)
+            self.state["deployed_info"] = result
+            return self
+        else:
+            contents = bundle.read()
+            bundle_size = len(contents)
+            bundle_hash = hashlib.md5(contents).hexdigest()
+
+            prepare_deploy_result = self.client.prepare_deploy(
+                app_id,
+                deployment_name,
+                bundle_size,
+                bundle_hash,
+            )
+
+            upload_url = prepare_deploy_result.presigned_url
+            parsed_upload_url = urlparse(upload_url)
+            with S3Client(f"{parsed_upload_url.scheme}://{parsed_upload_url.netloc}", timeout=120) as s3_client:
+                upload_result = s3_client.upload(
+                    f"{parsed_upload_url.path}?{parsed_upload_url.query}",
+                    prepare_deploy_result.presigned_checksum,
+                    bundle_size,
+                    contents,
+                )
+                S3Server(upload_url).handle_bad_response(upload_result)
+
+            self.client.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
+
+            webbrowser.open_new(prepare_deploy_result.app_url)
+
+            self.state["deployed_info"] = {
+                "app_url": prepare_deploy_result.app_url,
+                "app_id": prepare_deploy_result.app_id,
+                "app_guid": None,
+                "title": title,
+            }
+            return self
 
     def emit_task_log(
         self,
@@ -736,7 +669,6 @@ class RSConnectExecutor:
         """
         Helper for spooling the deployment log for an app.
 
-        :param connect_server: the Connect server information.
         :param app_id: the ID of the app that was deployed.
         :param task_id: the ID of the task that is tracking the deployment of the app..
         :param log_callback: the callback to use to write the log to.  If this is None
@@ -748,24 +680,25 @@ class RSConnectExecutor:
         :param raise_on_error: whether to raise an exception when a task is failed, otherwise we
         return the task_result so we can record the exit code.
         """
-        app_id = app_id or self.state["deployed_info"]["app_id"]
-        task_id = task_id or self.state["deployed_info"]["task_id"]
-        log_lines, _ = self.client.wait_for_task(
-            task_id, log_callback.info, abort_func, timeout, poll_wait, raise_on_error
-        )
-        self.connect_server.handle_bad_response(log_lines)
-        app_config = self.client.app_config(app_id)
-        self.connect_server.handle_bad_response(app_config)
-        app_dashboard_url = app_config.get("config_url")
-        log_callback.info("Deployment completed successfully.")
-        log_callback.info("\t Dashboard content URL: %s", app_dashboard_url)
-        log_callback.info("\t Direct content URL: %s", self.state["deployed_info"]["app_url"])
+        if isinstance(self.connect_server, RSConnectServer):
+            app_id = app_id or self.state["deployed_info"]["app_id"]
+            task_id = task_id or self.state["deployed_info"]["task_id"]
+            log_lines, _ = self.client.wait_for_task(
+                task_id, log_callback.info, abort_func, timeout, poll_wait, raise_on_error
+            )
+            self.connect_server.handle_bad_response(log_lines)
+            app_config = self.client.app_config(app_id)
+            self.connect_server.handle_bad_response(app_config)
+            app_dashboard_url = app_config.get("config_url")
+            log_callback.info("Deployment completed successfully.")
+            log_callback.info("\t Dashboard content URL: %s", app_dashboard_url)
+            log_callback.info("\t Direct content URL: %s", self.state["deployed_info"]["app_url"])
 
         return self
 
     @cls_logged("Saving deployed information...")
     def save_deployed_info(self, *args, **kwargs):
-        app_store = self.get("app_store", *args, **kwargs)
+        app_store: AppStore = self.get("app_store", *args, **kwargs)
         path = (
             self.get("path", **kwargs)
             or self.get("file", **kwargs)
@@ -789,7 +722,6 @@ class RSConnectExecutor:
 
     @cls_logged("Validating app mode...")
     def validate_app_mode(self, *args, **kwargs):
-        connect_server = self.connect_server
         path = (
             self.get("path", **kwargs)
             or self.get("file", **kwargs)
@@ -813,13 +745,17 @@ class RSConnectExecutor:
             if app_id is None:
                 # Possible redeployment - check for saved metadata.
                 # Use the saved app information unless overridden by the user.
-                app_id, existing_app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
+                app_id, existing_app_mode = app_store.resolve(self.connect_server.url, app_id, app_mode)
                 logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
             elif app_id is not None:
                 # Don't read app metadata if app-id is specified. Instead, we need
-                # to get this from Connect.
-                app = get_app_info(connect_server, app_id)
-                existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
+                # to get this from the remote.
+                if isinstance(self.connect_server, RSConnectServer):
+                    app = get_app_info(self.connect_server, app_id)
+                    existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
+                else:
+                    app = get_shinyapp_info(self.connect_server, app_id)
+                    existing_app_mode = AppModes.get_by_cloud_name(app.json_data["mode"])
             if existing_app_mode and app_mode != existing_app_mode:
                 msg = (
                     "Deploying with mode '%s',\n"
@@ -944,6 +880,158 @@ def filter_out_server_info(**kwargs):
     return new_kwargs
 
 
+class S3Client(HTTPServer):
+    def upload(self, path, presigned_checksum, bundle_size, contents):
+        headers = {
+            "content-type": "application/x-tar",
+            "content-length": str(bundle_size),
+            "content-md5": presigned_checksum,
+        }
+        return self.put(path, headers=headers, body=contents, decode_response=False)
+
+
+class PrepareDeployResult:
+    def __init__(self, app_id: int, app_url: str, bundle_id: int, presigned_url: str, presigned_checksum: str):
+        self.app_id = app_id
+        self.app_url = app_url
+        self.bundle_id = bundle_id
+        self.presigned_url = presigned_url
+        self.presigned_checksum = presigned_checksum
+
+
+class ShinyappsClient(HTTPServer):
+    def __init__(self, shinyapps_server: ShinyappsServer, timeout: int = 30):
+        self._token = shinyapps_server.token
+        self._key = base64.b64decode(shinyapps_server.secret)
+        self._server = shinyapps_server
+        super().__init__(shinyapps_server.url, timeout=timeout)
+
+    def _get_canonical_request(self, method, path, timestamp, content_hash):
+        return "\n".join([method, path, timestamp, content_hash])
+
+    def _get_canonical_request_signature(self, request):
+        result = hmac.new(self._key, request.encode(), hashlib.sha256).hexdigest()
+        return base64.b64encode(result.encode()).decode()
+
+    def get_extra_headers(self, url, method, body):
+        canonical_request_method = method.upper()
+        canonical_request_path = parse.urlparse(url).path
+        canonical_request_date = datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+        # get request checksum
+        md5 = hashlib.md5()
+        body = body or b""
+        body_bytes = body if isinstance(body, bytes) else body.encode()
+        md5.update(body_bytes)
+        canonical_request_checksum = md5.hexdigest()
+
+        canonical_request = self._get_canonical_request(
+            canonical_request_method, canonical_request_path, canonical_request_date, canonical_request_checksum
+        )
+
+        signature = self._get_canonical_request_signature(canonical_request)
+
+        return {
+            "X-Auth-Token": "{0}".format(self._token),
+            "X-Auth-Signature": "{0}; version=1".format(signature),
+            "Date": canonical_request_date,
+            "X-Content-Checksum": canonical_request_checksum,
+        }
+
+    def get_application(self, application_id):
+        return self.get(f"/v1/applications/{application_id}")
+
+    def create_application(self, account_id, application_name):
+        application_data = {
+            "account": account_id,
+            "name": application_name,
+            "template": "shiny",
+        }
+        return self.post("/v1/applications/", body=application_data)
+
+    def get_accounts(self):
+        return self.get("/v1/accounts/")
+
+    def create_bundle(self, application_id: int, content_type: str, content_length: int, checksum: str):
+        bundle_data = {
+            "application": application_id,
+            "content_type": content_type,
+            "content_length": content_length,
+            "checksum": checksum,
+        }
+        return self.post("/v1/bundles", body=bundle_data)
+
+    def set_bundle_status(self, bundle_id, bundle_status):
+        return self.post(f"/v1/bundles/{bundle_id}/status", body={"status": bundle_status})
+
+    def deploy_application(self, bundle_id, app_id):
+        return self.post(f"/v1/applications/{app_id}/deploy", body={"bundle": bundle_id, "rebuild": False})
+
+    def get_task(self, task_id):
+        return self.get(f"/v1/tasks/{task_id}", query_params={"legacy": "true"})
+
+    def get_current_user(self):
+        return self.get("/v1/users/me")
+
+    def wait_until_task_is_successful(self, task_id, timeout=60):
+        counter = 1
+        status = None
+
+        while counter < timeout and status not in ["success", "failed", "error"]:
+            task = self.get_task(task_id)
+            self._server.handle_bad_response(task)
+            status = task.json_data["status"]
+            description = task.json_data["description"]
+
+            click.secho(f"Waiting: {status} - {description}")
+
+            if status == "success":
+                break
+
+            time.sleep(2)
+            counter += 1
+        click.secho(f"Task done: {description}")
+
+    def prepare_deploy(self, app_id: typing.Optional[str], app_name: str, bundle_size: int, bundle_hash: str):
+        accounts = self.get_accounts()
+        self._server.handle_bad_response(accounts)
+        account = next(
+            filter(lambda acct: acct["name"] == self._server.account_name, accounts.json_data["accounts"]), None
+        )
+        # TODO: also check this during `add` command
+        if account is None:
+            raise RSConnectException(
+                "No account found by name : %s for given user credential" % self._server.account_name
+            )
+
+        if app_id is None:
+            application = self.create_application(account["id"], app_name)
+        else:
+            application = self.get_application(app_id)
+        self._server.handle_bad_response(application)
+        app_id = application.json_data["id"]
+        app_url = application.json_data["url"]
+
+        bundle = self.create_bundle(app_id, "application/x-tar", bundle_size, bundle_hash)
+        self._server.handle_bad_response(bundle)
+
+        return PrepareDeployResult(
+            int(app_id),
+            app_url,
+            int(bundle.json_data["id"]),
+            bundle.json_data["presigned_url"],
+            bundle.json_data["presigned_checksum"],
+        )
+
+    def do_deploy(self, bundle_id, app_id):
+        bundle_status_response = self.set_bundle_status(bundle_id, "ready")
+        self._server.handle_bad_response(bundle_status_response)
+
+        deploy_task = self.deploy_application(bundle_id, app_id)
+        self._server.handle_bad_response(deploy_task)
+        self.wait_until_task_is_successful(deploy_task.json_data["id"])
+
+
 def verify_server(connect_server):
     """
     Verify that the given server information represents a Connect instance that is
@@ -973,7 +1061,6 @@ def verify_api_key(connect_server):
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     with RSConnectClient(connect_server) as client:
-
         result = client.me()
         if isinstance(result, HTTPResponse):
             if result.json_data and "code" in result.json_data and result.json_data["code"] == 30:
@@ -992,7 +1079,6 @@ def get_python_info(connect_server):
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     with RSConnectClient(connect_server) as client:
-
         result = client.python_settings()
         connect_server.handle_bad_response(result)
         return result
@@ -1012,6 +1098,13 @@ def get_app_info(connect_server, app_id):
         return result
 
 
+def get_shinyapp_info(server, app_id):
+    with ShinyappsClient(server) as client:
+        result = client.get_application(app_id)
+        server.handle_bad_response(result)
+        return result
+
+
 def get_app_config(connect_server, app_id):
     """
     Return the configuration information for an application that has been created
@@ -1027,11 +1120,11 @@ def get_app_config(connect_server, app_id):
         return result
 
 
-def do_bundle_deploy(remote_server: RemoteServer, app_id, name, title, title_is_default, bundle, env_vars):
+def do_bundle_deploy(connect_server: RemoteServer, app_id, name, title, title_is_default, bundle, env_vars):
     """
     Deploys the specified bundle.
 
-    :param remote_server: the server information.
+    :param connect_server: the server information.
     :param app_id: the ID of the app to deploy, if this is a redeploy.
     :param name: the name for the deploy.
     :param title: the title for the deploy.
@@ -1041,38 +1134,41 @@ def do_bundle_deploy(remote_server: RemoteServer, app_id, name, title, title_is_
     :return: application information about the deploy.  This includes the ID of the
     task that may be queried for deployment progress.
     """
-    if isinstance(remote_server, RSConnectServer):
-        with RSConnectClient(remote_server, timeout=120) as client:
+    if isinstance(connect_server, RSConnectServer):
+        with RSConnectClient(connect_server, timeout=120) as client:
             result = client.deploy(app_id, name, title, title_is_default, bundle, env_vars)
-            remote_server.handle_bad_response(result)
+            connect_server.handle_bad_response(result)
             return result
     else:
         contents = bundle.read()
         bundle_size = len(contents)
         bundle_hash = hashlib.md5(contents).hexdigest()
 
-        with ShinyappsClient(remote_server, timeout=120) as client:
-            prepare_deploy_result = client.prepare_deploy(
-                app_id, name, title, title_is_default, bundle_size, bundle_hash, env_vars
-            )
+        with ShinyappsClient(connect_server, timeout=120) as client:
+            prepare_deploy_result = client.prepare_deploy(app_id, name, bundle_size, bundle_hash)
 
-        upload_url = prepare_deploy_result["presigned_url"]
+        upload_url = prepare_deploy_result.presigned_url
         parsed_upload_url = urlparse(upload_url)
         with S3Client(f"{parsed_upload_url.scheme}://{parsed_upload_url.netloc}", timeout=120) as client:
             upload_result = client.upload(
                 upload_url,
-                prepare_deploy_result["presigned_checksum"],
+                prepare_deploy_result.presigned_checksum,
                 bundle_size,
                 contents,
             )
             S3Server(upload_url).handle_bad_response(upload_result)
 
-        with ShinyappsClient(remote_server, timeout=120) as client:
-            client.do_deploy(prepare_deploy_result["id"], prepare_deploy_result["app_id"])
+        with ShinyappsClient(connect_server, timeout=120) as client:
+            client.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
 
-        webbrowser.open_new(prepare_deploy_result["app_url"])
+        webbrowser.open_new(prepare_deploy_result.app_url)
 
-        return {"app_url": prepare_deploy_result["app_url"], "app_id": prepare_deploy_result["id"], "app_guid": None}
+        return {
+            "app_url": prepare_deploy_result.app_url,
+            "app_id": prepare_deploy_result.app_id,
+            "app_guid": None,
+            "title": title,
+        }
 
 
 def emit_task_log(

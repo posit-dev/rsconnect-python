@@ -11,7 +11,7 @@ class TestAPI(TestCase):
         connect_server = require_connect(self)
         api_key = require_api_key(self)
         ce = RSConnectExecutor(None, connect_server, api_key, True, None)
-        self.assertEqual(ce.connect_server.url, connect_server)
+        self.assertEqual(ce.remote_server.url, connect_server)
 
     def test_output_task_log(self):
         lines = ["line 1", "line 2", "line 3"]

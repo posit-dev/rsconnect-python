@@ -227,6 +227,7 @@ class ServerData:
         api_key: typing.Optional[str] = None,
         insecure: typing.Optional[bool] = None,
         ca_data: typing.Optional[str] = None,
+        account: typing.Optional[str] = None,
         token: typing.Optional[str] = None,
         secret: typing.Optional[str] = None,
     ):
@@ -236,6 +237,7 @@ class ServerData:
         self.api_key = api_key
         self.insecure = insecure
         self.ca_data = ca_data
+        self.account = account
         self.token = token
         self.secret = secret
 
@@ -285,8 +287,9 @@ class ServerStore(DataStore):
         :param api_key: the API key to use to authenticate with the Connect server.
         :param insecure: a flag to disable TLS verification.
         :param ca_data: client side certificate data to use for TLS.
+        :param account: shinyapps.io account name.
         :param token: shinyapps.io token.
-        :param token: shinyapps.io secret.
+        :param secret: shinyapps.io secret.
         """
         common_data = dict(
             name=name,
@@ -356,6 +359,7 @@ class ServerStore(DataStore):
                 insecure=entry.get("insecure"),
                 ca_data=entry.get("ca_data"),
                 api_key=entry.get("api_key"),
+                account=entry.get("account"),
                 token=entry.get("token"),
                 secret=entry.get("secret"),
             )

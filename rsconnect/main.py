@@ -255,14 +255,6 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
 )
 @click.option("--name", "-n", required=True, help="The nickname of the RStudio Connect server to deploy to.")
 @click.option(
-    "--target",
-    "-t",
-    type=click.Choice(["connect", "shinyapps"]),
-    default="connect",
-    envvar="RSCONNECT_SERVER_TYPE",
-    help="The target platform of this credential (Connect or shinyapps.io).",
-)
-@click.option(
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
@@ -289,6 +281,12 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
     help="The path to trusted TLS CA certificates.",
 )
 @click.option(
+    "--account",
+    "-a",
+    envvar="SHINYAPPS_ACCOUNT",
+    help="The shinyapps.io account name.",
+)
+@click.option(
     "--token",
     "-T",
     envvar="SHINYAPPS_TOKEN",
@@ -301,46 +299,48 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
     help="The shinyapps.io token secret.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def add(name, target, server, api_key, insecure, cacert, token, secret, verbose):
+def add(name, server, api_key, insecure, cacert, account, token, secret, verbose):
     set_verbosity(verbose)
+
+    connect_options = {"--api-key": api_key, "--insecure": insecure, "--cacert": cacert}
+    shinyapps_options = {"--token": token, "--secret": secret, "--account": account}
+
+    present_connect_options = [k for k, v in connect_options.items() if v]
+    present_shinyapps_options = [k for k, v in shinyapps_options.items() if v]
+
+    if present_connect_options and present_shinyapps_options:
+        raise api.RSConnectException(
+            f"Connect options ({', '.join(present_connect_options)}) may not be passed alongside "
+            f"shinyapps.io options ({', '.join(present_shinyapps_options)})."
+        )
 
     old_server = server_store.get_by_name(name)
 
-    # validate options
-    if target == "connect":
-        # # disallowed
-        # if token is not None:
-        #     raise RSConnectException("Token may not be specified when using target type 'connect'.")
-        # if secret is not None:
-        #     raise RSConnectException("Secret may not be specified when using target type 'connect'.")
+    if present_shinyapps_options:
+        if len(present_shinyapps_options) != 3:
+            raise api.RSConnectException("--account, --token, and --secret must all be provided for shinyapps.io.")
+        shinyapps_server = api.ShinyappsServer(server or "https://api.shinyapps.io", account, token, secret)
+        _test_shinyappsio_creds(shinyapps_server)
 
-        # required
-        if server is None:
-            raise RSConnectException("Server must be specified when using target type 'connect'.")
-        if api_key is None:
-            raise RSConnectException("API key must be specified when using target type 'connect'.")
+        server_store.set(
+            name,
+            "shinyapps",
+            shinyapps_server.url,
+            account=shinyapps_server.account_name,
+            token=shinyapps_server.token,
+            secret=shinyapps_server.secret,
+        )
+        if old_server:
+            click.echo('Updated shinyapps.io credential "%s".' % name)
+        else:
+            click.echo('Added shinyapps.io credential "%s".' % name)
     else:
-        # # disallowed
-        # if api_key is not None:
-        #     raise RSConnectException("API key may not be specified when using target type 'shinyapps'.")
-        # if insecure is not None:
-        #     raise RSConnectException("Insecure may not be specified when using target type 'shinyapps'.")
-        # if cacert is not None:
-        #     raise RSConnectException("CA certificate may not be specified when using target type 'shinyapps'.")
-
-        # required
-        if token is None:
-            raise RSConnectException("Server must be specified when using target type 'shinyapps'.")
-        if secret is None:
-            raise RSConnectException("API key must be specified when using target type 'shinyapps'.")
-
-    if target == "connect":
         # Server must be pingable and the API key must work to be added.
         real_server, _ = _test_server_and_api(server, api_key, insecure, cacert)
 
         server_store.set(
             name,
-            target,
+            "connect",
             real_server.url,
             real_server.api_key,
             real_server.insecure,
@@ -351,17 +351,6 @@ def add(name, target, server, api_key, insecure, cacert, token, secret, verbose)
             click.echo('Updated Connect server "%s" with URL %s' % (name, real_server.url))
         else:
             click.echo('Added Connect server "%s" with URL %s' % (name, real_server.url))
-    else:
-        shinyapps_server = api.ShinyappsServer(server or "https://api.shinyapps.io", name, token, secret)
-        _test_shinyappsio_creds(shinyapps_server)
-
-        server_store.set(
-            name, target, shinyapps_server.url, token=shinyapps_server.token, secret=shinyapps_server.secret
-        )
-        if old_server:
-            click.echo('Added shinyapps.io credential "%s".' % name)
-        else:
-            click.echo('Updated shinyapps.io credential "%s".' % name)
 
 
 @cli.command(
@@ -409,9 +398,9 @@ def details(name, server, api_key, insecure, cacert, verbose):
 
     ce = RSConnectExecutor(name, server, api_key, insecure, cacert).validate_server()
 
-    click.echo("    RStudio Connect URL: %s" % ce.connect_server.url)
+    click.echo("    RStudio Connect URL: %s" % ce.remote_server.url)
 
-    if not ce.connect_server.api_key:
+    if not ce.remote_server.api_key:
         return
 
     with cli_feedback("Gathering details"):
@@ -536,64 +525,6 @@ def info(file):
 @cli.group(no_args_is_help=True, help="Deploy content to RStudio Connect.")
 def deploy():
     pass
-
-
-def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_required=True) -> api.RemoteServer:
-    # TODO (mslynch): accept non-saved credentials here (maybe)?
-    """
-    Validate that the user gave us enough information to talk to a Connect server.
-
-    :param name: the nickname, if any, specified by the user.
-    :param url: the URL, if any, specified by the user.
-    :param api_key: the API key, if any, specified by the user.
-    :param insecure: a flag noting whether TLS host/validation should be skipped.
-    :param ca_cert: the name of a CA certs file containing certificates to use.
-    :param api_key_is_required: a flag that notes whether the API key is required or may
-    be omitted.
-    :return: a ConnectServer or ShinyappsServer object that carries all the right info.
-    """
-    ca_data = ca_cert and text_type(ca_cert.read())
-
-    if name and url:
-        raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both.")
-
-    server_data = server_store.resolve(name, url, api_key, insecure, ca_data)
-
-    # This can happen if the user specifies neither --name or --server and there's not
-    # a single default to go with.
-    if not server_data.url:
-        raise RSConnectException("You must specify one of -n/--name or -s/--server.")
-
-    if server_data.target == "connect":
-
-        connect_server = api.RSConnectServer(server_data.url, None, server_data.insecure, server_data.ca_data)
-
-        # If our info came from the command line, make sure the URL really works.
-        if not server_data.from_store:
-            connect_server, _ = test_server(connect_server)
-
-        connect_server.api_key = server_data.api_key
-
-        if not connect_server.api_key:
-            if api_key_is_required:
-                raise RSConnectException('An API key must be specified for "%s".' % connect_server.url)
-            return connect_server
-
-        # If our info came from the command line, make sure the key really works.
-        if not server_data.from_store:
-            _ = test_api_key(connect_server)
-
-        return connect_server
-    else:
-        # TODO (mslynch): replace nickname with account name
-        if not server_data.token:
-            raise RSConnectException("A token must be specified.")
-        if not server_data.token:
-            raise RSConnectException("A secret must be specified.")
-
-        server = api.ShinyappsServer(server_data.url, server_data.name, server_data.token, server_data.secret)
-        test_shinyapps_server(server)
-        return server
 
 
 def _warn_on_ignored_manifest(directory):
@@ -802,6 +733,18 @@ def deploy_notebook(
 )
 @server_args
 @content_args
+@click.option(
+    "--token",
+    "-T",
+    envvar="SHINYAPPS_TOKEN",
+    help="The shinyapps.io token.",
+)
+@click.option(
+    "--secret",
+    "-S",
+    envvar="SHINYAPPS_SECRET",
+    help="The shinyapps.io token secret.",
+)
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @cli_exception_handler
 def deploy_manifest(
@@ -810,6 +753,8 @@ def deploy_manifest(
     api_key: str,
     insecure: bool,
     cacert: typing.IO,
+    token: str,
+    secret: str,
     new: bool,
     app_id: str,
     title: str,
@@ -1671,7 +1616,7 @@ def content_search(
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         result = search_content(
-            ce.connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
+            ce.remote_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
         )
         json.dump(result, sys.stdout, indent=2)
 
@@ -1723,7 +1668,7 @@ def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
-        result = get_content(ce.connect_server, guid)
+        result = get_content(ce.remote_server, guid)
         json.dump(result, sys.stdout, indent=2)
 
 
@@ -1787,7 +1732,7 @@ def content_bundle_download(name, server, api_key, insecure, cacert, guid, outpu
         if exists(output) and not overwrite:
             raise RSConnectException("The output file already exists: %s" % output)
 
-        result = download_bundle(ce.connect_server, guid)
+        result = download_bundle(ce.remote_server, guid)
         with open(output, "wb") as f:
             f.write(result.response_body)
 
@@ -1842,7 +1787,7 @@ def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
-        build_add_content(ce.connect_server, guid)
+        build_add_content(ce.remote_server, guid)
         if len(guid) == 1:
             logger.info('Added "%s".' % guid[0])
         else:
@@ -1907,7 +1852,7 @@ def remove_content_build(name, server, api_key, insecure, cacert, guid, all, pur
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         _validate_build_rm_args(guid, all, purge)
-        guids = build_remove_content(ce.connect_server, guid, all, purge)
+        guids = build_remove_content(ce.remote_server, guid, all, purge)
         if len(guids) == 1:
             logger.info('Removed "%s".' % guids[0])
         else:
@@ -1960,7 +1905,7 @@ def list_content_build(name, server, api_key, insecure, cacert, status, guid, ve
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
-        result = build_list_content(ce.connect_server, guid, status)
+        result = build_list_content(ce.remote_server, guid, status)
         json.dump(result, sys.stdout, indent=2)
 
 
@@ -2008,7 +1953,7 @@ def get_build_history(name, server, api_key, insecure, cacert, guid, verbose):
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert)
         ce.validate_server()
-        result = build_history(ce.connect_server, guid)
+        result = build_history(ce.remote_server, guid)
         json.dump(result, sys.stdout, indent=2)
 
 
@@ -2071,7 +2016,7 @@ def get_build_logs(name, server, api_key, insecure, cacert, guid, task_id, forma
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
-        for line in emit_build_log(ce.connect_server, guid, format, task_id):
+        for line in emit_build_log(ce.remote_server, guid, format, task_id):
             sys.stdout.write(line)
 
 
@@ -2138,7 +2083,7 @@ def start_content_build(
     logger.set_log_output_format(format)
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
-        build_start(ce.connect_server, parallelism, aborted, error, all, poll_wait, debug)
+        build_start(ce.remote_server, parallelism, aborted, error, all, poll_wait, debug)
 
 
 if __name__ == "__main__":
