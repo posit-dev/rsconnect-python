@@ -1736,7 +1736,17 @@ def deploy_bundle(
     :return: application information about the deploy.  This includes the ID of the
     task that may be queried for deployment progress.
     """
-    return api.do_bundle_deploy(remote_server, app_id, name, title, title_is_default, bundle, env_vars)
+    ce = RSConnectExecutor(
+        server=remote_server,
+        app_id=app_id,
+        name=name,
+        title=title,
+        title_is_default=title_is_default,
+        bundle=bundle,
+        env_vars=env_vars,
+    )
+    ce.deploy_bundle()
+    return ce.state["deployed_info"]
 
 
 def spool_deployment_log(connect_server, app, log_callback):

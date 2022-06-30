@@ -424,7 +424,7 @@ class RSConnectExecutor:
             secret = server_data.secret
         self.is_server_from_store = server_data.from_store
 
-        if target == 'connect':
+        if target == "connect":
             self.remote_server = RSConnectServer(url, api_key, insecure, ca_data)
         else:
             self.remote_server = ShinyappsServer(url, account, token, secret)
@@ -1072,57 +1072,6 @@ def get_app_config(connect_server, app_id):
         result = client.app_config(app_id)
         connect_server.handle_bad_response(result)
         return result
-
-
-def do_bundle_deploy(connect_server: RemoteServer, app_id, name, title, title_is_default, bundle, env_vars):
-    """
-    Deploys the specified bundle.
-
-    :param connect_server: the server information.
-    :param app_id: the ID of the app to deploy, if this is a redeploy.
-    :param name: the name for the deploy.
-    :param title: the title for the deploy.
-    :param title_is_default: a flag noting whether the title carries a defaulted value.
-    :param bundle: the bundle to deploy.
-    :param env_vars: list of NAME=VALUE pairs for the app environment
-    :return: application information about the deploy.  This includes the ID of the
-    task that may be queried for deployment progress.
-    """
-    if isinstance(connect_server, RSConnectServer):
-        with RSConnectClient(connect_server, timeout=120) as client:
-            result = client.deploy(app_id, name, title, title_is_default, bundle, env_vars)
-            connect_server.handle_bad_response(result)
-            return result
-    else:
-        contents = bundle.read()
-        bundle_size = len(contents)
-        bundle_hash = hashlib.md5(contents).hexdigest()
-
-        with ShinyappsClient(connect_server, timeout=120) as client:
-            prepare_deploy_result = client.prepare_deploy(app_id, name, bundle_size, bundle_hash)
-
-        upload_url = prepare_deploy_result.presigned_url
-        parsed_upload_url = urlparse(upload_url)
-        with S3Client("{}://{}".format(parsed_upload_url.scheme, parsed_upload_url.netloc), timeout=120) as client:
-            upload_result = client.upload(
-                upload_url,
-                prepare_deploy_result.presigned_checksum,
-                bundle_size,
-                contents,
-            )
-            S3Server(upload_url).handle_bad_response(upload_result)
-
-        with ShinyappsClient(connect_server, timeout=120) as client:
-            client.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
-
-        webbrowser.open_new(prepare_deploy_result.app_url)
-
-        return {
-            "app_url": prepare_deploy_result.app_url,
-            "app_id": prepare_deploy_result.app_id,
-            "app_guid": None,
-            "title": title,
-        }
 
 
 def emit_task_log(
