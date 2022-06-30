@@ -342,7 +342,7 @@ class RSConnectExecutor:
     ) -> None:
         self.reset()
         self._d = kwargs
-        self.setup_connect_server(name, url or kwargs.get("server"), api_key, insecure, cacert, ca_data)
+        self.setup_connect_server(name, url or kwargs.get("server"), api_key, insecure, cacert, ca_data, token, secret)
         self.setup_client(cookies, timeout)
         self.logger = logger
 
@@ -390,17 +390,21 @@ class RSConnectExecutor:
         if cacert and not ca_data:
             ca_data = text_type(cacert.read())
 
-        server_data = ServerStore().resolve(name, url, api_key, insecure, ca_data)
-        if server_data.api_key:
-            self.connect_server = RSConnectServer(
-                server_data.url, server_data.api_key, server_data.insecure, server_data.ca_data
-            )
-        elif server_data.token and server_data.secret:
-            self.connect_server = ShinyappsServer(server_data.url, account_name, server_data.token, server_data.secret)
+        server_data = ServerStore().resolve(name, url)
+        if server_data.from_store:
+            url = server_data.url
+            api_key = server_data.api_key
+            insecure = server_data.insecure
+            ca_data = server_data.ca_data
+            token = server_data.token
+            secret = server_data.secret
+
+        if api_key:
+            self.connect_server = RSConnectServer(url, api_key, insecure, ca_data)
         elif token and secret:
-            self.connect_server = ShinyappsServer(url, account_name, token, secret)            
+            self.connect_server = ShinyappsServer(url, account_name, token, secret)
         else:
-            raise RSConnectException("Unable to infer Connect server.")
+            raise RSConnectException("Unable to infer Connect server type and setup server.")
 
     def setup_client(self, cookies=None, timeout=30, **kwargs):
         if isinstance(self.connect_server, RSConnectServer):
@@ -489,7 +493,7 @@ class RSConnectExecutor:
         if not name and not url:
             raise RSConnectException("You must specify one of -n/--name or -s/--server.")
 
-        server_data = ServerStore().resolve(name, url, api_key, insecure, ca_data)
+        server_data = ServerStore().resolve(name, url)
         connect_server = RSConnectServer(url, None, insecure, ca_data)
 
         # If our info came from the command line, make sure the URL really works.

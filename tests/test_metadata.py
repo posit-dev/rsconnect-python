@@ -93,7 +93,7 @@ class TestServerMetadata(TestCase):
         self.assertEqual(servers[2]["url"], "http://connect.local")
 
     def check_resolve_call(self, name, server, api_key, insecure, ca_cert, should_be_from_store):
-        server_data = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
+        server_data = self.server_store.resolve(name, server)
 
         self.assertEqual(server_data.url, "http://connect.local")
         self.assertEqual(server_data.api_key, "notReallyAnApiKey")
@@ -110,7 +110,7 @@ class TestServerMetadata(TestCase):
     def test_resolve_by_default(self):
         # with multiple entries, server None will not resolve by default
         name, server, api_key, insecure, ca_cert = None, None, None, None, None
-        server_data = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
+        server_data = self.server_store.resolve(name, server)
         self.assertEqual(server_data.url, None)
 
         # with only a single entry, server None will resolve to that entry
@@ -126,7 +126,7 @@ class TestServerMetadata(TestCase):
             True,
             "fake-cert",
         )
-        server_data = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
+        server_data = self.server_store.resolve(name, server)
 
         self.assertEqual(server_data.url, "https://secured.connect")
         self.assertEqual(server_data.api_key, "an-api-key")

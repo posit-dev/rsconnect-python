@@ -314,7 +314,7 @@ class ServerStore(DataStore):
         """
         return self._remove_by_value_attr("name", "url", url)
 
-    def resolve(self, name, url, api_key, insecure, ca_data):
+    def resolve(self, name, url):
         """
         This function will resolve the given inputs into a set of server information.
         It assumes that either `name` or `url` is provided.
@@ -332,9 +332,6 @@ class ServerStore(DataStore):
 
         :param name: the nickname to look for.
         :param url: the Connect server URL to look for.
-        :param api_key: the API key provided on the command line.
-        :param insecure: the insecure flag provided on the command line.
-        :param ca_data: the CA certification data provided on the command line.
         :return: the information needed to interact with the resolved server and whether
         it came from the store or the arguments.
         """
@@ -368,9 +365,6 @@ class ServerStore(DataStore):
                 name,
                 url,
                 False,
-                insecure=insecure,
-                ca_data=ca_data,
-                api_key=api_key,
             )
 
 
