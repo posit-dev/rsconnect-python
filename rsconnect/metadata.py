@@ -222,7 +222,6 @@ class ServerData:
     def __init__(
         self,
         name: str,
-        target: str,
         url: str,
         from_store: bool,
         api_key: typing.Optional[str] = None,
@@ -232,7 +231,6 @@ class ServerData:
         secret: typing.Optional[str] = None,
     ):
         self.name = name
-        self.target = target
         self.url = url
         self.from_store = from_store
         self.api_key = api_key
@@ -277,7 +275,7 @@ class ServerStore(DataStore):
         """
         return self._get_sorted_values(lambda s: s["name"])
 
-    def set(self, name, target, url, api_key=None, insecure=False, ca_data=None, token=None, secret=None):
+    def set(self, name, url, api_key=None, insecure=False, ca_data=None, token=None, secret=None):
         """
         Add (or update) information about a Connect server
 
@@ -291,14 +289,10 @@ class ServerStore(DataStore):
         :param token: shinyapps.io secret.
         """
         common_data = dict(
-            target=target,
             name=name,
             url=url,
         )
-        if target == "connect":
-            target_data = dict(api_key=api_key, insecure=insecure, ca_cert=ca_data)
-        else:
-            target_data = dict(token=token, secret=secret)
+        target_data = dict(api_key=api_key, insecure=insecure, ca_data=ca_data, token=token, secret=secret)
         self._set(name, {**common_data, **target_data})
 
     def remove_by_name(self, name):
@@ -317,7 +311,7 @@ class ServerStore(DataStore):
         """
         return self._remove_by_value_attr("name", "url", url)
 
-    def resolve(self, name, url, api_key, insecure, ca_data, target="connect"):
+    def resolve(self, name, url, api_key, insecure, ca_data):
         """
         This function will resolve the given inputs into a set of server information.
         It assumes that either `name` or `url` is provided.
@@ -357,7 +351,6 @@ class ServerStore(DataStore):
         if entry:
             return ServerData(
                 name,
-                entry["target"],
                 entry["url"],
                 True,
                 insecure=entry.get("insecure"),
@@ -369,8 +362,6 @@ class ServerStore(DataStore):
         else:
             return ServerData(
                 name,
-                # TODO (mslynch): this function needs to receive target
-                "connect",
                 url,
                 False,
                 insecure=insecure,
