@@ -573,7 +573,7 @@ class RSConnectExecutor:
         d = self.state
         d["title_is_default"] = not bool(title)
         d["title"] = title or _default_title(path)
-        force_unique_name = app_id is None and isinstance(self.remote_server, RSConnectServer)
+        force_unique_name = app_id is None
         d["deployment_name"] = self.make_deployment_name(d["title"], force_unique_name)
 
         try:
@@ -604,7 +604,6 @@ class RSConnectExecutor:
         :param details_source: the source for obtaining server details, gather_server_details(),
         by default.
         """
-        # TODO (mslynch): check shinyapps capabilities?
         if isinstance(self.remote_server, ShinyappsServer):
             return self
 
@@ -884,7 +883,6 @@ class RSConnectExecutor:
         that we collapse repeating underscores and, if the name is too short, it is
         padded to the left with underscores.
 
-        :param connect_server: the information needed to interact with the Connect server.
         :param title: the title to start with.
         :param force_unique: a flag noting whether the generated name must be forced to be
         unique.
@@ -982,6 +980,9 @@ class ShinyappsClient(HTTPServer):
     def get_accounts(self):
         return self.get("/v1/accounts/")
 
+    def _get_applications_like_name_page(self, name: str, offset: int):
+        return self.get("/v1/applications?filter=name:like:{}&offset={}&count=100&use_advanced_filters=true".format(name, offset))
+
     def create_bundle(self, application_id: int, content_type: str, content_length: int, checksum: str):
         bundle_data = {
             "application": application_id,
@@ -1060,6 +1061,22 @@ class ShinyappsClient(HTTPServer):
         deploy_task = self.deploy_application(bundle_id, app_id)
         self._server.handle_bad_response(deploy_task)
         self.wait_until_task_is_successful(deploy_task.json_data["id"])
+
+    def get_applications_like_name(self, name):
+        applications = []
+
+        results = self._get_applications_like_name_page(name, 0)
+        self._server.handle_bad_response(results)
+        offset = 0
+
+        while len(applications) < int(results.json_data['total']):
+            results = self._get_applications_like_name_page(name, offset)
+            self._server.handle_bad_response(results)
+            applications = results.json_data['applications']
+            applications.extend(applications)
+            offset += int(results.json_data['count'])
+
+        return [app['name'] for app in applications]
 
 
 def verify_server(connect_server):
@@ -1322,20 +1339,24 @@ def override_title_search(connect_server, app_id, app_title):
     return apps
 
 
-def find_unique_name(connect_server, name):
+def find_unique_name(remote_server: AbstractRemoteServer, name: str):
     """
     Poll through existing apps to see if anything with a similar name exists.
     If so, start appending numbers until a unique name is found.
 
-    :param connect_server: the Connect server information.
+    :param remote_server: the remote server information.
     :param name: the default name for an app.
     :return: the name, potentially with a suffixed number to guarantee uniqueness.
     """
-    existing_names = retrieve_matching_apps(
-        connect_server,
-        filters={"search": name},
-        mapping_function=lambda client, app: app["name"],
-    )
+    if isinstance(remote_server, RSConnectServer):
+        existing_names = retrieve_matching_apps(
+            remote_server,
+            filters={"search": name},
+            mapping_function=lambda client, app: app["name"],
+        )
+    else:
+        client = ShinyappsClient(remote_server)
+        existing_names = client.get_applications_like_name(name)
 
     if name in existing_names:
         suffix = 1

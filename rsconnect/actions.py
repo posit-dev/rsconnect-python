@@ -347,12 +347,7 @@ def _make_deployment_name(remote_server: api.RemoteServer, title: str, force_uni
 
     # Now, make sure it's unique, if needed.
     if force_unique:
-        if isinstance(remote_server, api.RSConnectServer):
-            name = api.find_unique_name(remote_server, name)
-        else:
-            # TODO (mslynch): is this necessary to check?
-            pass
-            # raise NotImplementedError("TODO (mslynch): find unique name from lucid-server")
+        name = api.find_unique_name(remote_server, name)
 
     return name
 
