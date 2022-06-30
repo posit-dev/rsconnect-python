@@ -472,6 +472,7 @@ class RSConnectExecutor:
 
         return self
 
+
     def validate_connect_server(
         self,
         name: str = None,
@@ -484,6 +485,15 @@ class RSConnectExecutor:
     ):
         """
         Validate that the user gave us enough information to talk to shinyapps.io or a Connect server.
+        :param name: the nickname, if any, specified by the user.
+        :param url: the URL, if any, specified by the user.
+        :param api_key: the API key, if any, specified by the user.
+        :param insecure: a flag noting whether TLS host/validation should be skipped.
+        :param cacert: the file object of a CA certs file containing certificates to use.
+        :param api_key_is_required: a flag that notes whether the API key is required or may
+        be omitted.
+        :param token: The shinyapps.io authentication token.
+        :param secret: The shinyapps.io authentication secret.
         """
         url = url or self.remote_server.url
         api_key = api_key or self.remote_server.api_key
@@ -493,6 +503,8 @@ class RSConnectExecutor:
         ca_data = None
         if cacert:
             ca_data = text_type(cacert.read())
+        api_key = api_key or self.remote_server.api_key
+        insecure = insecure or self.remote_server.insecure
         if not ca_data:
             ca_data = self.remote_server.ca_data
 
