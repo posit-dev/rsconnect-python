@@ -455,7 +455,7 @@ class RSConnectExecutor:
         if isinstance(self.remote_server, RSConnectServer):
             # If our info came from the command line, make sure the URL and key really work.
             if not self.is_server_from_store:
-                self.server_settings()
+                self.server_settings
                 _ = self.verify_api_key()
         else:
             self.client.get_current_user()

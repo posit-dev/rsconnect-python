@@ -140,6 +140,8 @@ class TestMain(TestCase):
                 ],
             )
             self.assertEqual(result.exit_code, 1, result.output)
-            self.assertEqual(str(result.exception), "--token and --secret must both be provided for shinyapps.io.")
+            self.assertEqual(
+                str(result.exception), "--account, --token, and --secret must all be provided for shinyapps.io."
+            )
         finally:
             os.environ["CONNECT_API_KEY"] = original_api_key_value

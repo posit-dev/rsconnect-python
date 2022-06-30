@@ -17,9 +17,16 @@ class TestServerMetadata(TestCase):
         self.server_store_path = join(self.tempDir, "servers.json")
         self.assertFalse(exists(self.server_store_path))
 
-        self.server_store.set("foo", "connect", "http://connect.local", "notReallyAnApiKey", ca_data="/certs/connect")
-        self.server_store.set("bar", "connect", "http://connect.remote", "differentApiKey", insecure=True)
-        self.server_store.set("baz", "shinyapps", "https://shinyapps.io", token="someToken", secret="c29tZVNlY3JldAo=")
+        self.server_store.set("foo", "http://connect.local", "connect", "notReallyAnApiKey", ca_data="/certs/connect")
+        self.server_store.set("bar", "http://connect.remote", "connect", "differentApiKey", insecure=True)
+        self.server_store.set(
+            "baz",
+            "https://shinyapps.io",
+            "shinyapps",
+            account="someAccount",
+            token="someToken",
+            secret="c29tZVNlY3JldAo=",
+        )
         self.assertEqual(len(self.server_store.get_all_servers()), 3, "Unexpected servers after setup")
 
     def tearDown(self):
@@ -30,7 +37,6 @@ class TestServerMetadata(TestCase):
         self.assertEqual(
             self.server_store.get_by_name("foo"),
             dict(
-                target="connect",
                 name="foo",
                 url="http://connect.local",
                 api_key="notReallyAnApiKey",
@@ -42,7 +48,6 @@ class TestServerMetadata(TestCase):
         self.assertEqual(
             self.server_store.get_by_name("bar"),
             dict(
-                target="connect",
                 name="bar",
                 url="http://connect.remote",
                 api_key="differentApiKey",
@@ -54,9 +59,9 @@ class TestServerMetadata(TestCase):
         self.assertEqual(
             self.server_store.get_by_name("baz"),
             dict(
-                target="shinyapps",
                 name="baz",
                 url="https://shinyapps.io",
+                account="someAccount",
                 token="someToken",
                 secret="c29tZVNlY3JldAo=",
             ),
@@ -119,19 +124,16 @@ class TestServerMetadata(TestCase):
         self.check_resolve_call(None, None, None, None, None, True)
 
     def test_resolve_from_args(self):
-        name, server, api_key, insecure, ca_cert = (
+        name, server = (
             None,
             "https://secured.connect",
-            "an-api-key",
-            True,
-            "fake-cert",
         )
         server_data = self.server_store.resolve(name, server)
 
         self.assertEqual(server_data.url, "https://secured.connect")
-        self.assertEqual(server_data.api_key, "an-api-key")
-        self.assertTrue(server_data.insecure)
-        self.assertEqual(server_data.ca_data, "fake-cert")
+        self.assertEqual(server_data.api_key, None)
+        self.assertEqual(server_data.insecure, None)
+        self.assertEqual(server_data.ca_data, None)
         self.assertFalse(server_data.from_store)
 
     def test_save_and_load(self):
@@ -141,7 +143,7 @@ class TestServerMetadata(TestCase):
 
         self.assertFalse(exists(path))
 
-        server_store.set("foo", "connect", "http://connect.local", "notReallyAnApiKey", ca_data="/certs/connect")
+        server_store.set("foo", "http://connect.local", "connect", "notReallyAnApiKey", ca_data="/certs/connect")
 
         self.assertTrue(exists(path))
 
