@@ -1,9 +1,7 @@
 """
 RStudio Connect API client and utility functions
 """
-import abc
 import base64
-import calendar
 import datetime
 import hashlib
 import hmac
@@ -16,8 +14,6 @@ from typing import IO, Callable
 from _ssl import SSLError
 from urllib import parse
 from urllib.parse import urlparse
-
-import click
 
 import re
 from warnings import warn
@@ -563,9 +559,11 @@ class RSConnectExecutor:
 
             upload_url = prepare_deploy_result.presigned_url
             parsed_upload_url = urlparse(upload_url)
-            with S3Client(f"{parsed_upload_url.scheme}://{parsed_upload_url.netloc}", timeout=120) as s3_client:
+            with S3Client(
+                "{}://{}".format(parsed_upload_url.scheme, parsed_upload_url.netloc), timeout=120
+            ) as s3_client:
                 upload_result = s3_client.upload(
-                    f"{parsed_upload_url.path}?{parsed_upload_url.query}",
+                    "{}?{}".format(parsed_upload_url.path, parsed_upload_url.query),
                     prepare_deploy_result.presigned_checksum,
                     bundle_size,
                     contents,
@@ -862,7 +860,7 @@ class ShinyappsClient(HTTPServer):
         }
 
     def get_application(self, application_id):
-        return self.get(f"/v1/applications/{application_id}")
+        return self.get("/v1/applications/{}".format(application_id))
 
     def create_application(self, account_id, application_name):
         application_data = {
@@ -885,13 +883,13 @@ class ShinyappsClient(HTTPServer):
         return self.post("/v1/bundles", body=bundle_data)
 
     def set_bundle_status(self, bundle_id, bundle_status):
-        return self.post(f"/v1/bundles/{bundle_id}/status", body={"status": bundle_status})
+        return self.post("/v1/bundles/{}/status".format(bundle_id), body={"status": bundle_status})
 
     def deploy_application(self, bundle_id, app_id):
-        return self.post(f"/v1/applications/{app_id}/deploy", body={"bundle": bundle_id, "rebuild": False})
+        return self.post("/v1/applications/{}/deploy".format(app_id), body={"bundle": bundle_id, "rebuild": False})
 
     def get_task(self, task_id):
-        return self.get(f"/v1/tasks/{task_id}", query_params={"legacy": "true"})
+        return self.get("/v1/tasks/{}".format(task_id), query_params={"legacy": "true"})
 
     def get_current_user(self):
         return self.get("/v1/users/me")
@@ -906,14 +904,14 @@ class ShinyappsClient(HTTPServer):
             status = task.json_data["status"]
             description = task.json_data["description"]
 
-            click.secho(f"Waiting: {status} - {description}")
+            print("\nWaiting: {} - {}".format(status, description))
 
             if status == "success":
                 break
 
             time.sleep(2)
             counter += 1
-        click.secho(f"Task done: {description}")
+        print("Task done: {}".format(description))
 
     def prepare_deploy(self, app_id: typing.Optional[str], app_name: str, bundle_size: int, bundle_hash: str):
         accounts = self.get_accounts()
@@ -1074,7 +1072,7 @@ def do_bundle_deploy(remote_server: RemoteServer, app_id, name, title, title_is_
 
         upload_url = prepare_deploy_result.presigned_url
         parsed_upload_url = urlparse(upload_url)
-        with S3Client(f"{parsed_upload_url.scheme}://{parsed_upload_url.netloc}", timeout=120) as client:
+        with S3Client("{}://{}".format(parsed_upload_url.scheme, parsed_upload_url.netloc), timeout=120) as client:
             upload_result = client.upload(
                 upload_url,
                 prepare_deploy_result.presigned_checksum,

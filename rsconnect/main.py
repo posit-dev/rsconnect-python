@@ -316,8 +316,9 @@ def add(name, server, api_key, insecure, cacert, account, token, secret, verbose
 
     if present_connect_options and present_shinyapps_options:
         raise api.RSConnectException(
-            f"Connect options ({', '.join(present_connect_options)}) may not be passed alongside "
-            f"shinyapps.io options ({', '.join(present_shinyapps_options)})."
+            "Connect options ({}) may not be passed alongside shinyapps.io options ({}).".format(
+                ", ".join(present_connect_options), ", ".join(present_shinyapps_options)
+            )
         )
 
     old_server = server_store.get_by_name(name)

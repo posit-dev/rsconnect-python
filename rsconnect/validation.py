@@ -20,7 +20,9 @@ def validate_connection_options(name, url, api_key, insecure, cacert, account, t
 
     if name and present_options_mutually_exclusive_with_name:
         raise api.RSConnectException(
-            f"-n/--name cannot be specified in conjunction with options {', '.join(present_options_mutually_exclusive_with_name)}"
+            "-n/--name cannot be specified in conjunction with options {}".format(
+                ", ".join(present_options_mutually_exclusive_with_name)
+            )
         )
     if not name and not url:
         raise api.RSConnectException(
@@ -32,8 +34,9 @@ def validate_connection_options(name, url, api_key, insecure, cacert, account, t
 
     if present_connect_options and present_shinyapps_options:
         raise api.RSConnectException(
-            f"Connect options ({', '.join(present_connect_options)}) may not be passed alongside "
-            f"shinyapps.io options ({', '.join(present_shinyapps_options)})."
+            "Connect options ({}) may not be passed alongside shinyapps.io options ({}).".format(
+                ", ".join(present_connect_options), ", ".join(present_shinyapps_options)
+            )
         )
 
     if present_shinyapps_options:
