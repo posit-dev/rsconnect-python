@@ -324,7 +324,6 @@ def add(name, server, api_key, insecure, cacert, account, token, secret, verbose
 
         server_store.set(
             name,
-            "shinyapps",
             shinyapps_server.url,
             account=shinyapps_server.account_name,
             token=shinyapps_server.token,
@@ -340,7 +339,6 @@ def add(name, server, api_key, insecure, cacert, account, token, secret, verbose
 
         server_store.set(
             name,
-            "connect",
             real_server.url,
             real_server.api_key,
             real_server.insecure,
