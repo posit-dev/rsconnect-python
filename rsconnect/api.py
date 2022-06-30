@@ -342,7 +342,7 @@ class RSConnectExecutor:
     ) -> None:
         self.reset()
         self._d = kwargs
-        self.setup_connect_server(name, url or kwargs.get("server"), api_key, insecure, cacert, ca_data, token, secret)
+        self.setup_remote_server(name, url or kwargs.get("server"), api_key, insecure, cacert, ca_data, token, secret)
         self.setup_client(cookies, timeout)
         self.logger = logger
 
@@ -358,7 +358,7 @@ class RSConnectExecutor:
 
     def reset(self):
         self._d = None
-        self.connect_server = None
+        self.remote_server = None
         self.client = None
         self.logger = None
         gc.collect()
@@ -369,7 +369,7 @@ class RSConnectExecutor:
         gc.collect()
         return self
 
-    def setup_connect_server(
+    def setup_remote_server(
         self,
         name: str = None,
         url: str = None,
@@ -400,17 +400,17 @@ class RSConnectExecutor:
             secret = server_data.secret
 
         if api_key:
-            self.connect_server = RSConnectServer(url, api_key, insecure, ca_data)
+            self.remote_server = RSConnectServer(url, api_key, insecure, ca_data)
         elif token and secret:
-            self.connect_server = ShinyappsServer(url, account_name, token, secret)
+            self.remote_server = ShinyappsServer(url, account_name, token, secret)
         else:
             raise RSConnectException("Unable to infer Connect server type and setup server.")
 
     def setup_client(self, cookies=None, timeout=30, **kwargs):
-        if isinstance(self.connect_server, RSConnectServer):
-            self.client = RSConnectClient(self.connect_server, cookies, timeout)
-        elif isinstance(self.connect_server, ShinyappsServer):
-            self.client = ShinyappsClient(self.connect_server, timeout)
+        if isinstance(self.remote_server, RSConnectServer):
+            self.client = RSConnectClient(self.remote_server, cookies, timeout)
+        elif isinstance(self.remote_server, ShinyappsServer):
+            self.client = ShinyappsClient(self.remote_server, timeout)
         else:
             raise RSConnectException("Unable to infer Connect client.")
 
@@ -437,9 +437,9 @@ class RSConnectExecutor:
         token: str = None,
         secret: str = None,
     ):
-        if (url and api_key) or isinstance(self.connect_server, RSConnectServer):
+        if (url and api_key) or isinstance(self.remote_server, RSConnectServer):
             self.validate_connect_server(name, url, api_key, insecure, cacert, api_key_is_required)
-        elif (url and token and secret) or isinstance(self.connect_server, ShinyappsServer):
+        elif (url and token and secret) or isinstance(self.remote_server, ShinyappsServer):
             self.validate_shinyapps_server(url, account_name, token, secret)
         else:
             raise RSConnectException("Unable to validate server from information provided.")
@@ -469,22 +469,22 @@ class RSConnectExecutor:
         :param token: The shinyapps.io authentication token.
         :param secret: The shinyapps.io authentication secret.
         """
-        url = url or self.connect_server.url
-        api_key = api_key or self.connect_server.api_key
-        insecure = insecure or self.connect_server.insecure
+        url = url or self.remote_server.url
+        api_key = api_key or self.remote_server.api_key
+        insecure = insecure or self.remote_server.insecure
         api_key_is_required = api_key_is_required or self.get("api_key_is_required", **kwargs)
 
         ca_data = None
         if cacert:
             ca_data = text_type(cacert.read())
-        if isinstance(self.connect_server, RSConnectServer):
-            api_key = api_key or self.connect_server.api_key
-            insecure = insecure or self.connect_server.insecure
+        if isinstance(self.remote_server, RSConnectServer):
+            api_key = api_key or self.remote_server.api_key
+            insecure = insecure or self.remote_server.insecure
             if not ca_data:
-                ca_data = self.connect_server.ca_data
+                ca_data = self.remote_server.ca_data
         else:
-            token = token or self.connect_server.token
-            secret = secret or self.connect_server.secret
+            token = token or self.remote_server.token
+            secret = secret or self.remote_server.secret
 
         api_key_is_required = api_key_is_required or self.get("api_key_is_required", **kwargs)
 
@@ -511,18 +511,18 @@ class RSConnectExecutor:
         if not server_data.from_store:
             _ = self.verify_api_key(connect_server)
 
-        self.connect_server = connect_server
-        self.client = RSConnectClient(self.connect_server)
+        self.remote_server = connect_server
+        self.client = RSConnectClient(self.remote_server)
 
         return self
 
     def validate_shinyapps_server(
         self, url: str = None, account_name: str = None, token: str = None, secret: str = None, **kwargs
     ):
-        url = url or self.connect_server.url
-        account_name = account_name or self.connect_server.account_name
-        token = token or self.connect_server.token
-        secret = secret or self.connect_server.secret
+        url = url or self.remote_server.url
+        account_name = account_name or self.remote_server.account_name
+        token = token or self.remote_server.token
+        secret = secret or self.remote_server.secret
         server = ShinyappsServer(url, account_name, token, secret)
 
         with ShinyappsClient(server) as client:
@@ -551,7 +551,7 @@ class RSConnectExecutor:
         d = self.state
         d["title_is_default"] = not bool(title)
         d["title"] = title or _default_title(path)
-        force_unique_name = app_id is None and isinstance(self.connect_server, RSConnectServer)
+        force_unique_name = app_id is None and isinstance(self.remote_server, RSConnectServer)
         d["deployment_name"] = self.make_deployment_name(d["title"], force_unique_name)
 
         try:
@@ -583,7 +583,7 @@ class RSConnectExecutor:
         by default.
         """
         # TODO (mslynch): check shinyapps capabilities?
-        if isinstance(self.connect_server, ShinyappsServer):
+        if isinstance(self.remote_server, ShinyappsServer):
             return self
 
         details = self.server_details
@@ -615,7 +615,7 @@ class RSConnectExecutor:
         bundle = bundle or self.get("bundle")
         env_vars = env_vars or self.get("env_vars")
 
-        if isinstance(self.connect_server, RSConnectServer):
+        if isinstance(self.remote_server, RSConnectServer):
             result = self.client.deploy(
                 app_id,
                 deployment_name,
@@ -624,7 +624,7 @@ class RSConnectExecutor:
                 bundle,
                 env_vars,
             )
-            self.connect_server.handle_bad_response(result)
+            self.remote_server.handle_bad_response(result)
             self.state["deployed_info"] = result
             return self
         else:
@@ -686,15 +686,15 @@ class RSConnectExecutor:
         :param raise_on_error: whether to raise an exception when a task is failed, otherwise we
         return the task_result so we can record the exit code.
         """
-        if isinstance(self.connect_server, RSConnectServer):
+        if isinstance(self.remote_server, RSConnectServer):
             app_id = app_id or self.state["deployed_info"]["app_id"]
             task_id = task_id or self.state["deployed_info"]["task_id"]
             log_lines, _ = self.client.wait_for_task(
                 task_id, log_callback.info, abort_func, timeout, poll_wait, raise_on_error
             )
-            self.connect_server.handle_bad_response(log_lines)
+            self.remote_server.handle_bad_response(log_lines)
             app_config = self.client.app_config(app_id)
-            self.connect_server.handle_bad_response(app_config)
+            self.remote_server.handle_bad_response(app_config)
             app_dashboard_url = app_config.get("config_url")
             log_callback.info("Deployment completed successfully.")
             log_callback.info("\t Dashboard content URL: %s", app_dashboard_url)
@@ -715,7 +715,7 @@ class RSConnectExecutor:
         deployed_info = self.get("deployed_info", *args, **kwargs)
 
         app_store.set(
-            self.connect_server.url,
+            self.remote_server.url,
             abspath(path),
             deployed_info["app_url"],
             deployed_info["app_id"],
@@ -751,16 +751,16 @@ class RSConnectExecutor:
             if app_id is None:
                 # Possible redeployment - check for saved metadata.
                 # Use the saved app information unless overridden by the user.
-                app_id, existing_app_mode = app_store.resolve(self.connect_server.url, app_id, app_mode)
+                app_id, existing_app_mode = app_store.resolve(self.remote_server.url, app_id, app_mode)
                 logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
             elif app_id is not None:
                 # Don't read app metadata if app-id is specified. Instead, we need
                 # to get this from the remote.
-                if isinstance(self.connect_server, RSConnectServer):
-                    app = get_app_info(self.connect_server, app_id)
+                if isinstance(self.remote_server, RSConnectServer):
+                    app = get_app_info(self.remote_server, app_id)
                     existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
                 else:
-                    app = get_shinyapp_info(self.connect_server, app_id)
+                    app = get_shinyapp_info(self.remote_server, app_id)
                     existing_app_mode = AppModes.get_by_cloud_name(app.json_data["mode"])
             if existing_app_mode and app_mode != existing_app_mode:
                 msg = (
@@ -778,7 +778,7 @@ class RSConnectExecutor:
     def server_settings(self):
         try:
             result = self.client.server_settings()
-            self.connect_server.handle_bad_response(result)
+            self.remote_server.handle_bad_response(result)
         except SSLError as ssl_error:
             raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
         return result
@@ -789,7 +789,7 @@ class RSConnectExecutor:
         If the API key verifies, we return the username of the associated user.
         """
         if not server:
-            server = self.connect_server
+            server = self.remote_server
         if isinstance(server, ShinyappsServer):
             raise RSConnectException("Shinnyapps server does not use an API key.")
         with RSConnectClient(server) as client:
@@ -803,7 +803,7 @@ class RSConnectExecutor:
     @property
     def api_username(self):
         result = self.client.me()
-        self.connect_server.handle_bad_response(result)
+        self.remote_server.handle_bad_response(result)
         return result["username"]
 
     @property
@@ -815,7 +815,7 @@ class RSConnectExecutor:
         :return: the Python installation information from Connect.
         """
         result = self.client.python_settings()
-        self.connect_server.handle_bad_response(result)
+        self.remote_server.handle_bad_response(result)
         return result
 
     @property
@@ -875,7 +875,7 @@ class RSConnectExecutor:
 
         # Now, make sure it's unique, if needed.
         if force_unique:
-            name = find_unique_name(self.connect_server, name)
+            name = find_unique_name(self.remote_server, name)
 
         return name
 
