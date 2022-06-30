@@ -493,8 +493,6 @@ class RSConnectExecutor:
         ca_data = None
         if cacert:
             ca_data = text_type(cacert.read())
-        api_key = api_key or self.remote_server.api_key
-        insecure = insecure or self.remote_server.insecure
         if not ca_data:
             ca_data = self.remote_server.ca_data
 
