@@ -531,7 +531,7 @@ class RSConnectExecutor:
                 result = client.get_current_user()
                 server.handle_bad_response(result)
             except RSConnectException as exc:
-                raise RSConnectException(f"Failed to verify with shinyapps.io ({str(exc)}).")
+                raise RSConnectException("Failed to verify with shinyapps.io ({}).".format(exc))
 
     @cls_logged("Making bundle ...")
     def make_bundle(self, func: Callable, *args, **kwargs):
