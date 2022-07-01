@@ -14,7 +14,6 @@ from _ssl import SSLError
 from urllib import parse
 from urllib.parse import urlparse
 
-
 import re
 from warnings import warn
 from six import text_type
@@ -30,8 +29,9 @@ from .bundle import _default_title, fake_module_file_from_directory
 
 
 class AbstractRemoteServer:
-    url: str
-    remote_name: str
+    def __init__(self, url: str, remote_name: str):
+        self.url = url
+        self.remote_name = remote_name
 
     def handle_bad_response(self, response):
         if isinstance(response, HTTPResponse):
@@ -63,10 +63,8 @@ class ShinyappsServer(AbstractRemoteServer):
     instance of the shinyapps.io server.
     """
 
-    remote_name = "shinyapps.io"
-
     def __init__(self, url: str, account_name: str, token: str, secret: str):
-        self.url = url
+        super().__init__(url, "shinyapps.io")
         self.account_name = account_name
         self.token = token
         self.secret = secret
@@ -78,24 +76,23 @@ class RSConnectServer(AbstractRemoteServer):
     instance of the Connect server.
     """
 
-    remote_name = "RStudio Connect"
-
     def __init__(self, url, api_key, insecure=False, ca_data=None):
-        self.url = url
+        super().__init__(url, "RStudio Connect")
         self.api_key = api_key
         self.insecure = insecure
         self.ca_data = ca_data
         # This is specifically not None.
         self.cookie_jar = CookieJar()
 
+
 TargetableServer = typing.Union[ShinyappsServer, RSConnectServer]
+
 
 class S3Server(AbstractRemoteServer):
     remote_name = "S3"
 
     def __init__(self, url: str):
         self.url = url
-
 
 
 class RSConnectClient(HTTPServer):
