@@ -30,15 +30,6 @@ from .bundle import _default_title, fake_module_file_from_directory
 
 
 class AbstractRemoteServer:
-    # @property
-    # @abc.abstractmethod
-    # def url(self) -> str:
-    #     pass
-    #
-    # @property
-    # @abc.abstractmethod
-    # def remote_name(self) -> str:
-    #     pass
     url: str
     remote_name: str
 
@@ -97,6 +88,7 @@ class RSConnectServer(AbstractRemoteServer):
         # This is specifically not None.
         self.cookie_jar = CookieJar()
 
+TargetableServer = typing.Union[ShinyappsServer, RSConnectServer]
 
 class S3Server(AbstractRemoteServer):
     remote_name = "S3"
@@ -104,8 +96,6 @@ class S3Server(AbstractRemoteServer):
     def __init__(self, url: str):
         self.url = url
 
-
-RemoteServer = typing.Union[ShinyappsServer, RSConnectServer]
 
 
 class RSConnectClient(HTTPServer):
@@ -1034,10 +1024,10 @@ class ShinyappsClient(HTTPServer):
         else:
             application = self.get_application(app_id)
         self._server.handle_bad_response(application)
-        app_id = application.json_data["id"]
+        app_id_int = application.json_data["id"]
         app_url = application.json_data["url"]
 
-        bundle = self.create_bundle(app_id, "application/x-tar", bundle_size, bundle_hash)
+        bundle = self.create_bundle(app_id_int, "application/x-tar", bundle_size, bundle_hash)
         self._server.handle_bad_response(bundle)
 
         return PrepareDeployResult(
@@ -1333,7 +1323,7 @@ def override_title_search(connect_server, app_id, app_title):
     return apps
 
 
-def find_unique_name(remote_server: AbstractRemoteServer, name: str):
+def find_unique_name(remote_server: TargetableServer, name: str):
     """
     Poll through existing apps to see if anything with a similar name exists.
     If so, start appending numbers until a unique name is found.

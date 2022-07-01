@@ -322,7 +322,7 @@ def check_server_capabilities(connect_server, capability_functions, details_sour
             raise RSConnectException(message)
 
 
-def _make_deployment_name(remote_server: api.RemoteServer, title: str, force_unique: bool) -> str:
+def _make_deployment_name(remote_server: api.TargetableServer, title: str, force_unique: bool) -> str:
     """
     Produce a name for a deployment based on its title.  It is assumed that the
     title is already defaulted and validated as appropriate (meaning the title
@@ -1456,7 +1456,7 @@ def _generate_gather_basic_deployment_info_for_python(app_mode: AppMode) -> typi
     """
 
     def gatherer(
-        remote_server: api.RemoteServer,
+        remote_server: api.TargetableServer,
         app_store: AppStore,
         directory: str,
         entry_point: str,
@@ -1486,7 +1486,7 @@ gather_basic_deployment_info_for_bokeh = _generate_gather_basic_deployment_info_
 
 
 def _gather_basic_deployment_info_for_framework(
-    remote_server: api.RemoteServer,
+    remote_server: api.TargetableServer,
     app_store: AppStore,
     directory: str,
     entry_point: str,
@@ -1710,7 +1710,7 @@ def create_quarto_deployment_bundle(
 
 
 def deploy_bundle(
-    remote_server: api.RemoteServer,
+    remote_server: api.TargetableServer,
     app_id: int,
     name: str,
     title: str,
