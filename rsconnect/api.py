@@ -706,7 +706,7 @@ class RSConnectExecutor:
 
     @cls_logged("Saving deployed information...")
     def save_deployed_info(self, *args, **kwargs):
-        app_store: AppStore = self.get("app_store", *args, **kwargs)
+        app_store = self.get("app_store", *args, **kwargs)
         path = (
             self.get("path", **kwargs)
             or self.get("file", **kwargs)
