@@ -113,8 +113,7 @@ class TestMain(TestCase):
     # @unittest.skip
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_add_shinyapps(self):
-        original_api_key_value = os.environ.pop("CONNECT_API_KEY")
-
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         try:
             httpretty.register_uri(httpretty.GET, "http://localhost:3939/v1/users/me", body='{"id": 1000}', status=200)
 
@@ -137,7 +136,8 @@ class TestMain(TestCase):
             self.assertIn("shinyapps.io credential", result.output)
 
         finally:
-            os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
 
     def test_add_shinyapps_missing_options(self):
         original_api_key_value = os.environ.pop("CONNECT_API_KEY")
@@ -158,4 +158,5 @@ class TestMain(TestCase):
                 str(result.exception), "--account, --token, and --secret must all be provided for shinyapps.io."
             )
         finally:
-            os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
