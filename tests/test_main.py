@@ -110,7 +110,6 @@ class TestMain(TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("OK", result.output)
 
-    # @unittest.skip
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_add_shinyapps(self):
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
@@ -161,7 +160,8 @@ class TestMain(TestCase):
             )
             self.assertEqual(result.exit_code, 1, result.output)
             self.assertEqual(
-                str(result.exception), "--account, --token, and --secret must all be provided for shinyapps.io."
+                str(result.exception),
+                "-a/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io.",
             )
         finally:
             if original_api_key_value:

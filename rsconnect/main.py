@@ -35,7 +35,7 @@ from .actions_content import (
     emit_build_log,
 )
 
-from . import api, VERSION
+from . import api, VERSION, validation
 from .api import RSConnectExecutor, filter_out_server_info
 from .bundle import (
     are_apis_supported_on_server,
@@ -303,24 +303,19 @@ def add(name, server, api_key, insecure, cacert, account, token, secret, verbose
 
     set_verbosity(verbose)
 
-    connect_options = {"--api-key": api_key, "--insecure": insecure, "--cacert": cacert}
-    shinyapps_options = {"--token": token, "--secret": secret, "--account": account}
-
-    present_connect_options = [k for k, v in connect_options.items() if v]
-    present_shinyapps_options = [k for k, v in shinyapps_options.items() if v]
-
-    if present_connect_options and present_shinyapps_options:
-        raise api.RSConnectException(
-            "Connect options ({}) may not be passed alongside shinyapps.io options ({}).".format(
-                ", ".join(present_connect_options), ", ".join(present_shinyapps_options)
-            )
-        )
+    validation.validate_new_server_options(
+        url=server,
+        api_key=api_key,
+        insecure=insecure,
+        cacert=cacert,
+        account=account,
+        token=token,
+        secret=secret,
+    )
 
     old_server = server_store.get_by_name(name)
 
-    if present_shinyapps_options:
-        if len(present_shinyapps_options) != 3:
-            raise api.RSConnectException("--account, --token, and --secret must all be provided for shinyapps.io.")
+    if account:
         shinyapps_server = api.ShinyappsServer(server or "https://api.shinyapps.io", account, token, secret)
         _test_shinyappsio_creds(shinyapps_server)
 
