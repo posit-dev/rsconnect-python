@@ -11,19 +11,16 @@ import shutil
 import subprocess
 import sys
 import traceback
-
-try:
-    import typing
-except ImportError:
-    typing = None
-
+from typing import IO
+from warnings import warn
 from os.path import abspath, basename, dirname, exists, isdir, join, relpath, splitext
 from pprint import pformat
-
+from .exception import RSConnectException
 from . import api
 from .bundle import (
     make_api_bundle,
     make_api_manifest,
+    make_html_bundle,
     make_manifest_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
@@ -38,9 +35,15 @@ from .environment import Environment, MakeEnvironment, EnvironmentException
 from .log import logger
 from .metadata import AppStore
 from .models import AppModes, AppMode
+from .api import RSConnectExecutor, filter_out_server_info
 
 import click
 from six.moves.urllib_parse import urlparse
+
+try:
+    import typing
+except ImportError:
+    typing = None
 
 line_width = 45
 _module_pattern = re.compile(r"^[A-Za-z0-9_]+:[A-Za-z0-9_]+$")
@@ -76,7 +79,7 @@ def cli_feedback(label, stderr=False):
     try:
         yield
         passed()
-    except api.RSConnectException as exc:
+    except RSConnectException as exc:
         failed("Error: " + exc.message)
     except EnvironmentException as exc:
         failed("Error: " + str(exc))
@@ -107,9 +110,10 @@ def which_python(python, env=os.environ):
     * RETICULATE_PYTHON defined in the environment
     * the python binary running this script
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     if python:
         if not (exists(python) and os.access(python, os.X_OK)):
-            raise api.RSConnectException('The file, "%s", does not exist or is not executable.' % python)
+            raise RSConnectException('The file, "%s", does not exist or is not executable.' % python)
         return python
 
     if "RETICULATE_PYTHON" in env:
@@ -143,7 +147,7 @@ def inspect_environment(
     try:
         environment_json = check_output(args, universal_newlines=True)
     except subprocess.CalledProcessError as e:
-        raise api.RSConnectException("Error inspecting environment: %s" % e.output)
+        raise RSConnectException("Error inspecting environment: %s" % e.output)
     return MakeEnvironment(**json.loads(environment_json))  # type: ignore
 
 
@@ -157,7 +161,7 @@ def _verify_server(connect_server):
     """
     uri = urlparse(connect_server.url)
     if not uri.netloc:
-        raise api.RSConnectException('Invalid server URL: "%s"' % connect_server.url)
+        raise RSConnectException('Invalid server URL: "%s"' % connect_server.url)
     return api.verify_server(connect_server)
 
 
@@ -169,6 +173,7 @@ def _to_server_check_list(url):
     :param url: the server URL text to start with.
     :return: a list of server strings to test.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     # urlparse will end up with an empty netloc in this case.
     if "//" not in url:
         items = ["https://%s", "http://%s"]
@@ -191,6 +196,7 @@ def test_server(connect_server):
     :return: a second server object with any scheme expansions applied and the server
     settings from the server.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     url = connect_server.url
     key = connect_server.api_key
     insecure = connect_server.insecure
@@ -201,7 +207,7 @@ def test_server(connect_server):
             connect_server = api.RSConnectServer(test, key, insecure, ca_data)
             result = _verify_server(connect_server)
             return connect_server, result
-        except api.RSConnectException as exc:
+        except RSConnectException as exc:
             failures.append("    %s - failed to verify as RStudio Connect (%s)." % (test, str(exc)))
 
     # In case the user may need https instead of http...
@@ -209,7 +215,7 @@ def test_server(connect_server):
         failures.append('    Do you need to use "https://%s"?' % url[7:])
 
     # If we're here, nothing worked.
-    raise api.RSConnectException("\n".join(failures))
+    raise RSConnectException("\n".join(failures))
 
 
 def test_api_key(connect_server):
@@ -220,6 +226,7 @@ def test_api_key(connect_server):
     :param connect_server: the Connect server information.
     :return: the username of the user to whom the API key belongs.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     return api.verify_api_key(connect_server)
 
 
@@ -234,6 +241,7 @@ def gather_server_details(connect_server):
     strings for all the versions of Python that are installed.  The key `conda` will
     refer to data about whether Connect is configured to support Conda environments.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
 
     def _to_sort_key(text):
         parts = [part.zfill(5) for part in text.split(".")]
@@ -262,6 +270,7 @@ def are_apis_supported_on_server(connect_details):
     :return: boolean True if the Connect server supports Python APIs or not or False if not.
     :error: The RStudio Connect server does not allow for Python APIs.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     return connect_details["python"]["api_enabled"]
 
 
@@ -301,7 +310,7 @@ def check_server_capabilities(connect_server, capability_functions, details_sour
                 message = function.__doc__[index + 7 :].strip()
             else:
                 message = "The server does not satisfy the %s capability check." % function.__name__
-            raise api.RSConnectException(message)
+            raise RSConnectException(message)
 
 
 def _make_deployment_name(connect_server, title, force_unique) -> str:
@@ -321,6 +330,8 @@ def _make_deployment_name(connect_server, title, force_unique) -> str:
     unique.
     :return: a name for a deployment based on its title.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
+
     # First, Generate a default name from the given title.
     name = _name_sub_pattern.sub("", title.lower()).replace(" ", "_")
     name = _repeating_sub_pattern.sub("_", name)[:64].rjust(3, "_")
@@ -339,9 +350,10 @@ def _validate_title(title):
 
     :param title: the title to validate.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     if title:
         if not (3 <= len(title) <= 1024):
-            raise api.RSConnectException("A title must be between 3-1024 characters long.")
+            raise RSConnectException("A title must be between 3-1024 characters long.")
 
 
 def _default_title(file_name):
@@ -353,6 +365,7 @@ def _default_title(file_name):
     :param file_name: the name from which the title will be derived.
     :return: the derived title.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     # Make sure we have enough of a path to derive text from.
     file_name = abspath(file_name)
     # noinspection PyTypeChecker
@@ -363,6 +376,7 @@ def _default_title_from_manifest(the_manifest, manifest_file):
     """
     Produce a default content title from the contents of a manifest.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     filename = None
 
     metadata = the_manifest.get("metadata")
@@ -382,9 +396,10 @@ def validate_file_is_notebook(file_name):
 
     :param file_name: the name of the file to validate.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     file_suffix = splitext(file_name)[1].lower()
     if file_suffix != ".ipynb" or not exists(file_name):
-        raise api.RSConnectException("A Jupyter notebook (.ipynb) file is required here.")
+        raise RSConnectException("A Jupyter notebook (.ipynb) file is required here.")
 
 
 def validate_extra_files(directory, extra_files):
@@ -397,6 +412,7 @@ def validate_extra_files(directory, extra_files):
     :param extra_files: the list of extra files to qualify and validate.
     :return: the extra files qualified by the directory.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     result = []
     if extra_files:
         for extra in extra_files:
@@ -404,9 +420,9 @@ def validate_extra_files(directory, extra_files):
             # It's an error if we have to leave the given dir to get to the extra
             # file.
             if extra_file.startswith("../"):
-                raise api.RSConnectException("%s must be under %s." % (extra_file, directory))
+                raise RSConnectException("%s must be under %s." % (extra_file, directory))
             if not exists(join(directory, extra_file)):
-                raise api.RSConnectException("Could not find file %s under %s" % (extra, directory))
+                raise RSConnectException("Could not find file %s under %s" % (extra, directory))
             result.append(extra_file)
     return result
 
@@ -419,14 +435,16 @@ def validate_manifest_file(file_or_directory):
     :param file_or_directory: the name of the manifest file or directory that contains it.
     :return: the real path to the manifest file.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     if isdir(file_or_directory):
         file_or_directory = join(file_or_directory, "manifest.json")
     if basename(file_or_directory) != "manifest.json" or not exists(file_or_directory):
-        raise api.RSConnectException("A manifest.json file or a directory containing one is required here.")
+        raise RSConnectException("A manifest.json file or a directory containing one is required here.")
     return file_or_directory
 
 
 def get_default_entrypoint(directory):
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     candidates = ["app", "application", "main", "api"]
     files = set(os.listdir(directory))
 
@@ -453,13 +471,14 @@ def validate_entry_point(entry_point, directory):
     :param entry_point: the entry point as specified by the user.
     :return: the fully expanded and validated entry point and the module file name..
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     if not entry_point:
         entry_point = get_default_entrypoint(directory)
 
     parts = entry_point.split(":")
 
     if len(parts) > 2:
-        raise api.RSConnectException('Entry point is not in "module:object" format.')
+        raise RSConnectException('Entry point is not in "module:object" format.')
 
     return entry_point
 
@@ -473,7 +492,7 @@ def which_quarto(quarto=None):
     if quarto:
         found = shutil.which(quarto)
         if not found:
-            raise api.RSConnectException('The Quarto installation, "%s", does not exist or is not executable.' % quarto)
+            raise RSConnectException('The Quarto installation, "%s", does not exist or is not executable.' % quarto)
         return found
 
     # Fallback -- try to find Quarto when one was not supplied.
@@ -494,7 +513,7 @@ def which_quarto(quarto=None):
         found = shutil.which(each)
         if found:
             return found
-    raise api.RSConnectException("Unable to locate a Quarto installation.")
+    raise RSConnectException("Unable to locate a Quarto installation.")
 
 
 def quarto_inspect(
@@ -514,7 +533,7 @@ def quarto_inspect(
     try:
         inspect_json = check_output(args, universal_newlines=True, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
-        raise api.RSConnectException("Error inspecting target: %s" % e.output)
+        raise RSConnectException("Error inspecting target: %s" % e.output)
     return json.loads(inspect_json)
 
 
@@ -526,7 +545,7 @@ def validate_quarto_engines(inspect):
     engines = inspect.get("engines", [])
     unsupported = [engine for engine in engines if engine not in supported]
     if unsupported:
-        raise api.RSConnectException("The following Quarto engine(s) are not supported: %s" % ", ".join(unsupported))
+        raise RSConnectException("The following Quarto engine(s) are not supported: %s" % ", ".join(unsupported))
     return engines
 
 
@@ -550,6 +569,7 @@ def write_quarto_manifest_json(
     :param excludes: A sequence of glob patterns to exclude when enumerating files to bundle.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
 
     manifest, _ = make_quarto_manifest(
         file_or_directory,
@@ -572,9 +592,51 @@ def write_manifest_json(manifest_path, manifest):
     """
     Write the manifest data as JSON to the named manifest.json with a trailing newline.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
         f.write("\n")
+
+
+def deploy_html(
+    connect_server: api.RSConnectServer = None,
+    path: str = None,
+    entrypoint: str = None,
+    extra_files=None,
+    excludes=None,
+    title: str = None,
+    env_vars=None,
+    verbose: bool = False,
+    new: bool = False,
+    app_id: str = None,
+    name: str = None,
+    server: str = None,
+    api_key: str = None,
+    insecure: bool = False,
+    cacert: IO = None,
+):
+    kwargs = locals()
+    ce = None
+    if connect_server:
+        kwargs = filter_out_server_info(**kwargs)
+        ce = RSConnectExecutor.fromConnectServer(connect_server, **kwargs)
+    else:
+        ce = RSConnectExecutor(**kwargs)
+
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=AppModes.STATIC)
+        .make_bundle(
+            make_html_bundle,
+            path,
+            entrypoint,
+            extra_files,
+            excludes,
+        )
+        .deploy_bundle()
+        .save_deployed_info()
+        .emit_task_log()
+    )
 
 
 def deploy_jupyter_notebook(
@@ -717,6 +779,7 @@ def fake_module_file_from_directory(directory: str):
     :param directory: the directory to start with.
     :return: the directory plus the (potentially) fake module file.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     app_name = abspath(directory)
     app_name = dirname(app_name) if app_name.endswith(os.path.sep) else basename(app_name)
     return join(directory, app_name + ".py")
@@ -1169,7 +1232,7 @@ def gather_basic_deployment_info_for_notebook(
     _validate_title(title)
 
     if new and app_id:
-        raise api.RSConnectException("Specify either a new deploy or an app ID but not both.")
+        raise RSConnectException("Specify either a new deploy or an app ID but not both.")
 
     if static:
         app_mode = AppModes.STATIC
@@ -1194,7 +1257,7 @@ def gather_basic_deployment_info_for_notebook(
                 + "but the existing deployment has mode '%s'.\n"
                 + "Use the --new option to create a new deployment of the desired type."
             ) % (app_mode.desc(), existing_app_mode.desc())
-            raise api.RSConnectException(msg)
+            raise RSConnectException(msg)
 
     default_title = not bool(title)
     title = title or _default_title(file_name)
@@ -1230,7 +1293,7 @@ def gather_basic_deployment_info_for_html(
     """
 
     if new and app_id:
-        raise api.RSConnectException("Specify either a new deploy or an app ID but not both.")
+        raise RSConnectException("Specify either a new deploy or an app ID but not both.")
 
     app_mode = AppModes.STATIC
     existing_app_mode = None
@@ -1251,7 +1314,7 @@ def gather_basic_deployment_info_for_html(
                 + "but the existing deployment has mode '%s'.\n"
                 + "Use the --new option to create a new deployment of the desired type."
             ) % (app_mode.desc(), existing_app_mode.desc())
-            raise api.RSConnectException(msg)
+            raise RSConnectException(msg)
 
     default_title = not bool(title)
     title = title or _default_title(path)
@@ -1291,7 +1354,7 @@ def gather_basic_deployment_info_from_manifest(
     _validate_title(title)
 
     if new and app_id:
-        raise api.RSConnectException("Specify either a new deploy or an app ID but not both.")
+        raise RSConnectException("Specify either a new deploy or an app ID but not both.")
 
     source_manifest, _ = read_manifest_file(file_name)
     # noinspection SpellCheckingInspection
@@ -1339,7 +1402,7 @@ def gather_basic_deployment_info_for_quarto(
     _validate_title(title)
 
     if new and app_id:
-        raise api.RSConnectException("Specify either a new deploy or an app ID but not both.")
+        raise RSConnectException("Specify either a new deploy or an app ID but not both.")
 
     app_mode = AppModes.STATIC_QUARTO
 
@@ -1361,7 +1424,7 @@ def gather_basic_deployment_info_for_quarto(
                 + "but the existing deployment has mode '%s'.\n"
                 + "Use the --new option to create a new deployment of the desired type."
             ) % (app_mode.desc(), existing_app_mode.desc())
-            raise api.RSConnectException(msg)
+            raise RSConnectException(msg)
 
     if file_or_directory[-1] == "/":
         file_or_directory = file_or_directory[:-1]
@@ -1444,7 +1507,7 @@ def _gather_basic_deployment_info_for_framework(
     _validate_title(title)
 
     if new and app_id:
-        raise api.RSConnectException("Specify either a new deploy or an app ID but not both.")
+        raise RSConnectException("Specify either a new deploy or an app ID but not both.")
 
     existing_app_mode = None
     if not new:
@@ -1464,7 +1527,7 @@ def _gather_basic_deployment_info_for_framework(
                 + "but the existing deployment has mode '%s'.\n"
                 + "Use the --new option to create a new deployment of the desired type."
             ) % (app_mode.desc(), existing_app_mode.desc())
-            raise api.RSConnectException(msg)
+            raise RSConnectException(msg)
 
     if directory[-1] == "/":
         directory = directory[:-1]
@@ -1499,7 +1562,7 @@ def get_python_env_info(file_name, python, conda_mode=False, force_generate=Fals
     logger.debug("Python: %s" % python)
     environment = inspect_environment(python, dirname(file_name), conda_mode=conda_mode, force_generate=force_generate)
     if environment.error:
-        raise api.RSConnectException(environment.error)
+        raise RSConnectException(environment.error)
     logger.debug("Python: %s" % python)
     logger.debug("Environment: %s" % pformat(environment._asdict()))
 
@@ -1553,7 +1616,7 @@ def create_notebook_deployment_bundle(
         except subprocess.CalledProcessError as exc:
             # Jupyter rendering failures are often due to
             # user code failing, vs. an internal failure of rsconnect-python.
-            raise api.RSConnectException(str(exc))
+            raise RSConnectException(str(exc))
     else:
         return make_notebook_source_bundle(
             file_name,
@@ -1704,6 +1767,7 @@ def create_notebook_manifest_and_environment_file(
     :param image: an optional docker image for off-host execution. Previous default = None.
     :return:
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     if (
         not write_notebook_manifest_json(
             entry_point_file, environment, app_mode, extra_files, hide_all_input, hide_tagged_input, image
@@ -1741,6 +1805,7 @@ def write_notebook_manifest_json(
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     extra_files = validate_extra_files(dirname(entry_point_file), extra_files)
     directory = dirname(entry_point_file)
     file_name = basename(entry_point_file)
@@ -1750,7 +1815,7 @@ def write_notebook_manifest_json(
         _, extension = splitext(file_name)
         app_mode = AppModes.get_by_extension(extension, True)
         if app_mode == AppModes.UNKNOWN:
-            raise api.RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
+            raise RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
 
     manifest_data = make_source_manifest(app_mode, environment, file_name, None, image)
     manifest_add_file(manifest_data, file_name, directory)
@@ -1791,6 +1856,7 @@ def create_api_manifest_and_environment_file(
     :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return:
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     if (
         not write_api_manifest_json(directory, entry_point, environment, app_mode, extra_files, excludes, image)
         or force
@@ -1823,6 +1889,7 @@ def write_api_manifest_json(
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     extra_files = validate_extra_files(directory, extra_files)
     manifest, _ = make_api_manifest(directory, entry_point, app_mode, environment, extra_files, excludes, image)
     manifest_path = join(directory, "manifest.json")
@@ -1844,6 +1911,7 @@ def write_environment_file(
     returned by the inspect_environment() function.
     :param directory: the directory where the file should be written.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     environment_file_path = join(directory, environment.filename)
     with open(environment_file_path, "w") as f:
         f.write(environment.contents)
@@ -1861,6 +1929,7 @@ def describe_manifest(
     :param file_name: the name of the manifest file to read.
     :return: the entry point and primary document from the manifest.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     if basename(file_name) == "manifest.json" and exists(file_name):
         manifest, _ = read_manifest_file(file_name)
         metadata = manifest.get("metadata")

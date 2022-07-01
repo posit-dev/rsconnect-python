@@ -14,7 +14,7 @@ from .utils import (
     require_api_key,
     require_connect,
 )
-from rsconnect.api import RSConnectException
+from rsconnect.exception import RSConnectException
 from rsconnect.main import cli, _validate_deploy_to_args, server_store
 from rsconnect import VERSION
 
@@ -95,7 +95,6 @@ class TestMain(TestCase):
         args = self.create_deploy_args("notebook", target)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("OK", result.output)
 
     # noinspection SpellCheckingInspection
     def test_deploy_manifest(self):
@@ -104,7 +103,6 @@ class TestMain(TestCase):
         args = self.create_deploy_args("manifest", target)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("OK", result.output)
 
     def test_deploy_api(self):
         target = optional_target(get_api_path("flask"))
@@ -112,4 +110,3 @@ class TestMain(TestCase):
         args = self.create_deploy_args("api", target)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("OK", result.output)
