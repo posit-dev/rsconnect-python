@@ -116,7 +116,9 @@ class TestMain(TestCase):
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
         try:
-            httpretty.register_uri(httpretty.GET, "https://api.shinyapps.io/v1/users/me", body='{"id": 1000}', status=200)
+            httpretty.register_uri(
+                httpretty.GET, "https://api.shinyapps.io/v1/users/me", body='{"id": 1000}', status=200
+            )
 
             runner = CliRunner()
             result = runner.invoke(
@@ -141,7 +143,6 @@ class TestMain(TestCase):
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
-
 
     def test_add_shinyapps_missing_options(self):
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
