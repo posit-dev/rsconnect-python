@@ -141,7 +141,7 @@ class TestServerMetadata(TestCase):
 
         self.assertFalse(exists(path))
 
-        server_store.set("foo", "http://connect.local", "connect", "notReallyAnApiKey", ca_data="/certs/connect")
+        server_store.set("foo", "http://connect.local", api_key="notReallyAnApiKey", ca_data="/certs/connect")
 
         self.assertTrue(exists(path))
 
@@ -268,8 +268,8 @@ class TestHelpers(TestCase):
 class TestBuildMetadata(TestCase):
     def setUp(self):
         self.server_store = ServerStore()
-        self.server_store.set("connect", "https://connect.remote:6443", "apiKey", insecure=True)
-        self.server = RSConnectServer("https://connect.remote:6443", "apiKey", True, None)
+        self.server_store.set("connect", "https://connect.remote:6443", api_key="apiKey", insecure=True)
+        self.server = RSConnectServer("https://connect.remote:6443", api_key="apiKey", insecure=True, ca_data=None)
         self.build_store = ContentBuildStore(self.server)
         self.build_store._set("rsconnect_build_running", False)
         self.build_store._set(
