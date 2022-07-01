@@ -44,7 +44,3 @@ def validate_connection_options(name, url, api_key, insecure, cacert, account, t
             raise api.RSConnectException(
                 "-a/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io."
             )
-
-        return "shinyapps"
-
-    return "connect"

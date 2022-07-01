@@ -1,6 +1,5 @@
 import os
 import shutil
-import unittest
 from os.path import join
 
 from unittest import TestCase
@@ -24,8 +23,8 @@ from rsconnect import VERSION
 
 class TestMain(TestCase):
     def setUp(self):
-        shutil.rmtree('test-home', ignore_errors=True)
-        os.environ['HOME'] = 'test-home'
+        shutil.rmtree("test-home", ignore_errors=True)
+        os.environ["HOME"] = "test-home"
 
     def require_connect(self):
         connect_server = os.environ.get("CONNECT_SERVER", None)
@@ -117,12 +116,7 @@ class TestMain(TestCase):
         original_api_key_value = os.environ.pop("CONNECT_API_KEY")
 
         try:
-            httpretty.register_uri(
-                httpretty.GET,
-                "http://localhost:3939/v1/users/me",
-                body='{"id": 1000}',
-                status=200
-            )
+            httpretty.register_uri(httpretty.GET, "http://localhost:3939/v1/users/me", body='{"id": 1000}', status=200)
 
             runner = CliRunner()
             result = runner.invoke(

@@ -113,8 +113,7 @@ class TestServerMetadata(TestCase):
 
     def test_resolve_by_default(self):
         # with multiple entries, server None will not resolve by default
-        name, server, api_key, insecure, ca_cert = None, None, None, None, None
-        server_data = self.server_store.resolve(name, server)
+        server_data = self.server_store.resolve(None, None)
         self.assertEqual(server_data.url, None)
 
         # with only a single entry, server None will resolve to that entry

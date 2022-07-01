@@ -1,14 +1,9 @@
 """
 RStudio Connect API client and utility functions
 """
-from os.path import abspath, basename
+from os.path import abspath
 import time
 from typing import IO, Callable
-from _ssl import SSLError
-import re
-from warnings import warn
-from six import text_type
-import gc
 import base64
 import datetime
 import hashlib
@@ -18,7 +13,6 @@ import webbrowser
 from _ssl import SSLError
 from urllib import parse
 from urllib.parse import urlparse
-import click
 
 
 import re
@@ -27,7 +21,6 @@ from six import text_type
 import gc
 
 from . import validation
-from .bundle import fake_module_file_from_directory
 from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
 from .log import logger, connect_logger, cls_logged, console_logger
 from .models import AppModes
@@ -400,7 +393,7 @@ class RSConnectExecutor:
         token: str = None,
         secret: str = None,
     ):
-        target = validation.validate_connection_options(
+        validation.validate_connection_options(
             name=name,
             url=url,
             api_key=api_key,
@@ -471,7 +464,6 @@ class RSConnectExecutor:
             raise RSConnectException("Unable to validate server from information provided.")
 
         return self
-
 
     def validate_connect_server(
         self,
@@ -981,7 +973,9 @@ class ShinyappsClient(HTTPServer):
         return self.get("/v1/accounts/")
 
     def _get_applications_like_name_page(self, name: str, offset: int):
-        return self.get("/v1/applications?filter=name:like:{}&offset={}&count=100&use_advanced_filters=true".format(name, offset))
+        return self.get(
+            "/v1/applications?filter=name:like:{}&offset={}&count=100&use_advanced_filters=true".format(name, offset)
+        )
 
     def create_bundle(self, application_id: int, content_type: str, content_length: int, checksum: str):
         bundle_data = {
@@ -1069,14 +1063,14 @@ class ShinyappsClient(HTTPServer):
         self._server.handle_bad_response(results)
         offset = 0
 
-        while len(applications) < int(results.json_data['total']):
+        while len(applications) < int(results.json_data["total"]):
             results = self._get_applications_like_name_page(name, offset)
             self._server.handle_bad_response(results)
-            applications = results.json_data['applications']
+            applications = results.json_data["applications"]
             applications.extend(applications)
-            offset += int(results.json_data['count'])
+            offset += int(results.json_data["count"])
 
-        return [app['name'] for app in applications]
+        return [app["name"] for app in applications]
 
 
 def verify_server(connect_server):
@@ -1387,18 +1381,3 @@ def _to_server_check_list(url):
         items = ["%s"]
 
     return [item % url for item in items]
-
-
-def _default_title(file_name):
-    """
-    Produce a default content title from the given file path.  The result is
-    guaranteed to be between 3 and 1024 characters long, as required by RStudio
-    Connect.
-
-    :param file_name: the name from which the title will be derived.
-    :return: the derived title.
-    """
-    # Make sure we have enough of a path to derive text from.
-    file_name = abspath(file_name)
-    # noinspection PyTypeChecker
-    return basename(file_name).rsplit(".", 1)[0][:1024].rjust(3, "0")
