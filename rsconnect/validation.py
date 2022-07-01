@@ -3,7 +3,7 @@ import typing
 from . import api
 
 
-def _get_present_options(options: dict[str, typing.Optional[str]]) -> list[str]:
+def _get_present_options(options: typing.Dict[str, typing.Optional[str]]) -> typing.List[str]:
     return [k for k, v in options.items() if v]
 
 
