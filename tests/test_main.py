@@ -1,8 +1,11 @@
 import os
+import shutil
 import unittest
 from os.path import join
 
 from unittest import TestCase
+
+import httpretty
 from click.testing import CliRunner
 
 from .utils import (
@@ -20,6 +23,10 @@ from rsconnect import VERSION
 
 
 class TestMain(TestCase):
+    def setUp(self):
+        shutil.rmtree('test-home', ignore_errors=True)
+        os.environ['HOME'] = 'test-home'
+
     def require_connect(self):
         connect_server = os.environ.get("CONNECT_SERVER", None)
         if connect_server is None:
@@ -104,26 +111,39 @@ class TestMain(TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("OK", result.output)
 
-    # TODO (mslynch): mock shinyapps.io
-    @unittest.skip
+    # @unittest.skip
+    @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_add_shinyapps(self):
-        runner = CliRunner()
-        result = runner.invoke(
-            cli,
-            [
-                "add",
-                "--target",
-                "shinyapps",
-                "--name",
-                "my-shinyapps",
-                "--token",
-                "someToken",
-                "--secret",
-                "c29tZVNlY3JldAo=",
-            ],
-        )
-        self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("shinyapps.io credential", result.output)
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY")
+
+        try:
+            httpretty.register_uri(
+                httpretty.GET,
+                "http://localhost:3939/v1/users/me",
+                body='{"id": 1000}',
+                status=200
+            )
+
+            runner = CliRunner()
+            result = runner.invoke(
+                cli,
+                [
+                    "add",
+                    "--account",
+                    "someAccount",
+                    "--name",
+                    "my-shinyapps",
+                    "--token",
+                    "someToken",
+                    "--secret",
+                    "c29tZVNlY3JldAo=",
+                ],
+            )
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn("shinyapps.io credential", result.output)
+
+        finally:
+            os.environ["CONNECT_API_KEY"] = original_api_key_value
 
     def test_add_shinyapps_missing_options(self):
         original_api_key_value = os.environ.pop("CONNECT_API_KEY")
