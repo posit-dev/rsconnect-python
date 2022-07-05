@@ -52,8 +52,14 @@ class AbstractRemoteServer:
                     raise RSConnectException(error)
                 if response.status < 200 or response.status > 299:
                     raise RSConnectException(
-                        "Received an unexpected response from %s (calling %s): %s %s"
-                        % (self.remote_name, response.full_uri, response.status, response.reason)
+                        "Received an unexpected response from %s (calling %s): %s %s\n%s"
+                        % (
+                            self.remote_name,
+                            response.full_uri,
+                            response.status,
+                            response.reason,
+                            response.response_body,
+                        )
                     )
 
 
