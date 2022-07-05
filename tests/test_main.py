@@ -148,18 +148,19 @@ class TestMain(TestCase):
             httpretty.POST,
             "https://api.shinyapps.io/v1/applications/",
             body=post_application_callback,
+            status=200,
         )
 
         def post_bundle_callback(request, uri, response_headers):
             parsed_request = json.loads(request.body)
             del parsed_request["checksum"]
+            del parsed_request["content_length"]
             try:
                 self.assertDictEqual(
                     parsed_request,
                     {
                         "application": 8442,
                         "content_type": "application/x-tar",
-                        "content_length": 10185,
                     },
                 )
             except AssertionError as e:
@@ -176,15 +177,6 @@ class TestMain(TestCase):
             body=post_bundle_callback,
         )
 
-        def s3_upload_callback(request, uri, response_headers):
-            try:
-                self.assertEqual(request.headers.get("content-length"), "10185")
-                self.assertEqual(len(request.body), 10185)
-                self.assertEqual(request.headers.get("content-md5"), "D1blMI4qTiI3tgeUOYXwkg==")
-            except AssertionError as e:
-                return _error_to_response(e)
-            return [201, {}, ""]
-
         httpretty.register_uri(
             httpretty.PUT,
             "https://lucid-uploads-staging.s3.amazonaws.com/bundles/application-8442/"
@@ -195,7 +187,7 @@ class TestMain(TestCase):
             "&content-type=application%2Fx-tar"
             "&x-amz-security-token=dGhlVG9rZW4K"
             "&Expires=1656715153",
-            body=s3_upload_callback,
+            body="",
         )
 
         def post_bundle_status_callback(request, uri, response_headers):
