@@ -765,9 +765,11 @@ class RSConnectExecutor:
                 if isinstance(self.remote_server, RSConnectServer):
                     app = get_app_info(self.remote_server, app_id)
                     existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
-                else:
+                elif isinstance(self.remote_server, ShinyappsServer):
                     app = get_shinyapp_info(self.remote_server, app_id)
                     existing_app_mode = AppModes.get_by_cloud_name(app.json_data["mode"])
+                else:
+                    raise RSConnectException("Unable to infer Connect client.")
             if existing_app_mode and app_mode != existing_app_mode:
                 msg = (
                     "Deploying with mode '%s',\n"

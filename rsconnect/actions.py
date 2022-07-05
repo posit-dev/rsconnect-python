@@ -1531,9 +1531,11 @@ def _gather_basic_deployment_info_for_framework(
             if isinstance(remote_server, api.RSConnectServer):
                 app = api.get_app_info(remote_server, app_id)
                 existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
-            else:
+            elif isinstance(remote_server, api.ShinyappsServer):
                 app = api.get_shinyapp_info(remote_server, app_id)
                 existing_app_mode = AppModes.get_by_cloud_name(app.json_data["mode"])
+            else:
+                raise RSConnectException("Unable to infer Connect client.")
         if existing_app_mode and app_mode != existing_app_mode:
             msg = (
                 "Deploying with mode '%s',\n"
