@@ -411,8 +411,10 @@ class RSConnectExecutor:
 
         if api_key:
             self.remote_server = RSConnectServer(url, api_key, insecure, ca_data)
-        else:
+        elif token and secret:
             self.remote_server = ShinyappsServer(url, account_name, token, secret)
+        else:
+            raise RSConnectException("Unable to infer Connect server type and setup server.")
 
     def setup_client(self, cookies=None, timeout=30, **kwargs):
         if isinstance(self.remote_server, RSConnectServer):
