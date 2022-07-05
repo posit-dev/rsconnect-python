@@ -95,10 +95,8 @@ TargetableServer = typing.Union[ShinyappsServer, RSConnectServer]
 
 
 class S3Server(AbstractRemoteServer):
-    remote_name = "S3"
-
     def __init__(self, url: str):
-        self.url = url
+        super().__init__(url, "S3")
 
 
 class RSConnectClient(HTTPServer):
