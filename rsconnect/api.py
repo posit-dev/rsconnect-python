@@ -64,7 +64,7 @@ class ShinyappsServer(AbstractRemoteServer):
     """
 
     def __init__(self, url: str, account_name: str, token: str, secret: str):
-        super().__init__(url, "shinyapps.io")
+        super().__init__(url or "https://api.shinyapps.io", "shinyapps.io")
         self.account_name = account_name
         self.token = token
         self.secret = secret
@@ -407,8 +407,6 @@ class RSConnectExecutor:
 
         if api_key:
             self.remote_server = RSConnectServer(url, api_key, insecure, ca_data)
-        elif token and secret:
-            self.remote_server = ShinyappsServer(url, account, token, secret)
         else:
             self.remote_server = ShinyappsServer(url, account, token, secret)
 
@@ -971,7 +969,9 @@ class ShinyappsClient(HTTPServer):
             "content_length": content_length,
             "checksum": checksum,
         }
-        return self.post("/v1/bundles", body=bundle_data)
+        result = self.post("/v1/bundles", body=bundle_data)
+        print(result.json_data)
+        return result
 
     def set_bundle_status(self, bundle_id, bundle_status):
         return self.post("/v1/bundles/{}/status".format(bundle_id), body={"status": bundle_status})
@@ -1028,7 +1028,7 @@ class ShinyappsClient(HTTPServer):
         self._server.handle_bad_response(bundle)
 
         return PrepareDeployResult(
-            int(app_id),
+            app_id_int,
             app_url,
             int(bundle.json_data["id"]),
             bundle.json_data["presigned_url"],

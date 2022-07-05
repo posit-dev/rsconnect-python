@@ -22,7 +22,7 @@ class TestServerMetadata(TestCase):
         self.server_store.set(
             "baz",
             "https://shinyapps.io",
-            account="someAccount",
+            account="some-account",
             token="someToken",
             secret="c29tZVNlY3JldAo=",
         )
@@ -60,7 +60,7 @@ class TestServerMetadata(TestCase):
             dict(
                 name="baz",
                 url="https://shinyapps.io",
-                account="someAccount",
+                account="some-account",
                 token="someToken",
                 secret="c29tZVNlY3JldAo=",
             ),

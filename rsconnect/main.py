@@ -316,7 +316,7 @@ def add(name, server, api_key, insecure, cacert, account, token, secret, verbose
     old_server = server_store.get_by_name(name)
 
     if account:
-        shinyapps_server = api.ShinyappsServer(server or "https://api.shinyapps.io", account, token, secret)
+        shinyapps_server = api.ShinyappsServer(server, account, token, secret)
         _test_shinyappsio_creds(shinyapps_server)
 
         server_store.set(

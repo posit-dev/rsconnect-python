@@ -303,9 +303,18 @@ class HTTPServer(object):
                     raise http.CannotSendRequest("Too many redirects")
 
                 location = response.getheader("Location")
-                next_url = urljoin(self._url.geturl(), location)
 
-                logger.debug("--> Redirected to: %s" % next_url)
+                # Assume the redirect location will always be on the same domain.
+                if location.startswith("http"):
+                    parsed_location = urlparse(location)
+                    if parsed_location.query:
+                        next_url = "{}?{}".format(parsed_location.path, parsed_location.query)
+                    else:
+                        next_url = parsed_location.path
+                else:
+                    next_url = location
+
+                logger.debug("--> Redirected to: %s" % urljoin(self._url.geturl(), location))
 
                 redirect_extra_headers = self.get_extra_headers(next_url, "GET", body)
                 return self._do_request(
