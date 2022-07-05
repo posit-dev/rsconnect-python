@@ -223,8 +223,8 @@ def test_shinyapps_server(server: api.ShinyappsServer):
         try:
             result = client.get_current_user()
             server.handle_bad_response(result)
-        except api.RSConnectException as exc:
-            raise api.RSConnectException("Failed to verify with shinyapps.io ({}).".format(exc))
+        except RSConnectException as exc:
+            raise RSConnectException("Failed to verify with shinyapps.io ({}).".format(exc))
 
 
 def test_api_key(connect_server):

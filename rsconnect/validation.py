@@ -1,6 +1,6 @@
 import typing
 
-from . import api
+from rsconnect.exception import RSConnectException
 
 
 def _get_present_options(options: typing.Dict[str, typing.Optional[str]]) -> typing.List[str]:
@@ -22,13 +22,13 @@ def validate_connection_options(name, url, api_key, insecure, cacert, account_na
     present_options_mutually_exclusive_with_name = _get_present_options(options_mutually_exclusive_with_name)
 
     if name and present_options_mutually_exclusive_with_name:
-        raise api.RSConnectException(
+        raise RSConnectException(
             "-n/--name cannot be specified in conjunction with options {}".format(
                 ", ".join(present_options_mutually_exclusive_with_name)
             )
         )
     if not name and not url and not shinyapps_options:
-        raise api.RSConnectException(
+        raise RSConnectException(
             "You must specify one of -n/--name OR -s/--server OR -a/--account, -T/--token, -S/--secret."
         )
 
@@ -36,7 +36,7 @@ def validate_connection_options(name, url, api_key, insecure, cacert, account_na
     present_shinyapps_options = _get_present_options(shinyapps_options)
 
     if present_connect_options and present_shinyapps_options:
-        raise api.RSConnectException(
+        raise RSConnectException(
             "Connect options ({}) may not be passed alongside shinyapps.io options ({}).".format(
                 ", ".join(present_connect_options), ", ".join(present_shinyapps_options)
             )
@@ -44,6 +44,4 @@ def validate_connection_options(name, url, api_key, insecure, cacert, account_na
 
     if present_shinyapps_options:
         if len(present_shinyapps_options) != 3:
-            raise api.RSConnectException(
-                "-a/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io."
-            )
+            raise RSConnectException("-a/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io.")
