@@ -186,7 +186,14 @@ class TestMain(TestCase):
 
         httpretty.register_uri(
             httpretty.PUT,
-            "https://lucid-uploads-staging.s3.amazonaws.com/bundles/application-8442/6c9ed0d91ee9426687d9ac231d47dc83.tar.gz?AWSAccessKeyId=theAccessKeyId&Signature=dGhlU2lnbmF0dXJlCg%3D%3D&content-md5=D1blMI4qTiI3tgeUOYXwkg%3D%3D&content-type=application%2Fx-tar&x-amz-security-token=dGhlVG9rZW4K&Expires=1656715153",
+            "https://lucid-uploads-staging.s3.amazonaws.com/bundles/application-8442/"
+            "6c9ed0d91ee9426687d9ac231d47dc83.tar.gz"
+            "?AWSAccessKeyId=theAccessKeyId"
+            "&Signature=dGhlU2lnbmF0dXJlCg%3D%3D"
+            "&content-md5=D1blMI4qTiI3tgeUOYXwkg%3D%3D"
+            "&content-type=application%2Fx-tar"
+            "&x-amz-security-token=dGhlVG9rZW4K"
+            "&Expires=1656715153",
             body=s3_upload_callback,
         )
 
