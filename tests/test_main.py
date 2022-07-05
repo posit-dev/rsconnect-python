@@ -30,6 +30,12 @@ def _error_to_response(error):
     return [500, {}, str(error)]
 
 
+def load_json(data):
+    if isinstance(data, bytes):
+        return json.loads(data.decode())
+    return json.loads(data)
+
+
 class TestMain(TestCase):
     def setUp(self):
         shutil.rmtree("test-home", ignore_errors=True)
