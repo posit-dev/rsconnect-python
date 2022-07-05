@@ -118,7 +118,8 @@ class TestMain(TestCase):
         )
         httpretty.register_uri(
             httpretty.GET,
-            "https://api.shinyapps.io/v1/applications?filter=name:like:shinyapp&offset=0&count=100&use_advanced_filters=true",
+            "https://api.shinyapps.io/v1/applications"
+            "?filter=name:like:shinyapp&offset=0&count=100&use_advanced_filters=true",
             body=open("tests/testdata/shinyapps-responses/get-applications.json", "r").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
