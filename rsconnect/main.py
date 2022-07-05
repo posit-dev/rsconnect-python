@@ -322,7 +322,7 @@ def add(name, server, api_key, insecure, cacert, account, token, secret, verbose
         server_store.set(
             name,
             shinyapps_server.url,
-            account=shinyapps_server.account_name,
+            account_name=shinyapps_server.account_name,
             token=shinyapps_server.token,
             secret=shinyapps_server.secret,
         )

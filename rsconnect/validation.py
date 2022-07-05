@@ -11,13 +11,13 @@ def validate_new_server_options(url, api_key, insecure, cacert, account, token, 
     validate_connection_options(None, url, api_key, insecure, cacert, account, token, secret)
 
 
-def validate_connection_options(name, url, api_key, insecure, cacert, account, token, secret):
+def validate_connection_options(name, url, api_key, insecure, cacert, account_name, token, secret):
     """
     Validates provided Connect or shinyapps.io connection options and returns which target to use given the provided
     options.
     """
     connect_options = {"-k/--api-key": api_key, "-i/--insecure": insecure, "-c/--cacert": cacert}
-    shinyapps_options = {"-T/--token": token, "-S/--secret": secret, "-a/--account": account}
+    shinyapps_options = {"-T/--token": token, "-S/--secret": secret, "-a/--account": account_name}
     options_mutually_exclusive_with_name = {"-s/--server": url, **connect_options, **shinyapps_options}
     present_options_mutually_exclusive_with_name = _get_present_options(options_mutually_exclusive_with_name)
 

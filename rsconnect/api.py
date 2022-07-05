@@ -342,7 +342,7 @@ class RSConnectExecutor:
             insecure=insecure,
             cacert=cacert,
             ca_data=ca_data,
-            account=account,
+            account_name=account,
             token=token,
             secret=secret,
         )
@@ -380,7 +380,7 @@ class RSConnectExecutor:
         insecure: bool = False,
         cacert: IO = None,
         ca_data: str = None,
-        account: str = None,
+        account_name: str = None,
         token: str = None,
         secret: str = None,
     ):
@@ -390,7 +390,7 @@ class RSConnectExecutor:
             api_key=api_key,
             insecure=insecure,
             cacert=cacert,
-            account=account,
+            account_name=account_name,
             token=token,
             secret=secret,
         )
@@ -404,7 +404,7 @@ class RSConnectExecutor:
             api_key = server_data.api_key
             insecure = server_data.insecure
             ca_data = server_data.ca_data
-            account = server_data.account
+            account_name = server_data.account_name
             token = server_data.token
             secret = server_data.secret
         self.is_server_from_store = server_data.from_store
@@ -412,7 +412,7 @@ class RSConnectExecutor:
         if api_key:
             self.remote_server = RSConnectServer(url, api_key, insecure, ca_data)
         else:
-            self.remote_server = ShinyappsServer(url, account, token, secret)
+            self.remote_server = ShinyappsServer(url, account_name, token, secret)
 
     def setup_client(self, cookies=None, timeout=30, **kwargs):
         if isinstance(self.remote_server, RSConnectServer):

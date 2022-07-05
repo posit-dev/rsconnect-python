@@ -227,7 +227,7 @@ class ServerData:
         api_key: typing.Optional[str] = None,
         insecure: typing.Optional[bool] = None,
         ca_data: typing.Optional[str] = None,
-        account: typing.Optional[str] = None,
+        account_name: typing.Optional[str] = None,
         token: typing.Optional[str] = None,
         secret: typing.Optional[str] = None,
     ):
@@ -237,7 +237,7 @@ class ServerData:
         self.api_key = api_key
         self.insecure = insecure
         self.ca_data = ca_data
-        self.account = account
+        self.account_name = account_name
         self.token = token
         self.secret = secret
 
@@ -277,7 +277,7 @@ class ServerStore(DataStore):
         """
         return self._get_sorted_values(lambda s: s["name"])
 
-    def set(self, name, url, api_key=None, insecure=False, ca_data=None, account=None, token=None, secret=None):
+    def set(self, name, url, api_key=None, insecure=False, ca_data=None, account_name=None, token=None, secret=None):
         """
         Add (or update) information about a Connect server
 
@@ -286,7 +286,7 @@ class ServerStore(DataStore):
         :param api_key: the API key to use to authenticate with the Connect server.
         :param insecure: a flag to disable TLS verification.
         :param ca_data: client side certificate data to use for TLS.
-        :param account: shinyapps.io account name.
+        :param account_name: shinyapps.io account name.
         :param token: shinyapps.io token.
         :param secret: shinyapps.io secret.
         """
@@ -297,7 +297,7 @@ class ServerStore(DataStore):
         if api_key:
             target_data = dict(api_key=api_key, insecure=insecure, ca_cert=ca_data)
         else:
-            target_data = dict(account=account, token=token, secret=secret)
+            target_data = dict(account_name=account_name, token=token, secret=secret)
         self._set(name, {**common_data, **target_data})
 
     def remove_by_name(self, name):
@@ -358,7 +358,7 @@ class ServerStore(DataStore):
                 insecure=entry.get("insecure"),
                 ca_data=entry.get("ca_cert"),
                 api_key=entry.get("api_key"),
-                account=entry.get("account"),
+                account_name=entry.get("account_name"),
                 token=entry.get("token"),
                 secret=entry.get("secret"),
             )
