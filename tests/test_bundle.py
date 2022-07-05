@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import json
+import shutil
 import sys
 import tarfile
 import tempfile
@@ -9,6 +10,10 @@ from os.path import dirname, join
 
 from rsconnect.environment import detect_environment
 from rsconnect.bundle import (
+    _default_title,
+    _default_title_from_manifest,
+    _validate_title,
+    inspect_environment,
     list_files,
     make_manifest_bundle,
     make_notebook_html_bundle,
@@ -18,10 +23,14 @@ from rsconnect.bundle import (
     make_source_manifest,
     make_quarto_manifest,
     make_html_manifest,
+    validate_entry_point,
+    validate_extra_files,
+    which_python,
 )
+from rsconnect.exception import RSConnectException
 from rsconnect.models import AppModes
 from rsconnect.environment import Environment
-from .utils import get_dir
+from .utils import get_dir, get_manifest_path
 
 
 class TestBundle(TestCase):
@@ -585,3 +594,85 @@ class TestBundle(TestCase):
                 "environment": {"image": "rstudio/connect:bionic"},
             },
         )
+
+    def test_validate_extra_files(self):
+        # noinspection SpellCheckingInspection
+        directory = dirname(get_manifest_path("shinyapp"))
+
+        with self.assertRaises(RSConnectException):
+            validate_extra_files(directory, ["../other_dir/file.txt"])
+
+        with self.assertRaises(RSConnectException):
+            validate_extra_files(directory, ["not_a_file.txt"])
+
+        self.assertEqual(validate_extra_files(directory, None), [])
+        self.assertEqual(validate_extra_files(directory, []), [])
+        self.assertEqual(
+            validate_extra_files(directory, [join(directory, "index.htm")]),
+            ["index.htm"],
+        )
+
+    def test_validate_title(self):
+        with self.assertRaises(RSConnectException):
+            _validate_title("12")
+
+        with self.assertRaises(RSConnectException):
+            _validate_title("1" * 1025)
+
+        _validate_title("123")
+        _validate_title("1" * 1024)
+
+    def test_validate_entry_point(self):
+        directory = tempfile.mkdtemp()
+
+        try:
+            self.assertEqual(validate_entry_point(None, directory), "app")
+            self.assertEqual(validate_entry_point("app", directory), "app")
+            self.assertEqual(validate_entry_point("app:app", directory), "app:app")
+
+            with self.assertRaises(RSConnectException):
+                validate_entry_point("x:y:z", directory)
+
+                with open(join(directory, "onlysource.py"), "w") as f:
+                    f.close()
+                    self.assertEqual(validate_entry_point(None, directory), "onlysource")
+
+                    with open(join(directory, "main.py"), "w") as f:
+                        f.close()
+                        self.assertEqual(validate_entry_point(None, directory), "main")
+        finally:
+            shutil.rmtree(directory)
+
+    def test_which_python(self):
+        with self.assertRaises(RSConnectException):
+            which_python("fake.file")
+
+        self.assertEqual(which_python(sys.executable), sys.executable)
+        self.assertEqual(which_python(None), sys.executable)
+        self.assertEqual(which_python(None, {"RETICULATE_PYTHON": "fake-python"}), "fake-python")
+
+    def test_default_title(self):
+        self.assertEqual(_default_title("testing.txt"), "testing")
+        self.assertEqual(_default_title("this.is.a.test.ext"), "this.is.a.test")
+        self.assertEqual(_default_title("1.ext"), "001")
+        self.assertEqual(_default_title("%s.ext" % ("n" * 2048)), "n" * 1024)
+
+    def test_default_title_from_manifest(self):
+        self.assertEqual(_default_title_from_manifest({}, "dir/to/manifest.json"), "0to")
+        # noinspection SpellCheckingInspection
+        m = {"metadata": {"entrypoint": "point"}}
+        self.assertEqual(_default_title_from_manifest(m, "dir/to/manifest.json"), "point")
+        m = {"metadata": {"primary_rmd": "file.Rmd"}}
+        self.assertEqual(_default_title_from_manifest(m, "dir/to/manifest.json"), "file")
+        m = {"metadata": {"primary_html": "page.html"}}
+        self.assertEqual(_default_title_from_manifest(m, "dir/to/manifest.json"), "page")
+        m = {"metadata": {"primary_wat?": "my-cool-thing.wat"}}
+        self.assertEqual(_default_title_from_manifest(m, "dir/to/manifest.json"), "0to")
+        # noinspection SpellCheckingInspection
+        m = {"metadata": {"entrypoint": "module:object"}}
+        self.assertEqual(_default_title_from_manifest(m, "dir/to/manifest.json"), "0to")
+
+    def test_inspect_environment(self):
+        environment = inspect_environment(sys.executable, get_dir("pip1"))
+        assert environment is not None
+        assert environment.python != ""
