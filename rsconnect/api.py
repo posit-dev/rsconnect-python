@@ -989,7 +989,7 @@ class ShinyappsClient(HTTPServer):
     def get_current_user(self):
         return self.get("/v1/users/me")
 
-    def wait_until_task_is_successful(self, task_id, timeout=60):
+    def wait_until_task_is_successful(self, task_id, timeout=180):
         counter = 1
         status = None
 
@@ -999,7 +999,7 @@ class ShinyappsClient(HTTPServer):
             status = task.json_data["status"]
             description = task.json_data["description"]
 
-            print("Waiting: {} - {}".format(status, description))
+            print("Waiting on task {}: {} - {}".format(task_id, status, description))
 
             if status == "success":
                 break
