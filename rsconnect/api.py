@@ -658,6 +658,7 @@ class RSConnectExecutor:
 
             self.client.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
 
+            print("Application successfully deployed to {}".format(prepare_deploy_result.app_url))
             webbrowser.open_new(prepare_deploy_result.app_url)
 
             self.state["deployed_info"] = {
@@ -996,6 +997,8 @@ class ShinyappsClient(HTTPServer):
         return self.get("/v1/users/me")
 
     def wait_until_task_is_successful(self, task_id, timeout=180):
+        print()
+        print("Waiting for task: {}".format(task_id))
         start_time = time.time()
         while time.time() - start_time < timeout:
             task = self.get_task(task_id)
@@ -1008,9 +1011,9 @@ class ShinyappsClient(HTTPServer):
                 break
 
             if status in {"failed", "error"}:
-                raise RSConnectException("Task {} {} - {} (error: {})".format(task_id, status, description, error))
+                raise RSConnectException("Application deployment failed with error: {}".format(error))
 
-            print("Waiting on task {}: {} - {}".format(task_id, status, description))
+            print("  {} - {}".format(status, description))
             time.sleep(2)
 
 
