@@ -30,7 +30,7 @@ def _error_to_response(error):
     return [500, {}, str(error)]
 
 
-def load_json(data):
+def _load_json(data):
     if isinstance(data, bytes):
         return json.loads(data.decode())
     return json.loads(data)
@@ -139,7 +139,7 @@ class TestMain(TestCase):
         )
 
         def post_application_callback(request, uri, response_headers):
-            parsed_request = load_json(request.body)
+            parsed_request = _load_json(request.body)
             try:
                 self.assertDictEqual(parsed_request, {"account": 82069, "name": "myapp", "template": "shiny"})
             except AssertionError as e:
@@ -158,7 +158,7 @@ class TestMain(TestCase):
         )
 
         def post_bundle_callback(request, uri, response_headers):
-            parsed_request = load_json(request.body)
+            parsed_request = _load_json(request.body)
             del parsed_request["checksum"]
             del parsed_request["content_length"]
             try:
@@ -197,7 +197,7 @@ class TestMain(TestCase):
         )
 
         def post_bundle_status_callback(request, uri, response_headers):
-            parsed_request = load_json(request.body)
+            parsed_request = _load_json(request.body)
             try:
                 self.assertDictEqual(parsed_request, {"status": "ready"})
             except AssertionError as e:
@@ -219,7 +219,7 @@ class TestMain(TestCase):
         )
 
         def post_deploy_callback(request, uri, response_headers):
-            parsed_request = load_json(request.body)
+            parsed_request = _load_json(request.body)
             try:
                 self.assertDictEqual(parsed_request, {"bundle": 12640, "rebuild": False})
             except AssertionError as e:
