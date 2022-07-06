@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   requires RStudio Connect release 2021.08.0 or later. Use `rsconnect deploy
   quarto` to deploy, or `rsconnect write-manifest quarto` to create a manifest
   file.
-- `RSConnectExecutor` has been added to make developing rsconnect-python APIs easier.
+
 ### Changed
 
 - As a prelude to setting and documenting rsconnect-python APIs, various functions in `actions` have been moved to `bundle`, or replaced with RSConnectExecutor. The moved functions now include a deprecation warning, and will be fully deprecated in a future release. 
