@@ -913,6 +913,9 @@ class PrepareDeployResult:
 
 
 class ShinyappsClient(HTTPServer):
+
+    _TERMINAL_STATUSES = {"success", "failed", "error"}
+
     def __init__(self, shinyapps_server: ShinyappsServer, timeout: int = 30):
         self._token = shinyapps_server.token
         self._key = base64.b64decode(shinyapps_server.secret)
@@ -978,7 +981,6 @@ class ShinyappsClient(HTTPServer):
             "checksum": checksum,
         }
         result = self.post("/v1/bundles", body=bundle_data)
-        print(result.json_data)
         return result
 
     def set_bundle_status(self, bundle_id, bundle_status):
@@ -994,22 +996,24 @@ class ShinyappsClient(HTTPServer):
         return self.get("/v1/users/me")
 
     def wait_until_task_is_successful(self, task_id, timeout=180):
-        counter = 1
-        status = None
-
-        while counter < timeout and status not in ["success", "failed", "error"]:
+        start_time = time.time()
+        while time.time() - start_time < timeout:
             task = self.get_task(task_id)
             self._server.handle_bad_response(task)
             status = task.json_data["status"]
             description = task.json_data["description"]
-
-            print("Waiting on task {}: {} - {}".format(task_id, status, description))
+            error = task.json_data["error"]
 
             if status == "success":
                 break
 
+            if status in {"failed", "error"}:
+                raise RSConnectException("Task {} {} - {} (error: {})".format(task_id, status, description, error))
+
+            print("Waiting on task {}: {} - {}".format(task_id, status, description))
             time.sleep(2)
-            counter += 1
+
+
         print("Task done: {}".format(description))
 
     def prepare_deploy(self, app_id: typing.Optional[str], app_name: str, bundle_size: int, bundle_hash: str):
