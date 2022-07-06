@@ -1016,7 +1016,6 @@ class ShinyappsClient(HTTPServer):
             print("  {} - {}".format(status, description))
             time.sleep(2)
 
-
         print("Task done: {}".format(description))
 
     def prepare_deploy(self, app_id: typing.Optional[str], app_name: str, bundle_size: int, bundle_hash: str):
