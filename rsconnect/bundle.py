@@ -386,7 +386,7 @@ def make_notebook_html_bundle(
     cmd = [
         python,
         "-m",
-        "jupyter",
+        "jupyter_core",
         "nbconvert",
         "--execute",
         "--stdout",
