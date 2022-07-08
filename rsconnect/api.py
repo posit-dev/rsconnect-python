@@ -385,7 +385,6 @@ class RSConnectExecutor:
         secret: str = None,
     ):
         validation.validate_connection_options(
-            name=name,
             url=url,
             api_key=api_key,
             insecure=insecure,
@@ -393,6 +392,7 @@ class RSConnectExecutor:
             account_name=account_name,
             token=token,
             secret=secret,
+            name=name,
         )
 
         if cacert and not ca_data:

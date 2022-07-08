@@ -7,11 +7,7 @@ def _get_present_options(options: typing.Dict[str, typing.Optional[str]]) -> typ
     return [k for k, v in options.items() if v]
 
 
-def validate_new_server_options(url, api_key, insecure, cacert, account, token, secret):
-    validate_connection_options(None, url, api_key, insecure, cacert, account, token, secret)
-
-
-def validate_connection_options(name, url, api_key, insecure, cacert, account_name, token, secret):
+def validate_connection_options(url, api_key, insecure, cacert, account_name, token, secret, name=None):
     """
     Validates provided Connect or shinyapps.io connection options and returns which target to use given the provided
     options.

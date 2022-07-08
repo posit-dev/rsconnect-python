@@ -303,12 +303,12 @@ def add(name, server, api_key, insecure, cacert, account, token, secret, verbose
 
     set_verbosity(verbose)
 
-    validation.validate_new_server_options(
+    validation.validate_connection_options(
         url=server,
         api_key=api_key,
         insecure=insecure,
         cacert=cacert,
-        account=account,
+        account_name=account,
         token=token,
         secret=secret,
     )
