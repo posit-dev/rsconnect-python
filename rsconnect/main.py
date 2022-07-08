@@ -734,8 +734,6 @@ def deploy_notebook(
     envvar="SHINYAPPS_ACCOUNT",
     help="The shinyapps.io account name.",
 )
-@server_args
-@content_args
 @click.option(
     "--token",
     "-T",
