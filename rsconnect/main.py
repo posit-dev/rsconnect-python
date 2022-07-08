@@ -21,7 +21,6 @@ from .actions import (
     test_server,
     validate_quarto_engines,
     which_quarto,
-    test_shinyapps_server,
 )
 from .actions_content import (
     download_bundle,
@@ -35,7 +34,7 @@ from .actions_content import (
     emit_build_log,
 )
 
-from . import api, VERSION, validation
+from . import api, VERSION
 from .api import RSConnectExecutor, filter_out_server_info
 from .bundle import (
     are_apis_supported_on_server,
@@ -239,14 +238,9 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
     return real_server, me
 
 
-def _test_shinyappsio_creds(server: api.ShinyappsServer):
-    with cli_feedback("Checking shinyapps.io credential"):
-        test_shinyapps_server(server)
-
-
 # noinspection SpellCheckingInspection
 @cli.command(
-    short_help="Define a nickname for an RStudio Connect or shinyapps.io server and credential.",
+    short_help="Define a nickname for an RStudio Connect server.",
     help=(
         "Associate a simple nickname with the information needed to interact with an RStudio Connect server. "
         "Specifying an existing nickname will cause its stored information to be replaced by what is given "
@@ -257,12 +251,14 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
 @click.option(
     "--server",
     "-s",
+    required=True,
     envvar="CONNECT_SERVER",
     help="The URL for the RStudio Connect server to deploy to.",
 )
 @click.option(
     "--api-key",
     "-k",
+    required=True,
     envvar="CONNECT_API_KEY",
     help="The API key to use to authenticate with RStudio Connect.",
 )
@@ -280,72 +276,27 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
     type=click.File(),
     help="The path to trusted TLS CA certificates.",
 )
-@click.option(
-    "--account",
-    "-a",
-    envvar="SHINYAPPS_ACCOUNT",
-    help="The shinyapps.io account name.",
-)
-@click.option(
-    "--token",
-    "-T",
-    envvar="SHINYAPPS_TOKEN",
-    help="The shinyapps.io token.",
-)
-@click.option(
-    "--secret",
-    "-S",
-    envvar="SHINYAPPS_SECRET",
-    help="The shinyapps.io token secret.",
-)
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def add(name, server, api_key, insecure, cacert, account, token, secret, verbose):
-
+def add(name, server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
-
-    validation.validate_connection_options(
-        url=server,
-        api_key=api_key,
-        insecure=insecure,
-        cacert=cacert,
-        account_name=account,
-        token=token,
-        secret=secret,
-    )
 
     old_server = server_store.get_by_name(name)
 
-    if account:
-        shinyapps_server = api.ShinyappsServer(server, account, token, secret)
-        _test_shinyappsio_creds(shinyapps_server)
+    # Server must be pingable and the API key must work to be added.
+    real_server, _ = _test_server_and_api(server, api_key, insecure, cacert)
 
-        server_store.set(
-            name,
-            shinyapps_server.url,
-            account_name=shinyapps_server.account_name,
-            token=shinyapps_server.token,
-            secret=shinyapps_server.secret,
-        )
-        if old_server:
-            click.echo('Updated shinyapps.io credential "%s".' % name)
-        else:
-            click.echo('Added shinyapps.io credential "%s".' % name)
+    server_store.set(
+        name,
+        real_server.url,
+        real_server.api_key,
+        real_server.insecure,
+        real_server.ca_data,
+    )
+
+    if old_server:
+        click.echo('Updated server "%s" with URL %s' % (name, real_server.url))
     else:
-        # Server must be pingable and the API key must work to be added.
-        real_server, _ = _test_server_and_api(server, api_key, insecure, cacert)
-
-        server_store.set(
-            name,
-            real_server.url,
-            real_server.api_key,
-            real_server.insecure,
-            real_server.ca_data,
-        )
-
-        if old_server:
-            click.echo('Updated Connect server "%s" with URL %s' % (name, real_server.url))
-        else:
-            click.echo('Added Connect server "%s" with URL %s' % (name, real_server.url))
+        click.echo('Added server "%s" with URL %s' % (name, real_server.url))
 
 
 @cli.command(
@@ -393,9 +344,9 @@ def details(name, server, api_key, insecure, cacert, verbose):
 
     ce = RSConnectExecutor(name, server, api_key, insecure, cacert).validate_server()
 
-    click.echo("    RStudio Connect URL: %s" % ce.remote_server.url)
+    click.echo("    RStudio Connect URL: %s" % ce.connect_server.url)
 
-    if not ce.remote_server.api_key:
+    if not ce.connect_server.api_key:
         return
 
     with cli_feedback("Gathering details"):
@@ -520,6 +471,51 @@ def info(file):
 @cli.group(no_args_is_help=True, help="Deploy content to RStudio Connect.")
 def deploy():
     pass
+
+
+def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_required=True):
+    """
+    Validate that the user gave us enough information to talk to a Connect server.
+
+    :param name: the nickname, if any, specified by the user.
+    :param url: the URL, if any, specified by the user.
+    :param api_key: the API key, if any, specified by the user.
+    :param insecure: a flag noting whether TLS host/validation should be skipped.
+    :param ca_cert: the name of a CA certs file containing certificates to use.
+    :param api_key_is_required: a flag that notes whether the API key is required or may
+    be omitted.
+    :return: a ConnectServer object that carries all the right info.
+    """
+    ca_data = ca_cert and text_type(ca_cert.read())
+
+    if name and url:
+        raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both.")
+
+    real_server, api_key, insecure, ca_data, from_store = server_store.resolve(name, url, api_key, insecure, ca_data)
+
+    # This can happen if the user specifies neither --name or --server and there's not
+    # a single default to go with.
+    if not real_server:
+        raise RSConnectException("You must specify one of -n/--name or -s/--server.")
+
+    connect_server = api.RSConnectServer(real_server, None, insecure, ca_data)
+
+    # If our info came from the command line, make sure the URL really works.
+    if not from_store:
+        connect_server, _ = test_server(connect_server)
+
+    connect_server.api_key = api_key
+
+    if not connect_server.api_key:
+        if api_key_is_required:
+            raise RSConnectException('An API key must be specified for "%s".' % connect_server.url)
+        return connect_server
+
+    # If our info came from the command line, make sure the key really works.
+    if not from_store:
+        _ = test_api_key(connect_server)
+
+    return connect_server
 
 
 def _warn_on_ignored_manifest(directory):
@@ -728,24 +724,6 @@ def deploy_notebook(
 )
 @server_args
 @content_args
-@click.option(
-    "--account",
-    "-a",
-    envvar="SHINYAPPS_ACCOUNT",
-    help="The shinyapps.io account name.",
-)
-@click.option(
-    "--token",
-    "-T",
-    envvar="SHINYAPPS_TOKEN",
-    help="The shinyapps.io token.",
-)
-@click.option(
-    "--secret",
-    "-S",
-    envvar="SHINYAPPS_SECRET",
-    help="The shinyapps.io token secret.",
-)
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @cli_exception_handler
 def deploy_manifest(
@@ -754,9 +732,6 @@ def deploy_manifest(
     api_key: str,
     insecure: bool,
     cacert: typing.IO,
-    account: str,
-    token: str,
-    secret: str,
     new: bool,
     app_id: str,
     title: str,
@@ -1618,7 +1593,7 @@ def content_search(
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         result = search_content(
-            ce.remote_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
+            ce.connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
         )
         json.dump(result, sys.stdout, indent=2)
 
@@ -1670,7 +1645,7 @@ def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
-        result = get_content(ce.remote_server, guid)
+        result = get_content(ce.connect_server, guid)
         json.dump(result, sys.stdout, indent=2)
 
 
@@ -1734,7 +1709,7 @@ def content_bundle_download(name, server, api_key, insecure, cacert, guid, outpu
         if exists(output) and not overwrite:
             raise RSConnectException("The output file already exists: %s" % output)
 
-        result = download_bundle(ce.remote_server, guid)
+        result = download_bundle(ce.connect_server, guid)
         with open(output, "wb") as f:
             f.write(result.response_body)
 
@@ -1789,7 +1764,7 @@ def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
-        build_add_content(ce.remote_server, guid)
+        build_add_content(ce.connect_server, guid)
         if len(guid) == 1:
             logger.info('Added "%s".' % guid[0])
         else:
@@ -1854,7 +1829,7 @@ def remove_content_build(name, server, api_key, insecure, cacert, guid, all, pur
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         _validate_build_rm_args(guid, all, purge)
-        guids = build_remove_content(ce.remote_server, guid, all, purge)
+        guids = build_remove_content(ce.connect_server, guid, all, purge)
         if len(guids) == 1:
             logger.info('Removed "%s".' % guids[0])
         else:
@@ -1907,7 +1882,7 @@ def list_content_build(name, server, api_key, insecure, cacert, status, guid, ve
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
-        result = build_list_content(ce.remote_server, guid, status)
+        result = build_list_content(ce.connect_server, guid, status)
         json.dump(result, sys.stdout, indent=2)
 
 
@@ -1955,7 +1930,7 @@ def get_build_history(name, server, api_key, insecure, cacert, guid, verbose):
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert)
         ce.validate_server()
-        result = build_history(ce.remote_server, guid)
+        result = build_history(ce.connect_server, guid)
         json.dump(result, sys.stdout, indent=2)
 
 
@@ -2018,7 +1993,7 @@ def get_build_logs(name, server, api_key, insecure, cacert, guid, task_id, forma
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
-        for line in emit_build_log(ce.remote_server, guid, format, task_id):
+        for line in emit_build_log(ce.connect_server, guid, format, task_id):
             sys.stdout.write(line)
 
 
@@ -2085,7 +2060,7 @@ def start_content_build(
     logger.set_log_output_format(format)
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
-        build_start(ce.remote_server, parallelism, aborted, error, all, poll_wait, debug)
+        build_start(ce.connect_server, parallelism, aborted, error, all, poll_wait, debug)
 
 
 if __name__ == "__main__":

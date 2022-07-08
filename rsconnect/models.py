@@ -96,18 +96,6 @@ class AppModes(object):
         STATIC_QUARTO,
     ]
 
-    _cloud_to_connect_modes = {
-        "shiny": SHINY,
-        "rmarkdown_static": RMD,
-        "rmarkdown": SHINY_RMD,
-        "plumber": PLUMBER,
-        "flask": PYTHON_API,
-        "dash": DASH_APP,
-        "streamlit": STREAMLIT_APP,
-        "fastapi": PYTHON_FASTAPI,
-        "bokeh": BOKEH_APP,
-    }
-
     @classmethod
     def get_by_ordinal(cls, ordinal, return_unknown=False):
         """Get an AppMode by its associated ordinal (integer)"""
@@ -136,10 +124,6 @@ class AppModes(object):
             "with extension: %s" % extension,
             return_unknown,
         )
-
-    @classmethod
-    def get_by_cloud_name(cls, name):
-        return cls._cloud_to_connect_modes.get(name, cls.UNKNOWN)
 
     @classmethod
     def _find_by(cls, predicate, message, return_unknown):

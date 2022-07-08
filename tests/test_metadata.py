@@ -19,14 +19,7 @@ class TestServerMetadata(TestCase):
 
         self.server_store.set("foo", "http://connect.local", "notReallyAnApiKey", ca_data="/certs/connect")
         self.server_store.set("bar", "http://connect.remote", "differentApiKey", insecure=True)
-        self.server_store.set(
-            "baz",
-            "https://shinyapps.io",
-            account_name="some-account",
-            token="someToken",
-            secret="c29tZVNlY3JldAo=",
-        )
-        self.assertEqual(len(self.server_store.get_all_servers()), 3, "Unexpected servers after setup")
+        self.assertEqual(len(self.server_store.get_all_servers()), 2, "Unexpected servers after setup")
 
     def tearDown(self):
         # clean up our temp test directory created with tempfile.mkdtemp()
@@ -55,17 +48,6 @@ class TestServerMetadata(TestCase):
             ),
         )
 
-        self.assertEqual(
-            self.server_store.get_by_name("baz"),
-            dict(
-                name="baz",
-                url="https://shinyapps.io",
-                account_name="some-account",
-                token="someToken",
-                secret="c29tZVNlY3JldAo=",
-            ),
-        )
-
     def test_remove_by_name(self):
         self.server_store.remove_by_name("foo")
         self.assertIsNone(self.server_store.get_by_name("foo"))
@@ -82,28 +64,28 @@ class TestServerMetadata(TestCase):
 
     def test_remove_not_found(self):
         self.assertFalse(self.server_store.remove_by_name("frazzle"))
-        self.assertEqual(len(self.server_store.get_all_servers()), 3)
+        self.assertEqual(len(self.server_store.get_all_servers()), 2)
         self.assertFalse(self.server_store.remove_by_url("http://frazzle"))
-        self.assertEqual(len(self.server_store.get_all_servers()), 3)
+        self.assertEqual(len(self.server_store.get_all_servers()), 2)
 
     def test_list(self):
         servers = self.server_store.get_all_servers()
-        self.assertEqual(len(servers), 3)
+        self.assertEqual(len(servers), 2)
         self.assertEqual(servers[0]["name"], "bar")
         self.assertEqual(servers[0]["url"], "http://connect.remote")
-        self.assertEqual(servers[1]["name"], "baz")
-        self.assertEqual(servers[1]["url"], "https://shinyapps.io")
-        self.assertEqual(servers[2]["name"], "foo")
-        self.assertEqual(servers[2]["url"], "http://connect.local")
+        self.assertEqual(servers[1]["name"], "foo")
+        self.assertEqual(servers[1]["url"], "http://connect.local")
 
     def check_resolve_call(self, name, server, api_key, insecure, ca_cert, should_be_from_store):
-        server_data = self.server_store.resolve(name, server)
+        server, api_key, insecure, ca_cert, from_store = self.server_store.resolve(
+            name, server, api_key, insecure, ca_cert
+        )
 
-        self.assertEqual(server_data.url, "http://connect.local")
-        self.assertEqual(server_data.api_key, "notReallyAnApiKey")
-        self.assertEqual(server_data.insecure, False)
-        self.assertEqual(server_data.ca_data, "/certs/connect")
-        self.assertTrue(server_data.from_store, should_be_from_store)
+        self.assertEqual(server, "http://connect.local")
+        self.assertEqual(api_key, "notReallyAnApiKey")
+        self.assertEqual(insecure, False)
+        self.assertEqual(ca_cert, "/certs/connect")
+        self.assertTrue(from_store, should_be_from_store)
 
     def test_resolve_by_name(self):
         self.check_resolve_call("foo", None, None, None, None, True)
@@ -113,26 +95,31 @@ class TestServerMetadata(TestCase):
 
     def test_resolve_by_default(self):
         # with multiple entries, server None will not resolve by default
-        server_data = self.server_store.resolve(None, None)
-        self.assertEqual(server_data.url, None)
+        name, server, api_key, insecure, ca_cert = None, None, None, None, None
+        server, api_key, insecure, ca_cert, _ = self.server_store.resolve(name, server, api_key, insecure, ca_cert)
+        self.assertEqual(server, None)
 
         # with only a single entry, server None will resolve to that entry
         self.server_store.remove_by_url("http://connect.remote")
-        self.server_store.remove_by_url("https://shinyapps.io")
         self.check_resolve_call(None, None, None, None, None, True)
 
     def test_resolve_from_args(self):
-        name, server = (
+        name, server, api_key, insecure, ca_cert = (
             None,
             "https://secured.connect",
+            "an-api-key",
+            True,
+            "fake-cert",
         )
-        server_data = self.server_store.resolve(name, server)
+        server, api_key, insecure, ca_cert, from_store = self.server_store.resolve(
+            name, server, api_key, insecure, ca_cert
+        )
 
-        self.assertEqual(server_data.url, "https://secured.connect")
-        self.assertEqual(server_data.api_key, None)
-        self.assertEqual(server_data.insecure, None)
-        self.assertEqual(server_data.ca_data, None)
-        self.assertFalse(server_data.from_store)
+        self.assertEqual(server, "https://secured.connect")
+        self.assertEqual(api_key, "an-api-key")
+        self.assertTrue(insecure)
+        self.assertEqual(ca_cert, "fake-cert")
+        self.assertFalse(from_store)
 
     def test_save_and_load(self):
         temp = tempfile.mkdtemp()
@@ -141,7 +128,7 @@ class TestServerMetadata(TestCase):
 
         self.assertFalse(exists(path))
 
-        server_store.set("foo", "http://connect.local", api_key="notReallyAnApiKey", ca_data="/certs/connect")
+        server_store.set("foo", "http://connect.local", "notReallyAnApiKey", ca_data="/certs/connect")
 
         self.assertTrue(exists(path))
 
@@ -268,8 +255,8 @@ class TestHelpers(TestCase):
 class TestBuildMetadata(TestCase):
     def setUp(self):
         self.server_store = ServerStore()
-        self.server_store.set("connect", "https://connect.remote:6443", api_key="apiKey", insecure=True)
-        self.server = RSConnectServer("https://connect.remote:6443", api_key="apiKey", insecure=True, ca_data=None)
+        self.server_store.set("connect", "https://connect.remote:6443", "apiKey", insecure=True)
+        self.server = RSConnectServer("https://connect.remote:6443", "apiKey", True, None)
         self.build_store = ContentBuildStore(self.server)
         self.build_store._set("rsconnect_build_running", False)
         self.build_store._set(

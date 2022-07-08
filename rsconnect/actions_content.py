@@ -4,11 +4,13 @@ Public API for administering content.
 import json
 import time
 import traceback
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
+
 import semver
 
-from .api import RSConnectClient, emit_task_log
+from .api import RSConnect, emit_task_log
 from .log import logger
 from .models import BuildStatus, ContentGuidWithBundle
 from .metadata import ContentBuildStore
@@ -35,7 +37,7 @@ def build_add_content(connect_server, content_guids_with_bundle):
             + "please wait for it to finish before adding new content."
         )
 
-    with RSConnectClient(connect_server, timeout=120) as client:
+    with RSConnect(connect_server, timeout=120) as client:
         if len(content_guids_with_bundle) == 1:
             all_content = [client.content_get(content_guids_with_bundle[0].guid)]
         else:
@@ -226,7 +228,7 @@ def _monitor_build(connect_server, content_items):
 
 def _build_content_item(connect_server, content, poll_wait):
     init_content_build_store(connect_server)
-    with RSConnectClient(connect_server) as client:
+    with RSConnect(connect_server) as client:
         # Pending futures will still try to execute when ThreadPoolExecutor.shutdown() is called
         # so just exit immediately if the current build has been aborted.
         # ThreadPoolExecutor.shutdown(cancel_futures=) isnt available until py3.9
@@ -290,7 +292,7 @@ def download_bundle(connect_server, guid_with_bundle):
     """
     :param guid_with_bundle: models.ContentGuidWithBundle
     """
-    with RSConnectClient(connect_server, timeout=120) as client:
+    with RSConnect(connect_server, timeout=120) as client:
         # bundle_id not provided so grab the latest
         if not guid_with_bundle.bundle_id:
             content = client.get_content(guid_with_bundle.guid)
@@ -309,7 +311,7 @@ def get_content(connect_server, guid):
     :param guid: a single guid as a string or list of guids.
     :return: a list of content items.
     """
-    with RSConnectClient(connect_server, timeout=120) as client:
+    with RSConnect(connect_server, timeout=120) as client:
         if isinstance(guid, str):
             result = [client.get_content(guid)]
         else:
@@ -320,7 +322,7 @@ def get_content(connect_server, guid):
 def search_content(
     connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
 ):
-    with RSConnectClient(connect_server, timeout=120) as client:
+    with RSConnect(connect_server, timeout=120) as client:
         result = client.search_content()
         result = _apply_content_filters(
             result, published, unpublished, content_type, r_version, py_version, title_contains
