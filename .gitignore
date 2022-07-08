@@ -18,7 +18,6 @@
 /rsconnect/version.py
 htmlcov
 /tests/testdata/**/rsconnect-python/
-test-home/
 /docs/docs/index.md
 /docs/docs/changelog.md
 /rsconnect-build

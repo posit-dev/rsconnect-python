@@ -225,33 +225,13 @@ class HTTPServer(object):
     def patch(self, path, query_params=None, body=None):
         return self.request("PATCH", path, query_params, body)
 
-    def put(self, path, query_params=None, body=None, headers=None, decode_response=True):
-        if headers is None:
-            headers = {}
-        return self.request(
-            "PUT", path, query_params=query_params, body=body, headers=headers, decode_response=decode_response
-        )
-
-    def request(
-        self,
-        method,
-        path,
-        query_params=None,
-        body=None,
-        maximum_redirects=5,
-        decode_response=True,
-        headers=None,
-    ):
+    def request(self, method, path, query_params=None, body=None, maximum_redirects=5, decode_response=True):
         path = self._get_full_path(path)
-        extra_headers = headers or {}
+        extra_headers = None
         if isinstance(body, (dict, list)):
             body = json.dumps(body).encode("utf-8")
             extra_headers = {"Content-Type": "application/json; charset=utf-8"}
-        extra_headers = {**extra_headers, **self.get_extra_headers(path, method, body)}
         return self._do_request(method, path, query_params, body, maximum_redirects, extra_headers, decode_response)
-
-    def get_extra_headers(self, url, method, body):
-        return {}
 
     def _do_request(
         self, method, path, query_params, body, maximum_redirects, extra_headers=None, decode_response=True
@@ -303,27 +283,17 @@ class HTTPServer(object):
                     raise http.CannotSendRequest("Too many redirects")
 
                 location = response.getheader("Location")
+                next_url = urljoin(self._url.geturl(), location)
 
-                # Assume the redirect location will always be on the same domain.
-                if location.startswith("http"):
-                    parsed_location = urlparse(location)
-                    if parsed_location.query:
-                        next_url = "{}?{}".format(parsed_location.path, parsed_location.query)
-                    else:
-                        next_url = parsed_location.path
-                else:
-                    next_url = location
+                logger.debug("--> Redirected to: %s" % next_url)
 
-                logger.debug("--> Redirected to: %s" % urljoin(self._url.geturl(), location))
-
-                redirect_extra_headers = self.get_extra_headers(next_url, "GET", body)
                 return self._do_request(
-                    "GET",
+                    method,
                     next_url,
                     query_params,
                     body,
                     maximum_redirects - 1,
-                    {**extra_headers, **redirect_extra_headers},
+                    extra_headers,
                 )
 
             self._handle_set_cookie(response)
