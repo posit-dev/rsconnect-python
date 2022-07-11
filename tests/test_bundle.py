@@ -1,21 +1,36 @@
 # -*- coding: utf-8 -*-
 import json
+import shutil
 import sys
 import tarfile
+import tempfile
 
 from unittest import TestCase
 from os.path import dirname, join
 
 from rsconnect.environment import detect_environment
 from rsconnect.bundle import (
+    _default_title,
+    _default_title_from_manifest,
+    _validate_title,
+    inspect_environment,
     list_files,
     make_manifest_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
     keep_manifest_specified_file,
     to_bytes,
+    make_source_manifest,
+    make_quarto_manifest,
+    make_html_manifest,
+    validate_entry_point,
+    validate_extra_files,
+    which_python,
 )
-from .utils import get_dir
+from rsconnect.exception import RSConnectException
+from rsconnect.models import AppModes
+from rsconnect.environment import Environment
+from .utils import get_dir, get_manifest_path
 
 
 class TestBundle(TestCase):
@@ -44,9 +59,9 @@ class TestBundle(TestCase):
         # runs in the notebook server. We need the introspection to run in
         # the kernel environment and not the notebook server environment.
         environment = detect_environment(directory)
-        with make_notebook_source_bundle(nb_path, environment) as bundle, tarfile.open(
-            mode="r:gz", fileobj=bundle
-        ) as tar:
+        with make_notebook_source_bundle(
+            nb_path, environment, None, hide_all_input=False, hide_tagged_input=False, image=None
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
 
             names = sorted(tar.getnames())
             self.assertEqual(
@@ -108,9 +123,14 @@ class TestBundle(TestCase):
         # the kernel environment and not the notebook server environment.
         environment = detect_environment(directory)
 
-        with make_notebook_source_bundle(nb_path, environment, extra_files=["data.csv"]) as bundle, tarfile.open(
-            mode="r:gz", fileobj=bundle
-        ) as tar:
+        with make_notebook_source_bundle(
+            nb_path,
+            environment,
+            ["data.csv"],
+            hide_all_input=False,
+            hide_tagged_input=False,
+            image="rstudio/connect:bionic",
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
 
             names = sorted(tar.getnames())
             self.assertEqual(
@@ -158,6 +178,7 @@ class TestBundle(TestCase):
                             "package_file": "requirements.txt",
                         },
                     },
+                    "environment": {"image": "rstudio/connect:bionic"},
                     "files": {
                         "dummy.ipynb": {
                             "checksum": ipynb_hash,
@@ -212,7 +233,13 @@ class TestBundle(TestCase):
         self.maxDiff = 5000
         nb_path = join(directory, "dummy.ipynb")
 
-        bundle = make_notebook_html_bundle(nb_path, sys.executable)
+        bundle = make_notebook_html_bundle(
+            nb_path,
+            sys.executable,
+            hide_all_input=False,
+            hide_tagged_input=False,
+            image=None,
+        )
 
         tar = tarfile.open(mode="r:gz", fileobj=bundle)
 
@@ -268,3 +295,384 @@ class TestBundle(TestCase):
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
             manifest_names = sorted(filter(keep_manifest_specified_file, manifest["files"].keys()))
             self.assertEqual(tar_names, manifest_names)
+
+    def test_make_source_manifest(self):
+        # Verify the optional parameters
+        # image=None,  # type: str
+        # environment=None,  # type: typing.Optional[Environment]
+        # entrypoint=None,  # type: typing.Optional[str]
+        # quarto_inspection=None,  # type: typing.Optional[typing.Dict[str, typing.Any]]
+
+        # No optional parameters
+        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None, None)
+        self.assertEqual(
+            manifest,
+            {"version": 1, "metadata": {"appmode": "python-api"}, "files": {}},
+        )
+
+        # include image parameter
+        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None, "rstudio/connect:bionic")
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {"appmode": "python-api"},
+                "environment": {"image": "rstudio/connect:bionic"},
+                "files": {},
+            },
+        )
+
+        # include environment parameter
+        manifest = make_source_manifest(
+            AppModes.PYTHON_API,
+            Environment(
+                conda=None,
+                contents="",
+                error=None,
+                filename="requirements.txt",
+                locale="en_US.UTF-8",
+                package_manager="pip",
+                pip="22.0.4",
+                python="3.9.12",
+                source="file",
+            ),
+            None,
+            None,
+            None,
+        )
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "locale": "en_US.UTF-8",
+                "metadata": {"appmode": "python-api"},
+                "python": {
+                    "version": "3.9.12",
+                    "package_manager": {"name": "pip", "version": "22.0.4", "package_file": "requirements.txt"},
+                },
+                "files": {},
+            },
+        )
+
+        # include entrypoint parameter
+        manifest = make_source_manifest(
+            AppModes.PYTHON_API,
+            None,
+            "main.py",
+            None,
+            None,
+        )
+        # print(manifest)
+        self.assertEqual(
+            manifest,
+            {"version": 1, "metadata": {"appmode": "python-api", "entrypoint": "main.py"}, "files": {}},
+        )
+
+        # include quarto_inspection parameter
+        manifest = make_source_manifest(
+            AppModes.PYTHON_API,
+            None,
+            None,
+            {
+                "quarto": {"version": "0.9.16"},
+                "engines": ["jupyter"],
+                "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
+            },
+            None,
+        )
+        # print(manifest)
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {
+                    "appmode": "python-api",
+                },
+                "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
+                "files": {},
+            },
+        )
+
+    def test_make_quarto_manifest(self):
+        temp = tempfile.mkdtemp()
+
+        # Verify the optional parameters
+        # image=None,  # type: str
+        # environment=None,  # type: typing.Optional[Environment]
+        # extra_files=None,  # type: typing.Optional[typing.List[str]]
+        # excludes=None,  # type: typing.Optional[typing.List[str]]
+
+        # No optional parameters
+        manifest, _ = make_quarto_manifest(
+            temp,
+            {
+                "quarto": {"version": "0.9.16"},
+                "engines": ["jupyter"],
+                "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
+            },
+            AppModes.SHINY_QUARTO,
+            None,
+            None,
+            None,
+            None,
+        )
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {"appmode": "quarto-shiny"},
+                "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
+                "files": {},
+            },
+        )
+
+        # include image parameter
+        manifest, _ = make_quarto_manifest(
+            temp,
+            {
+                "quarto": {"version": "0.9.16"},
+                "engines": ["jupyter"],
+                "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
+            },
+            AppModes.SHINY_QUARTO,
+            None,
+            None,
+            None,
+            "rstudio/connect:bionic",
+        )
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {"appmode": "quarto-shiny"},
+                "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
+                "environment": {"image": "rstudio/connect:bionic"},
+                "files": {},
+            },
+        )
+
+        # Files used within this test
+        fp = open(join(temp, "requirements.txt"), "w")
+        fp.write("dash\n")
+        fp.write("pandas\n")
+        fp.close()
+
+        # include environment parameter
+        manifest, _ = make_quarto_manifest(
+            temp,
+            {
+                "quarto": {"version": "0.9.16"},
+                "engines": ["jupyter"],
+                "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
+            },
+            AppModes.SHINY_QUARTO,
+            Environment(
+                conda=None,
+                contents="",
+                error=None,
+                filename="requirements.txt",
+                locale="en_US.UTF-8",
+                package_manager="pip",
+                pip="22.0.4",
+                python="3.9.12",
+                source="file",
+            ),
+            None,
+            None,
+            None,
+        )
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "locale": "en_US.UTF-8",
+                "metadata": {"appmode": "quarto-shiny"},
+                "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
+                "python": {
+                    "version": "3.9.12",
+                    "package_manager": {"name": "pip", "version": "22.0.4", "package_file": "requirements.txt"},
+                },
+                "files": {"requirements.txt": {"checksum": "6f83f7f33bf6983dd474ecbc6640a26b"}},
+            },
+        )
+
+        # include extra_files parameter
+        fp = open(join(temp, "a"), "w")
+        fp.write("This is file a\n")
+        fp.close()
+        fp = open(join(temp, "b"), "w")
+        fp.write("This is file b\n")
+        fp.close()
+        fp = open(join(temp, "c"), "w")
+        fp.write("This is file c\n")
+        fp.close()
+        manifest, _ = make_quarto_manifest(
+            temp,
+            {
+                "quarto": {"version": "0.9.16"},
+                "engines": ["jupyter"],
+                "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
+            },
+            AppModes.SHINY_QUARTO,
+            None,
+            ["a", "b", "c"],
+            None,
+            None,
+        )
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {"appmode": "quarto-shiny"},
+                "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
+                "files": {
+                    "a": {"checksum": "4a3eb92956aa3e16a9f0a84a43c943e7"},
+                    "b": {"checksum": "b249e5b536d30e6282cea227f3a73669"},
+                    "c": {"checksum": "53b36f1d5b6f7fb2cfaf0c15af7ffb2d"},
+                    "requirements.txt": {"checksum": "6f83f7f33bf6983dd474ecbc6640a26b"},
+                },
+            },
+        )
+
+        # include excludes parameter
+        manifest, _ = make_quarto_manifest(
+            temp,
+            {
+                "quarto": {"version": "0.9.16"},
+                "engines": ["jupyter"],
+                "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
+            },
+            AppModes.SHINY_QUARTO,
+            None,
+            ["a", "b", "c"],
+            ["requirements.txt"],
+            None,
+        )
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {"appmode": "quarto-shiny"},
+                "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
+                "files": {
+                    "a": {"checksum": "4a3eb92956aa3e16a9f0a84a43c943e7"},
+                    "b": {"checksum": "b249e5b536d30e6282cea227f3a73669"},
+                    "c": {"checksum": "53b36f1d5b6f7fb2cfaf0c15af7ffb2d"},
+                },
+            },
+        )
+
+    def test_make_html_manifest(self):
+        # Verify the optional parameters
+        # image=None,  # type: str
+
+        # No optional parameters
+        manifest = make_html_manifest("abc.html", None)
+        # print(manifest)
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {
+                    "appmode": "static",
+                    "primary_html": "abc.html",
+                },
+            },
+        )
+
+        # include image parameter
+        manifest = make_html_manifest("abc.html", image="rstudio/connect:bionic")
+        # print(manifest)
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {
+                    "appmode": "static",
+                    "primary_html": "abc.html",
+                },
+                "environment": {"image": "rstudio/connect:bionic"},
+            },
+        )
+
+    def test_validate_extra_files(self):
+        # noinspection SpellCheckingInspection
+        directory = dirname(get_manifest_path("shinyapp"))
+
+        with self.assertRaises(RSConnectException):
+            validate_extra_files(directory, ["../other_dir/file.txt"])
+
+        with self.assertRaises(RSConnectException):
+            validate_extra_files(directory, ["not_a_file.txt"])
+
+        self.assertEqual(validate_extra_files(directory, None), [])
+        self.assertEqual(validate_extra_files(directory, []), [])
+        self.assertEqual(
+            validate_extra_files(directory, [join(directory, "index.htm")]),
+            ["index.htm"],
+        )
+
+    def test_validate_title(self):
+        with self.assertRaises(RSConnectException):
+            _validate_title("12")
+
+        with self.assertRaises(RSConnectException):
+            _validate_title("1" * 1025)
+
+        _validate_title("123")
+        _validate_title("1" * 1024)
+
+    def test_validate_entry_point(self):
+        directory = tempfile.mkdtemp()
+
+        try:
+            self.assertEqual(validate_entry_point(None, directory), "app")
+            self.assertEqual(validate_entry_point("app", directory), "app")
+            self.assertEqual(validate_entry_point("app:app", directory), "app:app")
+
+            with self.assertRaises(RSConnectException):
+                validate_entry_point("x:y:z", directory)
+
+                with open(join(directory, "onlysource.py"), "w") as f:
+                    f.close()
+                    self.assertEqual(validate_entry_point(None, directory), "onlysource")
+
+                    with open(join(directory, "main.py"), "w") as f:
+                        f.close()
+                        self.assertEqual(validate_entry_point(None, directory), "main")
+        finally:
+            shutil.rmtree(directory)
+
+    def test_which_python(self):
+        with self.assertRaises(RSConnectException):
+            which_python("fake.file")
+
+        self.assertEqual(which_python(sys.executable), sys.executable)
+        self.assertEqual(which_python(None), sys.executable)
+        self.assertEqual(which_python(None, {"RETICULATE_PYTHON": "fake-python"}), "fake-python")
+
+    def test_default_title(self):
+        self.assertEqual(_default_title("testing.txt"), "testing")
+        self.assertEqual(_default_title("this.is.a.test.ext"), "this.is.a.test")
+        self.assertEqual(_default_title("1.ext"), "001")
+        self.assertEqual(_default_title("%s.ext" % ("n" * 2048)), "n" * 1024)
+
+    def test_default_title_from_manifest(self):
+        self.assertEqual(_default_title_from_manifest({}, "dir/to/manifest.json"), "0to")
+        # noinspection SpellCheckingInspection
+        m = {"metadata": {"entrypoint": "point"}}
+        self.assertEqual(_default_title_from_manifest(m, "dir/to/manifest.json"), "point")
+        m = {"metadata": {"primary_rmd": "file.Rmd"}}
+        self.assertEqual(_default_title_from_manifest(m, "dir/to/manifest.json"), "file")
+        m = {"metadata": {"primary_html": "page.html"}}
+        self.assertEqual(_default_title_from_manifest(m, "dir/to/manifest.json"), "page")
+        m = {"metadata": {"primary_wat?": "my-cool-thing.wat"}}
+        self.assertEqual(_default_title_from_manifest(m, "dir/to/manifest.json"), "0to")
+        # noinspection SpellCheckingInspection
+        m = {"metadata": {"entrypoint": "module:object"}}
+        self.assertEqual(_default_title_from_manifest(m, "dir/to/manifest.json"), "0to")
+
+    def test_inspect_environment(self):
+        environment = inspect_environment(sys.executable, get_dir("pip1"))
+        assert environment is not None
+        assert environment.python != ""

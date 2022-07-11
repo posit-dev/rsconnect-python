@@ -4,7 +4,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [1.9.0] - 2022-07-06
+### Added
+
+- You can now deploy Quarto documents in addition to Quarto projects. This
+  requires RStudio Connect release 2021.08.0 or later. Use `rsconnect deploy
+  quarto` to deploy, or `rsconnect write-manifest quarto` to create a manifest
+  file.
+
+### Changed
+
+- As a prelude to setting and documenting rsconnect-python APIs, various functions in `actions` have been moved to `bundle`, or replaced with RSConnectExecutor. The moved functions now include a deprecation warning, and will be fully deprecated in a future release. 
+
+## [1.8.1] - 2022-05-31
+
+### Changed
+
+Corrected changelog heading.
+
+## [1.8.0] - 2022-05-31
 
 ### Added
 
@@ -16,6 +34,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - You can now deploy Quarto projects. This requires RStudio Connect release
   2021.08.0 or later. Use `rsconnect deploy quarto` to deploy, or `rsconnect
   write-manifest quarto` to create a manifest file.
+
+- An `image` command line option has been added to the `write-manifest` and
+  `deploy` commands to specify the target image to be used on the RStudio Connect 
+  server during content execution. This is only supported for the `api`, `bokeh`, `dash`, 
+  `fastapi`, `notebook`, `quarto` and `streamlit` sub-commands. It is only 
+  applicable if the RStudio Connect server is configured to use off-host execution.
+
+- You can now deploy static content such as html and its associated assets with 
+  `rsconnect deploy html`.
 
 ## [1.7.1] - 2022-02-15
 
