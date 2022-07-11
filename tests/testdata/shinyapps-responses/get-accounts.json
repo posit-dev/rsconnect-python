@@ -1,0 +1,198 @@
+{
+  "count": 1,
+  "total": 1,
+  "offset": 0,
+  "accounts": [
+    {
+      "id": 82069,
+      "name": "some-account",
+      "type": "individual",
+      "display_name": null,
+      "permissions": [
+        "DELETE_LEGACY_TASK",
+        "CREATE_LEGACY_TASK_LOGS",
+        "MODIFY_VOLUME",
+        "DELETE_VOLUME",
+        "VIEW_ACCOUNT_TASK",
+        "VIEW_VOLUME",
+        "VIEW_DOMAIN",
+        "VIEW_ACCOUNT_NOTIFICATION_PREFERENCE",
+        "CREATE_APPLICATION",
+        "VIEW_ACCOUNT_USERS",
+        "CREATE_VOLUME",
+        "MANAGE_ACCOUNT_NOTIFICATION_PREFERENCE",
+        "DELETE_ACCOUNT",
+        "VIEW_ACCOUNT",
+        "DELETE_DOMAIN",
+        "VIEW_LEGACY_TASK",
+        "PURGE_VOLUME",
+        "MODIFY_LEGACY_TASK",
+        "CREATE_CONTENT_IN_NULL_SPACE",
+        "KILL_LEGACY_TASK",
+        "CREATE_SPACE",
+        "MANAGE_ACCOUNT",
+        "VIEW_ACCOUNT_USAGE",
+        "CREATE_CONTENT_IN_NAMED_SPACE",
+        "MANAGE_ACCOUNT_SUBSCRIPTION",
+        "VIEW_LEGACY_TASK_LOGS",
+        "PROVISION_VOLUME",
+        "MANAGE_ACCOUNT_ACCESS",
+        "CREATE_DOMAIN"
+      ],
+      "suspended_until": null,
+      "suspended_reason": null,
+      "suspended_pending": null,
+      "sso_enabled": false,
+      "sso_hint": null,
+      "beta_enabled": false,
+      "beta": {
+        "jupyter_enabled": false,
+        "publishing_enabled": true,
+        "sharing_enabled": false
+      },
+      "owner": {
+        "id": 47261,
+        "first_name": "Example",
+        "last_name": "User",
+        "display_name": "Example User",
+        "organization": null,
+        "homepage": null,
+        "location": null,
+        "picture_url": "https://www.gravatar.com/avatar/e1bc03fb1393b9b1c3b3dc309cc0b4cf",
+        "email": "example.user@rstudio.com",
+        "superuser": false,
+        "email_verified": true,
+        "local_auth": true,
+        "referral": null,
+        "google_auth_id": "100000000000000000000",
+        "github_auth_id": null,
+        "github_auth_token": null,
+        "last_login_attempt": "2022-05-31T22:20:28",
+        "login_attempts": 0,
+        "lockout_until": null,
+        "sso_account_id": null,
+        "grant": null,
+        "created_time": "2021-09-28T19:32:47",
+        "updated_time": "2022-05-31T22:20:28"
+      },
+      "subscription": {
+        "id": 82069,
+        "type": {
+          "id": 4,
+          "name": "professional",
+          "premium": true,
+          "created_time": "2016-11-03T15:37:09",
+          "updated_time": "2016-11-03T15:37:09"
+        },
+        "start_date": null,
+        "end_date": null,
+        "cancel_date": null,
+        "cycle_start_date": "2022-06-28T19:32:52",
+        "cycle_end_date": "2022-07-28T19:32:52",
+        "status": null,
+        "plan": null,
+        "discount": null,
+        "billing": {
+          "name": null,
+          "email": null,
+          "organization": null,
+          "address": {
+            "address_1": null,
+            "address_2": null,
+            "city": null,
+            "state": null,
+            "zip": null,
+            "country": null
+          }
+        },
+        "payment": null,
+        "entitlements": {
+          "AuthenticationFeature": {
+            "enabled": true
+          },
+          "BrandingFeature": {
+            "enabled": true
+          },
+          "MaxApplicationsLimit": {
+            "limit": 1000
+          },
+          "MaxInstancesLimit": {
+            "limit": 10
+          },
+          "InstanceIdleLimit": {
+            "limit": 480
+          },
+          "BundleSizeLimit": {
+            "limit": 50000000000
+          },
+          "MaxCustomDomainsLimit": {
+            "limit": 100
+          },
+          "MaxAccountUsersLimit": {
+            "limit": 25
+          },
+          "MaxApplicationWorkersLimit": {
+            "limit": 10
+          },
+          "MaxApplicationHoursLimit": {
+            "limit": 10000
+          },
+          "MaxProjectsLimit": {
+            "limit": 100000
+          },
+          "MaxPublicSpacesLimit": {
+            "limit": 100
+          },
+          "MaxPrivateSpacesLimit": {
+            "limit": 100
+          },
+          "MaxApplicationCpuLimit": {
+            "limit": 1
+          },
+          "MaxApplicationMemoryLimit": {
+            "limit": 1024
+          },
+          "ApplicationInstanceType": {
+            "items": [
+              "small",
+              "medium",
+              "large",
+              "xlarge",
+              "xxlarge",
+              "xxxlarge"
+            ]
+          }
+        },
+        "created_time": "2021-09-28T19:32:52",
+        "updated_time": "2021-09-28T19:32:52"
+      },
+      "licenses": [
+        {
+          "id": 103876,
+          "type": "cloud",
+          "status": "active",
+          "name": "cloud-premium",
+          "expires": null,
+          "exempt": false,
+          "exempt_until": null,
+          "suspended": false,
+          "suspended_until": null,
+          "suspended_reason": null,
+          "suspension_pending": false,
+          "suspension_pending_until": null,
+          "cycle_anchor": "2021-11-09T16:09:31",
+          "cycle_start": "2022-06-09T16:09:31",
+          "cycle_end": "2022-07-09T16:09:31",
+          "overage_until": null,
+          "overage": false,
+          "created_time": "2021-09-28T19:32:52",
+          "updated_time": "2021-12-06T21:11:49"
+        }
+      ],
+      "account_role": "none",
+      "stripe_customer_id": null,
+      "created_time": "2021-09-28T19:32:52",
+      "updated_time": "2021-09-28T19:32:52"
+    }
+  ]
+}
