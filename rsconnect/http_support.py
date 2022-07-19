@@ -5,7 +5,7 @@ import json
 import socket
 import ssl
 import os
-
+from warnings import warn
 from . import VERSION
 from .log import logger
 from six.moves import http_client as http
@@ -39,7 +39,7 @@ def _get_proxy():
         return None, None, None, None
     parsed = urlparse(proxyURL)
     if parsed.scheme not in ["https"]:
-        raise Exception("HTTPS_PROXY scheme must be https://")
+        warn("HTTPS_PROXY scheme is not using https")
     redacted_url = "{}://".format(parsed.scheme)
     if parsed.username:
         redacted_url += "{}:{}@".format(parsed.username, "REDACTED")
