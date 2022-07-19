@@ -316,6 +316,10 @@ class RSConnectClient(HTTPServer):
         return new_last_status
 
 
+# for backwards compatibility with rsconnect-jupyter
+RSConnect = RSConnectClient
+
+
 class RSConnectExecutor:
     def __init__(
         self,
