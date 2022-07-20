@@ -967,6 +967,7 @@ def deploy_python_shiny(
         log_callback,
     )
 
+
 def deploy_dash_app(
     connect_server: api.RSConnectServer,
     directory: str,
@@ -1539,6 +1540,7 @@ gather_basic_deployment_info_for_dash = _generate_gather_basic_deployment_info_f
 gather_basic_deployment_info_for_streamlit = _generate_gather_basic_deployment_info_for_python(AppModes.STREAMLIT_APP)
 gather_basic_deployment_info_for_bokeh = _generate_gather_basic_deployment_info_for_python(AppModes.BOKEH_APP)
 gather_basic_deployment_info_for_shiny = _generate_gather_basic_deployment_info_for_python(AppModes.PYTHON_SHINY)
+
 
 def _gather_basic_deployment_info_for_framework(
     remote_server: api.TargetableServer,

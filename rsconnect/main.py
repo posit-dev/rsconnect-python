@@ -133,6 +133,40 @@ def server_args(func):
     return wrapper
 
 
+def shinyapps_args(func):
+    @click.option(
+        "--account",
+        "-A",
+        envvar="SHINYAPPS_ACCOUNT",
+        help="The shinyapps.io account name.",
+    )
+    @click.option(
+        "--token",
+        "-T",
+        envvar="SHINYAPPS_TOKEN",
+        help="The shinyapps.io token.",
+    )
+    @click.option(
+        "--secret",
+        "-S",
+        envvar="SHINYAPPS_SECRET",
+        help="The shinyapps.io token secret.",
+    )
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def _passthrough(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 def validate_env_vars(ctx, param, all_values):
     vars = {}
 
@@ -280,24 +314,7 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
     type=click.File(),
     help="The path to trusted TLS CA certificates.",
 )
-@click.option(
-    "--account",
-    "-a",
-    envvar="SHINYAPPS_ACCOUNT",
-    help="The shinyapps.io account name.",
-)
-@click.option(
-    "--token",
-    "-T",
-    envvar="SHINYAPPS_TOKEN",
-    help="The shinyapps.io token.",
-)
-@click.option(
-    "--secret",
-    "-S",
-    envvar="SHINYAPPS_SECRET",
-    help="The shinyapps.io token secret.",
-)
+@shinyapps_args
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def add(name, server, api_key, insecure, cacert, account, token, secret, verbose):
 
@@ -728,24 +745,7 @@ def deploy_notebook(
 )
 @server_args
 @content_args
-@click.option(
-    "--account",
-    "-a",
-    envvar="SHINYAPPS_ACCOUNT",
-    help="The shinyapps.io account name.",
-)
-@click.option(
-    "--token",
-    "-T",
-    envvar="SHINYAPPS_TOKEN",
-    help="The shinyapps.io token.",
-)
-@click.option(
-    "--secret",
-    "-S",
-    envvar="SHINYAPPS_SECRET",
-    help="The shinyapps.io token secret.",
-)
+@shinyapps_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @cli_exception_handler
 def deploy_manifest(
@@ -984,7 +984,9 @@ def deploy_html(
     )
 
 
-def generate_deploy_python(app_mode, alias, min_version):
+def generate_deploy_python(app_mode, alias, min_version, supported_by_shinyapps=False):
+    shinyapps = shinyapps_args if supported_by_shinyapps else _passthrough
+
     # noinspection SpellCheckingInspection
     @deploy.command(
         name=alias,
@@ -998,6 +1000,7 @@ def generate_deploy_python(app_mode, alias, min_version):
     )
     @server_args
     @content_args
+    @shinyapps
     @click.option(
         "--entrypoint",
         "-e",
@@ -1056,6 +1059,9 @@ def generate_deploy_python(app_mode, alias, min_version):
         api_key: str,
         insecure: bool,
         cacert: typing.IO,
+        account: str,
+        token: str,
+        secret: str,
         entrypoint,
         exclude,
         new: bool,
@@ -1110,7 +1116,9 @@ deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias=
 deploy_dash_app = generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
 deploy_streamlit_app = generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
 deploy_bokeh_app = generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
-deploy_shiny = generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0")
+deploy_shiny = generate_deploy_python(
+    app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0", supported_by_shinyapps=True
+)
 
 
 @deploy.command(
