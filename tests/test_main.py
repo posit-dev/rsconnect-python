@@ -333,7 +333,7 @@ class TestMain(TestCase):
             self.assertEqual(result.exit_code, 1, result.output)
             self.assertEqual(
                 str(result.exception),
-                "-a/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io.",
+                "-A/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io.",
             )
         finally:
             if original_api_key_value:
