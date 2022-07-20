@@ -132,6 +132,28 @@ def server_args(func):
 
     return wrapper
 
+def shinyapps_args(func):
+    account_option = click.option(
+        "--account",
+        "-a",
+        envvar="SHINYAPPS_ACCOUNT",
+        help="The shinyapps.io account name.",
+    )
+    token_option = click.option(
+        "--token",
+        "-T",
+        envvar="SHINYAPPS_TOKEN",
+        help="The shinyapps.io token.",
+    )
+    secret_option = click.option(
+        "--secret",
+        "-S",
+        envvar="SHINYAPPS_SECRET",
+        help="The shinyapps.io token secret.",
+    )
+
+    return secret_option(token_option(account_option(func)))
+
 
 def validate_env_vars(ctx, param, all_values):
     vars = {}
@@ -280,24 +302,7 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
     type=click.File(),
     help="The path to trusted TLS CA certificates.",
 )
-@click.option(
-    "--account",
-    "-a",
-    envvar="SHINYAPPS_ACCOUNT",
-    help="The shinyapps.io account name.",
-)
-@click.option(
-    "--token",
-    "-T",
-    envvar="SHINYAPPS_TOKEN",
-    help="The shinyapps.io token.",
-)
-@click.option(
-    "--secret",
-    "-S",
-    envvar="SHINYAPPS_SECRET",
-    help="The shinyapps.io token secret.",
-)
+@shinyapps_args
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def add(name, server, api_key, insecure, cacert, account, token, secret, verbose):
 
@@ -728,24 +733,7 @@ def deploy_notebook(
 )
 @server_args
 @content_args
-@click.option(
-    "--account",
-    "-a",
-    envvar="SHINYAPPS_ACCOUNT",
-    help="The shinyapps.io account name.",
-)
-@click.option(
-    "--token",
-    "-T",
-    envvar="SHINYAPPS_TOKEN",
-    help="The shinyapps.io token.",
-)
-@click.option(
-    "--secret",
-    "-S",
-    envvar="SHINYAPPS_SECRET",
-    help="The shinyapps.io token secret.",
-)
+@shinyapps_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @cli_exception_handler
 def deploy_manifest(
@@ -984,78 +972,85 @@ def deploy_html(
     )
 
 
-def generate_deploy_python(app_mode, alias, min_version):
+def generate_deploy_python(app_mode, alias, min_version, supported_by_shinyapps=None):
     # noinspection SpellCheckingInspection
-    @deploy.command(
-        name=alias,
-        short_help="Deploy a {desc} to RStudio Connect [v{version}+].".format(
-            desc=app_mode.desc(), version=min_version
+    decorators = [
+        deploy.command(
+            name=alias,
+            short_help="Deploy a {desc} to RStudio Connect [v{version}+].".format(
+                desc=app_mode.desc(), version=min_version
+            ),
+            help=(
+                'Deploy a {desc} module to RStudio Connect. The "directory" argument must refer to an '
+                "existing directory that contains the application code."
+            ).format(desc=app_mode.desc()),
         ),
-        help=(
-            'Deploy a {desc} module to RStudio Connect. The "directory" argument must refer to an '
-            "existing directory that contains the application code."
-        ).format(desc=app_mode.desc()),
-    )
-    @server_args
-    @content_args
-    @click.option(
-        "--entrypoint",
-        "-e",
-        help=(
-            "The module and executable object which serves as the entry point for the {desc} (defaults to app)"
-        ).format(desc=app_mode.desc()),
-    )
-    @click.option(
-        "--exclude",
-        "-x",
-        multiple=True,
-        help=(
-            "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
-            "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
-            "This option may be repeated."
+        server_args,
+        shinyapps_args if supported_by_shinyapps else None,
+        content_args,
+        click.option(
+            "--entrypoint",
+            "-e",
+            help=(
+                "The module and executable object which serves as the entry point for the {desc} (defaults to app)"
+            ).format(desc=app_mode.desc()),
         ),
-    )
-    @click.option(
-        "--python",
-        "-p",
-        type=click.Path(exists=True),
-        help=(
-            "Path to Python interpreter whose environment should be used. "
-            "The Python environment must have the rsconnect package installed."
+        click.option(
+            "--exclude",
+            "-x",
+            multiple=True,
+            help=(
+                "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+                "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+                "This option may be repeated."
+            ),
         ),
-    )
-    @click.option(
-        "--conda",
-        "-C",
-        is_flag=True,
-        hidden=True,
-        help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
-    )
-    @click.option(
-        "--force-generate",
-        "-g",
-        is_flag=True,
-        help='Force generating "requirements.txt", even if it already exists.',
-    )
-    @click.option(
-        "--image",
-        "-I",
-        help="Target image to be used during content execution (only applicable if the RStudio Connect "
-        "server is configured to use off-host execution)",
-    )
-    @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
-    @click.argument(
-        "extra_files",
-        nargs=-1,
-        type=click.Path(exists=True, dir_okay=False, file_okay=True),
-    )
-    @cli_exception_handler
+        click.option(
+            "--python",
+            "-p",
+            type=click.Path(exists=True),
+            help=(
+                "Path to Python interpreter whose environment should be used. "
+                "The Python environment must have the rsconnect package installed."
+            ),
+        ),
+        click.option(
+            "--conda",
+            "-C",
+            is_flag=True,
+            hidden=True,
+            help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
+        ),
+        click.option(
+            "--force-generate",
+            "-g",
+            is_flag=True,
+            help='Force generating "requirements.txt", even if it already exists.',
+        ),
+        click.option(
+            "--image",
+            "-I",
+            help="Target image to be used during content execution (only applicable if the RStudio Connect "
+            "server is configured to use off-host execution)",
+        ),
+        click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False)),
+        click.argument(
+            "extra_files",
+            nargs=-1,
+            type=click.Path(exists=True, dir_okay=False, file_okay=True),
+        ),
+        cli_exception_handler,
+    ]
+
     def deploy_app(
         name: str,
         server: str,
         api_key: str,
         insecure: bool,
         cacert: typing.IO,
+        account: str,
+        token: str,
+        secret: str,
         entrypoint,
         exclude,
         new: bool,
@@ -1100,7 +1095,12 @@ def generate_deploy_python(app_mode, alias, min_version):
             .emit_task_log()
         )
 
-    return deploy_app
+    func = deploy_app
+    for decorator in reversed(decorators):
+        if decorator is not None:
+            func = decorator(func)
+
+    return func
 
 
 deploy_api = generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="api", min_version="1.8.2")
@@ -1110,7 +1110,9 @@ deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias=
 deploy_dash_app = generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
 deploy_streamlit_app = generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
 deploy_bokeh_app = generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
-deploy_shiny = generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0")
+deploy_shiny = shinyapps_args(
+    generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0")
+)
 
 
 @deploy.command(
