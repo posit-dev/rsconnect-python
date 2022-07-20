@@ -132,6 +132,7 @@ def server_args(func):
 
     return wrapper
 
+
 def shinyapps_args(func):
     account_option = click.option(
         "--account",
@@ -1110,8 +1111,8 @@ deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias=
 deploy_dash_app = generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
 deploy_streamlit_app = generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
 deploy_bokeh_app = generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
-deploy_shiny = shinyapps_args(
-    generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0")
+deploy_shiny = generate_deploy_python(
+    app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0", supported_by_shinyapps=True
 )
 
 
