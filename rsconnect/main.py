@@ -136,7 +136,7 @@ def server_args(func):
 def shinyapps_args(func):
     account_option = click.option(
         "--account",
-        "-a",
+        "-A",
         envvar="SHINYAPPS_ACCOUNT",
         help="The shinyapps.io account name.",
     )

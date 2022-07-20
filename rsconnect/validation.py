@@ -13,7 +13,7 @@ def validate_connection_options(url, api_key, insecure, cacert, account_name, to
     options.
     """
     connect_options = {"-k/--api-key": api_key, "-i/--insecure": insecure, "-c/--cacert": cacert}
-    shinyapps_options = {"-T/--token": token, "-S/--secret": secret, "-a/--account": account_name}
+    shinyapps_options = {"-T/--token": token, "-S/--secret": secret, "-A/--account": account_name}
     options_mutually_exclusive_with_name = {"-s/--server": url, **connect_options, **shinyapps_options}
     present_options_mutually_exclusive_with_name = _get_present_options(options_mutually_exclusive_with_name)
 
@@ -25,7 +25,7 @@ def validate_connection_options(url, api_key, insecure, cacert, account_name, to
         )
     if not name and not url and not shinyapps_options:
         raise RSConnectException(
-            "You must specify one of -n/--name OR -s/--server OR -a/--account, -T/--token, -S/--secret."
+            "You must specify one of -n/--name OR -s/--server OR -A/--account, -T/--token, -S/--secret."
         )
 
     present_connect_options = _get_present_options(connect_options)
@@ -40,4 +40,4 @@ def validate_connection_options(url, api_key, insecure, cacert, account_name, to
 
     if present_shinyapps_options:
         if len(present_shinyapps_options) != 3:
-            raise RSConnectException("-a/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io.")
+            raise RSConnectException("-A/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io.")
