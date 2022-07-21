@@ -1059,9 +1059,6 @@ def generate_deploy_python(app_mode, alias, min_version, supported_by_shinyapps=
         api_key: str,
         insecure: bool,
         cacert: typing.IO,
-        account: str,
-        token: str,
-        secret: str,
         entrypoint,
         exclude,
         new: bool,
@@ -1075,6 +1072,9 @@ def generate_deploy_python(app_mode, alias, min_version, supported_by_shinyapps=
         extra_files,
         env_vars: typing.Dict[str, str],
         image: str,
+        account: str = None,
+        token: str = None,
+        secret: str = None,
     ):
         kwargs = locals()
         kwargs["entrypoint"] = entrypoint = validate_entry_point(entrypoint, directory)
