@@ -77,6 +77,7 @@ class AppModes(object):
     PYTHON_FASTAPI = AppMode(12, "python-fastapi", "Python FastAPI")
     SHINY_QUARTO = AppMode(13, "quarto-shiny", "Shiny Quarto Document")
     STATIC_QUARTO = AppMode(14, "quarto-static", "Quarto Document", ".qmd")
+    PYTHON_SHINY = AppMode(15, "python-shiny", "Python Shiny Application")
 
     _modes = [
         UNKNOWN,
@@ -94,7 +95,20 @@ class AppModes(object):
         PYTHON_FASTAPI,
         SHINY_QUARTO,
         STATIC_QUARTO,
+        PYTHON_SHINY,
     ]
+
+    _cloud_to_connect_modes = {
+        "shiny": SHINY,
+        "rmarkdown_static": RMD,
+        "rmarkdown": SHINY_RMD,
+        "plumber": PLUMBER,
+        "flask": PYTHON_API,
+        "dash": DASH_APP,
+        "streamlit": STREAMLIT_APP,
+        "fastapi": PYTHON_FASTAPI,
+        "bokeh": BOKEH_APP,
+    }
 
     @classmethod
     def get_by_ordinal(cls, ordinal, return_unknown=False):
@@ -124,6 +138,10 @@ class AppModes(object):
             "with extension: %s" % extension,
             return_unknown,
         )
+
+    @classmethod
+    def get_by_cloud_name(cls, name):
+        return cls._cloud_to_connect_modes.get(name, cls.UNKNOWN)
 
     @classmethod
     def _find_by(cls, predicate, message, return_unknown):

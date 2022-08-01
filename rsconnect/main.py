@@ -1,53 +1,27 @@
-import errno
 import functools
 import json
 import os
 import sys
+import traceback
 import typing
 import textwrap
-from os.path import abspath, dirname, exists, isdir, join
-
-
 import click
 from six import text_type
-
+from os.path import abspath, dirname, exists, isdir, join
+from functools import wraps
+from .environment import EnvironmentException
+from .exception import RSConnectException
 from .actions import (
-    are_apis_supported_on_server,
-    check_server_capabilities,
     cli_feedback,
-    create_api_deployment_bundle,
-    create_notebook_deployment_bundle,
     create_quarto_deployment_bundle,
-    deploy_bundle,
     describe_manifest,
-    gather_basic_deployment_info_for_api,
-    gather_basic_deployment_info_for_fastapi,
-    gather_basic_deployment_info_for_dash,
-    gather_basic_deployment_info_for_streamlit,
-    gather_basic_deployment_info_for_bokeh,
-    gather_basic_deployment_info_for_notebook,
-    gather_basic_deployment_info_for_quarto,
-    gather_basic_deployment_info_from_manifest,
-    gather_basic_deployment_info_for_html,
-    gather_server_details,
-    get_python_env_info,
-    is_conda_supported_on_server,
     quarto_inspect,
     set_verbosity,
-    spool_deployment_log,
     test_api_key,
     test_server,
-    validate_entry_point,
-    validate_extra_files,
-    validate_file_is_notebook,
-    validate_manifest_file,
     validate_quarto_engines,
     which_quarto,
-    write_api_manifest_json,
-    write_environment_file,
-    write_notebook_manifest_json,
-    write_quarto_manifest_json,
-    fake_module_file_from_directory,
+    test_shinyapps_server,
 )
 from .actions_content import (
     download_bundle,
@@ -61,11 +35,29 @@ from .actions_content import (
     emit_build_log,
 )
 
-from . import api, VERSION
+from . import api, VERSION, validation
+from .api import RSConnectExecutor, filter_out_server_info
 from .bundle import (
+    are_apis_supported_on_server,
+    create_python_environment,
+    default_title_from_manifest,
     is_environment_dir,
     make_manifest_bundle,
     make_html_bundle,
+    make_api_bundle,
+    make_notebook_html_bundle,
+    make_notebook_source_bundle,
+    read_manifest_app_mode,
+    write_notebook_manifest_json,
+    write_api_manifest_json,
+    write_environment_file,
+    write_quarto_manifest_json,
+    validate_entry_point,
+    validate_extra_files,
+    validate_file_is_notebook,
+    validate_manifest_file,
+    fake_module_file_from_directory,
+    get_python_env_info,
 )
 from .log import logger, LogOutputFormat
 from .metadata import ServerStore, AppStore
@@ -77,9 +69,32 @@ from .models import (
     VersionSearchFilterParamType,
 )
 
-
 server_store = ServerStore()
 future_enabled = False
+
+
+def cli_exception_handler(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        def failed(err):
+            click.secho(str(err), fg="bright_red", err=False)
+            sys.exit(1)
+
+        try:
+            result = func(*args, **kwargs)
+        except RSConnectException as exc:
+            failed("Error: " + exc.message)
+        except EnvironmentException as exc:
+            failed("Error: " + str(exc))
+        except Exception as exc:
+            if click.get_current_context("verbose"):
+                traceback.print_exc()
+            failed("Internal error: " + str(exc))
+        finally:
+            logger.set_in_feedback(False)
+        return result
+
+    return wrapper
 
 
 def server_args(func):
@@ -111,6 +126,40 @@ def server_args(func):
         help="The path to trusted TLS CA certificates.",
     )
     @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def shinyapps_args(func):
+    @click.option(
+        "--account",
+        "-A",
+        envvar="SHINYAPPS_ACCOUNT",
+        help="The shinyapps.io account name.",
+    )
+    @click.option(
+        "--token",
+        "-T",
+        envvar="SHINYAPPS_TOKEN",
+        help="The shinyapps.io token.",
+    )
+    @click.option(
+        "--secret",
+        "-S",
+        envvar="SHINYAPPS_SECRET",
+        help="The shinyapps.io token secret.",
+    )
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def _passthrough(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         return func(*args, **kwargs)
@@ -224,9 +273,14 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
     return real_server, me
 
 
+def _test_shinyappsio_creds(server: api.ShinyappsServer):
+    with cli_feedback("Checking shinyapps.io credential"):
+        test_shinyapps_server(server)
+
+
 # noinspection SpellCheckingInspection
 @cli.command(
-    short_help="Define a nickname for an RStudio Connect server.",
+    short_help="Define a nickname for an RStudio Connect or shinyapps.io server and credential.",
     help=(
         "Associate a simple nickname with the information needed to interact with an RStudio Connect server. "
         "Specifying an existing nickname will cause its stored information to be replaced by what is given "
@@ -237,14 +291,12 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
 @click.option(
     "--server",
     "-s",
-    required=True,
     envvar="CONNECT_SERVER",
     help="The URL for the RStudio Connect server to deploy to.",
 )
 @click.option(
     "--api-key",
     "-k",
-    required=True,
     envvar="CONNECT_API_KEY",
     help="The API key to use to authenticate with RStudio Connect.",
 )
@@ -262,27 +314,55 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
     type=click.File(),
     help="The path to trusted TLS CA certificates.",
 )
+@shinyapps_args
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def add(name, server, api_key, insecure, cacert, verbose):
+def add(name, server, api_key, insecure, cacert, account, token, secret, verbose):
+
     set_verbosity(verbose)
+
+    validation.validate_connection_options(
+        url=server,
+        api_key=api_key,
+        insecure=insecure,
+        cacert=cacert,
+        account_name=account,
+        token=token,
+        secret=secret,
+    )
 
     old_server = server_store.get_by_name(name)
 
-    # Server must be pingable and the API key must work to be added.
-    real_server, _ = _test_server_and_api(server, api_key, insecure, cacert)
+    if account:
+        shinyapps_server = api.ShinyappsServer(server, account, token, secret)
+        _test_shinyappsio_creds(shinyapps_server)
 
-    server_store.set(
-        name,
-        real_server.url,
-        real_server.api_key,
-        real_server.insecure,
-        real_server.ca_data,
-    )
-
-    if old_server:
-        click.echo('Updated server "%s" with URL %s' % (name, real_server.url))
+        server_store.set(
+            name,
+            shinyapps_server.url,
+            account_name=shinyapps_server.account_name,
+            token=shinyapps_server.token,
+            secret=shinyapps_server.secret,
+        )
+        if old_server:
+            click.echo('Updated shinyapps.io credential "%s".' % name)
+        else:
+            click.echo('Added shinyapps.io credential "%s".' % name)
     else:
-        click.echo('Added server "%s" with URL %s' % (name, real_server.url))
+        # Server must be pingable and the API key must work to be added.
+        real_server, _ = _test_server_and_api(server, api_key, insecure, cacert)
+
+        server_store.set(
+            name,
+            real_server.url,
+            real_server.api_key,
+            real_server.insecure,
+            real_server.ca_data,
+        )
+
+        if old_server:
+            click.echo('Updated Connect server "%s" with URL %s' % (name, real_server.url))
+        else:
+            click.echo('Added Connect server "%s" with URL %s' % (name, real_server.url))
 
 
 @cli.command(
@@ -324,19 +404,19 @@ def list_servers(verbose):
     ),
 )
 @server_args
+@cli_exception_handler
 def details(name, server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
 
-    with cli_feedback("Checking arguments"):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert, api_key_is_required=False)
+    ce = RSConnectExecutor(name, server, api_key, insecure, cacert).validate_server()
 
-    click.echo("    RStudio Connect URL: %s" % connect_server.url)
+    click.echo("    RStudio Connect URL: %s" % ce.remote_server.url)
 
-    if not connect_server.api_key:
+    if not ce.remote_server.api_key:
         return
 
     with cli_feedback("Gathering details"):
-        server_details = gather_server_details(connect_server)
+        server_details = ce.server_details
 
     connect_version = server_details["connect"]
     apis_allowed = server_details["python"]["api_enabled"]
@@ -375,21 +455,21 @@ def remove(name, server, verbose):
 
     with cli_feedback("Checking arguments"):
         if name and server:
-            raise api.RSConnectException("You must specify only one of -n/--name or -s/--server.")
+            raise RSConnectException("You must specify only one of -n/--name or -s/--server.")
 
         if not (name or server):
-            raise api.RSConnectException("You must specify one of -n/--name or -s/--server.")
+            raise RSConnectException("You must specify one of -n/--name or -s/--server.")
 
         if name:
             if server_store.remove_by_name(name):
                 message = 'Removed nickname "%s".' % name
             else:
-                raise api.RSConnectException('Nickname "%s" was not found.' % name)
+                raise RSConnectException('Nickname "%s" was not found.' % name)
         else:  # the user specified -s/--server
             if server_store.remove_by_url(server):
                 message = 'Removed URL "%s".' % server
             else:
-                raise api.RSConnectException('URL "%s" was not found.' % server)
+                raise RSConnectException('URL "%s" was not found.' % server)
 
     if message:
         click.echo(message)
@@ -457,51 +537,6 @@ def info(file):
 @cli.group(no_args_is_help=True, help="Deploy content to RStudio Connect.")
 def deploy():
     pass
-
-
-def _validate_deploy_to_args(name, url, api_key, insecure, ca_cert, api_key_is_required=True):
-    """
-    Validate that the user gave us enough information to talk to a Connect server.
-
-    :param name: the nickname, if any, specified by the user.
-    :param url: the URL, if any, specified by the user.
-    :param api_key: the API key, if any, specified by the user.
-    :param insecure: a flag noting whether TLS host/validation should be skipped.
-    :param ca_cert: the name of a CA certs file containing certificates to use.
-    :param api_key_is_required: a flag that notes whether the API key is required or may
-    be omitted.
-    :return: a ConnectServer object that carries all the right info.
-    """
-    ca_data = ca_cert and text_type(ca_cert.read())
-
-    if name and url:
-        raise api.RSConnectException("You must specify only one of -n/--name or -s/--server, not both.")
-
-    real_server, api_key, insecure, ca_data, from_store = server_store.resolve(name, url, api_key, insecure, ca_data)
-
-    # This can happen if the user specifies neither --name or --server and there's not
-    # a single default to go with.
-    if not real_server:
-        raise api.RSConnectException("You must specify one of -n/--name or -s/--server.")
-
-    connect_server = api.RSConnectServer(real_server, None, insecure, ca_data)
-
-    # If our info came from the command line, make sure the URL really works.
-    if not from_store:
-        connect_server, _ = test_server(connect_server)
-
-    connect_server.api_key = api_key
-
-    if not connect_server.api_key:
-        if api_key_is_required:
-            raise api.RSConnectException('An API key must be specified for "%s".' % connect_server.url)
-        return connect_server
-
-    # If our info came from the command line, make sure the key really works.
-    if not from_store:
-        _ = test_api_key(connect_server)
-
-    return connect_server
 
 
 def _warn_on_ignored_manifest(directory):
@@ -577,69 +612,6 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
         )
 
 
-def _deploy_bundle(
-    connect_server,
-    app_store,
-    primary_path,
-    app_id,
-    app_mode,
-    name,
-    title,
-    title_is_default,
-    bundle,
-    env_vars,
-):
-    """
-    Does the work of uploading a prepared bundle.
-
-    :param connect_server: the Connect server information.
-    :param app_store: the store where data is saved about deployments.
-    :param primary_path: the base path (file or directory) that's being deployed.
-    :param app_id: the ID of the app.
-    :param app_mode: the mode of the app.
-    :param name: the name of the app.
-    :param title: the title of the app.
-    :param title_is_default: a flag noting whether the title carries a defaulted value.
-    :param bundle: the bundle to deploy.
-    :param env_vars: list of NAME=VALUE pairs to be set as the app environment
-    """
-    with cli_feedback("Uploading bundle"):
-        app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle, env_vars)
-
-    with cli_feedback("Saving deployment data"):
-        # Note we are NOT saving image into the deployment record for now.
-        app_store.set(
-            connect_server.url,
-            abspath(primary_path),
-            app["app_url"],
-            app["app_id"],
-            app["app_guid"],
-            title,
-            app_mode,
-        )
-
-    with cli_feedback(""):
-        click.secho("\nDeployment log:")
-        app_url, _, _ = spool_deployment_log(connect_server, app, click.echo)
-        click.secho("Deployment completed successfully.")
-        click.secho("    Dashboard content URL: ", nl=False)
-        click.secho(app_url, fg="green")
-        click.secho("    Direct content URL: ", nl=False)
-        click.secho(app["app_url"], fg="green")
-
-        # save the config URL, replacing the old app URL we got during deployment
-        # (which is the Open Solo URL).
-        app_store.set(
-            connect_server.url,
-            abspath(primary_path),
-            app_url,
-            app["app_id"],
-            app["app_guid"],
-            app["title"],
-            app_mode,
-        )
-
-
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="notebook",
@@ -700,78 +672,65 @@ def _deploy_bundle(
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@cli_exception_handler
 def deploy_notebook(
-    name,
-    server,
-    api_key,
-    insecure,
-    cacert,
-    static,
-    new,
-    app_id,
-    title,
+    name: str,
+    server: str,
+    api_key: str,
+    insecure: bool,
+    cacert: typing.IO,
+    static: bool,
+    new: bool,
+    app_id: str,
+    title: str,
     python,
     conda,
     force_generate,
-    verbose,
-    file,
+    verbose: bool,
+    file: str,
     extra_files,
-    hide_all_input,
-    hide_tagged_input,
-    env_vars,
-    image: str = None,
+    hide_all_input: bool,
+    hide_tagged_input: bool,
+    env_vars: typing.Dict[str, str],
+    image: str,
 ):
+    kwargs = locals()
     set_verbosity(verbose)
 
-    with cli_feedback("Checking arguments"):
-        app_store = AppStore(file)
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        extra_files = validate_extra_files(dirname(file), extra_files)
-        (app_id, deployment_name, title, default_title, app_mode,) = gather_basic_deployment_info_for_notebook(
-            connect_server,
-            app_store,
-            file,
-            new,
-            app_id,
-            title,
-            static,
-        )
-
-    click.secho('    Deploying %s to server "%s"' % (file, connect_server.url))
+    kwargs["extra_files"] = extra_files = validate_extra_files(dirname(file), extra_files)
+    app_mode = AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC
 
     base_dir = dirname(file)
     _warn_on_ignored_manifest(base_dir)
     _warn_if_no_requirements_file(base_dir)
     _warn_if_environment_directory(base_dir)
-
-    with cli_feedback("Inspecting Python environment"):
-        python, environment = get_python_env_info(file, python, conda, force_generate)
-
-    if environment.package_manager == "conda":
-        with cli_feedback("Ensuring Conda is supported"):
-            check_server_capabilities(connect_server, [is_conda_supported_on_server])
-    else:
-        _warn_on_ignored_conda_env(environment)
+    python, environment = get_python_env_info(file, python, conda, force_generate)
 
     if force_generate:
         _warn_on_ignored_requirements(base_dir, environment.filename)
 
-    with cli_feedback("Creating deployment bundle"):
-        bundle = create_notebook_deployment_bundle(
-            file, extra_files, app_mode, python, environment, False, hide_all_input, hide_tagged_input, image
+    ce = RSConnectExecutor(**kwargs)
+    ce.validate_server().validate_app_mode(app_mode=app_mode)
+    if app_mode == AppModes.STATIC:
+        ce.make_bundle(
+            make_notebook_html_bundle,
+            file,
+            python,
+            hide_all_input,
+            hide_tagged_input,
+            image=image,
         )
-    _deploy_bundle(
-        connect_server,
-        app_store,
-        file,
-        app_id,
-        app_mode,
-        deployment_name,
-        title,
-        default_title,
-        bundle,
-        env_vars,
-    )
+    else:
+        ce.make_bundle(
+            make_notebook_source_bundle,
+            file,
+            environment,
+            extra_files,
+            hide_all_input,
+            hide_tagged_input,
+            image=image,
+        )
+    ce.deploy_bundle().save_deployed_info().emit_task_log()
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -786,81 +745,43 @@ def deploy_notebook(
 )
 @server_args
 @content_args
+@shinyapps_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+@cli_exception_handler
 def deploy_manifest(
     name: str,
     server: str,
     api_key: str,
     insecure: bool,
-    cacert: str,
+    cacert: typing.IO,
+    account: str,
+    token: str,
+    secret: str,
     new: bool,
-    app_id: int,
+    app_id: str,
     title: str,
     verbose: bool,
     file: str,
     env_vars: typing.Dict[str, str],
 ):
+    kwargs = locals()
     set_verbosity(verbose)
 
-    with cli_feedback("Checking arguments"):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        file = validate_manifest_file(file)
-        app_store = AppStore(file)
+    file_name = kwargs["file"] = validate_manifest_file(file)
+    app_mode = read_manifest_app_mode(file_name)
+    kwargs["title"] = title or default_title_from_manifest(file)
 
-        (
-            app_id,
-            deployment_name,
-            title,
-            default_title,
-            app_mode,
-            package_manager,
-            _,
-        ) = gather_basic_deployment_info_from_manifest(
-            connect_server,
-            app_store,
-            file,
-            new,
-            app_id,
-            title,
+    ce = RSConnectExecutor(**kwargs)
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=app_mode)
+        .make_bundle(
+            make_manifest_bundle,
+            file_name,
         )
-
-    click.secho('    Deploying %s to server "%s"' % (file, connect_server.url))
-
-    if package_manager == "conda":
-        with cli_feedback("Ensuring Conda is supported"):
-            check_server_capabilities(connect_server, [is_conda_supported_on_server])
-
-    with cli_feedback("Creating deployment bundle"):
-        try:
-            bundle = make_manifest_bundle(file)
-        except IOError as error:
-            msg = "Unable to include the file %s in the bundle: %s" % (
-                error.filename,
-                error.args[1],
-            )
-            if error.args[0] == errno.ENOENT:
-                msg = "\n".join(
-                    [
-                        msg,
-                        "Since the file is missing but referenced in the manifest, "
-                        "you will need to\nregenerate your manifest.  See the help "
-                        'for the "write-manifest" command or,\nfor non-Python '
-                        'content, run the "deploy other-content" command.',
-                    ]
-                )
-            raise api.RSConnectException(msg)
-
-    _deploy_bundle(
-        connect_server,
-        app_store,
-        file,
-        app_id,
-        app_mode,
-        deployment_name,
-        title,
-        default_title,
-        bundle,
-        env_vars,
+        .deploy_bundle()
+        .save_deployed_info()
+        .emit_task_log()
     )
 
 
@@ -921,46 +842,34 @@ def deploy_manifest(
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@cli_exception_handler
 def deploy_quarto(
-    name,
-    server,
-    api_key,
-    insecure,
-    cacert,
-    new,
-    app_id,
-    title,
+    name: str,
+    server: str,
+    api_key: str,
+    insecure: bool,
+    cacert: typing.IO,
+    new: bool,
+    app_id: str,
+    title: str,
     exclude,
     quarto,
     python,
-    force_generate,
-    verbose,
+    force_generate: bool,
+    verbose: bool,
     file_or_directory,
     extra_files,
-    env_vars,
-    image,
+    env_vars: typing.Dict[str, str],
+    image: str,
 ):
+    kwargs = locals()
     set_verbosity(verbose)
 
     base_dir = file_or_directory
     if not isdir(file_or_directory):
         base_dir = dirname(file_or_directory)
-
-    with cli_feedback("Checking arguments"):
-        module_file = fake_module_file_from_directory(file_or_directory)
-        app_store = AppStore(module_file)
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        extra_files = validate_extra_files(base_dir, extra_files)
-        (app_id, deployment_name, title, default_title, app_mode) = gather_basic_deployment_info_for_quarto(
-            connect_server,
-            app_store,
-            file_or_directory,
-            new,
-            app_id,
-            title,
-        )
-
-    click.secho('    Deploying %s to server "%s"' % (file_or_directory, connect_server.url))
+    module_file = fake_module_file_from_directory(file_or_directory)
+    extra_files = validate_extra_files(base_dir, extra_files)
 
     _warn_on_ignored_manifest(base_dir)
 
@@ -984,22 +893,23 @@ def deploy_quarto(
             if force_generate:
                 _warn_on_ignored_requirements(base_dir, environment.filename)
 
-    with cli_feedback("Creating deployment bundle"):
-        bundle = create_quarto_deployment_bundle(
-            file_or_directory, extra_files, exclude, app_mode, inspect, environment, image
+    ce = RSConnectExecutor(**kwargs)
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=AppModes.STATIC_QUARTO)
+        .make_bundle(
+            create_quarto_deployment_bundle,
+            file_or_directory,
+            extra_files,
+            exclude,
+            AppModes.STATIC_QUARTO,
+            inspect,
+            environment,
+            image=image,
         )
-
-    _deploy_bundle(
-        connect_server,
-        app_store,
-        file_or_directory,
-        app_id,
-        app_mode,
-        deployment_name,
-        title,
-        default_title,
-        bundle,
-        env_vars,
+        .deploy_bundle()
+        .save_deployed_info()
+        .emit_task_log()
     )
 
 
@@ -1032,64 +942,51 @@ def deploy_quarto(
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@cli_exception_handler
 def deploy_html(
-    name,
-    server,
-    api_key,
-    insecure,
-    cacert,
-    new,
-    app_id,
-    title,
-    verbose,
-    path,
-    env_vars,
-    entrypoint,
-    extra_files,
-    excludes,
+    connect_server: api.RSConnectServer = None,
+    path: str = None,
+    entrypoint: str = None,
+    extra_files=None,
+    excludes=None,
+    title: str = None,
+    env_vars: typing.Dict[str, str] = None,
+    verbose: bool = False,
+    new: bool = False,
+    app_id: str = None,
+    name: str = None,
+    server: str = None,
+    api_key: str = None,
+    insecure: bool = False,
+    cacert: typing.IO = None,
 ):
-    set_verbosity(verbose)
+    kwargs = locals()
+    ce = None
+    if connect_server:
+        kwargs = filter_out_server_info(**kwargs)
+        ce = RSConnectExecutor.fromConnectServer(connect_server, **kwargs)
+    else:
+        ce = RSConnectExecutor(**kwargs)
 
-    with cli_feedback("Checking arguments"):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        app_store = AppStore(path)
-
-        (app_id, deployment_name, title, default_title, app_mode) = gather_basic_deployment_info_for_html(
-            connect_server,
-            app_store,
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=AppModes.STATIC)
+        .make_bundle(
+            make_html_bundle,
             path,
-            new,
-            app_id,
-            title,
+            entrypoint,
+            extra_files,
+            excludes,
         )
-
-    click.secho('    Deploying %s to server "%s"' % (path, connect_server.url))
-
-    with cli_feedback("Creating deployment bundle"):
-        try:
-            bundle = make_html_bundle(path, entrypoint, extra_files, excludes, None)
-        except IOError as error:
-            msg = "Unable to include the file %s in the bundle: %s" % (
-                error.filename,
-                error.args[1],
-            )
-            raise api.RSConnectException(msg)
-
-    _deploy_bundle(
-        connect_server,
-        app_store,
-        path,
-        app_id,
-        app_mode,
-        deployment_name,
-        title,
-        default_title,
-        bundle,
-        env_vars,
+        .deploy_bundle()
+        .save_deployed_info()
+        .emit_task_log()
     )
 
 
-def generate_deploy_python(app_mode, alias, min_version):
+def generate_deploy_python(app_mode, alias, min_version, supported_by_shinyapps=False):
+    shinyapps = shinyapps_args if supported_by_shinyapps else _passthrough
+
     # noinspection SpellCheckingInspection
     @deploy.command(
         name=alias,
@@ -1103,6 +1000,7 @@ def generate_deploy_python(app_mode, alias, min_version):
     )
     @server_args
     @content_args
+    @shinyapps
     @click.option(
         "--entrypoint",
         "-e",
@@ -1154,52 +1052,58 @@ def generate_deploy_python(app_mode, alias, min_version):
         nargs=-1,
         type=click.Path(exists=True, dir_okay=False, file_okay=True),
     )
+    @cli_exception_handler
     def deploy_app(
-        name,
-        server,
-        api_key,
-        insecure,
-        cacert,
+        name: str,
+        server: str,
+        api_key: str,
+        insecure: bool,
+        cacert: typing.IO,
         entrypoint,
         exclude,
-        new,
-        app_id,
-        title,
+        new: bool,
+        app_id: str,
+        title: str,
         python,
         conda,
-        force_generate,
-        verbose,
+        force_generate: bool,
+        verbose: bool,
         directory,
         extra_files,
-        env_vars,
-        image: str = None,
+        env_vars: typing.Dict[str, str],
+        image: str,
+        account: str = None,
+        token: str = None,
+        secret: str = None,
     ):
-        _deploy_by_framework(
-            name,
-            server,
-            api_key,
-            insecure,
-            cacert,
-            entrypoint,
-            exclude,
-            new,
-            app_id,
-            title,
+        kwargs = locals()
+        kwargs["entrypoint"] = entrypoint = validate_entry_point(entrypoint, directory)
+        kwargs["extra_files"] = extra_files = validate_extra_files(directory, extra_files)
+        environment = create_python_environment(
+            directory,
+            force_generate,
             python,
             conda,
-            force_generate,
-            verbose,
-            directory,
-            extra_files,
-            env_vars,
-            {
-                AppModes.PYTHON_API: gather_basic_deployment_info_for_api,
-                AppModes.PYTHON_FASTAPI: gather_basic_deployment_info_for_fastapi,
-                AppModes.DASH_APP: gather_basic_deployment_info_for_dash,
-                AppModes.STREAMLIT_APP: gather_basic_deployment_info_for_streamlit,
-                AppModes.BOKEH_APP: gather_basic_deployment_info_for_bokeh,
-            }[app_mode],
-            image,
+        )
+
+        ce = RSConnectExecutor(**kwargs)
+        (
+            ce.validate_server()
+            .validate_app_mode(app_mode=app_mode)
+            .check_server_capabilities([are_apis_supported_on_server])
+            .make_bundle(
+                make_api_bundle,
+                directory,
+                entrypoint,
+                app_mode,
+                environment,
+                extra_files,
+                exclude,
+                image=image,
+            )
+            .deploy_bundle()
+            .save_deployed_info()
+            .emit_task_log()
         )
 
     return deploy_app
@@ -1207,106 +1111,14 @@ def generate_deploy_python(app_mode, alias, min_version):
 
 deploy_api = generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="api", min_version="1.8.2")
 # TODO: set fastapi min_version correctly
+# deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0")
 deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0")
 deploy_dash_app = generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
 deploy_streamlit_app = generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
 deploy_bokeh_app = generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
-
-
-# noinspection SpellCheckingInspection
-def _deploy_by_framework(
-    name,
-    server,
-    api_key,
-    insecure,
-    cacert,
-    entrypoint,
-    exclude,
-    new,
-    app_id,
-    title,
-    python,
-    conda,
-    force_generate,
-    verbose,
-    directory,
-    extra_files,
-    env_vars,
-    gatherer,
-    image,
-):
-    """
-    A common function for deploying APIs, as well as Dash, Streamlit, and Bokeh apps.
-
-    :param name: the nickname of the Connect server to use.
-    :param server: the URL of the Connect server to use.
-    :param api_key: the API key to use to authenticate with Connect.
-    :param insecure: a flag noting whether insecure TLS should be used.
-    :param cacert: a path to a CA certificates file to use with TLS.
-    :param entrypoint: the entry point for the thing being deployed.
-    :param exclude: a sequence of exclude glob patterns to exclude files
-                    from the deploy.
-    :param new: a flag to force the deploy to be new.
-    :param app_id: the ID of the app to redeploy.
-    :param title: the title to use for the app.
-    :param python: a path to the Python executable to use.
-    :param conda: a flag to note whether Conda should be used/assumed..
-    :param force_generate: a flag to force the generation of manifest and
-                           requirements file.
-    :param verbose: a flag to produce more (debugging) output.
-    :param directory: the directory of the thing to deploy.
-    :param extra_files: any extra files that should be included.
-    :param gatherer: the function to use to gather basic information.
-    :param image: an optional docker image for off-host execution.
-    """
-    set_verbosity(verbose)
-
-    with cli_feedback("Checking arguments"):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        module_file = fake_module_file_from_directory(directory)
-        extra_files = validate_extra_files(directory, extra_files)
-        app_store = AppStore(module_file)
-        entrypoint, app_id, deployment_name, title, default_title, app_mode = gatherer(
-            connect_server, app_store, directory, entrypoint, new, app_id, title
-        )
-
-    click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
-
-    _warn_on_ignored_manifest(directory)
-    _warn_if_no_requirements_file(directory)
-    _warn_if_environment_directory(directory)
-
-    with cli_feedback("Inspecting Python environment"):
-        _, environment = get_python_env_info(module_file, python, conda, force_generate)
-
-    with cli_feedback("Checking server capabilities"):
-        checks = [are_apis_supported_on_server]
-        if environment.package_manager == "conda":
-            checks.append(is_conda_supported_on_server)
-        check_server_capabilities(connect_server, checks)
-
-    _warn_on_ignored_conda_env(environment)
-
-    if force_generate:
-        _warn_on_ignored_requirements(directory, environment.filename)
-
-    with cli_feedback("Creating deployment bundle"):
-        bundle = create_api_deployment_bundle(
-            directory, extra_files, exclude, entrypoint, app_mode, environment, False, image
-        )
-
-    _deploy_bundle(
-        connect_server,
-        app_store,
-        directory,
-        app_id,
-        app_mode,
-        deployment_name,
-        title,
-        default_title,
-        bundle,
-        env_vars,
-    )
+deploy_shiny = generate_deploy_python(
+    app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0", supported_by_shinyapps=True
+)
 
 
 @deploy.command(
@@ -1394,7 +1206,7 @@ def write_manifest_notebook(
     verbose,
     file,
     extra_files,
-    image=None,  # type: str
+    image,
     hide_all_input=None,
     hide_tagged_input=None,
 ):
@@ -1407,7 +1219,7 @@ def write_manifest_notebook(
         manifest_path = join(base_dir, "manifest.json")
 
         if exists(manifest_path) and not overwrite:
-            raise api.RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
         python, environment = get_python_env_info(file, python, conda, force_generate)
@@ -1500,7 +1312,7 @@ def write_manifest_quarto(
     verbose,
     file_or_directory,
     extra_files,
-    image: str = None,
+    image,
 ):
     set_verbosity(verbose)
 
@@ -1513,7 +1325,7 @@ def write_manifest_quarto(
         manifest_path = join(base_dir, "manifest.json")
 
         if exists(manifest_path) and not overwrite:
-            raise api.RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Quarto project"):
         quarto = which_quarto(quarto)
@@ -1621,7 +1433,7 @@ def generate_write_manifest_python(app_mode, alias):
         verbose,
         directory,
         extra_files,
-        image: str = None,
+        image,
     ):
         _write_framework_manifest(
             overwrite,
@@ -1645,6 +1457,7 @@ write_manifest_fastapi = generate_write_manifest_python(AppModes.PYTHON_FASTAPI,
 write_manifest_dash = generate_write_manifest_python(AppModes.DASH_APP, alias="dash")
 write_manifest_streamlit = generate_write_manifest_python(AppModes.STREAMLIT_APP, alias="streamlit")
 write_manifest_bokeh = generate_write_manifest_python(AppModes.BOKEH_APP, alias="bokeh")
+write_manifest_shiny = generate_write_manifest_python(AppModes.PYTHON_SHINY, alias="shiny")
 
 
 # noinspection SpellCheckingInspection
@@ -1686,7 +1499,7 @@ def _write_framework_manifest(
         manifest_path = join(directory, "manifest.json")
 
         if exists(manifest_path) and not overwrite:
-            raise api.RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
         _, environment = get_python_env_info(directory, python, conda, force_generate)
@@ -1716,9 +1529,9 @@ def _write_framework_manifest(
 
 def _validate_build_rm_args(guid, all, purge):
     if guid and all:
-        raise api.RSConnectException("You must specify only one of -g/--guid or --all, not both.")
+        raise RSConnectException("You must specify only one of -g/--guid or --all, not both.")
     if not guid and not all:
-        raise api.RSConnectException("You must specify one of -g/--guid or --all.")
+        raise RSConnectException("You must specify one of -g/--guid or --all.")
 
 
 @cli.group(no_args_is_help=True, help="Interact with RStudio Connect's content API.")
@@ -1795,6 +1608,7 @@ def content():
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 # todo: --format option (json, text)
+@cli_exception_handler
 def content_search(
     name,
     server,
@@ -1812,9 +1626,9 @@ def content_search(
 ):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         result = search_content(
-            connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
+            ce.remote_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
         )
         json.dump(result, sys.stdout, indent=2)
 
@@ -1865,8 +1679,8 @@ def content_search(
 def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        result = get_content(connect_server, guid)
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        result = get_content(ce.remote_server, guid)
         json.dump(result, sys.stdout, indent=2)
 
 
@@ -1926,11 +1740,11 @@ def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
 def content_bundle_download(name, server, api_key, insecure, cacert, guid, output, overwrite, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         if exists(output) and not overwrite:
-            raise api.RSConnectException("The output file already exists: %s" % output)
+            raise RSConnectException("The output file already exists: %s" % output)
 
-        result = download_bundle(connect_server, guid)
+        result = download_bundle(ce.remote_server, guid)
         with open(output, "wb") as f:
             f.write(result.response_body)
 
@@ -1984,8 +1798,8 @@ def build():
 def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        build_add_content(connect_server, guid)
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        build_add_content(ce.remote_server, guid)
         if len(guid) == 1:
             logger.info('Added "%s".' % guid[0])
         else:
@@ -2048,9 +1862,9 @@ def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
 def remove_content_build(name, server, api_key, insecure, cacert, guid, all, purge, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         _validate_build_rm_args(guid, all, purge)
-        guids = build_remove_content(connect_server, guid, all, purge)
+        guids = build_remove_content(ce.remote_server, guid, all, purge)
         if len(guids) == 1:
             logger.info('Removed "%s".' % guids[0])
         else:
@@ -2102,8 +1916,8 @@ def remove_content_build(name, server, api_key, insecure, cacert, guid, all, pur
 def list_content_build(name, server, api_key, insecure, cacert, status, guid, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        result = build_list_content(connect_server, guid, status)
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        result = build_list_content(ce.remote_server, guid, status)
         json.dump(result, sys.stdout, indent=2)
 
 
@@ -2149,8 +1963,9 @@ def list_content_build(name, server, api_key, insecure, cacert, status, guid, ve
 def get_build_history(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        result = build_history(connect_server, guid)
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert)
+        ce.validate_server()
+        result = build_history(ce.remote_server, guid)
         json.dump(result, sys.stdout, indent=2)
 
 
@@ -2212,8 +2027,8 @@ def get_build_history(name, server, api_key, insecure, cacert, guid, verbose):
 def get_build_logs(name, server, api_key, insecure, cacert, guid, task_id, format, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        for line in emit_build_log(connect_server, guid, format, task_id):
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        for line in emit_build_log(ce.remote_server, guid, format, task_id):
             sys.stdout.write(line)
 
 
@@ -2279,8 +2094,8 @@ def start_content_build(
     set_verbosity(verbose)
     logger.set_log_output_format(format)
     with cli_feedback("", stderr=True):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-        build_start(connect_server, parallelism, aborted, error, all, poll_wait, debug)
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        build_start(ce.remote_server, parallelism, aborted, error, all, poll_wait, debug)
 
 
 if __name__ == "__main__":

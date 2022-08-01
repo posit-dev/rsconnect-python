@@ -1,0 +1,17 @@
+{
+    "id": 333,
+    "account_id": 82069,
+    "parent_id": null,
+    "action": "application-deploy",
+    "description": "Stopping old instances",
+    "status": "success",
+    "error": null,
+    "finished": true,
+    "finished_time": "2022-07-05T16:07:16",
+    "arguments": {
+        "app_id": 8442,
+        "deployment_id": 850618
+    },
+    "created_time": "2022-07-05T16:06:42",
+    "updated_time": "2022-07-05T16:07:16"
+}

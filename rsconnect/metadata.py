@@ -7,13 +7,14 @@ import json
 import os
 import glob
 import sys
+import typing
 from datetime import datetime, timezone
 from os.path import abspath, basename, dirname, exists, join
 from urllib.parse import urlparse
 import shutil
 from threading import Lock
 
-from . import api
+from .exception import RSConnectException
 from .log import logger
 from .models import AppMode, AppModes
 
@@ -137,7 +138,7 @@ class DataStore(object):
         """
         Return all the values in the store sorted by the given lambda expression.
 
-        :param sort_by: a lambda expression to use to sort the values..
+        :param sort_by: a lambda expression to use to sort the values.
         :return: the sorted values.
         """
         return sorted(self._data.values(), key=sort_by)
@@ -217,6 +218,30 @@ class DataStore(object):
             os.chmod(self._real_path, 0o600)
 
 
+class ServerData:
+    def __init__(
+        self,
+        name: str,
+        url: str,
+        from_store: bool,
+        api_key: typing.Optional[str] = None,
+        insecure: typing.Optional[bool] = None,
+        ca_data: typing.Optional[str] = None,
+        account_name: typing.Optional[str] = None,
+        token: typing.Optional[str] = None,
+        secret: typing.Optional[str] = None,
+    ):
+        self.name = name
+        self.url = url
+        self.from_store = from_store
+        self.api_key = api_key
+        self.insecure = insecure
+        self.ca_data = ca_data
+        self.account_name = account_name
+        self.token = token
+        self.secret = secret
+
+
 class ServerStore(DataStore):
     """Defines a metadata store for server information.
 
@@ -252,7 +277,7 @@ class ServerStore(DataStore):
         """
         return self._get_sorted_values(lambda s: s["name"])
 
-    def set(self, name, url, api_key, insecure=False, ca_data=None):
+    def set(self, name, url, api_key=None, insecure=False, ca_data=None, account_name=None, token=None, secret=None):
         """
         Add (or update) information about a Connect server
 
@@ -261,17 +286,19 @@ class ServerStore(DataStore):
         :param api_key: the API key to use to authenticate with the Connect server.
         :param insecure: a flag to disable TLS verification.
         :param ca_data: client side certificate data to use for TLS.
+        :param account_name: shinyapps.io account name.
+        :param token: shinyapps.io token.
+        :param secret: shinyapps.io secret.
         """
-        self._set(
-            name,
-            dict(
-                name=name,
-                url=url,
-                api_key=api_key,
-                insecure=insecure,
-                ca_cert=ca_data,
-            ),
+        common_data = dict(
+            name=name,
+            url=url,
         )
+        if api_key:
+            target_data = dict(api_key=api_key, insecure=insecure, ca_cert=ca_data)
+        else:
+            target_data = dict(account_name=account_name, token=token, secret=secret)
+        self._set(name, {**common_data, **target_data})
 
     def remove_by_name(self, name):
         """
@@ -289,7 +316,7 @@ class ServerStore(DataStore):
         """
         return self._remove_by_value_attr("name", "url", url)
 
-    def resolve(self, name, url, api_key, insecure, ca_data):
+    def resolve(self, name, url):
         """
         This function will resolve the given inputs into a set of server information.
         It assumes that either `name` or `url` is provided.
@@ -307,16 +334,13 @@ class ServerStore(DataStore):
 
         :param name: the nickname to look for.
         :param url: the Connect server URL to look for.
-        :param api_key: the API key provided on the command line.
-        :param insecure: the insecure flag provided on the command line.
-        :param ca_data: the CA certification data provided on the command line.
         :return: the information needed to interact with the resolved server and whether
         it came from the store or the arguments.
         """
         if name:
             entry = self.get_by_name(name)
             if not entry:
-                raise api.RSConnectException('The nickname, "%s", does not exist.' % name)
+                raise RSConnectException('The nickname, "%s", does not exist.' % name)
         elif url:
             entry = self.get_by_url(url)
         else:
@@ -327,15 +351,23 @@ class ServerStore(DataStore):
                 entry = None
 
         if entry:
-            return (
+            return ServerData(
+                name,
                 entry["url"],
-                entry["api_key"],
-                entry["insecure"],
-                entry["ca_cert"],
                 True,
+                insecure=entry.get("insecure"),
+                ca_data=entry.get("ca_cert"),
+                api_key=entry.get("api_key"),
+                account_name=entry.get("account_name"),
+                token=entry.get("token"),
+                secret=entry.get("secret"),
             )
         else:
-            return url, api_key, insecure, ca_data, False
+            return ServerData(
+                name,
+                url,
+                False,
+            )
 
 
 def sha1(s):
