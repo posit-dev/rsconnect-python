@@ -68,7 +68,7 @@ from .models import (
     StrippedStringParamType,
     VersionSearchFilterParamType,
 )
-from .json_web_token import TokenGenerator
+from .json_web_token import load_secret, TokenGenerator
 
 server_store = ServerStore()
 future_enabled = False
@@ -278,28 +278,28 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
     with cli_feedback("Checking shinyapps.io credential"):
         test_shinyapps_server(server)
 
+
 # noinspection SpellCheckingInspection
-@cli.command(
-    short_help="Generate a JSON Web Token (JWT).",
-    help=("Todo")
-)
-@click.option(
-    "--token",
-    "-t",
-    help="Type of JWT to generate. Options: ['initial-admin']"
-)
+@cli.command(short_help="Generate a JSON Web Token (JWT).", help=("Todo"))
+@click.option("--token", "-t", help="Type of JWT to generate. Options: ['initial-admin']")
 @click.option(
     "--secret",
     "-s",
-    envvar="CONNECT_JWT_SECRET",
-    help="The secret used to sign the JWT"
+    help="The file path to the secret used to sign the JWT. Overridden by 'RSCONNECT_JWT_SECRET' environment variable.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def jwt(token, secret, verbose):
 
     set_verbosity(verbose)
 
-    token_generator = TokenGenerator(secret)
+    # todo: validate that secret is passed in one way or another before trying to load it
+
+    secret_key = load_secret(secret)
+    if secret_key is None or secret_key is "":
+        click.echo("Unable to load secret for JWT signing.")
+        return
+
+    token_generator = TokenGenerator(secret_key)
 
     if token == "initial-admin":
         click.echo(token_generator.initial_admin())
