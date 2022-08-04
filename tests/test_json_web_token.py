@@ -5,6 +5,7 @@ import re
 
 from rsconnect.json_web_token import DEFAULT_ISSUER, DEFAULT_AUDIENCE, TokenGenerator, JWTEncoder, JWTDecoder
 
+
 def has_jwt_structure(token):
     return re.search("^[a-zA-Z0-9-_]+\\.[a-zA-Z0-9-_]+\\.[a-zA-Z0-9-_]+$", token) is not None
 
@@ -12,10 +13,10 @@ def has_jwt_structure(token):
 # timestamps are recorded in the number of seconds since the epoch
 def are_unix_timestamps_approx_equal(a, b):
     # assume +/- 1 second is approximately equal, since we cant precisely know when the token generator gets the current timestamp
-    return abs(a-b) <= 1
+    return abs(a - b) <= 1
+
 
 class TestJwtEncoder(TestCase):
-
     def test_jwt_encoder_constructor(self):
         encoder = JWTEncoder("issuer", "audience", "secret")
 
@@ -30,23 +31,22 @@ class TestJwtEncoder(TestCase):
         exp = timedelta(hours=5)
 
         standard_claims = encoder.generate_standard_claims(current_datetime, exp)
-      
+
         # verify we have all the expected standard claims
         self.assertEqual(standard_claims.keys(), set(["exp", "iss", "aud", "iat"]))
-        
+
         self.assertEqual(standard_claims["exp"], int((current_datetime + exp).timestamp()))
         self.assertEqual(datetime.fromtimestamp(standard_claims["exp"]), datetime(2022, 1, 1, 6, 1, 1))
 
         self.assertEqual(standard_claims["iss"], "issuer")
         self.assertEqual(standard_claims["aud"], "audience")
-        
+
         self.assertEqual(standard_claims["iat"], int(current_datetime.timestamp()))
         self.assertEqual(datetime.fromtimestamp(standard_claims["iat"]), current_datetime)
 
     def test_new_token_empty_custom_claims(self):
         encoder = JWTEncoder("issuer", "audience", "secret")
         decoder = JWTDecoder("audience", "secret")
-
 
         exp = timedelta(hours=5)
         current_datetime = datetime.now(tz=timezone.utc)
@@ -91,7 +91,6 @@ class TestJwtEncoder(TestCase):
         self.assertEqual(payload["endpoint"], "http://something.test.com")
         self.assertEqual(payload["method"], "POST")
 
-
     def test_token_generator_constructor(self):
         generator = TokenGenerator("secret")
 
@@ -99,7 +98,7 @@ class TestJwtEncoder(TestCase):
         self.assertEqual(generator.encoder.issuer, DEFAULT_ISSUER)
         self.assertEqual(generator.encoder.audience, DEFAULT_AUDIENCE)
         self.assertEqual(generator.encoder.secret, "secret")
-    
+
     def test_token_generator_initial_admin(self):
         generator = TokenGenerator("secret")
         initial_admin_token = generator.initial_admin()
@@ -120,4 +119,3 @@ class TestJwtEncoder(TestCase):
         self.assertTrue(are_unix_timestamps_approx_equal(payload["iat"], expected_iat))
         self.assertEqual(payload["endpoint"], "/__api__/v1/experimental/installation/initial-admin")
         self.assertEqual(payload["method"], "GET")
-

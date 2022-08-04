@@ -5,9 +5,9 @@ Json Web Token (JWT) utilities
 import jwt
 from datetime import datetime, timedelta, timezone
 
-
 DEFAULT_ISSUER = "rsconnect-python"
 DEFAULT_AUDIENCE = "rsconnect"
+
 
 class JWTEncoder:
     def __init__(self, issuer: str, audience: str, secret: str):
@@ -30,7 +30,7 @@ class JWTEncoder:
 
         claims = {}
         for c in [standard_claims, custom_claims]:
-           claims.update(c)
+            claims.update(c)
 
         return jwt.encode(claims, self.secret, algorithm="HS256")
 
@@ -41,9 +41,9 @@ class JWTDecoder:
         self.audience = audience
         self.secret = secret
 
-
     def decode_token(self, token: str):
         return jwt.decode(token, self.secret, audience=self.audience, algorithms=["HS256"])
+
 
 # Uses a generic encoder to create JWTs with specific custom scopes / expiration times
 class TokenGenerator:
@@ -51,12 +51,8 @@ class TokenGenerator:
         self.encoder = JWTEncoder(DEFAULT_ISSUER, DEFAULT_AUDIENCE, secret)
 
     def initial_admin(self):
-        custom_claims = {
-            "endpoint": "/__api__/v1/experimental/installation/initial-admin",
-            "method": "GET" #todo
-        }
+        custom_claims = {"endpoint": "/__api__/v1/experimental/installation/initial-admin", "method": "GET"}  # todo
 
         exp = timedelta(minutes=15)
 
         return self.encoder.new_token(custom_claims, exp)
-
