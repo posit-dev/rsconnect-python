@@ -22,7 +22,8 @@ def has_jwt_structure(token):
 
 # timestamps are recorded in the number of seconds since the epoch
 def are_unix_timestamps_approx_equal(a, b):
-    # assume +/- 1 second is approximately equal, since we cant precisely know when the token generator gets the current timestamp
+    # assume +/- 1 second is approximately equal, since we cant precisely know
+    # when the token generator gets the current timestamp
     return abs(a - b) <= 1
 
 
