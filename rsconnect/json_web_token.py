@@ -2,11 +2,37 @@
 Json Web Token (JWT) utilities
 """
 
+import os
+
 import jwt
 from datetime import datetime, timedelta, timezone
 
 DEFAULT_ISSUER = "rsconnect-python"
 DEFAULT_AUDIENCE = "rsconnect"
+
+SECRET_ENV_VAR = "RSCONNECT_JWT_SECRET"
+
+
+# Load the secret to be used for signing JWTs
+def load_secret(secret_path=None):
+
+    # Prioritize environment variable (if it exists)
+    env_secret = os.getenv(SECRET_ENV_VAR)
+    if env_secret is not None:
+        return env_secret
+
+    # Default read from filepath
+
+    # Can't read a file if we didn't provide one
+    if secret_path is None:
+        raise RuntimeError()
+
+    # If file does not exist, we have no secret!
+    if not os.path.exists(secret_path):
+        raise FileNotFoundError()
+
+    with open(secret_path, "r") as f:
+        return f.read()
 
 
 class JWTEncoder:

@@ -1,9 +1,19 @@
 from unittest import TestCase
+import pytest
 
 from datetime import datetime, timedelta, timezone
 import re
+import os
 
-from rsconnect.json_web_token import DEFAULT_ISSUER, DEFAULT_AUDIENCE, TokenGenerator, JWTEncoder, JWTDecoder
+from rsconnect.json_web_token import (
+    SECRET_ENV_VAR,
+    DEFAULT_ISSUER,
+    DEFAULT_AUDIENCE,
+    load_secret,
+    TokenGenerator,
+    JWTEncoder,
+    JWTDecoder,
+)
 
 
 def has_jwt_structure(token):
@@ -91,6 +101,8 @@ class TestJwtEncoder(TestCase):
         self.assertEqual(payload["endpoint"], "http://something.test.com")
         self.assertEqual(payload["method"], "POST")
 
+
+class TestTokenGenerator(TestCase):
     def test_token_generator_constructor(self):
         generator = TokenGenerator("secret")
 
@@ -119,3 +131,37 @@ class TestJwtEncoder(TestCase):
         self.assertTrue(are_unix_timestamps_approx_equal(payload["iat"], expected_iat))
         self.assertEqual(payload["endpoint"], "/__api__/v1/experimental/installation/initial-admin")
         self.assertEqual(payload["method"], "GET")
+
+
+class TestLoadSecret(TestCase):
+    def test_load_secret_env_variable(self):
+
+        secret = "123abcenvsecret"
+
+        os.environ[SECRET_ENV_VAR] = secret
+
+        self.assertEqual(load_secret(), secret)
+        self.assertEqual(load_secret(None), secret)
+        self.assertEqual(load_secret("/some/path.secret"), secret)
+
+        # this secret key exists and contains '123abcsecret' - overridden by env variable
+        self.assertEqual(load_secret("tests/testdata/secret.key"), secret)
+
+        # Cleanup
+        os.environ.pop(SECRET_ENV_VAR)
+
+    def test_load_secret_none(self):
+
+        with pytest.raises(RuntimeError):
+            load_secret(None)
+
+        with pytest.raises(RuntimeError):
+            load_secret()
+
+    def test_load_secret_file(self):
+
+        with pytest.raises(FileNotFoundError):
+            load_secret("/some/path.secret")
+
+        # todo: this limits from which directory the tests can be run...
+        self.assertEqual(load_secret("tests/testdata/secret.key"), "123abcsecret")
