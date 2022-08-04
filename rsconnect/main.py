@@ -292,10 +292,10 @@ def jwt(token, secret, verbose):
 
     set_verbosity(verbose)
 
-    # todo: validate that secret is passed in one way or another before trying to load it
+    validation.validate_jwt_options(token, secret)
 
     secret_key = load_secret(secret)
-    if secret_key is None or secret_key is "":
+    if secret_key is None or secret_key == "":
         click.echo("Unable to load secret for JWT signing.")
         return
 
