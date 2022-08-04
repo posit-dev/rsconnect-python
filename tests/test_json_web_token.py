@@ -3,7 +3,7 @@ from unittest import TestCase
 from datetime import datetime, timedelta, timezone
 import re
 
-from rsconnect.json_web_token import JWTEncoder, JWTDecoder
+from rsconnect.json_web_token import DEFAULT_ISSUER, DEFAULT_AUDIENCE, TokenGenerator, JWTEncoder, JWTDecoder
 
 def has_jwt_structure(token):
     return re.search("^[a-zA-Z0-9-_]+\\.[a-zA-Z0-9-_]+\\.[a-zA-Z0-9-_]+$", token) is not None
@@ -75,7 +75,7 @@ class TestJwtEncoder(TestCase):
         expected_exp = int((current_datetime + exp).timestamp())
         expected_iat = int(current_datetime.timestamp())
 
-        #populated custom claims
+        # populated custom claims
         custom_claims = {"endpoint": "http://something.test.com", "method": "POST"}
         new_token = encoder.new_token(custom_claims, exp)
         self.assertTrue(has_jwt_structure(new_token))
@@ -92,5 +92,32 @@ class TestJwtEncoder(TestCase):
         self.assertEqual(payload["method"], "POST")
 
 
+    def test_token_generator_constructor(self):
+        generator = TokenGenerator("secret")
 
+        # Assert that the encoder is instantiated properly
+        self.assertEqual(generator.encoder.issuer, DEFAULT_ISSUER)
+        self.assertEqual(generator.encoder.audience, DEFAULT_AUDIENCE)
+        self.assertEqual(generator.encoder.secret, "secret")
+    
+    def test_token_generator_initial_admin(self):
+        generator = TokenGenerator("secret")
+        initial_admin_token = generator.initial_admin()
+
+        decoder = JWTDecoder(DEFAULT_AUDIENCE, "secret")
+        payload = decoder.decode_token(initial_admin_token)
+
+        self.assertEqual(payload.keys(), set(["exp", "iss", "aud", "iat", "endpoint", "method"]))
+
+        exp = timedelta(minutes=15)
+        current_datetime = datetime.now(tz=timezone.utc)
+        expected_exp = int((current_datetime + exp).timestamp())
+        expected_iat = int(current_datetime.timestamp())
+
+        self.assertTrue(are_unix_timestamps_approx_equal(payload["exp"], expected_exp))
+        self.assertEqual(payload["iss"], DEFAULT_ISSUER)
+        self.assertEqual(payload["aud"], DEFAULT_AUDIENCE)
+        self.assertTrue(are_unix_timestamps_approx_equal(payload["iat"], expected_iat))
+        self.assertEqual(payload["endpoint"], "/__api__/v1/experimental/installation/initial-admin")
+        self.assertEqual(payload["method"], "GET")
 
