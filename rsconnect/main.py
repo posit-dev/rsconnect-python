@@ -301,7 +301,7 @@ def jwt(token, secret):
     if token == "initial-admin":
         click.echo(token_generator.initial_admin())
     else:
-        click.echo(f"Unrecognized token type: {token}")
+        click.echo("Unrecognized token type: " + token)
 
 
 # noinspection SpellCheckingInspection
