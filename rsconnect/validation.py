@@ -22,7 +22,7 @@ def validate_jwt_options(token, secret_path):
         return
 
     raise RSConnectException(
-        f"You must specify a valid -s/--secret file path or populate the environment variable {SECRET_ENV_VAR}"
+        "You must specify a valid -s/--secret file path or populate the environment variable " + SECRET_ENV_VAR
     )
 
 
