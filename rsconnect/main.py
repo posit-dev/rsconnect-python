@@ -287,10 +287,7 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
     "-s",
     help="The file path to the secret used to sign the JWT. Overridden by 'RSCONNECT_JWT_SECRET' environment variable.",
 )
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def jwt(token, secret, verbose):
-
-    set_verbosity(verbose)
+def jwt(token, secret):
 
     validation.validate_jwt_options(token, secret)
 
