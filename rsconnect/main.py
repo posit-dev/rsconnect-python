@@ -36,7 +36,7 @@ from .actions_content import (
 )
 
 from . import api, VERSION, validation
-from .api import RSConnectExecutor, filter_out_server_info
+from .api import RSConnectExecutor, RSConnectServer, RSConnectClient, filter_out_server_info
 from .bundle import (
     are_apis_supported_on_server,
     create_python_environment,
@@ -68,7 +68,7 @@ from .models import (
     StrippedStringParamType,
     VersionSearchFilterParamType,
 )
-from .json_web_token import load_secret, TokenGenerator
+from .json_web_token import is_valid_secret_key, using_jwt_compatible_python_version, load_secret, TokenGenerator
 
 server_store = ServerStore()
 future_enabled = False
@@ -279,26 +279,81 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
         test_shinyapps_server(server)
 
 
+@cli.command(
+    short_help="Create a transitory admin user and provision it with an api key",
+    help="Creates an initial admin user for the Connect instance, provisions it with an API key, and returns the provisionend API key.",
+)
+@click.option(
+    "--server",
+    "-s",
+    envvar="CONNECT_SERVER",
+    help="The URL for the RStudio Connect server.",
+)
+@click.option(
+    "--insecure",
+    "-i",
+    envvar="CONNECT_INSECURE",
+    is_flag=True,
+    help="Disable TLS certification/host validation.",
+)
+@click.option(
+    "--cacert",
+    "-c",
+    envvar="CONNECT_CA_CERTIFICATE",
+    type=click.File(),
+    help="The path to trusted TLS CA certificates.",
+)
+@click.option(
+    "--secret_key",
+    "-k",
+    help="The file path to the secret used to sign the JWT. Overridden by 'CONNECT_JWT_SECRET' environment variable.",
+)
+@cli_exception_handler
+def initial_admin(
+    server,
+    insecure,
+    cacert,
+    secret,
+):
+    if not using_jwt_compatible_python_version():
+        raise RSConnectException(
+            "Python version > 3.5 required for JWT generation. Please upgrade your Python installation."
+        )
+
+    secret_key = load_secret(secret)
+    if not is_valid_secret_key(secret_key):
+        raise RSConnectException("Unable to load secret for JWT signing.")
+
+    token_generator = TokenGenerator(secret_key)
+
+    initial_admin_token = token_generator.initial_admin()
+
+    with cli_feedback("", stderr=True):
+        connect_server = RSConnectServer(server, None, insecure, text_type(cacert.read()))
+        connect_client = RSConnectClient(connect_server)
+        result = connect_client.initial_admin(initial_admin_token)
+        json.dump(result, sys.stdout, indent=2)
+
+
 # noinspection SpellCheckingInspection
 @cli.command(short_help="Generate a JSON Web Token (JWT).", help=("Todo"))
 @click.option("--token", "-t", help="Type of JWT to generate. Options: ['initial-admin']")
 @click.option(
-    "--secret",
-    "-s",
-    help="The file path to the secret used to sign the JWT. Overridden by 'RSCONNECT_JWT_SECRET' environment variable.",
+    "--secret_key",
+    "-k",
+    help="The file path to the secret used to sign the JWT. Overridden by 'CONNECT_JWT_SECRET' environment variable.",
 )
+@cli_exception_handler
 def jwt(token, secret):
 
-    if sys.version_info <= (3, 5):
-        click.echo("Python version > 3.5 required for JWT generation. Please upgrade your Python installation.")
-        return
-
-    validation.validate_jwt_options(token, secret)
+    if not using_jwt_compatible_python_version():
+        raise RSConnectException(
+            "Python version > 3.5 required for JWT generation. Please upgrade your Python installation."
+        )
 
     secret_key = load_secret(secret)
-    if secret_key is None or secret_key == "":
-        click.echo("Unable to load secret for JWT signing.")
-        return
+    if not is_valid_secret_key(secret_key):
+        raise RSConnectException("Unable to load secret for JWT signing.")
 
     token_generator = TokenGenerator(secret_key)
 

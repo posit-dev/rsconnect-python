@@ -124,6 +124,9 @@ class RSConnectClient(HTTPServer):
     def me(self):
         return self.get("me")
 
+    def initial_admin(self, jwt):
+        return self.post("v1/experimental/installation/initial_admin", body={"jwt": jwt})
+
     def server_settings(self):
         return self.get("server_settings")
 
