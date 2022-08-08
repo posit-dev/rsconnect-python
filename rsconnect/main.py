@@ -289,6 +289,10 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
 )
 def jwt(token, secret):
 
+    if sys.version_info <= (3, 5):
+        click.echo("Python version > 3.5 required for JWT generation. Please upgrade your Python installation.")
+        return
+
     validation.validate_jwt_options(token, secret)
 
     secret_key = load_secret(secret)

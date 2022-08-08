@@ -1,9 +1,12 @@
+import unittest
 from unittest import TestCase
 import pytest
 
 from datetime import datetime, timedelta, timezone
 import re
 import os
+import sys
+
 
 from rsconnect.json_web_token import (
     SECRET_ENV_VAR,
@@ -28,6 +31,10 @@ def are_unix_timestamps_approx_equal(a, b):
 
 
 class TestJwtEncoder(TestCase):
+    def setUp(self):
+        if sys.version_info < (3, 6):
+            self.skipTest("JWTs not supported in Python < 3.6")
+
     def test_jwt_encoder_constructor(self):
         encoder = JWTEncoder("issuer", "audience", "secret")
 
@@ -104,6 +111,10 @@ class TestJwtEncoder(TestCase):
 
 
 class TestTokenGenerator(TestCase):
+    def setUp(self):
+        if sys.version_info < (3, 6):
+            self.skipTest("JWTs not supported in Python < 3.6")
+
     def test_token_generator_constructor(self):
         generator = TokenGenerator("secret")
 
@@ -135,6 +146,10 @@ class TestTokenGenerator(TestCase):
 
 
 class TestLoadSecret(TestCase):
+    def setUp(self):
+        if sys.version_info < (3, 6):
+            self.skipTest("JWTs not supported in Python < 3.6")
+
     def test_load_secret_env_variable(self):
 
         secret = "123abcenvsecret"
