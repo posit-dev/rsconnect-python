@@ -1,11 +1,9 @@
-import unittest
 from unittest import TestCase
 import pytest
 
 from datetime import datetime, timedelta, timezone
 import re
 import os
-import sys
 from rsconnect.exception import RSConnectException
 
 
@@ -13,11 +11,16 @@ from rsconnect.json_web_token import (
     SECRET_ENV_VAR,
     DEFAULT_ISSUER,
     DEFAULT_AUDIENCE,
+    is_valid_secret_key,
+    is_jwt_compatible_python_version,
     load_secret,
     TokenGenerator,
     JWTEncoder,
     JWTDecoder,
+    safe_instantiate_token_generator,
 )
+
+SECRET = "12345678912345678912345678912345"
 
 
 def has_jwt_structure(token):
@@ -31,10 +34,46 @@ def are_unix_timestamps_approx_equal(a, b):
     return abs(a - b) <= 1
 
 
-class TestJwtEncoder(TestCase):
+class TestJsonWebToken(TestCase):
     def setUp(self):
-        if sys.version_info < (3, 6):
+        if not is_jwt_compatible_python_version():
             self.skipTest("JWTs not supported in Python < 3.6")
+
+    def test_is_valid_secret_key(self):
+        self.assertTrue(is_valid_secret_key(SECRET))
+        self.assertFalse(is_valid_secret_key("12345"))
+        self.assertFalse(is_valid_secret_key(""))
+        self.assertFalse(is_valid_secret_key(None))
+        self.assertFalse(is_valid_secret_key(123))
+
+    def test_is_jwt_compatible_python_version(self):
+        """
+        With setUp() skipping invalid versions, this test should always return True
+        regardless of the particular python env we're running the tests in
+        """
+        self.assertTrue(is_jwt_compatible_python_version())
+
+    def test_safe_instantiate_token_generator(self):
+        with pytest.raises(RSConnectException):
+            safe_instantiate_token_generator(None)
+
+        with pytest.raises(RSConnectException):
+            safe_instantiate_token_generator("invalid")
+
+        with pytest.raises(RSConnectException):
+            safe_instantiate_token_generator("tests/testdata/empty_secret.key")
+
+        with pytest.raises(RSConnectException):
+            safe_instantiate_token_generator("tests/testdata/short_secret.key")
+
+        token_generator = safe_instantiate_token_generator("tests/testdata/secret.key")
+        self.assertIsNotNone(token_generator)
+
+        # env variable lets us load an environment variable regardless of the key path
+        os.environ[SECRET_ENV_VAR] = SECRET
+        env_token_generator = safe_instantiate_token_generator(None)
+        self.assertIsNotNone(env_token_generator)
+        os.environ.pop(SECRET_ENV_VAR)
 
     def test_jwt_encoder_constructor(self):
         encoder = JWTEncoder("issuer", "audience", "secret")
@@ -110,12 +149,6 @@ class TestJwtEncoder(TestCase):
         self.assertEqual(payload["endpoint"], "http://something.test.com")
         self.assertEqual(payload["method"], "POST")
 
-
-class TestTokenGenerator(TestCase):
-    def setUp(self):
-        if sys.version_info < (3, 6):
-            self.skipTest("JWTs not supported in Python < 3.6")
-
     def test_token_generator_constructor(self):
         generator = TokenGenerator("secret")
 
@@ -145,24 +178,16 @@ class TestTokenGenerator(TestCase):
         self.assertEqual(payload["endpoint"], "/__api__/v1/experimental/installation/initial-admin")
         self.assertEqual(payload["method"], "GET")
 
-
-class TestLoadSecret(TestCase):
-    def setUp(self):
-        if sys.version_info < (3, 6):
-            self.skipTest("JWTs not supported in Python < 3.6")
-
     def test_load_secret_env_variable(self):
 
-        secret = "123abcenvsecret"
+        os.environ[SECRET_ENV_VAR] = SECRET
 
-        os.environ[SECRET_ENV_VAR] = secret
-
-        self.assertEqual(load_secret(), secret)
-        self.assertEqual(load_secret(None), secret)
-        self.assertEqual(load_secret("/some/path.secret"), secret)
+        self.assertEqual(load_secret(), SECRET)
+        self.assertEqual(load_secret(None), SECRET)
+        self.assertEqual(load_secret("/some/path.secret"), SECRET)
 
         # this secret key exists and contains '123abcsecret' - overridden by env variable
-        self.assertEqual(load_secret("tests/testdata/secret.key"), secret)
+        self.assertEqual(load_secret("tests/testdata/secret.key"), SECRET)
 
         # Cleanup
         os.environ.pop(SECRET_ENV_VAR)
@@ -181,4 +206,4 @@ class TestLoadSecret(TestCase):
             load_secret("/some/path.secret")
 
         # todo: this limits from which directory the tests can be run...
-        self.assertEqual(load_secret("tests/testdata/secret.key"), "123abcsecret")
+        self.assertEqual(load_secret("tests/testdata/secret.key"), SECRET)

@@ -15,9 +15,25 @@ DEFAULT_AUDIENCE = "rsconnect"
 
 SECRET_ENV_VAR = "CONNECT_JWT_SECRET"
 
+# https://auth0.com/blog/brute-forcing-hs256-is-possible-the-importance-of-using-strong-keys-to-sign-jwts/
+# 256-bit key = 32 bytes of entropy
+MIN_SECRET_LEN = 32
+
 
 def is_valid_secret_key(secret_key):
-    return secret_key is not None and secret_key != ""
+
+    if secret_key is None:
+        return False
+
+    if not isinstance(secret_key, str):
+        return False
+
+    if len(secret_key) < MIN_SECRET_LEN:
+        return False
+
+    return True
+
+    return secret_key is not None and isinstance(secret_key, str) and secret_key != ""
 
 
 def is_jwt_compatible_python_version():
