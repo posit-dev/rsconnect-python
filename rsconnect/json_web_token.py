@@ -20,8 +20,32 @@ def is_valid_secret_key(secret_key):
     return secret_key is not None and secret_key != ""
 
 
-def using_jwt_compatible_python_version():
+def is_jwt_compatible_python_version():
+    """
+    JWT library is incompatible with Python 3.5
+    """
+
     return sys.version_info > (3, 5)
+
+
+def safe_instantiate_token_generator(jwt_secret):
+    """
+    Encapsulates checks to make verify environment / secret state before
+    instantiating and returning a token generator
+    """
+
+    if not is_jwt_compatible_python_version():
+        raise RSConnectException(
+            "Python version > 3.5 required for JWT generation. Please upgrade your Python installation."
+        )
+
+    secret_key = load_secret(jwt_secret)
+    if not is_valid_secret_key(secret_key):
+        raise RSConnectException("Unable to load secret for JWT signing.")
+
+    token_generator = TokenGenerator(secret_key)
+
+    return token_generator
 
 
 # Load the secret to be used for signing JWTs

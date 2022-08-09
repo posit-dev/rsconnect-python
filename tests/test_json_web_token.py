@@ -1,3 +1,4 @@
+import unittest
 from unittest import TestCase
 import pytest
 
@@ -5,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 import re
 import os
 import sys
+from rsconnect.exception import RSConnectException
 
 
 from rsconnect.json_web_token import (
@@ -167,15 +169,15 @@ class TestLoadSecret(TestCase):
 
     def test_load_secret_none(self):
 
-        with pytest.raises(RuntimeError):
+        with pytest.raises(RSConnectException):
             load_secret(None)
 
-        with pytest.raises(RuntimeError):
+        with pytest.raises(RSConnectException):
             load_secret()
 
     def test_load_secret_file(self):
 
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(RSConnectException):
             load_secret("/some/path.secret")
 
         # todo: this limits from which directory the tests can be run...

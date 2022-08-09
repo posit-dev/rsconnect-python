@@ -68,7 +68,7 @@ from .models import (
     StrippedStringParamType,
     VersionSearchFilterParamType,
 )
-from .json_web_token import is_valid_secret_key, using_jwt_compatible_python_version, load_secret, TokenGenerator
+from .json_web_token import safe_instantiate_token_generator
 
 server_store = ServerStore()
 future_enabled = False
@@ -304,8 +304,8 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
     help="The path to trusted TLS CA certificates.",
 )
 @click.option(
-    "--secret_key",
-    "-k",
+    "--jwt_secret",
+    "-j",
     help="The file path to the secret used to sign the JWT. Overridden by 'CONNECT_JWT_SECRET' environment variable.",
 )
 @cli_exception_handler
@@ -313,18 +313,10 @@ def initial_admin(
     server,
     insecure,
     cacert,
-    secret,
+    jwt_secret,
 ):
-    if not using_jwt_compatible_python_version():
-        raise RSConnectException(
-            "Python version > 3.5 required for JWT generation. Please upgrade your Python installation."
-        )
 
-    secret_key = load_secret(secret)
-    if not is_valid_secret_key(secret_key):
-        raise RSConnectException("Unable to load secret for JWT signing.")
-
-    token_generator = TokenGenerator(secret_key)
+    token_generator = safe_instantiate_token_generator(jwt_secret)
 
     initial_admin_token = token_generator.initial_admin()
 
@@ -339,24 +331,14 @@ def initial_admin(
 @cli.command(short_help="Generate a JSON Web Token (JWT).", help=("Todo"))
 @click.option("--token", "-t", help="Type of JWT to generate. Options: ['initial-admin']")
 @click.option(
-    "--secret_key",
-    "-k",
+    "--jwt_secret",
+    "-j",
     help="The file path to the secret used to sign the JWT. Overridden by 'CONNECT_JWT_SECRET' environment variable.",
 )
 @cli_exception_handler
-def jwt(token, secret):
+def jwt(token, jwt_secret):
 
-    if not using_jwt_compatible_python_version():
-        raise RSConnectException(
-            "Python version > 3.5 required for JWT generation. Please upgrade your Python installation."
-        )
-
-    secret_key = load_secret(secret)
-    if not is_valid_secret_key(secret_key):
-        raise RSConnectException("Unable to load secret for JWT signing.")
-
-    token_generator = TokenGenerator(secret_key)
-
+    token_generator = safe_instantiate_token_generator(jwt_secret)
     if token == "initial-admin":
         click.echo(token_generator.initial_admin())
     else:
