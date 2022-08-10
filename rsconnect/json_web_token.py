@@ -33,15 +33,13 @@ def is_valid_secret_key(secret_key):
 
     return True
 
-    return secret_key is not None and isinstance(secret_key, str) and secret_key != ""
-
 
 def is_jwt_compatible_python_version():
     """
     JWT library is incompatible with Python 3.5
     """
 
-    return sys.version_info > (3, 5)
+    return not sys.version_info < (3, 6)
 
 
 def safe_instantiate_token_generator(jwt_secret):
