@@ -281,7 +281,7 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
 
 @cli.command(
     short_help="Create a transitory admin user and provision it with an api key",
-    help="Creates an initial admin user for the Connect instance, provisions it with an API key, and returns the provisionend API key.",
+    help="Creates an initial admin user for the Connect instance and returns the provisionend API key.",
 )
 @click.option(
     "--server",
