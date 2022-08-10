@@ -24,6 +24,9 @@ SECRET = "12345678912345678912345678912345"
 
 
 def has_jwt_structure(token):
+    if token is None:
+        return False
+
     return re.search("^[a-zA-Z0-9-_]+\\.[a-zA-Z0-9-_]+\\.[a-zA-Z0-9-_]+$", token) is not None
 
 
@@ -39,12 +42,51 @@ class TestJsonWebToken(TestCase):
         if not is_jwt_compatible_python_version():
             self.skipTest("JWTs not supported in Python < 3.6")
 
+    # verify that our has_jwt_structure helper works as expected
+    def test_has_jwt_structure(self):
+
+        true_examples = [
+            "aA1-_.aA1-_.aA1-_",
+        ]
+
+        for true_example in true_examples:
+            self.assertTrue(has_jwt_structure(true_example))
+
+        false_examples = [
+            None,
+            "",
+            "aA1-_",
+            "aA1-_.aA1-_." "aA1-_.aA1-_.aA1-_.",
+            ".aA1-_.aA1-_.aA1-_",
+        ]
+
+        for false_example in false_examples:
+            self.assertFalse(has_jwt_structure(false_example))
+
+    def test_are_unix_timestamps_approx_equal(self):
+
+        self.assertTrue(are_unix_timestamps_approx_equal(1, 1))
+        self.assertTrue(are_unix_timestamps_approx_equal(1, 0))
+        self.assertTrue(are_unix_timestamps_approx_equal(0, 1))
+        self.assertFalse(are_unix_timestamps_approx_equal(0, 2))
+        self.assertFalse(are_unix_timestamps_approx_equal(2, 0))
+
     def test_is_valid_secret_key(self):
-        self.assertTrue(is_valid_secret_key(SECRET))
-        self.assertFalse(is_valid_secret_key("12345"))
-        self.assertFalse(is_valid_secret_key(""))
-        self.assertFalse(is_valid_secret_key(None))
-        self.assertFalse(is_valid_secret_key(123))
+
+        true_examples = [SECRET]
+
+        for true_example in true_examples:
+            self.assertTrue(is_valid_secret_key(true_example))
+
+        false_examples = [
+            "12345",
+            "",
+            None,
+            123,
+        ]
+
+        for false_example in false_examples:
+            self.assertFalse(is_valid_secret_key(false_example))
 
     def test_is_jwt_compatible_python_version(self):
         """
