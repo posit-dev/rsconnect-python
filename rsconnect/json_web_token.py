@@ -13,8 +13,6 @@ from .exception import RSConnectException
 DEFAULT_ISSUER = "rsconnect-python"
 DEFAULT_AUDIENCE = "rsconnect"
 
-SECRET_ENV_VAR = "CONNECT_JWT_SECRET"
-
 # https://auth0.com/blog/brute-forcing-hs256-is-possible-the-importance-of-using-strong-keys-to-sign-jwts/
 # 256-bit key = 32 bytes of entropy
 MIN_SECRET_LEN = 32
@@ -42,7 +40,7 @@ def is_jwt_compatible_python_version():
     return not sys.version_info < (3, 6)
 
 
-def safe_instantiate_token_generator(jwt_secret):
+def safe_instantiate_token_generator(secret_path):
     """
     Encapsulates checks to make verify environment / secret state before
     instantiating and returning a token generator
@@ -53,34 +51,25 @@ def safe_instantiate_token_generator(jwt_secret):
             "Python version > 3.5 required for JWT generation. Please upgrade your Python installation."
         )
 
-    secret_key = load_secret(jwt_secret)
+    if secret_path is None:
+        raise RSConnectException("Must specify a secret key path.")
+
+    secret_key = load_secret(secret_path)
     if not is_valid_secret_key(secret_key):
         raise RSConnectException("Unable to load secret for JWT signing.")
 
-    token_generator = TokenGenerator(secret_key)
-
-    return token_generator
+    return TokenGenerator(secret_key)
 
 
-# Load the secret to be used for signing JWTs
-def load_secret(secret_path=None):
+def load_secret(secret_path):
+    """
+    Loads the secret used to sign the JWT from a file.
+    """
 
-    # Prioritize environment variable (if it exists)
-    env_secret = os.getenv(SECRET_ENV_VAR)
-    if env_secret is not None:
-        return env_secret
-
-    # Default read from filepath
-
-    # Can't read a file if we didn't provide one
-    if secret_path is None:
-        raise RSConnectException("Secret filepath not specified and CONNECT_JWT_SECRET env variable not set.")
-
-    # If file does not exist, we have no secret!
     if not os.path.exists(secret_path):
-        raise RSConnectException("Secret file does not exist and CONNECT_JWT_SECRET env variable not set.")
+        raise RSConnectException("Secret file does not exist.")
 
-    with open(secret_path, "r") as f:
+    with open(secret_path, "rt") as f:
         return f.read()
 
 
@@ -107,7 +96,7 @@ class JWTEncoder:
         for c in [standard_claims, custom_claims]:
             claims.update(c)
 
-        return jwt.encode(claims, self.secret, algorithm="HS256")
+        return jwt.encode(claims, self.secret, algorithm="EdDSA")
 
 
 # Used in unit tests
@@ -117,7 +106,7 @@ class JWTDecoder:
         self.secret = secret
 
     def decode_token(self, token: str):
-        return jwt.decode(token, self.secret, audience=self.audience, algorithms=["HS256"])
+        return jwt.decode(token, self.secret, audience=self.audience, algorithms=["EdDSA"])
 
 
 # Uses a generic encoder to create JWTs with specific custom scopes / expiration times

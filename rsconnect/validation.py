@@ -1,29 +1,10 @@
 import typing
 
-import os
-
 from rsconnect.exception import RSConnectException
-from .json_web_token import SECRET_ENV_VAR
 
 
 def _get_present_options(options: typing.Dict[str, typing.Optional[str]]) -> typing.List[str]:
     return [k for k, v in options.items() if v]
-
-
-def validate_jwt_options(token, secret_path):
-
-    if token is None:
-        raise RSConnectException("You must specify a valid -t/--token to generate")
-
-    if os.getenv(SECRET_ENV_VAR) is not None:
-        return
-
-    if secret_path is not None and os.path.exists(secret_path):
-        return
-
-    raise RSConnectException(
-        "You must specify a valid -s/--secret file path or populate the environment variable " + SECRET_ENV_VAR
-    )
 
 
 def validate_connection_options(url, api_key, insecure, cacert, account_name, token, secret, name=None):
