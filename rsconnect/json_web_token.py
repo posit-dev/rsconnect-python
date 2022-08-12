@@ -13,23 +13,41 @@ from .exception import RSConnectException
 DEFAULT_ISSUER = "rsconnect-python"
 DEFAULT_AUDIENCE = "rsconnect"
 
-# https://auth0.com/blog/brute-forcing-hs256-is-possible-the-importance-of-using-strong-keys-to-sign-jwts/
-# 256-bit key = 32 bytes of entropy
-MIN_SECRET_LEN = 32
+
+PRIVATE_KEY_PREFIX = "-----BEGIN PRIVATE KEY-----\n"
+PRIVATE_KEY_SUFFIX = "-----END PRIVATE KEY-----\n"
 
 
-def is_valid_secret_key(secret_key):
+def validate_secret_key(secret_key):
+    """
+    Verify that the key is structured as expected
+    """
 
     if secret_key is None:
-        return False
+        raise RSConnectException("Secret key parameter cannot be 'None'")
 
     if not isinstance(secret_key, str):
-        return False
+        raise RSConnectException("Secret key parameter expected to be a string")
 
-    if len(secret_key) < MIN_SECRET_LEN:
-        return False
+    if not secret_key.startswith(PRIVATE_KEY_PREFIX) or not secret_key.endswith(PRIVATE_KEY_SUFFIX):
+        raise RSConnectException("Secret key parameter expected to be in PEM / PKCS8 format")
 
-    return True
+
+def safe_load_secret(secret_path):
+    """
+    Loads the secret used to sign the JWT from a file, throwing an
+    exception if there's a problem loading the key or with the key itself
+    """
+
+    if not os.path.exists(secret_path):
+        raise RSConnectException("Secret file does not exist.")
+
+    with open(secret_path, "rt") as f:
+        secret_key = f.read()
+
+        # Raise an exception with a useful error message
+        validate_secret_key(secret_key)
+        return secret_key
 
 
 def is_jwt_compatible_python_version():
@@ -54,23 +72,8 @@ def safe_instantiate_token_generator(secret_path):
     if secret_path is None:
         raise RSConnectException("Must specify a secret key path.")
 
-    secret_key = load_secret(secret_path)
-    if not is_valid_secret_key(secret_key):
-        raise RSConnectException("Unable to load secret for JWT signing.")
-
+    secret_key = safe_load_secret(secret_path)
     return TokenGenerator(secret_key)
-
-
-def load_secret(secret_path):
-    """
-    Loads the secret used to sign the JWT from a file.
-    """
-
-    if not os.path.exists(secret_path):
-        raise RSConnectException("Secret file does not exist.")
-
-    with open(secret_path, "rt") as f:
-        return f.read()
 
 
 class JWTEncoder:

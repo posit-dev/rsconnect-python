@@ -304,9 +304,9 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
     help="The path to trusted TLS CA certificates.",
 )
 @click.option(
-    "--jwt_secret",
+    "--jwt-secret",
     "-j",
-    help="The file path to the secret used to sign the JWT. Overridden by 'CONNECT_JWT_SECRET' environment variable.",
+    help="The path to the ed25519 private key used to sign the JWT.",
 )
 @cli_exception_handler
 def initial_admin(
