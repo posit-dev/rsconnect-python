@@ -328,24 +328,6 @@ def initial_admin(
 
 
 # noinspection SpellCheckingInspection
-@cli.command(short_help="Generate a JSON Web Token (JWT).", help=("Todo"))
-@click.option("--token", "-t", help="Type of JWT to generate. Options: ['initial-admin']")
-@click.option(
-    "--jwt_secret",
-    "-j",
-    help="The file path to the secret used to sign the JWT. Overridden by 'CONNECT_JWT_SECRET' environment variable.",
-)
-@cli_exception_handler
-def jwt(token, jwt_secret):
-
-    token_generator = safe_instantiate_token_generator(jwt_secret)
-    if token == "initial-admin":
-        click.echo(token_generator.initial_admin())
-    else:
-        click.echo("Unrecognized token type: " + token)
-
-
-# noinspection SpellCheckingInspection
 @cli.command(
     short_help="Define a nickname for an RStudio Connect or shinyapps.io server and credential.",
     help=(
