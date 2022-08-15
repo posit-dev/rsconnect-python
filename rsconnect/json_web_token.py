@@ -4,53 +4,61 @@ Json Web Token (JWT) utilities
 
 import os
 import sys
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 import jwt
 from datetime import datetime, timedelta, timezone
-
+from cryptography.hazmat.primitives import serialization
 from .exception import RSConnectException
 
 DEFAULT_ISSUER = "rsconnect-python"
 DEFAULT_AUDIENCE = "rsconnect"
 
+OPENSSH_HEADER = b"-----BEGIN OPENSSH PRIVATE KEY-----\n"
+OPENSSH_FOOTER = b"-----END OPENSSH PRIVATE KEY-----\n"
 
-PRIVATE_KEY_PREFIX = "-----BEGIN PRIVATE KEY-----\n"
-PRIVATE_KEY_SUFFIX = "-----END PRIVATE KEY-----\n"
+
+def load_ed25519_private_key(keypath: str, password) -> Ed25519PrivateKey:
+    bytes = read_ed25519_private_key(keypath)
+    return load_ed25519_private_key_from_bytes(bytes, password)
 
 
-def validate_secret_key(secret_key):
+def load_ed25519_private_key_from_bytes(key_bytes: bytes, password) -> Ed25519PrivateKey:
+    if key_bytes is None:
+        raise RSConnectException("Ed25519 key cannot be 'None'")
+
+    if not key_bytes.startswith(OPENSSH_HEADER) or not key_bytes.endswith(OPENSSH_FOOTER):
+        raise RSConnectException("Keyfile does not follow OpenSSH format (required for Ed25519)")
+
+    key = serialization.load_ssh_private_key(key_bytes, password)
+
+    if not isinstance(key, Ed25519PrivateKey):
+        raise RSConnectException("Private key is not expected type: Ed25519PrivateKey")
+
+    return key
+
+
+def read_ed25519_private_key(keypath: str) -> bytes:
     """
-    Verify that the key is structured as expected
+    Reads an Ed25519PrivateKey as bytes given a keypath.
     """
 
-    if secret_key is None:
-        raise RSConnectException("Secret key parameter cannot be 'None'")
+    if not os.path.exists(keypath):
+        raise RSConnectException("Keypath does not exist.")
 
-    if not isinstance(secret_key, str):
-        raise RSConnectException("Secret key parameter expected to be a string")
+    with open(keypath, "rb") as f:
+        key_bytes = f.read()
 
-    if not secret_key.startswith(PRIVATE_KEY_PREFIX) or not secret_key.endswith(PRIVATE_KEY_SUFFIX):
-        raise RSConnectException("Secret key parameter expected to be in PEM / PKCS8 format")
+        if key_bytes is None:
+            raise RSConnectException("Ed25519 key cannot be 'None'")
 
+        if not key_bytes.startswith(OPENSSH_HEADER) or not key_bytes.endswith(OPENSSH_FOOTER):
+            raise RSConnectException("Keyfile does not follow OpenSSH format (required for Ed25519)")
 
-def safe_load_secret(secret_path):
-    """
-    Loads the secret used to sign the JWT from a file, throwing an
-    exception if there's a problem loading the key or with the key itself
-    """
-
-    if not os.path.exists(secret_path):
-        raise RSConnectException("Secret file does not exist.")
-
-    with open(secret_path, "rt") as f:
-        secret_key = f.read()
-
-        # Raise an exception with a useful error message
-        validate_secret_key(secret_key)
-        return secret_key
+        return key_bytes
 
 
-def is_jwt_compatible_python_version():
+def is_jwt_compatible_python_version() -> bool:
     """
     JWT library is incompatible with Python 3.5
     """
@@ -58,31 +66,16 @@ def is_jwt_compatible_python_version():
     return not sys.version_info < (3, 6)
 
 
-def safe_instantiate_token_generator(secret_path):
-    """
-    Encapsulates checks to make verify environment / secret state before
-    instantiating and returning a token generator
-    """
-
-    if not is_jwt_compatible_python_version():
-        raise RSConnectException(
-            "Python version > 3.5 required for JWT generation. Please upgrade your Python installation."
-        )
-
-    if secret_path is None:
-        raise RSConnectException("Must specify a secret key path.")
-
-    secret_key = safe_load_secret(secret_path)
-    return TokenGenerator(secret_key)
-
-
 class JWTEncoder:
-    def __init__(self, issuer: str, audience: str, secret: str):
+    def __init__(self, issuer: str, audience: str, secret):
         self.issuer = issuer
         self.audience = audience
         self.secret = secret
 
     def generate_standard_claims(self, current_datetime: datetime, exp: timedelta):
+
+        if exp < timedelta(0):
+            raise RSConnectException("Unable to generate a token with a negative exp claim.")
 
         return {
             "exp": int((current_datetime + exp).timestamp()),
@@ -102,19 +95,13 @@ class JWTEncoder:
         return jwt.encode(claims, self.secret, algorithm="EdDSA")
 
 
-# Used in unit tests
-class JWTDecoder:
-    def __init__(self, audience: str, secret: str):
-        self.audience = audience
-        self.secret = secret
-
-    def decode_token(self, token: str):
-        return jwt.decode(token, self.secret, audience=self.audience, algorithms=["EdDSA"])
-
-
 # Uses a generic encoder to create JWTs with specific custom scopes / expiration times
 class TokenGenerator:
-    def __init__(self, secret: str):
+    """
+    Generates 'typed' JWTs with specific custom scopes / expiration times to serve a specific purpose.
+    """
+
+    def __init__(self, secret):
         self.encoder = JWTEncoder(DEFAULT_ISSUER, DEFAULT_AUDIENCE, secret)
 
     def initial_admin(self):

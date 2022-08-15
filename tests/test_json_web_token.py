@@ -1,9 +1,10 @@
 import tempfile
 from unittest import TestCase
 import pytest
+import jwt
 
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
 from datetime import datetime, timedelta, timezone
 import re
@@ -14,39 +15,54 @@ from rsconnect.exception import RSConnectException
 from rsconnect.json_web_token import (
     DEFAULT_ISSUER,
     DEFAULT_AUDIENCE,
-    PRIVATE_KEY_PREFIX,
-    PRIVATE_KEY_SUFFIX,
-    validate_secret_key,
-    safe_load_secret,
+    load_ed25519_private_key,
+    read_ed25519_private_key,
+    load_ed25519_private_key_from_bytes,
     is_jwt_compatible_python_version,
     TokenGenerator,
     JWTEncoder,
-    JWTDecoder,
-    safe_instantiate_token_generator,
 )
 
 
-def generate_test_keypair():
+class JWTDecoder:
+    """
+    Used to decode / verify JWTs in testing
+    """
+
+    def __init__(self, audience: str, secret):
+        self.audience = audience
+        self.secret = secret
+
+    def decode_token(self, token: str):
+        return jwt.decode(token, self.secret, audience=self.audience, algorithms=["EdDSA"])
+
+
+def generate_test_ed25519_keypair():
     """
     TO BE USED JUST FOR UNIT TESTS!!!
+
     These 'cryptography' routines have not been verified for
-    testing in production - we just want 'valid' PEM-formatted keys for testing
+    production use - we just want 'valid' encoded / formatted keypairs
+    for unit testing (without having to save keypairs in the commit history,
+    which could probably technically be ok but still feels bad).
     """
 
     private_key = Ed25519PrivateKey.generate()
-    private_key_pem = private_key.private_bytes(
+    public_key = private_key.public_key()
+
+    return (private_key, public_key)
+
+
+def convert_ed25519_private_key_to_bytes(private_key: Ed25519PrivateKey) -> bytes:
+    """
+    Mimics the approach used by ssh-keygen, which will only output ed25519 keys in OpenSSH format
+    """
+
+    return private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
+        format=serialization.PrivateFormat.OpenSSH,
         encryption_algorithm=serialization.NoEncryption(),
     )
-
-    public_key = private_key.public_key()
-    public_key_pem = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo
-    )
-
-    # todo - what should the keys be decoded as?
-    return (private_key_pem.decode("utf-8"), public_key_pem.decode("utf-8"))
 
 
 def has_jwt_structure(token):
@@ -75,7 +91,8 @@ class TestJsonWebToken(TestCase):
         if not is_jwt_compatible_python_version():
             self.skipTest("JWTs not supported in Python < 3.6")
 
-        private_key, public_key = generate_test_keypair()
+        private_key, public_key = generate_test_ed25519_keypair()
+
         self.private_key = private_key
         self.public_key = public_key
 
@@ -84,15 +101,16 @@ class TestJsonWebToken(TestCase):
         Verify our test keypair generator produces reasonable results
         """
 
-        private_key, public_key = generate_test_keypair()
+        private_key, public_key = generate_test_ed25519_keypair()
 
-        self.assertTrue(private_key.startswith(PRIVATE_KEY_PREFIX))
-        self.assertTrue(private_key.endswith(PRIVATE_KEY_SUFFIX))
-        self.assertTrue(public_key.startswith("-----BEGIN PUBLIC KEY-----\n"))
-        self.assertTrue(public_key.endswith("-----END PUBLIC KEY-----\n"))
+        self.assertTrue(isinstance(private_key, Ed25519PrivateKey))
+        self.assertTrue(isinstance(public_key, Ed25519PublicKey))
 
     # verify that our has_jwt_structure helper works as expected
     def test_has_jwt_structure(self):
+        """
+        Verify that our jwt structure verification helper works as expected
+        """
 
         true_examples = [
             "aA1-_.aA1-_.aA1-_",
@@ -105,7 +123,8 @@ class TestJsonWebToken(TestCase):
             None,
             "",
             "aA1-_",
-            "aA1-_.aA1-_." "aA1-_.aA1-_.aA1-_.",
+            "aA1-_.aA1-_.",
+            "aA1-_.aA1-_.aA1-_.",
             ".aA1-_.aA1-_.aA1-_",
         ]
 
@@ -113,6 +132,9 @@ class TestJsonWebToken(TestCase):
             self.assertFalse(has_jwt_structure(false_example))
 
     def test_are_unix_timestamps_approx_equal(self):
+        """
+        Verify that our unix timestamp verification helper works as expected
+        """
 
         self.assertTrue(are_unix_timestamps_approx_equal(1, 1))
         self.assertTrue(are_unix_timestamps_approx_equal(1, 0))
@@ -120,59 +142,12 @@ class TestJsonWebToken(TestCase):
         self.assertFalse(are_unix_timestamps_approx_equal(0, 2))
         self.assertFalse(are_unix_timestamps_approx_equal(2, 0))
 
-    def test_validate_secret_key(self):
-
-        true_examples = [
-            self.private_key,
-            PRIVATE_KEY_PREFIX + "12345" + PRIVATE_KEY_SUFFIX,
-        ]
-
-        for true_example in true_examples:
-            validate_secret_key(true_example)
-
-        false_examples = [
-            self.public_key,
-            PRIVATE_KEY_PREFIX + "12345",
-            "12345" + PRIVATE_KEY_SUFFIX,
-            "12345",
-            "",
-            None,
-            123,
-        ]
-
-        for false_example in false_examples:
-            with pytest.raises(RSConnectException):
-                validate_secret_key(false_example)
-
     def test_is_jwt_compatible_python_version(self):
         """
         With setUp() skipping invalid versions, this test should always return True
         regardless of the particular python env we're running the tests in
         """
         self.assertTrue(is_jwt_compatible_python_version())
-
-    def test_safe_instantiate_token_generator(self):
-        with pytest.raises(RSConnectException):
-            safe_instantiate_token_generator(None)
-
-        with pytest.raises(RSConnectException):
-            safe_instantiate_token_generator("invalid")
-
-        with pytest.raises(RSConnectException):
-            safe_instantiate_token_generator("tests/testdata/jwt/empty_secret.key")
-
-        with pytest.raises(RSConnectException):
-            safe_instantiate_token_generator("tests/testdata/jwt/secret.key")
-
-        with tempfile.TemporaryDirectory() as td:
-            private_keyfile = os.path.join(td, "test_ed25519")
-            with open(private_keyfile, "w") as f:
-                f.write(self.private_key)
-
-            token_generator = safe_instantiate_token_generator(private_keyfile)
-            self.assertIsNotNone(token_generator)
-
-        self.assertFalse(os.path.exists(private_keyfile))
 
     def test_jwt_encoder_constructor(self):
         encoder = JWTEncoder("issuer", "audience", self.private_key)
@@ -277,25 +252,59 @@ class TestJsonWebToken(TestCase):
         self.assertEqual(payload["endpoint"], "/__api__/v1/experimental/installation/initial-admin")
         self.assertEqual(payload["method"], "GET")
 
-    def test_load_secret_file(self):
+    def test_private_key_serialization(self):
+        """
+        Validate private key serialization routines
+        """
 
-        with pytest.raises(RSConnectException):
-            safe_load_secret("/some/path.secret")
+        private_key_bytes = convert_ed25519_private_key_to_bytes(self.private_key)
+        private_key_copy = load_ed25519_private_key_from_bytes(private_key_bytes, None)
+        private_key_copy_bytes = convert_ed25519_private_key_to_bytes(private_key_copy)
 
-        with pytest.raises(RSConnectException):
-            safe_load_secret("tests/testdata/jwt/secret.key")
+        self.assertTrue(private_key_bytes, private_key_copy_bytes)
 
+    def test_load_ed25519_private_key(self):
+
+        # Invalid Path
         with pytest.raises(RSConnectException):
-            safe_load_secret("tests/testdata/jwt/empty_secret.key")
+            load_ed25519_private_key("/some/path.secret", None)
+
+        # Invalid secret type
+        with pytest.raises(RSConnectException):
+            load_ed25519_private_key("tests/testdata/jwt/secret.key", None)
+
+        # Empty secret fyle
+        with pytest.raises(RSConnectException):
+            load_ed25519_private_key("tests/testdata/jwt/empty_secret.key", None)
+
+        private_key_bytes = convert_ed25519_private_key_to_bytes(self.private_key)
 
         # A 'valid' secret key should load w/ no problems
         with tempfile.TemporaryDirectory() as td:
             private_keyfile = os.path.join(td, "test_ed25519")
-            with open(private_keyfile, "w") as f:
-                f.write(self.private_key)
+            with open(private_keyfile, "wb") as f:
+                f.write(private_key_bytes)
 
-            secret = safe_load_secret(private_keyfile)
+            # first, test the private key load subroutine methods piecewise
 
-            self.assertEqual(secret, self.private_key)
+            bytes = read_ed25519_private_key(private_keyfile)
 
+            # validate that the bytes from the file are read correctly
+            self.assertEqual(bytes, private_key_bytes)
+
+            # read the key's byte representation into a cryptography.Ed25519PrivateKey
+            from_bytes = load_ed25519_private_key_from_bytes(bytes, None)
+
+            # convert the read key back to its byte representation
+            read_key_bytes = convert_ed25519_private_key_to_bytes(from_bytes)
+
+            # validate that the byte representation is what we expected
+            self.assertEqual(read_key_bytes, private_key_bytes)
+
+            # put it all together, running the same process with a single consolidated function
+
+            read_private_key = load_ed25519_private_key(private_keyfile, None)
+            self.assertEqual(convert_ed25519_private_key_to_bytes(read_private_key), private_key_bytes)
+
+        # Confirm that cleanup worked
         self.assertFalse(os.path.exists(private_keyfile))

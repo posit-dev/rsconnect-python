@@ -68,7 +68,11 @@ from .models import (
     StrippedStringParamType,
     VersionSearchFilterParamType,
 )
-from .json_web_token import safe_instantiate_token_generator
+from .json_web_token import (
+    load_ed25519_private_key,
+    is_jwt_compatible_python_version,
+    TokenGenerator,
+)
 
 server_store = ServerStore()
 future_enabled = False
@@ -304,21 +308,33 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
     help="The path to trusted TLS CA certificates.",
 )
 @click.option(
-    "--jwt-secret",
+    "--jwt-keypath",
     "-j",
     help="The path to the ed25519 private key used to sign the JWT.",
+)
+@click.option(
+    "--jwt-key-password",
+    "-p",
+    help="The password for an encrypted ed25519 private key, if one exists (default to None)",
 )
 @cli_exception_handler
 def initial_admin(
     server,
     insecure,
     cacert,
-    jwt_secret,
+    jwt_keypath,
+    jwt_key_password,
 ):
 
-    token_generator = safe_instantiate_token_generator(jwt_secret)
+    if not is_jwt_compatible_python_version():
+        raise RSConnectException(
+            "Python version > 3.5 required for JWT generation. Please upgrade your Python installation."
+        )
 
+    private_key = load_ed25519_private_key(jwt_keypath, jwt_key_password)
+    token_generator = TokenGenerator(private_key)
     initial_admin_token = token_generator.initial_admin()
+    print(initial_admin_token)
 
     with cli_feedback("", stderr=True):
         connect_server = RSConnectServer(server, None, insecure, text_type(cacert.read()))
