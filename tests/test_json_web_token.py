@@ -13,6 +13,7 @@ from rsconnect.exception import RSConnectException
 
 
 from rsconnect.json_web_token import (
+    INITIAL_ADMIN_EXP,
     DEFAULT_ISSUER,
     DEFAULT_AUDIENCE,
     load_ed25519_private_key,
@@ -95,6 +96,22 @@ class TestJsonWebToken(TestCase):
 
         self.private_key = private_key
         self.public_key = public_key
+
+    def assert_initial_admin_jwt_is_valid(self, payload, current_datetime):
+        """
+        Helper to verify state of decoded initial admin jwt
+        """
+        expected_exp = int((current_datetime + INITIAL_ADMIN_EXP).timestamp())
+        expected_iat = int(current_datetime.timestamp())
+
+        self.assertEqual(payload.keys(), set(["exp", "iss", "aud", "iat", "endpoint", "method"]))
+
+        self.assertTrue(are_unix_timestamps_approx_equal(payload["exp"], expected_exp))
+        self.assertEqual(payload["iss"], DEFAULT_ISSUER)
+        self.assertEqual(payload["aud"], DEFAULT_AUDIENCE)
+        self.assertTrue(are_unix_timestamps_approx_equal(payload["iat"], expected_iat))
+        self.assertEqual(payload["endpoint"], "/__api__/v1/experimental/installation/initial-admin")
+        self.assertEqual(payload["method"], "GET")
 
     def test_generate_test_keypair(self):
         """
@@ -240,28 +257,40 @@ class TestJsonWebToken(TestCase):
 
         self.assertEqual(payload.keys(), set(["exp", "iss", "aud", "iat", "endpoint", "method"]))
 
-        exp = timedelta(minutes=15)
         current_datetime = datetime.now(tz=timezone.utc)
-        expected_exp = int((current_datetime + exp).timestamp())
-        expected_iat = int(current_datetime.timestamp())
+        self.assert_initial_admin_jwt_is_valid(payload, current_datetime)
 
-        self.assertTrue(are_unix_timestamps_approx_equal(payload["exp"], expected_exp))
-        self.assertEqual(payload["iss"], DEFAULT_ISSUER)
-        self.assertEqual(payload["aud"], DEFAULT_AUDIENCE)
-        self.assertTrue(are_unix_timestamps_approx_equal(payload["iat"], expected_iat))
+    def test_token_workflow(self):
+
+        # Gold standard - we can generate, sign, and verify the token with this keypair
+
+        generator = TokenGenerator(self.private_key)
+        initial_admin_token = generator.initial_admin()
+
+        decoder = JWTDecoder(DEFAULT_AUDIENCE, self.public_key)
+        payload = decoder.decode_token(initial_admin_token)
+
+        current_datetime = datetime.now(tz=timezone.utc)
+        self.assert_initial_admin_jwt_is_valid(payload, current_datetime)
+
+        # Spot-check the token, other tests verify the full initial-admin token contents
         self.assertEqual(payload["endpoint"], "/__api__/v1/experimental/installation/initial-admin")
         self.assertEqual(payload["method"], "GET")
 
-    def test_private_key_serialization(self):
-        """
-        Validate private key serialization routines
-        """
+        # Write the byte representation of the private key into a file
+        with tempfile.TemporaryDirectory() as td:
+            private_keyfile = os.path.join(td, "test_ed25519")
+            with open(private_keyfile, "wb") as f:
+                f.write(convert_ed25519_private_key_to_bytes(self.private_key))
 
-        private_key_bytes = convert_ed25519_private_key_to_bytes(self.private_key)
-        private_key_copy = load_ed25519_private_key_from_bytes(private_key_bytes, None)
-        private_key_copy_bytes = convert_ed25519_private_key_to_bytes(private_key_copy)
+            loaded_private_key = load_ed25519_private_key(private_keyfile, None)
 
-        self.assertTrue(private_key_bytes, private_key_copy_bytes)
+            test_generator = TokenGenerator(loaded_private_key)
+            test_initial_admin_token = test_generator.initial_admin()
+            test_payload = decoder.decode_token(test_initial_admin_token)
+
+            test_datetime = datetime.now(tz=timezone.utc)
+            self.assert_initial_admin_jwt_is_valid(test_payload, test_datetime)
 
     def test_load_ed25519_private_key(self):
 
@@ -295,16 +324,7 @@ class TestJsonWebToken(TestCase):
             # read the key's byte representation into a cryptography.Ed25519PrivateKey
             from_bytes = load_ed25519_private_key_from_bytes(bytes, None)
 
-            # convert the read key back to its byte representation
-            read_key_bytes = convert_ed25519_private_key_to_bytes(from_bytes)
-
-            # validate that the byte representation is what we expected
-            self.assertEqual(read_key_bytes, private_key_bytes)
-
-            # put it all together, running the same process with a single consolidated function
-
-            read_private_key = load_ed25519_private_key(private_keyfile, None)
-            self.assertEqual(convert_ed25519_private_key_to_bytes(read_private_key), private_key_bytes)
-
+            # Confirm that we generated a private key object from the read bytes
+            self.assertTrue(from_bytes is not None)
         # Confirm that cleanup worked
         self.assertFalse(os.path.exists(private_keyfile))

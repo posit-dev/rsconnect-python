@@ -17,6 +17,8 @@ DEFAULT_AUDIENCE = "rsconnect"
 OPENSSH_HEADER = b"-----BEGIN OPENSSH PRIVATE KEY-----\n"
 OPENSSH_FOOTER = b"-----END OPENSSH PRIVATE KEY-----\n"
 
+INITIAL_ADMIN_EXP = timedelta(minutes=15)
+
 
 def load_ed25519_private_key(keypath: str, password) -> Ed25519PrivateKey:
     bytes = read_ed25519_private_key(keypath)
@@ -24,6 +26,10 @@ def load_ed25519_private_key(keypath: str, password) -> Ed25519PrivateKey:
 
 
 def load_ed25519_private_key_from_bytes(key_bytes: bytes, password) -> Ed25519PrivateKey:
+    """
+    Deserialize private key from byte representation
+    """
+
     if key_bytes is None:
         raise RSConnectException("Ed25519 key cannot be 'None'")
 
@@ -31,6 +37,7 @@ def load_ed25519_private_key_from_bytes(key_bytes: bytes, password) -> Ed25519Pr
         raise RSConnectException("Keyfile does not follow OpenSSH format (required for Ed25519)")
 
     key = serialization.load_ssh_private_key(key_bytes, password)
+    # key = Ed25519PrivateKey.from_private_bytes(key_bytes)
 
     if not isinstance(key, Ed25519PrivateKey):
         raise RSConnectException("Private key is not expected type: Ed25519PrivateKey")
@@ -106,7 +113,4 @@ class TokenGenerator:
 
     def initial_admin(self):
         custom_claims = {"endpoint": "/__api__/v1/experimental/installation/initial-admin", "method": "GET"}  # todo
-
-        exp = timedelta(minutes=15)
-
-        return self.encoder.new_token(custom_claims, exp)
+        return self.encoder.new_token(custom_claims, INITIAL_ADMIN_EXP)
