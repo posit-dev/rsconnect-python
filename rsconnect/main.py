@@ -357,12 +357,13 @@ def initial_admin(
     initial_admin_token = token_generator.initial_admin()
     logger.debug("Generated JWT:\n" + initial_admin_token)
 
-    return
+    ca_data = cacert and text_type(cacert.read())
+
     with cli_feedback("", stderr=True):
-        connect_server = RSConnectServer(server, None, insecure, text_type(cacert.read()))
+        connect_server = RSConnectServer(server, None, insecure, ca_data)
         connect_client = RSConnectClient(connect_server)
         result = connect_client.initial_admin(initial_admin_token)
-        json.dump(result, sys.stdout, indent=2)
+        json.dump(result.json_data, sys.stdout, indent=2)
 
 
 # noinspection SpellCheckingInspection
