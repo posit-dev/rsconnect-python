@@ -10,6 +10,7 @@ import jwt
 from datetime import datetime, timedelta, timezone
 from cryptography.hazmat.primitives import serialization
 from .exception import RSConnectException
+from .log import logger
 
 DEFAULT_ISSUER = "rsconnect-python"
 DEFAULT_AUDIENCE = "rsconnect"
@@ -20,7 +21,11 @@ OPENSSH_FOOTER = b"-----END OPENSSH PRIVATE KEY-----\n"
 INITIAL_ADMIN_EXP = timedelta(minutes=15)
 
 
-def load_ed25519_private_key(keypath: str, password) -> Ed25519PrivateKey:
+def load_ed25519_private_key(keypath, password) -> Ed25519PrivateKey:
+
+    if keypath is None:
+        raise RSConnectException("Keypath must be provided to load private key")
+
     bytes = read_ed25519_private_key(keypath)
     return load_ed25519_private_key_from_bytes(bytes, password)
 
@@ -36,8 +41,10 @@ def load_ed25519_private_key_from_bytes(key_bytes: bytes, password) -> Ed25519Pr
     if not key_bytes.startswith(OPENSSH_HEADER) or not key_bytes.endswith(OPENSSH_FOOTER):
         raise RSConnectException("Keyfile does not follow OpenSSH format (required for Ed25519)")
 
+    if password is not None:
+        logger.debug("Loading private key using provided password...")
+
     key = serialization.load_ssh_private_key(key_bytes, password)
-    # key = Ed25519PrivateKey.from_private_bytes(key_bytes)
 
     if not isinstance(key, Ed25519PrivateKey):
         raise RSConnectException("Private key is not expected type: Ed25519PrivateKey")

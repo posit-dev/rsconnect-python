@@ -1,4 +1,5 @@
 import functools
+import getpass
 import json
 import os
 import sys
@@ -315,8 +316,10 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
 @click.option(
     "--jwt-key-password",
     "-p",
+    is_flag=True,
     help="The password for an encrypted ed25519 private key, if one exists (default to None)",
 )
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
 @cli_exception_handler
 def initial_admin(
     server,
@@ -324,18 +327,24 @@ def initial_admin(
     cacert,
     jwt_keypath,
     jwt_key_password,
+    verbose,
 ):
-
+    set_verbosity(verbose)
     if not is_jwt_compatible_python_version():
         raise RSConnectException(
             "Python version > 3.5 required for JWT generation. Please upgrade your Python installation."
         )
 
-    private_key = load_ed25519_private_key(jwt_keypath, jwt_key_password)
+    password = None
+    if jwt_key_password:
+        password = getpass.getpass(prompt="JWT Password: ").encode()
+
+    private_key = load_ed25519_private_key(jwt_keypath, password)
     token_generator = TokenGenerator(private_key)
     initial_admin_token = token_generator.initial_admin()
-    print(initial_admin_token)
+    logger.debug("Generated JWT:\n" + initial_admin_token)
 
+    return
     with cli_feedback("", stderr=True):
         connect_server = RSConnectServer(server, None, insecure, text_type(cacert.read()))
         connect_client = RSConnectClient(connect_server)

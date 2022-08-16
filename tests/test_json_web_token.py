@@ -273,9 +273,7 @@ class TestJsonWebToken(TestCase):
         current_datetime = datetime.now(tz=timezone.utc)
         self.assert_initial_admin_jwt_is_valid(payload, current_datetime)
 
-        # Spot-check the token, other tests verify the full initial-admin token contents
-        self.assertEqual(payload["endpoint"], "/__api__/v1/experimental/installation/initial-admin")
-        self.assertEqual(payload["method"], "GET")
+        # BEGIN ACTUAL TEST
 
         # Write the byte representation of the private key into a file
         with tempfile.TemporaryDirectory() as td:
@@ -293,6 +291,10 @@ class TestJsonWebToken(TestCase):
             self.assert_initial_admin_jwt_is_valid(test_payload, test_datetime)
 
     def test_load_ed25519_private_key(self):
+
+        # NoneType Path
+        with pytest.raises(RSConnectException):
+            load_ed25519_private_key(None, None)
 
         # Invalid Path
         with pytest.raises(RSConnectException):
