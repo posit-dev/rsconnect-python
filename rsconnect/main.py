@@ -70,6 +70,7 @@ from .models import (
     VersionSearchFilterParamType,
 )
 from .json_web_token import (
+    ENV_VAR_PRIVATE_KEY_PASSWORD,
     load_ed25519_private_key,
     is_jwt_compatible_python_version,
     TokenGenerator,
@@ -335,9 +336,21 @@ def initial_admin(
             "Python version > 3.5 required for JWT generation. Please upgrade your Python installation."
         )
 
-    password = None
-    if jwt_key_password:
-        password = getpass.getpass(prompt="JWT Password: ").encode()
+    password = os.getenv(ENV_VAR_PRIVATE_KEY_PASSWORD)
+    if password is not None:
+        logger.debug("Loaded private key password from env var " + ENV_VAR_PRIVATE_KEY_PASSWORD)
+    else:
+        logger.debug("Private key password not set in env var " + ENV_VAR_PRIVATE_KEY_PASSWORD)
+
+    if jwt_key_password and password is None:
+        password = getpass.getpass(prompt="JWT Password: ")
+    elif jwt_key_password and password is not None:
+        logger.debug("Skipping -p flag")
+
+    if password is not None:
+        password = password.encode()
+    else:
+        logger.debug("Private key password not provided.")
 
     private_key = load_ed25519_private_key(jwt_keypath, password)
     token_generator = TokenGenerator(private_key)

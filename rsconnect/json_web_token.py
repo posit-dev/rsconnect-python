@@ -20,6 +20,8 @@ OPENSSH_FOOTER = b"-----END OPENSSH PRIVATE KEY-----\n"
 
 INITIAL_ADMIN_EXP = timedelta(minutes=15)
 
+ENV_VAR_PRIVATE_KEY_PASSWORD = "CONNECT_PRIVATE_KEY_PASSWORD"
+
 
 def load_ed25519_private_key(keypath, password) -> Ed25519PrivateKey:
 
@@ -42,7 +44,9 @@ def load_ed25519_private_key_from_bytes(key_bytes: bytes, password) -> Ed25519Pr
         raise RSConnectException("Keyfile does not follow OpenSSH format (required for Ed25519)")
 
     if password is not None:
-        logger.debug("Loading private key using provided password...")
+        logger.debug("Loading private key using provided password")
+    else:
+        logger.debug("Loading private key without using password")
 
     key = serialization.load_ssh_private_key(key_bytes, password)
 
