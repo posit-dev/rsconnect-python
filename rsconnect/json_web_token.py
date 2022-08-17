@@ -123,5 +123,5 @@ class TokenGenerator:
         self.encoder = JWTEncoder(DEFAULT_ISSUER, DEFAULT_AUDIENCE, secret)
 
     def initial_admin(self):
-        custom_claims = {"endpoint": "/__api__/v1/experimental/installation/initial-admin", "method": "GET"}  # todo
+        custom_claims = {"endpoint": "/__api__/v1/experimental/installation/initial_admin", "method": "GET"}  # todo
         return self.encoder.new_token(custom_claims, INITIAL_ADMIN_EXP)

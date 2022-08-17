@@ -81,9 +81,10 @@ class RSConnectServer(AbstractRemoteServer):
     instance of the Connect server.
     """
 
-    def __init__(self, url, api_key, insecure=False, ca_data=None):
+    def __init__(self, url, api_key, jwt=None, insecure=False, ca_data=None):
         super().__init__(url, "RStudio Connect")
         self.api_key = api_key
+        self.jwt = jwt
         self.insecure = insecure
         self.ca_data = ca_data
         # This is specifically not None.
@@ -114,6 +115,9 @@ class RSConnectClient(HTTPServer):
         if server.api_key:
             self.key_authorization(server.api_key)
 
+        if server.jwt:
+            self.bearer_authorization(server.jwt)
+
     def _tweak_response(self, response):
         return (
             response.json_data
@@ -124,8 +128,8 @@ class RSConnectClient(HTTPServer):
     def me(self):
         return self.get("me")
 
-    def initial_admin(self, jwt):
-        return self.post("v1/experimental/installation/initial_admin", body={"jwt": jwt})
+    def initial_admin(self):
+        return self.get("v1/experimental/installation/initial_admin")
 
     def server_settings(self):
         return self.get("server_settings")

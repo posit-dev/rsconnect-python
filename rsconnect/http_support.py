@@ -194,8 +194,11 @@ class HTTPServer(object):
     def authorization(self, auth_text):
         self._headers["Authorization"] = auth_text
 
-    def key_authorization(self, api_key):
-        self.authorization("Key %s" % api_key)
+    def key_authorization(self, key):
+        self.authorization("Key %s" % key)
+
+    def bearer_authorization(self, key):
+        self.authorization("Bearer %s" % key)
 
     def _get_full_path(self, path):
         return append_to_path(self._url.path, path)
