@@ -8,6 +8,8 @@ from unittest import TestCase
 import httpretty
 from click.testing import CliRunner
 
+from rsconnect.json_web_token import ENV_VAR_PRIVATE_KEY_PASSWORD
+
 from .utils import (
     apply_common_args,
     optional_ca_data,
@@ -340,3 +342,19 @@ class TestMain(TestCase):
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_initial_admin(self):
+        # todo!
+        self.assertTrue(True)
+
+    def test_initial_admin_missing_options(self):
+        original_env_var_private_key_password = os.environ.pop(ENV_VAR_PRIVATE_KEY_PASSWORD, None)
+        try:
+            runner = CliRunner()
+            result = runner.invoke(cli, ["initial-admin"])
+            self.assertEqual(result.exit_code, 1, result.output)
+            self.assertEqual(str(result.output), "Error: Keypath must be provided to load private key\n")
+        finally:
+            if original_env_var_private_key_password:
+                os.environ[ENV_VAR_PRIVATE_KEY_PASSWORD] = original_env_var_private_key_password

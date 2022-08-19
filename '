@@ -10,6 +10,7 @@ import jwt
 from datetime import datetime, timedelta, timezone
 from cryptography.hazmat.primitives import serialization
 
+from tests.test_json_web_token import EXPECTED_INITIAL_ADMIN_ENDPOINT
 from .exception import RSConnectException
 from .log import logger
 
@@ -126,5 +127,5 @@ class TokenGenerator:
         self.encoder = JWTEncoder(DEFAULT_ISSUER, DEFAULT_AUDIENCE, secret)
 
     def initial_admin(self):
-        custom_claims = {"endpoint": INITIAL_ADMIN_ENDPOINT, "method": INITIAL_ADMIN_METHOD}
+        custom_claims = {"endpoint": EXPECTED_INITIAL_ADMIN_ENDPOINT, "method": INITIAL_ADMIN_METHOD}  # todo
         return self.encoder.new_token(custom_claims, INITIAL_ADMIN_EXP)

@@ -14,6 +14,8 @@ from rsconnect.exception import RSConnectException
 
 from rsconnect.json_web_token import (
     INITIAL_ADMIN_EXP,
+    INITIAL_ADMIN_ENDPOINT,
+    INITIAL_ADMIN_METHOD,
     DEFAULT_ISSUER,
     DEFAULT_AUDIENCE,
     load_ed25519_private_key,
@@ -110,8 +112,8 @@ class TestJsonWebToken(TestCase):
         self.assertEqual(payload["iss"], DEFAULT_ISSUER)
         self.assertEqual(payload["aud"], DEFAULT_AUDIENCE)
         self.assertTrue(are_unix_timestamps_approx_equal(payload["iat"], expected_iat))
-        self.assertEqual(payload["endpoint"], "/__api__/v1/experimental/installation/initial-admin")
-        self.assertEqual(payload["method"], "GET")
+        self.assertEqual(payload["endpoint"], INITIAL_ADMIN_ENDPOINT)
+        self.assertEqual(payload["method"], INITIAL_ADMIN_METHOD)
 
     def test_generate_test_keypair(self):
         """
@@ -174,6 +176,10 @@ class TestJsonWebToken(TestCase):
         self.assertEqual(encoder.secret, self.private_key)
 
     def test_generate_standard_claims(self):
+        """
+        Test production of common claims that will be consistent across all JWTs
+        """
+
         encoder = JWTEncoder("issuer", "audience", self.private_key)
 
         current_datetime = datetime(2022, 1, 1, 1, 1, 1)
@@ -192,6 +198,19 @@ class TestJsonWebToken(TestCase):
 
         self.assertEqual(standard_claims["iat"], int(current_datetime.timestamp()))
         self.assertEqual(datetime.fromtimestamp(standard_claims["iat"]), current_datetime)
+
+    def test_generate_standard_claims_invalid_exp(self):
+        """
+        The exp timedelta needs to be nonnegative
+        """
+
+        encoder = JWTEncoder("issuer", "audience", self.private_key)
+
+        current_datetime = datetime(2022, 1, 1, 1, 1, 1)
+        exp = timedelta(seconds=-1)
+
+        with pytest.raises(RSConnectException):
+            encoder.generate_standard_claims(current_datetime, exp)
 
     def test_new_token_empty_custom_claims(self):
         encoder = JWTEncoder("issuer", "audience", self.private_key)
@@ -259,6 +278,22 @@ class TestJsonWebToken(TestCase):
 
         current_datetime = datetime.now(tz=timezone.utc)
         self.assert_initial_admin_jwt_is_valid(payload, current_datetime)
+
+    def test_token_generator_invalid_public_key(self):
+        """
+        If our public key doesn't match the private key, we should not be able to validate the token
+        """
+        generator = TokenGenerator(self.private_key)
+
+        # generate another keypair, use its public key in the decoder
+        _, another_public_key = generate_test_ed25519_keypair()
+
+        decoder = JWTDecoder(DEFAULT_AUDIENCE, another_public_key)
+
+        initial_admin_token = generator.initial_admin()
+
+        with pytest.raises(jwt.InvalidSignatureError):
+            decoder.decode_token(initial_admin_token)
 
     def test_token_workflow(self):
 
