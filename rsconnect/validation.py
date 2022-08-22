@@ -7,6 +7,18 @@ def _get_present_options(options: typing.Dict[str, typing.Optional[str]]) -> typ
     return [k for k, v in options.items() if v]
 
 
+def validate_initial_admin_options(url, jwt_keypath):
+    """
+    Validates provided initial-admin CLI options
+    """
+
+    if not url:
+        raise RSConnectException("You must specify -s/--server.")
+
+    if not jwt_keypath:
+        raise RSConnectException("You must specify -j/--jwt-keypath.")
+
+
 def validate_connection_options(url, api_key, insecure, cacert, account_name, token, secret, name=None):
     """
     Validates provided Connect or shinyapps.io connection options and returns which target to use given the provided

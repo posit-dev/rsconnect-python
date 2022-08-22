@@ -4,9 +4,12 @@ Json Web Token (JWT) utilities
 
 import os
 import sys
+import getpass
+
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 import jwt
+import typing
 from datetime import datetime, timedelta, timezone
 from cryptography.hazmat.primitives import serialization
 
@@ -24,6 +27,43 @@ INITIAL_ADMIN_METHOD = "GET"
 INITIAL_ADMIN_EXP = timedelta(minutes=15)
 
 ENV_VAR_PRIVATE_KEY_PASSWORD = "CONNECT_PRIVATE_KEY_PASSWORD"
+
+
+def _load_private_key_password_env() -> typing.Union[str, None]:
+    """
+    Reads the private key password from the ENV_VAR_PRIVATE_KEY_PASSWORD environment variable
+    and returns it (if it exists)
+    """
+    return os.getenv(ENV_VAR_PRIVATE_KEY_PASSWORD)
+
+
+def _load_private_key_password_interactive() -> str:
+    """
+    Produces the password from interactive input on the command line
+    """
+    return getpass.getpass(prompt="Private Key Password: ")
+
+
+def load_private_key_password(interactive_password_flag) -> typing.Union[bytes, None]:
+
+    password = _load_private_key_password_env()
+    if password is not None:
+        logger.debug("Loaded private key password from env var " + ENV_VAR_PRIVATE_KEY_PASSWORD)
+    else:
+        logger.debug("Private key password not set in env var " + ENV_VAR_PRIVATE_KEY_PASSWORD)
+
+    if interactive_password_flag:
+        if password is None:
+            password = _load_private_key_password_interactive()
+        else:
+            logger.debug("Skipping -p flag")
+
+    if password is not None:
+        password = password.encode()
+    else:
+        logger.debug("Private key password not provided.")
+
+    return password
 
 
 def load_ed25519_private_key(keypath, password) -> Ed25519PrivateKey:

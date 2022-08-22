@@ -354,7 +354,7 @@ class TestMain(TestCase):
             runner = CliRunner()
             result = runner.invoke(cli, ["initial-admin"])
             self.assertEqual(result.exit_code, 1, result.output)
-            self.assertEqual(str(result.output), "Error: Keypath must be provided to load private key\n")
+            self.assertEqual(result.output, "Error: You must specify -s/--server.\n")
         finally:
             if original_env_var_private_key_password:
                 os.environ[ENV_VAR_PRIVATE_KEY_PASSWORD] = original_env_var_private_key_password

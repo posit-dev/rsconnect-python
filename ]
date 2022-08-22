@@ -23,7 +23,7 @@ from rsconnect.json_web_token import (
     read_ed25519_private_key,
     load_ed25519_private_key_from_bytes,
     is_jwt_compatible_python_version,
-    load_private_key_password,
+    PrivateKeyPasswordLoader,
     TokenGenerator,
     JWTEncoder,
 )
@@ -89,6 +89,24 @@ def are_unix_timestamps_approx_equal(a, b):
     Timestamps are recorded as the number of seconds since the epoch
     """
     return abs(a - b) <= 1
+
+
+# Mock external password suppliers
+
+MOCK_ENV_PASSWORD = "an env password123!"
+MOCK_INTERACTIVE_PASSWORD = "an interactive password123!"
+
+
+def none_env_password_supplier():
+    return None
+
+
+def populated_env_password_supplier():
+    return MOCK_ENV_PASSWORD
+
+
+def interactive_password_supplier():
+    return MOCK_INTERACTIVE_PASSWORD
 
 
 class TestJsonWebToken(TestCase):
@@ -172,25 +190,27 @@ class TestJsonWebToken(TestCase):
         mock_cli_password = "cli password123!"
 
         # no environment variable
-        with patch("rsconnect.json_web_token._load_private_key_password_env") as fn_env, patch(
-            "rsconnect.json_web_token._load_private_key_password_interactive"
-        ) as fn_interactive:
+        with patch("json_web_token._load_private_key_password_env") as fn_env, \
+             patch("json_web_token._load_private_key_password_interactive") as fn_interactive:
 
             fn_env.return_value = None
             fn_interactive.return_value = mock_cli_password
 
-            self.assertEqual(load_private_key_password(False), None)
-            self.assertEqual(load_private_key_password(True), mock_cli_password.encode())
+            self.assertEquals(load_password(False), None)
+            self.assertEquals(load_password(True), mock_cli_password)
 
-        with patch("rsconnect.json_web_token._load_private_key_password_env") as fn_env, patch(
-            "rsconnect.json_web_token._load_private_key_password_interactive"
-        ) as fn_interactive:
+loader = PrivateKeyPasswordLoader(
+            fn_env=none_env_password_supplier, fn_interactive=interactive_password_supplier
+        )
+        self.assertEqual(loader.load_password(False), None)
+        self.assertEqual(loader.load_password(True), MOCK_INTERACTIVE_PASSWORD.encode())
 
-            fn_env.return_value = mock_env_password
-            fn_interactive.return_value = mock_cli_password
-
-            self.assertEqual(load_private_key_password(False), mock_env_password.encode())
-            self.assertEqual(load_private_key_password(True), mock_env_password.encode())
+        # populated environment variable takes precedence
+        loader = PrivateKeyPasswordLoader(
+            fn_env=populated_env_password_supplier, fn_interactive=interactive_password_supplier
+        )
+        self.assertEqual(loader.load_password(False), MOCK_ENV_PASSWORD.encode())
+        self.assertEqual(loader.load_password(True), MOCK_ENV_PASSWORD.encode())
 
     def test_is_jwt_compatible_python_version(self):
         """

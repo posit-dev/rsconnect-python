@@ -1,5 +1,4 @@
 import functools
-import getpass
 import json
 import os
 import sys
@@ -70,10 +69,10 @@ from .models import (
     VersionSearchFilterParamType,
 )
 from .json_web_token import (
-    ENV_VAR_PRIVATE_KEY_PASSWORD,
     load_ed25519_private_key,
     is_jwt_compatible_python_version,
     TokenGenerator,
+    load_private_key_password,
 )
 
 server_store = ServerStore()
@@ -336,28 +335,16 @@ def initial_admin(
             "Python version > 3.5 required for JWT generation. Please upgrade your Python installation."
         )
 
-    password = os.getenv(ENV_VAR_PRIVATE_KEY_PASSWORD)
-    if password is not None:
-        logger.debug("Loaded private key password from env var " + ENV_VAR_PRIVATE_KEY_PASSWORD)
-    else:
-        logger.debug("Private key password not set in env var " + ENV_VAR_PRIVATE_KEY_PASSWORD)
+    validation.validate_initial_admin_options(server, jwt_keypath)
 
-    if jwt_key_password and password is None:
-        password = getpass.getpass(prompt="JWT Password: ")
-    elif jwt_key_password and password is not None:
-        logger.debug("Skipping -p flag")
-
-    if password is not None:
-        password = password.encode()
-    else:
-        logger.debug("Private key password not provided.")
-
+    password = load_private_key_password(jwt_key_password)
     private_key = load_ed25519_private_key(jwt_keypath, password)
     token_generator = TokenGenerator(private_key)
+
     initial_admin_token = token_generator.initial_admin()
     logger.debug("Generated JWT:\n" + initial_admin_token)
-    logger.debug("Insecure: " + str(insecure))
 
+    logger.debug("Insecure: " + str(insecure))
     ca_data = cacert and text_type(cacert.read())
 
     with cli_feedback("", stderr=True):
