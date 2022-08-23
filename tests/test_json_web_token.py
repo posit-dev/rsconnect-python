@@ -4,11 +4,7 @@ from unittest.mock import patch
 import pytest
 import jwt
 
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
-
 from datetime import datetime, timedelta, timezone
-import re
 import os
 from rsconnect.exception import RSConnectException
 
@@ -20,6 +16,7 @@ from rsconnect.json_web_token import (
     DEFAULT_ISSUER,
     DEFAULT_AUDIENCE,
     load_ed25519_private_key,
+    produce_initial_admin_output,
     read_ed25519_private_key,
     load_ed25519_private_key_from_bytes,
     is_jwt_compatible_python_version,
@@ -28,57 +25,12 @@ from rsconnect.json_web_token import (
     JWTEncoder,
 )
 
-
-class JWTDecoder:
-    """
-    Used to decode / verify JWTs in testing
-    """
-
-    def __init__(self, audience: str, secret):
-        self.audience = audience
-        self.secret = secret
-
-    def decode_token(self, token: str):
-        return jwt.decode(token, self.secret, audience=self.audience, algorithms=["EdDSA"])
-
-
-def generate_test_ed25519_keypair():
-    """
-    TO BE USED JUST FOR UNIT TESTS!!!
-
-    These 'cryptography' routines have not been verified for
-    production use - we just want 'valid' encoded / formatted keypairs
-    for unit testing (without having to save keypairs in the commit history,
-    which could probably technically be ok but still feels bad).
-    """
-
-    private_key = Ed25519PrivateKey.generate()
-    public_key = private_key.public_key()
-
-    return (private_key, public_key)
-
-
-def convert_ed25519_private_key_to_bytes(private_key: Ed25519PrivateKey) -> bytes:
-    """
-    Mimics the approach used by ssh-keygen, which will only output ed25519 keys in OpenSSH format
-    """
-
-    return private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.OpenSSH,
-        encryption_algorithm=serialization.NoEncryption(),
-    )
-
-
-def has_jwt_structure(token):
-    """
-    Verify that token is a well-formatted JWT string
-    """
-
-    if token is None:
-        return False
-
-    return re.search("^[a-zA-Z0-9-_]+\\.[a-zA-Z0-9-_]+\\.[a-zA-Z0-9-_]+$", token) is not None
+from tests.utils import (
+    JWTDecoder,
+    generate_test_ed25519_keypair,
+    convert_ed25519_private_key_to_bytes,
+    has_jwt_structure,
+)
 
 
 def are_unix_timestamps_approx_equal(a, b):
@@ -117,41 +69,6 @@ class TestJsonWebToken(TestCase):
         self.assertEqual(payload["endpoint"], INITIAL_ADMIN_ENDPOINT)
         self.assertEqual(payload["method"], INITIAL_ADMIN_METHOD)
 
-    def test_generate_test_keypair(self):
-        """
-        Verify our test keypair generator produces reasonable results
-        """
-
-        private_key, public_key = generate_test_ed25519_keypair()
-
-        self.assertTrue(isinstance(private_key, Ed25519PrivateKey))
-        self.assertTrue(isinstance(public_key, Ed25519PublicKey))
-
-    # verify that our has_jwt_structure helper works as expected
-    def test_has_jwt_structure(self):
-        """
-        Verify that our jwt structure verification helper works as expected
-        """
-
-        true_examples = [
-            "aA1-_.aA1-_.aA1-_",
-        ]
-
-        for true_example in true_examples:
-            self.assertTrue(has_jwt_structure(true_example))
-
-        false_examples = [
-            None,
-            "",
-            "aA1-_",
-            "aA1-_.aA1-_.",
-            "aA1-_.aA1-_.aA1-_.",
-            ".aA1-_.aA1-_.aA1-_",
-        ]
-
-        for false_example in false_examples:
-            self.assertFalse(has_jwt_structure(false_example))
-
     def test_are_unix_timestamps_approx_equal(self):
         """
         Verify that our unix timestamp verification helper works as expected
@@ -182,6 +99,7 @@ class TestJsonWebToken(TestCase):
             self.assertEqual(load_private_key_password(False), None)
             self.assertEqual(load_private_key_password(True), mock_cli_password.encode())
 
+        # populated environment variable
         with patch("rsconnect.json_web_token._load_private_key_password_env") as fn_env, patch(
             "rsconnect.json_web_token._load_private_key_password_interactive"
         ) as fn_interactive:
@@ -205,6 +123,75 @@ class TestJsonWebToken(TestCase):
         self.assertEqual(encoder.issuer, "issuer")
         self.assertEqual(encoder.audience, "audience")
         self.assertEqual(encoder.secret, self.private_key)
+
+    def test_produce_initial_admin_output(self):
+
+        api_key = "apikey123"
+
+        # if we get a 200 response without a valid API key, something is messed up
+
+        with pytest.raises(RSConnectException):
+            produce_initial_admin_output(200, None)
+
+        with pytest.raises(RSConnectException):
+            produce_initial_admin_output(200, {})
+
+        with pytest.raises(RSConnectException):
+            produce_initial_admin_output(200, {"api_key": ""})
+
+        with pytest.raises(RSConnectException):
+            produce_initial_admin_output(200, {"something": "else"})
+
+        # if we get a non-200 response with an API key, something is messed up
+
+        with pytest.raises(RSConnectException):
+            produce_initial_admin_output(400, {"api_key": api_key})
+
+        expected_successful_result = {
+            "status": 200,
+            "api_key": api_key,
+            "message": "Success.",
+        }
+        self.assertEqual(produce_initial_admin_output(200, {"api_key": api_key}), expected_successful_result)
+
+        expected_client_error_result = {
+            "status": 400,
+            "api_key": "",
+            "message": "Unable to provision initial admin. Please check status of Connect database.",
+        }
+        self.assertEqual(produce_initial_admin_output(400, None), expected_client_error_result)
+        self.assertEqual(produce_initial_admin_output(400, {}), expected_client_error_result)
+        self.assertEqual(produce_initial_admin_output(400, {"api_key": ""}), expected_client_error_result)
+        self.assertEqual(produce_initial_admin_output(400, {"something": "else"}), expected_client_error_result)
+
+        expected_unauthorized_error_result = {"status": 401, "api_key": "", "message": "JWT authorization failed."}
+        self.assertEqual(produce_initial_admin_output(401, None), expected_unauthorized_error_result)
+        self.assertEqual(produce_initial_admin_output(401, {}), expected_unauthorized_error_result)
+        self.assertEqual(produce_initial_admin_output(401, {"api_key": ""}), expected_unauthorized_error_result)
+        self.assertEqual(produce_initial_admin_output(401, {"something": "else"}), expected_unauthorized_error_result)
+
+        expected_not_found_error_result = {
+            "status": 404,
+            "api_key": "",
+            "message": (
+                "Unable to find provisioning endpoint. "
+                "Please check the 'rsconnect --server' parameter and your Connect configuration."
+            ),
+        }
+        self.assertEqual(produce_initial_admin_output(404, None), expected_not_found_error_result)
+        self.assertEqual(produce_initial_admin_output(404, {}), expected_not_found_error_result)
+        self.assertEqual(produce_initial_admin_output(404, {"api_key": ""}), expected_not_found_error_result)
+        self.assertEqual(produce_initial_admin_output(404, {"something": "else"}), expected_not_found_error_result)
+
+        expected_other_error_result = {
+            "status": 500,
+            "api_key": "",
+            "message": "Unexpected response status.",
+        }
+        self.assertEqual(produce_initial_admin_output(500, None), expected_other_error_result)
+        self.assertEqual(produce_initial_admin_output(500, {}), expected_other_error_result)
+        self.assertEqual(produce_initial_admin_output(500, {"api_key": ""}), expected_other_error_result)
+        self.assertEqual(produce_initial_admin_output(500, {"something": "else"}), expected_other_error_result)
 
     def test_generate_standard_claims(self):
         """

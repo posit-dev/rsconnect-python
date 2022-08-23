@@ -1,7 +1,12 @@
 import sys
 import os
+import jwt
+import re
 from os.path import join, dirname, exists
 from unittest import TestCase
+
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 
 def apply_common_args(args: list, server=None, key=None, cacert=None, insecure=False):
@@ -61,3 +66,55 @@ def get_api_path(name, parent="api"):
     if not exists(path):
         raise AssertionError("%s does not exist" % path)
     return path
+
+
+def has_jwt_structure(token):
+    """
+    Verify that token is a well-formatted JWT string
+    """
+
+    if token is None:
+        return False
+
+    return re.search("^[a-zA-Z0-9-_]+\\.[a-zA-Z0-9-_]+\\.[a-zA-Z0-9-_]+$", token) is not None
+
+
+class JWTDecoder:
+    """
+    Used to decode / verify JWTs in testing
+    """
+
+    def __init__(self, audience: str, secret):
+        self.audience = audience
+        self.secret = secret
+
+    def decode_token(self, token: str):
+        return jwt.decode(token, self.secret, audience=self.audience, algorithms=["EdDSA"])
+
+
+def generate_test_ed25519_keypair():
+    """
+    TO BE USED JUST FOR UNIT TESTS!!!
+
+    These 'cryptography' routines have not been verified for
+    production use - we just want 'valid' encoded / formatted keypairs
+    for unit testing (without having to save keypairs in the commit history,
+    which could probably technically be ok but still feels bad).
+    """
+
+    private_key = Ed25519PrivateKey.generate()
+    public_key = private_key.public_key()
+
+    return (private_key, public_key)
+
+
+def convert_ed25519_private_key_to_bytes(private_key: Ed25519PrivateKey) -> bytes:
+    """
+    Mimics the approach used by ssh-keygen, which will only output ed25519 keys in OpenSSH format
+    """
+
+    return private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.OpenSSH,
+        encryption_algorithm=serialization.NoEncryption(),
+    )

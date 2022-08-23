@@ -45,6 +45,9 @@ def _load_private_key_password_interactive() -> str:
 
 
 def load_private_key_password(interactive_password_flag) -> typing.Union[bytes, None]:
+    """
+    Load private key password from either an environment variable or the command line
+    """
 
     password = _load_private_key_password_env()
     if password is not None:
@@ -125,6 +128,44 @@ def is_jwt_compatible_python_version() -> bool:
     """
 
     return not sys.version_info < (3, 6)
+
+
+def produce_initial_admin_output(status: int, json_data) -> dict:
+    """
+    Produces the expected programmatic output format from a request to the initial_admin endpoint
+    """
+
+    # Parse the returned API key if one is provided
+    api_key = ""
+    if json_data is not None and "api_key" in json_data:
+        api_key = json_data["api_key"]
+
+    # Catch unexpected response states and error early
+    if status == 200 and api_key == "":
+        raise RSConnectException("Connect returned a successful HTTP response but no API key.")
+
+    if status != 200 and api_key != "":
+        raise RSConnectException("Connect returned a non-successful HTTP response and an API key. ")
+
+    output = {"status": status, "api_key": api_key}
+
+    # Create a helpful error message
+    message = "Unexpected response status."
+    if status == 200:
+        message = "Success."
+    elif status == 400:
+        message = "Unable to provision initial admin. Please check status of Connect database."
+    elif status == 401:
+        message = "JWT authorization failed."
+    elif status == 404:
+        message = (
+            "Unable to find provisioning endpoint. Please check the 'rsconnect --server' "
+            "parameter and your Connect configuration."
+        )
+
+    output["message"] = message
+
+    return output
 
 
 class JWTEncoder:

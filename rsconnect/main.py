@@ -72,6 +72,7 @@ from .json_web_token import (
     load_ed25519_private_key,
     is_jwt_compatible_python_version,
     TokenGenerator,
+    produce_initial_admin_output,
     load_private_key_password,
 )
 
@@ -319,6 +320,7 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
     is_flag=True,
     help="The password for an encrypted ed25519 private key, if one exists (default to None)",
 )
+@click.option("--raw", "-r", is_flag=True, help="Return the API key as raw output rather than a JSON object")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
 @cli_exception_handler
 def initial_admin(
@@ -327,6 +329,7 @@ def initial_admin(
     cacert,
     jwt_keypath,
     jwt_key_password,
+    raw,
     verbose,
 ):
     set_verbosity(verbose)
@@ -350,8 +353,12 @@ def initial_admin(
     with cli_feedback("", stderr=True):
         connect_server = RSConnectServer(server, None, jwt=initial_admin_token, insecure=insecure, ca_data=ca_data)
         connect_client = RSConnectClient(connect_server)
-        result = connect_client.initial_admin()
-        json.dump(result, sys.stdout, indent=2)
+        response = connect_client.initial_admin()
+        output = produce_initial_admin_output(response.status, response.json_data)
+        if raw:
+            click.echo(output["api_key"])
+        else:
+            json.dump(produce_initial_admin_output(response.status, response.json_data), sys.stdout, indent=2)
 
 
 # noinspection SpellCheckingInspection

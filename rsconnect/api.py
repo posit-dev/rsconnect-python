@@ -129,7 +129,7 @@ class RSConnectClient(HTTPServer):
         return self.get("me")
 
     def initial_admin(self):
-        return self.get("v1/experimental/installation/initial_admin")
+        return self.post("v1/experimental/installation/initial_admin", body={})
 
     def server_settings(self):
         return self.get("server_settings")
