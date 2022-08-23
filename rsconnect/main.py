@@ -52,6 +52,7 @@ from .bundle import (
     write_api_manifest_json,
     write_environment_file,
     write_quarto_manifest_json,
+    write_voila_manifest_json,
     validate_entry_point,
     validate_extra_files,
     validate_file_is_notebook,
@@ -1234,6 +1235,94 @@ def write_manifest_notebook(
             extra_files,
             hide_all_input,
             hide_tagged_input,
+            image,
+        )
+
+    if environment_file_exists and not force_generate:
+        click.secho(
+            "    Warning: %s already exists and will not be overwritten." % environment.filename,
+            fg="yellow",
+        )
+    else:
+        with cli_feedback("Creating %s" % environment.filename):
+            write_environment_file(environment, base_dir)
+
+
+@write_manifest.command(
+    name="voila",
+    short_help="Create a manifest.json file for a Voila notebook.",
+    help=(
+        "Create a manifest.json file for a Voila notebook for later deployment. "
+        'This will create an environment file ("requirements.txt") if one does '
+        "not exist. All files are created in the same directory as the notebook file."
+    ),
+)
+@click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
+@click.option(
+    "--python",
+    "-p",
+    type=click.Path(exists=True),
+    help="Path to Python interpreter whose environment should be used. "
+    + "The Python environment must have the rsconnect package installed.",
+)
+@click.option(
+    "--conda",
+    "-C",
+    is_flag=True,
+    hidden=True,
+    help="Use Conda to deploy (requires RStudio Connect version 1.8.2 or later)",
+)
+@click.option(
+    "--force-generate",
+    "-g",
+    is_flag=True,
+    help='Force generating "requirements.txt", even if it already exists.',
+)
+@click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+@click.option(
+    "--image",
+    "-I",
+    help="Target image to be used during content execution (only applicable if the RStudio Connect "
+    "server is configured to use off-host execution)",
+)
+@click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+def write_manifest_voila(
+    overwrite,
+    python,
+    conda,
+    force_generate,
+    verbose,
+    file,
+    extra_files,
+    image,
+):
+    set_verbosity(verbose)
+    with cli_feedback("Checking arguments"):
+        validate_file_is_notebook(file)
+
+        base_dir = dirname(file)
+        extra_files = validate_extra_files(base_dir, extra_files)
+        manifest_path = join(base_dir, "manifest.json")
+
+        if exists(manifest_path) and not overwrite:
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+
+    with cli_feedback("Inspecting Python environment"):
+        python, environment = get_python_env_info(file, python, conda, force_generate)
+
+    _warn_on_ignored_conda_env(environment)
+
+    with cli_feedback("Creating manifest.json"):
+        environment_file_exists = write_voila_manifest_json(
+            file,
+            environment,
+            AppModes.JUPYTER_VOILA,
+            extra_files,
             image,
         )
 

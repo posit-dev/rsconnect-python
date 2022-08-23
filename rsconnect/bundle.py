@@ -1266,6 +1266,52 @@ def write_notebook_manifest_json(
     return exists(join(directory, environment.filename))
 
 
+def write_voila_manifest_json(
+    entry_point_file: str,
+    environment: Environment,
+    app_mode: AppMode,
+    extra_files: typing.List[str],
+    image: str = None,
+) -> bool:
+    """
+    Creates and writes a manifest.json file for the given entry point file.  If
+    the application mode is not provided, an attempt will be made to resolve one
+    based on the extension portion of the entry point file.
+
+    :param entry_point_file: the entry point file (Voila notebook, etc.) to build
+    the manifest for.
+    :param environment: the Python environment to start with.  This should be what's
+    returned by the inspect_environment() function.
+    :param app_mode: the application mode to assume.  If this is None, the extension
+    portion of the entry point file name will be used to derive one. Previous default = None.
+    :param extra_files: any extra files that should be included in the manifest. Previous default = None.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :return: whether or not the environment file (requirements.txt, environment.yml,
+    etc.) that goes along with the manifest exists.
+    """
+    extra_files = validate_extra_files(dirname(entry_point_file), extra_files)
+    directory = dirname(entry_point_file)
+    file_name = basename(entry_point_file)
+    manifest_path = join(directory, "manifest.json")
+
+    if app_mode is None:
+        _, extension = splitext(file_name)
+        app_mode = AppModes.get_by_extension(extension, True)
+        if app_mode == AppModes.UNKNOWN:
+            raise RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
+
+    manifest_data = make_source_manifest(app_mode, environment, file_name, None, image)
+    manifest_add_file(manifest_data, file_name, directory)
+    manifest_add_buffer(manifest_data, environment.filename, environment.contents)
+
+    for rel_path in extra_files:
+        manifest_add_file(manifest_data, rel_path, directory)
+
+    write_manifest_json(manifest_path, manifest_data)
+
+    return exists(join(directory, environment.filename))
+
+
 def create_api_manifest_and_environment_file(
     directory: str,
     entry_point: str,
