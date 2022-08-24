@@ -108,13 +108,20 @@ def generate_test_ed25519_keypair():
     return (private_key, public_key)
 
 
-def convert_ed25519_private_key_to_bytes(private_key: Ed25519PrivateKey) -> bytes:
+def convert_ed25519_private_key_to_bytes(private_key: Ed25519PrivateKey, password=None) -> bytes:
     """
     Mimics the approach used by ssh-keygen, which will only output ed25519 keys in OpenSSH format
+    Password should be a bytes-like variable
     """
+
+    encryption_alg = serialization.NoEncryption()
+    if password is not None:
+        if isinstance(password, str):
+            password = password.encode()
+        encryption_alg = serialization.BestAvailableEncryption(password)
 
     return private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.OpenSSH,
-        encryption_algorithm=serialization.NoEncryption(),
+        encryption_algorithm=encryption_alg,
     )

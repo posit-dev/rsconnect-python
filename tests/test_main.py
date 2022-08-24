@@ -551,7 +551,7 @@ class TestMain(TestCase):
                     open("tests/testdata/initial-admin-responses/client_error.json", "r").read()
                 )
 
-                self.assertEquals(json_output, expected_output)
+                self.assertEqual(json_output, expected_output)
         finally:
             if original_env_var_private_key_password:
                 os.environ[ENV_VAR_PRIVATE_KEY_PASSWORD] = original_env_var_private_key_password
@@ -600,7 +600,7 @@ class TestMain(TestCase):
                     open("tests/testdata/initial-admin-responses/unauthorized_error.json", "r").read()
                 )
 
-                self.assertEquals(json_output, expected_output)
+                self.assertEqual(json_output, expected_output)
         finally:
             if original_env_var_private_key_password:
                 os.environ[ENV_VAR_PRIVATE_KEY_PASSWORD] = original_env_var_private_key_password
@@ -696,7 +696,70 @@ class TestMain(TestCase):
                 )
                 self.assertEqual(result.exit_code, 0, result.output)
 
-                self.assertEquals(result.output, expected_api_key)
+                self.assertEqual(result.output, expected_api_key)
+        finally:
+            if original_env_var_private_key_password:
+                os.environ[ENV_VAR_PRIVATE_KEY_PASSWORD] = original_env_var_private_key_password
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_initial_admin_password(self):
+
+        secret_key_password = "a_password123!"
+        expected_api_key = "apikey123"
+        callback = self.create_initial_admin_mock_callback(200, {"api_key": expected_api_key})
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://localhost:8080/__api__/v1/experimental/installation/initial_admin",
+            body=callback,
+        )
+
+        private_key, _ = generate_test_ed25519_keypair()
+        private_key_bytes = convert_ed25519_private_key_to_bytes(private_key, password=secret_key_password)
+
+        original_env_var_private_key_password = os.environ.pop(ENV_VAR_PRIVATE_KEY_PASSWORD, None)
+
+        try:
+            runner = CliRunner()
+            with tempfile.TemporaryDirectory() as td:
+                private_keyfile = os.path.join(td, "test_ed25519")
+                with open(private_keyfile, "wb") as f:
+                    f.write(private_key_bytes)
+
+                # run with no env variable set, verify the failure
+                result = runner.invoke(
+                    cli,
+                    [
+                        "initial-admin",
+                        "--server",
+                        "http://localhost:8080",
+                        "--jwt-keypath",
+                        private_keyfile,
+                        "--insecure",
+                        "--raw",
+                    ],
+                )
+                self.assertEqual(result.exit_code, 1, result.output)
+                self.assertEqual(result.output, "Error: Unable to load private key - it may be password-protected.\n")
+
+                # set the env variable
+                os.environ[ENV_VAR_PRIVATE_KEY_PASSWORD] = secret_key_password
+
+                # run with an env variable
+                result = runner.invoke(
+                    cli,
+                    [
+                        "initial-admin",
+                        "--server",
+                        "http://localhost:8080",
+                        "--jwt-keypath",
+                        private_keyfile,
+                        "--insecure",
+                        "--raw",
+                    ],
+                )
+                self.assertEqual(result.exit_code, 0, result.output)
+                self.assertEqual(result.output, expected_api_key)
         finally:
             if original_env_var_private_key_password:
                 os.environ[ENV_VAR_PRIVATE_KEY_PASSWORD] = original_env_var_private_key_password

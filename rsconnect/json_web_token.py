@@ -77,7 +77,10 @@ def load_ed25519_private_key(keypath, password) -> Ed25519PrivateKey:
         raise RSConnectException("Keypath must be provided to load private key")
 
     bytes = read_ed25519_private_key(keypath)
-    return load_ed25519_private_key_from_bytes(bytes, password)
+    try:
+        return load_ed25519_private_key_from_bytes(bytes, password)
+    except ValueError:
+        raise RSConnectException("Unable to load private key - it may be password-protected.")
 
 
 def load_ed25519_private_key_from_bytes(key_bytes: bytes, password) -> Ed25519PrivateKey:

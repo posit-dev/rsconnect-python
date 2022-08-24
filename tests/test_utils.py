@@ -32,9 +32,15 @@ class TestJwtUtils(TestCase):
 
     def test_convert_ed25519_private_key_to_bytes(self):
         private_key, _ = generate_test_ed25519_keypair()
-
         result = convert_ed25519_private_key_to_bytes(private_key)
+        self.assertTrue(isinstance(result, bytes))
 
+    def test_convert_ed25519_private_key_to_bytes_with_password(self):
+        """
+        Should be able to encrypt the bytes with a password
+        """
+        private_key, _ = generate_test_ed25519_keypair()
+        result = convert_ed25519_private_key_to_bytes(private_key, password="a_password")
         self.assertTrue(isinstance(result, bytes))
 
     def test_jwt_decoder(self):
