@@ -10,7 +10,7 @@ from unittest.mock import patch
 import httpretty
 from click.testing import CliRunner
 
-from rsconnect.json_web_token import ENV_VAR_PRIVATE_KEY_PASSWORD
+from rsconnect.json_web_token import ENV_VAR_PRIVATE_KEY_PASSWORD, is_jwt_compatible_python_version
 
 from .utils import (
     apply_common_args,
@@ -47,23 +47,6 @@ class TestMain(TestCase):
     def setUp(self):
         shutil.rmtree("test-home", ignore_errors=True)
         os.environ["HOME"] = "test-home"
-
-    def create_initial_admin_mock_callback(self, status, json_data):
-        def request_callback(request, uri, response_headers):
-
-            # verify auth header is sent correctly
-            authorization = request.headers.get("Authorization")
-            auth_split = authorization.split(" ")
-            self.assertEqual(len(auth_split), 2)
-            self.assertEqual(auth_split[0], "Bearer")
-            self.assertTrue(has_jwt_structure(auth_split[1]))
-
-            # verify uri
-            self.assertEqual(uri, "http://localhost:8080/__api__/v1/experimental/installation/initial_admin")
-
-            return [status, {"Content-Type": "application/json"}, json.dumps(json_data)]
-
-        return request_callback
 
     def require_connect(self):
         connect_server = os.environ.get("CONNECT_SERVER", None)
@@ -364,6 +347,29 @@ class TestMain(TestCase):
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
+
+
+class TestInitialAdmin(TestCase):
+    def setUp(self):
+        if not is_jwt_compatible_python_version():
+            self.skipTest("JWTs not supported in Python < 3.6")
+
+    def create_initial_admin_mock_callback(self, status, json_data):
+        def request_callback(request, uri, response_headers):
+
+            # verify auth header is sent correctly
+            authorization = request.headers.get("Authorization")
+            auth_split = authorization.split(" ")
+            self.assertEqual(len(auth_split), 2)
+            self.assertEqual(auth_split[0], "Bearer")
+            self.assertTrue(has_jwt_structure(auth_split[1]))
+
+            # verify uri
+            self.assertEqual(uri, "http://localhost:8080/__api__/v1/experimental/installation/initial_admin")
+
+            return [status, {"Content-Type": "application/json"}, json.dumps(json_data)]
+
+        return request_callback
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_initial_admin(self):
