@@ -63,12 +63,11 @@ def load_private_key_password(interactive_password_flag) -> typing.Union[bytes, 
         else:
             logger.debug("Skipping -p flag")
 
-    if password is not None:
-        password = password.encode()
-    else:
+    if password is None:
         logger.debug("Private key password not provided.")
+        return None
 
-    return password
+    return password.encode()
 
 
 def load_ed25519_private_key(keypath, password) -> Ed25519PrivateKey:
