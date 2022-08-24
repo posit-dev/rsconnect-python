@@ -1,6 +1,8 @@
 from unittest import TestCase
 from datetime import timedelta
+from rsconnect.exception import RSConnectException
 
+import pytest
 from rsconnect.json_web_token import is_jwt_compatible_python_version
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey, Ed25519PrivateKey
@@ -42,6 +44,13 @@ class TestJwtUtils(TestCase):
         private_key, _ = generate_test_ed25519_keypair()
         result = convert_ed25519_private_key_to_bytes(private_key, password="a_password")
         self.assertTrue(isinstance(result, bytes))
+
+    def test_convert_ed25519_private_key_to_bytes_invalid(self):
+
+        private_key, _ = generate_test_ed25519_keypair()
+
+        with pytest.raises(RSConnectException):
+            convert_ed25519_private_key_to_bytes(private_key, password=12345)
 
     def test_jwt_decoder(self):
         private_key, public_key = generate_test_ed25519_keypair()

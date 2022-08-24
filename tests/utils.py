@@ -8,6 +8,8 @@ from unittest import TestCase
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from rsconnect.exception import RSConnectException
+
 
 def apply_common_args(args: list, server=None, key=None, cacert=None, insecure=False):
     if server:
@@ -114,14 +116,24 @@ def convert_ed25519_private_key_to_bytes(private_key: Ed25519PrivateKey, passwor
     Password should be a bytes-like variable
     """
 
-    encryption_alg = serialization.NoEncryption()
+    encoding = serialization.Encoding.PEM
+    format = serialization.PrivateFormat.OpenSSH
+
+    # repetition here to avoid making the type linter angry
     if password is not None:
         if isinstance(password, str):
-            password = password.encode()
-        encryption_alg = serialization.BestAvailableEncryption(password)
+            return private_key.private_bytes(
+                encoding=encoding,
+                format=format,
+                encryption_algorithm=serialization.BestAvailableEncryption(password.encode()),
+            )
+        elif isinstance(password, bytes):
+            return private_key.private_bytes(
+                encoding=encoding, format=format, encryption_algorithm=serialization.BestAvailableEncryption(password)
+            )
+        else:
+            raise RSConnectException("Invalid password format")
 
     return private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.OpenSSH,
-        encryption_algorithm=encryption_alg,
+        encoding=encoding, format=format, encryption_algorithm=serialization.NoEncryption()
     )
