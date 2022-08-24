@@ -4,9 +4,6 @@ import shutil
 import tempfile
 from os.path import join
 
-from urllib.request import HTTPError
-
-
 from unittest import TestCase
 
 import httpretty
@@ -49,6 +46,23 @@ class TestMain(TestCase):
     def setUp(self):
         shutil.rmtree("test-home", ignore_errors=True)
         os.environ["HOME"] = "test-home"
+
+    def create_initial_admin_mock_callback(self, status, json_data):
+        def request_callback(request, uri, response_headers):
+
+            # verify auth header is sent correctly
+            authorization = request.headers.get("Authorization")
+            auth_split = authorization.split(" ")
+            self.assertEqual(len(auth_split), 2)
+            self.assertEqual(auth_split[0], "Bearer")
+            self.assertTrue(has_jwt_structure(auth_split[1]))
+
+            # verify uri
+            self.assertEqual(uri, "http://localhost:8080/__api__/v1/experimental/installation/initial_admin")
+
+            return [status, {"Content-Type": "application/json"}, json.dumps(json_data)]
+
+        return request_callback
 
     def require_connect(self):
         connect_server = os.environ.get("CONNECT_SERVER", None)
@@ -356,25 +370,59 @@ class TestMain(TestCase):
         Normal initial-admin operation
         """
 
-        def request_callback(request, uri, response_headers):
-
-            # verify auth header is sent correctly
-            authorization = request.headers.get("Authorization")
-            auth_split = authorization.split(" ")
-            self.assertEqual(len(auth_split), 2)
-            self.assertEqual(auth_split[0], "Bearer")
-            self.assertTrue(has_jwt_structure(auth_split[1]))
-
-            # verify uri
-            self.assertEqual(uri, "http://localhost:8080/__api__/v1/experimental/installation/initial_admin")
-
-            # successful response
-            return [200, {"Content-Type": "application/json"}, json.dumps({"api_key": "testapikey213"})]
+        callback = self.create_initial_admin_mock_callback(200, {"api_key": "testapikey123"})
 
         httpretty.register_uri(
             httpretty.POST,
             "http://localhost:8080/__api__/v1/experimental/installation/initial_admin",
-            body=request_callback,
+            body=callback,
+        )
+
+        private_key, _ = generate_test_ed25519_keypair()
+        private_key_bytes = convert_ed25519_private_key_to_bytes(private_key)
+
+        original_env_var_private_key_password = os.environ.pop(ENV_VAR_PRIVATE_KEY_PASSWORD, None)
+        try:
+            runner = CliRunner()
+            with tempfile.TemporaryDirectory() as td:
+                # create a temporaray private keyfile
+                private_keyfile = os.path.join(td, "test_ed25519")
+                with open(private_keyfile, "wb") as f:
+                    f.write(private_key_bytes)
+
+                result = runner.invoke(
+                    cli,
+                    [
+                        "initial-admin",
+                        "--server",
+                        "http://localhost:8080",
+                        "--jwt-keypath",
+                        private_keyfile,
+                        "--insecure",
+                    ],
+                )
+
+                self.assertEqual(result.exit_code, 0, result.output)
+
+                json_output = json.loads(result.output)
+                expected_output = json.loads(open("tests/testdata/initial-admin-responses/success.json", "r").read())
+                self.assertEqual(json_output, expected_output)
+
+        finally:
+            if original_env_var_private_key_password:
+                os.environ[ENV_VAR_PRIVATE_KEY_PASSWORD] = original_env_var_private_key_password
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_initial_admin_misc_error(self):
+        """
+        Fail reasonable if response indicates that request is unauthorized
+        """
+        callback = self.create_initial_admin_mock_callback(500, {})
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://localhost:8080/__api__/v1/experimental/installation/initial_admin",
+            body=callback,
         )
 
         private_key, _ = generate_test_ed25519_keypair()
@@ -401,6 +449,109 @@ class TestMain(TestCase):
                     ],
                 )
                 self.assertEqual(result.exit_code, 0, result.output)
+
+                json_output = json.loads(result.output)
+                expected_output = json.loads(
+                    open("tests/testdata/initial-admin-responses/other_error.json", "r").read()
+                )
+                self.assertEqual(json_output, expected_output)
+        finally:
+            if original_env_var_private_key_password:
+                os.environ[ENV_VAR_PRIVATE_KEY_PASSWORD] = original_env_var_private_key_password
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_initial_admin_not_found_error(self):
+        """
+        Fail reasonable if response indicates that request is unauthorized
+        """
+
+        callback = self.create_initial_admin_mock_callback(404, {})
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://localhost:8080/__api__/v1/experimental/installation/initial_admin",
+            body=callback,
+        )
+
+        private_key, _ = generate_test_ed25519_keypair()
+        private_key_bytes = convert_ed25519_private_key_to_bytes(private_key)
+
+        original_env_var_private_key_password = os.environ.pop(ENV_VAR_PRIVATE_KEY_PASSWORD, None)
+        try:
+            runner = CliRunner()
+            with tempfile.TemporaryDirectory() as td:
+                # create a temporaray private keyfile
+                private_keyfile = os.path.join(td, "test_ed25519")
+                with open(private_keyfile, "wb") as f:
+                    f.write(private_key_bytes)
+
+                result = runner.invoke(
+                    cli,
+                    [
+                        "initial-admin",
+                        "--server",
+                        "http://localhost:8080",
+                        "--jwt-keypath",
+                        private_keyfile,
+                        "--insecure",
+                    ],
+                )
+                self.assertEqual(result.exit_code, 0, result.output)
+
+                json_output = json.loads(result.output)
+                expected_output = json.loads(
+                    open("tests/testdata/initial-admin-responses/not_found_error.json", "r").read()
+                )
+                self.assertEqual(json_output, expected_output)
+        finally:
+            if original_env_var_private_key_password:
+                os.environ[ENV_VAR_PRIVATE_KEY_PASSWORD] = original_env_var_private_key_password
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_initial_admin_client_error(self):
+        """
+        Fail reasonable if response indicates that request is unauthorized
+        """
+
+        callback = self.create_initial_admin_mock_callback(400, {})
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://localhost:8080/__api__/v1/experimental/installation/initial_admin",
+            body=callback,
+        )
+
+        private_key, _ = generate_test_ed25519_keypair()
+        private_key_bytes = convert_ed25519_private_key_to_bytes(private_key)
+
+        original_env_var_private_key_password = os.environ.pop(ENV_VAR_PRIVATE_KEY_PASSWORD, None)
+        try:
+            runner = CliRunner()
+            with tempfile.TemporaryDirectory() as td:
+                # create a temporaray private keyfile
+                private_keyfile = os.path.join(td, "test_ed25519")
+                with open(private_keyfile, "wb") as f:
+                    f.write(private_key_bytes)
+
+                result = runner.invoke(
+                    cli,
+                    [
+                        "initial-admin",
+                        "--server",
+                        "http://localhost:8080",
+                        "--jwt-keypath",
+                        private_keyfile,
+                        "--insecure",
+                    ],
+                )
+                self.assertEqual(result.exit_code, 0, result.output)
+
+                json_output = json.loads(result.output)
+                expected_output = json.loads(
+                    open("tests/testdata/initial-admin-responses/client_error.json", "r").read()
+                )
+
+                self.assertEquals(json_output, expected_output)
         finally:
             if original_env_var_private_key_password:
                 os.environ[ENV_VAR_PRIVATE_KEY_PASSWORD] = original_env_var_private_key_password
@@ -411,24 +562,12 @@ class TestMain(TestCase):
         Fail reasonable if response indicates that request is unauthorized
         """
 
-        def request_callback(request, uri, response_headers):
-
-            # verify auth header is sent correctly
-            authorization = request.headers.get("Authorization")
-            auth_split = authorization.split(" ")
-            self.assertEqual(len(auth_split), 2)
-            self.assertEqual(auth_split[0], "Bearer")
-            self.assertTrue(has_jwt_structure(auth_split[1]))
-
-            # verify uri
-            self.assertEqual(uri, "http://localhost:8080/__api__/v1/experimental/installation/initial_admin")
-
-            return [400, {"Content-Type": "application/json"}, json.dumps({})]
+        callback = self.create_initial_admin_mock_callback(401, {})
 
         httpretty.register_uri(
             httpretty.POST,
             "http://localhost:8080/__api__/v1/experimental/installation/initial_admin",
-            body=request_callback,
+            body=callback,
         )
 
         private_key, _ = generate_test_ed25519_keypair()
@@ -455,6 +594,13 @@ class TestMain(TestCase):
                     ],
                 )
                 self.assertEqual(result.exit_code, 0, result.output)
+
+                json_output = json.loads(result.output)
+                expected_output = json.loads(
+                    open("tests/testdata/initial-admin-responses/unauthorized_error.json", "r").read()
+                )
+
+                self.assertEquals(json_output, expected_output)
         finally:
             if original_env_var_private_key_password:
                 os.environ[ENV_VAR_PRIVATE_KEY_PASSWORD] = original_env_var_private_key_password
@@ -505,6 +651,52 @@ class TestMain(TestCase):
             self.assertEqual(result.exit_code, 1, result.output)
             self.assertEqual(result.output, "Error: You must specify -j/--jwt-keypath.\n")
 
+        finally:
+            if original_env_var_private_key_password:
+                os.environ[ENV_VAR_PRIVATE_KEY_PASSWORD] = original_env_var_private_key_password
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_initial_admin_raw_output(self):
+        """
+        Verify we can get the API key as raw output
+        """
+
+        expected_api_key = "apikey123"
+        callback = self.create_initial_admin_mock_callback(200, {"api_key": expected_api_key})
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://localhost:8080/__api__/v1/experimental/installation/initial_admin",
+            body=callback,
+        )
+
+        private_key, _ = generate_test_ed25519_keypair()
+        private_key_bytes = convert_ed25519_private_key_to_bytes(private_key)
+
+        original_env_var_private_key_password = os.environ.pop(ENV_VAR_PRIVATE_KEY_PASSWORD, None)
+        try:
+            runner = CliRunner()
+            with tempfile.TemporaryDirectory() as td:
+                # create a temporaray private keyfile
+                private_keyfile = os.path.join(td, "test_ed25519")
+                with open(private_keyfile, "wb") as f:
+                    f.write(private_key_bytes)
+
+                result = runner.invoke(
+                    cli,
+                    [
+                        "initial-admin",
+                        "--server",
+                        "http://localhost:8080",
+                        "--jwt-keypath",
+                        private_keyfile,
+                        "--insecure",
+                        "--raw",
+                    ],
+                )
+                self.assertEqual(result.exit_code, 0, result.output)
+
+                self.assertEquals(result.output, expected_api_key)
         finally:
             if original_env_var_private_key_password:
                 os.environ[ENV_VAR_PRIVATE_KEY_PASSWORD] = original_env_var_private_key_password

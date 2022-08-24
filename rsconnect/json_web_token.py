@@ -13,6 +13,8 @@ import typing
 from datetime import datetime, timedelta, timezone
 from cryptography.hazmat.primitives import serialization
 
+from rsconnect.http_support import HTTPResponse
+
 from .exception import RSConnectException
 from .log import logger
 
@@ -128,6 +130,20 @@ def is_jwt_compatible_python_version() -> bool:
     """
 
     return not sys.version_info < (3, 6)
+
+
+def parse_client_response(response):
+    """
+    Helper to handle the response type from RSConnectClient, because
+    it can have different types depending on the response
+    """
+
+    if isinstance(response, dict):
+        return 200, response
+    elif isinstance(response, HTTPResponse):
+        return response.status, response.json_data
+
+    raise RSConnectException("Unrecognized response type: " + type(response))
 
 
 def produce_initial_admin_output(status: int, json_data) -> dict:

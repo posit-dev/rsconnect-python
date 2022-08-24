@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 import os
 from rsconnect.exception import RSConnectException
 
+from rsconnect.http_support import HTTPResponse
 
 from rsconnect.json_web_token import (
     INITIAL_ADMIN_EXP,
@@ -21,6 +22,7 @@ from rsconnect.json_web_token import (
     load_ed25519_private_key_from_bytes,
     is_jwt_compatible_python_version,
     load_private_key_password,
+    parse_client_response,
     TokenGenerator,
     JWTEncoder,
 )
@@ -79,6 +81,43 @@ class TestJsonWebToken(TestCase):
         self.assertTrue(are_unix_timestamps_approx_equal(0, 1))
         self.assertFalse(are_unix_timestamps_approx_equal(0, 2))
         self.assertFalse(are_unix_timestamps_approx_equal(2, 0))
+
+    def test_parse_client_response(self):
+
+        status, response = parse_client_response({"api_key": "apikey123"})
+        self.assertEqual(status, 200)
+        self.assertEqual(response, {"api_key": "apikey123"})
+
+        status, response = parse_client_response({})
+        self.assertEqual(status, 200)
+        self.assertEqual(response, {})
+
+        status, response = parse_client_response({"something": "else"})
+        self.assertEqual(status, 200)
+        self.assertEqual(response, {"something": "else"})
+
+        # test if json_data is none
+        not_found_response = HTTPResponse("http://uri")
+        not_found_response.status = 404
+        status, response = parse_client_response(not_found_response)
+        self.assertEqual(status, 404)
+        self.assertEqual(response, None)
+
+        # test if json_data is empty
+        unauthorized_response = HTTPResponse("http://uri")
+        unauthorized_response.status = 401
+        unauthorized_response.json_data = {}
+        status, response = parse_client_response(unauthorized_response)
+        self.assertEqual(status, 401)
+        self.assertEqual(response, {})
+
+        # test if json data is something else
+        other_response = HTTPResponse("http://uri")
+        other_response.status = 500
+        other_response.json_data = {"test": "something"}
+        status, response = parse_client_response(other_response)
+        self.assertEqual(status, 500)
+        self.assertEqual(response, {"test": "something"})
 
     def test_private_key_password_loader(self):
         """

@@ -73,6 +73,7 @@ from .json_web_token import (
     is_jwt_compatible_python_version,
     TokenGenerator,
     produce_initial_admin_output,
+    parse_client_response,
     load_private_key_password,
 )
 
@@ -353,14 +354,16 @@ def initial_admin(
     with cli_feedback("", stderr=True):
         connect_server = RSConnectServer(server, None, jwt=initial_admin_token, insecure=insecure, ca_data=ca_data)
         connect_client = RSConnectClient(connect_server)
+
         response = connect_client.initial_admin()
-        print("!!!!!!!!!!!!!!")
-        print("Response: " + str(response))
-        output = produce_initial_admin_output(response.status, response.json_data)
+
+        # post-processing on response data
+        status, json_data = parse_client_response(response)
+        output = produce_initial_admin_output(status, json_data)
         if raw:
-            click.echo(output["api_key"])
+            click.echo(output["api_key"], nl=False)
         else:
-            json.dump(produce_initial_admin_output(response.status, response.json_data), sys.stdout, indent=2)
+            json.dump(output, sys.stdout, indent=2)
 
 
 # noinspection SpellCheckingInspection

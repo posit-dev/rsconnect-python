@@ -1,0 +1,5 @@
+{
+	"status": 400,
+	"api_key": "",
+	"message": "Unable to provision initial admin. Please check status of Connect database."
+}
