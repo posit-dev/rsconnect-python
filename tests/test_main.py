@@ -423,7 +423,7 @@ class TestMain(TestCase):
             # verify uri
             self.assertEqual(uri, "http://localhost:8080/__api__/v1/experimental/installation/initial_admin")
 
-            raise HTTPError(code=401)
+            return [400, {"Content-Type": "application/json"}, json.dumps({})]
 
         httpretty.register_uri(
             httpretty.POST,

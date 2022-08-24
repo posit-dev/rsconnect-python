@@ -354,6 +354,8 @@ def initial_admin(
         connect_server = RSConnectServer(server, None, jwt=initial_admin_token, insecure=insecure, ca_data=ca_data)
         connect_client = RSConnectClient(connect_server)
         response = connect_client.initial_admin()
+        print("!!!!!!!!!!!!!!")
+        print("Response: " + str(response))
         output = produce_initial_admin_output(response.status, response.json_data)
         if raw:
             click.echo(output["api_key"])
