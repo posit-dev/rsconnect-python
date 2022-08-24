@@ -5,6 +5,7 @@ import tempfile
 from os.path import join
 
 from unittest import TestCase
+from unittest.mock import patch
 
 import httpretty
 from click.testing import CliRunner
@@ -742,6 +743,47 @@ class TestMain(TestCase):
                 self.assertEqual(result.exit_code, 1, result.output)
                 self.assertEqual(result.output, "Error: Unable to load private key - it may be password-protected.\n")
 
+                # pretend we're getting the password from the CLI
+                with patch("rsconnect.json_web_token._load_private_key_password_interactive") as fn_interactive:
+                    fn_interactive.return_value = secret_key_password
+                    # run with no env variable set but correctly get the password from the command line
+                    result = runner.invoke(
+                        cli,
+                        [
+                            "initial-admin",
+                            "--server",
+                            "http://localhost:8080",
+                            "--jwt-keypath",
+                            private_keyfile,
+                            "--insecure",
+                            "--raw",
+                            "--jwt-key-password",
+                        ],
+                    )
+                    self.assertEqual(result.exit_code, 0, result.output)
+                    self.assertEqual(result.output, expected_api_key)
+
+                with patch("rsconnect.json_web_token._load_private_key_password_interactive") as fn_interactive:
+                    fn_interactive.return_value = "incorrect_password"
+                    # run with no env variable set but incorrectly get the password from the command line
+                    result = runner.invoke(
+                        cli,
+                        [
+                            "initial-admin",
+                            "--server",
+                            "http://localhost:8080",
+                            "--jwt-keypath",
+                            private_keyfile,
+                            "--insecure",
+                            "--raw",
+                            "--jwt-key-password",
+                        ],
+                    )
+                    self.assertEqual(result.exit_code, 1, result.output)
+                    self.assertEqual(
+                        result.output, "Error: Unable to load private key - it may be password-protected.\n"
+                    )
+
                 # set the env variable
                 os.environ[ENV_VAR_PRIVATE_KEY_PASSWORD] = secret_key_password
 
@@ -760,6 +802,27 @@ class TestMain(TestCase):
                 )
                 self.assertEqual(result.exit_code, 0, result.output)
                 self.assertEqual(result.output, expected_api_key)
+
+                # confirm that we ignore the CLI result if we have an env variable
+                with patch("rsconnect.json_web_token._load_private_key_password_interactive") as fn_interactive:
+                    # result coming from the command line should not matter
+                    fn_interactive.return_value = "incorrect_password"
+                    result = runner.invoke(
+                        cli,
+                        [
+                            "initial-admin",
+                            "--server",
+                            "http://localhost:8080",
+                            "--jwt-keypath",
+                            private_keyfile,
+                            "--insecure",
+                            "--raw",
+                            "--jwt-key-password",
+                        ],
+                    )
+                    self.assertEqual(result.exit_code, 0, result.output)
+                    self.assertEqual(result.output, expected_api_key)
+
         finally:
             if original_env_var_private_key_password:
                 os.environ[ENV_VAR_PRIVATE_KEY_PASSWORD] = original_env_var_private_key_password
