@@ -47,6 +47,7 @@ from .bundle import (
     make_api_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
+    make_voila_source_bundle,
     read_manifest_app_mode,
     write_notebook_manifest_json,
     write_api_manifest_json,
@@ -732,6 +733,88 @@ def deploy_notebook(
             image=image,
         )
     ce.deploy_bundle().save_deployed_info().emit_task_log()
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@deploy.command(
+    name="voila",
+    short_help="Deploy Voila notebook to RStudio Connect [v2022.09.0+].",
+    help=(
+        "Deploy a Voila notebook to RStudio Connect. This may be done by source or as a static HTML "
+        "page. If the notebook is deployed as a static HTML page (--static), it cannot be scheduled or "
+        "rerun on the Connect server."
+    ),
+)
+@server_args
+@content_args
+@click.option(
+    "--python",
+    "-p",
+    type=click.Path(exists=True),
+    help=(
+        "Path to Python interpreter whose environment should be used. "
+        "The Python environment must have the rsconnect package installed."
+    ),
+)
+@click.option(
+    "--force-generate",
+    "-g",
+    is_flag=True,
+    help='Force generating "requirements.txt", even if it already exists.',
+)
+@click.option(
+    "--image",
+    "-I",
+    help="Target image to be used during content execution (only applicable if the RStudio Connect "
+    "server is configured to use off-host execution)",
+)
+@click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@cli_exception_handler
+def deploy_voila(
+    name: str,
+    server: str,
+    api_key: str,
+    insecure: bool,
+    cacert: typing.IO,
+    new: bool,
+    app_id: str,
+    title: str,
+    python,
+    force_generate,
+    verbose: bool,
+    file: str,
+    extra_files,
+    env_vars: typing.Dict[str, str],
+    image: str,
+):
+    kwargs = locals()
+    set_verbosity(verbose)
+
+    kwargs["extra_files"] = extra_files = validate_extra_files(dirname(file), extra_files)
+    app_mode = AppModes.JUPYTER_VOILA
+
+    base_dir = dirname(file)
+    _warn_on_ignored_manifest(base_dir)
+    _warn_if_no_requirements_file(base_dir)
+    _warn_if_environment_directory(base_dir)
+    python, environment = get_python_env_info(file, python, conda_mode=False, force_generate=force_generate)
+
+    if force_generate:
+        _warn_on_ignored_requirements(base_dir, environment.filename)
+
+    ce = RSConnectExecutor(**kwargs).validate_server().validate_app_mode(app_mode=app_mode)
+    ce.make_bundle(
+        make_voila_source_bundle,
+        file,
+        environment,
+        extra_files,
+        image=image,
+    ).deploy_bundle().save_deployed_info().emit_task_log()
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
