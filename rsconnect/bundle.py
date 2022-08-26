@@ -808,7 +808,7 @@ def pack_relevant_files(
     entrypoint: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
-) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]:
+) -> typing.List[str]:
 
     """
     Packs all the extra files and filters out excludes.
