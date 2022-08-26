@@ -755,9 +755,8 @@ def infer_entrypoint(path, mimetype):
     if not os.path.isdir(path):
         raise ValueError("Entrypoint is not a valid file type or directory.")
 
-    default_mimetype_entrypoints = {"text/html": "index.html"}
-    if mimetype not in default_mimetype_entrypoints:
-        raise ValueError("Not supported mimetype inference.")
+    default_mimetype_entrypoints = defaultdict(str)
+    default_mimetype_entrypoints["text/html"] = "index.html"
 
     mimetype_filelist = defaultdict(list)
 
