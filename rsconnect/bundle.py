@@ -5,6 +5,7 @@ Manifest generation and bundling utilities
 import hashlib
 import io
 import json
+import mimetypes
 import os
 import subprocess
 import sys
@@ -788,6 +789,118 @@ def make_html_bundle(
     :return: a file-like object containing the bundle tarball.
     """
     manifest, relevant_files = make_html_bundle_content(path, entry_point, extra_files, excludes, image)
+    bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
+
+    with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
+        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
+
+        for rel_path in relevant_files:
+            bundle_add_file(bundle, rel_path, path)
+
+    # rewind file pointer
+    bundle_file.seek(0)
+
+    return bundle_file
+
+
+def pack_relevant_files(
+    path: str,
+    entrypoint: str,
+    extra_files: typing.List[str],
+    excludes: typing.List[str],
+) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]:
+
+    """
+    Packs all the extra files and filters out excludes.
+
+    :param path: the file, or the directory containing the files to deploy.
+    :param entry_point: the main entry point for the API.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :return: a list of the files involved.
+    """
+    extra_files = list(extra_files) if extra_files else []
+
+    if path.startswith(os.curdir):
+        path = relpath(path)
+    if entrypoint.startswith(os.curdir):
+        entrypoint = relpath(entrypoint)
+    extra_files = [relpath(f) if isfile(f) and f.startswith(os.curdir) else f for f in extra_files]
+
+    if is_environment_dir(path):
+        excludes = list(excludes or []) + ["bin/", "lib/"]
+
+    extra_files = extra_files or []
+    skip = ["manifest.json"]
+    extra_files = sorted(list(set(extra_files) - set(skip)))
+
+    # Don't include these top-level files.
+    excludes = list(excludes) if excludes else []
+    excludes.append("manifest.json")
+    if not isfile(path):
+        excludes.extend(list_environment_dirs(path))
+    glob_set = create_glob_set(path, excludes)
+
+    file_list = []
+
+    for rel_path in extra_files:
+        file_list.append(rel_path)
+
+    if isfile(path):
+        file_list.append(path)
+    else:
+        for subdir, dirs, files in os.walk(path):
+            for file in files:
+                abs_path = os.path.join(subdir, file)
+                rel_path = os.path.relpath(abs_path, path)
+
+                if keep_manifest_specified_file(rel_path) and (
+                    rel_path in extra_files or not glob_set.matches(abs_path)
+                ):
+                    file_list.append(rel_path)
+                    # Don't add extra files more than once.
+                    if rel_path in extra_files:
+                        extra_files.remove(rel_path)
+
+    relevant_files = sorted(file_list)
+
+    return relevant_files
+
+
+def make_voila_bundle(
+    path: str,
+    entrypoint: str,
+    extra_files: typing.List[str],
+    excludes: typing.List[str],
+    environment: Environment,
+    image: str = None,
+) -> typing.IO[bytes]:
+    """
+    Create an voila bundle, given a path and a manifest.
+
+    :param path: the file, or the directory containing the files to deploy.
+    :param entry_point: the main entry point for the API.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :return: a file-like object containing the bundle tarball.
+    """
+    mimetypes.add_type("text/ipynb", ".ipynb")
+    entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
+    base_dir = dirname(entrypoint)
+    nb_name = basename(entrypoint)
+
+    manifest = make_source_manifest(AppModes.JUPYTER_VOILA, environment, nb_name, None, image)
+    manifest_add_file(manifest, nb_name, base_dir)
+    manifest_add_buffer(manifest, environment.filename, environment.contents)
+
+    if extra_files:
+        skip = [nb_name, environment.filename, "manifest.json"]
+        extra_files = sorted(list(set(extra_files) - set(skip)))
+    relevant_files = pack_relevant_files(path, entrypoint, extra_files, excludes)
+    for rel_path in relevant_files:
+        manifest_add_file(manifest, rel_path, path)
+
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
 
     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:

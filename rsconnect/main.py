@@ -7,7 +7,7 @@ import typing
 import textwrap
 import click
 from six import text_type
-from os.path import abspath, dirname, exists, isdir, join
+from os.path import abspath, dirname, exists, isdir, join, isfile
 from functools import wraps
 from .environment import EnvironmentException
 from .exception import RSConnectException
@@ -47,6 +47,7 @@ from .bundle import (
     make_api_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
+    make_voila_bundle,
     make_voila_source_bundle,
     read_manifest_app_mode,
     write_notebook_manifest_json,
@@ -768,7 +769,7 @@ def deploy_notebook(
     help="Target image to be used during content execution (only applicable if the RStudio Connect "
     "server is configured to use off-host execution)",
 )
-@click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
+@click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
     "extra_files",
     nargs=-1,
@@ -776,45 +777,61 @@ def deploy_notebook(
 )
 @cli_exception_handler
 def deploy_voila(
-    name: str,
-    server: str,
-    api_key: str,
-    insecure: bool,
-    cacert: typing.IO,
-    new: bool,
-    app_id: str,
-    title: str,
-    python,
-    force_generate,
-    verbose: bool,
-    file: str,
-    extra_files,
-    env_vars: typing.Dict[str, str],
-    image: str,
+    connect_server: api.RSConnectServer = None,
+    path: str = None,
+    entrypoint: str = None,
+    python=None,
+    force_generate=False,
+    extra_files=None,
+    excludes=None,
+    image: str = "",
+    title: str = None,
+    env_vars: typing.Dict[str, str] = None,
+    verbose: bool = False,
+    new: bool = False,
+    app_id: str = None,
+    name: str = None,
+    server: str = None,
+    api_key: str = None,
+    insecure: bool = False,
+    cacert: typing.IO = None,
 ):
     kwargs = locals()
     set_verbosity(verbose)
-
-    kwargs["extra_files"] = extra_files = validate_extra_files(dirname(file), extra_files)
     app_mode = AppModes.JUPYTER_VOILA
+    python, environment = get_python_env_info(path, python, conda_mode=False, force_generate=force_generate)
+    if isfile(path):
+        kwargs["extra_files"] = extra_files = validate_extra_files(dirname(path), extra_files)
+        base_dir = dirname(path)
+        _warn_on_ignored_manifest(base_dir)
+        _warn_if_no_requirements_file(base_dir)
+        _warn_if_environment_directory(base_dir)
 
-    base_dir = dirname(file)
-    _warn_on_ignored_manifest(base_dir)
-    _warn_if_no_requirements_file(base_dir)
-    _warn_if_environment_directory(base_dir)
-    python, environment = get_python_env_info(file, python, conda_mode=False, force_generate=force_generate)
+        if force_generate:
+            _warn_on_ignored_requirements(base_dir, environment.filename)
 
-    if force_generate:
-        _warn_on_ignored_requirements(base_dir, environment.filename)
+        ce = RSConnectExecutor(**kwargs).validate_server().validate_app_mode(app_mode=app_mode)
+        ce.make_bundle(
+            make_voila_source_bundle,
+            path,
+            environment,
+            extra_files,
+            image=image,
+        ).deploy_bundle().save_deployed_info().emit_task_log()
+    else:
+        if force_generate:
+            _warn_on_ignored_requirements(base_dir, environment.filename)
 
-    ce = RSConnectExecutor(**kwargs).validate_server().validate_app_mode(app_mode=app_mode)
-    ce.make_bundle(
-        make_voila_source_bundle,
-        file,
-        environment,
-        extra_files,
-        image=image,
-    ).deploy_bundle().save_deployed_info().emit_task_log()
+        ce = RSConnectExecutor(**kwargs).validate_server().validate_app_mode(app_mode=app_mode)
+        ce.make_bundle(
+            make_voila_bundle,
+            path,
+            entrypoint,
+            extra_files,
+            excludes,
+            environment,
+            image=image,
+        ).deploy_bundle().save_deployed_info().emit_task_log()
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
