@@ -7,7 +7,7 @@ import typing
 import textwrap
 import click
 from six import text_type
-from os.path import abspath, dirname, exists, isdir, join, isfile
+from os.path import abspath, dirname, exists, isdir, join
 from functools import wraps
 from .environment import EnvironmentException
 from .exception import RSConnectException
