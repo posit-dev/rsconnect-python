@@ -318,49 +318,6 @@ def make_notebook_source_bundle(
     return bundle_file
 
 
-def make_voila_source_bundle(
-    file: str,
-    environment: Environment,
-    extra_files: typing.List[str],
-    image: str = None,
-) -> typing.IO[bytes]:
-    """Create a bundle containing the specified notebook and python environment.
-
-    Returns a file-like object containing the bundle tarball.
-    """
-    if extra_files is None:
-        extra_files = []
-    base_dir = dirname(file)
-    nb_name = basename(file)
-
-    manifest = make_source_manifest(AppModes.JUPYTER_VOILA, environment, nb_name, None, image)
-    manifest_add_file(manifest, nb_name, base_dir)
-    manifest_add_buffer(manifest, environment.filename, environment.contents)
-
-    if extra_files:
-        skip = [nb_name, environment.filename, "manifest.json"]
-        extra_files = sorted(list(set(extra_files) - set(skip)))
-
-    for rel_path in extra_files:
-        manifest_add_file(manifest, rel_path, base_dir)
-
-    logger.debug("manifest: %r", manifest)
-
-    bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
-    with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
-
-        # add the manifest first in case we want to partially untar the bundle for inspection
-        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
-        bundle_add_buffer(bundle, environment.filename, environment.contents)
-        bundle_add_file(bundle, nb_name, base_dir)
-
-        for rel_path in extra_files:
-            bundle_add_file(bundle, rel_path, base_dir)
-
-    bundle_file.seek(0)
-    return bundle_file
-
-
 def make_quarto_source_bundle(
     file_or_directory: str,
     inspect: typing.Dict[str, typing.Any],

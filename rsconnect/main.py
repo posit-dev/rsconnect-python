@@ -48,7 +48,6 @@ from .bundle import (
     make_notebook_html_bundle,
     make_notebook_source_bundle,
     make_voila_bundle,
-    make_voila_source_bundle,
     read_manifest_app_mode,
     write_notebook_manifest_json,
     write_api_manifest_json,
