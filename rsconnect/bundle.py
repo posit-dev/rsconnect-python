@@ -887,6 +887,8 @@ def make_voila_bundle(
     """
     mimetypes.add_type("text/ipynb", ".ipynb")
     entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
+    if extra_files is None:
+        extra_files = []
     base_dir = dirname(entrypoint)
     nb_name = basename(entrypoint)
 
@@ -905,6 +907,8 @@ def make_voila_bundle(
 
     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
         bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
+        if isfile(path):
+            bundle_add_file(bundle, environment.filename, base_dir)
 
         for rel_path in relevant_files:
             bundle_add_file(bundle, rel_path, path)

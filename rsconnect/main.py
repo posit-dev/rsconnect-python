@@ -800,38 +800,24 @@ def deploy_voila(
     set_verbosity(verbose)
     app_mode = AppModes.JUPYTER_VOILA
     python, environment = get_python_env_info(path, python, conda_mode=False, force_generate=force_generate)
-    if isfile(path):
-        kwargs["extra_files"] = extra_files = validate_extra_files(dirname(path), extra_files)
-        base_dir = dirname(path)
-        _warn_on_ignored_manifest(base_dir)
-        _warn_if_no_requirements_file(base_dir)
-        _warn_if_environment_directory(base_dir)
+    kwargs["extra_files"] = extra_files = validate_extra_files(dirname(path), extra_files)
+    base_dir = dirname(path)
+    _warn_on_ignored_manifest(base_dir)
+    _warn_if_no_requirements_file(base_dir)
+    _warn_if_environment_directory(base_dir)
+    if force_generate:
+        _warn_on_ignored_requirements(base_dir, environment.filename)
 
-        if force_generate:
-            _warn_on_ignored_requirements(base_dir, environment.filename)
-
-        ce = RSConnectExecutor(**kwargs).validate_server().validate_app_mode(app_mode=app_mode)
-        ce.make_bundle(
-            make_voila_source_bundle,
-            path,
-            environment,
-            extra_files,
-            image=image,
-        ).deploy_bundle().save_deployed_info().emit_task_log()
-    else:
-        if force_generate:
-            _warn_on_ignored_requirements(base_dir, environment.filename)
-
-        ce = RSConnectExecutor(**kwargs).validate_server().validate_app_mode(app_mode=app_mode)
-        ce.make_bundle(
-            make_voila_bundle,
-            path,
-            entrypoint,
-            extra_files,
-            excludes,
-            environment,
-            image=image,
-        ).deploy_bundle().save_deployed_info().emit_task_log()
+    ce = RSConnectExecutor(**kwargs).validate_server().validate_app_mode(app_mode=app_mode)
+    ce.make_bundle(
+        make_voila_bundle,
+        path,
+        entrypoint,
+        extra_files,
+        excludes,
+        environment,
+        image=image,
+    ).deploy_bundle().save_deployed_info().emit_task_log()
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
