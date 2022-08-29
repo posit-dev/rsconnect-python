@@ -1390,8 +1390,8 @@ def write_notebook_manifest_json(
 def write_voila_manifest_json(
     entry_point_file: str,
     environment: Environment,
-    app_mode: AppMode,
-    extra_files: typing.List[str],
+    app_mode: AppMode = AppModes.JUPYTER_VOILA,
+    extra_files: typing.List[str] = None,
     image: str = None,
 ) -> bool:
     """
