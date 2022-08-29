@@ -776,7 +776,6 @@ def deploy_notebook(
 )
 @cli_exception_handler
 def deploy_voila(
-    connect_server: api.RSConnectServer = None,
     path: str = None,
     entrypoint: str = None,
     python=None,
@@ -794,6 +793,7 @@ def deploy_voila(
     api_key: str = None,
     insecure: bool = False,
     cacert: typing.IO = None,
+    connect_server: api.RSConnectServer = None,
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -814,6 +814,7 @@ def deploy_voila(
         entrypoint,
         extra_files,
         excludes,
+        force_generate,
         environment,
         image=image,
     ).deploy_bundle().save_deployed_info().emit_task_log()

@@ -834,16 +834,22 @@ def make_voila_bundle(
     entrypoint: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
+    force_generate: bool,
     environment: Environment,
     image: str = None,
 ) -> typing.IO[bytes]:
     """
-    Create an voila bundle, given a path and a manifest.
+    Create an voila bundle, given a path and/or entrypoint.
+
+    The bundle contains a manifest.json file created for the given notebook entrypoint file.
+    If the related environment file (requirements.txt) doesn't
+    exist (or force_generate is set to True), the environment file will also be written.
 
     :param path: the file, or the directory containing the files to deploy.
     :param entry_point: the main entry point for the API.
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param force_generate: bool indicating whether to force generate manifest and related environment files.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: a file-like object containing the bundle tarball.
     """
@@ -854,6 +860,8 @@ def make_voila_bundle(
     base_dir = dirname(entrypoint)
     nb_name = basename(entrypoint)
 
+    if not exists(join(base_dir, environment.filename)) or force_generate:
+        write_environment_file(environment, base_dir)
     manifest = make_source_manifest(AppModes.JUPYTER_VOILA, environment, nb_name, None, image)
     manifest_add_file(manifest, nb_name, base_dir)
     manifest_add_buffer(manifest, environment.filename, environment.contents)
