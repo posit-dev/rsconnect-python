@@ -765,7 +765,7 @@ def make_html_bundle(
     return bundle_file
 
 
-def pack_relevant_files(
+def pack_extra_files(
     path: str,
     entrypoint: str,
     extra_files: typing.List[str],
@@ -861,8 +861,8 @@ def make_voila_bundle(
     if extra_files:
         skip = [nb_name, environment.filename, "manifest.json"]
         extra_files = sorted(list(set(extra_files) - set(skip)))
-    relevant_files = pack_relevant_files(path, entrypoint, extra_files, excludes)
-    for rel_path in relevant_files:
+    packed_extra_files = pack_extra_files(path, entrypoint, extra_files, excludes)
+    for rel_path in packed_extra_files:
         manifest_add_file(manifest, rel_path, path)
 
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
@@ -872,7 +872,7 @@ def make_voila_bundle(
         if isfile(path):
             bundle_add_file(bundle, environment.filename, base_dir)
 
-        for rel_path in relevant_files:
+        for rel_path in packed_extra_files:
             bundle_add_file(bundle, rel_path, path)
 
     # rewind file pointer
