@@ -728,7 +728,7 @@ def infer_entrypoint(path, mimetype):
     res = mimetype_filelist[mimetype].pop() if len(mimetype_filelist[mimetype]) == 1 else None
     if not res:
         raise RuntimeError(
-            "Unable to infer entrypoint. Please provide an explicit entrypoint, or ensure that the provided path contains exactly one valid content type that can function as the entrypoint."
+            "Unable to infer entry point. Provide an explicit entry point, or ensure path contains exactly one valid content."
         )
     return res
 
