@@ -725,7 +725,12 @@ def infer_entrypoint(path, mimetype):
         mimetype_filelist[guess_type(file)[0]].append(rel_path)
         if file in default_mimetype_entrypoints[mimetype]:
             return file
-    return mimetype_filelist[mimetype].pop() if len(mimetype_filelist[mimetype]) == 1 else None
+    res = mimetype_filelist[mimetype].pop() if len(mimetype_filelist[mimetype]) == 1 else None
+    if not res:
+        raise RuntimeError(
+            "Unable to infer entrypoint. Please provide an explicit entrypoint, or ensure that the provided path contains exactly one valid content type that can function as the entrypoint."
+        )
+    return res
 
 
 def make_html_bundle(
