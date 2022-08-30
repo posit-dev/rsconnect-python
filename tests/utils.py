@@ -5,11 +5,6 @@ import re
 from os.path import join, dirname, exists
 from unittest import TestCase
 
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
-from rsconnect.exception import RSConnectException
-
 
 def apply_common_args(args: list, server=None, key=None, cacert=None, insecure=False):
     if server:
@@ -91,49 +86,4 @@ class JWTDecoder:
         self.secret = secret
 
     def decode_token(self, token: str):
-        return jwt.decode(token, self.secret, audience=self.audience, algorithms=["EdDSA"])
-
-
-def generate_test_ed25519_keypair():
-    """
-    TO BE USED JUST FOR UNIT TESTS!!!
-
-    These 'cryptography' routines have not been verified for
-    production use - we just want 'valid' encoded / formatted keypairs
-    for unit testing (without having to save keypairs in the commit history,
-    which could probably technically be ok but still feels bad).
-    """
-
-    private_key = Ed25519PrivateKey.generate()
-    public_key = private_key.public_key()
-
-    return (private_key, public_key)
-
-
-def convert_ed25519_private_key_to_bytes(private_key: Ed25519PrivateKey, password=None) -> bytes:
-    """
-    Mimics the approach used by ssh-keygen, which will only output ed25519 keys in OpenSSH format
-    Password should be a bytes-like variable
-    """
-
-    encoding = serialization.Encoding.PEM
-    format = serialization.PrivateFormat.OpenSSH
-
-    # repetition here to avoid making the type linter angry
-    if password is not None:
-        if isinstance(password, str):
-            return private_key.private_bytes(
-                encoding=encoding,
-                format=format,
-                encryption_algorithm=serialization.BestAvailableEncryption(password.encode()),
-            )
-        elif isinstance(password, bytes):
-            return private_key.private_bytes(
-                encoding=encoding, format=format, encryption_algorithm=serialization.BestAvailableEncryption(password)
-            )
-        else:
-            raise RSConnectException("Invalid password format")
-
-    return private_key.private_bytes(
-        encoding=encoding, format=format, encryption_algorithm=serialization.NoEncryption()
-    )
+        return jwt.decode(token, self.secret, audience=self.audience, algorithms=["HS256"])

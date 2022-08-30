@@ -1,6 +1,5 @@
 import tempfile
 from unittest import TestCase
-from unittest.mock import patch
 import pytest
 import jwt
 
@@ -12,16 +11,12 @@ from rsconnect.http_support import HTTPResponse
 
 from rsconnect.json_web_token import (
     INITIAL_ADMIN_EXP,
-    INITIAL_ADMIN_ENDPOINT,
-    INITIAL_ADMIN_METHOD,
+    INITIAL_ADMIN_SCOPE,
     DEFAULT_ISSUER,
     DEFAULT_AUDIENCE,
-    load_ed25519_private_key,
+    read_secret_key,
     produce_initial_admin_output,
-    read_ed25519_private_key,
-    load_ed25519_private_key_from_bytes,
     is_jwt_compatible_python_version,
-    load_private_key_password,
     parse_client_response,
     TokenGenerator,
     JWTEncoder,
@@ -29,8 +24,6 @@ from rsconnect.json_web_token import (
 
 from tests.utils import (
     JWTDecoder,
-    generate_test_ed25519_keypair,
-    convert_ed25519_private_key_to_bytes,
     has_jwt_structure,
 )
 
@@ -50,10 +43,7 @@ class TestJsonWebToken(TestCase):
         if not is_jwt_compatible_python_version():
             self.skipTest("JWTs not supported in Python < 3.6")
 
-        private_key, public_key = generate_test_ed25519_keypair()
-
-        self.private_key = private_key
-        self.public_key = public_key
+        self.secret_key = "12345678912345678912345678912345"
 
     def assert_initial_admin_jwt_is_valid(self, payload, current_datetime):
         """
@@ -62,14 +52,13 @@ class TestJsonWebToken(TestCase):
         expected_exp = int((current_datetime + INITIAL_ADMIN_EXP).timestamp())
         expected_iat = int(current_datetime.timestamp())
 
-        self.assertEqual(payload.keys(), set(["exp", "iss", "aud", "iat", "endpoint", "method"]))
+        self.assertEqual(payload.keys(), set(["exp", "iss", "aud", "iat", "scope"]))
 
         self.assertTrue(are_unix_timestamps_approx_equal(payload["exp"], expected_exp))
         self.assertEqual(payload["iss"], DEFAULT_ISSUER)
         self.assertEqual(payload["aud"], DEFAULT_AUDIENCE)
         self.assertTrue(are_unix_timestamps_approx_equal(payload["iat"], expected_iat))
-        self.assertEqual(payload["endpoint"], INITIAL_ADMIN_ENDPOINT)
-        self.assertEqual(payload["method"], INITIAL_ADMIN_METHOD)
+        self.assertEqual(payload["scope"], INITIAL_ADMIN_SCOPE)
 
     def test_are_unix_timestamps_approx_equal(self):
         """
@@ -119,36 +108,6 @@ class TestJsonWebToken(TestCase):
         self.assertEqual(status, 500)
         self.assertEqual(response, {"test": "something"})
 
-    def test_private_key_password_loader(self):
-        """
-        Verify password loading behavior
-        """
-
-        mock_env_password = "env password123!"
-        mock_cli_password = "cli password123!"
-
-        # no environment variable
-        with patch("rsconnect.json_web_token._load_private_key_password_env") as fn_env, patch(
-            "rsconnect.json_web_token._load_private_key_password_interactive"
-        ) as fn_interactive:
-
-            fn_env.return_value = None
-            fn_interactive.return_value = mock_cli_password
-
-            self.assertEqual(load_private_key_password(False), None)
-            self.assertEqual(load_private_key_password(True), mock_cli_password.encode())
-
-        # populated environment variable
-        with patch("rsconnect.json_web_token._load_private_key_password_env") as fn_env, patch(
-            "rsconnect.json_web_token._load_private_key_password_interactive"
-        ) as fn_interactive:
-
-            fn_env.return_value = mock_env_password
-            fn_interactive.return_value = mock_cli_password
-
-            self.assertEqual(load_private_key_password(False), mock_env_password.encode())
-            self.assertEqual(load_private_key_password(True), mock_env_password.encode())
-
     def test_is_jwt_compatible_python_version(self):
         """
         With setUp() skipping invalid versions, this test should always return True
@@ -157,11 +116,11 @@ class TestJsonWebToken(TestCase):
         self.assertTrue(is_jwt_compatible_python_version())
 
     def test_jwt_encoder_constructor(self):
-        encoder = JWTEncoder("issuer", "audience", self.private_key)
+        encoder = JWTEncoder("issuer", "audience", self.secret_key)
 
         self.assertEqual(encoder.issuer, "issuer")
         self.assertEqual(encoder.audience, "audience")
-        self.assertEqual(encoder.secret, self.private_key)
+        self.assertEqual(encoder.secret, self.secret_key)
 
     def test_produce_initial_admin_output(self):
 
@@ -237,7 +196,7 @@ class TestJsonWebToken(TestCase):
         Test production of common claims that will be consistent across all JWTs
         """
 
-        encoder = JWTEncoder("issuer", "audience", self.private_key)
+        encoder = JWTEncoder("issuer", "audience", self.secret_key)
 
         current_datetime = datetime(2022, 1, 1, 1, 1, 1)
         exp = timedelta(hours=5)
@@ -261,7 +220,7 @@ class TestJsonWebToken(TestCase):
         The exp timedelta needs to be nonnegative
         """
 
-        encoder = JWTEncoder("issuer", "audience", self.private_key)
+        encoder = JWTEncoder("issuer", "audience", self.secret_key)
 
         current_datetime = datetime(2022, 1, 1, 1, 1, 1)
         exp = timedelta(seconds=-1)
@@ -270,8 +229,8 @@ class TestJsonWebToken(TestCase):
             encoder.generate_standard_claims(current_datetime, exp)
 
     def test_new_token_empty_custom_claims(self):
-        encoder = JWTEncoder("issuer", "audience", self.private_key)
-        decoder = JWTDecoder("audience", self.public_key)
+        encoder = JWTEncoder("issuer", "audience", self.secret_key)
+        decoder = JWTDecoder("audience", self.secret_key)
 
         exp = timedelta(hours=5)
         current_datetime = datetime.now(tz=timezone.utc)
@@ -292,8 +251,8 @@ class TestJsonWebToken(TestCase):
         self.assertTrue(are_unix_timestamps_approx_equal(payload["iat"], expected_iat))
 
     def test_new_token_populated_custom_claims(self):
-        encoder = JWTEncoder("issuer", "audience", self.private_key)
-        decoder = JWTDecoder("audience", self.public_key)
+        encoder = JWTEncoder("issuer", "audience", self.secret_key)
+        decoder = JWTDecoder("audience", self.secret_key)
 
         exp = timedelta(hours=5)
         current_datetime = datetime.now(tz=timezone.utc)
@@ -301,37 +260,36 @@ class TestJsonWebToken(TestCase):
         expected_iat = int(current_datetime.timestamp())
 
         # populated custom claims
-        custom_claims = {"endpoint": "http://something.test.com", "method": "POST"}
+        custom_claims = {"scope": "initial_admin"}
         new_token = encoder.new_token(custom_claims, exp)
         self.assertTrue(has_jwt_structure(new_token))
 
         payload = decoder.decode_token(new_token)
 
-        self.assertEqual(payload.keys(), set(["exp", "iss", "aud", "iat", "endpoint", "method"]))
+        self.assertEqual(payload.keys(), set(["exp", "iss", "aud", "iat", "scope"]))
 
         self.assertTrue(are_unix_timestamps_approx_equal(payload["exp"], expected_exp))
         self.assertEqual(payload["iss"], "issuer")
         self.assertEqual(payload["aud"], "audience")
         self.assertTrue(are_unix_timestamps_approx_equal(payload["iat"], expected_iat))
-        self.assertEqual(payload["endpoint"], "http://something.test.com")
-        self.assertEqual(payload["method"], "POST")
+        self.assertEqual(payload["scope"], "initial_admin")
 
     def test_token_generator_constructor(self):
-        generator = TokenGenerator(self.private_key)
+        generator = TokenGenerator(self.secret_key)
 
         # Assert that the encoder is instantiated properly
         self.assertEqual(generator.encoder.issuer, DEFAULT_ISSUER)
         self.assertEqual(generator.encoder.audience, DEFAULT_AUDIENCE)
-        self.assertEqual(generator.encoder.secret, self.private_key)
+        self.assertEqual(generator.encoder.secret, self.secret_key)
 
     def test_token_generator_initial_admin(self):
-        generator = TokenGenerator(self.private_key)
+        generator = TokenGenerator(self.secret_key)
         initial_admin_token = generator.initial_admin()
 
-        decoder = JWTDecoder(DEFAULT_AUDIENCE, self.public_key)
+        decoder = JWTDecoder(DEFAULT_AUDIENCE, self.secret_key)
         payload = decoder.decode_token(initial_admin_token)
 
-        self.assertEqual(payload.keys(), set(["exp", "iss", "aud", "iat", "endpoint", "method"]))
+        self.assertEqual(payload.keys(), set(["exp", "iss", "aud", "iat", "scope"]))
 
         current_datetime = datetime.now(tz=timezone.utc)
         self.assert_initial_admin_jwt_is_valid(payload, current_datetime)
@@ -340,12 +298,9 @@ class TestJsonWebToken(TestCase):
         """
         If our public key doesn't match the private key, we should not be able to validate the token
         """
-        generator = TokenGenerator(self.private_key)
+        generator = TokenGenerator(self.secret_key)
 
-        # generate another keypair, use its public key in the decoder
-        _, another_public_key = generate_test_ed25519_keypair()
-
-        decoder = JWTDecoder(DEFAULT_AUDIENCE, another_public_key)
+        decoder = JWTDecoder(DEFAULT_AUDIENCE, "someRandomValue")
 
         initial_admin_token = generator.initial_admin()
 
@@ -356,10 +311,10 @@ class TestJsonWebToken(TestCase):
 
         # Gold standard - we can generate, sign, and verify the token with this keypair
 
-        generator = TokenGenerator(self.private_key)
+        generator = TokenGenerator(self.secret_key)
         initial_admin_token = generator.initial_admin()
 
-        decoder = JWTDecoder(DEFAULT_AUDIENCE, self.public_key)
+        decoder = JWTDecoder(DEFAULT_AUDIENCE, self.secret_key)
         payload = decoder.decode_token(initial_admin_token)
 
         current_datetime = datetime.now(tz=timezone.utc)
@@ -369,11 +324,11 @@ class TestJsonWebToken(TestCase):
 
         # Write the byte representation of the private key into a file
         with tempfile.TemporaryDirectory() as td:
-            private_keyfile = os.path.join(td, "test_ed25519")
-            with open(private_keyfile, "wb") as f:
-                f.write(convert_ed25519_private_key_to_bytes(self.private_key))
+            secret_keyfile = os.path.join(td, "secret_key")
+            with open(secret_keyfile, "wb") as f:
+                f.write(self.secret_key.encode())
 
-            loaded_private_key = load_ed25519_private_key(private_keyfile, None)
+            loaded_private_key = read_secret_key(secret_keyfile)
 
             test_generator = TokenGenerator(loaded_private_key)
             test_initial_admin_token = test_generator.initial_admin()
@@ -381,44 +336,3 @@ class TestJsonWebToken(TestCase):
 
             test_datetime = datetime.now(tz=timezone.utc)
             self.assert_initial_admin_jwt_is_valid(test_payload, test_datetime)
-
-    def test_load_ed25519_private_key(self):
-
-        # NoneType Path
-        with pytest.raises(RSConnectException):
-            load_ed25519_private_key(None, None)
-
-        # Invalid Path
-        with pytest.raises(RSConnectException):
-            load_ed25519_private_key("/some/path.secret", None)
-
-        # Invalid secret type
-        with pytest.raises(RSConnectException):
-            load_ed25519_private_key("tests/testdata/jwt/secret.key", None)
-
-        # Empty secret fyle
-        with pytest.raises(RSConnectException):
-            load_ed25519_private_key("tests/testdata/jwt/empty_secret.key", None)
-
-        private_key_bytes = convert_ed25519_private_key_to_bytes(self.private_key)
-
-        # A 'valid' secret key should load w/ no problems
-        with tempfile.TemporaryDirectory() as td:
-            private_keyfile = os.path.join(td, "test_ed25519")
-            with open(private_keyfile, "wb") as f:
-                f.write(private_key_bytes)
-
-            # first, test the private key load subroutine methods piecewise
-
-            bytes = read_ed25519_private_key(private_keyfile)
-
-            # validate that the bytes from the file are read correctly
-            self.assertEqual(bytes, private_key_bytes)
-
-            # read the key's byte representation into a cryptography.Ed25519PrivateKey
-            from_bytes = load_ed25519_private_key_from_bytes(bytes, None)
-
-            # Confirm that we generated a private key object from the read bytes
-            self.assertTrue(from_bytes is not None)
-        # Confirm that cleanup worked
-        self.assertFalse(os.path.exists(private_keyfile))

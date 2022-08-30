@@ -4,111 +4,24 @@ Json Web Token (JWT) utilities
 
 import os
 import sys
-import getpass
-
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 import jwt
-import typing
 from datetime import datetime, timedelta, timezone
-from cryptography.hazmat.primitives import serialization
 
 from rsconnect.http_support import HTTPResponse
 
 from .exception import RSConnectException
-from .log import logger
 
 DEFAULT_ISSUER = "rsconnect-python"
 DEFAULT_AUDIENCE = "rsconnect"
 
-OPENSSH_HEADER = b"-----BEGIN OPENSSH PRIVATE KEY-----\n"
-OPENSSH_FOOTER = b"-----END OPENSSH PRIVATE KEY-----\n"
-
-INITIAL_ADMIN_ENDPOINT = "/__api__/v1/experimental/installation/initial_admin"
-INITIAL_ADMIN_METHOD = "GET"
+INITIAL_ADMIN_SCOPE = "initial_admin"
 INITIAL_ADMIN_EXP = timedelta(minutes=15)
 
-ENV_VAR_PRIVATE_KEY_PASSWORD = "CONNECT_PRIVATE_KEY_PASSWORD"
 
-
-def _load_private_key_password_env() -> typing.Union[str, None]:
+def read_secret_key(keypath: str) -> bytes:
     """
-    Reads the private key password from the ENV_VAR_PRIVATE_KEY_PASSWORD environment variable
-    and returns it (if it exists)
-    """
-    return os.getenv(ENV_VAR_PRIVATE_KEY_PASSWORD)
-
-
-def _load_private_key_password_interactive() -> str:
-    """
-    Produces the password from interactive input on the command line
-    """
-    return getpass.getpass(prompt="Private Key Password: ")
-
-
-def load_private_key_password(interactive_password_flag) -> typing.Union[bytes, None]:
-    """
-    Load private key password from either an environment variable or the command line
-    """
-
-    password = _load_private_key_password_env()
-    if password is not None:
-        logger.debug("Loaded private key password from env var " + ENV_VAR_PRIVATE_KEY_PASSWORD)
-    else:
-        logger.debug("Private key password not set in env var " + ENV_VAR_PRIVATE_KEY_PASSWORD)
-
-    if interactive_password_flag:
-        if password is None:
-            password = _load_private_key_password_interactive()
-        else:
-            logger.debug("Skipping -p flag")
-
-    if password is None:
-        logger.debug("Private key password not provided.")
-        return None
-
-    return password.encode()
-
-
-def load_ed25519_private_key(keypath, password) -> Ed25519PrivateKey:
-
-    if keypath is None:
-        raise RSConnectException("Keypath must be provided to load private key")
-
-    bytes = read_ed25519_private_key(keypath)
-    try:
-        return load_ed25519_private_key_from_bytes(bytes, password)
-    except ValueError:
-        raise RSConnectException("Unable to load private key - it may be password-protected.")
-
-
-def load_ed25519_private_key_from_bytes(key_bytes: bytes, password) -> Ed25519PrivateKey:
-    """
-    Deserialize private key from byte representation
-    """
-
-    if key_bytes is None:
-        raise RSConnectException("Ed25519 key cannot be 'None'")
-
-    if not key_bytes.startswith(OPENSSH_HEADER) or not key_bytes.endswith(OPENSSH_FOOTER):
-        raise RSConnectException("Keyfile does not follow OpenSSH format (required for Ed25519)")
-
-    if password is not None:
-        logger.debug("Loading private key using provided password")
-    else:
-        logger.debug("Loading private key without using password")
-
-    key = serialization.load_ssh_private_key(key_bytes, password)
-
-    if not isinstance(key, Ed25519PrivateKey):
-        raise RSConnectException("Private key is not expected type: Ed25519PrivateKey")
-
-    return key
-
-
-def read_ed25519_private_key(keypath: str) -> bytes:
-    """
-    Reads an Ed25519PrivateKey as bytes given a keypath.
+    Reads a secret key as bytes given a keypath.
     """
 
     if not os.path.exists(keypath):
@@ -118,10 +31,7 @@ def read_ed25519_private_key(keypath: str) -> bytes:
         key_bytes = f.read()
 
         if key_bytes is None:
-            raise RSConnectException("Ed25519 key cannot be 'None'")
-
-        if not key_bytes.startswith(OPENSSH_HEADER) or not key_bytes.endswith(OPENSSH_FOOTER):
-            raise RSConnectException("Keyfile does not follow OpenSSH format (required for Ed25519)")
+            raise RSConnectException("Secret key cannot be 'None'")
 
         return key_bytes
 
@@ -212,7 +122,7 @@ class JWTEncoder:
         for c in [standard_claims, custom_claims]:
             claims.update(c)
 
-        return jwt.encode(claims, self.secret, algorithm="EdDSA")
+        return jwt.encode(claims, self.secret, algorithm="HS256")
 
 
 # Uses a generic encoder to create JWTs with specific custom scopes / expiration times
@@ -225,5 +135,5 @@ class TokenGenerator:
         self.encoder = JWTEncoder(DEFAULT_ISSUER, DEFAULT_AUDIENCE, secret)
 
     def initial_admin(self):
-        custom_claims = {"endpoint": INITIAL_ADMIN_ENDPOINT, "method": INITIAL_ADMIN_METHOD}
+        custom_claims = {"scope": INITIAL_ADMIN_SCOPE}
         return self.encoder.new_token(custom_claims, INITIAL_ADMIN_EXP)
