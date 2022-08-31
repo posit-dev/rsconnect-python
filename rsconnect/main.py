@@ -69,12 +69,12 @@ from .models import (
     VersionSearchFilterParamType,
 )
 from .json_web_token import (
-    load_ed25519_private_key,
+    read_secret_key,
+    validate_hs256_secret_key,
     is_jwt_compatible_python_version,
     TokenGenerator,
     produce_initial_admin_output,
     parse_client_response,
-    load_private_key_password,
 )
 
 server_store = ServerStore()
@@ -313,13 +313,7 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
 @click.option(
     "--jwt-keypath",
     "-j",
-    help="The path to the ed25519 private key used to sign the JWT.",
-)
-@click.option(
-    "--jwt-key-password",
-    "-p",
-    is_flag=True,
-    help="The password for an encrypted ed25519 private key, if one exists (default to None)",
+    help="The path to the file containing the private key used to sign the JWT.",
 )
 @click.option("--raw", "-r", is_flag=True, help="Return the API key as raw output rather than a JSON object")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
@@ -329,7 +323,6 @@ def initial_admin(
     insecure,
     cacert,
     jwt_keypath,
-    jwt_key_password,
     raw,
     verbose,
 ):
@@ -341,8 +334,9 @@ def initial_admin(
 
     validation.validate_initial_admin_options(server, jwt_keypath)
 
-    password = load_private_key_password(jwt_key_password)
-    private_key = load_ed25519_private_key(jwt_keypath, password)
+    private_key = read_secret_key(jwt_keypath)
+    validate_hs256_secret_key(private_key)
+
     token_generator = TokenGenerator(private_key)
 
     initial_admin_token = token_generator.initial_admin()

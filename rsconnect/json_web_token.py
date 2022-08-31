@@ -28,12 +28,17 @@ def read_secret_key(keypath: str) -> bytes:
         raise RSConnectException("Keypath does not exist.")
 
     with open(keypath, "rb") as f:
-        key_bytes = f.read()
-
-        if key_bytes is None:
+        key = f.read()
+        if key is None:
             raise RSConnectException("Secret key cannot be 'None'")
 
-        return key_bytes
+        return key
+
+
+# https://www.ibm.com/docs/vi/sva/9.0.6?topic=jwt-support
+def validate_hs256_secret_key(key: bytes):
+    if len(key) < 32:
+        raise RSConnectException("Secret key expected to be at least 32 bytes in length")
 
 
 def is_jwt_compatible_python_version() -> bool:

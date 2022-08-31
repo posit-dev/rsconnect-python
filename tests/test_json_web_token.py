@@ -20,6 +20,7 @@ from rsconnect.json_web_token import (
     parse_client_response,
     TokenGenerator,
     JWTEncoder,
+    validate_hs256_secret_key,
 )
 
 from tests.utils import (
@@ -43,7 +44,7 @@ class TestJsonWebToken(TestCase):
         if not is_jwt_compatible_python_version():
             self.skipTest("JWTs not supported in Python < 3.6")
 
-        self.secret_key = "12345678912345678912345678912345"
+        self.secret_key = b"12345678912345678912345678912345"
 
     def assert_initial_admin_jwt_is_valid(self, payload, current_datetime):
         """
@@ -307,6 +308,28 @@ class TestJsonWebToken(TestCase):
         with pytest.raises(jwt.InvalidSignatureError):
             decoder.decode_token(initial_admin_token)
 
+    def test_read_secret_key(self):
+
+        valid = read_secret_key("tests/testdata/jwt/secret.key")
+        self.assertEqual(valid, self.secret_key)
+
+        with pytest.raises(RSConnectException):
+            read_secret_key("invalid/path.key")
+
+    def test_validate_hs256_secret_key(self):
+
+        with pytest.raises(RSConnectException):
+            validate_hs256_secret_key(b"")
+
+        with pytest.raises(RSConnectException):
+            validate_hs256_secret_key(b"tooshort")
+
+        # success
+        validate_hs256_secret_key(self.secret_key)
+
+        # very long key is also fine
+        validate_hs256_secret_key(b"12345678901234567890123456789012345678901234567890")
+
     def test_token_workflow(self):
 
         # Gold standard - we can generate, sign, and verify the token with this keypair
@@ -326,7 +349,7 @@ class TestJsonWebToken(TestCase):
         with tempfile.TemporaryDirectory() as td:
             secret_keyfile = os.path.join(td, "secret_key")
             with open(secret_keyfile, "wb") as f:
-                f.write(self.secret_key.encode())
+                f.write(self.secret_key)
 
             loaded_private_key = read_secret_key(secret_keyfile)
 
