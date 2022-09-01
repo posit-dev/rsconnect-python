@@ -3,9 +3,8 @@ import os
 import shutil
 from os.path import join
 
-from unittest import TestCase
-
 import httpretty
+import pytest
 from click.testing import CliRunner
 
 from .utils import (
@@ -36,21 +35,21 @@ def _load_json(data):
     return json.loads(data)
 
 
-class TestMain(TestCase):
-    def setUp(self):
+class TestMain:
+    def setup_method(self):
         shutil.rmtree("test-home", ignore_errors=True)
         os.environ["HOME"] = "test-home"
 
     def require_connect(self):
         connect_server = os.environ.get("CONNECT_SERVER", None)
         if connect_server is None:
-            self.skipTest("Set CONNECT_SERVER to test this function.")
+            pytest.skip("Set CONNECT_SERVER to test this function.")
         return connect_server
 
     def require_api_key(self):
         connect_api_key = os.environ.get("CONNECT_API_KEY", None)
         if connect_api_key is None:
-            self.skipTest("Set CONNECT_API_KEY to test this function.")
+            pytest.skip("Set CONNECT_API_KEY to test this function.")
         return connect_api_key
 
     @staticmethod
@@ -75,15 +74,15 @@ class TestMain(TestCase):
     def test_version(self):
         runner = CliRunner()
         result = runner.invoke(cli, ["version"])
-        self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn(VERSION, result.output)
+        assert result.exit_code == 0, result.output
+        assert VERSION in result.output
 
     def test_ping(self):
         connect_server = self.require_connect()
         runner = CliRunner()
         result = runner.invoke(cli, ["details", "-s", connect_server])
-        self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("OK", result.output)
+        assert result.exit_code == 0, result.output
+        assert "OK" in result.output
 
     def test_ping_api_key(self):
         connect_server = require_connect(self)
@@ -92,15 +91,15 @@ class TestMain(TestCase):
         args = ["details"]
         apply_common_args(args, server=connect_server, key=api_key)
         result = runner.invoke(cli, args)
-        self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("OK", result.output)
+        assert result.exit_code == 0, result.output
+        assert "OK" in result.output
 
     def test_deploy(self):
         target = optional_target(get_dir(join("pip1", "dummy.ipynb")))
         runner = CliRunner()
         args = self.create_deploy_args("notebook", target)
         result = runner.invoke(cli, args)
-        self.assertEqual(result.exit_code, 0, result.output)
+        assert result.exit_code == 0, result.output
 
     # noinspection SpellCheckingInspection
     def test_deploy_manifest(self):
@@ -108,7 +107,7 @@ class TestMain(TestCase):
         runner = CliRunner()
         args = self.create_deploy_args("manifest", target)
         result = runner.invoke(cli, args)
-        self.assertEqual(result.exit_code, 0, result.output)
+        assert result.exit_code == 0, result.output
 
     # noinspection SpellCheckingInspection
     @httpretty.activate(verbose=True, allow_net_connect=False)
@@ -141,7 +140,7 @@ class TestMain(TestCase):
         def post_application_callback(request, uri, response_headers):
             parsed_request = _load_json(request.body)
             try:
-                self.assertDictEqual(parsed_request, {"account": 82069, "name": "myapp", "template": "shiny"})
+                assert parsed_request == {"account": 82069, "name": "myapp", "template": "shiny"}
             except AssertionError as e:
                 return _error_to_response(e)
             return [
@@ -162,13 +161,10 @@ class TestMain(TestCase):
             del parsed_request["checksum"]
             del parsed_request["content_length"]
             try:
-                self.assertDictEqual(
-                    parsed_request,
-                    {
-                        "application": 8442,
-                        "content_type": "application/x-tar",
-                    },
-                )
+                assert parsed_request == {
+                    "application": 8442,
+                    "content_type": "application/x-tar",
+                }
             except AssertionError as e:
                 return _error_to_response(e)
             return [
@@ -199,7 +195,7 @@ class TestMain(TestCase):
         def post_bundle_status_callback(request, uri, response_headers):
             parsed_request = _load_json(request.body)
             try:
-                self.assertDictEqual(parsed_request, {"status": "ready"})
+                assert parsed_request == {"status": "ready"}
             except AssertionError as e:
                 return _error_to_response(e)
             return [303, {"Location": "https://api.shinyapps.io/v1/bundles/12640"}, ""]
@@ -221,7 +217,7 @@ class TestMain(TestCase):
         def post_deploy_callback(request, uri, response_headers):
             parsed_request = _load_json(request.body)
             try:
-                self.assertDictEqual(parsed_request, {"bundle": 12640, "rebuild": False})
+                assert parsed_request == {"bundle": 12640, "rebuild": False}
             except AssertionError as e:
                 return _error_to_response(e)
             return [
@@ -260,7 +256,7 @@ class TestMain(TestCase):
         ]
         try:
             result = runner.invoke(cli, args)
-            self.assertEqual(result.exit_code, 0, result.output)
+            assert result.exit_code == 0, result.output
         finally:
             if original_api_key_value:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
@@ -268,9 +264,21 @@ class TestMain(TestCase):
                 os.environ["CONNECT_SERVER"] = original_server_value
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_deploy_manifest_cloud(self):
+    @pytest.mark.parametrize(
+        "project_application_id,project_id",
+        [(None, None), ("444", 555)],
+        ids=["without associated project", "with associated project"],
+    )
+    def test_deploy_manifest_cloud(self, project_application_id, project_id):
+        """
+        {} hellooo
+        """.format(
+            project_id
+        )
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
+        if project_application_id:
+            os.environ["LUCID_APPLICATION_ID"] = project_application_id
 
         httpretty.register_uri(
             httpretty.GET,
@@ -294,10 +302,19 @@ class TestMain(TestCase):
             status=200,
         )
 
+        if project_application_id:
+            httpretty.register_uri(
+                httpretty.GET,
+                "https://api.rstudio.cloud/v1/applications/444",
+                body=open("tests/testdata/lucid-responses/get-project-application.json", "r").read(),
+                adding_headers={"Content-Type": "application/json"},
+                status=200,
+            )
+
         def post_output_callback(request, uri, response_headers):
             parsed_request = _load_json(request.body)
             try:
-                self.assertDictEqual(parsed_request, {"name": "myapp", "space": None, "project": 555})
+                assert parsed_request == {"name": "myapp", "space": None, "project": project_id}
             except AssertionError as e:
                 return _error_to_response(e)
             return [
@@ -325,13 +342,10 @@ class TestMain(TestCase):
             del parsed_request["checksum"]
             del parsed_request["content_length"]
             try:
-                self.assertDictEqual(
-                    parsed_request,
-                    {
-                        "application": 8442,
-                        "content_type": "application/x-tar",
-                    },
-                )
+                assert parsed_request == {
+                    "application": 8442,
+                    "content_type": "application/x-tar",
+                }
             except AssertionError as e:
                 return _error_to_response(e)
             return [
@@ -362,7 +376,7 @@ class TestMain(TestCase):
         def post_bundle_status_callback(request, uri, response_headers):
             parsed_request = _load_json(request.body)
             try:
-                self.assertDictEqual(parsed_request, {"status": "ready"})
+                assert parsed_request == {"status": "ready"}
             except AssertionError as e:
                 return _error_to_response(e)
             return [303, {"Location": "https://api.rstudio.cloud/v1/bundles/12640"}, ""]
@@ -384,7 +398,7 @@ class TestMain(TestCase):
         def post_deploy_callback(request, uri, response_headers):
             parsed_request = _load_json(request.body)
             try:
-                self.assertDictEqual(parsed_request, {"bundle": 12640, "rebuild": False})
+                assert parsed_request == {"bundle": 12640, "rebuild": False}
             except AssertionError as e:
                 return _error_to_response(e)
             return [
@@ -425,27 +439,29 @@ class TestMain(TestCase):
         ]
         try:
             result = runner.invoke(cli, args)
-            self.assertEqual(result.exit_code, 0, result.output)
+            assert result.exit_code == 0, result.output
         finally:
             if original_api_key_value:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
+            if project_application_id:
+                del os.environ["LUCID_APPLICATION_ID"]
 
     def test_deploy_api(self):
         target = optional_target(get_api_path("flask"))
         runner = CliRunner()
         args = self.create_deploy_args("api", target)
         result = runner.invoke(cli, args)
-        self.assertEqual(result.exit_code, 0, result.output)
+        assert result.exit_code == 0, result.output
 
     def test_add_connect(self):
         connect_server = self.require_connect()
         api_key = self.require_api_key()
         runner = CliRunner()
         result = runner.invoke(cli, ["add", "--name", "my-connect", "--server", connect_server, "--api-key", api_key])
-        self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("OK", result.output)
+        assert result.exit_code == 0, result.output
+        assert "OK" in result.output
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_add_shinyapps(self):
@@ -471,8 +487,8 @@ class TestMain(TestCase):
                     "c29tZVNlY3JldAo=",
                 ],
             )
-            self.assertEqual(result.exit_code, 0, result.output)
-            self.assertIn("shinyapps.io credential", result.output)
+            assert result.exit_code == 0, result.output
+            assert "shinyapps.io credential" in result.output
 
         finally:
             if original_api_key_value:
@@ -506,8 +522,8 @@ class TestMain(TestCase):
                     "rstudio.cloud",
                 ],
             )
-            self.assertEqual(result.exit_code, 0, result.output)
-            self.assertIn("RStudio Cloud credential", result.output)
+            assert result.exit_code == 0, result.output
+            assert "RStudio Cloud credential" in result.output
 
         finally:
             if original_api_key_value:
@@ -530,10 +546,10 @@ class TestMain(TestCase):
                     "someToken",
                 ],
             )
-            self.assertEqual(result.exit_code, 1, result.output)
-            self.assertEqual(
-                str(result.exception),
-                "-A/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io.",
+            assert result.exit_code == 1, result.output
+            assert (
+                str(result.exception)
+                == "-A/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io."
             )
         finally:
             if original_api_key_value:
