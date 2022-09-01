@@ -481,7 +481,7 @@ class TestMain(TestCase):
                 os.environ["CONNECT_SERVER"] = original_server_value
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_add_shinyapps(self):
+    def test_add_cloud(self):
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
         try:
