@@ -559,6 +559,7 @@ class RSConnectExecutor:
         account_name = account_name or self.remote_server.account_name
         token = token or self.remote_server.token
         secret = secret or self.remote_server.secret
+        server: LucidServer
         if "rstudio.cloud" in url:
             server = CloudServer(url, account_name, token, secret)
         else:
@@ -652,7 +653,7 @@ class RSConnectExecutor:
     def deploy_bundle(
         self,
         app_id: int = None,
-        project_application_id: int = None,
+        project_application_id: str = None,
         deployment_name: str = None,
         title: str = None,
         title_is_default: bool = False,
@@ -1117,7 +1118,7 @@ class ShinyappsService:
         self._lucid_client = lucid_client
         self._server = server
 
-    def prepare_deploy(self, app_id: typing.Optional[str], app_name: str, bundle_size: int, bundle_hash: str):
+    def prepare_deploy(self, app_id: typing.Optional[int], app_name: str, bundle_size: int, bundle_hash: str):
         accounts = self._lucid_client.get_accounts()
         self._server.handle_bad_response(accounts)
         account = next(
@@ -1168,7 +1169,7 @@ class CloudService:
 
     def prepare_deploy(
         self,
-        app_id: typing.Optional[str],
+        app_id: typing.Optional[int],
         project_application_id: typing.Optional[str],
         app_name: str,
         bundle_size: int,
