@@ -297,7 +297,7 @@ class TestMain(TestCase):
         def post_output_callback(request, uri, response_headers):
             parsed_request = _load_json(request.body)
             try:
-                self.assertDictEqual(parsed_request, {"name": "myapp", "space_id": None, "project_id": None})
+                self.assertDictEqual(parsed_request, {"name": "myapp", "space": None, "project": None})
             except AssertionError as e:
                 return _error_to_response(e)
             return [
