@@ -33,11 +33,13 @@ def validate_connection_options(url, api_key, insecure, cacert, account_name, to
 
     if present_connect_options and present_shinyapps_options:
         raise RSConnectException(
-            "Connect options ({}) may not be passed alongside shinyapps.io options ({}).".format(
+            "Connect options ({}) may not be passed alongside shinyapps.io or RStudio Cloud options ({}).".format(
                 ", ".join(present_connect_options), ", ".join(present_shinyapps_options)
             )
         )
 
     if present_shinyapps_options:
         if len(present_shinyapps_options) != 3:
-            raise RSConnectException("-A/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io.")
+            raise RSConnectException(
+                "-A/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io or RStudio Cloud."
+            )
