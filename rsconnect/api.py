@@ -559,11 +559,11 @@ class RSConnectExecutor:
         account_name = account_name or self.remote_server.account_name
         token = token or self.remote_server.token
         secret = secret or self.remote_server.secret
-        server: LucidServer
-        if "rstudio.cloud" in url:
-            server = CloudServer(url, account_name, token, secret)
-        else:
-            server = ShinyappsServer(url, account_name, token, secret)
+        server = (
+            CloudServer(url, account_name, token, secret)
+            if "rstudio.cloud" in url
+            else ShinyappsServer(url, account_name, token, secret)
+        )
 
         with LucidClient(server) as client:
             try:
