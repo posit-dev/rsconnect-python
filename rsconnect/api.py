@@ -62,17 +62,42 @@ class AbstractRemoteServer:
                     )
 
 
-class ShinyappsServer(AbstractRemoteServer):
+class LucidServer(AbstractRemoteServer):
     """
-    A simple class to encapsulate the information needed to interact with an
+    A class used to represent the server of the shinyapps.io and RStudio Cloud APIs.
+    """
+
+    def __init__(self, remote_name: str, url: str, account_name: str, token: str, secret: str):
+        super().__init__(url, remote_name)
+        self.account_name = account_name
+        self.token = token
+        self.secret = secret
+
+
+class ShinyappsServer(LucidServer):
+    """
+    A class to encapsulate the information needed to interact with an
     instance of the shinyapps.io server.
     """
 
     def __init__(self, url: str, account_name: str, token: str, secret: str):
-        super().__init__(url or "https://api.shinyapps.io", "shinyapps.io")
-        self.account_name = account_name
-        self.token = token
-        self.secret = secret
+        remote_name = "shinyapps.io"
+        if url == "shinyapps.io" or url is None:
+            url = "https://api.shinyapps.io"
+        super().__init__(remote_name=remote_name, url=url, account_name=account_name, token=token, secret=secret)
+
+
+class CloudServer(LucidServer):
+    """
+    A class to encapsulate the information needed to interact with an
+    instance of the RStudio Cloud server.
+    """
+
+    def __init__(self, url: str, account_name: str, token: str, secret: str):
+        remote_name = "RStudio Cloud"
+        if url == "rstudio.cloud" or url is None:
+            url = "https://api.rstudio.cloud"
+        super().__init__(remote_name=remote_name, url=url, account_name=account_name, token=token, secret=secret)
 
 
 class RSConnectServer(AbstractRemoteServer):
@@ -90,7 +115,7 @@ class RSConnectServer(AbstractRemoteServer):
         self.cookie_jar = CookieJar()
 
 
-TargetableServer = typing.Union[ShinyappsServer, RSConnectServer]
+TargetableServer = typing.Union[ShinyappsServer, RSConnectServer, CloudServer]
 
 
 class S3Server(AbstractRemoteServer):
@@ -415,15 +440,18 @@ class RSConnectExecutor:
         if api_key:
             self.remote_server = RSConnectServer(url, api_key, insecure, ca_data)
         elif token and secret:
-            self.remote_server = ShinyappsServer(url, account_name, token, secret)
+            if url and "rstudio.cloud" in url:
+                self.remote_server = CloudServer(url, account_name, token, secret)
+            else:
+                self.remote_server = ShinyappsServer(url, account_name, token, secret)
         else:
             raise RSConnectException("Unable to infer Connect server type and setup server.")
 
     def setup_client(self, cookies=None, timeout=30, **kwargs):
         if isinstance(self.remote_server, RSConnectServer):
             self.client = RSConnectClient(self.remote_server, cookies, timeout)
-        elif isinstance(self.remote_server, ShinyappsServer):
-            self.client = ShinyappsClient(self.remote_server, timeout)
+        elif isinstance(self.remote_server, LucidServer):
+            self.client = LucidClient(self.remote_server, timeout)
         else:
             raise RSConnectException("Unable to infer Connect client.")
 
@@ -452,8 +480,8 @@ class RSConnectExecutor:
     ):
         if (url and api_key) or isinstance(self.remote_server, RSConnectServer):
             self.validate_connect_server(name, url, api_key, insecure, cacert, api_key_is_required)
-        elif (url and token and secret) or isinstance(self.remote_server, ShinyappsServer):
-            self.validate_shinyapps_server(url, account_name, token, secret)
+        elif (url and token and secret) or isinstance(self.remote_server, LucidServer):
+            self.validate_lucid_server(url, account_name, token, secret)
         else:
             raise RSConnectException("Unable to validate server from information provided.")
 
@@ -524,21 +552,24 @@ class RSConnectExecutor:
 
         return self
 
-    def validate_shinyapps_server(
+    def validate_lucid_server(
         self, url: str = None, account_name: str = None, token: str = None, secret: str = None, **kwargs
     ):
         url = url or self.remote_server.url
         account_name = account_name or self.remote_server.account_name
         token = token or self.remote_server.token
         secret = secret or self.remote_server.secret
-        server = ShinyappsServer(url, account_name, token, secret)
+        if "rstudio.cloud" in url:
+            server = CloudServer(url, account_name, token, secret)
+        else:
+            server = ShinyappsServer(url, account_name, token, secret)
 
-        with ShinyappsClient(server) as client:
+        with LucidClient(server) as client:
             try:
                 result = client.get_current_user()
                 server.handle_bad_response(result)
             except RSConnectException as exc:
-                raise RSConnectException("Failed to verify with shinyapps.io ({}).".format(exc))
+                raise RSConnectException("Failed to verify with {} ({}).".format(server.remote_name, exc))
 
     @cls_logged("Making bundle ...")
     def make_bundle(self, func: Callable, *args, **kwargs):
@@ -590,7 +621,7 @@ class RSConnectExecutor:
         :param details_source: the source for obtaining server details, gather_server_details(),
         by default.
         """
-        if isinstance(self.remote_server, ShinyappsServer):
+        if isinstance(self.remote_server, LucidServer):
             return self
 
         details = self.server_details
@@ -605,10 +636,23 @@ class RSConnectExecutor:
                 raise RSConnectException(message)
         return self
 
+    def upload_lucid_bundle(self, prepare_deploy_result, bundle_size: int, contents):
+        upload_url = prepare_deploy_result.presigned_url
+        parsed_upload_url = urlparse(upload_url)
+        with S3Client("{}://{}".format(parsed_upload_url.scheme, parsed_upload_url.netloc), timeout=120) as s3_client:
+            upload_result = s3_client.upload(
+                "{}?{}".format(parsed_upload_url.path, parsed_upload_url.query),
+                prepare_deploy_result.presigned_checksum,
+                bundle_size,
+                contents,
+            )
+            S3Server(upload_url).handle_bad_response(upload_result)
+
     @cls_logged("Deploying bundle ...")
     def deploy_bundle(
         self,
         app_id: int = None,
+        project_application_id: int = None,
         deployment_name: str = None,
         title: str = None,
         title_is_default: bool = False,
@@ -616,6 +660,7 @@ class RSConnectExecutor:
         env_vars=None,
     ):
         app_id = app_id or self.get("app_id")
+        project_application_id = project_application_id or self.get("project_application_id")
         deployment_name = deployment_name or self.get("deployment_name")
         title = title or self.get("title")
         title_is_default = title_is_default or self.get("title_is_default")
@@ -639,27 +684,27 @@ class RSConnectExecutor:
             bundle_size = len(contents)
             bundle_hash = hashlib.md5(contents).hexdigest()
 
-            prepare_deploy_result = self.client.prepare_deploy(
-                app_id,
-                deployment_name,
-                bundle_size,
-                bundle_hash,
-            )
-
-            upload_url = prepare_deploy_result.presigned_url
-            parsed_upload_url = urlparse(upload_url)
-            with S3Client(
-                "{}://{}".format(parsed_upload_url.scheme, parsed_upload_url.netloc), timeout=120
-            ) as s3_client:
-                upload_result = s3_client.upload(
-                    "{}?{}".format(parsed_upload_url.path, parsed_upload_url.query),
-                    prepare_deploy_result.presigned_checksum,
+            if isinstance(self.remote_server, ShinyappsServer):
+                shinyapps_service = ShinyappsService(self.client, self.remote_server)
+                prepare_deploy_result = shinyapps_service.prepare_deploy(
+                    app_id,
+                    deployment_name,
                     bundle_size,
-                    contents,
+                    bundle_hash,
                 )
-                S3Server(upload_url).handle_bad_response(upload_result)
-
-            self.client.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
+                self.upload_lucid_bundle(prepare_deploy_result, bundle_size, contents)
+                shinyapps_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
+            else:
+                cloud_service = CloudService(self.client, self.remote_server)
+                prepare_deploy_result = cloud_service.prepare_deploy(
+                    app_id,
+                    project_application_id,
+                    deployment_name,
+                    bundle_size,
+                    bundle_hash,
+                )
+                self.upload_lucid_bundle(prepare_deploy_result, bundle_size, contents)
+                cloud_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
 
             print("Application successfully deployed to {}".format(prepare_deploy_result.app_url))
             webbrowser.open_new(prepare_deploy_result.app_url)
@@ -769,8 +814,8 @@ class RSConnectExecutor:
                 if isinstance(self.remote_server, RSConnectServer):
                     app = get_app_info(self.remote_server, app_id)
                     existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
-                elif isinstance(self.remote_server, ShinyappsServer):
-                    app = get_shinyapp_info(self.remote_server, app_id)
+                elif isinstance(self.remote_server, LucidServer):
+                    app = get_lucid_app_info(self.remote_server, app_id)
                     existing_app_mode = AppModes.get_by_cloud_name(app.json_data["mode"])
                 else:
                     raise RSConnectException("Unable to infer Connect client.")
@@ -916,15 +961,32 @@ class PrepareDeployResult:
         self.presigned_checksum = presigned_checksum
 
 
-class ShinyappsClient(HTTPServer):
+class PrepareDeployOutputResult(PrepareDeployResult):
+    def __init__(
+        self, app_id: int, app_url: str, bundle_id: int, presigned_url: str, presigned_checksum: str, output_id: int
+    ):
+        super().__init__(
+            app_id=app_id,
+            app_url=app_url,
+            bundle_id=bundle_id,
+            presigned_url=presigned_url,
+            presigned_checksum=presigned_checksum,
+        )
+        self.output_id = output_id
+
+
+class LucidClient(HTTPServer):
+    """
+    An HTTP client to call the RStudio Cloud and shinyapps.io APIs.
+    """
 
     _TERMINAL_STATUSES = {"success", "failed", "error"}
 
-    def __init__(self, shinyapps_server: ShinyappsServer, timeout: int = 30):
-        self._token = shinyapps_server.token
-        self._key = base64.b64decode(shinyapps_server.secret)
-        self._server = shinyapps_server
-        super().__init__(shinyapps_server.url, timeout=timeout)
+    def __init__(self, lucid_server: LucidServer, timeout: int = 30):
+        self._token = lucid_server.token
+        self._key = base64.b64decode(lucid_server.secret)
+        self._server = lucid_server
+        super().__init__(lucid_server.url, timeout=timeout)
 
     def _get_canonical_request(self, method, path, timestamp, content_hash):
         return "\n".join([method, path, timestamp, content_hash])
@@ -968,6 +1030,15 @@ class ShinyappsClient(HTTPServer):
             "template": "shiny",
         }
         return self.post("/v1/applications/", body=application_data)
+
+    def create_output(self, name, project_id=None, space_id=None):
+        data = {
+            "name": name,
+            "space": space_id,
+            "project": project_id,
+        }
+        print(f"creating output with {data}")
+        return self.post("/v1/outputs/", body=data)
 
     def get_accounts(self):
         return self.get("/v1/accounts/")
@@ -1019,46 +1090,9 @@ class ShinyappsClient(HTTPServer):
             print("  {} - {}".format(status, description))
             time.sleep(2)
 
+        print("****task json data")
+        print(task.json_data)
         print("Task done: {}".format(description))
-
-    def prepare_deploy(self, app_id: typing.Optional[str], app_name: str, bundle_size: int, bundle_hash: str):
-        accounts = self.get_accounts()
-        self._server.handle_bad_response(accounts)
-        account = next(
-            filter(lambda acct: acct["name"] == self._server.account_name, accounts.json_data["accounts"]), None
-        )
-        # TODO: also check this during `add` command
-        if account is None:
-            raise RSConnectException(
-                "No account found by name : %s for given user credential" % self._server.account_name
-            )
-
-        if app_id is None:
-            application = self.create_application(account["id"], app_name)
-        else:
-            application = self.get_application(app_id)
-        self._server.handle_bad_response(application)
-        app_id_int = application.json_data["id"]
-        app_url = application.json_data["url"]
-
-        bundle = self.create_bundle(app_id_int, "application/x-tar", bundle_size, bundle_hash)
-        self._server.handle_bad_response(bundle)
-
-        return PrepareDeployResult(
-            app_id_int,
-            app_url,
-            int(bundle.json_data["id"]),
-            bundle.json_data["presigned_url"],
-            bundle.json_data["presigned_checksum"],
-        )
-
-    def do_deploy(self, bundle_id, app_id):
-        bundle_status_response = self.set_bundle_status(bundle_id, "ready")
-        self._server.handle_bad_response(bundle_status_response)
-
-        deploy_task = self.deploy_application(bundle_id, app_id)
-        self._server.handle_bad_response(deploy_task)
-        self.wait_until_task_is_successful(deploy_task.json_data["id"])
 
     def get_applications_like_name(self, name):
         applications = []
@@ -1075,6 +1109,128 @@ class ShinyappsClient(HTTPServer):
             offset += int(results.json_data["count"])
 
         return [app["name"] for app in applications]
+
+
+class ShinyappsService:
+    """
+    Encapsulates operations involving multiple API calls to shinyapps.io.
+    """
+
+    def __init__(self, lucid_client: LucidClient, server: ShinyappsServer):
+        self._lucid_client = lucid_client
+        self._server = server
+
+    def prepare_deploy(self, app_id: typing.Optional[str], app_name: str, bundle_size: int, bundle_hash: str):
+        accounts = self._lucid_client.get_accounts()
+        self._server.handle_bad_response(accounts)
+        account = next(
+            filter(lambda acct: acct["name"] == self._server.account_name, accounts.json_data["accounts"]), None
+        )
+        # TODO: also check this during `add` command
+        if account is None:
+            raise RSConnectException(
+                "No account found by name : %s for given user credential" % self._server.account_name
+            )
+
+        if app_id is None:
+            application = self._lucid_client.create_application(account["id"], app_name)
+        else:
+            application = self._lucid_client.get_application(app_id)
+        self._server.handle_bad_response(application)
+        app_id_int = application.json_data["id"]
+        app_url = application.json_data["url"]
+
+        bundle = self._lucid_client.create_bundle(app_id_int, "application/x-tar", bundle_size, bundle_hash)
+        self._server.handle_bad_response(bundle)
+
+        return PrepareDeployResult(
+            app_id_int,
+            app_url,
+            int(bundle.json_data["id"]),
+            bundle.json_data["presigned_url"],
+            bundle.json_data["presigned_checksum"],
+        )
+
+    def do_deploy(self, bundle_id, app_id):
+        bundle_status_response = self._lucid_client.set_bundle_status(bundle_id, "ready")
+        self._server.handle_bad_response(bundle_status_response)
+
+        deploy_task = self._lucid_client.deploy_application(bundle_id, app_id)
+        self._server.handle_bad_response(deploy_task)
+        self._lucid_client.wait_until_task_is_successful(deploy_task.json_data["id"])
+
+
+class CloudService:
+    """
+    Encapsulates operations involving multiple API calls to RStudio Cloud.
+    """
+
+    def __init__(self, lucid_client: LucidClient, server: CloudServer):
+        self._lucid_client = lucid_client
+        self._server = server
+
+    def prepare_deploy(
+        self,
+        app_id: typing.Optional[str],
+        project_application_id: typing.Optional[str],
+        app_name: str,
+        bundle_size: int,
+        bundle_hash: str,
+    ):
+        accounts = self._lucid_client.get_accounts()
+        self._server.handle_bad_response(accounts)
+        account = next(
+            filter(lambda acct: acct["name"] == self._server.account_name, accounts.json_data["accounts"]), None
+        )
+        # TODO: also check this during `add` command
+        if account is None:
+            raise RSConnectException(
+                "No account found by name : %s for given user credential" % self._server.account_name
+            )
+
+        print("********")
+        if app_id is None:
+            print("app_id is none")
+            if project_application_id is not None:
+                print(f"project_application_id is {project_application_id}")
+                project_application = self._lucid_client.get_application(project_application_id)
+                self._server.handle_bad_response(project_application)
+                project_id = project_application.json_data["content_id"]
+                print(f"project_id is {project_id}")
+            else:
+                project_id = None
+
+            output = self._lucid_client.create_output(name=app_name, project_id=project_id)
+            self._server.handle_bad_response(output)
+            print("****here is the output")
+            print(output.json_data)
+            app_id = output.json_data["source_id"]
+
+        application = self._lucid_client.get_application(app_id)
+        self._server.handle_bad_response(application)
+        app_id_int = application.json_data["id"]
+        app_url = application.json_data["url"]
+        output_id = application.json_data["content_id"]
+
+        bundle = self._lucid_client.create_bundle(app_id_int, "application/x-tar", bundle_size, bundle_hash)
+        self._server.handle_bad_response(bundle)
+
+        return PrepareDeployOutputResult(
+            app_id=app_id_int,
+            app_url=app_url,
+            bundle_id=int(bundle.json_data["id"]),
+            presigned_url=bundle.json_data["presigned_url"],
+            presigned_checksum=bundle.json_data["presigned_checksum"],
+            output_id=output_id,
+        )
+
+    def do_deploy(self, bundle_id, app_id):
+        bundle_status_response = self._lucid_client.set_bundle_status(bundle_id, "ready")
+        self._server.handle_bad_response(bundle_status_response)
+
+        deploy_task = self._lucid_client.deploy_application(bundle_id, app_id)
+        self._server.handle_bad_response(deploy_task)
+        self._lucid_client.wait_until_task_is_successful(deploy_task.json_data["id"])
 
 
 def verify_server(connect_server):
@@ -1143,8 +1299,8 @@ def get_app_info(connect_server, app_id):
         return result
 
 
-def get_shinyapp_info(server, app_id):
-    with ShinyappsClient(server) as client:
+def get_lucid_app_info(server, app_id):
+    with LucidClient(server) as client:
         result = client.get_application(app_id)
         server.handle_bad_response(result)
         return result
@@ -1352,9 +1508,12 @@ def find_unique_name(remote_server: TargetableServer, name: str):
             filters={"search": name},
             mapping_function=lambda client, app: app["name"],
         )
-    else:
-        client = ShinyappsClient(remote_server)
+    elif isinstance(remote_server, ShinyappsServer):
+        client = LucidClient(remote_server)
         existing_names = client.get_applications_like_name(name)
+    else:
+        # non-unique names are permitted in cloud
+        return name
 
     if name in existing_names:
         suffix = 1

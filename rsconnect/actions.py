@@ -218,13 +218,13 @@ def test_server(connect_server):
     raise RSConnectException("\n".join(failures))
 
 
-def test_shinyapps_server(server: api.ShinyappsServer):
-    with api.ShinyappsClient(server) as client:
+def test_lucid_server(server: api.LucidServer):
+    with api.LucidClient(server) as client:
         try:
             result = client.get_current_user()
             server.handle_bad_response(result)
         except RSConnectException as exc:
-            raise RSConnectException("Failed to verify with shinyapps.io ({}).".format(exc))
+            raise RSConnectException("Failed to verify with {} ({}).".format(server.remote_name, exc))
 
 
 def test_api_key(connect_server):
@@ -1588,8 +1588,8 @@ def _gather_basic_deployment_info_for_framework(
             if isinstance(remote_server, api.RSConnectServer):
                 app = api.get_app_info(remote_server, app_id)
                 existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
-            elif isinstance(remote_server, api.ShinyappsServer):
-                app = api.get_shinyapp_info(remote_server, app_id)
+            elif isinstance(remote_server, api.LucidServer):
+                app = api.get_lucid_app_info(remote_server, app_id)
                 existing_app_mode = AppModes.get_by_cloud_name(app.json_data["mode"])
             else:
                 raise RSConnectException("Unable to infer Connect client.")

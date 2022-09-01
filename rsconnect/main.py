@@ -21,7 +21,7 @@ from .actions import (
     test_server,
     validate_quarto_engines,
     which_quarto,
-    test_shinyapps_server,
+    test_lucid_server,
 )
 from .actions_content import (
     download_bundle,
@@ -133,24 +133,24 @@ def server_args(func):
     return wrapper
 
 
-def shinyapps_args(func):
+def lucid_args(func):
     @click.option(
         "--account",
         "-A",
-        envvar="SHINYAPPS_ACCOUNT",
-        help="The shinyapps.io account name.",
+        envvar=["SHINYAPPS_ACCOUNT", "RSCLOUD_ACCOUNT"],
+        help="The shinyapps.io/RStudio Cloud account name.",
     )
     @click.option(
         "--token",
         "-T",
-        envvar="SHINYAPPS_TOKEN",
-        help="The shinyapps.io token.",
+        envvar=["SHINYAPPS_TOKEN", "RSCLOUD_TOKEN"],
+        help="The shinyapps.io/RStudio Cloud token.",
     )
     @click.option(
         "--secret",
         "-S",
-        envvar="SHINYAPPS_SECRET",
-        help="The shinyapps.io token secret.",
+        envvar=["SHINYAPPS_SECRET", "RSCLOUD_SECRET"],
+        help="The shinyapps.io/RStudio Cloud token secret.",
     )
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -220,6 +220,20 @@ def content_args(func):
     return wrapper
 
 
+def cloud_content_args(func):
+    @click.option(
+        "--project-application-id",
+        "-P",
+        envvar="LUCID_APPLICATION_ID",
+        help="The application of the project to to be associated with when creating an output.",
+    )
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 @click.group(no_args_is_help=True)
 @click.option("--future", "-u", is_flag=True, hidden=True, help="Enables future functionality.")
 def cli(future):
@@ -273,9 +287,9 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
     return real_server, me
 
 
-def _test_shinyappsio_creds(server: api.ShinyappsServer):
-    with cli_feedback("Checking shinyapps.io credential"):
-        test_shinyapps_server(server)
+def _test_lucid_creds(server: api.LucidServer):
+    with cli_feedback("Checking {} credential".format(server.remote_name)):
+        test_lucid_server(server)
 
 
 # noinspection SpellCheckingInspection
@@ -314,7 +328,7 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
     type=click.File(),
     help="The path to trusted TLS CA certificates.",
 )
-@shinyapps_args
+@lucid_args
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def add(name, server, api_key, insecure, cacert, account, token, secret, verbose):
 
@@ -333,20 +347,24 @@ def add(name, server, api_key, insecure, cacert, account, token, secret, verbose
     old_server = server_store.get_by_name(name)
 
     if account:
-        shinyapps_server = api.ShinyappsServer(server, account, token, secret)
-        _test_shinyappsio_creds(shinyapps_server)
+        if server and "rstudio.cloud" in server:
+            real_server = api.CloudServer(server, account, token, secret)
+        else:
+            real_server = api.ShinyappsServer(server, account, token, secret)
+
+        _test_lucid_creds(real_server)
 
         server_store.set(
             name,
-            shinyapps_server.url,
-            account_name=shinyapps_server.account_name,
-            token=shinyapps_server.token,
-            secret=shinyapps_server.secret,
+            real_server.url,
+            account_name=real_server.account_name,
+            token=real_server.token,
+            secret=real_server.secret,
         )
         if old_server:
-            click.echo('Updated shinyapps.io credential "%s".' % name)
+            click.echo('Updated {} credential "{}".'.format(real_server.remote_name, name))
         else:
-            click.echo('Added shinyapps.io credential "%s".' % name)
+            click.echo('Added {} credential "{}".'.format(real_server.remote_name, name))
     else:
         # Server must be pingable and the API key must work to be added.
         real_server, _ = _test_server_and_api(server, api_key, insecure, cacert)
@@ -745,7 +763,8 @@ def deploy_notebook(
 )
 @server_args
 @content_args
-@shinyapps_args
+@cloud_content_args
+@lucid_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @cli_exception_handler
 def deploy_manifest(
@@ -759,6 +778,7 @@ def deploy_manifest(
     secret: str,
     new: bool,
     app_id: str,
+    project_application_id: typing.Optional[str],
     title: str,
     verbose: bool,
     file: str,
@@ -984,9 +1004,7 @@ def deploy_html(
     )
 
 
-def generate_deploy_python(app_mode, alias, min_version, supported_by_shinyapps=False):
-    shinyapps = shinyapps_args if supported_by_shinyapps else _passthrough
-
+def generate_deploy_python(app_mode, alias, min_version):
     # noinspection SpellCheckingInspection
     @deploy.command(
         name=alias,
@@ -1000,7 +1018,8 @@ def generate_deploy_python(app_mode, alias, min_version, supported_by_shinyapps=
     )
     @server_args
     @content_args
-    @shinyapps
+    @lucid_args
+    @cloud_content_args
     @click.option(
         "--entrypoint",
         "-e",
@@ -1075,6 +1094,7 @@ def generate_deploy_python(app_mode, alias, min_version, supported_by_shinyapps=
         account: str = None,
         token: str = None,
         secret: str = None,
+        project_application_id: typing.Optional[str] = None,
     ):
         kwargs = locals()
         kwargs["entrypoint"] = entrypoint = validate_entry_point(entrypoint, directory)
@@ -1116,9 +1136,7 @@ deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias=
 deploy_dash_app = generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
 deploy_streamlit_app = generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
 deploy_bokeh_app = generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
-deploy_shiny = generate_deploy_python(
-    app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0", supported_by_shinyapps=True
-)
+deploy_shiny = generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0")
 
 
 @deploy.command(
