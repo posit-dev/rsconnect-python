@@ -1089,8 +1089,6 @@ class LucidClient(HTTPServer):
             print("  {} - {}".format(status, description))
             time.sleep(2)
 
-        print("****task json data")
-        print(task.json_data)
         print("Task done: {}".format(description))
 
     def get_applications_like_name(self, name):
