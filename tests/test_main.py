@@ -63,8 +63,8 @@ class TestMain:
 
     # noinspection SpellCheckingInspection
     def create_deploy_args(self, deploy_command, target):
-        connect_server = require_connect(self)
-        api_key = require_api_key(self)
+        connect_server = require_connect()
+        api_key = require_api_key()
         cadata_file = optional_ca_data(None)
         args = ["deploy", deploy_command]
         apply_common_args(args, server=connect_server, key=api_key, cacert=cadata_file)
@@ -85,8 +85,8 @@ class TestMain:
         assert "OK" in result.output
 
     def test_ping_api_key(self):
-        connect_server = require_connect(self)
-        api_key = require_api_key(self)
+        connect_server = require_connect()
+        api_key = require_api_key()
         runner = CliRunner()
         args = ["details"]
         apply_common_args(args, server=connect_server, key=api_key)
