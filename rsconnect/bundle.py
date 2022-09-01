@@ -841,9 +841,11 @@ def make_voila_bundle(
     :return: a file-like object containing the bundle tarball.
     """
     mimetypes.add_type("text/ipynb", ".ipynb")
+    voila_config = "voila.json"
+    extra_files = list(extra_files) if extra_files else []
+    excludes = list(excludes) if excludes else []
+
     entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
-    if extra_files is None:
-        extra_files = []
     base_dir = dirname(entrypoint)
     nb_name = basename(entrypoint)
 
@@ -853,17 +855,16 @@ def make_voila_bundle(
     manifest_add_file(manifest, nb_name, base_dir)
     manifest_add_buffer(manifest, environment.filename, environment.contents)
 
-    if extra_files:
-        skip = [nb_name, environment.filename, "manifest.json"]
-        extra_files = sorted(list(set(extra_files) - set(skip)))
-    packed_extra_files = pack_extra_files(path, entrypoint, extra_files, excludes)
+    excludes.extend(["manifest.json", voila_config])
+    packed_extra_files = pack_extra_files(path, extra_files, excludes)
     for rel_path in packed_extra_files:
         manifest_add_file(manifest, rel_path, path)
-
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
 
     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
         bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
+        if exists(join(base_dir, voila_config)):
+            bundle_add_file(bundle, voila_config, base_dir)
         if isfile(path):
             bundle_add_file(bundle, environment.filename, base_dir)
 
