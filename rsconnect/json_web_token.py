@@ -27,8 +27,8 @@ def read_secret_key(keypath: str) -> bytes:
     if not os.path.exists(keypath):
         raise RSConnectException("Keypath does not exist.")
 
-    with open(keypath, "rb") as f:
-        key = f.read()
+    with open(keypath, "r") as f:
+        key = bytes.fromhex(f.read())
         if key is None:
             raise RSConnectException("Secret key cannot be 'None'")
 
@@ -58,7 +58,16 @@ def parse_client_response(response):
     if isinstance(response, dict):
         return 200, response
     elif isinstance(response, HTTPResponse):
-        return response.status, response.json_data
+
+        status = 500
+        if hasattr(response, "status"):
+            status = response.status
+
+        json_data = {}
+        if hasattr(response, "json_data"):
+            json_data = response.json_data
+
+        return status, json_data
 
     raise RSConnectException("Unrecognized response type: " + type(response))
 
