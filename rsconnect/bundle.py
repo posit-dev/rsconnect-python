@@ -767,7 +767,6 @@ def make_html_bundle(
 
 def pack_extra_files(
     path: str,
-    entrypoint: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
 ) -> typing.List[str]:
@@ -782,24 +781,17 @@ def pack_extra_files(
     :return: a list of the files involved.
     """
     extra_files = list(extra_files) if extra_files else []
+    excludes = list(excludes) if excludes else []
 
     if path.startswith(os.curdir):
         path = relpath(path)
-    if entrypoint.startswith(os.curdir):
-        entrypoint = relpath(entrypoint)
     extra_files = [relpath(f) if isfile(f) and f.startswith(os.curdir) else f for f in extra_files]
 
+    # exclude environment directories and manifest
     if is_environment_dir(path):
-        excludes = list(excludes or []) + ["bin/", "lib/"]
-
-    extra_files = extra_files or []
-    skip = ["manifest.json"]
-    extra_files = sorted(list(set(extra_files) - set(skip)))
-
-    # Don't include these top-level files.
-    excludes = list(excludes) if excludes else []
+        excludes += ["bin/", "lib/"]
     excludes.append("manifest.json")
-    if not isfile(path):
+    if isdir(path):
         excludes.extend(list_environment_dirs(path))
     glob_set = create_glob_set(path, excludes)
 
@@ -820,13 +812,8 @@ def pack_extra_files(
                     rel_path in extra_files or not glob_set.matches(abs_path)
                 ):
                     file_list.append(rel_path)
-                    # Don't add extra files more than once.
-                    if rel_path in extra_files:
-                        extra_files.remove(rel_path)
 
-    relevant_files = sorted(file_list)
-
-    return relevant_files
+    return sorted(set(file_list))
 
 
 def make_voila_bundle(
