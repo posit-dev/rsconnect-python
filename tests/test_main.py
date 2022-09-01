@@ -444,8 +444,8 @@ class TestMain:
         assert result.exit_code == 0, result.output
 
     def test_add_connect(self):
-        connect_server = self.require_connect()
-        api_key = self.require_api_key()
+        connect_server = require_connect()
+        api_key = require_api_key()
         runner = CliRunner()
         result = runner.invoke(cli, ["add", "--name", "my-connect", "--server", connect_server, "--api-key", api_key])
         assert result.exit_code == 0, result.output
