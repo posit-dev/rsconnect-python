@@ -40,18 +40,6 @@ class TestMain:
         shutil.rmtree("test-home", ignore_errors=True)
         os.environ["HOME"] = "test-home"
 
-    def require_connect(self):
-        connect_server = os.environ.get("CONNECT_SERVER", None)
-        if connect_server is None:
-            pytest.skip("Set CONNECT_SERVER to test this function.")
-        return connect_server
-
-    def require_api_key(self):
-        connect_api_key = os.environ.get("CONNECT_API_KEY", None)
-        if connect_api_key is None:
-            pytest.skip("Set CONNECT_API_KEY to test this function.")
-        return connect_api_key
-
     @staticmethod
     def optional_target(default):
         return os.environ.get("CONNECT_DEPLOY_TARGET", default)
@@ -78,7 +66,7 @@ class TestMain:
         assert VERSION in result.output
 
     def test_ping(self):
-        connect_server = self.require_connect()
+        connect_server = require_connect()
         runner = CliRunner()
         result = runner.invoke(cli, ["details", "-s", connect_server])
         assert result.exit_code == 0, result.output
