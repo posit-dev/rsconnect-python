@@ -1037,7 +1037,6 @@ class LucidClient(HTTPServer):
             "space": space_id,
             "project": project_id,
         }
-        print(f"creating output with {data}")
         return self.post("/v1/outputs/", body=data)
 
     def get_accounts(self):
@@ -1188,22 +1187,16 @@ class CloudService:
                 "No account found by name : %s for given user credential" % self._server.account_name
             )
 
-        print("********")
         if app_id is None:
-            print("app_id is none")
             if project_application_id is not None:
-                print(f"project_application_id is {project_application_id}")
                 project_application = self._lucid_client.get_application(project_application_id)
                 self._server.handle_bad_response(project_application)
                 project_id = project_application.json_data["content_id"]
-                print(f"project_id is {project_id}")
             else:
                 project_id = None
 
             output = self._lucid_client.create_output(name=app_name, project_id=project_id)
             self._server.handle_bad_response(output)
-            print("****here is the output")
-            print(output.json_data)
             app_id = output.json_data["source_id"]
 
         application = self._lucid_client.get_application(app_id)
