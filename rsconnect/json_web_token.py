@@ -2,6 +2,7 @@
 Json Web Token (JWT) utilities
 """
 
+import base64
 import os
 import sys
 
@@ -21,22 +22,22 @@ INITIAL_ADMIN_EXP = timedelta(minutes=15)
 
 def read_secret_key(keypath: str) -> bytes:
     """
-    Reads a secret key as bytes given a keypath.
+    Reads a secret key as bytes given a path to a file containing a base64-encoded key.
     """
 
     if not os.path.exists(keypath):
         raise RSConnectException("Keypath does not exist.")
 
     with open(keypath, "r") as f:
-        key = bytes.fromhex(f.read())
-        if key is None:
+        raw_data = f.read()
+        if raw_data is None:
             raise RSConnectException("Secret key cannot be 'None'")
-
-        return key
+        return base64.b64decode(raw_data)
 
 
 # https://www.ibm.com/docs/vi/sva/9.0.6?topic=jwt-support
 def validate_hs256_secret_key(key: bytes):
+    print(key)
     if len(key) < 32:
         raise RSConnectException("Secret key expected to be at least 32 bytes in length")
 
