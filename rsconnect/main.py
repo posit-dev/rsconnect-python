@@ -334,10 +334,10 @@ def initial_admin(
 
     validation.validate_initial_admin_options(server, jwt_keypath)
 
-    private_key = read_secret_key(jwt_keypath)
-    validate_hs256_secret_key(private_key)
+    secret_key = read_secret_key(jwt_keypath)
+    validate_hs256_secret_key(secret_key)
 
-    token_generator = TokenGenerator(private_key)
+    token_generator = TokenGenerator(secret_key)
 
     initial_admin_token = token_generator.initial_admin()
     logger.debug("Generated JWT:\n" + initial_admin_token)

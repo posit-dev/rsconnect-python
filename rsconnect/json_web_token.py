@@ -37,7 +37,6 @@ def read_secret_key(keypath: str) -> bytes:
 
 # https://www.ibm.com/docs/vi/sva/9.0.6?topic=jwt-support
 def validate_hs256_secret_key(key: bytes):
-    print(key)
     if len(key) < 32:
         raise RSConnectException("Secret key expected to be at least 32 bytes in length")
 
