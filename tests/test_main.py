@@ -106,21 +106,21 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "https://api.shinyapps.io/v1/users/me",
-            body=open("tests/testdata/lucid-responses/get-user.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-user.json", "r").read(),
             status=200,
         )
         httpretty.register_uri(
             httpretty.GET,
             "https://api.shinyapps.io/v1/applications"
             "?filter=name:like:shinyapp&offset=0&count=100&use_advanced_filters=true",
-            body=open("tests/testdata/lucid-responses/get-applications.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-applications.json", "r").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
             httpretty.GET,
             "https://api.shinyapps.io/v1/accounts/",
-            body=open("tests/testdata/lucid-responses/get-accounts.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-accounts.json", "r").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -134,7 +134,7 @@ class TestMain:
             return [
                 201,
                 {"Content-Type": "application/json"},
-                open("tests/testdata/lucid-responses/create-application.json", "r").read(),
+                open("tests/testdata/rstudio-responses/create-application.json", "r").read(),
             ]
 
         httpretty.register_uri(
@@ -158,7 +158,7 @@ class TestMain:
             return [
                 201,
                 {"Content-Type": "application/json"},
-                open("tests/testdata/lucid-responses/create-bundle.json", "r").read(),
+                open("tests/testdata/rstudio-responses/create-bundle.json", "r").read(),
             ]
 
         httpretty.register_uri(
@@ -197,7 +197,7 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "https://api.shinyapps.io/v1/bundles/12640",
-            body=open("tests/testdata/lucid-responses/get-accounts.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-accounts.json", "r").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -211,7 +211,7 @@ class TestMain:
             return [
                 303,
                 {"Location": "https://api.shinyapps.io/v1/tasks/333"},
-                open("tests/testdata/lucid-responses/post-deploy.json", "r").read(),
+                open("tests/testdata/rstudio-responses/post-deploy.json", "r").read(),
             ]
 
         httpretty.register_uri(
@@ -223,7 +223,7 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "https://api.shinyapps.io/v1/tasks/333",
-            body=open("tests/testdata/lucid-responses/get-task.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-task.json", "r").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -271,21 +271,21 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "https://api.rstudio.cloud/v1/users/me",
-            body=open("tests/testdata/lucid-responses/get-user.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-user.json", "r").read(),
             status=200,
         )
         httpretty.register_uri(
             httpretty.GET,
             "https://api.rstudio.cloud/v1/applications"
             "?filter=name:like:shinyapp&offset=0&count=100&use_advanced_filters=true",
-            body=open("tests/testdata/lucid-responses/get-applications.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-applications.json", "r").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
             httpretty.GET,
             "https://api.rstudio.cloud/v1/accounts/",
-            body=open("tests/testdata/lucid-responses/get-accounts.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-accounts.json", "r").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -294,7 +294,7 @@ class TestMain:
             httpretty.register_uri(
                 httpretty.GET,
                 "https://api.rstudio.cloud/v1/applications/444",
-                body=open("tests/testdata/lucid-responses/get-project-application.json", "r").read(),
+                body=open("tests/testdata/rstudio-responses/get-project-application.json", "r").read(),
                 adding_headers={"Content-Type": "application/json"},
                 status=200,
             )
@@ -308,13 +308,13 @@ class TestMain:
             return [
                 201,
                 {"Content-Type": "application/json"},
-                open("tests/testdata/lucid-responses/create-output.json", "r").read(),
+                open("tests/testdata/rstudio-responses/create-output.json", "r").read(),
             ]
 
         httpretty.register_uri(
             httpretty.GET,
             "https://api.rstudio.cloud/v1/applications/8442",
-            body=open("tests/testdata/lucid-responses/get-output-application.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-output-application.json", "r").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -339,7 +339,7 @@ class TestMain:
             return [
                 201,
                 {"Content-Type": "application/json"},
-                open("tests/testdata/lucid-responses/create-bundle.json", "r").read(),
+                open("tests/testdata/rstudio-responses/create-bundle.json", "r").read(),
             ]
 
         httpretty.register_uri(
@@ -378,7 +378,7 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "https://api.rstudio.cloud/v1/bundles/12640",
-            body=open("tests/testdata/lucid-responses/get-accounts.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-accounts.json", "r").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
@@ -392,7 +392,7 @@ class TestMain:
             return [
                 303,
                 {"Location": "https://api.rstudio.cloud/v1/tasks/333"},
-                open("tests/testdata/lucid-responses/post-deploy.json", "r").read(),
+                open("tests/testdata/rstudio-responses/post-deploy.json", "r").read(),
             ]
 
         httpretty.register_uri(
@@ -404,7 +404,7 @@ class TestMain:
         httpretty.register_uri(
             httpretty.GET,
             "https://api.rstudio.cloud/v1/tasks/333",
-            body=open("tests/testdata/lucid-responses/get-task.json", "r").read(),
+            body=open("tests/testdata/rstudio-responses/get-task.json", "r").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )

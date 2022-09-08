@@ -21,7 +21,7 @@ from .actions import (
     test_server,
     validate_quarto_engines,
     which_quarto,
-    test_lucid_server,
+    test_rstudio_server,
 )
 from .actions_content import (
     download_bundle,
@@ -133,7 +133,7 @@ def server_args(func):
     return wrapper
 
 
-def lucid_args(func):
+def rstudio_args(func):
     @click.option(
         "--account",
         "-A",
@@ -287,9 +287,9 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
     return real_server, me
 
 
-def _test_lucid_creds(server: api.LucidServer):
+def _test_rstudio_creds(server: api.RStudioServer):
     with cli_feedback("Checking {} credential".format(server.remote_name)):
-        test_lucid_server(server)
+        test_rstudio_server(server)
 
 
 # noinspection SpellCheckingInspection
@@ -328,7 +328,7 @@ def _test_lucid_creds(server: api.LucidServer):
     type=click.File(),
     help="The path to trusted TLS CA certificates.",
 )
-@lucid_args
+@rstudio_args
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def add(name, server, api_key, insecure, cacert, account, token, secret, verbose):
 
@@ -352,7 +352,7 @@ def add(name, server, api_key, insecure, cacert, account, token, secret, verbose
         else:
             real_server = api.ShinyappsServer(server, account, token, secret)
 
-        _test_lucid_creds(real_server)
+        _test_rstudio_creds(real_server)
 
         server_store.set(
             name,
@@ -764,7 +764,7 @@ def deploy_notebook(
 @server_args
 @content_args
 @cloud_content_args
-@lucid_args
+@rstudio_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @cli_exception_handler
 def deploy_manifest(
@@ -1018,7 +1018,7 @@ def generate_deploy_python(app_mode, alias, min_version):
     )
     @server_args
     @content_args
-    @lucid_args
+    @rstudio_args
     @cloud_content_args
     @click.option(
         "--entrypoint",
