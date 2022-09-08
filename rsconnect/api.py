@@ -1,6 +1,7 @@
 """
 RStudio Connect API client and utility functions
 """
+import os
 from os.path import abspath
 import time
 from typing import IO, Callable
@@ -653,7 +654,6 @@ class RSConnectExecutor:
     def deploy_bundle(
         self,
         app_id: int = None,
-        project_application_id: str = None,
         deployment_name: str = None,
         title: str = None,
         title_is_default: bool = False,
@@ -661,7 +661,6 @@ class RSConnectExecutor:
         env_vars=None,
     ):
         app_id = app_id or self.get("app_id")
-        project_application_id = project_application_id or self.get("project_application_id")
         deployment_name = deployment_name or self.get("deployment_name")
         title = title or self.get("title")
         title_is_default = title_is_default or self.get("title_is_default")
@@ -699,7 +698,6 @@ class RSConnectExecutor:
                 cloud_service = CloudService(self.client, self.remote_server)
                 prepare_deploy_result = cloud_service.prepare_deploy(
                     app_id,
-                    project_application_id,
                     deployment_name,
                     bundle_size,
                     bundle_hash,
@@ -1170,7 +1168,6 @@ class CloudService:
     def prepare_deploy(
         self,
         app_id: typing.Optional[int],
-        project_application_id: typing.Optional[str],
         app_name: str,
         bundle_size: int,
         bundle_hash: str,
@@ -1187,6 +1184,7 @@ class CloudService:
             )
 
         if app_id is None:
+            project_application_id = os.getenv("LUCID_APPLICATION_ID")
             if project_application_id is not None:
                 project_application = self._rstudio_client.get_application(project_application_id)
                 self._server.handle_bad_response(project_application)

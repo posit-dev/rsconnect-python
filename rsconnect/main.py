@@ -220,20 +220,6 @@ def content_args(func):
     return wrapper
 
 
-def cloud_content_args(func):
-    @click.option(
-        "--project-application-id",
-        "-P",
-        envvar="LUCID_APPLICATION_ID",
-        help="The application of the project to to be associated with when creating an output.",
-    )
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-
-    return wrapper
-
-
 @click.group(no_args_is_help=True)
 @click.option("--future", "-u", is_flag=True, hidden=True, help="Enables future functionality.")
 def cli(future):
@@ -763,7 +749,6 @@ def deploy_notebook(
 )
 @server_args
 @content_args
-@cloud_content_args
 @rstudio_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @cli_exception_handler
@@ -778,7 +763,6 @@ def deploy_manifest(
     secret: str,
     new: bool,
     app_id: str,
-    project_application_id: typing.Optional[str],
     title: str,
     verbose: bool,
     file: str,
@@ -1019,7 +1003,6 @@ def generate_deploy_python(app_mode, alias, min_version):
     @server_args
     @content_args
     @rstudio_args
-    @cloud_content_args
     @click.option(
         "--entrypoint",
         "-e",
@@ -1094,7 +1077,6 @@ def generate_deploy_python(app_mode, alias, min_version):
         account: str = None,
         token: str = None,
         secret: str = None,
-        project_application_id: typing.Optional[str] = None,
     ):
         kwargs = locals()
         kwargs["entrypoint"] = entrypoint = validate_entry_point(entrypoint, directory)
