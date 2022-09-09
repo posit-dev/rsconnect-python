@@ -738,12 +738,8 @@ def deploy_notebook(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="voila",
-    short_help="Deploy Voila notebook to RStudio Connect [v2022.09.0+].",
-    help=(
-        "Deploy a Voila notebook to RStudio Connect. This may be done by source or as a static HTML "
-        "page. If the notebook is deployed as a static HTML page (--static), it cannot be scheduled or "
-        "rerun on the Connect server."
-    ),
+    short_help="Deploy Jupyter notebook in Voila mode to RStudio Connect [v2022.09.0+].",
+    help=("Deploy a Jupyter notebook in Voila mode to RStudio Connect."),
 )
 @server_args
 @content_args
