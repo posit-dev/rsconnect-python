@@ -44,7 +44,9 @@ class TestJsonWebToken(TestCase):
         if not is_jwt_compatible_python_version():
             self.skipTest("JWTs not supported in Python < 3.6")
 
-        self.secret_key = b"12345678912345678912345678912345"
+        # decoded copy of the base64-encoded key in testdata/jwt/secret.key
+        self.secret_key = b"12345678901234567890123456789012345"
+        self.secret_key_b64 = b"MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU="
 
     def assert_initial_admin_jwt_is_valid(self, payload, current_datetime):
         """
@@ -349,7 +351,7 @@ class TestJsonWebToken(TestCase):
         with tempfile.TemporaryDirectory() as td:
             secret_keyfile = os.path.join(td, "secret_key")
             with open(secret_keyfile, "wb") as f:
-                f.write(self.secret_key)
+                f.write(self.secret_key_b64)
 
             loaded_private_key = read_secret_key(secret_keyfile)
 

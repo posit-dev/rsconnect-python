@@ -16,7 +16,7 @@ from .exception import RSConnectException
 DEFAULT_ISSUER = "rsconnect-python"
 DEFAULT_AUDIENCE = "rsconnect"
 
-INITIAL_ADMIN_SCOPE = "initial_admin"
+INITIAL_ADMIN_SCOPE = "bootstrap"
 INITIAL_ADMIN_EXP = timedelta(minutes=15)
 
 

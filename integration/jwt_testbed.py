@@ -15,8 +15,8 @@ from rsconnect.json_web_token import (
 )
 
 SERVER = "http://localhost:3939"
-INITIAL_ADMIN_ENDPOINT = SERVER + "/__api__/v1/experimental/installation/initial_admin"
-JWT_KEYPATH = "/Users/zverham/Development/rstudio/connect/jwt/secret.key"
+INITIAL_ADMIN_ENDPOINT = SERVER + "/__api__/v1/experimental/bootstrap"
+JWT_KEYPATH = "/Users/zverham/Development/rstudio/connect/config/bootstrap.key"
 
 
 SUCCESS = "\u2713"
@@ -47,7 +47,7 @@ def generate_jwt_secured_header():
     token_generator = TokenGenerator(secret_key)
 
     initial_admin_token = token_generator.initial_admin()
-
+    print(initial_admin_token)
     return authorization_header(initial_admin_token)
 
 
