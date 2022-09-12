@@ -304,15 +304,6 @@ def download_bundle(connect_server, guid_with_bundle):
         return client.download_bundle(guid_with_bundle.guid, guid_with_bundle.bundle_id)
 
 
-def initial_admin(connect_server, jwt):
-    """
-    :param jwt: the jwt being used to authenticate against the initial_admin endpoint
-    """
-    with RSConnectClient(connect_server, timeout=120) as client:
-        result = client.initial_admin(jwt)
-        return result
-
-
 def get_content(connect_server, guid):
     """
     :param guid: a single guid as a string or list of guids.

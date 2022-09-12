@@ -194,6 +194,12 @@ class HTTPServer(object):
     def authorization(self, auth_text):
         self._headers["Authorization"] = auth_text
 
+    def get_authorization(self):
+        if not "Authorization" in self._headers:
+            return None
+
+        return self._headers["Authorization"]
+
     def key_authorization(self, key):
         self.authorization("Key %s" % key)
 
