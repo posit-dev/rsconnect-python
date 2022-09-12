@@ -3,11 +3,12 @@ Json Web Token (JWT) utilities
 """
 
 import base64
+from datetime import datetime, timedelta, timezone
 import os
 import sys
 
+import binascii
 import jwt
-from datetime import datetime, timedelta, timezone
 
 from rsconnect.http_support import HTTPResponse
 
@@ -16,8 +17,8 @@ from .exception import RSConnectException
 DEFAULT_ISSUER = "rsconnect-python"
 DEFAULT_AUDIENCE = "rsconnect"
 
-INITIAL_ADMIN_SCOPE = "bootstrap"
-INITIAL_ADMIN_EXP = timedelta(minutes=15)
+BOOTSTRAP_SCOPE = "bootstrap"
+BOOTSTRAP_EXP = timedelta(minutes=15)
 
 
 def read_secret_key(keypath: str) -> bytes:
@@ -32,7 +33,10 @@ def read_secret_key(keypath: str) -> bytes:
         raw_data = f.read()
         if raw_data is None:
             raise RSConnectException("Secret key cannot be 'None'")
-        return base64.b64decode(raw_data)
+        try:
+            return base64.b64decode(raw_data)
+        except binascii.Error:
+            raise RSConnectException("Unable to decode base64 data from keyfile: " + keypath)
 
 
 # https://www.ibm.com/docs/vi/sva/9.0.6?topic=jwt-support
@@ -69,10 +73,10 @@ def parse_client_response(response):
 
         return status, json_data
 
-    raise RSConnectException("Unrecognized response type: " + type(response))
+    raise RSConnectException("Unrecognized response type: " + str(type(response)))
 
 
-def produce_initial_admin_output(status: int, json_data) -> dict:
+def produce_bootstrap_output(status: int, json_data) -> dict:
     """
     Produces the expected programmatic output format from a request to the initial_admin endpoint
     """
@@ -148,6 +152,6 @@ class TokenGenerator:
     def __init__(self, secret):
         self.encoder = JWTEncoder(DEFAULT_ISSUER, DEFAULT_AUDIENCE, secret)
 
-    def initial_admin(self):
-        custom_claims = {"scope": INITIAL_ADMIN_SCOPE}
-        return self.encoder.new_token(custom_claims, INITIAL_ADMIN_EXP)
+    def bootstrap(self):
+        custom_claims = {"scope": BOOTSTRAP_SCOPE}
+        return self.encoder.new_token(custom_claims, BOOTSTRAP_EXP)

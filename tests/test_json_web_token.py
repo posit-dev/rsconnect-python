@@ -10,12 +10,12 @@ from rsconnect.exception import RSConnectException
 from rsconnect.http_support import HTTPResponse
 
 from rsconnect.json_web_token import (
-    INITIAL_ADMIN_EXP,
-    INITIAL_ADMIN_SCOPE,
+    BOOTSTRAP_EXP,
+    BOOTSTRAP_SCOPE,
     DEFAULT_ISSUER,
     DEFAULT_AUDIENCE,
     read_secret_key,
-    produce_initial_admin_output,
+    produce_bootstrap_output,
     is_jwt_compatible_python_version,
     parse_client_response,
     TokenGenerator,
@@ -48,11 +48,11 @@ class TestJsonWebToken(TestCase):
         self.secret_key = b"12345678901234567890123456789012345"
         self.secret_key_b64 = b"MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU="
 
-    def assert_initial_admin_jwt_is_valid(self, payload, current_datetime):
+    def assert_bootstrap_jwt_is_valid(self, payload, current_datetime):
         """
         Helper to verify state of decoded initial admin jwt
         """
-        expected_exp = int((current_datetime + INITIAL_ADMIN_EXP).timestamp())
+        expected_exp = int((current_datetime + BOOTSTRAP_EXP).timestamp())
         expected_iat = int(current_datetime.timestamp())
 
         self.assertEqual(payload.keys(), set(["exp", "iss", "aud", "iat", "scope"]))
@@ -61,7 +61,7 @@ class TestJsonWebToken(TestCase):
         self.assertEqual(payload["iss"], DEFAULT_ISSUER)
         self.assertEqual(payload["aud"], DEFAULT_AUDIENCE)
         self.assertTrue(are_unix_timestamps_approx_equal(payload["iat"], expected_iat))
-        self.assertEqual(payload["scope"], INITIAL_ADMIN_SCOPE)
+        self.assertEqual(payload["scope"], BOOTSTRAP_SCOPE)
 
     def test_are_unix_timestamps_approx_equal(self):
         """
@@ -73,6 +73,35 @@ class TestJsonWebToken(TestCase):
         self.assertTrue(are_unix_timestamps_approx_equal(0, 1))
         self.assertFalse(are_unix_timestamps_approx_equal(0, 2))
         self.assertFalse(are_unix_timestamps_approx_equal(2, 0))
+
+    def test_read_secret_key(self):
+        # file is base64-encoded - is decoded when read from file
+        valid = read_secret_key("tests/testdata/jwt/secret.key")
+        self.assertEqual(valid, self.secret_key)
+
+        # technically parseable - will get caught by validation
+        empty = read_secret_key("tests/testdata/jwt/empty_secret.key")
+        self.assertEqual(empty, b"")
+
+        with pytest.raises(RSConnectException):
+            read_secret_key("invalid/path.key")
+
+        with pytest.raises(RSConnectException):
+            read_secret_key("tests/testdata/jwt/invalid_secret.key")
+
+    def test_validate_hs256_secret_key(self):
+
+        with pytest.raises(RSConnectException):
+            validate_hs256_secret_key(b"")
+
+        with pytest.raises(RSConnectException):
+            validate_hs256_secret_key(b"tooshort")
+
+        # success
+        validate_hs256_secret_key(self.secret_key)
+
+        # very long key is also fine
+        validate_hs256_secret_key(b"12345678901234567890123456789012345678901234567890")
 
     def test_parse_client_response(self):
 
@@ -111,6 +140,15 @@ class TestJsonWebToken(TestCase):
         self.assertEqual(status, 500)
         self.assertEqual(response, {"test": "something"})
 
+        with pytest.raises(RSConnectException):
+            parse_client_response("this_is_invalid")
+
+        with pytest.raises(RSConnectException):
+            parse_client_response(123)
+
+        with pytest.raises(RSConnectException):
+            parse_client_response(None)
+
     def test_is_jwt_compatible_python_version(self):
         """
         With setUp() skipping invalid versions, this test should always return True
@@ -125,51 +163,51 @@ class TestJsonWebToken(TestCase):
         self.assertEqual(encoder.audience, "audience")
         self.assertEqual(encoder.secret, self.secret_key)
 
-    def test_produce_initial_admin_output(self):
+    def test_produce_bootstrap_output(self):
 
         api_key = "apikey123"
 
         # if we get a 200 response without a valid API key, something is messed up
 
         with pytest.raises(RSConnectException):
-            produce_initial_admin_output(200, None)
+            produce_bootstrap_output(200, None)
 
         with pytest.raises(RSConnectException):
-            produce_initial_admin_output(200, {})
+            produce_bootstrap_output(200, {})
 
         with pytest.raises(RSConnectException):
-            produce_initial_admin_output(200, {"api_key": ""})
+            produce_bootstrap_output(200, {"api_key": ""})
 
         with pytest.raises(RSConnectException):
-            produce_initial_admin_output(200, {"something": "else"})
+            produce_bootstrap_output(200, {"something": "else"})
 
         # if we get a non-200 response with an API key, something is messed up
 
         with pytest.raises(RSConnectException):
-            produce_initial_admin_output(400, {"api_key": api_key})
+            produce_bootstrap_output(400, {"api_key": api_key})
 
         expected_successful_result = {
             "status": 200,
             "api_key": api_key,
             "message": "Success.",
         }
-        self.assertEqual(produce_initial_admin_output(200, {"api_key": api_key}), expected_successful_result)
+        self.assertEqual(produce_bootstrap_output(200, {"api_key": api_key}), expected_successful_result)
 
         expected_client_error_result = {
             "status": 400,
             "api_key": "",
             "message": "Unable to provision initial admin. Please check status of Connect database.",
         }
-        self.assertEqual(produce_initial_admin_output(400, None), expected_client_error_result)
-        self.assertEqual(produce_initial_admin_output(400, {}), expected_client_error_result)
-        self.assertEqual(produce_initial_admin_output(400, {"api_key": ""}), expected_client_error_result)
-        self.assertEqual(produce_initial_admin_output(400, {"something": "else"}), expected_client_error_result)
+        self.assertEqual(produce_bootstrap_output(400, None), expected_client_error_result)
+        self.assertEqual(produce_bootstrap_output(400, {}), expected_client_error_result)
+        self.assertEqual(produce_bootstrap_output(400, {"api_key": ""}), expected_client_error_result)
+        self.assertEqual(produce_bootstrap_output(400, {"something": "else"}), expected_client_error_result)
 
         expected_unauthorized_error_result = {"status": 401, "api_key": "", "message": "JWT authorization failed."}
-        self.assertEqual(produce_initial_admin_output(401, None), expected_unauthorized_error_result)
-        self.assertEqual(produce_initial_admin_output(401, {}), expected_unauthorized_error_result)
-        self.assertEqual(produce_initial_admin_output(401, {"api_key": ""}), expected_unauthorized_error_result)
-        self.assertEqual(produce_initial_admin_output(401, {"something": "else"}), expected_unauthorized_error_result)
+        self.assertEqual(produce_bootstrap_output(401, None), expected_unauthorized_error_result)
+        self.assertEqual(produce_bootstrap_output(401, {}), expected_unauthorized_error_result)
+        self.assertEqual(produce_bootstrap_output(401, {"api_key": ""}), expected_unauthorized_error_result)
+        self.assertEqual(produce_bootstrap_output(401, {"something": "else"}), expected_unauthorized_error_result)
 
         expected_not_found_error_result = {
             "status": 404,
@@ -179,22 +217,22 @@ class TestJsonWebToken(TestCase):
                 "Please check the 'rsconnect --server' parameter and your Connect configuration."
             ),
         }
-        self.assertEqual(produce_initial_admin_output(404, None), expected_not_found_error_result)
-        self.assertEqual(produce_initial_admin_output(404, {}), expected_not_found_error_result)
-        self.assertEqual(produce_initial_admin_output(404, {"api_key": ""}), expected_not_found_error_result)
-        self.assertEqual(produce_initial_admin_output(404, {"something": "else"}), expected_not_found_error_result)
+        self.assertEqual(produce_bootstrap_output(404, None), expected_not_found_error_result)
+        self.assertEqual(produce_bootstrap_output(404, {}), expected_not_found_error_result)
+        self.assertEqual(produce_bootstrap_output(404, {"api_key": ""}), expected_not_found_error_result)
+        self.assertEqual(produce_bootstrap_output(404, {"something": "else"}), expected_not_found_error_result)
 
         expected_other_error_result = {
             "status": 500,
             "api_key": "",
             "message": "Unexpected response status.",
         }
-        self.assertEqual(produce_initial_admin_output(500, None), expected_other_error_result)
-        self.assertEqual(produce_initial_admin_output(500, {}), expected_other_error_result)
-        self.assertEqual(produce_initial_admin_output(500, {"api_key": ""}), expected_other_error_result)
-        self.assertEqual(produce_initial_admin_output(500, {"something": "else"}), expected_other_error_result)
+        self.assertEqual(produce_bootstrap_output(500, None), expected_other_error_result)
+        self.assertEqual(produce_bootstrap_output(500, {}), expected_other_error_result)
+        self.assertEqual(produce_bootstrap_output(500, {"api_key": ""}), expected_other_error_result)
+        self.assertEqual(produce_bootstrap_output(500, {"something": "else"}), expected_other_error_result)
 
-    def test_generate_standard_claims(self):
+    def test_encoder_generate_standard_claims(self):
         """
         Test production of common claims that will be consistent across all JWTs
         """
@@ -263,7 +301,7 @@ class TestJsonWebToken(TestCase):
         expected_iat = int(current_datetime.timestamp())
 
         # populated custom claims
-        custom_claims = {"scope": "initial_admin"}
+        custom_claims = {"scope": "bootstrap"}
         new_token = encoder.new_token(custom_claims, exp)
         self.assertTrue(has_jwt_structure(new_token))
 
@@ -275,7 +313,7 @@ class TestJsonWebToken(TestCase):
         self.assertEqual(payload["iss"], "issuer")
         self.assertEqual(payload["aud"], "audience")
         self.assertTrue(are_unix_timestamps_approx_equal(payload["iat"], expected_iat))
-        self.assertEqual(payload["scope"], "initial_admin")
+        self.assertEqual(payload["scope"], "bootstrap")
 
     def test_token_generator_constructor(self):
         generator = TokenGenerator(self.secret_key)
@@ -285,65 +323,43 @@ class TestJsonWebToken(TestCase):
         self.assertEqual(generator.encoder.audience, DEFAULT_AUDIENCE)
         self.assertEqual(generator.encoder.secret, self.secret_key)
 
-    def test_token_generator_initial_admin(self):
+    def test_token_generator_bootstrap(self):
         generator = TokenGenerator(self.secret_key)
-        initial_admin_token = generator.initial_admin()
+        bootstrap_token = generator.bootstrap()
 
         decoder = JWTDecoder(DEFAULT_AUDIENCE, self.secret_key)
-        payload = decoder.decode_token(initial_admin_token)
+        payload = decoder.decode_token(bootstrap_token)
 
         self.assertEqual(payload.keys(), set(["exp", "iss", "aud", "iat", "scope"]))
 
         current_datetime = datetime.now(tz=timezone.utc)
-        self.assert_initial_admin_jwt_is_valid(payload, current_datetime)
+        self.assert_bootstrap_jwt_is_valid(payload, current_datetime)
 
-    def test_token_generator_invalid_public_key(self):
+    def test_token_generator_invalid_verification_secret(self):
         """
-        If our public key doesn't match the private key, we should not be able to validate the token
+        If our signing / verification keys don't match, we should not be able to validate the token
         """
         generator = TokenGenerator(self.secret_key)
 
         decoder = JWTDecoder(DEFAULT_AUDIENCE, "someRandomValue")
 
-        initial_admin_token = generator.initial_admin()
+        bootstrap_token = generator.bootstrap()
 
         with pytest.raises(jwt.InvalidSignatureError):
-            decoder.decode_token(initial_admin_token)
-
-    def test_read_secret_key(self):
-
-        valid = read_secret_key("tests/testdata/jwt/secret.key")
-        self.assertEqual(valid, self.secret_key)
-
-        with pytest.raises(RSConnectException):
-            read_secret_key("invalid/path.key")
-
-    def test_validate_hs256_secret_key(self):
-
-        with pytest.raises(RSConnectException):
-            validate_hs256_secret_key(b"")
-
-        with pytest.raises(RSConnectException):
-            validate_hs256_secret_key(b"tooshort")
-
-        # success
-        validate_hs256_secret_key(self.secret_key)
-
-        # very long key is also fine
-        validate_hs256_secret_key(b"12345678901234567890123456789012345678901234567890")
+            decoder.decode_token(bootstrap_token)
 
     def test_token_workflow(self):
 
-        # Gold standard - we can generate, sign, and verify the token with this keypair
+        # Gold standard - we can generate, sign, and verify the token using in-memory data
 
         generator = TokenGenerator(self.secret_key)
-        initial_admin_token = generator.initial_admin()
+        bootstrap_token = generator.bootstrap()
 
         decoder = JWTDecoder(DEFAULT_AUDIENCE, self.secret_key)
-        payload = decoder.decode_token(initial_admin_token)
+        payload = decoder.decode_token(bootstrap_token)
 
         current_datetime = datetime.now(tz=timezone.utc)
-        self.assert_initial_admin_jwt_is_valid(payload, current_datetime)
+        self.assert_bootstrap_jwt_is_valid(payload, current_datetime)
 
         # BEGIN ACTUAL TEST
 
@@ -353,11 +369,17 @@ class TestJsonWebToken(TestCase):
             with open(secret_keyfile, "wb") as f:
                 f.write(self.secret_key_b64)
 
+            # load the private key
             loaded_private_key = read_secret_key(secret_keyfile)
 
+            # generate a token
             test_generator = TokenGenerator(loaded_private_key)
-            test_initial_admin_token = test_generator.initial_admin()
-            test_payload = decoder.decode_token(test_initial_admin_token)
+            test_bootstrap_token = test_generator.bootstrap()
+
+            # decode the token
+            test_payload = decoder.decode_token(test_bootstrap_token)
 
             test_datetime = datetime.now(tz=timezone.utc)
-            self.assert_initial_admin_jwt_is_valid(test_payload, test_datetime)
+
+            # assert we have a valid token
+            self.assert_bootstrap_jwt_is_valid(test_payload, test_datetime)

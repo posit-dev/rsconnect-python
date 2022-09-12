@@ -73,7 +73,7 @@ from .json_web_token import (
     validate_hs256_secret_key,
     is_jwt_compatible_python_version,
     TokenGenerator,
-    produce_initial_admin_output,
+    produce_bootstrap_output,
     parse_client_response,
 )
 
@@ -288,7 +288,7 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
 
 @cli.command(
     short_help="Create a transitory admin user and provision it with an api key",
-    help="Creates an initial admin user for the Connect instance and returns the provisionend API key.",
+    help="Creates an initial admin user to bootstrap a Connect instance. Returns the provisionend API key.",
 )
 @click.option(
     "--server",
@@ -318,7 +318,7 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
 @click.option("--raw", "-r", is_flag=True, help="Return the API key as raw output rather than a JSON object")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
 @cli_exception_handler
-def initial_admin(
+def bootstrap(
     server,
     insecure,
     cacert,
@@ -339,21 +339,21 @@ def initial_admin(
 
     token_generator = TokenGenerator(secret_key)
 
-    initial_admin_token = token_generator.initial_admin()
-    logger.debug("Generated JWT:\n" + initial_admin_token)
+    bootstrap_token = token_generator.bootstrap()
+    logger.debug("Generated JWT:\n" + bootstrap_token)
 
     logger.debug("Insecure: " + str(insecure))
     ca_data = cacert and text_type(cacert.read())
 
     with cli_feedback("", stderr=True):
-        connect_server = RSConnectServer(server, None, jwt=initial_admin_token, insecure=insecure, ca_data=ca_data)
+        connect_server = RSConnectServer(server, None, jwt=bootstrap_token, insecure=insecure, ca_data=ca_data)
         connect_client = RSConnectClient(connect_server)
 
-        response = connect_client.initial_admin()
+        response = connect_client.bootstrap()
 
         # post-processing on response data
         status, json_data = parse_client_response(response)
-        output = produce_initial_admin_output(status, json_data)
+        output = produce_bootstrap_output(status, json_data)
         if raw:
             click.echo(output["api_key"], nl=False)
         else:

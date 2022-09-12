@@ -345,17 +345,17 @@ class TestMain(TestCase):
                 os.environ["CONNECT_SERVER"] = original_server_value
 
 
-class TestInitialAdmin(TestCase):
+class TestBootstrap(TestCase):
     def setUp(self):
         if not is_jwt_compatible_python_version():
             self.skipTest("JWTs not supported in Python < 3.6")
 
         self.mock_server = "http://localhost:8080"
-        self.mock_uri = "http://localhost:8080/__api__/v1/experimental/installation/initial_admin"
+        self.mock_uri = "http://localhost:8080/__api__/v1/experimental/bootstrap"
         self.jwt_keypath = "tests/testdata/jwt/secret.key"
 
         self.default_cli_args = [
-            "initial-admin",
+            "bootstrap",
             "--server",
             self.mock_server,
             "--jwt-keypath",
@@ -363,7 +363,7 @@ class TestInitialAdmin(TestCase):
             "--insecure",
         ]
 
-    def create_initial_admin_mock_callback(self, status, json_data):
+    def create_bootstrap_mock_callback(self, status, json_data):
         def request_callback(request, uri, response_headers):
 
             # verify auth header is sent correctly
@@ -381,12 +381,12 @@ class TestInitialAdmin(TestCase):
         return request_callback
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_initial_admin(self):
+    def test_bootstrap(self):
         """
         Normal initial-admin operation
         """
 
-        callback = self.create_initial_admin_mock_callback(200, {"api_key": "testapikey123"})
+        callback = self.create_bootstrap_mock_callback(200, {"api_key": "testapikey123"})
 
         httpretty.register_uri(
             httpretty.POST,
@@ -404,12 +404,12 @@ class TestInitialAdmin(TestCase):
         self.assertEqual(json_output, expected_output)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_initial_admin_misc_error(self):
+    def test_bootstrap_misc_error(self):
         """
         Fail reasonably if response indicates some non-standard error
         """
 
-        callback = self.create_initial_admin_mock_callback(500, {})
+        callback = self.create_bootstrap_mock_callback(500, {})
 
         httpretty.register_uri(
             httpretty.POST,
@@ -427,12 +427,12 @@ class TestInitialAdmin(TestCase):
         self.assertEqual(json_output, expected_output)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_initial_admin_not_found_error(self):
+    def test_bootstrap_not_found_error(self):
         """
         Fail reasonablly if response indicates 404 not found
         """
 
-        callback = self.create_initial_admin_mock_callback(404, {})
+        callback = self.create_bootstrap_mock_callback(404, {})
 
         httpretty.register_uri(
             httpretty.POST,
@@ -450,12 +450,12 @@ class TestInitialAdmin(TestCase):
         self.assertEqual(json_output, expected_output)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_initial_admin_client_error(self):
+    def test_bootstrap_client_error(self):
         """
         Fail reasonably if response indicates a client error
         """
 
-        callback = self.create_initial_admin_mock_callback(400, {})
+        callback = self.create_bootstrap_mock_callback(400, {})
 
         httpretty.register_uri(
             httpretty.POST,
@@ -473,12 +473,12 @@ class TestInitialAdmin(TestCase):
         self.assertEqual(json_output, expected_output)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_initial_admin_unauthorized(self):
+    def test_bootstrap_unauthorized(self):
         """
         Fail reasonably if response indicates that request is unauthorized
         """
 
-        callback = self.create_initial_admin_mock_callback(401, {})
+        callback = self.create_bootstrap_mock_callback(401, {})
 
         httpretty.register_uri(
             httpretty.POST,
@@ -496,46 +496,44 @@ class TestInitialAdmin(TestCase):
 
         self.assertEqual(json_output, expected_output)
 
-    def test_initial_admin_help(self):
+    def test_bootstrap_help(self):
         """
         Help parameter should complete without erroring
         """
 
         runner = CliRunner()
-        result = runner.invoke(cli, ["initial-admin", "--help"])
+        result = runner.invoke(cli, ["bootstrap", "--help"])
         self.assertEqual(result.exit_code, 0, result.output)
 
-    def test_initial_admin_invalid_jwt_path(self):
+    def test_boostrap_invalid_jwt_path(self):
         """
         Fail reasonably if jwt does not exist at provided path
         """
 
         runner = CliRunner()
-        result = runner.invoke(
-            cli, ["initial-admin", "--server", "http://host:port", "--jwt-keypath", "this/is/invalid"]
-        )
+        result = runner.invoke(cli, ["bootstrap", "--server", "http://host:port", "--jwt-keypath", "this/is/invalid"])
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertEqual(result.output, "Error: Keypath does not exist.\n")
 
-    def test_initial_admin_missing_options(self):
+    def test_bootstrap_missing_options(self):
         runner = CliRunner()
-        result = runner.invoke(cli, ["initial-admin"])
+        result = runner.invoke(cli, ["bootstrap"])
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertEqual(result.output, "Error: You must specify -s/--server.\n")
 
         # missing jwt keypath
-        result = runner.invoke(cli, ["initial-admin", "--server", "a_server"])
+        result = runner.invoke(cli, ["bootstrap", "--server", "a_server"])
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertEqual(result.output, "Error: You must specify -j/--jwt-keypath.\n")
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_initial_admin_raw_output(self):
+    def test_bootstrap_raw_output(self):
         """
         Verify we can get the API key as raw output
         """
 
         expected_api_key = "apikey123"
-        callback = self.create_initial_admin_mock_callback(200, {"api_key": expected_api_key})
+        callback = self.create_bootstrap_mock_callback(200, {"api_key": expected_api_key})
 
         httpretty.register_uri(
             httpretty.POST,
@@ -551,12 +549,12 @@ class TestInitialAdmin(TestCase):
         self.assertEqual(result.output, expected_api_key)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_initial_admin_raw_output_nonsuccess(self):
+    def test_boostrap_raw_output_nonsuccess(self):
         """
         Verify behavior on non-200 response
         """
 
-        callback = self.create_initial_admin_mock_callback(500, {})
+        callback = self.create_bootstrap_mock_callback(500, {})
 
         httpretty.register_uri(httpretty.POST, self.mock_uri, body=callback)
 
