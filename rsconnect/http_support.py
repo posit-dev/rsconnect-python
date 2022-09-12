@@ -195,7 +195,7 @@ class HTTPServer(object):
         self._headers["Authorization"] = auth_text
 
     def get_authorization(self):
-        if not "Authorization" in self._headers:
+        if "Authorization" not in self._headers:
             return None
 
         return self._headers["Authorization"]

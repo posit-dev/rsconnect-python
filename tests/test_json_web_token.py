@@ -1,6 +1,7 @@
 import tempfile
 from unittest import TestCase
 import pytest
+import json
 import jwt
 
 from datetime import datetime, timedelta, timezone
@@ -165,7 +166,7 @@ class TestJsonWebToken(TestCase):
 
     def test_produce_bootstrap_output(self):
 
-        api_key = "apikey123"
+        api_key = "testapikey123"
 
         # if we get a 200 response without a valid API key, something is messed up
 
@@ -186,47 +187,36 @@ class TestJsonWebToken(TestCase):
         with pytest.raises(RSConnectException):
             produce_bootstrap_output(400, {"api_key": api_key})
 
-        expected_successful_result = {
-            "status": 200,
-            "api_key": api_key,
-            "message": "Success.",
-        }
+        expected_successful_result = json.loads(open("tests/testdata/initial-admin-responses/success.json", "r").read())
         self.assertEqual(produce_bootstrap_output(200, {"api_key": api_key}), expected_successful_result)
 
-        expected_client_error_result = {
-            "status": 400,
-            "api_key": "",
-            "message": "Unable to provision initial admin. Please check status of Connect database.",
-        }
+        expected_client_error_result = json.loads(
+            open("tests/testdata/initial-admin-responses/client_error.json", "r").read()
+        )
         self.assertEqual(produce_bootstrap_output(400, None), expected_client_error_result)
         self.assertEqual(produce_bootstrap_output(400, {}), expected_client_error_result)
         self.assertEqual(produce_bootstrap_output(400, {"api_key": ""}), expected_client_error_result)
         self.assertEqual(produce_bootstrap_output(400, {"something": "else"}), expected_client_error_result)
 
-        expected_unauthorized_error_result = {"status": 401, "api_key": "", "message": "JWT authorization failed."}
+        expected_unauthorized_error_result = json.loads(
+            open("tests/testdata/initial-admin-responses/unauthorized_error.json", "r").read()
+        )
         self.assertEqual(produce_bootstrap_output(401, None), expected_unauthorized_error_result)
         self.assertEqual(produce_bootstrap_output(401, {}), expected_unauthorized_error_result)
         self.assertEqual(produce_bootstrap_output(401, {"api_key": ""}), expected_unauthorized_error_result)
         self.assertEqual(produce_bootstrap_output(401, {"something": "else"}), expected_unauthorized_error_result)
 
-        expected_not_found_error_result = {
-            "status": 404,
-            "api_key": "",
-            "message": (
-                "Unable to find provisioning endpoint. "
-                "Please check the 'rsconnect --server' parameter and your Connect configuration."
-            ),
-        }
+        expected_not_found_error_result = json.loads(
+            open("tests/testdata/initial-admin-responses/not_found_error.json", "r").read()
+        )
         self.assertEqual(produce_bootstrap_output(404, None), expected_not_found_error_result)
         self.assertEqual(produce_bootstrap_output(404, {}), expected_not_found_error_result)
         self.assertEqual(produce_bootstrap_output(404, {"api_key": ""}), expected_not_found_error_result)
         self.assertEqual(produce_bootstrap_output(404, {"something": "else"}), expected_not_found_error_result)
 
-        expected_other_error_result = {
-            "status": 500,
-            "api_key": "",
-            "message": "Unexpected response status.",
-        }
+        expected_other_error_result = json.loads(
+            open("tests/testdata/initial-admin-responses/other_error.json", "r").read()
+        )
         self.assertEqual(produce_bootstrap_output(500, None), expected_other_error_result)
         self.assertEqual(produce_bootstrap_output(500, {}), expected_other_error_result)
         self.assertEqual(produce_bootstrap_output(500, {"api_key": ""}), expected_other_error_result)
