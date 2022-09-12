@@ -53,7 +53,7 @@ class TestHTTPSupport(TestCase):
         server.bearer_authorization("my.jwt.token")
 
         self.assertEqual(len(server._headers), 2)
-        self.assertIn("user-Agent", server._headers)
+        self.assertIn("User-Agent", server._headers)
         self.assertEqual(server._headers["User-Agent"], _user_agent)
         self.assertIn("Authorization", server._headers)
         self.assertEqual(server._headers["Authorization"], "Bearer my.jwt.token")
