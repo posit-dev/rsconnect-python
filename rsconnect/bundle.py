@@ -833,7 +833,7 @@ def make_voila_bundle(
     exist (or force_generate is set to True), the environment file will also be written.
 
     :param path: the file, or the directory containing the files to deploy.
-    :param entry_point: the main entry point for the API.
+    :param entry_point: the main entry point.
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param force_generate: bool indicating whether to force generate manifest and related environment files.
@@ -846,29 +846,31 @@ def make_voila_bundle(
     excludes = list(excludes) if excludes else []
 
     entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
+    manifest_data = make_source_manifest(AppModes.JUPYTER_VOILA, environment, entrypoint, None, image)
     base_dir = dirname(entrypoint)
-    nb_name = basename(entrypoint)
 
+    if isfile(path):
+        validate_file_is_notebook(entrypoint)
+        manifest_add_file(manifest_data, entrypoint, base_dir)
+
+    # handle environment files
     if not exists(join(base_dir, environment.filename)) or force_generate:
         write_environment_file(environment, base_dir)
-    manifest = make_source_manifest(AppModes.JUPYTER_VOILA, environment, nb_name, None, image)
-    manifest_add_file(manifest, nb_name, base_dir)
-    manifest_add_buffer(manifest, environment.filename, environment.contents)
+    manifest_add_buffer(manifest_data, environment.filename, environment.contents)
 
-    excludes.extend(["manifest.json", voila_config])
-    packed_extra_files = pack_extra_files(path, extra_files, excludes)
-    for rel_path in packed_extra_files:
-        manifest_add_file(manifest, rel_path, path)
+    excludes.extend(["manifest.json"])
+    file_list = create_file_list(path, extra_files, excludes)
+    for rel_path in file_list:
+        manifest_add_file(manifest_data, rel_path, path)
+
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
-
     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
-        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
+        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest_data, indent=2))
         if exists(join(base_dir, voila_config)):
             bundle_add_file(bundle, voila_config, base_dir)
         if isfile(path):
             bundle_add_file(bundle, environment.filename, base_dir)
-
-        for rel_path in packed_extra_files:
+        for rel_path in file_list:
             bundle_add_file(bundle, rel_path, path)
 
     # rewind file pointer
