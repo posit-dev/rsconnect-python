@@ -765,14 +765,14 @@ def make_html_bundle(
     return bundle_file
 
 
-def pack_extra_files(
+def create_file_list(
     path: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
 ) -> typing.List[str]:
 
     """
-    Packs all the extra files and filters out excludes.
+    Create a file list from extras and excludes. Excludes any existing manifest.json.
 
     :param path: the file, or the directory containing the files to deploy.
     :param entry_point: the main entry point for the API.
