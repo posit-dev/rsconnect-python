@@ -1384,49 +1384,56 @@ def write_notebook_manifest_json(
 
 
 def write_voila_manifest_json(
-    entry_point_file: str,
+    path: str,
+    entrypoint: str,
     environment: Environment,
     app_mode: AppMode = AppModes.JUPYTER_VOILA,
     extra_files: typing.List[str] = None,
+    excludes: typing.List[str] = None,
+    force_generate: bool = True,
     image: str = None,
 ) -> bool:
     """
-    Creates and writes a manifest.json file for the given entry point file.  If
-    the application mode is not provided, an attempt will be made to resolve one
-    based on the extension portion of the entry point file.
+    Creates and writes a manifest.json file for the given path.
 
-    :param entry_point_file: the entry point file (Voila notebook, etc.) to build
-    the manifest for.
+    :param path: the file, or the directory containing the files to deploy.
+    :param entry_point: the main entry point for the API.
     :param environment: the Python environment to start with.  This should be what's
     returned by the inspect_environment() function.
     :param app_mode: the application mode to assume.  If this is None, the extension
     portion of the entry point file name will be used to derive one. Previous default = None.
     :param extra_files: any extra files that should be included in the manifest. Previous default = None.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param force_generate: bool indicating whether to force generate manifest and related environment files.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :return: whether or not the environment file (requirements.txt, environment.yml,
-    etc.) that goes along with the manifest exists.
+    :return: whether the manifest was written.
     """
-    extra_files = validate_extra_files(dirname(entry_point_file), extra_files)
-    directory = dirname(entry_point_file)
-    file_name = basename(entry_point_file)
-    manifest_path = join(directory, "manifest.json")
+    mimetypes.add_type("text/ipynb", ".ipynb")
+    extra_files = list(extra_files) if extra_files else []
+    excludes = list(excludes) if excludes else []
 
-    if app_mode is None:
-        _, extension = splitext(file_name)
-        app_mode = AppModes.get_by_extension(extension, True)
-        if app_mode == AppModes.UNKNOWN:
-            raise RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
+    entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
+    manifest_data = make_source_manifest(AppModes.JUPYTER_VOILA, environment, entrypoint, None, image)
+    base_dir = dirname(entrypoint)
 
-    manifest_data = make_source_manifest(app_mode, environment, file_name, None, image)
-    manifest_add_file(manifest_data, file_name, directory)
+    if isfile(path):
+        validate_file_is_notebook(entrypoint)
+        manifest_add_file(manifest_data, entrypoint, base_dir)
+
+    # handle environment files
+    if not exists(join(base_dir, environment.filename)) or force_generate:
+        write_environment_file(environment, base_dir)
     manifest_add_buffer(manifest_data, environment.filename, environment.contents)
 
-    for rel_path in extra_files:
-        manifest_add_file(manifest_data, rel_path, directory)
+    excludes.extend(["manifest.json"])
+    file_list = create_file_list(path, extra_files, excludes)
+    for rel_path in file_list:
+        manifest_add_file(manifest_data, rel_path, path)
 
+    manifest_path = join(base_dir, "manifest.json")
     write_manifest_json(manifest_path, manifest_data)
 
-    return exists(join(directory, environment.filename))
+    return exists(manifest_path)
 
 
 def create_api_manifest_and_environment_file(
