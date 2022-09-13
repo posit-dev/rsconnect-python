@@ -656,6 +656,10 @@ def make_html_bundle_content(
     """
     extra_files = list(extra_files) if extra_files else []
     entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/html")
+    if not entrypoint:
+        raise RSConnectException(
+            "Unable to infer entry point. Provide an entry point, or ensure path contains exactly one valid content."
+        )
 
     if path.startswith(os.curdir):
         path = relpath(path)
@@ -726,10 +730,6 @@ def infer_entrypoint(path, mimetype):
         if file in default_mimetype_entrypoints[mimetype]:
             return file
     res = mimetype_filelist[mimetype].pop() if len(mimetype_filelist[mimetype]) == 1 else None
-    if not res:
-        raise RuntimeError(
-            "Unable to infer entry point. Provide an entry point, or ensure path contains exactly one valid content."
-        )
     return res
 
 
