@@ -404,12 +404,12 @@ class RSConnectExecutor:
         server_data = ServerStore().resolve(name, url)
         if server_data.from_store:
             url = server_data.url
-            api_key = server_data.api_key
-            insecure = server_data.insecure
-            ca_data = server_data.ca_data
-            account_name = server_data.account_name
-            token = server_data.token
-            secret = server_data.secret
+            api_key = api_key or server_data.api_key
+            insecure = insecure or server_data.insecure
+            ca_data = ca_data or server_data.ca_data
+            account_name = account_name or server_data.account_name
+            token = token or server_data.token
+            secret = secret or server_data.secret
         self.is_server_from_store = server_data.from_store
 
         if api_key:
