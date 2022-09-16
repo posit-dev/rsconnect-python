@@ -16,6 +16,8 @@ from rsconnect.json_web_token import (
 )
 
 BOOTSTRAP_ENDPOINT = "/__api__/v1/experimental/bootstrap"
+API_KEY_ENDPOINT = "/__api__/me"
+
 
 ENV_FILENAME = "env.json"
 
@@ -41,7 +43,11 @@ def failure(reason):
     sys.exit(1)
 
 
-def authorization_header(token):
+def api_key_authorization_header(token):
+    return {"Authorization": "Key " + token}
+
+
+def jwt_authorization_header(token):
     return {"Authorization": "Bearer " + token}
 
 
@@ -52,7 +58,7 @@ def generate_jwt_secured_header(keypath):
     token_generator = TokenGenerator(secret_key)
 
     initial_admin_token = token_generator.bootstrap()
-    return authorization_header(initial_admin_token)
+    return jwt_authorization_header(initial_admin_token)
 
 
 def create_jwt_encoder(keypath, issuer, audience):
@@ -67,7 +73,7 @@ def assert_status_code(response, expected):
         failure("unexpected response status: " + str(response.status_code))
 
 
-def initial_admin_no_header(step, env):
+def no_header(step, env):
     preamble(step, "Unable to access endpoint without a header present")
 
     response = requests.post(env["bootstrap_endpoint"])
@@ -77,100 +83,121 @@ def initial_admin_no_header(step, env):
     success()
 
 
-def initial_admin_no_jwt_header(step, env):
+def no_jwt_header(step, env):
     preamble(step, "Unable to access endpoint without a JWT in the auth header")
 
-    response = requests.post(env["bootstrap_endpoint"], authorization_header(""))
+    response = requests.post(env["bootstrap_endpoint"], jwt_authorization_header(""))
 
     assert_status_code(response, 401)
 
     success()
 
 
-def initial_admin_invalid_jwt_header(step, env):
+def invalid_jwt_header(step, env):
     preamble(step, "Unable to access endpoint with a bearer token that isn't a JWT")
 
-    response = requests.post(env["bootstrap_endpoint"], authorization_header("invalid"))
+    response = requests.post(env["bootstrap_endpoint"], jwt_authorization_header("invalid"))
 
     assert_status_code(response, 401)
 
     success()
 
 
-def initial_admin_incorrect_jwt_invalid_issuer(step, env):
+def incorrect_jwt_invalid_issuer(step, env):
     preamble(step, "Unable to access endpoint with an incorrectly scoped JWT (invalid issuer)")
 
     encoder = create_jwt_encoder(env["keypath"], "invalid", DEFAULT_AUDIENCE)
     token = encoder.new_token({"scope": BOOTSTRAP_SCOPE}, BOOTSTRAP_EXP)
-    response = requests.post(env["bootstrap_endpoint"], authorization_header(token))
+    response = requests.post(env["bootstrap_endpoint"], jwt_authorization_header(token))
 
     assert_status_code(response, 401)
 
     success()
 
 
-def initial_admin_incorrect_jwt_invalid_audience(step, env):
+def incorrect_jwt_invalid_audience(step, env):
     preamble(step, "Unable to access endpoint with an incorrectly scoped JWT (invalid audience)")
 
     encoder = create_jwt_encoder(env["keypath"], DEFAULT_ISSUER, "invalid")
     token = encoder.new_token({"scope": BOOTSTRAP_SCOPE}, BOOTSTRAP_EXP)
-    response = requests.post(env["bootstrap_endpoint"], authorization_header(token))
+    response = requests.post(env["bootstrap_endpoint"], jwt_authorization_header(token))
 
     assert_status_code(response, 401)
 
     success()
 
 
-def initial_admin_incorrect_jwt_invalid_scope(step, env):
-    preamble(step, "Unable to access endpoint with an incorrectly scopet JWT (invalid scope)")
+def incorrect_jwt_invalid_scope(step, env):
+    preamble(step, "Unable to access endpoint with an incorrectly scoped JWT (invalid scope)")
 
     encoder = create_jwt_encoder(env["keypath"], DEFAULT_ISSUER, DEFAULT_AUDIENCE)
     token = encoder.new_token({"scope": BOOTSTRAP_SCOPE}, BOOTSTRAP_EXP)
-    response = requests.post(env["bootstrap_endpoint"], authorization_header(token))
+    response = requests.post(env["bootstrap_endpoint"], jwt_authorization_header(token))
 
     assert_status_code(response, 401)
 
     success()
 
 
-def initial_admin_no_scope(step, env):
+def no_scope(step, env):
     preamble(step, "Unable to access endpoint with an incorrectly scoped JWT (no scope provided)")
 
     encoder = create_jwt_encoder(env["keypath"], DEFAULT_ISSUER, DEFAULT_AUDIENCE)
     token = encoder.new_token({"invalid": "invalid"}, BOOTSTRAP_EXP)
-    response = requests.post(env["bootstrap_endpoint"], authorization_header(token))
+    response = requests.post(env["bootstrap_endpoint"], jwt_authorization_header(token))
 
     assert_status_code(response, 401)
 
     success()
 
 
-def initial_admin_different_secret(step, env):
+def different_secret(step, env):
     preamble(step, "Unable to access endpoint with a JWT signed with an unexpected secret")
 
     encoder = JWTEncoder(DEFAULT_ISSUER, DEFAULT_AUDIENCE, "invalid_secret")
     token = encoder.new_token({"scope": BOOTSTRAP_SCOPE}, BOOTSTRAP_EXP)
-    response = requests.post(env["bootstrap_endpoint"], authorization_header(token))
+    response = requests.post(env["bootstrap_endpoint"], jwt_authorization_header(token))
 
     assert_status_code(response, 401)
 
     success()
 
 
-def initial_admin_incorrect_jwt_expired(step, env):
+def incorrect_jwt_expired(step, env):
     preamble(step, "Unable to access endpoint with an incorrectly scoped JWT (expired)")
 
     encoder = create_jwt_encoder(env["keypath"], DEFAULT_ISSUER, DEFAULT_AUDIENCE)
     token = encoder.new_token({"scope": BOOTSTRAP_SCOPE}, timedelta(seconds=1))
     time.sleep(5)
-    response = requests.post(env["bootstrap_endpoint"], authorization_header(token))
+    response = requests.post(env["bootstrap_endpoint"], jwt_authorization_header(token))
 
     assert_status_code(response, 401)
 
     success()
 
 
-def initial_admin_endpoint_happy_path(step, env):
+def verify_api_key_endpoint_invalid(step, env):
+    preamble(step, "Unable to access api key endpoint with invalid api key (prereq)")
+
+    response = requests.get(env["api_key_endpoint"], headers=api_key_authorization_header("invalid"))
+    assert_status_code(response, 401)
+
+    empty_string_response = requests.get(env["api_key_endpoint"], headers=api_key_authorization_header(""))
+    assert_status_code(empty_string_response, 401)
+
+    success()
+
+
+def verify_api_key_endpoint_empty(step, env):
+    preamble(step, "Unable to access api key endpoint with no api key (prereq)")
+
+    response = requests.get(env["api_key_endpoint"])
+    assert_status_code(response, 401)
+
+    success()
+
+
+def endpoint_happy_path(step, env):
     preamble(step, "Verifying initial admin endpoint happy path")
 
     response = requests.post(env["bootstrap_endpoint"], headers=generate_jwt_secured_header(env["keypath"]))
@@ -181,13 +208,40 @@ def initial_admin_endpoint_happy_path(step, env):
     if "api_key" not in json_data:
         failure("api_key key not in json response")
 
-    if json_data["api_key"] is None or json_data["api_key"] == "":
+    api_key = json_data["api_key"]
+    if api_key is None or api_key == "":
         failure("api_key value not in json response")
+
+    # verify that we can get into the api key endpoint with the returned key
+
+    api_key = json_data["api_key"]
+
+    api_response = requests.get(env["api_key_endpoint"], headers=api_key_authorization_header(api_key))
+    assert_status_code(api_response, 200)
+    api_json = api_response.json()
+
+    # verify that the response is reasonable from an api_key secured endpoint
+
+    if "username" not in api_json:
+        failure("No username returned from /me")
+
+    if len(api_json["username"]) == 0:
+        failure("Empty username returned from /me")
+
+    if "user_role" not in api_json:
+        failure("No user_role returned from /me")
+
+    if api_json["user_role"] != "administrator":
+        failure("Invalid user_role returned from /me: {}".format(api_json["user_role"]))
+
+    # bootstrap endpoint should not respond to api key
+    bootstrap_api_response = requests.post(env["bootstrap_endpoint"], headers=jwt_authorization_header(api_key))
+    assert_status_code(bootstrap_api_response, 401)
 
     success()
 
 
-def initial_admin_subsequent_calls(step, env):
+def endpoint_subsequent_calls(step, env):
     preamble(step, "Subsequent call should fail gracefully")
 
     response = requests.post(env["bootstrap_endpoint"], headers=generate_jwt_secured_header(env["keypath"]))
@@ -200,25 +254,32 @@ def initial_admin_subsequent_calls(step, env):
 def other_endpoint_does_not_accept_jwts(step, env):
     preamble(step, "Only the initial admin endpoint will authorize using jwts")
 
-    response = requests.post(env["server"] + "/__api__/me", headers=generate_jwt_secured_header(env["keypath"]))
+    response = requests.get(env["api_key_endpoint"], headers=generate_jwt_secured_header(env["keypath"]))
 
     assert_status_code(response, 401)
+
+    invalid_jwt_response = requests.get(env["api_key_endpoint"], headers={"Authorization": "Bearer invalid"})
+
+    assert_status_code(invalid_jwt_response, 401)
 
     success()
 
 
 test_functions = [
-    initial_admin_no_header,
-    initial_admin_no_jwt_header,
-    initial_admin_invalid_jwt_header,
-    initial_admin_incorrect_jwt_invalid_issuer,
-    initial_admin_incorrect_jwt_invalid_audience,
-    initial_admin_incorrect_jwt_invalid_scope,
-    initial_admin_incorrect_jwt_expired,
-    initial_admin_no_scope,
-    initial_admin_different_secret,
-    initial_admin_endpoint_happy_path,
-    initial_admin_subsequent_calls,
+    no_header,
+    no_jwt_header,
+    invalid_jwt_header,
+    incorrect_jwt_invalid_issuer,
+    incorrect_jwt_invalid_audience,
+    incorrect_jwt_invalid_scope,
+    incorrect_jwt_expired,
+    no_scope,
+    different_secret,
+    # verify the behavior of a "normal" api key endpoint before running the full endpoint excercise
+    verify_api_key_endpoint_invalid,
+    verify_api_key_endpoint_empty,
+    endpoint_happy_path,
+    endpoint_subsequent_calls,
     other_endpoint_does_not_accept_jwts,
 ]
 
@@ -237,6 +298,7 @@ def run_testbed():
         sys.exit(1)
 
     json_env["bootstrap_endpoint"] = json_env["server"] + BOOTSTRAP_ENDPOINT
+    json_env["api_key_endpoint"] = json_env["server"] + API_KEY_ENDPOINT
 
     print("RUNNING TESTBED")
     print("---------------")
