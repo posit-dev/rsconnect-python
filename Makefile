@@ -56,7 +56,7 @@ mock-test-%: clean-stores
 	CONNECT_CONTENT_BUILD_DIR="rsconnect-build-test" \
 	CONNECT_SERVER="http://$(HOSTNAME):3939" \
 	CONNECT_API_KEY="0123456789abcdef0123456789abcdef" \
-	$(MAKE) test-$* || cat mock_connect.log
+	$(MAKE) test-$* || cat mock_connect/mock_connect.log
 	@$(MAKE) -C mock_connect down
 
 fmt-%:
