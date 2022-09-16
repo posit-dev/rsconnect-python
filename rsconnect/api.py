@@ -419,7 +419,7 @@ class RSConnectExecutor:
                 and secret
             ):
                 warn(
-                    "Connect will use non-empty stored credentials. CLI credentials and environment credential variables are ignored.",
+                    "Connect will use non-empty stored credentials. CLI & environment credentials are ignored.",
                     stacklevel=2,
                 )
             api_key = server_data.api_key or api_key
