@@ -194,7 +194,7 @@ def v1_content_bundle_download(bundle: Bundle, content_id):
         bundle.read_bundle_data(),
         mimetype="application/tar+gzip",
         as_attachment=True,
-        attachment_filename=basename(bundle._tar_file) if bundle._tar_file else None,
+        download_name=basename(bundle._tar_file) if bundle._tar_file else None,
     )
 
 
