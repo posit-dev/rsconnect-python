@@ -81,7 +81,7 @@ class RSConnectServer(AbstractRemoteServer):
     instance of the Connect server.
     """
 
-    def __init__(self, url, api_key, jwt=None, insecure=False, ca_data=None):
+    def __init__(self, url, api_key, insecure=False, ca_data=None, jwt=None):
         super().__init__(url, "RStudio Connect")
         self.api_key = api_key
         self.jwt = jwt

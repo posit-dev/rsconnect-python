@@ -546,7 +546,7 @@ class TestBootstrap(TestCase):
 
         self.assertEqual(result.exit_code, 0, result.output)
 
-        self.assertEqual(result.output, expected_api_key)
+        self.assertEqual(result.output, expected_api_key + "\n")
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_boostrap_raw_output_nonsuccess(self):
@@ -563,4 +563,4 @@ class TestBootstrap(TestCase):
 
         self.assertEqual(result.exit_code, 0, result.output)
 
-        self.assertEqual(result.output, "")
+        self.assertEqual(result.output, "\n")

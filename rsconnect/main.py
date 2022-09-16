@@ -346,7 +346,7 @@ def bootstrap(
     ca_data = cacert and text_type(cacert.read())
 
     with cli_feedback("", stderr=True):
-        connect_server = RSConnectServer(server, None, jwt=bootstrap_token, insecure=insecure, ca_data=ca_data)
+        connect_server = RSConnectServer(server, None, insecure=insecure, ca_data=ca_data, jwt=bootstrap_token)
         connect_client = RSConnectClient(connect_server)
 
         response = connect_client.bootstrap()
@@ -355,7 +355,7 @@ def bootstrap(
         status, json_data = parse_client_response(response)
         output = produce_bootstrap_output(status, json_data)
         if raw:
-            click.echo(output["api_key"], nl=False)
+            click.echo(output["api_key"])
         else:
             json.dump(output, sys.stdout, indent=2)
 
