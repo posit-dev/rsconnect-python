@@ -404,12 +404,30 @@ class RSConnectExecutor:
         server_data = ServerStore().resolve(name, url)
         if server_data.from_store:
             url = server_data.url
-            api_key = server_data.api_key
-            insecure = server_data.insecure
-            ca_data = server_data.ca_data
-            account_name = server_data.account_name
-            token = server_data.token
-            secret = server_data.secret
+            if (
+                server_data.api_key
+                and api_key
+                or server_data.insecure
+                and insecure
+                or server_data.ca_data
+                and ca_data
+                or server_data.account_name
+                and account_name
+                or server_data.token
+                and token
+                or server_data.secret
+                and secret
+            ):
+                warn(
+                    "Connect will use non-empty stored credentials. CLI credentials and environment credential variables are ignored.",
+                    stacklevel=2,
+                )
+            api_key = server_data.api_key or api_key
+            insecure = server_data.insecure or insecure
+            ca_data = server_data.ca_data or ca_data
+            account_name = server_data.account_name or account_name
+            token = server_data.token or token
+            secret = server_data.secret or secret
         self.is_server_from_store = server_data.from_store
 
         if api_key:
