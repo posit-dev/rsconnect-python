@@ -417,14 +417,13 @@ class RSConnectExecutor:
                 and token
                 or server_data.secret
                 and secret
-            ):
-                if self.logger:
-                    self.logger.warning(
-                        "Connect has detected that a CLI and/or environment variable overlaps with a stored credential.\n"
-                    )
-                    self.logger.warning(
-                        "Non-empty stored credentials will be used and CLI and/or environment variable are ignored.\n"
-                    )
+            ) and self.logger:
+                self.logger.warning(
+                    "Connect has detected that a CLI and/or environment variable overlaps with a stored credential.\n"
+                )
+                self.logger.warning(
+                    "Non-empty stored credentials will be used and CLI and/or environment variable are ignored.\n"
+                )
             api_key = server_data.api_key or api_key
             insecure = server_data.insecure or insecure
             ca_data = server_data.ca_data or ca_data
