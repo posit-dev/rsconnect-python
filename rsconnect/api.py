@@ -338,6 +338,7 @@ class RSConnectExecutor:
     ) -> None:
         self.reset()
         self._d = kwargs
+        self.logger = logger
         self.setup_remote_server(
             name=name,
             url=url or kwargs.get("server"),
@@ -350,7 +351,6 @@ class RSConnectExecutor:
             secret=secret,
         )
         self.setup_client(cookies, timeout)
-        self.logger = logger
 
     @classmethod
     def fromConnectServer(cls, connect_server, **kwargs):
@@ -418,7 +418,13 @@ class RSConnectExecutor:
                 or server_data.secret
                 and secret
             ):
-                warn("Connect will use non-empty stored credentials. CLI & environment credentials are ignored.")
+                # warn("Connect will use non-empty stored credentials. CLI & environment credentials are ignored.")
+                self.logger.warning(
+                    "Connect has detected that a CLI and/or environment variable overlaps with a stored credential.\n"
+                )
+                self.logger.warning(
+                    "Non-empty stored credentials will be used and CLI and/or environment variable are ignored.\n"
+                )
             api_key = server_data.api_key or api_key
             insecure = server_data.insecure or insecure
             ca_data = server_data.ca_data or ca_data
