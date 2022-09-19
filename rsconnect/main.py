@@ -385,7 +385,8 @@ def list_servers(verbose):
             for server in servers:
                 click.echo('Nickname: "%s"' % server["name"])
                 click.echo("    URL: %s" % server["url"])
-                click.echo("    API key is saved")
+                if server.get("api_key"):
+                    click.echo("    API key is saved")
                 if server.get("insecure"):
                     click.echo("    Insecure mode (TLS host/certificate validation disabled)")
                 if server.get("ca_cert"):
