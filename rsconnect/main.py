@@ -1399,6 +1399,56 @@ def deploy_help():
     click.echo()
 
 
+@deploy.command(
+    name="git",
+    short_help="Deploy git repository with exisiting manifest file",
+    help="Deploy git repository with exisiting manifest file"
+)
+@click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
+@click.option(
+    "--server", "-s", envvar="CONNECT_SERVER", help="The URL for the RStudio Connect server to deploy to.",
+)
+@click.option(
+    "--api-key", "-k", envvar="CONNECT_API_KEY", help="The API key to use to authenticate with RStudio Connect.",
+)
+@click.option(
+    "--insecure", "-i", envvar="CONNECT_INSECURE", is_flag=True, help="Disable TLS certification/host validation.",
+)
+@click.option(
+    "--cacert",
+    "-c",
+    envvar="CONNECT_CA_CERTIFICATE",
+    type=click.File(),
+    help="The path to trusted TLS CA certificates.",
+)
+@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+@click.option('--app_name', '-a')
+@click.option('--repository', "-r")
+@click.option('--branch', "-b")
+@click.option('--subdirectory', "-d")
+def deploy_git(name, server, api_key, insecure, cacert, verbose, app_name, repository, branch, subdirectory):
+    set_verbosity(verbose)
+
+    with cli_feedback("Checking arguments"):
+        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
+
+    connect_client = api.RSConnect(connect_server)
+
+    with cli_feedback("Deploying git repository"):
+        app = connect_client.deploy_git(app_name, repository, branch, subdirectory)
+
+    with cli_feedback(""):
+        click.secho("\nDeployment log:", fg="bright_white")
+        app_url, _ = spool_deployment_log(connect_server, app, click.echo)
+        click.secho("Deployment completed successfully.", fg="bright_white")
+        click.secho("    Dashboard content URL: %s" % app_url, fg="bright_white")
+        click.secho("    Direct content URL: %s" % app["app_url"], fg="bright_white")
+
+
+    click.secho("Git deployment completed successfully.", fg="bright_white")
+    click.secho("App available as %s" % app_name, fg="bright_white")
+
+
 @cli.group(
     name="write-manifest",
     no_args_is_help=True,
@@ -1411,7 +1461,6 @@ def deploy_help():
 )
 def write_manifest():
     pass
-
 
 @write_manifest.command(
     name="notebook",
