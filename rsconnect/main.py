@@ -224,18 +224,21 @@ def content_args(func):
 @click.option("--future", "-u", is_flag=True, hidden=True, help="Enables future functionality.")
 def cli(future):
     """
-    This command line tool may be used to deploy Jupyter notebooks to RStudio
-    Connect.  Support for deploying other content types is also provided.
+    This command line tool may be used to deploy various types of content to RStudio
+    Connect, RStudio Cloud, and shinyapps.io.
 
     The tool supports the notion of a simple nickname that represents the
-    information needed to interact with an RStudio Connect server instance.  Use
-    the add, list and remove commands to manage these nicknames.
+    information needed to interact with a deployment target.  Usethe add, list and
+    remove commands to manage these nicknames.
 
     The information about an instance of RStudio Connect includes its URL, the
     API key needed to authenticate against that instance, a flag that notes whether
     TLS certificate/host verification should be disabled and a path to a trusted CA
     certificate file to use for TLS.  The last two items are only relevant if the
     URL specifies the "https" protocol.
+
+    For RStudio Cloud and shinyapps.io, the information needed to connect includes
+    the account, auth token, auth secret, and server ('rstudio.cloud' or 'shinyapps.io').
     """
     global future_enabled
     future_enabled = future
@@ -280,9 +283,9 @@ def _test_rstudio_creds(server: api.RStudioServer):
 
 # noinspection SpellCheckingInspection
 @cli.command(
-    short_help="Define a nickname for an RStudio Connect or shinyapps.io server and credential.",
+    short_help="Define a nickname for an RStudio Connect, RStudio Cloud, or shinyapps.io server and credential.",
     help=(
-        "Associate a simple nickname with the information needed to interact with an RStudio Connect server. "
+        "Associate a simple nickname with the information needed to interact with a deployment target. "
         "Specifying an existing nickname will cause its stored information to be replaced by what is given "
         "on the command line."
     ),
@@ -292,7 +295,7 @@ def _test_rstudio_creds(server: api.RStudioServer):
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server to deploy to.",
+    help="The URL for the RStudio Connect server to deploy to, OR rstudio.cloud OR shinyapps.io.",
 )
 @click.option(
     "--api-key",
@@ -538,7 +541,7 @@ def info(file):
             click.echo("No saved deployment information was found for %s." % file)
 
 
-@cli.group(no_args_is_help=True, help="Deploy content to RStudio Connect.")
+@cli.group(no_args_is_help=True, help="Deploy content to RStudio Connect, RStudio Cloud, or shinyapps.io.")
 def deploy():
     pass
 
@@ -992,12 +995,12 @@ def generate_deploy_python(app_mode, alias, min_version):
     # noinspection SpellCheckingInspection
     @deploy.command(
         name=alias,
-        short_help="Deploy a {desc} to RStudio Connect [v{version}+].".format(
+        short_help="Deploy a {desc} to RStudio Connect, RStudio Cloud, orshinyapps.io [v{version}+].".format(
             desc=app_mode.desc(), version=min_version
         ),
         help=(
-            'Deploy a {desc} module to RStudio Connect. The "directory" argument must refer to an '
-            "existing directory that contains the application code."
+            "Deploy a {desc} module to RStudio Connect, RStudio Cloud, or shinyapps.io (if supported by the platform). "
+            'The "directory" argument must refer to an existing directory that contains the application code.'
         ).format(desc=app_mode.desc()),
     )
     @server_args
