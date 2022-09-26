@@ -1,6 +1,7 @@
 """
 RStudio Connect API client and utility functions
 """
+import binascii
 import os
 from os.path import abspath
 import time
@@ -983,7 +984,10 @@ class RStudioClient(HTTPServer):
 
     def __init__(self, rstudio_server: RStudioServer, timeout: int = 30):
         self._token = rstudio_server.token
-        self._key = base64.b64decode(rstudio_server.secret)
+        try:
+            self._key = base64.b64decode(rstudio_server.secret)
+        except binascii.Error as e:
+            raise RSConnectException("Invalid secret.") from e
         self._server = rstudio_server
         super().__init__(rstudio_server.url, timeout=timeout)
 
