@@ -287,38 +287,18 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
         "on the command line."
     ),
 )
-@click.option("--name", "-n", required=True, help="The nickname of the RStudio Connect server to deploy to.")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server to deploy to.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with RStudio Connect.",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
-    help="The path to trusted TLS CA certificates.",
-)
+@server_args
 @shinyapps_args
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def add(name, server, api_key, insecure, cacert, account, token, secret, verbose):
+@click.pass_context
+def add(ctx, name, server, api_key, insecure, cacert, account, token, secret, verbose):
 
     set_verbosity(verbose)
+    click.echo("Detected the following inputs:")
+    for k, v in locals().items():
+        if k in {"ctx", "verbose"}:
+            continue
+        if v is not None:
+            click.echo("    {}: {}".format(k, ctx.get_parameter_source(k).name))
 
     validation.validate_connection_options(
         url=server,
