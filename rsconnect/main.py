@@ -287,7 +287,7 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
 
 
 @cli.command(
-    short_help="Create a transitory admin user and provision it with an api key",
+    short_help="Create an initial admin user to bootstrap a Connect instance.",
     help="Creates an initial admin user to bootstrap a Connect instance. Returns the provisionend API key.",
 )
 @click.option(
@@ -332,7 +332,14 @@ def bootstrap(
             "Python version > 3.5 required for JWT generation. Please upgrade your Python installation."
         )
 
-    validation.validate_initial_admin_options(server, jwt_keypath)
+    if not server:
+        raise RSConnectException("You must specify -s/--server.")
+
+    if not server.startswith("http"):
+        raise RSConnectException("Server URL expected to begin with transfer protocol (ex. http/https).")
+
+    if not jwt_keypath:
+        raise RSConnectException("You must specify -j/--jwt-keypath.")
 
     secret_key = read_secret_key(jwt_keypath)
     validate_hs256_secret_key(secret_key)

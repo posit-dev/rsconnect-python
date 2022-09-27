@@ -515,6 +515,18 @@ class TestBootstrap(TestCase):
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertEqual(result.output, "Error: Keypath does not exist.\n")
 
+    def test_bootstrap_invalid_server(self):
+        """
+        Fail reasonably if server URL is formatted incorrectly
+        """
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["bootstrap", "--server", "123.some.ip.address", "--jwt-keypath", self.jwt_keypath])
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertEqual(
+            result.output, "Error: Server URL expected to begin with transfer protocol (ex. http/https).\n"
+        )
+
     def test_bootstrap_missing_options(self):
         runner = CliRunner()
         result = runner.invoke(cli, ["bootstrap"])
@@ -522,7 +534,7 @@ class TestBootstrap(TestCase):
         self.assertEqual(result.output, "Error: You must specify -s/--server.\n")
 
         # missing jwt keypath
-        result = runner.invoke(cli, ["bootstrap", "--server", "a_server"])
+        result = runner.invoke(cli, ["bootstrap", "--server", "http://a_server"])
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertEqual(result.output, "Error: You must specify -j/--jwt-keypath.\n")
 
