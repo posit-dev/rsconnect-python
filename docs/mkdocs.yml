@@ -1,4 +1,4 @@
-site_name: 'RStudio Connect: rsconnect-python'
+site_name: 'Posit Connect: rsconnect-python'
 
 markdown_extensions:
   - toc:
@@ -21,7 +21,7 @@ nav:
 
 theme:
   name: material
-  logo: 'images/rstudio-logo.png'
+  logo: 'images/iconPositConnect.svg'
   palette:
     primary: 'white'
 

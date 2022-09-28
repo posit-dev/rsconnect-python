@@ -1,5 +1,5 @@
 """
-RStudio Connect API client and utility functions
+Posit Connect API client and utility functions
 """
 from os.path import abspath
 import time
@@ -82,7 +82,7 @@ class RSConnectServer(AbstractRemoteServer):
     """
 
     def __init__(self, url, api_key, insecure=False, ca_data=None):
-        super().__init__(url, "RStudio Connect")
+        super().__init__(url, "Posit Connect")
         self.api_key = api_key
         self.insecure = insecure
         self.ca_data = ca_data
@@ -797,7 +797,7 @@ class RSConnectExecutor:
 
     def verify_api_key(self, server=None):
         """
-        Verify that an API Key may be used to authenticate with the given RStudio Connect server.
+        Verify that an API Key may be used to authenticate with the given Posit Connect server.
         If the API key verifies, we return the username of the associated user.
         """
         if not server:
@@ -833,7 +833,7 @@ class RSConnectExecutor:
     @property
     def server_details(self):
         """
-        Builds a dictionary containing the version of RStudio Connect that is running
+        Builds a dictionary containing the version of Posit Connect that is running
         and the versions of Python installed there.
 
         :return: a three-entry dictionary.  The key 'connect' will refer to the version
@@ -1080,7 +1080,7 @@ class ShinyappsClient(HTTPServer):
 def verify_server(connect_server):
     """
     Verify that the given server information represents a Connect instance that is
-    reachable, active and appears to be actually running RStudio Connect.  If the
+    reachable, active and appears to be actually running Posit Connect.  If the
     check is successful, the server settings for the Connect server is returned.
 
     :param connect_server: the Connect server information.
@@ -1098,7 +1098,7 @@ def verify_server(connect_server):
 
 def verify_api_key(connect_server):
     """
-    Verify that an API Key may be used to authenticate with the given RStudio Connect server.
+    Verify that an API Key may be used to authenticate with the given Posit Connect server.
     If the API key verifies, we return the username of the associated user.
 
     :param connect_server: the Connect server information, including the API key to test.
@@ -1301,7 +1301,7 @@ def override_title_search(connect_server, app_id, app_title):
         that have an app mode of static or Jupyter notebook.  The data
         for the apps we keep is an abbreviated subset.
 
-        :param client: the client object to use for RStudio Connect calls.
+        :param client: the client object to use for Posit Connect calls.
         :param app: the current app from Connect.
         :return: the abbreviated data for the app or None.
         """

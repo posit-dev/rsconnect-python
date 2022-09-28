@@ -1,5 +1,5 @@
 FROM python:3.8-slim
-MAINTAINER RStudio Connect <rsconnect@rstudio.com>
+MAINTAINER Posit Connect <rsconnect@rstudio.com>
 
 # Needed with Python3 mkdocs.
 # https://click.palletsprojects.com/en/7.x/python3/
