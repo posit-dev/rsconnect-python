@@ -1,4 +1,5 @@
 site_name: 'Posit Connect: rsconnect-python'
+copyright: Posit Software, PBC. All Rights Reserved
 
 markdown_extensions:
   - toc:
@@ -21,9 +22,22 @@ nav:
 
 theme:
   name: material
+  custom_dir: overrides
+  font:
+    text: Open Sans
   logo: 'images/iconPositConnect.svg'
+  favicon: 'images/favicon.ico'
   palette:
-    primary: 'white'
+    - scheme: default
+      primary: white
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+    - scheme: slate
+      primary: black
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
 
 extra_css:
   - css/custom.css

@@ -1,3 +1,73 @@
+/* Header
+*/
+
+.md-header[data-md-state=shadow] {
+    transition: background-color 0s;
+    box-shadow: none;
+}
+
+.md-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.15) !important; 
+}
+
+@media only screen and (max-width: 76.1875em){
+    .left-nav {
+        display: none;
+    }
+}
+
+/* Tabs
+*/
+
+.md-tabs__list {
+    margin: 0 2em 0 .2rem;
+    list-style: none;
+    white-space: nowrap;
+}
+
+.md-tabs__link {
+    margin-top: .2rem !important;
+}
+
+.md-tabs__item {
+  height: 1.75rem !important;
+}
+
+/* Search bar
+*/
+
+.md-search-result__more summary {
+    color: #447099 !important;
+}
+
+.md-search-result mark {
+    color: #000000 !important;
+    font-weight: bold;
+}
+
+/* Search bar - black palette 
+*/
+
+[data-md-color-primary=black] .md-search-result mark {
+    color: #fff !important;
+    font-weight: bold;
+}
+
+
+/* Global
+*/
+
+.md-tabs__list {
+    margin: 0 2em 0 .2rem;
+    padding-top: 15px;
+    list-style: none;
+    white-space: nowrap;
+}
+
+.md-tabs__link {
+    margin: 0;
+    padding: 0;
+}
 .md-typeset dl dt {
     font-style: italic;
     font-weight: bold;
@@ -9,4 +79,250 @@
 
 .md-typeset dd p:first-child {
     margin-top: 0;
+}
+
+[data-md-color-primary=white] .md-typeset a {
+    color: #447099;
+}
+
+[data-md-color-primary=white] .md-typeset a:hover {
+    text-decoration: underline;
+    color: #447099;
+}
+
+[data-md-color-primary=black] .md-typeset a {
+    color: #447099;
+    font-weight: bold;
+}
+
+[data-md-color-primary=black] .md-typeset a:hover {
+    text-decoration: underline;
+    color: #447099;
+}
+
+.admonition-title {
+    font-size: .7rem;
+}
+
+.admonition p {
+    font-size: .7rem;
+}
+
+.md-typeset .superfences-tabs>label:hover {
+    color: #447099 !important;
+}
+
+/* Customized footer
+*/
+
+/* footer - white palette
+*/
+.md-footer {
+    background-color: #fff !important;
+    color: #000  !important;
+}
+
+.md-footer__direction {
+    color: #000;
+    font-size: .65rem;
+}
+
+.md-footer-meta {
+    background-color: #fdfdfd;
+    border-top: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.md-footer-copyright__highlight {
+    color: #6F6B6B;
+    font-weight: 400;
+    font-size: 0.65rem;
+    padding-top: 15px;
+}
+
+.md-footer-meta.md-typeset a {
+    color: #6F6B6B !important;
+    font-weight: 400;
+}
+
+/* footer - black palette
+*/
+
+[data-md-color-primary=black] .md-footer {
+    background-color: #000 !important;
+    color: #fff  !important;
+}
+
+[data-md-color-primary=black] .md-footer__direction {
+    color: #fff;
+    font-size: .65rem;
+}
+
+[data-md-color-primary=black] .md-footer-meta {
+    background-color: #000;
+    border-top: 1px solid #fff;
+    font-weight: 400;
+}
+
+[data-md-color-primary=black] .md-footer-copyright__highlight {
+    color: #fff;
+    font-weight: 400;
+}
+
+[data-md-color-primary=black] .md-footer-meta.md-typeset a {
+    color: #fff !important;
+    font-weight: 400;
+}
+
+.md-typeset .tabbed-set>label {
+    font-size: .64rem !important;
+}
+
+.md-typeset .tabbed-set>label:hover {
+    color: #447099 !important;
+}
+
+/* Sidebar
+*/
+
+.md-nav__link:focus, .md-nav__link:hover, .md-nav__link:active, .md-nav__link--active, .md-nav__link:active {
+    color: #447099 !important;
+}
+
+.md-nav__link--active {
+    font-weight: bold;
+}
+
+[data-md-color-primary=black] .md-nav {
+    color: #fff;
+}
+
+[data-md-color-primary=white] .md-nav__link--active, [data-md-color-primary=white] .md-nav__link:active {
+    color: #447099;
+}
+
+.md-nav__item hr {
+    display: block;
+    height: 1px;
+    border: 0;
+    border-top: 1px solid #ccc;
+    margin: 1em 0;
+    padding: 0;
+}
+
+h2.divider {
+    text-align: center;
+    max-width: 650px;
+}
+
+/* Code blocks
+*/
+
+p.code-title {
+    background-color: rgba(219, 219, 219, 0.8);
+    margin: 1em 0 -1.2em;
+    padding: 0.1em 1em;
+    font-size: 0.9em;
+    font-family: "Roboto Mono","Courier New",Courier,monospace;
+}
+
+.code-title {
+    background-color: rgba(219, 219, 219, 0.8);
+    border-bottom: 0.05rem solid var(--md-default-fg-color--lightest);
+    border-top-left-radius: 0.1rem;
+    border-top-right-radius: 0.1rem;
+    display: block;
+    font-size: 0.85em;
+    font-weight: 400;
+    font-family: 'Roboto Mono';
+    margin-top: 1em;
+    padding: 0.1em 1em;
+    position: relative;
+}
+
+[data-md-color-primary=black] .code-title {
+    background-color: black !important;
+}
+
+pre .code-noselect {
+    color: #aaa;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    /* padding-right: 6px; */
+}
+
+pre code::-webkit-scrollbar-thumb:hover, .codehilite pre::-webkit-scrollbar-thumb:hover {
+    background-color: #447099 !important;
+}
+
+/* Permalinks
+*/
+
+.md-typeset .headerlink:focus, .md-typeset:hover .headerlink, .md-typeset:target .headerlink {
+    color: #ccc !important;
+}
+
+.md-typeset .headerlink:focus, .md-typeset .headerlink:hover, .md-typeset :target>.headerlink {
+    color: #447099;
+}
+
+ /* Back-to-top button
+  */
+
+  .md-top {
+    color: #fff;
+    background: #447099 !important;
+    border-radius: 100%;
+    outline: none;
+    box-shadow:
+      0 px2rem(4px)   px2rem(10px) hsla(0, 0%, 0%, 0.1),
+      0 px2rem(0.5px) px2rem(1px)  hsla(0, 0%, 0%, 0.1);
+}
+      // Back-to-top button in hidden state
+      &[data-md-state="hidden"] {
+        transform: translateY(px2rem(-4px));
+        opacity: 0;
+        pointer-events: none;
+      }
+    
+      // Back-to-top button on focus/hover
+      &:focus,
+      &:hover {
+        background: var(--md-accent-fg-color);
+        transform: scale(1.1);
+      }
+
+/* Admonition and details */
+.md-typeset .admonition,
+.md-typeset details {
+  border: none;
+  transition: box-shadow 400ms;
+  box-shadow:
+    0   0.2rem  0.5rem rgba(0,0,0,.05),
+    0 0.025rem 0.05rem rgba(0,0,0,.15)
+}
+
+/* Admonition and details on hover */
+.md-typeset .admonition:hover,
+.md-typeset details:hover {
+  box-shadow:
+    0   0.4rem  1.0rem rgba(0,0,0,.10),
+    0 0.025rem 0.05rem rgba(0,0,0,.15)
+}
+
+/* Details in closed state */
+.md-typeset details:not([open]) {
+  transition-duration: 0s;
+  box-shadow: none;
+}
+
+/* Details title in closed state */
+.md-typeset details:not([open]) > summary {
+  border-radius: 1rem;
+}
+
+/* Admonition title */
+.md-typeset .admonition-title {
+  padding-right: 1rem;
 }
