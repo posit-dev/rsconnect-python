@@ -1079,18 +1079,22 @@ class RStudioClient(HTTPServer):
         while time.time() - start_time < timeout:
             task = self.get_task(task_id)
             self._server.handle_bad_response(task)
+            finished = task.json_data["finished"]
             status = task.json_data["status"]
             description = task.json_data["description"]
             error = task.json_data["error"]
 
-            if status == "success":
+            if finished:
                 break
-
-            if status in {"failed", "error"}:
-                raise RSConnectException("Application deployment failed with error: {}".format(error))
 
             print("  {} - {}".format(status, description))
             time.sleep(2)
+
+        if not finished:
+            raise RSConnectException("Application deployment timed out.")
+
+        if status != 'success':
+            raise RSConnectException("Application deployment failed with error: {}".format(error))
 
         print("Task done: {}".format(description))
 
