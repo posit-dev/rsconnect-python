@@ -10,7 +10,7 @@ ipython
 jupyter_client
 mypy; python_version >= '3.6'
 nbconvert
-pyjwt
+pyjwt >= '2.4.0'
 pytest
 pytest-cov
 pytest-mypy; python_version >= '3.5'
