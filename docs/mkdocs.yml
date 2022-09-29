@@ -3,7 +3,7 @@ copyright: Posit Software, PBC. All Rights Reserved
 
 markdown_extensions:
   - toc:
-      permalink: true
+      permalink: "#"
   - attr_list: {}
   - def_list: {}
   - tables: {}
