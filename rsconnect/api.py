@@ -1026,6 +1026,9 @@ class RStudioClient(HTTPServer):
     def get_application(self, application_id):
         return self.get("/v1/applications/{}".format(application_id))
 
+    def get_content(self, content_id):
+        return self.get("/v1/content/{}".format(content_id))
+
     def create_application(self, account_id, application_name):
         application_data = {
             "account": account_id,
@@ -1197,10 +1200,14 @@ class CloudService:
                 project_application = self._rstudio_client.get_application(project_application_id)
                 self._server.handle_bad_response(project_application)
                 project_id = project_application.json_data["content_id"]
+                project = self._rstudio_client.get_content(project_id)
+                self._server.handle_bad_response(project)
+                space_id = project.json_data["space_id"]
             else:
                 project_id = None
+                space_id = None
 
-            output = self._rstudio_client.create_output(name=app_name, project_id=project_id)
+            output = self._rstudio_client.create_output(name=app_name, project_id=project_id, space_id=space_id)
             self._server.handle_bad_response(output)
             app_id = output.json_data["source_id"]
 

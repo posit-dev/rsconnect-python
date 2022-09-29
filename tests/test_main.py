@@ -258,11 +258,6 @@ class TestMain:
         ids=["without associated project", "with associated project"],
     )
     def test_deploy_manifest_cloud(self, project_application_id, project_id):
-        """
-        {} hellooo
-        """.format(
-            project_id
-        )
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
         if project_application_id:
@@ -298,11 +293,19 @@ class TestMain:
                 adding_headers={"Content-Type": "application/json"},
                 status=200,
             )
+            httpretty.register_uri(
+                httpretty.GET,
+                "https://api.rstudio.cloud/v1/content/555",
+                body=open("tests/testdata/rstudio-responses/get-content.json", "r").read(),
+                adding_headers={"Content-Type": "application/json"},
+                status=200,
+            )
 
         def post_output_callback(request, uri, response_headers):
+            space_id = 917733 if project_application_id else None
             parsed_request = _load_json(request.body)
             try:
-                assert parsed_request == {"name": "myapp", "space": None, "project": project_id}
+                assert parsed_request == {"name": "myapp", "space": space_id, "project": project_id}
             except AssertionError as e:
                 return _error_to_response(e)
             return [
