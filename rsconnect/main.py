@@ -743,7 +743,7 @@ def deploy_notebook(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="manifest",
-    short_help="Deploy content to RStudio Connect by manifest.",
+    short_help="Deploy content to RStudio Connect, RStudio Cloud, or shinyapps.io by manifest.",
     help=(
         "Deploy content to RStudio Connect using an existing manifest.json "
         'file.  The specified file must either be named "manifest.json" or '
@@ -995,7 +995,7 @@ def generate_deploy_python(app_mode, alias, min_version):
     # noinspection SpellCheckingInspection
     @deploy.command(
         name=alias,
-        short_help="Deploy a {desc} to RStudio Connect, RStudio Cloud, orshinyapps.io [v{version}+].".format(
+        short_help="Deploy a {desc} to RStudio Connect [v{version}+], RStudio Cloud, or shinyapps.io.".format(
             desc=app_mode.desc(), version=min_version
         ),
         help=(
