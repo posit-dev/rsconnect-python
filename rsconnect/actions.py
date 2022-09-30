@@ -1769,7 +1769,7 @@ def create_quarto_deployment_bundle(
 
 
 def deploy_bundle(
-    remote_server: api.TargetableServer,
+    remote_server,
     app_id: int,
     deployment_name: str,  # legacy, no longer used; managed by RSConnectExecutor
     title: str,
