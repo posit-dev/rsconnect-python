@@ -1769,9 +1769,9 @@ def create_quarto_deployment_bundle(
 
 
 def deploy_bundle(
-    remote_server,
+    remote_server: api.TargetableServer,
     app_id: int,
-    deployment_name: str,  # legacy, no longer used; managed by RSConnectExecutor
+    deployment_name: str,
     title: str,
     title_is_default: bool,
     bundle: typing.IO[bytes],
@@ -1790,19 +1790,29 @@ def deploy_bundle(
     :return: application information about the deploy.  This includes the ID of the
     task that may be queried for deployment progress.
     """
-    ce = RSConnectExecutor(
-        url=remote_server.url,
-        api_key=remote_server.api_key,
-        insecure=remote_server.insecure,
-        ca_data=remote_server.ca_data,
-        cookies=remote_server.cookie_jar,
+    if isinstance(remote_server, api.RSConnectServer):
+        ce = RSConnectExecutor(
+            url=remote_server.url,
+            api_key=remote_server.api_key,
+            insecure=remote_server.insecure,
+            ca_data=remote_server.ca_data,
+            cookies=remote_server.cookie_jar,
+        )
+    elif isinstance(remote_server, api.ShinyappsServer):
+        ce = RSConnectExecutor(
+            url=remote_server.url,
+            account=remote_server.account_name,
+            token=remote_server.token,
+            secret=remote_server.secret,
+        )
+    ce.deploy_bundle(
         app_id=app_id,
+        deployment_name=deployment_name,
         title=title,
         title_is_default=title_is_default,
         bundle=bundle,
         env_vars=env_vars,
     )
-    ce.deploy_bundle()
     return ce.state["deployed_info"]
 
 
