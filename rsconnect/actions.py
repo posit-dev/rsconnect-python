@@ -740,7 +740,7 @@ def _finalize_deploy(
     file_name: str,
     app_id: int,
     app_mode: AppMode,
-    name: str,
+    deployment_name: str,
     title: str,
     title_is_default: bool,
     bundle: typing.IO[bytes],
@@ -755,7 +755,7 @@ def _finalize_deploy(
     :param file_name: the primary file or directory being deployed.
     :param app_id: the ID of an existing application to deploy new files for.
     :param app_mode: the app mode to use.
-    :param name: the name to use for the deploy.
+    :param deployment_name: the name to use for the deploy.
     :param title: the title to use for the deploy.
     :param title_is_default: a flag noting whether the title carries a defaulted value.
     :param bundle: the bundle to deploy.
@@ -766,7 +766,7 @@ def _finalize_deploy(
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle, None)
+    app = deploy_bundle(connect_server, app_id, deployment_name, title, title_is_default, bundle, None)
     app_url, log_lines, _ = spool_deployment_log(connect_server, app, log_callback)
     app_store.set(
         connect_server.url,
@@ -1771,7 +1771,7 @@ def create_quarto_deployment_bundle(
 def deploy_bundle(
     remote_server: api.TargetableServer,
     app_id: int,
-    name: str,
+    deployment_name: str,  # legacy, no longer used; managed by RSConnectExecutor
     title: str,
     title_is_default: bool,
     bundle: typing.IO[bytes],
@@ -1782,7 +1782,7 @@ def deploy_bundle(
 
     :param remote_server: the server information.
     :param app_id: the ID of the app to deploy, if this is a redeploy.
-    :param name: the name for the deploy.
+    :param deployment_name: the name for the deploy.
     :param title: the title for the deploy.
     :param title_is_default: a flag noting whether the title carries a defaulted value.
     :param bundle: the bundle to deploy.
@@ -1791,9 +1791,12 @@ def deploy_bundle(
     task that may be queried for deployment progress.
     """
     ce = RSConnectExecutor(
-        server=remote_server,
+        url=remote_server.url,
+        api_key=remote_server.api_key,
+        insecure=remote_server.insecure,
+        ca_data=remote_server.ca_data,
+        cookies=remote_server.cookie_jar,
         app_id=app_id,
-        name=name,
         title=title,
         title_is_default=title_is_default,
         bundle=bundle,
