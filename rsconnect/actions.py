@@ -1805,6 +1805,8 @@ def deploy_bundle(
             token=remote_server.token,
             secret=remote_server.secret,
         )
+    else:
+        raise RSConnectException("Unable to infer Connect client.")
     ce.deploy_bundle(
         app_id=app_id,
         deployment_name=deployment_name,
