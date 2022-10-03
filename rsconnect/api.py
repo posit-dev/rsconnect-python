@@ -1210,12 +1210,18 @@ class CloudService:
             output = self._rstudio_client.create_output(name=app_name, project_id=project_id, space_id=space_id)
             self._server.handle_bad_response(output)
             app_id = output.json_data["source_id"]
+            application = self._rstudio_client.get_application(app_id)
+            self._server.handle_bad_response(application)
+        else:
+            application = self._rstudio_client.get_application(app_id)
+            self._server.handle_bad_response(application)
+            output = self._rstudio_client.get_content(application.json_data["content_id"])
+            self._server.handle_bad_response(output)
 
-        application = self._rstudio_client.get_application(app_id)
-        self._server.handle_bad_response(application)
+
         app_id_int = application.json_data["id"]
-        app_url = application.json_data["url"]
-        output_id = application.json_data["content_id"]
+        app_url = output.json_data["url"]
+        output_id = output.json_data["id"]
 
         bundle = self._rstudio_client.create_bundle(app_id_int, "application/x-tar", bundle_size, bundle_hash)
         self._server.handle_bad_response(bundle)

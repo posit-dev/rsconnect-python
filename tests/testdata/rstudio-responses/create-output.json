@@ -36,7 +36,7 @@
   "visibility": "public",
   "status": "pending",
   "state": "active",
-  "`url': `http": "//staging.rstudio.cloud/content/123`",
+  "url": "http://staging.rstudio.cloud/content/123",
   "source": {
     "id": 8442,
     "name": "0a1006cc11bd4e6f8137d01440aead0a-output-source",
