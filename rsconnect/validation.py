@@ -14,7 +14,7 @@ def validate_connection_options(url, api_key, insecure, cacert, account_name, to
     """
     connect_options = {"-k/--api-key": api_key, "-i/--insecure": insecure, "-c/--cacert": cacert}
     shinyapps_options = {"-T/--token": token, "-S/--secret": secret, "-A/--account": account_name}
-    options_mutually_exclusive_with_name = {"-s/--server": url, **connect_options, **shinyapps_options}
+    options_mutually_exclusive_with_name = {"-s/--server": url, **shinyapps_options}
     present_options_mutually_exclusive_with_name = _get_present_options(options_mutually_exclusive_with_name)
 
     if name and present_options_mutually_exclusive_with_name:
