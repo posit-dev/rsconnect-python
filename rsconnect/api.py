@@ -1122,7 +1122,7 @@ class RStudioClient(HTTPServer):
         if not finished:
             raise RSConnectException("Application deployment timed out.")
 
-        if status != 'success':
+        if status != "success":
             raise RSConnectException("Application deployment failed with error: {}".format(error))
 
         print("Task done: {}".format(description))
@@ -1243,7 +1243,6 @@ class CloudService:
             self._server.handle_bad_response(application)
             output = self._rstudio_client.get_content(application.json_data["content_id"])
             self._server.handle_bad_response(output)
-
 
         app_id_int = application.json_data["id"]
         app_url = output.json_data["url"]

@@ -300,6 +300,13 @@ class TestMain:
                 adding_headers={"Content-Type": "application/json"},
                 status=200,
             )
+            httpretty.register_uri(
+                httpretty.GET,
+                "https://api.rstudio.cloud/v1/content/1",
+                body=open("tests/testdata/rstudio-responses/create-output.json", "r").read(),
+                adding_headers={"Content-Type": "application/json"},
+                status=200,
+            )
 
         def post_output_callback(request, uri, response_headers):
             space_id = 917733 if project_application_id else None
