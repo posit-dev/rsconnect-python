@@ -403,11 +403,19 @@ def bootstrap(
     type=click.File(),
     help="The path to trusted TLS CA certificates.",
 )
-@shinyapps_args
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def add(name, server, api_key, insecure, cacert, account, token, secret, verbose):
+@shinyapps_args
+@click.pass_context
+def add(ctx, name, server, api_key, insecure, cacert, account, token, secret, verbose):
 
     set_verbosity(verbose)
+    if sys.version_info >= (3, 8):
+        click.echo("Detected the following inputs:")
+        for k, v in locals().items():
+            if k in {"ctx", "verbose"}:
+                continue
+            if v is not None:
+                click.echo("    {}: {}".format(k, ctx.get_parameter_source(k).name))
 
     validation.validate_connection_options(
         url=server,
@@ -474,10 +482,11 @@ def list_servers(verbose):
             for server in servers:
                 click.echo('Nickname: "%s"' % server["name"])
                 click.echo("    URL: %s" % server["url"])
-                click.echo("    API key is saved")
-                if server["insecure"]:
+                if server.get("api_key"):
+                    click.echo("    API key is saved")
+                if server.get("insecure"):
                     click.echo("    Insecure mode (TLS host/certificate validation disabled)")
-                if server["ca_cert"]:
+                if server.get("ca_cert"):
                     click.echo("    Client TLS certificate data provided")
                 click.echo()
 
