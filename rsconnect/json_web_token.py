@@ -99,10 +99,10 @@ def produce_bootstrap_output(status: int, json_data) -> dict:
     message = "Unexpected response status."
     if status == 200:
         message = "Success."
-    elif status == 400:
-        message = "Unable to provision initial admin. Please check status of Connect database."
     elif status == 401:
         message = "JWT authorization failed."
+    elif status == 403:
+        message = "Unable to provision initial admin. Please check status of Connect database."
     elif status == 404:
         message = (
             "Unable to find provisioning endpoint. Please check the 'rsconnect --server' "
