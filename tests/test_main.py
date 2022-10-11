@@ -370,7 +370,7 @@ class TestBootstrap(TestCase):
             authorization = request.headers.get("Authorization")
             auth_split = authorization.split(" ")
             self.assertEqual(len(auth_split), 2)
-            self.assertEqual(auth_split[0], "Bearer")
+            self.assertEqual(auth_split[0], "Connect-Bootstrap")
             self.assertTrue(has_jwt_structure(auth_split[1]))
 
             # verify uri
@@ -450,12 +450,12 @@ class TestBootstrap(TestCase):
         self.assertEqual(json_output, expected_output)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_bootstrap_client_error(self):
+    def test_bootstrap_forbidden_error(self):
         """
-        Fail reasonably if response indicates a client error
+        Fail reasonably if response indicates a forbidden error
         """
 
-        callback = self.create_bootstrap_mock_callback(400, {})
+        callback = self.create_bootstrap_mock_callback(403, {})
 
         httpretty.register_uri(
             httpretty.POST,
@@ -468,7 +468,7 @@ class TestBootstrap(TestCase):
 
         self.assertEqual(result.exit_code, 0, result.output)
         json_output = json.loads(result.output)
-        expected_output = json.loads(open("tests/testdata/initial-admin-responses/client_error.json", "r").read())
+        expected_output = json.loads(open("tests/testdata/initial-admin-responses/forbidden_error.json", "r").read())
 
         self.assertEqual(json_output, expected_output)
 

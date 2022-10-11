@@ -61,10 +61,10 @@ class TestAPI(TestCase):
         self.assertEqual(ce.make_deployment_name("\r\n\t\u2103", False), "___")
         self.assertEqual(ce.make_deployment_name("\r\n\tR\u2103", False), "__r")
 
-    def test_bearer_authorization(self):
-        jwt_connect_server = RSConnectServer("http://test-server", None, jwt="123.456.789")
+    def test_connect_authorization_header(self):
+        jwt_connect_server = RSConnectServer("http://test-server", None, bootstrap_jwt="123.456.789")
         jwt_connect_client = RSConnectClient(jwt_connect_server)
-        self.assertEqual(jwt_connect_client.get_authorization(), "Bearer 123.456.789")
+        self.assertEqual(jwt_connect_client.get_authorization(), "Connect-Bootstrap 123.456.789")
 
         api_key_connect_server = RSConnectServer("http://test-server", "api_key")
         api_key_connect_client = RSConnectClient(api_key_connect_server)

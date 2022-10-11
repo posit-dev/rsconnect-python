@@ -190,13 +190,13 @@ class TestJsonWebToken(TestCase):
         expected_successful_result = json.loads(open("tests/testdata/initial-admin-responses/success.json", "r").read())
         self.assertEqual(produce_bootstrap_output(200, {"api_key": api_key}), expected_successful_result)
 
-        expected_client_error_result = json.loads(
-            open("tests/testdata/initial-admin-responses/client_error.json", "r").read()
+        expected_forbidden_result = json.loads(
+            open("tests/testdata/initial-admin-responses/forbidden_error.json", "r").read()
         )
-        self.assertEqual(produce_bootstrap_output(400, None), expected_client_error_result)
-        self.assertEqual(produce_bootstrap_output(400, {}), expected_client_error_result)
-        self.assertEqual(produce_bootstrap_output(400, {"api_key": ""}), expected_client_error_result)
-        self.assertEqual(produce_bootstrap_output(400, {"something": "else"}), expected_client_error_result)
+        self.assertEqual(produce_bootstrap_output(403, None), expected_forbidden_result)
+        self.assertEqual(produce_bootstrap_output(403, {}), expected_forbidden_result)
+        self.assertEqual(produce_bootstrap_output(403, {"api_key": ""}), expected_forbidden_result)
+        self.assertEqual(produce_bootstrap_output(403, {"something": "else"}), expected_forbidden_result)
 
         expected_unauthorized_error_result = json.loads(
             open("tests/testdata/initial-admin-responses/unauthorized_error.json", "r").read()

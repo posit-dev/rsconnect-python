@@ -203,8 +203,8 @@ class HTTPServer(object):
     def key_authorization(self, key):
         self.authorization("Key %s" % key)
 
-    def bearer_authorization(self, key):
-        self.authorization("Bearer %s" % key)
+    def bootstrap_authorization(self, key):
+        self.authorization("Connect-Bootstrap %s" % key)
 
     def _get_full_path(self, path):
         return append_to_path(self._url.path, path)
