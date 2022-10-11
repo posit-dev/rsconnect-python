@@ -40,8 +40,8 @@ class TestContentSubcommand(unittest.TestCase):
         self.assertIn(VERSION, result.output)
 
     def test_content_search(self):
-        connect_server = require_connect(self)
-        api_key = require_api_key(self)
+        connect_server = require_connect()
+        api_key = require_api_key()
         runner = CliRunner()
         args = ["content", "search"]
         apply_common_args(args, server=connect_server, key=api_key)
@@ -52,8 +52,8 @@ class TestContentSubcommand(unittest.TestCase):
         self.assertEqual(len(response), 3, result.output)
 
     def test_content_describe(self):
-        connect_server = require_connect(self)
-        api_key = require_api_key(self)
+        connect_server = require_connect()
+        api_key = require_api_key()
         runner = CliRunner()
         args = ["content", "describe", "-g", _content_guids[0], "-g", _content_guids[1]]
         apply_common_args(args, server=connect_server, key=api_key)
@@ -66,8 +66,8 @@ class TestContentSubcommand(unittest.TestCase):
         self.assertEqual(response[1]["guid"], _content_guids[1])
 
     def test_content_download_bundle(self):
-        connect_server = require_connect(self)
-        api_key = require_api_key(self)
+        connect_server = require_connect()
+        api_key = require_api_key()
         runner = CliRunner()
         args = ["content", "download-bundle", "-g", _content_guids[1], "-o", _bundle_download_dest]
         apply_common_args(args, server=connect_server, key=api_key)
@@ -77,8 +77,8 @@ class TestContentSubcommand(unittest.TestCase):
             self.assertIsNotNone(tgz.extractfile("manifest.json").read())
 
     def test_build(self):
-        connect_server = require_connect(self)
-        api_key = require_api_key(self)
+        connect_server = require_connect()
+        api_key = require_api_key()
         runner = CliRunner()
 
         # add a content item
@@ -117,8 +117,8 @@ class TestContentSubcommand(unittest.TestCase):
         self.assertEqual(listing[0]["rsconnect_build_status"], BuildStatus.COMPLETE)
 
     def test_build_rm(self):
-        connect_server = require_connect(self)
-        api_key = require_api_key(self)
+        connect_server = require_connect()
+        api_key = require_api_key()
         runner = CliRunner()
 
         # remove a content item
