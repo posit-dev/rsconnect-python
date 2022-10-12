@@ -48,7 +48,7 @@ def api_key_authorization_header(token):
 
 
 def jwt_authorization_header(token):
-    return {"Authorization": "Bearer " + token}
+    return {"Authorization": "Connect-Bootstrap " + token}
 
 
 def generate_jwt_secured_header(keypath):
@@ -246,7 +246,7 @@ def endpoint_subsequent_calls(step, env):
 
     response = requests.post(env["bootstrap_endpoint"], headers=generate_jwt_secured_header(env["keypath"]))
 
-    assert_status_code(response, 400)
+    assert_status_code(response, 403)
 
     success()
 
