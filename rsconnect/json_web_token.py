@@ -105,7 +105,7 @@ def produce_bootstrap_output(status: int, json_data) -> dict:
         message = "Unable to provision initial admin. Please check status of Connect database."
     elif status == 404:
         message = (
-            "Unable to find provisioning endpoint. Please check the 'rsconnect --server' "
+            "Unable to find provisioning endpoint. Please check your 'rsconnect bootstrap --server' "
             "parameter and your Connect configuration."
         )
 

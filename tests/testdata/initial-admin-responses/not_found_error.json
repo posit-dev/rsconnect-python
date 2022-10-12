@@ -1,5 +1,5 @@
 {
 	"status": 404,
 	"api_key": "",
-	"message": "Unable to find provisioning endpoint. Please check the 'rsconnect --server' parameter and your Connect configuration."
+	"message": "Unable to find provisioning endpoint. Please check your 'rsconnect bootstrap --server' parameter and your Connect configuration."
 }

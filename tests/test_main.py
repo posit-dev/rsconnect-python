@@ -2,6 +2,8 @@ import json
 import os
 import shutil
 from os.path import join
+from unittest import TestCase
+
 
 import httpretty
 import pytest
