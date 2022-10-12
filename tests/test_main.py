@@ -746,14 +746,12 @@ class TestBootstrap(TestCase):
     def test_bootstrap_missing_server_option(self):
         runner = CliRunner()
         result = runner.invoke(cli, ["bootstrap"])
-        self.assertEqual(result.exit_code, 1, result.output)
-        self.assertEqual(result.output, "Error: You must specify -s/--server.\n")
+        self.assertEqual(result.exit_code, 2, result.output)
 
     def test_boostrap_missing_jwt_option(self):
         runner = CliRunner()
         result = runner.invoke(cli, ["bootstrap", "--server", "http://a_server"])
-        self.assertEqual(result.exit_code, 1, result.output)
-        self.assertEqual(result.output, "Error: You must specify -j/--jwt-keypath.\n")
+        self.assertEqual(result.exit_code, 2, result.output)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_bootstrap_raw_output(self):

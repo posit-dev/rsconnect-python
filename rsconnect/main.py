@@ -297,6 +297,7 @@ def _test_rstudio_creds(server: api.RStudioServer):
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
+    required=True,
     help="The URL for the RStudio Connect server.",
 )
 @click.option(
@@ -316,6 +317,7 @@ def _test_rstudio_creds(server: api.RStudioServer):
 @click.option(
     "--jwt-keypath",
     "-j",
+    required=True,
     help="The path to the file containing the private key used to sign the JWT.",
 )
 @click.option("--raw", "-r", is_flag=True, help="Return the API key as raw output rather than a JSON object")
@@ -335,14 +337,8 @@ def bootstrap(
             "Python version > 3.5 required for JWT generation. Please upgrade your Python installation."
         )
 
-    if not server:
-        raise RSConnectException("You must specify -s/--server.")
-
     if not server.startswith("http"):
         raise RSConnectException("Server URL expected to begin with transfer protocol (ex. http/https).")
-
-    if not jwt_keypath:
-        raise RSConnectException("You must specify -j/--jwt-keypath.")
 
     secret_key = read_secret_key(jwt_keypath)
     validate_hs256_secret_key(secret_key)
