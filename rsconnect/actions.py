@@ -1798,7 +1798,7 @@ def deploy_bundle(
             ca_data=remote_server.ca_data,
             cookies=remote_server.cookie_jar,
         )
-    elif isinstance(remote_server, api.ShinyappsServer):
+    elif isinstance(remote_server, api.ShinyappsServer) or isinstance(remote_server, api.CloudServer):
         ce = RSConnectExecutor(
             url=remote_server.url,
             account=remote_server.account_name,
