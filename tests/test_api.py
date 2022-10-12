@@ -8,8 +8,8 @@ from rsconnect.api import RSConnectClient, RSConnectExecutor, RSConnectServer, _
 
 class TestAPI(TestCase):
     def test_executor_init(self):
-        connect_server = require_connect(self)
-        api_key = require_api_key(self)
+        connect_server = require_connect()
+        api_key = require_api_key()
         ce = RSConnectExecutor(None, connect_server, api_key, True, None)
         self.assertEqual(ce.remote_server.url, connect_server)
 
@@ -47,8 +47,8 @@ class TestAPI(TestCase):
         self.assertEqual(a_list, ["scheme://no-scheme"])
 
     def test_make_deployment_name(self):
-        connect_server = require_connect(self)
-        api_key = require_api_key(self)
+        connect_server = require_connect()
+        api_key = require_api_key()
         ce = RSConnectExecutor(None, connect_server, api_key, True, None)
         self.assertEqual(ce.make_deployment_name("title", False), "title")
         self.assertEqual(ce.make_deployment_name("Title", False), "title")
