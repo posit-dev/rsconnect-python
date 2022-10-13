@@ -144,3 +144,29 @@ jobs:
             repo: 'rsconnect-jupyter',
             event_type: 'rsconnect_python_latest'
           })
+  test-rsconnect:
+    name: "Test vetiver"
+    runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request.head.repo.fork }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install vetiver
+      - name: run RStudio Connect
+        run: |
+          docker-compose up --build -d
+          make dev
+        env:
+          RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      # NOTE: edited to run checks for python package
+      - name: Run tests
+        run: |
+          pytest vetiver -m 'rsc_test'
