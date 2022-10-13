@@ -14,4 +14,4 @@ services:
     privileged: true
     environment:
       RSTUDIO_CONNECT_HASTE: "enabled"
-      RSC_LICENSE: E6BW-76XS-ZV43-ITMV-C736-QCFY-8STA
+      RSC_LICENSE: ${RSC_LICENSE}
