@@ -14,6 +14,7 @@ import re
 from pprint import pformat
 from collections import defaultdict
 from mimetypes import guess_type
+from pathlib import Path
 import click
 
 
@@ -33,7 +34,7 @@ _module_pattern = re.compile(r"^[A-Za-z0-9_]+:[A-Za-z0-9_]+$")
 
 # From https://github.com/rstudio/rsconnect/blob/485e05a26041ab8183a220da7a506c9d3a41f1ff/R/bundle.R#L85-L88
 # noinspection SpellCheckingInspection
-directories_to_ignore = [
+directories_ignore_list = [
     ".Rproj.user/",
     ".env/",
     ".git/",
@@ -47,6 +48,7 @@ directories_to_ignore = [
     "rsconnect/",
     "venv/",
 ]
+directories_to_ignore = {Path(d) for d in directories_ignore_list}
 
 
 # noinspection SpellCheckingInspection
@@ -431,10 +433,7 @@ def keep_manifest_specified_file(relative_path):
     :param relative_path: the relative path name to check.
     :return: True, if the path should kept or False, if it should be ignored.
     """
-    for ignore_me in directories_to_ignore:
-        if relative_path.startswith(ignore_me):
-            return False
-    return True
+    return Path(relative_path) in directories_to_ignore
 
 
 def _default_title_from_manifest(the_manifest, manifest_file):
