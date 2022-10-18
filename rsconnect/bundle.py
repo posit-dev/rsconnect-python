@@ -433,7 +433,13 @@ def keep_manifest_specified_file(relative_path):
     :param relative_path: the relative path name to check.
     :return: True, if the path should kept or False, if it should be ignored.
     """
-    return Path(relative_path) in directories_to_ignore
+    p = Path(relative_path)
+    for parent in p.parents:
+        if parent in directories_to_ignore:
+            return False
+    if p in directories_to_ignore:
+        return False
+    return True
 
 
 def _default_title_from_manifest(the_manifest, manifest_file):
