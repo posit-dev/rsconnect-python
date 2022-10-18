@@ -863,6 +863,22 @@ Cannot find compatible environment: no compatible Local environment with Python 
 Task failed. Task exited with status 1.
 ```
 
+## Programmatic Provisioning
+
+RStudio Connect supports the programmatic bootstrapping of an admininistrator API key 
+for scripted provisioning tasks. This process is supported by the `rsconnect bootstrap` command,
+which uses a Json Web Token to request an initial API key from a fresh Connect instance. 
+
+!!! warning 
+  
+  This feature **requires Python version 3.6 or higher**.
+
+```bash
+$ rsconnect bootstrap --server https://connect.example.org:3939 --jwt-keypath /path/to/secret.key
+```
+
+A full description on how to use `rsconnect bootstrap` in a provisioning workflow is provided in the Connect admin guide's 
+[programmatic provisioning docs](https://docs.rstudio.com/connect/admin/programmatic-provisioning).
 
 ## Common Usage Examples
 
