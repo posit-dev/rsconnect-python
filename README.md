@@ -877,8 +877,8 @@ which uses a Json Web Token to request an initial API key from a fresh Connect i
 $ rsconnect bootstrap --server https://connect.example.org:3939 --jwt-keypath /path/to/secret.key
 ```
 
-A full description on how to use `rsconnect bootstrap` in a provisioning workflow is provided in the Connect admin guide's 
-[programmatic provisioning docs](https://docs.rstudio.com/connect/admin/programmatic-provisioning).
+A full description on how to use `rsconnect bootstrap` in a provisioning workflow is provided in the Connect administrator guide's 
+[programmatic provisioning](https://docs.rstudio.com/connect/admin/programmatic-provisioning) documentation.
 
 ## Common Usage Examples
 
