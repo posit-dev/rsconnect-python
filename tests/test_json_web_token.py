@@ -133,6 +133,13 @@ class TestJsonWebToken(TestCase):
         self.assertEqual(status, 401)
         self.assertEqual(response, {})
 
+        # test if an exception bubbles up
+        exception_response = HTTPResponse("http://uri")
+        exception_response.exception = ConnectionRefusedError
+
+        with pytest.raises(RSConnectException):
+            parse_client_response(exception_response)
+
         # test if json data is something else
         other_response = HTTPResponse("http://uri")
         other_response.status = 500

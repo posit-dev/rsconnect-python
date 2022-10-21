@@ -62,6 +62,9 @@ def parse_client_response(response):
     if isinstance(response, dict):
         return 200, response
     elif isinstance(response, HTTPResponse):
+        # fail fast if a non-http exception occurred
+        if hasattr(response, "exception") and response.exception is not None:
+            raise RSConnectException(str(response.exception))
 
         status = 500
         if hasattr(response, "status"):
