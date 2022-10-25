@@ -33,8 +33,10 @@ class TestHTTPSupport(TestCase):
 
     def test_header_stuff(self):
         server = HTTPServer("http://example.com")
+        self.assertIsNone(server.get_authorization())
 
         server.authorization("Basic user:pw")
+        self.assertEqual(server.get_authorization(), "Basic user:pw")
 
         self.assertEqual(len(server._headers), 2)
         self.assertIn("User-Agent", server._headers)
@@ -43,12 +45,22 @@ class TestHTTPSupport(TestCase):
         self.assertEqual(server._headers["Authorization"], "Basic user:pw")
 
         server.key_authorization("my-api-key")
+        self.assertEqual(server.get_authorization(), "Key my-api-key")
 
         self.assertEqual(len(server._headers), 2)
         self.assertIn("User-Agent", server._headers)
         self.assertEqual(server._headers["User-Agent"], _user_agent)
         self.assertIn("Authorization", server._headers)
         self.assertEqual(server._headers["Authorization"], "Key my-api-key")
+
+        server.bootstrap_authorization("my.jwt.token")
+        self.assertEqual(server.get_authorization(), "Connect-Bootstrap my.jwt.token")
+
+        self.assertEqual(len(server._headers), 2)
+        self.assertIn("User-Agent", server._headers)
+        self.assertEqual(server._headers["User-Agent"], _user_agent)
+        self.assertIn("Authorization", server._headers)
+        self.assertEqual(server._headers["Authorization"], "Connect-Bootstrap my.jwt.token")
 
 
 class FakeSetCookieResponse(object):
