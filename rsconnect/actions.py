@@ -1632,7 +1632,7 @@ def get_python_env_info(file_name, python, conda_mode=False, force_generate=Fals
     """
     python = which_python(python)
     logger.debug("Python: %s" % python)
-    environment = inspect_environment(python, dirname(file_name), conda_mode=conda_mode, force_generate=force_generate)
+    environment = inspect_environment(python, file_name, conda_mode=conda_mode, force_generate=force_generate)
     if environment.error:
         raise RSConnectException(environment.error)
     logger.debug("Python: %s" % python)
