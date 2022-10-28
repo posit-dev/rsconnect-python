@@ -19,6 +19,7 @@ from .exception import RSConnectException
 from . import api
 from .bundle import (
     create_python_environment,
+    default_title_from_manifest,
     make_api_bundle,
     make_api_manifest,
     make_html_bundle,
@@ -30,6 +31,7 @@ from .bundle import (
     make_source_manifest,
     manifest_add_buffer,
     manifest_add_file,
+    read_manifest_app_mode,
     read_manifest_file,
 )
 from .environment import Environment, MakeEnvironment, EnvironmentException
@@ -1147,28 +1149,27 @@ def deploy_by_manifest(
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    app_store = AppStore(manifest_file_name)
+    if connect_server:
+        server = connect_server.url
+        api_key = connect_server.api_key
+        insecure = connect_server.insecure
+        ca_data = connect_server.ca_data
+    kwargs = locals()
+    kwargs["manifest_file_name"] = manifest_file_name = validate_manifest_file(manifest_file_name)
+    app_mode = read_manifest_app_mode(manifest_file_name)
+    kwargs["title"] = title or default_title_from_manifest(manifest_file_name)
+
+    ce = RSConnectExecutor(**kwargs)
     (
-        app_id,
-        deployment_name,
-        deployment_title,
-        default_title,
-        app_mode,
-        _,
-        _,
-    ) = gather_basic_deployment_info_from_manifest(connect_server, app_store, manifest_file_name, new, app_id, title)
-    bundle = make_manifest_bundle(manifest_file_name)
-    return _finalize_deploy(
-        connect_server,
-        app_store,
-        manifest_file_name,
-        app_id,
-        app_mode,
-        deployment_name,
-        deployment_title,
-        default_title,
-        bundle,
-        log_callback,
+        ce.validate_server()
+        .validate_app_mode(app_mode=app_mode)
+        .make_bundle(
+            make_manifest_bundle,
+            manifest_file_name,
+        )
+        .deploy_bundle()
+        .save_deployed_info()
+        .emit_task_log()
     )
 
 
