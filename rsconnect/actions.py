@@ -14,7 +14,6 @@ import traceback
 from typing import IO
 from warnings import warn
 from os.path import abspath, basename, dirname, exists, isdir, join, relpath, splitext
-from pprint import pformat
 from .exception import RSConnectException
 from . import api
 from .bundle import (
@@ -143,6 +142,7 @@ def inspect_environment(
     Returns a dictionary of information about the environment,
     or containing an "error" field if an error occurred.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     flags = []
     if conda_mode:
         flags.append("c")
