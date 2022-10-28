@@ -18,6 +18,7 @@ from pprint import pformat
 from .exception import RSConnectException
 from . import api
 from .bundle import (
+    create_python_environment,
     make_api_bundle,
     make_api_manifest,
     make_html_bundle,
@@ -794,6 +795,71 @@ def fake_module_file_from_directory(directory: str):
     return join(directory, app_name + ".py")
 
 
+def deploy_app(
+    name: str = None,
+    server: str = None,
+    api_key: str = None,
+    insecure: bool = None,
+    cacert: typing.IO = None,
+    ca_data: str = None,
+    entry_point: str = None,
+    excludes: typing.List[str] = None,
+    new: bool = False,
+    app_id: str = None,
+    title: str = None,
+    python: str = None,
+    conda_mode: bool = False,
+    force_generate: bool = False,
+    verbose: bool = None,
+    directory: str = None,
+    extra_files: typing.List[str] = None,
+    env_vars: typing.Dict[str, str] = None,
+    image: str = None,
+    account: str = None,
+    token: str = None,
+    secret: str = None,
+    app_mode: str = None,
+    connect_server: api.RSConnectServer = None,
+    **kws,
+):
+    if connect_server:
+        server = connect_server.url
+        api_key = connect_server.api_key
+        insecure = connect_server.insecure
+        ca_data = connect_server.ca_data
+    kwargs = locals()
+    print(kwargs)
+
+    kwargs["entry_point"] = entry_point = validate_entry_point(entry_point, directory)
+    kwargs["extra_files"] = extra_files = validate_extra_files(directory, extra_files)
+    environment = create_python_environment(
+        directory,
+        force_generate,
+        python,
+        conda_mode,
+    )
+
+    ce = RSConnectExecutor(**kwargs)
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=app_mode)
+        .check_server_capabilities([are_apis_supported_on_server])
+        .make_bundle(
+            make_api_bundle,
+            directory,
+            entry_point,
+            app_mode,
+            environment,
+            extra_files,
+            excludes,
+            image=image,
+        )
+        .deploy_bundle()
+        .save_deployed_info()
+        .emit_task_log()
+    )
+
+
 def deploy_python_api(
     connect_server: api.RSConnectServer,
     directory: str,
@@ -835,22 +901,7 @@ def deploy_python_api(
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    return _deploy_by_python_framework(
-        connect_server,
-        directory,
-        extra_files,
-        excludes,
-        entry_point,
-        gather_basic_deployment_info_for_api,
-        image,
-        new,
-        app_id,
-        title,
-        python,
-        conda_mode,
-        force_generate,
-        log_callback,
-    )
+    return deploy_app(app_mode=AppModes.PYTHON_API, **locals())
 
 
 def deploy_python_fastapi(
@@ -894,22 +945,7 @@ def deploy_python_fastapi(
         :return: the ultimate URL where the deployed app may be accessed and the sequence
         of log lines.  The log lines value will be None if a log callback was provided.
     """
-    return _deploy_by_python_framework(
-        connect_server,
-        directory,
-        extra_files,
-        excludes,
-        entry_point,
-        gather_basic_deployment_info_for_fastapi,
-        image,
-        new,
-        app_id,
-        title,
-        python,
-        conda_mode,
-        force_generate,
-        log_callback,
-    )
+    return deploy_app(app_mode=AppModes.PYTHON_FASTAPI, **locals())
 
 
 def deploy_python_shiny(
@@ -951,21 +987,7 @@ def deploy_python_shiny(
         :return: the ultimate URL where the deployed app may be accessed and the sequence
         of log lines.  The log lines value will be None if a log callback was provided.
     """
-    return _deploy_by_python_framework(
-        connect_server,
-        directory,
-        extra_files,
-        excludes,
-        entry_point,
-        gather_basic_deployment_info_for_shiny,
-        new,
-        app_id,
-        title,
-        python,
-        conda_mode,
-        force_generate,
-        log_callback,
-    )
+    return deploy_app(app_mode=AppModes.PYTHON_SHINY, **locals())
 
 
 def deploy_dash_app(
@@ -1009,22 +1031,7 @@ def deploy_dash_app(
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    return _deploy_by_python_framework(
-        connect_server,
-        directory,
-        extra_files,
-        excludes,
-        entry_point,
-        gather_basic_deployment_info_for_dash,
-        image,
-        new,
-        app_id,
-        title,
-        python,
-        conda_mode,
-        force_generate,
-        log_callback,
-    )
+    return deploy_app(app_mode=AppModes.DASH_APP, **locals())
 
 
 def deploy_streamlit_app(
@@ -1068,22 +1075,7 @@ def deploy_streamlit_app(
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    return _deploy_by_python_framework(
-        connect_server,
-        directory,
-        extra_files,
-        excludes,
-        entry_point,
-        gather_basic_deployment_info_for_streamlit,
-        image,
-        new,
-        app_id,
-        title,
-        python,
-        conda_mode,
-        force_generate,
-        log_callback,
-    )
+    return deploy_app(app_mode=AppModes.STREAMLIT_APP, **locals())
 
 
 def deploy_bokeh_app(
@@ -1127,22 +1119,7 @@ def deploy_bokeh_app(
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    return _deploy_by_python_framework(
-        connect_server,
-        directory,
-        extra_files,
-        excludes,
-        entry_point,
-        gather_basic_deployment_info_for_bokeh,
-        image,
-        new,
-        app_id,
-        title,
-        python,
-        conda_mode,
-        force_generate,
-        log_callback,
-    )
+    return deploy_app(app_mode=AppModes.BOKEH_APP, **locals())
 
 
 def _deploy_by_python_framework(
