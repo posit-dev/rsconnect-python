@@ -794,17 +794,33 @@ def deploy_app(
     token: str = None,
     secret: str = None,
     app_mode: str = None,
-    connect_server: api.RSConnectServer = None,
+    remote_server: api.TargetableServer = None,
     **kws,
 ):
-    if connect_server:
-        server = connect_server.url
-        api_key = connect_server.api_key
-        insecure = connect_server.insecure
-        ca_data = connect_server.ca_data
     kwargs = locals()
     kwargs["entry_point"] = entry_point = validate_entry_point(entry_point, directory)
     kwargs["extra_files"] = extra_files = validate_extra_files(directory, extra_files)
+
+    if isinstance(remote_server, api.RSConnectServer):
+        ce = RSConnectExecutor(
+            url=remote_server.url,
+            api_key=remote_server.api_key,
+            insecure=remote_server.insecure,
+            ca_data=remote_server.ca_data,
+            cookies=remote_server.cookie_jar,
+            **kwargs,
+        )
+    elif isinstance(remote_server, api.ShinyappsServer) or isinstance(remote_server, api.CloudServer):
+        ce = RSConnectExecutor(
+            url=remote_server.url,
+            account=remote_server.account_name,
+            token=remote_server.token,
+            secret=remote_server.secret,
+            **kwargs,
+        )
+    else:
+        raise RSConnectException("Unable to infer Connect client.")
+
     environment = create_python_environment(
         directory,
         force_generate,
@@ -812,7 +828,6 @@ def deploy_app(
         conda_mode,
     )
 
-    ce = RSConnectExecutor(**kwargs)
     (
         ce.validate_server()
         .validate_app_mode(app_mode=app_mode)
@@ -834,7 +849,7 @@ def deploy_app(
 
 
 def deploy_python_api(
-    connect_server: api.RSConnectServer,
+    connect_server: api.TargetableServer,
     directory: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
@@ -878,7 +893,7 @@ def deploy_python_api(
 
 
 def deploy_python_fastapi(
-    connect_server: api.RSConnectServer,
+    connect_server: api.TargetableServer,
     directory: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
@@ -964,7 +979,7 @@ def deploy_python_shiny(
 
 
 def deploy_dash_app(
-    connect_server: api.RSConnectServer,
+    connect_server: api.TargetableServer,
     directory: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
@@ -1008,7 +1023,7 @@ def deploy_dash_app(
 
 
 def deploy_streamlit_app(
-    connect_server: api.RSConnectServer,
+    connect_server: api.TargetableServer,
     directory: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
@@ -1052,7 +1067,7 @@ def deploy_streamlit_app(
 
 
 def deploy_bokeh_app(
-    connect_server: api.RSConnectServer,
+    connect_server: api.TargetableServer,
     directory: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
@@ -1096,7 +1111,7 @@ def deploy_bokeh_app(
 
 
 def deploy_by_manifest(
-    connect_server: api.RSConnectServer,
+    connect_server: api.TargetableServer,
     manifest_file_name: str,
     new: bool,
     app_id: int,
@@ -1120,17 +1135,31 @@ def deploy_by_manifest(
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    if connect_server:
-        server = connect_server.url
-        api_key = connect_server.api_key
-        insecure = connect_server.insecure
-        ca_data = connect_server.ca_data
     kwargs = locals()
     kwargs["manifest_file_name"] = manifest_file_name = validate_manifest_file(manifest_file_name)
     app_mode = read_manifest_app_mode(manifest_file_name)
     kwargs["title"] = title or default_title_from_manifest(manifest_file_name)
 
-    ce = RSConnectExecutor(**kwargs)
+    if isinstance(connect_server, api.RSConnectServer):
+        ce = RSConnectExecutor(
+            url=connect_server.url,
+            api_key=connect_server.api_key,
+            insecure=connect_server.insecure,
+            ca_data=connect_server.ca_data,
+            cookies=connect_server.cookie_jar,
+            **kwargs,
+        )
+    elif isinstance(connect_server, api.ShinyappsServer) or isinstance(connect_server, api.CloudServer):
+        ce = RSConnectExecutor(
+            url=connect_server.url,
+            account=connect_server.account_name,
+            token=connect_server.token,
+            secret=connect_server.secret,
+            **kwargs,
+        )
+    else:
+        raise RSConnectException("Unable to infer Connect client.")
+
     (
         ce.validate_server()
         .validate_app_mode(app_mode=app_mode)
