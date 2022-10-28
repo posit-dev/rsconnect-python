@@ -24,6 +24,7 @@ from .bundle import (
     _warn_on_ignored_requirements,
     create_python_environment,
     default_title_from_manifest,
+    get_python_env_info,
     make_api_bundle,
     make_api_manifest,
     make_html_bundle,
@@ -1517,30 +1518,6 @@ def _gather_basic_deployment_info_for_framework(
         default_title,
         app_mode,
     )
-
-
-def get_python_env_info(file_name, python, conda_mode=False, force_generate=False):
-    """
-    Gathers the python and environment information relating to the specified file
-    with an eye to deploy it.
-
-    :param file_name: the primary file being deployed.
-    :param python: the optional name of a Python executable.
-    :param conda_mode: inspect the environment assuming Conda
-    :param force_generate: force generating "requirements.txt" or "environment.yml",
-    even if it already exists.
-    :return: information about the version of Python in use plus some environmental
-    stuff.
-    """
-    python = which_python(python)
-    logger.debug("Python: %s" % python)
-    environment = inspect_environment(python, dirname(file_name), conda_mode=conda_mode, force_generate=force_generate)
-    if environment.error:
-        raise RSConnectException(environment.error)
-    logger.debug("Python: %s" % python)
-    logger.debug("Environment: %s" % pformat(environment._asdict()))
-
-    return python, environment
 
 
 def create_notebook_deployment_bundle(
