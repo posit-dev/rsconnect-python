@@ -40,7 +40,6 @@ from .bundle import (
 )
 from .environment import Environment, MakeEnvironment, EnvironmentException
 from .log import logger
-from .metadata import AppStore
 from .models import AppModes, AppMode
 from .api import RSConnectExecutor, filter_out_server_info
 
