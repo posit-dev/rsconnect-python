@@ -823,8 +823,6 @@ def deploy_app(
                 secret=connect_server.secret,
             )
         )
-    else:
-        raise RSConnectException("Unable to infer Connect client.")
 
     environment = create_python_environment(
         directory,
