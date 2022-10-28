@@ -18,6 +18,10 @@ from pprint import pformat
 from .exception import RSConnectException
 from . import api
 from .bundle import (
+    _warn_if_environment_directory,
+    _warn_if_no_requirements_file,
+    _warn_on_ignored_manifest,
+    _warn_on_ignored_requirements,
     create_python_environment,
     default_title_from_manifest,
     make_api_bundle,
@@ -696,45 +700,41 @@ def deploy_jupyter_notebook(
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    app_store = AppStore(file_name)
-    (app_id, deployment_name, deployment_title, default_title, app_mode,) = gather_basic_deployment_info_for_notebook(
-        connect_server,
-        app_store,
-        file_name,
-        new,
-        app_id,
-        title,
-        static,
-    )
-    python, environment = get_python_env_info(
-        file_name,
-        python,
-        conda_mode=conda_mode,
-        force_generate=force_generate,
-    )
-    bundle = create_notebook_deployment_bundle(
-        file_name,
-        extra_files,
-        app_mode,
-        python,
-        environment,
-        True,
-        hide_all_input=hide_all_input,
-        hide_tagged_input=hide_tagged_input,
-        image=image,
-    )
-    return _finalize_deploy(
-        connect_server,
-        app_store,
-        file_name,
-        app_id,
-        app_mode,
-        deployment_name,
-        deployment_title,
-        default_title,
-        bundle,
-        log_callback,
-    )
+    kwargs = locals()
+    kwargs["extra_files"] = extra_files = validate_extra_files(dirname(file_name), extra_files)
+    app_mode = AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC
+
+    base_dir = dirname(file_name)
+    _warn_on_ignored_manifest(base_dir)
+    _warn_if_no_requirements_file(base_dir)
+    _warn_if_environment_directory(base_dir)
+    python, environment = get_python_env_info(file_name, python, conda_mode, force_generate)
+
+    if force_generate:
+        _warn_on_ignored_requirements(base_dir, environment.filename)
+
+    ce = RSConnectExecutor(**kwargs)
+    ce.validate_server().validate_app_mode(app_mode=app_mode)
+    if app_mode == AppModes.STATIC:
+        ce.make_bundle(
+            make_notebook_html_bundle,
+            file_name,
+            python,
+            hide_all_input,
+            hide_tagged_input,
+            image=image,
+        )
+    else:
+        ce.make_bundle(
+            make_notebook_source_bundle,
+            file_name,
+            environment,
+            extra_files,
+            hide_all_input,
+            hide_tagged_input,
+            image=image,
+        )
+    ce.deploy_bundle().save_deployed_info().emit_task_log()
 
 
 def _finalize_deploy(
