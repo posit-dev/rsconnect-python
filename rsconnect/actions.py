@@ -630,7 +630,7 @@ def deploy_html(
     api_key: str = None,
     insecure: bool = False,
     cacert: IO = None,
-):
+) -> None:
     kwargs = locals()
     ce = None
     if connect_server:
@@ -670,7 +670,7 @@ def deploy_jupyter_notebook(
     hide_all_input: bool,
     hide_tagged_input: bool,
     image: str = None,
-) -> typing.Tuple[typing.Any, typing.List]:
+) -> None:
     """
     A function to deploy a Jupyter notebook to Connect.  Depending on the files involved
     and network latency, this may take a bit of time.
@@ -793,9 +793,9 @@ def deploy_app(
     account: str = None,
     token: str = None,
     secret: str = None,
-    app_mode: str = None,
+    app_mode: typing.Optional[AppMode] = None,
     remote_server: api.TargetableServer = None,
-    **kws,
+    **kws
 ):
     kwargs = locals()
     kwargs["entry_point"] = entry_point = validate_entry_point(entry_point, directory)
@@ -1117,7 +1117,7 @@ def deploy_by_manifest(
     app_id: int,
     title: str,
     log_callback: typing.Callable,
-) -> typing.Tuple[str, typing.Union[list, None]]:
+) -> None:
     """
     A function to deploy a Jupyter notebook to Connect.  Depending on the files involved
     and network latency, this may take a bit of time.
