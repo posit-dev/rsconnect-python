@@ -830,8 +830,6 @@ def deploy_app(
         insecure = connect_server.insecure
         ca_data = connect_server.ca_data
     kwargs = locals()
-    print(kwargs)
-
     kwargs["entry_point"] = entry_point = validate_entry_point(entry_point, directory)
     kwargs["extra_files"] = extra_files = validate_extra_files(directory, extra_files)
     environment = create_python_environment(
