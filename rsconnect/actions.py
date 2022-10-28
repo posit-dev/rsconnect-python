@@ -737,52 +737,6 @@ def deploy_jupyter_notebook(
     ce.deploy_bundle().save_deployed_info().emit_task_log()
 
 
-def _finalize_deploy(
-    connect_server: api.RSConnectServer,
-    app_store: AppStore,
-    file_name: str,
-    app_id: int,
-    app_mode: AppMode,
-    deployment_name: str,
-    title: str,
-    title_is_default: bool,
-    bundle: typing.IO[bytes],
-    log_callback: typing.Callable,
-) -> typing.Tuple[str, typing.Union[list, None]]:
-    """
-    A common function to finish up the deploy process once all the data (bundle
-    included) has been resolved.
-
-    :param connect_server: the Connect server information.
-    :param app_store: the store for the specified file
-    :param file_name: the primary file or directory being deployed.
-    :param app_id: the ID of an existing application to deploy new files for.
-    :param app_mode: the app mode to use.
-    :param deployment_name: the name to use for the deploy.
-    :param title: the title to use for the deploy.
-    :param title_is_default: a flag noting whether the title carries a defaulted value.
-    :param bundle: the bundle to deploy.
-    :param log_callback: the callback to use to write the log to.  If this is None
-    (the default) the lines from the deployment log will be returned as a sequence.
-    If a log callback is provided, then None will be returned for the log lines part
-    of the return tuple.
-    :return: the ultimate URL where the deployed app may be accessed and the sequence
-    of log lines.  The log lines value will be None if a log callback was provided.
-    """
-    app = deploy_bundle(connect_server, app_id, deployment_name, title, title_is_default, bundle, None)
-    app_url, log_lines, _ = spool_deployment_log(connect_server, app, log_callback)
-    app_store.set(
-        connect_server.url,
-        abspath(file_name),
-        app_url,
-        app["app_id"],
-        app["app_guid"],
-        title,
-        app_mode,
-    )
-    return app_url, log_lines
-
-
 def fake_module_file_from_directory(directory: str):
     """
     Takes a directory and invents a properly named file that though possibly fake,
