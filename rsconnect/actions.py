@@ -656,7 +656,7 @@ def deploy_html(
 
 
 def deploy_jupyter_notebook(
-    connect_server: api.RSConnectServer,
+    connect_server: api.TargetableServer,
     file_name: str,
     extra_files: typing.List[str],
     new: bool,
@@ -704,6 +704,26 @@ def deploy_jupyter_notebook(
     kwargs["extra_files"] = extra_files = validate_extra_files(dirname(file_name), extra_files)
     app_mode = AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC
 
+    if isinstance(connect_server, api.RSConnectServer):
+        ce = RSConnectExecutor(
+            url=connect_server.url,
+            api_key=connect_server.api_key,
+            insecure=connect_server.insecure,
+            ca_data=connect_server.ca_data,
+            cookies=connect_server.cookie_jar,
+            **kwargs,
+        )
+    elif isinstance(connect_server, api.ShinyappsServer) or isinstance(connect_server, api.CloudServer):
+        ce = RSConnectExecutor(
+            url=connect_server.url,
+            account=connect_server.account_name,
+            token=connect_server.token,
+            secret=connect_server.secret,
+            **kwargs,
+        )
+    else:
+        raise RSConnectException("Unable to infer Connect client.")
+
     base_dir = dirname(file_name)
     _warn_on_ignored_manifest(base_dir)
     _warn_if_no_requirements_file(base_dir)
@@ -713,7 +733,6 @@ def deploy_jupyter_notebook(
     if force_generate:
         _warn_on_ignored_requirements(base_dir, environment.filename)
 
-    ce = RSConnectExecutor(**kwargs)
     ce.validate_server().validate_app_mode(app_mode=app_mode)
     if app_mode == AppModes.STATIC:
         ce.make_bundle(
