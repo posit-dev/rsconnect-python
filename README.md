@@ -863,23 +863,6 @@ Cannot find compatible environment: no compatible Local environment with Python 
 Task failed. Task exited with status 1.
 ```
 
-## Programmatic Provisioning
-
-RStudio Connect supports the programmatic bootstrapping of an admininistrator API key 
-for scripted provisioning tasks. This process is supported by the `rsconnect bootstrap` command,
-which uses a Json Web Token to request an initial API key from a fresh Connect instance. 
-
-!!! warning 
-  
-  This feature **requires Python version 3.6 or higher**.
-
-```bash
-$ rsconnect bootstrap --server https://connect.example.org:3939 --jwt-keypath /path/to/secret.key
-```
-
-A full description on how to use `rsconnect bootstrap` in a provisioning workflow is provided in the Connect administrator guide's 
-[programmatic provisioning](https://docs.rstudio.com/connect/admin/programmatic-provisioning) documentation.
-
 ## Common Usage Examples
 
 ### Searching for content
@@ -985,3 +968,19 @@ rsconnect content search --published | jq '.[].guid' > guids.txt
 # bulk-add from the guids.txt by executing a single `rsconnect content build add` command
 xargs printf -- '-g %s\n' < guids.txt | xargs rsconnect content build add
 ```
+## Programmatic Provisioning
+
+RStudio Connect supports the programmatic bootstrapping of an admininistrator API key 
+for scripted provisioning tasks. This process is supported by the `rsconnect bootstrap` command,
+which uses a JSON Web Token to request an initial API key from a fresh Connect instance. 
+
+!!! warning 
+  
+    This feature **requires Python version 3.6 or higher**.
+
+```bash
+$ rsconnect bootstrap --server https://connect.example.org:3939 --jwt-keypath /path/to/secret.key
+```
+
+A full description on how to use `rsconnect bootstrap` in a provisioning workflow is provided in the Connect administrator guide's 
+[programmatic provisioning](https://docs.rstudio.com/connect/admin/programmatic-provisioning) documentation.
