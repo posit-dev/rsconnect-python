@@ -36,7 +36,7 @@ from .actions_content import (
 )
 
 from . import api, VERSION, validation
-from .api import RSConnectExecutor, filter_out_server_info
+from .api import RSConnectExecutor, RSConnectServer, RSConnectClient, filter_out_server_info
 from .bundle import (
     are_apis_supported_on_server,
     create_python_environment,
@@ -67,6 +67,14 @@ from .models import (
     ContentGuidWithBundleParamType,
     StrippedStringParamType,
     VersionSearchFilterParamType,
+)
+from .json_web_token import (
+    read_secret_key,
+    validate_hs256_secret_key,
+    is_jwt_compatible_python_version,
+    TokenGenerator,
+    produce_bootstrap_output,
+    parse_client_response,
 )
 
 server_store = ServerStore()
@@ -279,6 +287,86 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
 def _test_rstudio_creds(server: api.RStudioServer):
     with cli_feedback("Checking {} credential".format(server.remote_name)):
         test_rstudio_server(server)
+
+
+@cli.command(
+    short_help="Create an initial admin user to bootstrap a Connect instance.",
+    help="Creates an initial admin user to bootstrap a Connect instance. Returns the provisionend API key.",
+)
+@click.option(
+    "--server",
+    "-s",
+    envvar="CONNECT_SERVER",
+    required=True,
+    help="The URL for the RStudio Connect server.",
+)
+@click.option(
+    "--insecure",
+    "-i",
+    envvar="CONNECT_INSECURE",
+    is_flag=True,
+    help="Disable TLS certification/host validation.",
+)
+@click.option(
+    "--cacert",
+    "-c",
+    envvar="CONNECT_CA_CERTIFICATE",
+    type=click.File(),
+    help="The path to trusted TLS CA certificates.",
+)
+@click.option(
+    "--jwt-keypath",
+    "-j",
+    required=True,
+    help="The path to the file containing the private key used to sign the JWT.",
+)
+@click.option("--raw", "-r", is_flag=True, help="Return the API key as raw output rather than a JSON object")
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
+@cli_exception_handler
+def bootstrap(
+    server,
+    insecure,
+    cacert,
+    jwt_keypath,
+    raw,
+    verbose,
+):
+    set_verbosity(verbose)
+    if not is_jwt_compatible_python_version():
+        raise RSConnectException(
+            "Python version > 3.5 required for JWT generation. Please upgrade your Python installation."
+        )
+
+    if not server.startswith("http"):
+        raise RSConnectException("Server URL expected to begin with transfer protocol (ex. http/https).")
+
+    secret_key = read_secret_key(jwt_keypath)
+    validate_hs256_secret_key(secret_key)
+
+    token_generator = TokenGenerator(secret_key)
+
+    bootstrap_token = token_generator.bootstrap()
+    logger.debug("Generated JWT:\n" + bootstrap_token)
+
+    logger.debug("Insecure: " + str(insecure))
+    ca_data = cacert and text_type(cacert.read())
+
+    with cli_feedback("", stderr=True):
+        connect_server = RSConnectServer(
+            server, None, insecure=insecure, ca_data=ca_data, bootstrap_jwt=bootstrap_token
+        )
+        connect_client = RSConnectClient(connect_server)
+
+        response = connect_client.bootstrap()
+
+        # post-processing on response data
+        status, json_data = parse_client_response(response)
+        output = produce_bootstrap_output(status, json_data)
+        if raw:
+            click.echo(output["api_key"])
+        else:
+            json.dump(output, sys.stdout, indent=2)
+            sys.stdout.write("\n")
 
 
 # noinspection SpellCheckingInspection
