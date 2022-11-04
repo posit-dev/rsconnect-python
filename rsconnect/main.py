@@ -1283,7 +1283,7 @@ def write_manifest():
     is_flag=True,
     help='Force generating "requirements.txt", even if it already exists.',
 )
-@click.option("--hide-all-input", help="Hide all input cells when rendering output")
+@click.option("--hide-all-input", is_flag=True, default=None, help="Hide all input cells when rendering output")
 @click.option("--hide-tagged-input", is_flag=True, default=None, help="Hide input code cells with the 'hide_input' tag")
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
 @click.option(

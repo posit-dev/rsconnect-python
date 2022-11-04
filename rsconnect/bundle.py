@@ -1255,6 +1255,14 @@ def write_notebook_manifest_json(
             raise RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
 
     manifest_data = make_source_manifest(app_mode, environment, file_name, None, image)
+    if hide_all_input or hide_tagged_input:
+        if "jupyter" not in manifest_data:
+            manifest_data["jupyter"] = dict()
+        if hide_all_input:
+            manifest_data["jupyter"]["hide_all_input"] = True
+        if hide_tagged_input:
+            manifest_data["jupyter"]["hide_tagged_input"] = True
+
     manifest_add_file(manifest_data, file_name, directory)
     manifest_add_buffer(manifest_data, environment.filename, environment.contents)
 
