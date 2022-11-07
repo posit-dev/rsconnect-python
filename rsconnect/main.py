@@ -21,7 +21,7 @@ from .actions import (
     test_server,
     validate_quarto_engines,
     which_quarto,
-    test_shinyapps_server,
+    test_rstudio_server,
 )
 from .actions_content import (
     download_bundle,
@@ -36,7 +36,7 @@ from .actions_content import (
 )
 
 from . import api, VERSION, validation
-from .api import RSConnectExecutor, filter_out_server_info
+from .api import RSConnectExecutor, RSConnectServer, RSConnectClient, filter_out_server_info
 from .bundle import (
     are_apis_supported_on_server,
     create_python_environment,
@@ -67,6 +67,14 @@ from .models import (
     ContentGuidWithBundleParamType,
     StrippedStringParamType,
     VersionSearchFilterParamType,
+)
+from .json_web_token import (
+    read_secret_key,
+    validate_hs256_secret_key,
+    is_jwt_compatible_python_version,
+    TokenGenerator,
+    produce_bootstrap_output,
+    parse_client_response,
 )
 
 server_store = ServerStore()
@@ -133,24 +141,24 @@ def server_args(func):
     return wrapper
 
 
-def shinyapps_args(func):
+def rstudio_args(func):
     @click.option(
         "--account",
         "-A",
-        envvar="SHINYAPPS_ACCOUNT",
-        help="The shinyapps.io account name.",
+        envvar=["SHINYAPPS_ACCOUNT", "RSCLOUD_ACCOUNT"],
+        help="The shinyapps.io/RStudio Cloud account name.",
     )
     @click.option(
         "--token",
         "-T",
-        envvar="SHINYAPPS_TOKEN",
-        help="The shinyapps.io token.",
+        envvar=["SHINYAPPS_TOKEN", "RSCLOUD_TOKEN"],
+        help="The shinyapps.io/RStudio Cloud token.",
     )
     @click.option(
         "--secret",
         "-S",
-        envvar="SHINYAPPS_SECRET",
-        help="The shinyapps.io token secret.",
+        envvar=["SHINYAPPS_SECRET", "RSCLOUD_SECRET"],
+        help="The shinyapps.io/RStudio Cloud token secret.",
     )
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -224,18 +232,21 @@ def content_args(func):
 @click.option("--future", "-u", is_flag=True, hidden=True, help="Enables future functionality.")
 def cli(future):
     """
-    This command line tool may be used to deploy Jupyter notebooks to Posit
-    Connect.  Support for deploying other content types is also provided.
+    This command line tool may be used to deploy various types of content to Posit
+    Connect, Posit Cloud, and shinyapps.io.
 
     The tool supports the notion of a simple nickname that represents the
-    information needed to interact with a Posit Connect server instance.  Use
-    the add, list and remove commands to manage these nicknames.
+    information needed to interact with a deployment target.  Use the add, list and
+    remove commands to manage these nicknames.
 
     The information about an instance of Posit Connect includes its URL, the
     API key needed to authenticate against that instance, a flag that notes whether
     TLS certificate/host verification should be disabled and a path to a trusted CA
     certificate file to use for TLS.  The last two items are only relevant if the
     URL specifies the "https" protocol.
+
+    For RStudio Cloud and shinyapps.io, the information needed to connect includes
+    the account, auth token, auth secret, and server ('rstudio.cloud' or 'shinyapps.io').
     """
     global future_enabled
     future_enabled = future
@@ -273,16 +284,96 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
     return real_server, me
 
 
-def _test_shinyappsio_creds(server: api.ShinyappsServer):
-    with cli_feedback("Checking shinyapps.io credential"):
-        test_shinyapps_server(server)
+def _test_rstudio_creds(server: api.RStudioServer):
+    with cli_feedback("Checking {} credential".format(server.remote_name)):
+        test_rstudio_server(server)
+
+
+@cli.command(
+    short_help="Create an initial admin user to bootstrap a Connect instance.",
+    help="Creates an initial admin user to bootstrap a Connect instance. Returns the provisionend API key.",
+)
+@click.option(
+    "--server",
+    "-s",
+    envvar="CONNECT_SERVER",
+    required=True,
+    help="The URL for the RStudio Connect server.",
+)
+@click.option(
+    "--insecure",
+    "-i",
+    envvar="CONNECT_INSECURE",
+    is_flag=True,
+    help="Disable TLS certification/host validation.",
+)
+@click.option(
+    "--cacert",
+    "-c",
+    envvar="CONNECT_CA_CERTIFICATE",
+    type=click.File(),
+    help="The path to trusted TLS CA certificates.",
+)
+@click.option(
+    "--jwt-keypath",
+    "-j",
+    required=True,
+    help="The path to the file containing the private key used to sign the JWT.",
+)
+@click.option("--raw", "-r", is_flag=True, help="Return the API key as raw output rather than a JSON object")
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
+@cli_exception_handler
+def bootstrap(
+    server,
+    insecure,
+    cacert,
+    jwt_keypath,
+    raw,
+    verbose,
+):
+    set_verbosity(verbose)
+    if not is_jwt_compatible_python_version():
+        raise RSConnectException(
+            "Python version > 3.5 required for JWT generation. Please upgrade your Python installation."
+        )
+
+    if not server.startswith("http"):
+        raise RSConnectException("Server URL expected to begin with transfer protocol (ex. http/https).")
+
+    secret_key = read_secret_key(jwt_keypath)
+    validate_hs256_secret_key(secret_key)
+
+    token_generator = TokenGenerator(secret_key)
+
+    bootstrap_token = token_generator.bootstrap()
+    logger.debug("Generated JWT:\n" + bootstrap_token)
+
+    logger.debug("Insecure: " + str(insecure))
+    ca_data = cacert and text_type(cacert.read())
+
+    with cli_feedback("", stderr=True):
+        connect_server = RSConnectServer(
+            server, None, insecure=insecure, ca_data=ca_data, bootstrap_jwt=bootstrap_token
+        )
+        connect_client = RSConnectClient(connect_server)
+
+        response = connect_client.bootstrap()
+
+        # post-processing on response data
+        status, json_data = parse_client_response(response)
+        output = produce_bootstrap_output(status, json_data)
+        if raw:
+            click.echo(output["api_key"])
+        else:
+            json.dump(output, sys.stdout, indent=2)
+            sys.stdout.write("\n")
 
 
 # noinspection SpellCheckingInspection
 @cli.command(
-    short_help="Define a nickname for a Posit Connect or shinyapps.io server and credential.",
+    short_help="Define a nickname for a Posit Connect, Posit Cloud, or shinyapps.io server and credential.",
     help=(
-        "Associate a simple nickname with the information needed to interact with a Posit Connect server. "
+        "Associate a simple nickname with the information needed to interact with a deployment target. "
         "Specifying an existing nickname will cause its stored information to be replaced by what is given "
         "on the command line."
     ),
@@ -292,7 +383,7 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
-    help="The URL for the Posit Connect server to deploy to.",
+    help="The URL for the Posit Connect server to deploy to, OR rstudio.cloud OR shinyapps.io.",
 )
 @click.option(
     "--api-key",
@@ -315,7 +406,7 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
     help="The path to trusted TLS CA certificates.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-@shinyapps_args
+@rstudio_args
 @click.pass_context
 def add(ctx, name, server, api_key, insecure, cacert, account, token, secret, verbose):
 
@@ -341,20 +432,24 @@ def add(ctx, name, server, api_key, insecure, cacert, account, token, secret, ve
     old_server = server_store.get_by_name(name)
 
     if account:
-        shinyapps_server = api.ShinyappsServer(server, account, token, secret)
-        _test_shinyappsio_creds(shinyapps_server)
+        if server and "rstudio.cloud" in server:
+            real_server = api.CloudServer(server, account, token, secret)
+        else:
+            real_server = api.ShinyappsServer(server, account, token, secret)
+
+        _test_rstudio_creds(real_server)
 
         server_store.set(
             name,
-            shinyapps_server.url,
-            account_name=shinyapps_server.account_name,
-            token=shinyapps_server.token,
-            secret=shinyapps_server.secret,
+            real_server.url,
+            account_name=real_server.account_name,
+            token=real_server.token,
+            secret=real_server.secret,
         )
         if old_server:
-            click.echo('Updated shinyapps.io credential "%s".' % name)
+            click.echo('Updated {} credential "{}".'.format(real_server.remote_name, name))
         else:
-            click.echo('Added shinyapps.io credential "%s".' % name)
+            click.echo('Added {} credential "{}".'.format(real_server.remote_name, name))
     else:
         # Server must be pingable and the API key must work to be added.
         real_server, _ = _test_server_and_api(server, api_key, insecure, cacert)
@@ -543,7 +638,7 @@ def info(file):
             click.echo("No saved deployment information was found for %s." % file)
 
 
-@cli.group(no_args_is_help=True, help="Deploy content to Posit Connect.")
+@cli.group(no_args_is_help=True, help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io.")
 def deploy():
     pass
 
@@ -745,7 +840,7 @@ def deploy_notebook(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="manifest",
-    short_help="Deploy content to Posit Connect by manifest.",
+    short_help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io by manifest.",
     help=(
         "Deploy content to Posit Connect using an existing manifest.json "
         'file.  The specified file must either be named "manifest.json" or '
@@ -754,7 +849,7 @@ def deploy_notebook(
 )
 @server_args
 @content_args
-@shinyapps_args
+@rstudio_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @cli_exception_handler
 def deploy_manifest(
@@ -993,23 +1088,21 @@ def deploy_html(
     )
 
 
-def generate_deploy_python(app_mode, alias, min_version, supported_by_shinyapps=False):
-    shinyapps = shinyapps_args if supported_by_shinyapps else _passthrough
-
+def generate_deploy_python(app_mode, alias, min_version):
     # noinspection SpellCheckingInspection
     @deploy.command(
         name=alias,
-        short_help="Deploy a {desc} to Posit Connect [v{version}+].".format(
+        short_help="Deploy a {desc} to Posit Connect [v{version}+], Posit Cloud, or shinyapps.io.".format(
             desc=app_mode.desc(), version=min_version
         ),
         help=(
-            'Deploy a {desc} module to Posit Connect. The "directory" argument must refer to an '
-            "existing directory that contains the application code."
+            "Deploy a {desc} module to Posit Connect, Posit Cloud, or shinyapps.io (if supported by the platform). "
+            'The "directory" argument must refer to an existing directory that contains the application code.'
         ).format(desc=app_mode.desc()),
     )
     @server_args
     @content_args
-    @shinyapps
+    @rstudio_args
     @click.option(
         "--entrypoint",
         "-e",
@@ -1125,9 +1218,7 @@ deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias=
 deploy_dash_app = generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
 deploy_streamlit_app = generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
 deploy_bokeh_app = generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
-deploy_shiny = generate_deploy_python(
-    app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0", supported_by_shinyapps=True
-)
+deploy_shiny = generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0")
 
 
 @deploy.command(
@@ -1192,7 +1283,7 @@ def write_manifest():
     is_flag=True,
     help='Force generating "requirements.txt", even if it already exists.',
 )
-@click.option("--hide-all-input", help="Hide all input cells when rendering output")
+@click.option("--hide-all-input", is_flag=True, default=None, help="Hide all input cells when rendering output")
 @click.option("--hide-tagged-input", is_flag=True, default=None, help="Hide input code cells with the 'hide_input' tag")
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
 @click.option(

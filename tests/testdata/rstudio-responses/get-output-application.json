@@ -1,0 +1,39 @@
+{
+  "id": 8442,
+  "name": "0a1006cc11bd4e6f8137d01440aead0a-output-source",
+  "uuid": "f0360a2216414e76bdacd81d52745c59",
+  "url": "https://f0360a2216414e76bdacd81d52745c59.app.rstudio.cloud",
+  "type": "connect",
+  "mode": null,
+  "scheduler": "kubernetes",
+  "status": "pending",
+  "account_id": 47261,
+  "content_id": 1,
+  "logplex_channel": null,
+  "logplex_token": null,
+  "storage_initialized": true,
+  "deployment_id": null,
+  "deployment": null,
+  "environment": {},
+  "resources": {
+    "memory_limit": 1024,
+    "cpu_limit": 1,
+    "effective_memory_limit": 1024,
+    "effective_cpu_limit": 1
+  },
+  "configuration": {
+    "timeout_minutes": 15,
+    "timeout_kill_minutes": 60,
+    "effective_timeout_minutes": 15,
+    "effective_timeout_kill_minutes": 60
+  },
+  "runtime_options": null,
+  "next_deployment_id": null,
+  "prev_deployment_id": null,
+  "clone_parent_id": null,
+  "copy_parent_id": null,
+  "storage": [],
+  "exportable": false,
+  "created_time": "2018-07-20T22:46:41",
+  "updated_time": "2018-07-20T23:06:06"
+}
