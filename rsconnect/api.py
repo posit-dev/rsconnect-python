@@ -1216,17 +1216,6 @@ class CloudService:
         bundle_size: int,
         bundle_hash: str,
     ):
-        accounts = self._rstudio_client.get_accounts()
-        self._server.handle_bad_response(accounts)
-        account = next(
-            filter(lambda acct: acct["name"] == self._server.account_name, accounts.json_data["accounts"]), None
-        )
-        # TODO: also check this during `add` command
-        if account is None:
-            raise RSConnectException(
-                "No account found by name : %s for given user credential" % self._server.account_name
-            )
-
         if app_id is None:
             project_application_id = os.getenv("LUCID_APPLICATION_ID")
             if project_application_id is not None:
