@@ -215,7 +215,7 @@ def test_server(connect_server):
             result = _verify_server(connect_server)
             return connect_server, result
         except RSConnectException as exc:
-            failures.append("    %s - failed to verify as RStudio Connect (%s)." % (test, str(exc)))
+            failures.append("    %s - failed to verify as Posit Connect (%s)." % (test, str(exc)))
 
     # In case the user may need https instead of http...
     if len(failures) == 1 and url.startswith("http://"):
@@ -236,7 +236,7 @@ def test_rstudio_server(server: api.RStudioServer):
 
 def test_api_key(connect_server):
     """
-    Test that an API Key may be used to authenticate with the given RStudio Connect server.
+    Test that an API Key may be used to authenticate with the given Posit Connect server.
     If the API key verifies, we return the username of the associated user.
 
     :param connect_server: the Connect server information.
@@ -248,7 +248,7 @@ def test_api_key(connect_server):
 
 def gather_server_details(connect_server):
     """
-    Builds a dictionary containing the version of RStudio Connect that is running
+    Builds a dictionary containing the version of Posit Connect that is running
     and the versions of Python installed there.
 
     :param connect_server: the Connect server information.
@@ -284,7 +284,7 @@ def are_apis_supported_on_server(connect_details):
 
     :param connect_details: details about a Connect server as returned by gather_server_details()
     :return: boolean True if the Connect server supports Python APIs or not or False if not.
-    :error: The RStudio Connect server does not allow for Python APIs.
+    :error: The Posit Connect server does not allow for Python APIs.
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     return connect_details["python"]["api_enabled"]
@@ -375,7 +375,7 @@ def _validate_title(title):
 def _default_title(file_name):
     """
     Produce a default content title from the given file path.  The result is
-    guaranteed to be between 3 and 1024 characters long, as required by RStudio
+    guaranteed to be between 3 and 1024 characters long, as required by Posit
     Connect.
 
     :param file_name: the name from which the title will be derived.
@@ -686,7 +686,7 @@ def deploy_jupyter_notebook(
     HTML page or as a render-able document with sources. Previous default = False.
     :param python: the optional name of a Python executable, previous default = None.
     :param conda_mode: use conda to build an environment.yml instead of conda, when
-    conda is not supported on RStudio Connect (version<=1.8.0). Previous default = False.
+    conda is not supported on Posit Connect (version<=1.8.0). Previous default = False.
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists. Previous default = False.
     :param log_callback: the callback to use to write the log to.  If this is None
@@ -882,7 +882,7 @@ def deploy_python_api(
     be generated. Previous default = None.
     :param python: the optional name of a Python executable. Previous default = None.
     :param conda_mode: use conda to build an environment.yml instead of conda, when
-    conda is not supported on RStudio Connect (version<=1.8.0). Previous default = False.
+    conda is not supported on Posit Connect (version<=1.8.0). Previous default = False.
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists. Previous default = False.
     :param log_callback: the callback to use to write the log to.  If this is None
@@ -912,7 +912,7 @@ def deploy_python_fastapi(
     image: str = None,
 ) -> typing.Tuple[str, typing.Union[list, None]]:
     """
-    A function to deploy a Python ASGI API module to RStudio Connect.  Depending on the files involved
+    A function to deploy a Python ASGI API module to Posit Connect.  Depending on the files involved
         and network latency, this may take a bit of time.
 
         :param connect_server: the Connect server information.
@@ -926,7 +926,7 @@ def deploy_python_fastapi(
         be generated. Previous default = None.
         :param python: the optional name of a Python executable. Previous default = None.
         :param conda_mode: use conda to build an environment.yml instead of conda, when
-        conda is not supported on RStudio Connect (version<=1.8.0). Previous default = False.
+        conda is not supported on Posit Connect (version<=1.8.0). Previous default = False.
         :param force_generate: force generating "requirements.txt" or "environment.yml",
         even if it already exists. Previous default = False.
         :param log_callback: the callback to use to write the log to.  If this is None
@@ -955,7 +955,7 @@ def deploy_python_shiny(
     log_callback=None,
 ):
     """
-    A function to deploy a Python Shiny module to RStudio Connect.  Depending on the files involved
+    A function to deploy a Python Shiny module to Posit Connect.  Depending on the files involved
         and network latency, this may take a bit of time.
 
         :param connect_server: the Connect server information.
@@ -969,7 +969,7 @@ def deploy_python_shiny(
         be generated.
         :param python: the optional name of a Python executable.
         :param conda_mode: use conda to build an environment.yml
-        instead of conda, when conda is not supported on RStudio Connect (version<=1.8.0).
+        instead of conda, when conda is not supported on Posit Connect (version<=1.8.0).
         :param force_generate: force generating "requirements.txt" or "environment.yml",
         even if it already exists.
         :param log_callback: the callback to use to write the log to.  If this is None
@@ -1012,7 +1012,7 @@ def deploy_dash_app(
     be generated. Previous default = None.
     :param python: the optional name of a Python executable. Previous default = None.
     :param conda_mode: use conda to build an environment.yml instead of conda, when
-    conda is not supported on RStudio Connect (version<=1.8.0). Previous default = False.
+    conda is not supported on Posit Connect (version<=1.8.0). Previous default = False.
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists. Previous default = False.
     :param log_callback: the callback to use to write the log to.  If this is None
@@ -1056,7 +1056,7 @@ def deploy_streamlit_app(
     be generated. Previous default = None.
     :param python: the optional name of a Python executable. Previous default = None.
     :param conda_mode: use conda to build an environment.yml instead of conda, when
-    conda is not supported on RStudio Connect (version<=1.8.0). Previous default = False.
+    conda is not supported on Posit Connect (version<=1.8.0). Previous default = False.
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists. Previous default = False.
     :param log_callback: the callback to use to write the log to.  If this is None
@@ -1100,7 +1100,7 @@ def deploy_bokeh_app(
     be generated. Previous default = None.
     :param python: the optional name of a Python executable. Previous default = None.
     :param conda_mode: use conda to build an environment.yml instead of conda, when
-    conda is not supported on RStudio Connect (version<=1.8.0). Previous default = False.
+    conda is not supported on Posit Connect (version<=1.8.0). Previous default = False.
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists. Previous default = False.
     :param log_callback: the callback to use to write the log to.  If this is None
@@ -1111,6 +1111,7 @@ def deploy_bokeh_app(
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
+
     return deploy_app(app_mode=AppModes.BOKEH_APP, **locals())
 
 

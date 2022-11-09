@@ -26,9 +26,9 @@ api = Blueprint("api", __name__)
 def index():
     return (
         """<html>
-<head><title>RStudio Connect -- Mocked</title></head><body>
-<h1>RStudio Connect -- Mocked</h1>
-<p>Welcome to the mocked RStudio Connect!
+<head><title>Posit Connect -- Mocked</title></head><body>
+<h1>Posit Connect -- Mocked</h1>
+<p>Welcome to the mocked Posit Connect!
 <hr>
 %s
 </body></html>
