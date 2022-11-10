@@ -317,7 +317,6 @@ def _test_rstudio_creds(server: api.RStudioServer):
 @click.option(
     "--jwt-keypath",
     "-j",
-    required=True,
     help="The path to the file containing the private key used to sign the JWT.",
 )
 @click.option("--raw", "-r", is_flag=True, help="Return the API key as raw output rather than a JSON object")

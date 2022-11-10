@@ -20,11 +20,30 @@ DEFAULT_AUDIENCE = "rsconnect"
 BOOTSTRAP_SCOPE = "bootstrap"
 BOOTSTRAP_EXP = timedelta(minutes=15)
 
+SECRET_KEY_ENV = "CONNECT_BOOTSTRAP_SECRET_KEY"
 
-def read_secret_key(keypath: str) -> bytes:
+
+def read_secret_key(keypath) -> bytes:
     """
     Reads a secret key as bytes given a path to a file containing a base64-encoded key.
+
+    The secret key can optionally be overridden by an environment variable.
     """
+
+    env_raw_data = os.getenv(SECRET_KEY_ENV)
+
+    if keypath is not None and env_raw_data is not None:
+        raise RSConnectException("Cannot specify secret key using both a keyfile and environment variable.")
+
+    if keypath is None and env_raw_data is None:
+        raise RSConnectException("Must specify secret key using either a keyfile or environment variable.")
+
+    # check if secret key was specified using an env variable first
+    if env_raw_data is not None:
+        try:
+            return base64.b64decode(env_raw_data.encode("utf-8"))
+        except binascii.Error:
+            raise RSConnectException("Unable to decode base64 data from environment variable: " + SECRET_KEY_ENV)
 
     if not os.path.exists(keypath):
         raise RSConnectException("Keypath does not exist.")

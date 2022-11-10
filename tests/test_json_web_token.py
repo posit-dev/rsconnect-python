@@ -15,6 +15,7 @@ from rsconnect.json_web_token import (
     BOOTSTRAP_SCOPE,
     DEFAULT_ISSUER,
     DEFAULT_AUDIENCE,
+    SECRET_KEY_ENV,
     read_secret_key,
     produce_bootstrap_output,
     is_jwt_compatible_python_version,
@@ -48,6 +49,8 @@ class TestJsonWebToken(TestCase):
         # decoded copy of the base64-encoded key in testdata/jwt/secret.key
         self.secret_key = b"12345678901234567890123456789012345"
         self.secret_key_b64 = b"MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU="
+        # the environment variable version of the secret key will be stored as a string
+        self.secret_key_b64_env = "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU="
 
     def assert_bootstrap_jwt_is_valid(self, payload, current_datetime):
         """
@@ -84,11 +87,37 @@ class TestJsonWebToken(TestCase):
         empty = read_secret_key("tests/testdata/jwt/empty_secret.key")
         self.assertEqual(empty, b"")
 
+        # might pass 'None' if we're using an environment variable
+        with pytest.raises(RSConnectException):
+            read_secret_key(None)
+
         with pytest.raises(RSConnectException):
             read_secret_key("invalid/path.key")
 
         with pytest.raises(RSConnectException):
             read_secret_key("tests/testdata/jwt/invalid_secret.key")
+
+        # environment variable overrides the file
+        os.environ[SECRET_KEY_ENV] = self.secret_key_b64_env
+
+        valid_env = read_secret_key(None)
+        self.assertEqual(valid_env, self.secret_key)
+
+        # with env variable set, can't also attempt to read from file
+        with pytest.raises(RSConnectException):
+            read_secret_key("tests/testdata/jwt/secret.key")
+
+        with pytest.raises(RSConnectException):
+            read_secret_key("tests/testdata/jwt/empty_secret.key")
+
+        os.environ[SECRET_KEY_ENV] = "this_is_not_base64"
+
+        # env variable must also be a base64-encoded secret
+        with pytest.raises(RSConnectException):
+            read_secret_key(None)
+
+        # cleanup
+        del os.environ[SECRET_KEY_ENV]
 
     def test_validate_hs256_secret_key(self):
 
