@@ -97,7 +97,7 @@ class TestJsonWebToken(TestCase):
         with pytest.raises(RSConnectException):
             read_secret_key("tests/testdata/jwt/invalid_secret.key")
 
-        # environment variable overrides the file
+        # environment variable replaces the need for a filepath
         os.environ[SECRET_KEY_ENV] = self.secret_key_b64_env
 
         valid_env = read_secret_key(None)

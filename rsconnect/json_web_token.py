@@ -27,7 +27,7 @@ def read_secret_key(keypath) -> bytes:
     """
     Reads a secret key as bytes given a path to a file containing a base64-encoded key.
 
-    The secret key can optionally be overridden by an environment variable.
+    The secret key can optionally be set with an environment variable.
     """
 
     env_raw_data = os.getenv(SECRET_KEY_ENV)
