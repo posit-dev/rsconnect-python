@@ -743,11 +743,6 @@ class TestBootstrap(TestCase):
             result.output, "Error: Server URL expected to begin with transfer protocol (ex. http/https).\n"
         )
 
-    def test_bootstrap_missing_server_option(self):
-        runner = CliRunner()
-        result = runner.invoke(cli, ["bootstrap"])
-        self.assertEqual(result.exit_code, 2, result.output)
-
     def test_boostrap_missing_jwt_option(self):
         runner = CliRunner()
         result = runner.invoke(cli, ["bootstrap", "--server", "http://a_server"])
