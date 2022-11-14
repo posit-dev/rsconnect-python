@@ -1,6 +1,6 @@
 import pytest
 
-torch = pytest.importorskip("vetiver", reason="vetiver library not installed")
+vetiver = pytest.importorskip("vetiver", reason="vetiver library not installed")
 
 import json # noqa
 import pins # noqa
