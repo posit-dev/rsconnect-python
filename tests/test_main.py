@@ -819,7 +819,7 @@ class TestBootstrap(TestCase):
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertEqual(
             result.output,
-            "Error: Unable to decode base64 data from environment variable: CONNECT_BOOTSTRAP_SECRET_KEY\n",
+            "Error: Unable to decode base64 data from environment variable: CONNECT_BOOTSTRAP_SECRETKEY\n",
         )
 
         del os.environ[SECRET_KEY_ENV]

@@ -20,7 +20,7 @@ DEFAULT_AUDIENCE = "rsconnect"
 BOOTSTRAP_SCOPE = "bootstrap"
 BOOTSTRAP_EXP = timedelta(minutes=15)
 
-SECRET_KEY_ENV = "CONNECT_BOOTSTRAP_SECRET_KEY"
+SECRET_KEY_ENV = "CONNECT_BOOTSTRAP_SECRETKEY"
 
 
 def read_secret_key(keypath) -> bytes:
