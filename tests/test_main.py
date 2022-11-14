@@ -777,11 +777,6 @@ class TestBootstrap(TestCase):
             result.output, "Error: Server URL expected to begin with transfer protocol (ex. http/https).\n"
         )
 
-    def test_bootstrap_missing_server_option(self):
-        runner = CliRunner()
-        result = runner.invoke(cli, ["bootstrap"])
-        self.assertEqual(result.exit_code, 2, result.output)
-
     def test_boostrap_missing_jwt_option(self):
         """
         If jwt keyfile is not specified, it needs to be set using an environment variable
@@ -819,7 +814,7 @@ class TestBootstrap(TestCase):
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertEqual(
             result.output,
-            "Error: Unable to decode base64 data from environment variable: CONNECT_BOOTSTRAP_SECRETKEY\n",
+            "Error: Unable to decode base64 data from environment variable: CONNECT_BOOTSTRAP_SECRET_KEY\n",
         )
 
         del os.environ[SECRET_KEY_ENV]
