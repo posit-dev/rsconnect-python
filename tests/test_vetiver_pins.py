@@ -15,7 +15,7 @@ from rsconnect.api import RSConnectServer, RSConnectClient # noqa
 RSC_SERVER_URL = "http://localhost:3939"
 RSC_KEYS_FNAME = "vetiver/tests/rsconnect_api_keys.json"
 
-pytestmark = pytest.mark.rsc_test  # noqa
+pytestmark = pytest.mark.vetiver  # noqa
 
 
 def get_key(name):

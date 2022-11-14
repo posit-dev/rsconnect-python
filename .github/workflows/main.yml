@@ -171,4 +171,4 @@ jobs:
       # NOTE: edited to run checks for python package
       - name: Run tests
         run: |
-          pytest vetiver -m 'rsc_test'
+          pytest -m 'vetiver'
