@@ -8,8 +8,8 @@ services:
     ports:
       - 3939:3939
     volumes:
-      - $PWD/script/setup-rsconnect/users.txt:/etc/users.txt
-      - $PWD/script/setup-rsconnect/rstudio-connect.gcfg:/etc/rstudio-connect/rstudio-connect.gcfg
+      - $PWD/vetiver-testing/setup-rsconnect/users.txt:/etc/users.txt
+      - $PWD/vetiver-testing/setup-rsconnect/rstudio-connect.gcfg:/etc/rstudio-connect/rstudio-connect.gcfg
     # by default, mysql rounds to 4 decimals, but tests require more precision
     privileged: true
     environment:
