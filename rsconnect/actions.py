@@ -14,10 +14,16 @@ import traceback
 from typing import IO
 from warnings import warn
 from os.path import abspath, basename, dirname, exists, isdir, join, relpath, splitext
-from pprint import pformat
 from .exception import RSConnectException
 from . import api
 from .bundle import (
+    _warn_if_environment_directory,
+    _warn_if_no_requirements_file,
+    _warn_on_ignored_manifest,
+    _warn_on_ignored_requirements,
+    create_python_environment,
+    default_title_from_manifest,
+    get_python_env_info,
     make_api_bundle,
     make_api_manifest,
     make_html_bundle,
@@ -29,11 +35,11 @@ from .bundle import (
     make_source_manifest,
     manifest_add_buffer,
     manifest_add_file,
+    read_manifest_app_mode,
     read_manifest_file,
 )
 from .environment import Environment, MakeEnvironment, EnvironmentException
 from .log import logger
-from .metadata import AppStore
 from .models import AppModes, AppMode
 from .api import RSConnectExecutor, filter_out_server_info
 
@@ -135,6 +141,7 @@ def inspect_environment(
     Returns a dictionary of information about the environment,
     or containing an "error" field if an error occurred.
     """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     flags = []
     if conda_mode:
         flags.append("c")
@@ -208,7 +215,7 @@ def test_server(connect_server):
             result = _verify_server(connect_server)
             return connect_server, result
         except RSConnectException as exc:
-            failures.append("    %s - failed to verify as RStudio Connect (%s)." % (test, str(exc)))
+            failures.append("    %s - failed to verify as Posit Connect (%s)." % (test, str(exc)))
 
     # In case the user may need https instead of http...
     if len(failures) == 1 and url.startswith("http://"):
@@ -229,7 +236,7 @@ def test_rstudio_server(server: api.RStudioServer):
 
 def test_api_key(connect_server):
     """
-    Test that an API Key may be used to authenticate with the given RStudio Connect server.
+    Test that an API Key may be used to authenticate with the given Posit Connect server.
     If the API key verifies, we return the username of the associated user.
 
     :param connect_server: the Connect server information.
@@ -241,7 +248,7 @@ def test_api_key(connect_server):
 
 def gather_server_details(connect_server):
     """
-    Builds a dictionary containing the version of RStudio Connect that is running
+    Builds a dictionary containing the version of Posit Connect that is running
     and the versions of Python installed there.
 
     :param connect_server: the Connect server information.
@@ -277,7 +284,7 @@ def are_apis_supported_on_server(connect_details):
 
     :param connect_details: details about a Connect server as returned by gather_server_details()
     :return: boolean True if the Connect server supports Python APIs or not or False if not.
-    :error: The RStudio Connect server does not allow for Python APIs.
+    :error: The Posit Connect server does not allow for Python APIs.
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     return connect_details["python"]["api_enabled"]
@@ -368,7 +375,7 @@ def _validate_title(title):
 def _default_title(file_name):
     """
     Produce a default content title from the given file path.  The result is
-    guaranteed to be between 3 and 1024 characters long, as required by RStudio
+    guaranteed to be between 3 and 1024 characters long, as required by Posit
     Connect.
 
     :param file_name: the name from which the title will be derived.
@@ -623,7 +630,7 @@ def deploy_html(
     api_key: str = None,
     insecure: bool = False,
     cacert: IO = None,
-):
+) -> None:
     kwargs = locals()
     ce = None
     if connect_server:
@@ -649,7 +656,7 @@ def deploy_html(
 
 
 def deploy_jupyter_notebook(
-    connect_server: api.RSConnectServer,
+    connect_server: api.TargetableServer,
     file_name: str,
     extra_files: typing.List[str],
     new: bool,
@@ -663,7 +670,7 @@ def deploy_jupyter_notebook(
     hide_all_input: bool,
     hide_tagged_input: bool,
     image: str = None,
-) -> typing.Tuple[typing.Any, typing.List]:
+) -> None:
     """
     A function to deploy a Jupyter notebook to Connect.  Depending on the files involved
     and network latency, this may take a bit of time.
@@ -679,7 +686,7 @@ def deploy_jupyter_notebook(
     HTML page or as a render-able document with sources. Previous default = False.
     :param python: the optional name of a Python executable, previous default = None.
     :param conda_mode: use conda to build an environment.yml instead of conda, when
-    conda is not supported on RStudio Connect (version<=1.8.0). Previous default = False.
+    conda is not supported on Posit Connect (version<=1.8.0). Previous default = False.
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists. Previous default = False.
     :param log_callback: the callback to use to write the log to.  If this is None
@@ -693,91 +700,63 @@ def deploy_jupyter_notebook(
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    app_store = AppStore(file_name)
-    (app_id, deployment_name, deployment_title, default_title, app_mode,) = gather_basic_deployment_info_for_notebook(
-        connect_server,
-        app_store,
-        file_name,
-        new,
-        app_id,
-        title,
-        static,
-    )
-    python, environment = get_python_env_info(
-        file_name,
-        python,
-        conda_mode=conda_mode,
-        force_generate=force_generate,
-    )
-    bundle = create_notebook_deployment_bundle(
-        file_name,
-        extra_files,
-        app_mode,
-        python,
-        environment,
-        True,
-        hide_all_input=hide_all_input,
-        hide_tagged_input=hide_tagged_input,
-        image=image,
-    )
-    return _finalize_deploy(
-        connect_server,
-        app_store,
-        file_name,
-        app_id,
-        app_mode,
-        deployment_name,
-        deployment_title,
-        default_title,
-        bundle,
-        log_callback,
-    )
+    kwargs = locals()
+    kwargs["extra_files"] = extra_files = validate_extra_files(dirname(file_name), extra_files)
+    app_mode = AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC
 
+    if isinstance(connect_server, api.RSConnectServer):
+        kwargs.update(
+            dict(
+                url=connect_server.url,
+                api_key=connect_server.api_key,
+                insecure=connect_server.insecure,
+                ca_data=connect_server.ca_data,
+                cookies=connect_server.cookie_jar,
+            )
+        )
+    elif isinstance(connect_server, api.ShinyappsServer) or isinstance(connect_server, api.CloudServer):
+        kwargs.update(
+            dict(
+                url=connect_server.url,
+                account=connect_server.account_name,
+                token=connect_server.token,
+                secret=connect_server.secret,
+            )
+        )
+    else:
+        raise RSConnectException("Unable to infer Connect client.")
 
-def _finalize_deploy(
-    connect_server: api.RSConnectServer,
-    app_store: AppStore,
-    file_name: str,
-    app_id: int,
-    app_mode: AppMode,
-    name: str,
-    title: str,
-    title_is_default: bool,
-    bundle: typing.IO[bytes],
-    log_callback: typing.Callable,
-) -> typing.Tuple[str, typing.Union[list, None]]:
-    """
-    A common function to finish up the deploy process once all the data (bundle
-    included) has been resolved.
+    base_dir = dirname(file_name)
+    _warn_on_ignored_manifest(base_dir)
+    _warn_if_no_requirements_file(base_dir)
+    _warn_if_environment_directory(base_dir)
+    python, environment = get_python_env_info(file_name, python, conda_mode, force_generate)
 
-    :param connect_server: the Connect server information.
-    :param app_store: the store for the specified file
-    :param file_name: the primary file or directory being deployed.
-    :param app_id: the ID of an existing application to deploy new files for.
-    :param app_mode: the app mode to use.
-    :param name: the name to use for the deploy.
-    :param title: the title to use for the deploy.
-    :param title_is_default: a flag noting whether the title carries a defaulted value.
-    :param bundle: the bundle to deploy.
-    :param log_callback: the callback to use to write the log to.  If this is None
-    (the default) the lines from the deployment log will be returned as a sequence.
-    If a log callback is provided, then None will be returned for the log lines part
-    of the return tuple.
-    :return: the ultimate URL where the deployed app may be accessed and the sequence
-    of log lines.  The log lines value will be None if a log callback was provided.
-    """
-    app = deploy_bundle(connect_server, app_id, name, title, title_is_default, bundle, None)
-    app_url, log_lines, _ = spool_deployment_log(connect_server, app, log_callback)
-    app_store.set(
-        connect_server.url,
-        abspath(file_name),
-        app_url,
-        app["app_id"],
-        app["app_guid"],
-        title,
-        app_mode,
-    )
-    return app_url, log_lines
+    if force_generate:
+        _warn_on_ignored_requirements(base_dir, environment.filename)
+
+    ce = RSConnectExecutor(**kwargs)
+    ce.validate_server().validate_app_mode(app_mode=app_mode)
+    if app_mode == AppModes.STATIC:
+        ce.make_bundle(
+            make_notebook_html_bundle,
+            file_name,
+            python,
+            hide_all_input,
+            hide_tagged_input,
+            image=image,
+        )
+    else:
+        ce.make_bundle(
+            make_notebook_source_bundle,
+            file_name,
+            environment,
+            extra_files,
+            hide_all_input,
+            hide_tagged_input,
+            image=image,
+        )
+    ce.deploy_bundle().save_deployed_info().emit_task_log()
 
 
 def fake_module_file_from_directory(directory: str):
@@ -794,8 +773,87 @@ def fake_module_file_from_directory(directory: str):
     return join(directory, app_name + ".py")
 
 
+def deploy_app(
+    name: str = None,
+    server: str = None,
+    api_key: str = None,
+    insecure: bool = None,
+    cacert: typing.IO = None,
+    ca_data: str = None,
+    entry_point: str = None,
+    excludes: typing.List[str] = None,
+    new: bool = False,
+    app_id: str = None,
+    title: str = None,
+    python: str = None,
+    conda_mode: bool = False,
+    force_generate: bool = False,
+    verbose: bool = None,
+    directory: str = None,
+    extra_files: typing.List[str] = None,
+    env_vars: typing.Dict[str, str] = None,
+    image: str = None,
+    account: str = None,
+    token: str = None,
+    secret: str = None,
+    app_mode: typing.Optional[AppMode] = None,
+    connect_server: api.TargetableServer = None,
+    **kws
+):
+    kwargs = locals()
+    kwargs["entry_point"] = entry_point = validate_entry_point(entry_point, directory)
+    kwargs["extra_files"] = extra_files = validate_extra_files(directory, extra_files)
+
+    if isinstance(connect_server, api.RSConnectServer):
+        kwargs.update(
+            dict(
+                url=connect_server.url,
+                api_key=connect_server.api_key,
+                insecure=connect_server.insecure,
+                ca_data=connect_server.ca_data,
+                cookies=connect_server.cookie_jar,
+            )
+        )
+    elif isinstance(connect_server, api.ShinyappsServer) or isinstance(connect_server, api.CloudServer):
+        kwargs.update(
+            dict(
+                url=connect_server.url,
+                account=connect_server.account_name,
+                token=connect_server.token,
+                secret=connect_server.secret,
+            )
+        )
+
+    environment = create_python_environment(
+        directory,
+        force_generate,
+        python,
+        conda_mode,
+    )
+
+    ce = RSConnectExecutor(**kwargs)
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=app_mode)
+        .check_server_capabilities([are_apis_supported_on_server])
+        .make_bundle(
+            make_api_bundle,
+            directory,
+            entry_point,
+            app_mode,
+            environment,
+            extra_files,
+            excludes,
+            image=image,
+        )
+        .deploy_bundle()
+        .save_deployed_info()
+        .emit_task_log()
+    )
+
+
 def deploy_python_api(
-    connect_server: api.RSConnectServer,
+    connect_server: api.TargetableServer,
     directory: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
@@ -824,7 +882,7 @@ def deploy_python_api(
     be generated. Previous default = None.
     :param python: the optional name of a Python executable. Previous default = None.
     :param conda_mode: use conda to build an environment.yml instead of conda, when
-    conda is not supported on RStudio Connect (version<=1.8.0). Previous default = False.
+    conda is not supported on Posit Connect (version<=1.8.0). Previous default = False.
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists. Previous default = False.
     :param log_callback: the callback to use to write the log to.  If this is None
@@ -835,26 +893,11 @@ def deploy_python_api(
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    return _deploy_by_python_framework(
-        connect_server,
-        directory,
-        extra_files,
-        excludes,
-        entry_point,
-        gather_basic_deployment_info_for_api,
-        image,
-        new,
-        app_id,
-        title,
-        python,
-        conda_mode,
-        force_generate,
-        log_callback,
-    )
+    return deploy_app(app_mode=AppModes.PYTHON_API, **locals())
 
 
 def deploy_python_fastapi(
-    connect_server: api.RSConnectServer,
+    connect_server: api.TargetableServer,
     directory: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
@@ -869,7 +912,7 @@ def deploy_python_fastapi(
     image: str = None,
 ) -> typing.Tuple[str, typing.Union[list, None]]:
     """
-    A function to deploy a Python ASGI API module to RStudio Connect.  Depending on the files involved
+    A function to deploy a Python ASGI API module to Posit Connect.  Depending on the files involved
         and network latency, this may take a bit of time.
 
         :param connect_server: the Connect server information.
@@ -883,7 +926,7 @@ def deploy_python_fastapi(
         be generated. Previous default = None.
         :param python: the optional name of a Python executable. Previous default = None.
         :param conda_mode: use conda to build an environment.yml instead of conda, when
-        conda is not supported on RStudio Connect (version<=1.8.0). Previous default = False.
+        conda is not supported on Posit Connect (version<=1.8.0). Previous default = False.
         :param force_generate: force generating "requirements.txt" or "environment.yml",
         even if it already exists. Previous default = False.
         :param log_callback: the callback to use to write the log to.  If this is None
@@ -894,22 +937,7 @@ def deploy_python_fastapi(
         :return: the ultimate URL where the deployed app may be accessed and the sequence
         of log lines.  The log lines value will be None if a log callback was provided.
     """
-    return _deploy_by_python_framework(
-        connect_server,
-        directory,
-        extra_files,
-        excludes,
-        entry_point,
-        gather_basic_deployment_info_for_fastapi,
-        image,
-        new,
-        app_id,
-        title,
-        python,
-        conda_mode,
-        force_generate,
-        log_callback,
-    )
+    return deploy_app(app_mode=AppModes.PYTHON_FASTAPI, **locals())
 
 
 def deploy_python_shiny(
@@ -927,7 +955,7 @@ def deploy_python_shiny(
     log_callback=None,
 ):
     """
-    A function to deploy a Python Shiny module to RStudio Connect.  Depending on the files involved
+    A function to deploy a Python Shiny module to Posit Connect.  Depending on the files involved
         and network latency, this may take a bit of time.
 
         :param connect_server: the Connect server information.
@@ -941,7 +969,7 @@ def deploy_python_shiny(
         be generated.
         :param python: the optional name of a Python executable.
         :param conda_mode: use conda to build an environment.yml
-        instead of conda, when conda is not supported on RStudio Connect (version<=1.8.0).
+        instead of conda, when conda is not supported on Posit Connect (version<=1.8.0).
         :param force_generate: force generating "requirements.txt" or "environment.yml",
         even if it already exists.
         :param log_callback: the callback to use to write the log to.  If this is None
@@ -951,25 +979,11 @@ def deploy_python_shiny(
         :return: the ultimate URL where the deployed app may be accessed and the sequence
         of log lines.  The log lines value will be None if a log callback was provided.
     """
-    return _deploy_by_python_framework(
-        connect_server,
-        directory,
-        extra_files,
-        excludes,
-        entry_point,
-        gather_basic_deployment_info_for_shiny,
-        new,
-        app_id,
-        title,
-        python,
-        conda_mode,
-        force_generate,
-        log_callback,
-    )
+    return deploy_app(app_mode=AppModes.PYTHON_SHINY, **locals())
 
 
 def deploy_dash_app(
-    connect_server: api.RSConnectServer,
+    connect_server: api.TargetableServer,
     directory: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
@@ -998,7 +1012,7 @@ def deploy_dash_app(
     be generated. Previous default = None.
     :param python: the optional name of a Python executable. Previous default = None.
     :param conda_mode: use conda to build an environment.yml instead of conda, when
-    conda is not supported on RStudio Connect (version<=1.8.0). Previous default = False.
+    conda is not supported on Posit Connect (version<=1.8.0). Previous default = False.
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists. Previous default = False.
     :param log_callback: the callback to use to write the log to.  If this is None
@@ -1009,26 +1023,11 @@ def deploy_dash_app(
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    return _deploy_by_python_framework(
-        connect_server,
-        directory,
-        extra_files,
-        excludes,
-        entry_point,
-        gather_basic_deployment_info_for_dash,
-        image,
-        new,
-        app_id,
-        title,
-        python,
-        conda_mode,
-        force_generate,
-        log_callback,
-    )
+    return deploy_app(app_mode=AppModes.DASH_APP, **locals())
 
 
 def deploy_streamlit_app(
-    connect_server: api.RSConnectServer,
+    connect_server: api.TargetableServer,
     directory: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
@@ -1057,7 +1056,7 @@ def deploy_streamlit_app(
     be generated. Previous default = None.
     :param python: the optional name of a Python executable. Previous default = None.
     :param conda_mode: use conda to build an environment.yml instead of conda, when
-    conda is not supported on RStudio Connect (version<=1.8.0). Previous default = False.
+    conda is not supported on Posit Connect (version<=1.8.0). Previous default = False.
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists. Previous default = False.
     :param log_callback: the callback to use to write the log to.  If this is None
@@ -1068,26 +1067,11 @@ def deploy_streamlit_app(
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    return _deploy_by_python_framework(
-        connect_server,
-        directory,
-        extra_files,
-        excludes,
-        entry_point,
-        gather_basic_deployment_info_for_streamlit,
-        image,
-        new,
-        app_id,
-        title,
-        python,
-        conda_mode,
-        force_generate,
-        log_callback,
-    )
+    return deploy_app(app_mode=AppModes.STREAMLIT_APP, **locals())
 
 
 def deploy_bokeh_app(
-    connect_server: api.RSConnectServer,
+    connect_server: api.TargetableServer,
     directory: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
@@ -1116,7 +1100,7 @@ def deploy_bokeh_app(
     be generated. Previous default = None.
     :param python: the optional name of a Python executable. Previous default = None.
     :param conda_mode: use conda to build an environment.yml instead of conda, when
-    conda is not supported on RStudio Connect (version<=1.8.0). Previous default = False.
+    conda is not supported on Posit Connect (version<=1.8.0). Previous default = False.
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists. Previous default = False.
     :param log_callback: the callback to use to write the log to.  If this is None
@@ -1127,108 +1111,18 @@ def deploy_bokeh_app(
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    return _deploy_by_python_framework(
-        connect_server,
-        directory,
-        extra_files,
-        excludes,
-        entry_point,
-        gather_basic_deployment_info_for_bokeh,
-        image,
-        new,
-        app_id,
-        title,
-        python,
-        conda_mode,
-        force_generate,
-        log_callback,
-    )
 
-
-def _deploy_by_python_framework(
-    connect_server: api.RSConnectServer,
-    directory: str,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
-    entry_point: str,
-    gatherer: typing.Callable,
-    image: str,
-    new: bool,
-    app_id: int,
-    title: str,
-    python: str,
-    conda_mode: bool,
-    force_generate: bool,
-    log_callback: typing.Callable,
-) -> typing.Tuple[str, typing.Union[list, None]]:
-    """
-    A function to deploy a Python WSGi API module to Connect.  Depending on the files involved
-    and network latency, this may take a bit of time.
-
-    :param connect_server: the Connect server information.
-    :param directory: the app directory to deploy.
-    :param extra_files: any extra files that should be included in the deploy.
-    :param excludes: a sequence of glob patterns that will exclude matched files.
-    :param entry_point: the module/executable object for the WSGi framework.
-    :param gatherer: the function to use to gather basic information.
-    :param image: the docker image to be specified for off-host execution. Use None if not specified.
-    :param new: a flag to force this as a new deploy. Previous default = False.
-    :param app_id: the ID of an existing application to deploy new files for. Previous default = None.
-    :param title: an optional title for the deploy.  If this is not provided, one will
-    be generated. Previous default = None.
-    :param python: the optional name of a Python executable. Previous default = None.
-    :param conda_mode: use conda to build an environment.yml instead of conda, when
-    conda is not supported on RStudio Connect (version<=1.8.0). Previous default = False
-    :param force_generate: force generating "requirements.txt" or "environment.yml",
-    even if it already exists. Previous default = False
-    :param log_callback: the callback to use to write the log to.  If this is None
-    (the default) the lines from the deployment log will be returned as a sequence.
-    If a log callback is provided, then None will be returned for the log lines part
-    of the return tuple. Previous default = None.
-    :return: the ultimate URL where the deployed app may be accessed and the sequence
-    of log lines.  The log lines value will be None if a log callback was provided.
-    """
-    module_file = fake_module_file_from_directory(directory)
-    app_store = AppStore(module_file)
-    (
-        entry_point,
-        app_id,
-        deployment_name,
-        deployment_title,
-        default_title,
-        app_mode,
-    ) = gatherer(connect_server, app_store, directory, entry_point, new, app_id, title)
-    _, environment = get_python_env_info(
-        directory,
-        python,
-        conda_mode=conda_mode,
-        force_generate=force_generate,
-    )
-    bundle = create_api_deployment_bundle(
-        directory, extra_files, excludes, entry_point, app_mode, environment, True, image
-    )
-    return _finalize_deploy(
-        connect_server,
-        app_store,
-        directory,
-        app_id,
-        app_mode,
-        deployment_name,
-        deployment_title,
-        default_title,
-        bundle,
-        log_callback,
-    )
+    return deploy_app(app_mode=AppModes.BOKEH_APP, **locals())
 
 
 def deploy_by_manifest(
-    connect_server: api.RSConnectServer,
+    connect_server: api.TargetableServer,
     manifest_file_name: str,
     new: bool,
     app_id: int,
     title: str,
     log_callback: typing.Callable,
-) -> typing.Tuple[str, typing.Union[list, None]]:
+) -> None:
     """
     A function to deploy a Jupyter notebook to Connect.  Depending on the files involved
     and network latency, this may take a bit of time.
@@ -1246,399 +1140,45 @@ def deploy_by_manifest(
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    app_store = AppStore(manifest_file_name)
-    (
-        app_id,
-        deployment_name,
-        deployment_title,
-        default_title,
-        app_mode,
-        _,
-        _,
-    ) = gather_basic_deployment_info_from_manifest(connect_server, app_store, manifest_file_name, new, app_id, title)
-    bundle = make_manifest_bundle(manifest_file_name)
-    return _finalize_deploy(
-        connect_server,
-        app_store,
-        manifest_file_name,
-        app_id,
-        app_mode,
-        deployment_name,
-        deployment_title,
-        default_title,
-        bundle,
-        log_callback,
-    )
+    kwargs = locals()
+    kwargs["manifest_file_name"] = manifest_file_name = validate_manifest_file(manifest_file_name)
+    app_mode = read_manifest_app_mode(manifest_file_name)
+    kwargs["title"] = title or default_title_from_manifest(manifest_file_name)
 
-
-def gather_basic_deployment_info_for_notebook(
-    connect_server: api.RSConnectServer,
-    app_store: AppStore,
-    file_name: str,
-    new: bool,
-    app_id: int,
-    title: str,
-    static: bool,
-) -> typing.Tuple[int, str, str, bool, AppMode]:
-    """
-    Helps to gather the necessary info for performing a deployment.
-
-    :param connect_server: the Connect server information.
-    :param app_store: the store for the specified file
-    :param file_name: the primary file being deployed.
-    :param new: a flag noting whether we should force a new deployment.
-    :param app_id: the ID of the app to redeploy.
-    :param title: an optional title.  If this isn't specified, a default title will
-    be generated.
-    :param static: a flag to note whether a static document should be deployed.
-    :return: the app ID, name, title information and mode for the deployment.
-    """
-    validate_file_is_notebook(file_name)
-    _validate_title(title)
-
-    if new and app_id:
-        raise RSConnectException("Specify either a new deploy or an app ID but not both.")
-
-    if static:
-        app_mode = AppModes.STATIC
-    else:
-        app_mode = AppModes.JUPYTER_NOTEBOOK
-
-    existing_app_mode = None
-    if not new:
-        if app_id is None:
-            # Possible redeployment - check for saved metadata.
-            # Use the saved app information unless overridden by the user.
-            app_id, existing_app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
-            logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
-        elif app_id is not None:
-            # Don't read app metadata if app-id is specified. Instead, we need
-            # to get this from Connect.
-            app = api.get_app_info(connect_server, app_id)
-            existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
-        if existing_app_mode and app_mode != existing_app_mode:
-            msg = (
-                "Deploying with mode '%s',\n"
-                + "but the existing deployment has mode '%s'.\n"
-                + "Use the --new option to create a new deployment of the desired type."
-            ) % (app_mode.desc(), existing_app_mode.desc())
-            raise RSConnectException(msg)
-
-    default_title = not bool(title)
-    title = title or _default_title(file_name)
-
-    return (
-        app_id,
-        _make_deployment_name(connect_server, title, app_id is None),
-        title,
-        default_title,
-        app_mode,
-    )
-
-
-def gather_basic_deployment_info_for_html(
-    connect_server: api.RSConnectServer,
-    app_store: AppStore,
-    path: str,
-    new: bool,
-    app_id: int,
-    title: str,
-) -> typing.Tuple[int, str, str, bool, AppMode]:
-    """
-    Helps to gather the necessary info for performing a static html (re)deployment.
-
-    :param connect_server: the Connect server information.
-    :param app_store: the store for the specified file
-    :param path: the primary file or directory being deployed.
-    :param new: a flag noting whether we should force a new deployment.
-    :param app_id: the ID of the app to redeploy.
-    :param title: an optional title.  If this isn't specified, a default title will
-    be generated.
-    :return: the app ID, name, title information and mode for the deployment.
-    """
-
-    if new and app_id:
-        raise RSConnectException("Specify either a new deploy or an app ID but not both.")
-
-    app_mode = AppModes.STATIC
-    existing_app_mode = None
-    if not new:
-        if app_id is None:
-            # Possible redeployment - check for saved metadata.
-            # Use the saved app information unless overridden by the user.
-            app_id, existing_app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
-            logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
-        elif app_id is not None:
-            # Don't read app metadata if app-id is specified. Instead, we need
-            # to get this from Connect.
-            app = api.get_app_info(connect_server, app_id)
-            existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
-        if existing_app_mode and app_mode != existing_app_mode:
-            msg = (
-                "Deploying with mode '%s',\n"
-                + "but the existing deployment has mode '%s'.\n"
-                + "Use the --new option to create a new deployment of the desired type."
-            ) % (app_mode.desc(), existing_app_mode.desc())
-            raise RSConnectException(msg)
-
-    default_title = not bool(title)
-    title = title or _default_title(path)
-
-    return (
-        app_id,
-        _make_deployment_name(connect_server, title, app_id is None),
-        title,
-        default_title,
-        app_mode,
-    )
-
-
-def gather_basic_deployment_info_from_manifest(
-    connect_server: api.RSConnectServer,
-    app_store: AppStore,
-    file_name: str,
-    new: bool,
-    app_id: int,
-    title: str,
-) -> typing.Tuple[int, str, str, bool, AppMode, str, str]:
-    """
-    Helps to gather the necessary info for performing a deployment.
-
-    :param connect_server: the Connect server information.
-    :param app_store: the store for the specified file
-    :param file_name: the manifest file being deployed.
-    :param new: a flag noting whether we should force a new deployment.
-    :param app_id: the ID of the app to redeploy.
-    :param title: an optional title.  If this isn't specified, a default title will
-    be generated.
-    :return: the app ID, name, title information, mode, package manager and image for the
-    deployment.
-    """
-    file_name = validate_manifest_file(file_name)
-
-    _validate_title(title)
-
-    if new and app_id:
-        raise RSConnectException("Specify either a new deploy or an app ID but not both.")
-
-    source_manifest, _ = read_manifest_file(file_name)
-    # noinspection SpellCheckingInspection
-    app_mode = AppModes.get_by_name(source_manifest["metadata"]["appmode"])
-
-    if not new and app_id is None:
-        # Possible redeployment - check for saved metadata.
-        # Use the saved app information unless overridden by the user.
-        app_id, app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
-
-    package_manager = source_manifest.get("python", {}).get("package_manager", {}).get("name", None)
-    default_title = not bool(title)
-    title = title or _default_title_from_manifest(source_manifest, file_name)
-    image = source_manifest.get("Environment", {}).get("image", None)
-
-    return (
-        app_id,
-        _make_deployment_name(connect_server, title, app_id is None),
-        title,
-        default_title,
-        app_mode,
-        package_manager,
-        image,
-    )
-
-
-def gather_basic_deployment_info_for_quarto(
-    connect_server: api.RSConnectServer,
-    app_store: AppStore,
-    file_or_directory: str,
-    new: bool,
-    app_id: int,
-    title: str,
-) -> typing.Tuple[int, str, str, bool, AppMode]:
-    """
-    Helps to gather the necessary info for performing a deployment.
-
-    :param connect_server: The Connect server information.
-    :param app_store: The store for the specified Quarto project directory.
-    :param file_or_directory: The Quarto document or directory containing the Quarto project.
-    :param new: A flag to force a new deployment.
-    :param app_id: The identifier of the content to redeploy.
-    :param title: The content title (optional). A default title is generated when one is not provided.
-    """
-    _validate_title(title)
-
-    if new and app_id:
-        raise RSConnectException("Specify either a new deploy or an app ID but not both.")
-
-    app_mode = AppModes.STATIC_QUARTO
-
-    existing_app_mode = None
-    if not new:
-        if app_id is None:
-            # Possible redeployment - check for saved metadata.
-            # Use the saved app information unless overridden by the user.
-            app_id, existing_app_mode = app_store.resolve(connect_server.url, app_id, app_mode)
-            logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
-        elif app_id is not None:
-            # Don't read app metadata if app-id is specified. Instead, we need
-            # to get this from Connect.
-            app = api.get_app_info(connect_server, app_id)
-            existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
-        if existing_app_mode and app_mode != existing_app_mode:
-            msg = (
-                "Deploying with mode '%s',\n"
-                + "but the existing deployment has mode '%s'.\n"
-                + "Use the --new option to create a new deployment of the desired type."
-            ) % (app_mode.desc(), existing_app_mode.desc())
-            raise RSConnectException(msg)
-
-    if file_or_directory[-1] == "/":
-        file_or_directory = file_or_directory[:-1]
-
-    default_title = not bool(title)
-    title = title or _default_title(file_or_directory)
-
-    return (
-        app_id,
-        _make_deployment_name(connect_server, title, app_id is None),
-        title,
-        default_title,
-        app_mode,
-    )
-
-
-def _generate_gather_basic_deployment_info_for_python(app_mode: AppMode) -> typing.Callable:
-    """
-    Generates function to gather the necessary info for performing a deployment by app mode
-    """
-
-    def gatherer(
-        remote_server: api.TargetableServer,
-        app_store: AppStore,
-        directory: str,
-        entry_point: str,
-        new: bool,
-        app_id: int,
-        title: str,
-    ) -> typing.Tuple[str, int, str, str, bool, AppMode]:
-        return _gather_basic_deployment_info_for_framework(
-            remote_server,
-            app_store,
-            directory,
-            entry_point,
-            new,
-            app_id,
-            app_mode,
-            title,
+    if isinstance(connect_server, api.RSConnectServer):
+        kwargs.update(
+            dict(
+                url=connect_server.url,
+                api_key=connect_server.api_key,
+                insecure=connect_server.insecure,
+                ca_data=connect_server.ca_data,
+                cookies=connect_server.cookie_jar,
+            )
         )
+    elif isinstance(connect_server, api.ShinyappsServer) or isinstance(connect_server, api.CloudServer):
+        kwargs.update(
+            dict(
+                url=connect_server.url,
+                account=connect_server.account_name,
+                token=connect_server.token,
+                secret=connect_server.secret,
+            )
+        )
+    else:
+        raise RSConnectException("Unable to infer Connect client.")
 
-    return gatherer
-
-
-gather_basic_deployment_info_for_api = _generate_gather_basic_deployment_info_for_python(AppModes.PYTHON_API)
-gather_basic_deployment_info_for_fastapi = _generate_gather_basic_deployment_info_for_python(AppModes.PYTHON_FASTAPI)
-gather_basic_deployment_info_for_dash = _generate_gather_basic_deployment_info_for_python(AppModes.DASH_APP)
-gather_basic_deployment_info_for_streamlit = _generate_gather_basic_deployment_info_for_python(AppModes.STREAMLIT_APP)
-gather_basic_deployment_info_for_bokeh = _generate_gather_basic_deployment_info_for_python(AppModes.BOKEH_APP)
-gather_basic_deployment_info_for_shiny = _generate_gather_basic_deployment_info_for_python(AppModes.PYTHON_SHINY)
-
-
-def _gather_basic_deployment_info_for_framework(
-    remote_server: api.TargetableServer,
-    app_store: AppStore,
-    directory: str,
-    entry_point: str,
-    new: bool,
-    app_id: int,
-    app_mode: AppMode,
-    title: str,
-) -> typing.Tuple[str, int, str, str, bool, AppMode]:
-    """
-    Helps to gather the necessary info for performing a deployment.
-
-    :param remote_server: the server information.
-    :param app_store: the store for the specified directory.
-    :param directory: the primary file being deployed.
-    :param entry_point: the entry point for the API in '<module>:<object> format.  if
-    the object name is omitted, it defaults to the module name.  If nothing is specified,
-    it defaults to 'app'.
-    :param new: a flag noting whether we should force a new deployment.
-    :param app_id: the ID of the app to redeploy.
-    :param app_mode: the app mode to use.
-    :param title: an optional title.  If this isn't specified, a default title will
-    be generated.
-    :return: the entry point, app ID, name, title, and mode for the deployment.
-    """
-    entry_point = validate_entry_point(entry_point, directory)
-
-    _validate_title(title)
-
-    if new and app_id:
-        raise RSConnectException("Specify either a new deploy or an app ID but not both.")
-
-    existing_app_mode = None
-    if not new:
-        if app_id is None:
-            # Possible redeployment - check for saved metadata.
-            # Use the saved app information unless overridden by the user.
-            app_id, existing_app_mode = app_store.resolve(remote_server.url, app_id, app_mode)
-            logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
-        elif app_id is not None:
-            # Don't read app metadata if app-id is specified. Instead, we need
-            # to get this from Connect.
-            if isinstance(remote_server, api.RSConnectServer):
-                app = api.get_app_info(remote_server, app_id)
-                existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
-            elif isinstance(remote_server, api.RStudioServer):
-                app = api.get_rstudio_app_info(remote_server, app_id)
-                existing_app_mode = AppModes.get_by_cloud_name(app.json_data["mode"])
-            else:
-                raise RSConnectException("Unable to infer Connect client.")
-        if existing_app_mode and app_mode != existing_app_mode:
-            msg = (
-                "Deploying with mode '%s',\n"
-                + "but the existing deployment has mode '%s'.\n"
-                + "Use the --new option to create a new deployment of the desired type."
-            ) % (app_mode.desc(), existing_app_mode.desc())
-            raise RSConnectException(msg)
-
-    if directory[-1] == "/":
-        directory = directory[:-1]
-
-    default_title = not bool(title)
-    title = title or _default_title(directory)
-
-    return (
-        entry_point,
-        app_id,
-        _make_deployment_name(remote_server, title, app_id is None),
-        title,
-        default_title,
-        app_mode,
+    ce = RSConnectExecutor(**kwargs)
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=app_mode)
+        .make_bundle(
+            make_manifest_bundle,
+            manifest_file_name,
+        )
+        .deploy_bundle()
+        .save_deployed_info()
+        .emit_task_log()
     )
-
-
-def get_python_env_info(file_name, python, conda_mode=False, force_generate=False):
-    """
-    Gathers the python and environment information relating to the specified file
-    with an eye to deploy it.
-
-    :param file_name: the primary file being deployed.
-    :param python: the optional name of a Python executable.
-    :param conda_mode: inspect the environment assuming Conda
-    :param force_generate: force generating "requirements.txt" or "environment.yml",
-    even if it already exists.
-    :return: information about the version of Python in use plus some environmental
-    stuff.
-    """
-    python = which_python(python)
-    logger.debug("Python: %s" % python)
-    environment = inspect_environment(python, dirname(file_name), conda_mode=conda_mode, force_generate=force_generate)
-    if environment.error:
-        raise RSConnectException(environment.error)
-    logger.debug("Python: %s" % python)
-    logger.debug("Environment: %s" % pformat(environment._asdict()))
-
-    return python, environment
 
 
 def create_notebook_deployment_bundle(
@@ -1771,7 +1311,7 @@ def create_quarto_deployment_bundle(
 def deploy_bundle(
     remote_server: api.TargetableServer,
     app_id: int,
-    name: str,
+    deployment_name: str,
     title: str,
     title_is_default: bool,
     bundle: typing.IO[bytes],
@@ -1782,7 +1322,7 @@ def deploy_bundle(
 
     :param remote_server: the server information.
     :param app_id: the ID of the app to deploy, if this is a redeploy.
-    :param name: the name for the deploy.
+    :param deployment_name: the name for the deploy.
     :param title: the title for the deploy.
     :param title_is_default: a flag noting whether the title carries a defaulted value.
     :param bundle: the bundle to deploy.
@@ -1790,16 +1330,31 @@ def deploy_bundle(
     :return: application information about the deploy.  This includes the ID of the
     task that may be queried for deployment progress.
     """
-    ce = RSConnectExecutor(
-        server=remote_server,
+    if isinstance(remote_server, api.RSConnectServer):
+        ce = RSConnectExecutor(
+            url=remote_server.url,
+            api_key=remote_server.api_key,
+            insecure=remote_server.insecure,
+            ca_data=remote_server.ca_data,
+            cookies=remote_server.cookie_jar,
+        )
+    elif isinstance(remote_server, api.ShinyappsServer) or isinstance(remote_server, api.CloudServer):
+        ce = RSConnectExecutor(
+            url=remote_server.url,
+            account=remote_server.account_name,
+            token=remote_server.token,
+            secret=remote_server.secret,
+        )
+    else:
+        raise RSConnectException("Unable to infer Connect client.")
+    ce.deploy_bundle(
         app_id=app_id,
-        name=name,
+        deployment_name=deployment_name,
         title=title,
         title_is_default=title_is_default,
         bundle=bundle,
         env_vars=env_vars,
     )
-    ce.deploy_bundle()
     return ce.state["deployed_info"]
 
 

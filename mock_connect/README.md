@@ -1,13 +1,13 @@
-## Mock RStudio Connect
+## Mock Posit Connect
 
-This directory holds a mocked version of RStudio Connect to support testing.  This
+This directory holds a mocked version of Posit Connect to support testing.  This
 works by providing a Docker container equipped with Python (and necessary support
-libraries).  The container looks to the outside world like an installation of RStudio
+libraries).  The container looks to the outside world like an installation of Posit
 Connect.
 
 ### Restrictions
 
-- The mock RStudio Connect does not support HTTPS connections; only HTTP.
+- The mock Posit Connect does not support HTTPS connections; only HTTP.
 - Not all Connect endpoints are implemented; only those needed to verify `rsconnect-python`
   functionality.
 

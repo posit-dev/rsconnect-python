@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.1] - 2022-11-07
+
+### Changed
+- Updated actions.py to reuse code in main, minus the CLI parts. As a result deploy_jupyter_notebook and deploy_by_manifest had their return signatures changed. They now return None.
+
+## [1.12.0] - 2022-10-26
+
+### Added
+- You can now use the new rsconnect bootstrap command to programmatically provision an initial administrator api key on a fresh Connect instance. This requires RStudio Connect release 2022.10.0 or later and Python version >= 3.6. 
+
+## [1.11.0] - 2022-10-12
+
+### Added
+- Add support for deployment on RStudio Cloud
+
+### Changed
+- rsconnect-python will now issue warnings if it detects environmental variables that overlap with stored credentials
+
 ## [1.10.0] - 2022-07-27
 
 ### Added

@@ -1,19 +1,12 @@
 import os
-import subprocess
-import sys
 
 try:
     import typing
 except ImportError:
     typing = None
 
-from os.path import basename, join
+from os.path import join
 from unittest import TestCase
-
-import pytest
-
-import rsconnect.actions
-
 
 from rsconnect.actions import (
     _verify_server,
@@ -25,8 +18,6 @@ from rsconnect.actions import (
     deploy_python_api,
     deploy_streamlit_app,
     deploy_bokeh_app,
-    gather_basic_deployment_info_for_api,
-    get_python_env_info,
     is_conda_supported_on_server,
 )
 from rsconnect.api import RSConnectServer
@@ -53,7 +44,7 @@ class TestActions(TestCase):
             check_server_capabilities(None, (are_apis_supported_on_server,), lambda x: no_api_support)
         self.assertEqual(
             str(context.exception),
-            "The RStudio Connect server does not allow for Python APIs.",
+            "The Posit Connect server does not allow for Python APIs.",
         )
 
         check_server_capabilities(None, (are_apis_supported_on_server,), lambda x: api_support)
@@ -116,14 +107,6 @@ class TestActions(TestCase):
     def test_deploy_bokeh_app_docs(self):
         self.assertTrue("Bokeh app" in deploy_bokeh_app.__doc__)
 
-    def test_gather_basic_deployment_info_for_api_validates(self):
-        directory = get_api_path("flask")
-        server = RSConnectServer("https://www.bogus.com", "bogus")
-        with self.assertRaises(RSConnectException):
-            gather_basic_deployment_info_for_api(server, None, directory, "bogus:bogus:bogus", False, 0, "bogus")
-        with self.assertRaises(RSConnectException):
-            gather_basic_deployment_info_for_api(server, None, directory, "app:app", False, 0, "")
-
     def test_create_notebook_deployment_bundle_validates(self):
         file_name = get_dir(join("pip1", "requirements.txt"))
         with self.assertRaises(RSConnectException):
@@ -142,106 +125,3 @@ class TestActions(TestCase):
             create_api_deployment_bundle(directory, [], [], "bogus:bogus:bogus", None, None, None, None)
         with self.assertRaises(RSConnectException):
             create_api_deployment_bundle(directory, ["bogus"], [], "app:app", MakeEnvironment(), None, True, None)
-
-
-@pytest.mark.parametrize(
-    (
-        "file_name",
-        "python",
-        "conda_mode",
-        "force_generate",
-        "expected_python",
-        "expected_environment",
-    ),
-    [
-        pytest.param(
-            "path/to/file.py",
-            sys.executable,
-            False,
-            False,
-            sys.executable,
-            MakeEnvironment(
-                conda=None,
-                filename="requirements.txt",
-                locale="en_US.UTF-8",
-                package_manager="pip",
-                source="pip_freeze",
-            ),
-            id="basic",
-        ),
-        pytest.param(
-            "another/file.py",
-            basename(sys.executable),
-            False,
-            False,
-            sys.executable,
-            MakeEnvironment(
-                conda=None,
-                filename="requirements.txt",
-                locale="en_US.UTF-8",
-                package_manager="pip",
-                source="pip_freeze",
-            ),
-            id="which_python",
-        ),
-        pytest.param(
-            "even/moar/file.py",
-            "whython",
-            True,
-            True,
-            "/very/serious/whython",
-            MakeEnvironment(
-                conda="/opt/Conda/bin/conda",
-                filename="requirements.txt",
-                locale="en_US.UTF-8",
-                package_manager="pip",
-                source="pip_freeze",
-            ),
-            id="conda_ish",
-        ),
-        pytest.param(
-            "will/the/files/never/stop.py",
-            "argh.py",
-            False,
-            True,
-            "unused",
-            MakeEnvironment(error="Could not even do things"),
-            id="exploding",
-        ),
-    ],
-)
-def test_get_python_env_info(
-    monkeypatch,
-    file_name,
-    python,
-    conda_mode,
-    force_generate,
-    expected_python,
-    expected_environment,
-):
-    def fake_which_python(python, env=os.environ):
-        return expected_python
-
-    def fake_inspect_environment(
-        python,
-        directory,
-        conda_mode=False,
-        force_generate=False,
-        check_output=subprocess.check_output,
-    ):
-        return expected_environment
-
-    monkeypatch.setattr(rsconnect.actions, "inspect_environment", fake_inspect_environment)
-
-    monkeypatch.setattr(rsconnect.actions, "which_python", fake_which_python)
-
-    if expected_environment.error is not None:
-        with pytest.raises(RSConnectException):
-            _, _ = get_python_env_info(file_name, python, conda_mode=conda_mode, force_generate=force_generate)
-    else:
-        python, environment = get_python_env_info(
-            file_name, python, conda_mode=conda_mode, force_generate=force_generate
-        )
-
-        assert python == expected_python
-        assert environment == expected_environment
