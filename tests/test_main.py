@@ -513,8 +513,6 @@ class TestMain:
                 cli,
                 [
                     "add",
-                    "--account",
-                    "some-account",
                     "--name",
                     "my-cloud",
                     "--token",
@@ -552,7 +550,7 @@ class TestMain:
             assert result.exit_code == 1, result.output
             assert (
                 str(result.exception)
-                == "-A/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io or RStudio Cloud."
+                == "-A/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io."
             )
         finally:
             if original_api_key_value:
