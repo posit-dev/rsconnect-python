@@ -145,8 +145,8 @@ def rstudio_args(func):
     @click.option(
         "--account",
         "-A",
-        envvar=["SHINYAPPS_ACCOUNT", "RSCLOUD_ACCOUNT"],
-        help="The shinyapps.io/RStudio Cloud account name.",
+        envvar=["SHINYAPPS_ACCOUNT"],
+        help="The shinyapps.io account name.",
     )
     @click.option(
         "--token",
@@ -430,7 +430,7 @@ def add(ctx, name, server, api_key, insecure, cacert, account, token, secret, ve
 
     old_server = server_store.get_by_name(name)
 
-    if account:
+    if token:
         if server and "rstudio.cloud" in server:
             real_server = api.CloudServer(server, account, token, secret)
         else:
