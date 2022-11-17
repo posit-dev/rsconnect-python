@@ -680,7 +680,7 @@ def make_html_bundle_content(
     if not isfile(path):
         excludes.extend(list_environment_dirs(path))
     glob_set = create_glob_set(path, excludes)
-
+    excludes = {Path(p) for p in excludes}
     file_list = []
 
     for rel_path in extra_files:
@@ -690,10 +690,14 @@ def make_html_bundle_content(
         file_list.append(path)
     else:
         for subdir, dirs, files in os.walk(path):
+            if Path(subdir) in excludes:
+                continue            
             for file in files:
                 abs_path = os.path.join(subdir, file)
                 rel_path = os.path.relpath(abs_path, path)
 
+                if Path(abs_path) in excludes:
+                    continue
                 if keep_manifest_specified_file(rel_path) and (
                     rel_path in extra_files or not glob_set.matches(abs_path)
                 ):
