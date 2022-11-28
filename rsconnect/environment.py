@@ -43,15 +43,15 @@ Environment = collections.namedtuple(
 
 
 def MakeEnvironment(
-    conda=None,  # type: Optional[str]
-    contents="",  # type: Optional[str]
-    error=None,  # type: Optional[str]
-    filename="",  # type: Optional[str]
-    locale="",  # type: Optional[str]
-    package_manager="",  # type: Optional[str]
-    pip=None,  # type: Optional[str]
-    python=None,  # type: Optional[str]
-    source=None,  # type: Optional[str]
+    conda: Optional[str] = None,
+    contents: Optional[str] = None,
+    error: Optional[str] = None,
+    filename: Optional[str] = None,
+    locale: Optional[str] = None,
+    package_manager: Optional[str] = None,
+    pip: Optional[str] = None,
+    python: Optional[str] = None,
+    source: Optional[str] = None,
 ):
     return Environment(conda, contents, error, filename, locale, package_manager, pip, python, source)
 
