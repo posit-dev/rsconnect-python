@@ -27,7 +27,7 @@ class BuildStatus(object):
 
 class AppMode(object):
     """
-    Data class defining an "app mode" as understood by RStudio
+    Data class defining an "app mode" as understood by Posit
     Connect
     """
 

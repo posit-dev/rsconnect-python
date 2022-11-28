@@ -1,0 +1,5 @@
+{
+	"status": 401,
+	"api_key": "",
+	"message": "JWT authorization failed."
+}
