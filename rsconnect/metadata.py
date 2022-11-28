@@ -296,8 +296,10 @@ class ServerStore(DataStore):
         )
         if api_key:
             target_data = dict(api_key=api_key, insecure=insecure, ca_cert=ca_data)
-        else:
+        elif account_name:
             target_data = dict(account_name=account_name, token=token, secret=secret)
+        else:
+            target_data = dict(token=token, secret=secret)
         self._set(name, {**common_data, **target_data})
 
     def remove_by_name(self, name):

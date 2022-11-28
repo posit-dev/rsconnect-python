@@ -2,10 +2,14 @@ import json
 import os
 import shutil
 from os.path import join
+from unittest import TestCase
+
 
 import httpretty
 import pytest
 from click.testing import CliRunner
+
+from rsconnect.json_web_token import SECRET_KEY_ENV, is_jwt_compatible_python_version
 
 from .utils import (
     apply_common_args,
@@ -16,6 +20,7 @@ from .utils import (
     get_api_path,
     require_api_key,
     require_connect,
+    has_jwt_structure,
 )
 from rsconnect.main import cli
 from rsconnect import VERSION
@@ -508,8 +513,6 @@ class TestMain:
                 cli,
                 [
                     "add",
-                    "--account",
-                    "some-account",
                     "--name",
                     "my-cloud",
                     "--token",
@@ -547,10 +550,308 @@ class TestMain:
             assert result.exit_code == 1, result.output
             assert (
                 str(result.exception)
-                == "-A/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io or RStudio Cloud."
+                == "-A/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io."
             )
         finally:
             if original_api_key_value:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
+
+
+class TestBootstrap(TestCase):
+    def setUp(self):
+        if not is_jwt_compatible_python_version():
+            self.skipTest("JWTs not supported in Python < 3.6")
+
+        self.mock_server = "http://localhost:8080"
+        self.mock_uri = "http://localhost:8080/__api__/v1/experimental/bootstrap"
+        self.jwt_keypath = "tests/testdata/jwt/secret.key"
+        self.jwt_env_secret = "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU="
+
+        self.default_cli_args = [
+            "bootstrap",
+            "--server",
+            self.mock_server,
+            "--jwt-keypath",
+            self.jwt_keypath,
+            "--insecure",
+        ]
+
+    def create_bootstrap_mock_callback(self, status, json_data):
+        def request_callback(request, uri, response_headers):
+
+            # verify auth header is sent correctly
+            authorization = request.headers.get("Authorization")
+            auth_split = authorization.split(" ")
+            self.assertEqual(len(auth_split), 2)
+            self.assertEqual(auth_split[0], "Connect-Bootstrap")
+            self.assertTrue(has_jwt_structure(auth_split[1]))
+
+            # verify uri
+            self.assertEqual(uri, self.mock_uri)
+
+            return [status, {"Content-Type": "application/json"}, json.dumps(json_data)]
+
+        return request_callback
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_bootstrap(self):
+        """
+        Normal initial-admin operation
+        """
+
+        callback = self.create_bootstrap_mock_callback(200, {"api_key": "testapikey123"})
+
+        httpretty.register_uri(
+            httpretty.POST,
+            self.mock_uri,
+            body=callback,
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(cli, self.default_cli_args)
+
+        self.assertEqual(result.exit_code, 0, result.output)
+
+        json_output = json.loads(result.output)
+        expected_output = json.loads(open("tests/testdata/initial-admin-responses/success.json", "r").read())
+        self.assertEqual(json_output, expected_output)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_bootstrap_env_var(self):
+        """
+        Normal initial-admin operation if secret key is configured using an environment variable
+        """
+        cli_args = [
+            "bootstrap",
+            "--server",
+            self.mock_server,
+            "--insecure",
+        ]
+
+        callback = self.create_bootstrap_mock_callback(200, {"api_key": "testapikey123"})
+
+        httpretty.register_uri(
+            httpretty.POST,
+            self.mock_uri,
+            body=callback,
+        )
+
+        os.environ[SECRET_KEY_ENV] = self.jwt_env_secret
+
+        runner = CliRunner()
+        result = runner.invoke(cli, cli_args)
+
+        self.assertEqual(result.exit_code, 0, result.output)
+
+        json_output = json.loads(result.output)
+        expected_output = json.loads(open("tests/testdata/initial-admin-responses/success.json", "r").read())
+        self.assertEqual(json_output, expected_output)
+
+        del os.environ[SECRET_KEY_ENV]
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_bootstrap_misc_error(self):
+        """
+        Fail reasonably if response indicates some non-standard error
+        """
+
+        callback = self.create_bootstrap_mock_callback(500, {})
+
+        httpretty.register_uri(
+            httpretty.POST,
+            self.mock_uri,
+            body=callback,
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(cli, self.default_cli_args)
+
+        self.assertEqual(result.exit_code, 0, result.output)
+
+        json_output = json.loads(result.output)
+        expected_output = json.loads(open("tests/testdata/initial-admin-responses/other_error.json", "r").read())
+        self.assertEqual(json_output, expected_output)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_bootstrap_not_found_error(self):
+        """
+        Fail reasonablly if response indicates 404 not found
+        """
+
+        callback = self.create_bootstrap_mock_callback(404, {})
+
+        httpretty.register_uri(
+            httpretty.POST,
+            self.mock_uri,
+            body=callback,
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(cli, self.default_cli_args)
+
+        self.assertEqual(result.exit_code, 0, result.output)
+
+        json_output = json.loads(result.output)
+        expected_output = json.loads(open("tests/testdata/initial-admin-responses/not_found_error.json", "r").read())
+        self.assertEqual(json_output, expected_output)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_bootstrap_forbidden_error(self):
+        """
+        Fail reasonably if response indicates a forbidden error
+        """
+
+        callback = self.create_bootstrap_mock_callback(403, {})
+
+        httpretty.register_uri(
+            httpretty.POST,
+            self.mock_uri,
+            body=callback,
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(cli, self.default_cli_args)
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        json_output = json.loads(result.output)
+        expected_output = json.loads(open("tests/testdata/initial-admin-responses/forbidden_error.json", "r").read())
+
+        self.assertEqual(json_output, expected_output)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_bootstrap_unauthorized(self):
+        """
+        Fail reasonably if response indicates that request is unauthorized
+        """
+
+        callback = self.create_bootstrap_mock_callback(401, {})
+
+        httpretty.register_uri(
+            httpretty.POST,
+            self.mock_uri,
+            body=callback,
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(cli, self.default_cli_args)
+
+        self.assertEqual(result.exit_code, 0, result.output)
+
+        json_output = json.loads(result.output)
+        expected_output = json.loads(open("tests/testdata/initial-admin-responses/unauthorized_error.json", "r").read())
+
+        self.assertEqual(json_output, expected_output)
+
+    def test_bootstrap_help(self):
+        """
+        Help parameter should complete without erroring
+        """
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["bootstrap", "--help"])
+        self.assertEqual(result.exit_code, 0, result.output)
+
+    def test_boostrap_invalid_jwt_path(self):
+        """
+        Fail reasonably if jwt does not exist at provided path
+        """
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["bootstrap", "--server", "http://host:port", "--jwt-keypath", "this/is/invalid"])
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertEqual(result.output, "Error: Keypath does not exist.\n")
+
+    def test_bootstrap_invalid_server(self):
+        """
+        Fail reasonably if server URL is formatted incorrectly
+        """
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["bootstrap", "--server", "123.some.ip.address", "--jwt-keypath", self.jwt_keypath])
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertEqual(
+            result.output, "Error: Server URL expected to begin with transfer protocol (ex. http/https).\n"
+        )
+
+    def test_boostrap_missing_jwt_option(self):
+        """
+        If jwt keyfile is not specified, it needs to be set using an environment variable
+        """
+        runner = CliRunner()
+        result = runner.invoke(cli, ["bootstrap", "--server", "http://a_server"])
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertEqual(
+            result.output, "Error: Must specify secret key using either a keyfile or environment variable.\n"
+        )
+
+    def test_bootstrap_conflicting_jwt_option(self):
+        """
+        If jwt keyfile is specified, it cannot also be set using an environment variable
+        """
+
+        os.environ[SECRET_KEY_ENV] = "a_value"
+        runner = CliRunner()
+        result = runner.invoke(cli, self.default_cli_args)
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertEqual(
+            result.output, "Error: Cannot specify secret key using both a keyfile and environment variable.\n"
+        )
+
+        del os.environ[SECRET_KEY_ENV]
+
+    def test_bootstrap_invalid_env_secret_key(self):
+        """
+        If jwt env variable is specified, it needs to be a valid base64-encoded value
+        """
+
+        os.environ[SECRET_KEY_ENV] = "a_value"
+        runner = CliRunner()
+        result = runner.invoke(cli, ["bootstrap", "--server", "http://a_server"])
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertEqual(
+            result.output,
+            "Error: Unable to decode base64 data from environment variable: CONNECT_BOOTSTRAP_SECRETKEY\n",
+        )
+
+        del os.environ[SECRET_KEY_ENV]
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_bootstrap_raw_output(self):
+        """
+        Verify we can get the API key as raw output
+        """
+
+        expected_api_key = "apikey123"
+        callback = self.create_bootstrap_mock_callback(200, {"api_key": expected_api_key})
+
+        httpretty.register_uri(
+            httpretty.POST,
+            self.mock_uri,
+            body=callback,
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(cli, self.default_cli_args + ["--raw"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+
+        self.assertEqual(result.output, expected_api_key + "\n")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_boostrap_raw_output_nonsuccess(self):
+        """
+        Verify behavior on non-200 response
+        """
+
+        callback = self.create_bootstrap_mock_callback(500, {})
+
+        httpretty.register_uri(httpretty.POST, self.mock_uri, body=callback)
+
+        runner = CliRunner()
+        result = runner.invoke(cli, self.default_cli_args + ["--raw"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+
+        self.assertEqual(result.output, "\n")

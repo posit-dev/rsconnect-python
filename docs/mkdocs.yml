@@ -1,8 +1,9 @@
-site_name: 'RStudio Connect: rsconnect-python'
+site_name: 'Posit Connect: rsconnect-python'
+copyright: Posit Software, PBC. All Rights Reserved
 
 markdown_extensions:
   - toc:
-      permalink: true
+      permalink: "#"
   - attr_list: {}
   - def_list: {}
   - tables: {}
@@ -21,9 +22,22 @@ nav:
 
 theme:
   name: material
-  logo: 'images/rstudio-logo.png'
+  custom_dir: overrides
+  font:
+    text: Open Sans
+  logo: 'images/iconPositConnect.svg'
+  favicon: 'images/favicon.ico'
   palette:
-    primary: 'white'
+    - scheme: default
+      primary: white
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+    - scheme: slate
+      primary: black
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
 
 extra_css:
   - css/custom.css

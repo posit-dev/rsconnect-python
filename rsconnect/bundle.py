@@ -920,7 +920,7 @@ def _validate_title(title):
 def _default_title(file_name):
     """
     Produce a default content title from the given file path.  The result is
-    guaranteed to be between 3 and 1024 characters long, as required by RStudio
+    guaranteed to be between 3 and 1024 characters long, as required by Posit
     Connect.
 
     :param file_name: the name from which the title will be derived.
@@ -1099,7 +1099,7 @@ def are_apis_supported_on_server(connect_details):
 
     :param connect_details: details about a Connect server as returned by gather_server_details()
     :return: boolean True if the Connect server supports Python APIs or not or False if not.
-    :error: The RStudio Connect server does not allow for Python APIs.
+    :error: The Posit Connect server does not allow for Python APIs.
     """
     return connect_details["python"]["api_enabled"]
 
@@ -1255,6 +1255,14 @@ def write_notebook_manifest_json(
             raise RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
 
     manifest_data = make_source_manifest(app_mode, environment, file_name, None, image)
+    if hide_all_input or hide_tagged_input:
+        if "jupyter" not in manifest_data:
+            manifest_data["jupyter"] = dict()
+        if hide_all_input:
+            manifest_data["jupyter"]["hide_all_input"] = True
+        if hide_tagged_input:
+            manifest_data["jupyter"]["hide_tagged_input"] = True
+
     manifest_add_file(manifest_data, file_name, directory)
     manifest_add_buffer(manifest_data, environment.filename, environment.contents)
 

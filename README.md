@@ -7,9 +7,9 @@
     for details about this decision.
 
 This package provides a CLI (command-line interface) for interacting
-with and deploying to RStudio Connect. This is also used by the
+with and deploying to Posit Connect. This is also used by the
 [`rsconnect-jupyter`](https://github.com/rstudio/rsconnect-jupyter) package to deploy
-Jupyter notebooks via the Jupyter web console. Many types of content supported by RStudio
+Jupyter notebooks via the Jupyter web console. Many types of content supported by Posit
 Connect may be deployed by this package, including WSGI-style APIs, Dash, Streamlit, and
 Bokeh applications.
 
@@ -18,19 +18,19 @@ prepared `manifest.json` file. See ["Deploying R or Other
 Content"](#deploying-r-or-other-content) for details.
 
 
-## Deploying Python Content to RStudio Connect
+## Deploying Python Content to Posit Connect
 
-RStudio Connect supports the deployment of Jupyter notebooks, Python APIs (such as
+Posit Connect supports the deployment of Jupyter notebooks, Python APIs (such as
 those based on Flask or FastAPI) and apps (such as Dash, Streamlit, and Bokeh apps).
 Much like deploying R
-content to RStudio Connect, there are some caveats to understand when replicating your
-environment on the RStudio Connect server:
+content to Posit Connect, there are some caveats to understand when replicating your
+environment on the Posit Connect server:
 
-RStudio Connect insists on matching `<MAJOR.MINOR>` versions of Python. For example,
+Posit Connect insists on matching `<MAJOR.MINOR>` versions of Python. For example,
 a server with only Python 3.8 installed will fail to match content deployed with
 Python 3.7. Your administrator may also enable exact Python version matching which
 will be stricter and require matching major, minor, and patch versions. For more
-information see the [RStudio Connect Admin Guide chapter titled Python Version
+information see the [Posit Connect Admin Guide chapter titled Python Version
 Matching](https://docs.rstudio.com/connect/admin/python.html#python-version-matching).
 
 ### Installation
@@ -54,7 +54,7 @@ pip install ./dist/rsconnect_python-*.whl
 
 ### Using the rsconnect CLI
 
-Here's an example command that deploys a Jupyter notebook to RStudio Connect.
+Here's an example command that deploys a Jupyter notebook to Posit Connect.
 
 ```bash
 rsconnect deploy notebook \
@@ -101,22 +101,22 @@ compinit
 
 ### Managing Server Information
 
-The information used by the `rsconnect` command to communicate with an RStudio Connect
+The information used by the `rsconnect` command to communicate with a Posit Connect
 server can be tedious to repeat on every command. To help, the CLI supports the idea
 of saving this information, making it usable by a simple nickname.
 
 > **Important:** One item of information saved is the API key used to authenticate with
-> RStudio Connect. Although the file where this information is saved is marked as
+> Posit Connect. Although the file where this information is saved is marked as
 > accessible by the owner only, it's important to remember that the key is present
 > in the file as plain text so care must be taken to prevent any unauthorized access
 > to the server information file.
 
-#### TLS Support and RStudio Connect
+#### TLS Support and Posit Connect
 
-Usually, an RStudio Connect server will be set up to be accessed in a secure manner,
-using the `https` protocol rather than simple `http`. If RStudio Connect is set up
+Usually, a Posit Connect server will be set up to be accessed in a secure manner,
+using the `https` protocol rather than simple `http`. If Posit Connect is set up
 with a self-signed certificate, you will need to include the `--insecure` flag on
-all commands. If RStudio Connect is set up to require a client-side certificate chain,
+all commands. If Posit Connect is set up to require a client-side certificate chain,
 you will need to include the `--cacert` option that points to your certificate
 authority (CA) trusted certificates file. Both of these options can be saved along
 with the URL and API Key for a server.
@@ -129,7 +129,7 @@ See the [Network Options](#network-options) section for more details about these
 
 #### Remembering Server Information
 
-Use the `add` command to store information about an RStudio Connect server:
+Use the `add` command to store information about a Posit Connect server:
 
 ```bash
 rsconnect add \
@@ -177,7 +177,7 @@ Removing may be done by its nickname (`--name`) or URL (`--server`).
 
 ### Verifying Server Information
 
-You can verify that a URL refers to a running instance of RStudio Connect by using
+You can verify that a URL refers to a running instance of Posit Connect by using
 the `details` command:
 
 ```bash
@@ -185,13 +185,13 @@ rsconnect details --server https://connect.example.org:3939
 ```
 
 In this form, `rsconnect` will only tell you whether the URL given does, in fact, refer
-to a running RStudio Connect instance. If you include a valid API key:
+to a running Posit Connect instance. If you include a valid API key:
 
 ```bash
 rsconnect details --server https://connect.example.org:3939 --api-key my-api-key
 ```
 
-the tool will provide the version of RStudio Connect (if the server is configured to
+the tool will provide the version of Posit Connect (if the server is configured to
 divulge that information) and environmental information including versions of Python
 that are installed on the server.
 
@@ -201,12 +201,12 @@ stored information is still valid.
 ### Notebook Deployment Options
 
 There are a variety of options available to you when deploying a Jupyter notebook to
-RStudio Connect.
+Posit Connect.
 
 #### Including Extra Files
 
 You can include extra files in the deployment bundle to make them available when your
-notebook is run by the RStudio Connect server. Just specify them on the command line
+notebook is run by the Posit Connect server. Just specify them on the command line
 after the notebook file:
 
 ```bash
@@ -217,7 +217,7 @@ rsconnect deploy notebook my-notebook.ipynb data.csv
 
 If a `requirements.txt` file exists in the same directory as the notebook file, it will
 be included in the bundle. It must specify the package dependencies needed to execute
-the notebook. RStudio Connect will reconstruct the Python environment using the
+the notebook. Posit Connect will reconstruct the Python environment using the
 specified package list.
 
 If there is no `requirements.txt` file or the `--force-generate` option is specified,
@@ -239,11 +239,11 @@ ensuring that you use the same Python that you use to run your Jupyter Notebook:
 #### Static (Snapshot) Deployment
 
 By default, `rsconnect` deploys the original notebook with all its source code. This
-enables the RStudio Connect server to re-run the notebook upon request or on a schedule.
+enables the Posit Connect server to re-run the notebook upon request or on a schedule.
 
 If you just want to publish an HTML snapshot of the notebook, you can use the `--static`
 option. This will cause `rsconnect` to execute your notebook locally to produce the HTML
-file, then publish the HTML file to the RStudio Connect server:
+file, then publish the HTML file to the Posit Connect server:
 
 ```bash
 rsconnect deploy notebook --static my-notebook.ipynb
@@ -285,7 +285,7 @@ and `bokeh` sub-commands.
 #### Including Extra Files
 
 You can include extra files in the deployment bundle to make them available when your
-API or application is run by the RStudio Connect server. Just specify them on the
+API or application is run by the Posit Connect server. Just specify them on the
 command line after the API or application directory:
 
 ```bash
@@ -346,7 +346,7 @@ Any directory that appears to be a Python virtual environment (by containing
 
 If a `requirements.txt` file exists in the API/application directory, it will be
 included in the bundle. It must specify the package dependencies needed to execute
-the API or application. RStudio Connect will reconstruct the Python environment using
+the API or application. Posit Connect will reconstruct the Python environment using
 the specified package list.
 
 If there is no `requirements.txt` file or the `--force-generate` option is specified,
@@ -384,8 +384,8 @@ rsconnect write-manifest api my-api/
 
 ### Deploying R or Other Content
 
-You can deploy other content that has an existing RStudio Connect `manifest.json`
-file. For example, if you download and unpack a source bundle from RStudio Connect,
+You can deploy other content that has an existing Posit Connect `manifest.json`
+file. For example, if you download and unpack a source bundle from Posit Connect,
 you can deploy the resulting directory. The options are similar to notebook or
 API/application deployment; see `rsconnect deploy manifest --help` for details.
 
@@ -434,14 +434,14 @@ filename referenced in the manifest.
 
 ### Environment Variables
 You can set environment variables during deployment. Their names and values will be
-passed to RStudio Connect during deployment so you can use them in your code.
+passed to Posit Connect during deployment so you can use them in your code.
 
 For example, if `notebook.ipynb` contains
 ```python
 print(os.environ["MYVAR"])
 ```
 
-You can set the value of `MYVAR` that will be set when your code runs in RStudio Connect
+You can set the value of `MYVAR` that will be set when your code runs in Posit Connect
 using the `-E/--environment` option:
 ```bash
 rsconnect deploy notebook --environment MYVAR='hello world' notebook.ipynb
@@ -467,12 +467,12 @@ will still take effect.
 
 ### Network Options
 
-When specifying information that `rsconnect` needs to be able to interact with RStudio
+When specifying information that `rsconnect` needs to be able to interact with Posit
 Connect, you can tailor how transport layer security is performed.
 
 #### TLS/SSL Certificates
 
-RStudio Connect servers can be configured to use TLS/SSL. If your server's certificate
+Posit Connect servers can be configured to use TLS/SSL. If your server's certificate
 is trusted by your Jupyter Notebook server, API client or user's browser, then you
 don't need to do anything special. You can test this out with the `details` command:
 
@@ -483,7 +483,7 @@ rsconnect details --api-key my-api-key --server https://connect.example.org:3939
 If this fails with a TLS Certificate Validation error, then you have two options.
 
 * Provide the Root CA certificate that is at the root of the signing chain for your
-  RStudio Connect server. This will enable `rsconnect` to securely validate the
+  Posit Connect server. This will enable `rsconnect` to securely validate the
   server's TLS certificate.
 
     ```bash
@@ -493,7 +493,7 @@ If this fails with a TLS Certificate Validation error, then you have two options
         --cacert /path/to/certificate.pem
     ```
 
-* RStudio Connect is in "insecure mode". This disables TLS certificate verification,
+* Posit Connect is in "insecure mode". This disables TLS certificate verification,
   which results in a less secure connection.
 
     ```bash
@@ -504,7 +504,7 @@ If this fails with a TLS Certificate Validation error, then you have two options
     ```
 
 Once you work out the combination of options that allow you to successfully work with
-an instance of RStudio Connect, you'll probably want to use the `add` command to have
+an instance of Posit Connect, you'll probably want to use the `add` command to have
 `rsconnect` remember those options and allow you to just use a nickname.
 
 ### Updating a Deployment
@@ -536,7 +536,7 @@ change the content. The type of content (static notebook, notebook with source c
 API, or application) must match the existing deployment.
 
 > **Note:** There is no confirmation required to update a deployment. If you do so
-> accidentally, use the "Source Versions" dialog in the RStudio Connect dashboard to
+> accidentally, use the "Source Versions" dialog in the Posit Connect dashboard to
 > activate the previous version and remove the erroneous one.
 
 ##### Finding the App ID
@@ -547,10 +547,10 @@ information using the `info` command. For more information, see the
 [Showing the Deployment Information](#showing-the-deployment-information) section.
 
 If the content was deployed elsewhere or `info` does not return the correct App ID,
-but you can open the content on RStudio Connect, find the content and open it in a
+but you can open the content on Posit Connect, find the content and open it in a
 browser. The URL in your browser's location bar will contain `#/apps/NNN` where `NNN`
 is your App ID. The GUID identifier for the app may be found on the **Info** tab for
-the content in the RStudio Connect UI.
+the content in the Posit Connect UI.
 
 #### Showing the Deployment Information
 
@@ -623,9 +623,9 @@ nbconvert>=5.6.1
 
 ## Content subcommands
 
-rsconnect-python supports multiple options for interacting with RStudio Connect's
+rsconnect-python supports multiple options for interacting with Posit Connect's
 `/v1/content` API. Both administrators and publishers can use the content subcommands
-to search, download, and rebuild content on RStudio Connect without needing to access the
+to search, download, and rebuild content on Posit Connect without needing to access the
 dashboard from a browser.
 
 > **Note:** The `rsconnect content` CLI subcommands are intended to be easily scriptable.
@@ -636,22 +636,22 @@ dashboard from a browser.
 $ rsconnect content --help
 Usage: rsconnect content [OPTIONS] COMMAND [ARGS]...
 
-  Interact with RStudio Connect's content API.
+  Interact with Posit Connect's content API.
 
 Options:
   --help  Show this message and exit.
 
 Commands:
-  build            Build content on RStudio Connect.
-  describe         Describe a content item on RStudio Connect.
+  build            Build content on Posit Connect.
+  describe         Describe a content item on Posit Connect.
   download-bundle  Download a content item's source bundle.
-  search           Search for content on RStudio Connect.
+  search           Search for content on Posit Connect.
 ```
 
 ### Content Search
 
 The `rsconnect content search` subcommands can be used by administrators and publishers
-to find specific content on an given RStudio Connect server. The search returns
+to find specific content on a given Posit Connect server. The search returns
 metadata for each content item that meets the search criteria.
 
 ```bash
@@ -659,10 +659,10 @@ $ rsconnect content search --help
 Usage: rsconnect content search [OPTIONS]
 
 Options:
-  -n, --name TEXT                 The nickname of the RStudio Connect server.
-  -s, --server TEXT               The URL for the RStudio Connect server.
+  -n, --name TEXT                 The nickname of the Posit Connect server.
+  -s, --server TEXT               The URL for the Posit Connect server.
   -k, --api-key TEXT              The API key to use to authenticate with
-                                  RStudio Connect.
+                                  Posit Connect.
 
   -i, --insecure                  Disable TLS certification/host validation.
   -c, --cacert FILENAME           The path to trusted TLS CA certificates.
@@ -725,12 +725,12 @@ of the available search flags.
 
 ### Content Build
 
-> **Note:** The `rsconnect content build` subcommand requires RStudio Connect >= 2021.11.1
+> **Note:** The `rsconnect content build` subcommand requires Posit Connect >= 2021.11.1
 
-RStudio Connect caches R and Python packages in the configured
+Posit Connect caches R and Python packages in the configured
 [`Server.DataDir`](https://docs.rstudio.com/connect/admin/appendix/configuration/#Server.DataDir).
 Under certain circumstances (examples below), these package caches can become stale
-and need to be rebuilt. This refresh automatically occurs when an RStudio Connect
+and need to be rebuilt. This refresh automatically occurs when a Posit Connect
 user visits the content. You may wish to refresh some content before it is visited
 because it is high priority or is not visited frequently (API content, emailed reports).
 In these cases, it is possible to preemptively build specific content items using
@@ -756,7 +756,7 @@ The following are some common scenarios where performing a content build might b
 rsconnect content build --help
 Usage: rsconnect content build [OPTIONS] COMMAND [ARGS]...
 
-  Build content on RStudio Connect. Requires Connect >= 2021.11.1
+  Build content on Posit Connect. Requires Connect >= 2021.11.1
 
 Options:
   --help  Show this message and exit.
@@ -832,7 +832,7 @@ $ rsconnect content build ls --status ERROR
     "rsconnect_build_status": "ERROR",
     "last_deployed_time": "2021-12-02T18:09:11Z",
     "owner_guid": "edf26318-0027-4d9d-bbbb-54703ebb1855",
-    "rsconnect_last_build_log": "/Users/david/code/rstudio/rsconnect-python/rsconnect-build/logs/connect_example_org_3939/4ffc819c-065c-420c-88eb-332db1133317/pZoqfBoi6BgpKde5.log",
+    "rsconnect_last_build_log": "/Users/david/code/posit/rsconnect-python/rsconnect-build/logs/connect_example_org_3939/4ffc819c-065c-420c-88eb-332db1133317/pZoqfBoi6BgpKde5.log",
     "guid": "4ffc819c-065c-420c-88eb-332db1133317",
     "rsconnect_build_task_result": {
       "user_id": 1,
@@ -863,15 +863,14 @@ Cannot find compatible environment: no compatible Local environment with Python 
 Task failed. Task exited with status 1.
 ```
 
-
 ## Common Usage Examples
 
 ### Searching for content
 
 The following are some examples of how publishers might use the
-`rsconnect content search` subcommand to find content on RStudio Connect.
+`rsconnect content search` subcommand to find content on Posit Connect.
 By default, the `rsconnect content search` command will return metadata for ALL
-of the content on a RStudio Connect server, both published and unpublished content.
+of the content on a Posit Connect server, both published and unpublished content.
 
 > **Note:** When using the `--r-version` and `--py-version` flags, users should
 > make sure to quote the arguments to avoid conflicting with your shell. For
@@ -910,7 +909,7 @@ $ rsconnect content search --published --order-by created
 ### Finding r and python versions
 
 One common use for the `search` command might be to find the versions of
-r and python that are currently in use on your RStudio Connect server before a migration.
+r and python that are currently in use on your Posit Connect server before a migration.
 
 ```bash
 # search for all published content and print the unique r and python version combinations
@@ -969,3 +968,19 @@ rsconnect content search --published | jq '.[].guid' > guids.txt
 # bulk-add from the guids.txt by executing a single `rsconnect content build add` command
 xargs printf -- '-g %s\n' < guids.txt | xargs rsconnect content build add
 ```
+## Programmatic Provisioning
+
+RStudio Connect supports the programmatic bootstrapping of an admininistrator API key 
+for scripted provisioning tasks. This process is supported by the `rsconnect bootstrap` command,
+which uses a JSON Web Token to request an initial API key from a fresh Connect instance. 
+
+!!! warning 
+  
+    This feature **requires Python version 3.6 or higher**.
+
+```bash
+$ rsconnect bootstrap --server https://connect.example.org:3939 --jwt-keypath /path/to/secret.key
+```
+
+A full description on how to use `rsconnect bootstrap` in a provisioning workflow is provided in the Connect administrator guide's 
+[programmatic provisioning](https://docs.rstudio.com/connect/admin/programmatic-provisioning) documentation.
