@@ -672,41 +672,15 @@ def make_html_bundle_content(
 
     extra_files = extra_files or []
     skip = ["manifest.json"]
-    extra_files = sorted(list(set(extra_files) - set(skip)))
+    extra_files = sorted(set(extra_files) - set(skip))
 
     # Don't include these top-level files.
     excludes = list(excludes) if excludes else []
     excludes.append("manifest.json")
     if not isfile(path):
         excludes.extend(list_environment_dirs(path))
-    glob_set = create_glob_set(path, excludes)
-    exclude_paths = {Path(p) for p in excludes}
-    file_list = []
 
-    for rel_path in extra_files:
-        file_list.append(rel_path)
-
-    if isfile(path):
-        file_list.append(path)
-    else:
-        for subdir, dirs, files in os.walk(path):
-            if Path(subdir) in exclude_paths:
-                continue
-            for file in files:
-                abs_path = os.path.join(subdir, file)
-                rel_path = os.path.relpath(abs_path, path)
-
-                if Path(abs_path) in exclude_paths:
-                    continue
-                if keep_manifest_specified_file(rel_path) and (
-                    rel_path in extra_files or not glob_set.matches(abs_path)
-                ):
-                    file_list.append(rel_path)
-                    # Don't add extra files more than once.
-                    if rel_path in extra_files:
-                        extra_files.remove(rel_path)
-
-    relevant_files = sorted(file_list)
+    relevant_files = create_file_list(path, extra_files, excludes)
     manifest = make_html_manifest(entrypoint, image)
 
     for rel_path in relevant_files:
