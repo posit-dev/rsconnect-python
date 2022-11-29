@@ -425,7 +425,7 @@ def make_notebook_html_bundle(
     return bundle_file
 
 
-def keep_manifest_specified_file(relative_path):
+def keep_manifest_specified_file(relative_path, ignore_path_set=directories_to_ignore):
     """
     A helper to see if the relative path given, which is assumed to have come
     from a manifest.json file, should be kept or ignored.
@@ -435,9 +435,9 @@ def keep_manifest_specified_file(relative_path):
     """
     p = Path(relative_path)
     for parent in p.parents:
-        if parent in directories_to_ignore:
+        if parent in ignore_path_set:
             return False
-    if p in directories_to_ignore:
+    if p in ignore_path_set:
         return False
     return True
 
