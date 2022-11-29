@@ -292,6 +292,7 @@ def _test_rstudio_creds(server: api.RStudioServer):
 @cli.command(
     short_help="Create an initial admin user to bootstrap a Connect instance.",
     help="Creates an initial admin user to bootstrap a Connect instance. Returns the provisionend API key.",
+    no_args_is_help=True,
 )
 @click.option(
     "--server",
@@ -376,6 +377,7 @@ def bootstrap(
         "Specifying an existing nickname will cause its stored information to be replaced by what is given "
         "on the command line."
     ),
+    no_args_is_help=True,
 )
 @click.option("--name", "-n", required=True, help="The nickname of the Posit Connect server to deploy to.")
 @click.option(
@@ -505,6 +507,7 @@ def list_servers(verbose):
         "API key is valid for authentication for that server.  It may also be used to verify that the "
         "information stored as a nickname is still valid."
     ),
+    no_args_is_help=True,
 )
 @server_args
 @cli_exception_handler
@@ -547,6 +550,7 @@ def details(name, server, api_key, insecure, cacert, verbose):
         "Remove the information about a Posit Connect server by nickname or URL. "
         "One of --name or --server is required."
     ),
+    no_args_is_help=True,
 )
 @click.option("--name", "-n", help="The nickname of the Posit Connect server to remove.")
 @click.option("--server", "-s", help="The URL of the Posit Connect server to remove.")
@@ -602,6 +606,7 @@ def _get_names_to_check(file_or_directory):
         "information about it"
         "s deployments are saved on a per-server basis."
     ),
+    no_args_is_help=True,
 )
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 def info(file):
@@ -724,6 +729,7 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
         "page. If the notebook is deployed as a static HTML page (--static), it cannot be scheduled or "
         "rerun on the Connect server."
     ),
+    no_args_is_help=True,
 )
 @server_args
 @content_args
@@ -845,6 +851,7 @@ def deploy_notebook(
         'file.  The specified file must either be named "manifest.json" or '
         'refer to a directory that contains a file named "manifest.json".'
     ),
+    no_args_is_help=True,
 )
 @server_args
 @content_args
@@ -899,6 +906,7 @@ def deploy_manifest(
         "\n\n"
         "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
     ),
+    no_args_is_help=True,
 )
 @server_args
 @content_args
@@ -1021,6 +1029,7 @@ def deploy_quarto(
     name="html",
     short_help="Deploy html content to Posit Connect.",
     help=("Deploy an html file, or directory of html files with entrypoint, to Posit Connect."),
+    no_args_is_help=True,
 )
 @server_args
 @content_args
@@ -1092,12 +1101,14 @@ def generate_deploy_python(app_mode, alias, min_version):
     @deploy.command(
         name=alias,
         short_help="Deploy a {desc} to Posit Connect [v{version}+], Posit Cloud, or shinyapps.io.".format(
-            desc=app_mode.desc(), version=min_version
+            desc=app_mode.desc(),
+            version=min_version,
         ),
         help=(
             "Deploy a {desc} module to Posit Connect, Posit Cloud, or shinyapps.io (if supported by the platform). "
             'The "directory" argument must refer to an existing directory that contains the application code.'
         ).format(desc=app_mode.desc()),
+        no_args_is_help=True,
     )
     @server_args
     @content_args
@@ -1224,6 +1235,7 @@ deploy_shiny = generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, alias="shi
     name="other-content",
     short_help="Describe deploying other content to Posit Connect.",
     help="Show help on how to deploy other content to Posit Connect.",
+    no_args_is_help=True,
 )
 def deploy_help():
     text = (
