@@ -629,7 +629,18 @@ def make_api_manifest(
     if is_environment_dir(directory):
         excludes = list(excludes or []) + ["bin/", "lib/"]
 
-    relevant_files = _create_api_file_list(directory, environment.filename, extra_files, excludes)
+    extra_files = extra_files or []
+    skip = [environment.filename, "manifest.json"]
+    extra_files = sorted(list(set(extra_files) - set(skip)))
+
+    # Don't include these top-level files.
+    excludes = list(excludes) if excludes else []
+    excludes.append("manifest.json")
+    excludes.append(environment.filename)
+    excludes.extend(list_environment_dirs(directory))
+
+    relevant_files = create_file_list(directory, extra_files, excludes)
+    print(f"{relevant_files = }")
     manifest = make_source_manifest(app_mode, environment, entry_point, None, image)
 
     manifest_add_buffer(manifest, environment.filename, environment.contents)
