@@ -715,6 +715,49 @@ def make_html_bundle_content(
     return manifest, relevant_files
 
 
+def create_file_list(
+    path: str,
+    extra_files: typing.List[str] = None,
+    excludes: typing.List[str] = None,
+) -> typing.List[str]:
+    """
+    Builds a full list of files under the given path that should be included
+    in a manifest or bundle.  Extra files and excludes are relative to the given
+    directory and work as you'd expect.
+
+    :param path: a file, or a directory to walk for files.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :return: the list of relevant files, relative to the given directory.
+    """
+    extra_files = extra_files or []
+    excludes = excludes if excludes else []
+    glob_set = create_glob_set(path, excludes)
+    exclude_paths = {Path(p) for p in excludes}
+    file_set = set()
+    file_set.union(extra_files)
+
+    if isfile(path):
+        file_set.add(path)
+        return sorted(file_set)
+
+    for subdir, dirs, files in os.walk(path):
+        if Path(subdir) in exclude_paths:
+            continue
+        for file in files:
+            abs_path = os.path.join(subdir, file)
+            rel_path = os.path.relpath(abs_path, path)
+
+            if Path(abs_path) in exclude_paths:
+                continue
+            if keep_manifest_specified_file(rel_path, exclude_paths | directories_to_ignore) and (
+                rel_path in extra_files or not glob_set.matches(abs_path)
+            ):
+                print(f"make_html_bundle_content: {exclude_paths = }")
+                file_set.add(rel_path)
+    return sorted(file_set)
+
+
 def infer_entrypoint(path, mimetype):
     if os.path.isfile(path):
         return path
