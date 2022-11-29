@@ -810,25 +810,9 @@ def _create_quarto_file_list(
     excludes = list(excludes) if excludes else []
     excludes.append("manifest.json")
     excludes.extend(list_environment_dirs(directory))
-    glob_set = create_glob_set(directory, excludes)
 
-    file_list = []
-
-    for subdir, dirs, files in os.walk(directory):
-        for file in files:
-            abs_path = os.path.join(subdir, file)
-            rel_path = os.path.relpath(abs_path, directory)
-
-            if keep_manifest_specified_file(rel_path) and (rel_path in extra_files or not glob_set.matches(abs_path)):
-                file_list.append(rel_path)
-                # Don't add extra files more than once.
-                if rel_path in extra_files:
-                    extra_files.remove(rel_path)
-
-    for rel_path in extra_files:
-        file_list.append(rel_path)
-
-    return sorted(file_list)
+    file_list = create_file_list(directory, extra_files, excludes)
+    return file_list
 
 
 def make_quarto_manifest(
