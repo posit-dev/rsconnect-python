@@ -119,10 +119,10 @@ jobs:
         name: docs
         path: docs/site/
     - uses: aws-actions/configure-aws-credentials@v1
+      id: creds
       with:
-        aws-access-key-id: ${{ secrets.AWS_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET }}
-        aws-region: us-east-1
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+        aws-region: ${{ secrets.AWS_REGION }}
     - if: github.event_name == 'push' && github.ref == 'refs/heads/master'
       run: make sync-latest-docs-to-s3
     - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
