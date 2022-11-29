@@ -25,9 +25,7 @@ def validate_connection_options(url, api_key, insecure, cacert, account_name, to
             )
         )
     if not name and not url and not shinyapps_options:
-        raise RSConnectException(
-            "You must specify one of -n/--name OR -s/--server OR  T/--token, -S/--secret."
-        )
+        raise RSConnectException("You must specify one of -n/--name OR -s/--server OR  T/--token, -S/--secret.")
 
     present_connect_options = _get_present_options(connect_options)
     present_shinyapps_options = _get_present_options(shinyapps_options)
@@ -40,13 +38,9 @@ def validate_connection_options(url, api_key, insecure, cacert, account_name, to
             )
         )
 
-    if url and 'rstudio.cloud' in url:
+    if url and "rstudio.cloud" in url:
         if len(present_cloud_options) != len(cloud_options):
-            raise RSConnectException(
-                "-T/--token and -S/--secret must be provided for RStudio Cloud."
-            )
+            raise RSConnectException("-T/--token and -S/--secret must be provided for RStudio Cloud.")
     elif present_shinyapps_options:
         if len(present_shinyapps_options) != len(shinyapps_options):
-            raise RSConnectException(
-                "-A/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io."
-            )
+            raise RSConnectException("-A/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io.")
