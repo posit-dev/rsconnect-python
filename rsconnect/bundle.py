@@ -590,7 +590,6 @@ def make_api_manifest(
     excludes.extend(list_environment_dirs(directory))
 
     relevant_files = create_file_list(directory, extra_files, excludes)
-    print(f"{relevant_files = }")
     manifest = make_source_manifest(app_mode, environment, entry_point, None, image)
 
     manifest_add_buffer(manifest, environment.filename, environment.contents)
