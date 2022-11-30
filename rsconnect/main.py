@@ -1039,6 +1039,7 @@ def deploy_quarto(
     help=("The name of the html file that is the landing page."),
 )
 @click.option(
+    "--exclude",
     "--excludes",
     "-x",
     multiple=True,
