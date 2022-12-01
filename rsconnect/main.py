@@ -247,7 +247,7 @@ def cli(future):
 
     For RStudio Cloud, the information needed to connect includes the auth token, auth
     secret, and server ('rstudio.cloud'). For shinyapps.io, the auth token, auth secret,
-    server ('shinyapps.io') and account are needed.
+    server ('shinyapps.io'), and account are needed.
     """
     global future_enabled
     future_enabled = future
