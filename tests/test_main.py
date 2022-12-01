@@ -270,13 +270,13 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.GET,
-            "https://api.rstudio.cloud/v1/users/me",
+            "https://api.posit.cloud/v1/users/me",
             body=open("tests/testdata/rstudio-responses/get-user.json", "r").read(),
             status=200,
         )
         httpretty.register_uri(
             httpretty.GET,
-            "https://api.rstudio.cloud/v1/applications"
+            "https://api.posit.cloud/v1/applications"
             "?filter=name:like:shinyapp&offset=0&count=100&use_advanced_filters=true",
             body=open("tests/testdata/rstudio-responses/get-applications.json", "r").read(),
             adding_headers={"Content-Type": "application/json"},
@@ -284,7 +284,7 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.GET,
-            "https://api.rstudio.cloud/v1/accounts/",
+            "https://api.posit.cloud/v1/accounts/",
             body=open("tests/testdata/rstudio-responses/get-accounts.json", "r").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
@@ -293,21 +293,21 @@ class TestMain:
         if project_application_id:
             httpretty.register_uri(
                 httpretty.GET,
-                "https://api.rstudio.cloud/v1/applications/444",
+                "https://api.posit.cloud/v1/applications/444",
                 body=open("tests/testdata/rstudio-responses/get-project-application.json", "r").read(),
                 adding_headers={"Content-Type": "application/json"},
                 status=200,
             )
             httpretty.register_uri(
                 httpretty.GET,
-                "https://api.rstudio.cloud/v1/content/555",
+                "https://api.posit.cloud/v1/content/555",
                 body=open("tests/testdata/rstudio-responses/get-content.json", "r").read(),
                 adding_headers={"Content-Type": "application/json"},
                 status=200,
             )
             httpretty.register_uri(
                 httpretty.GET,
-                "https://api.rstudio.cloud/v1/content/1",
+                "https://api.posit.cloud/v1/content/1",
                 body=open("tests/testdata/rstudio-responses/create-output.json", "r").read(),
                 adding_headers={"Content-Type": "application/json"},
                 status=200,
@@ -328,7 +328,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.GET,
-            "https://api.rstudio.cloud/v1/applications/8442",
+            "https://api.posit.cloud/v1/applications/8442",
             body=open("tests/testdata/rstudio-responses/get-output-application.json", "r").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
@@ -336,7 +336,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.POST,
-            "https://api.rstudio.cloud/v1/outputs/",
+            "https://api.posit.cloud/v1/outputs/",
             body=post_output_callback,
         )
 
@@ -359,7 +359,7 @@ class TestMain:
 
         httpretty.register_uri(
             httpretty.POST,
-            "https://api.rstudio.cloud/v1/bundles",
+            "https://api.posit.cloud/v1/bundles",
             body=post_bundle_callback,
         )
 
@@ -382,17 +382,17 @@ class TestMain:
                 assert parsed_request == {"status": "ready"}
             except AssertionError as e:
                 return _error_to_response(e)
-            return [303, {"Location": "https://api.rstudio.cloud/v1/bundles/12640"}, ""]
+            return [303, {"Location": "https://api.posit.cloud/v1/bundles/12640"}, ""]
 
         httpretty.register_uri(
             httpretty.POST,
-            "https://api.rstudio.cloud/v1/bundles/12640/status",
+            "https://api.posit.cloud/v1/bundles/12640/status",
             body=post_bundle_status_callback,
         )
 
         httpretty.register_uri(
             httpretty.GET,
-            "https://api.rstudio.cloud/v1/bundles/12640",
+            "https://api.posit.cloud/v1/bundles/12640",
             body=open("tests/testdata/rstudio-responses/get-accounts.json", "r").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
@@ -406,19 +406,19 @@ class TestMain:
                 return _error_to_response(e)
             return [
                 303,
-                {"Location": "https://api.rstudio.cloud/v1/tasks/333"},
+                {"Location": "https://api.posit.cloud/v1/tasks/333"},
                 open("tests/testdata/rstudio-responses/post-deploy.json", "r").read(),
             ]
 
         httpretty.register_uri(
             httpretty.POST,
-            "https://api.rstudio.cloud/v1/applications/8442/deploy",
+            "https://api.posit.cloud/v1/applications/8442/deploy",
             body=post_deploy_callback,
         )
 
         httpretty.register_uri(
             httpretty.GET,
-            "https://api.rstudio.cloud/v1/tasks/333",
+            "https://api.posit.cloud/v1/tasks/333",
             body=open("tests/testdata/rstudio-responses/get-task.json", "r").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
@@ -505,7 +505,7 @@ class TestMain:
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
         try:
             httpretty.register_uri(
-                httpretty.GET, "https://api.rstudio.cloud/v1/users/me", body='{"id": 1000}', status=200
+                httpretty.GET, "https://api.posit.cloud/v1/users/me", body='{"id": 1000}', status=200
             )
 
             runner = CliRunner()
@@ -524,7 +524,7 @@ class TestMain:
                 ],
             )
             assert result.exit_code == 0, result.output
-            assert "RStudio Cloud credential" in result.output
+            assert "Posit Cloud credential" in result.output
 
         finally:
             if original_api_key_value:

@@ -225,8 +225,8 @@ def test_server(connect_server):
     raise RSConnectException("\n".join(failures))
 
 
-def test_rstudio_server(server: api.RStudioServer):
-    with api.RStudioClient(server) as client:
+def test_rstudio_server(server: api.PositServer):
+    with api.PositClient(server) as client:
         try:
             result = client.get_current_user()
             server.handle_bad_response(result)

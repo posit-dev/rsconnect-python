@@ -152,13 +152,13 @@ def rstudio_args(func):
         "--token",
         "-T",
         envvar=["SHINYAPPS_TOKEN", "RSCLOUD_TOKEN"],
-        help="The shinyapps.io/RStudio Cloud token.",
+        help="The shinyapps.io/Posit Cloud token.",
     )
     @click.option(
         "--secret",
         "-S",
         envvar=["SHINYAPPS_SECRET", "RSCLOUD_SECRET"],
-        help="The shinyapps.io/RStudio Cloud token secret.",
+        help="The shinyapps.io/Posit Cloud token secret.",
     )
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -245,8 +245,8 @@ def cli(future):
     certificate file to use for TLS.  The last two items are only relevant if the
     URL specifies the "https" protocol.
 
-    For RStudio Cloud and shinyapps.io, the information needed to connect includes
-    the account, auth token, auth secret, and server ('rstudio.cloud' or 'shinyapps.io').
+    For Posit Cloud and shinyapps.io, the information needed to connect includes
+    the account, auth token, auth secret, and server ('posit.cloud' or 'shinyapps.io').
     """
     global future_enabled
     future_enabled = future
@@ -284,7 +284,7 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
     return real_server, me
 
 
-def _test_rstudio_creds(server: api.RStudioServer):
+def _test_rstudio_creds(server: api.PositServer):
     with cli_feedback("Checking {} credential".format(server.remote_name)):
         test_rstudio_server(server)
 
@@ -433,7 +433,7 @@ def add(ctx, name, server, api_key, insecure, cacert, account, token, secret, ve
     old_server = server_store.get_by_name(name)
 
     if token:
-        if server and "rstudio.cloud" in server:
+        if server and ("rstudio.cloud" in server or "posit.cloud" in server):
             real_server = api.CloudServer(server, account, token, secret)
         else:
             real_server = api.ShinyappsServer(server, account, token, secret)

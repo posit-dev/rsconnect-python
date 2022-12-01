@@ -64,9 +64,9 @@ class AbstractRemoteServer:
                     )
 
 
-class RStudioServer(AbstractRemoteServer):
+class PositServer(AbstractRemoteServer):
     """
-    A class used to represent the server of the shinyapps.io and RStudio Cloud APIs.
+    A class used to represent the server of the shinyapps.io and Posit Cloud APIs.
     """
 
     def __init__(self, remote_name: str, url: str, account_name: str, token: str, secret: str):
@@ -76,7 +76,7 @@ class RStudioServer(AbstractRemoteServer):
         self.secret = secret
 
 
-class ShinyappsServer(RStudioServer):
+class ShinyappsServer(PositServer):
     """
     A class to encapsulate the information needed to interact with an
     instance of the shinyapps.io server.
@@ -89,16 +89,16 @@ class ShinyappsServer(RStudioServer):
         super().__init__(remote_name=remote_name, url=url, account_name=account_name, token=token, secret=secret)
 
 
-class CloudServer(RStudioServer):
+class CloudServer(PositServer):
     """
     A class to encapsulate the information needed to interact with an
-    instance of the RStudio Cloud server.
+    instance of the Posit Cloud server.
     """
 
     def __init__(self, url: str, account_name: str, token: str, secret: str):
-        remote_name = "RStudio Cloud"
-        if url == "rstudio.cloud" or url is None:
-            url = "https://api.rstudio.cloud"
+        remote_name = "Posit Cloud"
+        if url in {"posit.cloud", "rstudio.cloud", None}:
+            url = "https://api.posit.cloud"
         super().__init__(remote_name=remote_name, url=url, account_name=account_name, token=token, secret=secret)
 
 
@@ -475,7 +475,7 @@ class RSConnectExecutor:
         if api_key:
             self.remote_server = RSConnectServer(url, api_key, insecure, ca_data)
         elif token and secret:
-            if url and "rstudio.cloud" in url:
+            if url and ("rstudio.cloud" in url or "posit.cloud" in url):
                 self.remote_server = CloudServer(url, account_name, token, secret)
             else:
                 self.remote_server = ShinyappsServer(url, account_name, token, secret)
@@ -485,8 +485,8 @@ class RSConnectExecutor:
     def setup_client(self, cookies=None, timeout=30, **kwargs):
         if isinstance(self.remote_server, RSConnectServer):
             self.client = RSConnectClient(self.remote_server, cookies, timeout)
-        elif isinstance(self.remote_server, RStudioServer):
-            self.client = RStudioClient(self.remote_server, timeout)
+        elif isinstance(self.remote_server, PositServer):
+            self.client = PositClient(self.remote_server, timeout)
         else:
             raise RSConnectException("Unable to infer Connect client.")
 
@@ -515,7 +515,7 @@ class RSConnectExecutor:
     ):
         if (url and api_key) or isinstance(self.remote_server, RSConnectServer):
             self.validate_connect_server(name, url, api_key, insecure, cacert, api_key_is_required)
-        elif (url and token and secret) or isinstance(self.remote_server, RStudioServer):
+        elif (url and token and secret) or isinstance(self.remote_server, PositServer):
             self.validate_rstudio_server(url, account_name, token, secret)
         else:
             raise RSConnectException("Unable to validate server from information provided.")
@@ -596,11 +596,11 @@ class RSConnectExecutor:
         secret = secret or self.remote_server.secret
         server = (
             CloudServer(url, account_name, token, secret)
-            if "rstudio.cloud" in url
+            if "rstudio.cloud" in url or "posit.cloud" in url
             else ShinyappsServer(url, account_name, token, secret)
         )
 
-        with RStudioClient(server) as client:
+        with PositClient(server) as client:
             try:
                 result = client.get_current_user()
                 server.handle_bad_response(result)
@@ -657,7 +657,7 @@ class RSConnectExecutor:
         :param details_source: the source for obtaining server details, gather_server_details(),
         by default.
         """
-        if isinstance(self.remote_server, RStudioServer):
+        if isinstance(self.remote_server, PositServer):
             return self
 
         details = self.server_details
@@ -847,7 +847,7 @@ class RSConnectExecutor:
                 if isinstance(self.remote_server, RSConnectServer):
                     app = get_app_info(self.remote_server, app_id)
                     existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
-                elif isinstance(self.remote_server, RStudioServer):
+                elif isinstance(self.remote_server, PositServer):
                     app = get_rstudio_app_info(self.remote_server, app_id)
                     existing_app_mode = AppModes.get_by_cloud_name(app.json_data["mode"])
                 else:
@@ -1008,14 +1008,14 @@ class PrepareDeployOutputResult(PrepareDeployResult):
         self.output_id = output_id
 
 
-class RStudioClient(HTTPServer):
+class PositClient(HTTPServer):
     """
-    An HTTP client to call the RStudio Cloud and shinyapps.io APIs.
+    An HTTP client to call the Posit Cloud and shinyapps.io APIs.
     """
 
     _TERMINAL_STATUSES = {"success", "failed", "error"}
 
-    def __init__(self, rstudio_server: RStudioServer, timeout: int = 30):
+    def __init__(self, rstudio_server: PositServer, timeout: int = 30):
         self._token = rstudio_server.token
         try:
             self._key = base64.b64decode(rstudio_server.secret)
@@ -1156,7 +1156,7 @@ class ShinyappsService:
     Encapsulates operations involving multiple API calls to shinyapps.io.
     """
 
-    def __init__(self, rstudio_client: RStudioClient, server: ShinyappsServer):
+    def __init__(self, rstudio_client: PositClient, server: ShinyappsServer):
         self._rstudio_client = rstudio_client
         self._server = server
 
@@ -1202,10 +1202,10 @@ class ShinyappsService:
 
 class CloudService:
     """
-    Encapsulates operations involving multiple API calls to RStudio Cloud.
+    Encapsulates operations involving multiple API calls to Posit Cloud.
     """
 
-    def __init__(self, rstudio_client: RStudioClient, server: CloudServer):
+    def __init__(self, rstudio_client: PositClient, server: CloudServer):
         self._rstudio_client = rstudio_client
         self._server = server
 
@@ -1332,7 +1332,7 @@ def get_app_info(connect_server, app_id):
 
 
 def get_rstudio_app_info(server, app_id):
-    with RStudioClient(server) as client:
+    with PositClient(server) as client:
         result = client.get_application(app_id)
         server.handle_bad_response(result)
         return result
@@ -1541,7 +1541,7 @@ def find_unique_name(remote_server: TargetableServer, name: str):
             mapping_function=lambda client, app: app["name"],
         )
     elif isinstance(remote_server, ShinyappsServer):
-        client = RStudioClient(remote_server)
+        client = PositClient(remote_server)
         existing_names = client.get_applications_like_name(name)
     else:
         # non-unique names are permitted in cloud
