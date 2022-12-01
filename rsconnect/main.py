@@ -1041,7 +1041,6 @@ def deploy_quarto(
 )
 @click.option(
     "--exclude",
-    "--excludes",
     "-x",
     multiple=True,
     help=(
@@ -1062,7 +1061,7 @@ def deploy_html(
     path: str = None,
     entrypoint: str = None,
     extra_files=None,
-    excludes=None,
+    exclude=None,
     title: str = None,
     env_vars: typing.Dict[str, str] = None,
     verbose: bool = False,
@@ -1090,7 +1089,7 @@ def deploy_html(
             path,
             entrypoint,
             extra_files,
-            excludes,
+            exclude,
         )
         .deploy_bundle()
         .save_deployed_info()

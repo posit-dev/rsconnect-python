@@ -8,7 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-Update pip_freeze to use `pip freeze` since Connect filters for valid package paths in the backend and it no longer depends on the undocumented behavior of `pip list --format=freeze`. This reverts the change made in 1.5.2.
+- Update pip_freeze to use `pip freeze` since Connect filters for valid package paths in the backend and it no longer depends on the undocumented behavior of `pip list --format=freeze`. This reverts the change made in 1.5.2.
+
+- Renamed the deploy_html `excludes` flag to `exclude` for consistency with other deploy commands.
 
 ## [1.12.1] - 2022-11-07
 
