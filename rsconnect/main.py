@@ -1072,7 +1072,9 @@ def deploy_html(
     api_key: str = None,
     insecure: bool = False,
     cacert: typing.IO = None,
+    exclude=None,
 ):
+    excludes = excludes or exclude
     kwargs = locals()
     ce = None
     if connect_server:
