@@ -245,8 +245,9 @@ def cli(future):
     certificate file to use for TLS.  The last two items are only relevant if the
     URL specifies the "https" protocol.
 
-    For RStudio Cloud and shinyapps.io, the information needed to connect includes
-    the account, auth token, auth secret, and server ('rstudio.cloud' or 'shinyapps.io').
+    For RStudio Cloud, the information needed to connect includes the auth token, auth
+    secret, and server ('rstudio.cloud'). For shinyapps.io, the auth token, auth secret,
+    server ('shinyapps.io') and account are needed.
     """
     global future_enabled
     future_enabled = future
