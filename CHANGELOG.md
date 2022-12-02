@@ -4,9 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.13.0] - 2022-12-02
 
+### Added
 - When running rsconnect bootstrap, you can now specify the jwt secret using the CONNECT_BOOTSTRAP_SECRETKEY environment variable. 
+
+### Changed
+- Update pip_freeze to use `pip freeze` since Connect filters for valid package paths in the backend and it no longer depends on the undocumented behavior of `pip list --format=freeze`. This reverts the change made in 1.5.2.
+
+- Renamed the deploy_html `excludes` flag to `exclude` for consistency with other deploy commands.
 
 ## [1.12.1] - 2022-11-07
 
