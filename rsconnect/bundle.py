@@ -687,7 +687,6 @@ def create_file_list(
             if keep_manifest_specified_file(rel_path, exclude_paths | directories_to_ignore) and (
                 rel_path in extra_files or not glob_set.matches(abs_path)
             ):
-                print(f"make_html_bundle_content: {exclude_paths = }")
                 file_set.add(rel_path)
     return sorted(file_set)
 
