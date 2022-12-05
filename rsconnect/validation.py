@@ -35,15 +35,15 @@ def validate_connection_options(url, api_key, insecure, cacert, account_name, to
 
     if present_connect_options and present_shinyapps_options:
         raise RSConnectException(
-            "Connect options ({}) may not be passed alongside shinyapps.io or RStudio Cloud options ({}).".format(
+            "Connect options ({}) may not be passed alongside shinyapps.io or Posit Cloud options ({}).".format(
                 ", ".join(present_connect_options), ", ".join(present_shinyapps_options)
             )
         )
 
-    if url and 'rstudio.cloud' in url:
+    if url and ('posit.cloud' in url or 'rstudio.cloud' in url):
         if len(present_cloud_options) != len(cloud_options):
             raise RSConnectException(
-                "-T/--token and -S/--secret must be provided for RStudio Cloud."
+                "-T/--token and -S/--secret must be provided for Posit Cloud."
             )
     elif present_shinyapps_options:
         if len(present_shinyapps_options) != len(shinyapps_options):
