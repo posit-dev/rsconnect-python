@@ -192,8 +192,8 @@ def write_manifest(
     nb_name: str,
     environment: Environment,
     output_dir: str,
-    hide_all_input: bool,
-    hide_tagged_input: bool,
+    hide_all_input: bool = False,
+    hide_tagged_input: bool = False,
     image: str = None,
 ) -> typing.Tuple[list, list]:
     """Create a manifest for source publishing the specified notebook.
