@@ -655,6 +655,8 @@ def make_html_bundle_content(
     """
     extra_files = list(extra_files) if extra_files else []
     entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/html")
+    if not entrypoint:
+        raise RSConnectException("Unable to find a valid entry point.")
 
     if path.startswith(os.curdir):
         path = relpath(path)
