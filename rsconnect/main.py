@@ -603,7 +603,7 @@ def _get_names_to_check(file_or_directory):
 @cli.command(
     short_help="Show saved information about the specified deployment.",
     help=(
-        "Display information about the deployment of a Jupyter notebook or manifest. For any given file, "
+        "Display information about a deployment. For any given file, "
         "information about it"
         "s deployments are saved on a per-server basis."
     ),
