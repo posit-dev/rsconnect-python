@@ -668,7 +668,7 @@ def create_file_list(
     excludes = excludes if excludes else []
     glob_set = create_glob_set(path, excludes)
     exclude_paths = {Path(p) for p in excludes}
-    file_set: typing.Set[str] = set()
+    file_set = set()  # type: typing.Set[str]
     file_set.union(extra_files)
 
     if isfile(path):
