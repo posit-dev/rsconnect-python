@@ -852,7 +852,7 @@ class RSConnectExecutor:
                     existing_app_mode = AppModes.get_by_cloud_name(app.json_data["mode"])
                 else:
                     raise RSConnectException("Unable to infer Connect client.")
-            if existing_app_mode and app_mode != existing_app_mode:
+            if existing_app_mode and app_mode != existing_app_mode and existing_app_mode != "unknown":
                 msg = (
                     "Deploying with mode '%s',\n"
                     + "but the existing deployment has mode '%s'.\n"
