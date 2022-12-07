@@ -413,7 +413,7 @@ def bootstrap(
 def add(ctx, name, server, api_key, insecure, cacert, account, token, secret, verbose):
 
     set_verbosity(verbose)
-    if sys.version_info >= (3, 8):
+    if sys.version_info >= (3, 7):
         click.echo("Detected the following inputs:")
         for k, v in locals().items():
             if k in {"ctx", "verbose"}:
