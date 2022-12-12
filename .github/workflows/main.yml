@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [master]
   workflow_dispatch:
-  
+
 permissions:
   id-token: write
   contents: write
@@ -16,7 +16,7 @@ jobs:
       matrix:
         # TODO: work on windows-latest compatibility?
         os: [ubuntu-latest]
-        python-version: ['3.5', '3.6', '3.7', '3.8', '3.9', '3.10']
+        python-version: ['3.5.10', '3.6.15', '3.7', '3.8', '3.9', '3.10']
         include:
         - os: macos-latest
           python-version: '3.9'
