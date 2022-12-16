@@ -1117,9 +1117,6 @@ def which_python(python, env=os.environ):
             raise RSConnectException('The file, "%s", does not exist or is not executable.' % python)
         return python
 
-    if "RETICULATE_PYTHON" in env:
-        return os.path.expanduser(env["RETICULATE_PYTHON"])
-
     return sys.executable
 
 
