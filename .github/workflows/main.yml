@@ -14,7 +14,7 @@ jobs:
       matrix:
         # TODO: work on windows-latest compatibility?
         os: [ubuntu-latest]
-        python-version: ['3.5', '3.6', '3.7', '3.8', '3.9', '3.10']
+        python-version: ['3.7', '3.8', '3.9', '3.10']
         include:
         - os: macos-latest
           python-version: '3.9'
@@ -28,10 +28,8 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - run: pip install -r requirements.txt
     - run: pip freeze
-    - if: matrix.python-version > '3.5'
-      run: make fmt
-    - if: matrix.python-version >= '3.6'
-      run: make lint
+    - run: make fmt
+    - run: make lint
     - run: python setup.py --version
     - run: make test-${{ matrix.python-version }}
   prerelease-test:
