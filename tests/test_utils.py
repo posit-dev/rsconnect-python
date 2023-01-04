@@ -1,8 +1,6 @@
 from unittest import TestCase
 from datetime import timedelta
 
-from rsconnect.json_web_token import is_jwt_compatible_python_version
-
 from rsconnect.json_web_token import JWTEncoder
 
 from tests.utils import (
@@ -12,10 +10,6 @@ from tests.utils import (
 
 
 class TestJwtUtils(TestCase):
-    def setUp(self):
-        if not is_jwt_compatible_python_version():
-            self.skipTest("JWTs not supported in Python < 3.6")
-
     def test_jwt_decoder(self):
 
         secret = b"12345678912345678912345678912345"
