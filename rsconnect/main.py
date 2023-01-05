@@ -71,7 +71,6 @@ from .models import (
 from .json_web_token import (
     read_secret_key,
     validate_hs256_secret_key,
-    is_jwt_compatible_python_version,
     TokenGenerator,
     produce_bootstrap_output,
     parse_client_response,
@@ -333,11 +332,6 @@ def bootstrap(
     verbose,
 ):
     set_verbosity(verbose)
-    if not is_jwt_compatible_python_version():
-        raise RSConnectException(
-            "Python version > 3.5 required for JWT generation. Please upgrade your Python installation."
-        )
-
     if not server.startswith("http"):
         raise RSConnectException("Server URL expected to begin with transfer protocol (ex. http/https).")
 
