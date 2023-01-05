@@ -9,7 +9,7 @@ import httpretty
 import pytest
 from click.testing import CliRunner
 
-from rsconnect.json_web_token import SECRET_KEY_ENV, is_jwt_compatible_python_version
+from rsconnect.json_web_token import SECRET_KEY_ENV
 
 from .utils import (
     apply_common_args,
@@ -561,9 +561,6 @@ class TestMain:
 
 class TestBootstrap(TestCase):
     def setUp(self):
-        if not is_jwt_compatible_python_version():
-            self.skipTest("JWTs not supported in Python < 3.6")
-
         self.mock_server = "http://localhost:8080"
         self.mock_uri = "http://localhost:8080/__api__/v1/experimental/bootstrap"
         self.jwt_keypath = "tests/testdata/jwt/secret.key"

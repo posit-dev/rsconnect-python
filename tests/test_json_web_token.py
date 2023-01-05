@@ -18,7 +18,6 @@ from rsconnect.json_web_token import (
     SECRET_KEY_ENV,
     read_secret_key,
     produce_bootstrap_output,
-    is_jwt_compatible_python_version,
     parse_client_response,
     TokenGenerator,
     JWTEncoder,
@@ -43,9 +42,6 @@ def are_unix_timestamps_approx_equal(a, b):
 
 class TestJsonWebToken(TestCase):
     def setUp(self):
-        if not is_jwt_compatible_python_version():
-            self.skipTest("JWTs not supported in Python < 3.6")
-
         # decoded copy of the base64-encoded key in testdata/jwt/secret.key
         self.secret_key = b"12345678901234567890123456789012345"
         self.secret_key_b64 = b"MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU="
@@ -185,13 +181,6 @@ class TestJsonWebToken(TestCase):
 
         with pytest.raises(RSConnectException):
             parse_client_response(None)
-
-    def test_is_jwt_compatible_python_version(self):
-        """
-        With setUp() skipping invalid versions, this test should always return True
-        regardless of the particular python env we're running the tests in
-        """
-        self.assertTrue(is_jwt_compatible_python_version())
 
     def test_jwt_encoder_constructor(self):
         encoder = JWTEncoder("issuer", "audience", self.secret_key)
