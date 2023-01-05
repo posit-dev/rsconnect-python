@@ -1,0 +1,30 @@
+name: snyk
+on:
+  schedule:
+    - cron: "0 10 * * 1" # Monday @ 10am UTC
+  workflow_dispatch:
+
+env:
+  SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+  SNYK_ORG: rstudio-connect
+  SNYK_PROJECT: rsconnect-python
+
+jobs:
+  python-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Run Snyk on dependencies
+        uses: snyk/actions/python@master
+        with:
+          command: monitor
+          args: --file=setup.py --print-deps --project-name=${{ env.SNYK_PROJECT }} --org=${{ env.SNYK_ORG }}
+  python-code:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Run Snyk static analysis
+        uses: snyk/actions/python@master
+        with:
+          command: code test
+          args: --project-name=${{ env.SNYK_PROJECT }} --org=${{ env.SNYK_ORG }}
