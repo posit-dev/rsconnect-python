@@ -276,9 +276,9 @@ class TestBundle(TestCase):
     def test_keep_manifest_specified_file(self):
         self.assertTrue(keep_manifest_specified_file("app.R"))
         self.assertFalse(keep_manifest_specified_file("packrat/packrat.lock"))
-        self.assertTrue(keep_manifest_specified_file("rsconnect"))
+        self.assertFalse(keep_manifest_specified_file("rsconnect"))
         self.assertFalse(keep_manifest_specified_file("rsconnect/bogus.file"))
-        self.assertTrue(keep_manifest_specified_file("rsconnect-python"))
+        self.assertFalse(keep_manifest_specified_file("rsconnect-python"))
         self.assertFalse(keep_manifest_specified_file("rsconnect-python/bogus.file"))
         self.assertFalse(keep_manifest_specified_file(".svn/bogus.file"))
         self.assertFalse(keep_manifest_specified_file(".env/share/jupyter/kernels/python3/kernel.json"))
