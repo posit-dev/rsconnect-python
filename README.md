@@ -2,9 +2,7 @@
 
 !!! warning
 
-    As of version 1.7.0, rsconnect-python requires Python version 3.5 or higher. Please see the
-    [official announcement](https://www.rstudio.com/blog/rstudio-connect-2021-08-python-updates/)
-    for details about this decision.
+    As of version 1.14.0, rsconnect-python requires Python version 3.7 or higher.
 
 This package provides a CLI (command-line interface) for interacting
 with and deploying to Posit Connect. This is also used by the

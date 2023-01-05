@@ -5,7 +5,7 @@ tooling](https://packaging.python.org/guides/tool-recommendations/).
 
 To get started, you'll want to:
 - clone the repo into a project directory
-- setup a virtual 3.5+ python environment in the project directory
+- setup a virtual 3.7+ python environment in the project directory
 - activate that virtual environment
 - install the dependencies
 - validate your build environment with some sample commands
