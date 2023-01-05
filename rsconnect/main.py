@@ -71,7 +71,6 @@ from .models import (
 from .json_web_token import (
     read_secret_key,
     validate_hs256_secret_key,
-    is_jwt_compatible_python_version,
     TokenGenerator,
     produce_bootstrap_output,
     parse_client_response,
@@ -333,11 +332,6 @@ def bootstrap(
     verbose,
 ):
     set_verbosity(verbose)
-    if not is_jwt_compatible_python_version():
-        raise RSConnectException(
-            "Python version > 3.5 required for JWT generation. Please upgrade your Python installation."
-        )
-
     if not server.startswith("http"):
         raise RSConnectException("Server URL expected to begin with transfer protocol (ex. http/https).")
 
@@ -603,7 +597,7 @@ def _get_names_to_check(file_or_directory):
 @cli.command(
     short_help="Show saved information about the specified deployment.",
     help=(
-        "Display information about the deployment of a Jupyter notebook or manifest. For any given file, "
+        "Display information about a deployment. For any given file, "
         "information about it"
         "s deployments are saved on a per-server basis."
     ),
