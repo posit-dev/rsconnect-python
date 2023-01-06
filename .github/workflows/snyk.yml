@@ -27,4 +27,4 @@ jobs:
         uses: snyk/actions/python@master
         with:
           command: code test
-          args: --project-name=${{ env.SNYK_PROJECT }} --org=${{ env.SNYK_ORG }}
+          args: --project-name=${{ env.SNYK_PROJECT }} --org=${{ env.SNYK_ORG }} rsconnect/
