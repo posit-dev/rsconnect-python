@@ -5,7 +5,6 @@ Json Web Token (JWT) utilities
 import base64
 from datetime import datetime, timedelta, timezone
 import os
-import sys
 
 import binascii
 import jwt
@@ -62,14 +61,6 @@ def read_secret_key(keypath) -> bytes:
 def validate_hs256_secret_key(key: bytes):
     if len(key) < 32:
         raise RSConnectException("Secret key expected to be at least 32 bytes in length")
-
-
-def is_jwt_compatible_python_version() -> bool:
-    """
-    JWT library is incompatible with Python 3.5
-    """
-
-    return not sys.version_info < (3, 6)
 
 
 def parse_client_response(response):
