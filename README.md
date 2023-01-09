@@ -220,8 +220,7 @@ specified package list.
 
 If there is no `requirements.txt` file or the `--force-generate` option is specified,
 the package dependencies will be determined from the current Python environment, or
-from an alternative Python executable specified via the `--python` option or via the
-`RETICULATE_PYTHON` environment variable:
+from an alternative Python executable specified via the `--python` option:
 
 ```bash
 rsconnect deploy notebook --python /path/to/python my-notebook.ipynb
