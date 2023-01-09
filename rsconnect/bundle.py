@@ -1080,7 +1080,6 @@ def which_python(python, env=os.environ):
 
     In priority order:
     * --python specified on the command line
-    * RETICULATE_PYTHON defined in the environment
     * the python binary running this script
     """
     if python:

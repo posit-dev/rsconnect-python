@@ -254,8 +254,7 @@ in a later deployment. Use the `write-manifest` command to do this.
 The `write-manifest` command will also create a `requirements.txt` file, if it does
 not already exist or the `--force-generate` option is specified. It will contain the
 package dependencies from the current Python environment, or from an alternative
-Python executable specified in the `--python` option or via the `RETICULATE_PYTHON`
-environment variable.
+Python executable specified in the `--python` option.
 
 Here is an example of the `write-manifest` command:
 
@@ -348,8 +347,7 @@ the specified package list.
 
 If there is no `requirements.txt` file or the `--force-generate` option is specified,
 the package dependencies will be determined from the current Python environment, or
-from an alternative Python executable specified via the `--python` option or via the
-`RETICULATE_PYTHON` environment variable:
+from an alternative Python executable specified via the `--python` option:
 
 ```bash
 rsconnect deploy api --python /path/to/python my-api/
@@ -370,8 +368,7 @@ manifest in a later deployment. Use the `write-manifest` command to do this.
 The `write-manifest` command will also create a `requirements.txt` file, if it does
 not already exist or the `--force-generate` option is specified. It will contain
 the package dependencies from the current Python environment, or from an alternative
-Python executable specified in the `--python` option or via the `RETICULATE_PYTHON`
-environment variable.
+Python executable specified in the `--python` option.
 
 Here is an example of the `write-manifest` command:
 
