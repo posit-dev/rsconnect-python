@@ -164,7 +164,7 @@ jobs:
           pip freeze > requirements.txt
           make dev
         env:
-          RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
+          CONNECT_LICENSE: ${{ secrets.CONNECT_LICENSE }}
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
       # NOTE: edited to run checks for python package
