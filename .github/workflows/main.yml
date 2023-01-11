@@ -162,9 +162,9 @@ jobs:
         run: |
           docker-compose up --build -d
           pip freeze > requirements.txt
-          export RSC_LICENSE=${{ secrets.RSC_LICENSE }}
           make dev
         env:
+          RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
       # NOTE: edited to run checks for python package
