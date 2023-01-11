@@ -160,9 +160,9 @@ jobs:
           python -m pip install -r vetiver-testing/vetiver-requirements.txt
       - name: run RStudio Connect
         run: |
+          export RSC_LICENSE=${{ secrets.RSC_LICENSE }}
           docker-compose up --build -d
           pip freeze > requirements.txt
-          export RSC_LICENSE=${{ secrets.RSC_LICENSE }}
           make dev
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
