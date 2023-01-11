@@ -2,3 +2,4 @@ pins
 pandas
 numpy
 vetiver
+pytest
