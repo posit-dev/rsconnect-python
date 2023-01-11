@@ -14,4 +14,4 @@ services:
     privileged: true
     environment:
       RSTUDIO_CONNECT_HASTE: "enabled"
-      CONNECT_LICENSE: ${CONNECT_LICENSE}
+      RSC_LICENSE: ${RSC_LICENSE}
