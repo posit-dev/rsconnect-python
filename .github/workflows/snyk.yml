@@ -7,24 +7,23 @@ on:
 env:
   SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
   SNYK_ORG: rstudio-connect
-  SNYK_PROJECT: rsconnect-python
 
 jobs:
-  python-dependencies:
+  snyk-monitor:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - name: Run Snyk on dependencies
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Run Snyk (setup.py)
         uses: snyk/actions/python@master
         with:
           command: monitor
-          args: --file=setup.py --print-deps --project-name=${{ env.SNYK_PROJECT }} --org=${{ env.SNYK_ORG }}
-  python-code:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@master
-      - name: Run Snyk static analysis
+          args: --file=setup.py --package-manager=pip --project-name=setup.py --org=${{ env.SNYK_ORG }}
+
+      - name: Run Snyk (requirements.txt)
         uses: snyk/actions/python@master
         with:
-          command: code test
-          args: --project-name=${{ env.SNYK_PROJECT }} --org=${{ env.SNYK_ORG }} rsconnect/
+          command: monitor
+          args: --file=requirements.txt --package-manager=pip --project-name=requirements.txt --org=${{ env.SNYK_ORG }}
