@@ -652,7 +652,6 @@ class TestBundle(TestCase):
 
         self.assertEqual(which_python(sys.executable), sys.executable)
         self.assertEqual(which_python(None), sys.executable)
-        self.assertEqual(which_python(None, {"RETICULATE_PYTHON": "fake-python"}), "fake-python")
 
     def test_default_title(self):
         self.assertEqual(_default_title("testing.txt"), "testing")

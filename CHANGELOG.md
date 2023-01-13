@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed
+
+- `rsconnect-python` no longer considers the `RETICULATE_PYTHON` environment variable.
+  In environments where `RETICULATE_PYTHON` is set outside a project context (e.g. by a Posit Workbench administrator),
+  attempting to deploy content or write manifests in projects using virtual environments required explicitly setting `--python /path/to/virtualenv/python`.
+  Removing `RETICULATE_PYTHON` detection should simplify the use of the CLI in this case.
+
 ## [1.13.0] - 2022-12-02
 
 ### Added
