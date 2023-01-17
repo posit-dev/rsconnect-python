@@ -18,10 +18,10 @@ from urllib.parse import urlparse
 
 import re
 from warnings import warn
-from six import text_type
 import gc
 
 from . import validation
+from .certificates import read_certificate_file
 from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
 from .log import logger, connect_logger, cls_logged, console_logger
 from .models import AppModes
@@ -360,7 +360,7 @@ class RSConnectExecutor:
         url: str = None,
         api_key: str = None,
         insecure: bool = False,
-        cacert: IO = None,
+        cacert: str = None,
         ca_data: str = None,
         cookies=None,
         account=None,
@@ -415,7 +415,7 @@ class RSConnectExecutor:
         url: str = None,
         api_key: str = None,
         insecure: bool = False,
-        cacert: IO = None,
+        cacert: str = None,
         ca_data: str = None,
         account_name: str = None,
         token: str = None,
@@ -433,7 +433,7 @@ class RSConnectExecutor:
         )
 
         if cacert and not ca_data:
-            ca_data = text_type(cacert.read())
+            ca_data = read_certificate_file(cacert)
 
         server_data = ServerStore().resolve(name, url)
         if server_data.from_store:
@@ -507,7 +507,7 @@ class RSConnectExecutor:
         url: str = None,
         api_key: str = None,
         insecure: bool = False,
-        cacert: IO = None,
+        cacert: str = None,
         api_key_is_required: bool = False,
         account_name: str = None,
         token: str = None,
@@ -528,7 +528,7 @@ class RSConnectExecutor:
         url: str = None,
         api_key: str = None,
         insecure: bool = False,
-        cacert: IO = None,
+        cacert: str = None,
         api_key_is_required: bool = False,
         **kwargs
     ):
@@ -551,7 +551,7 @@ class RSConnectExecutor:
 
         ca_data = None
         if cacert:
-            ca_data = text_type(cacert.read())
+            ca_data = read_certificate_file(cacert)
         api_key = api_key or self.remote_server.api_key
         insecure = insecure or self.remote_server.insecure
         if not ca_data:
