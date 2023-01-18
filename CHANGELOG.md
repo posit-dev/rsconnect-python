@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Python 3.5 & 3.6 support.
+
 - `rsconnect-python` no longer considers the `RETICULATE_PYTHON` environment variable.
   In environments where `RETICULATE_PYTHON` is set outside a project context (e.g. by a Posit Workbench administrator),
   attempting to deploy content or write manifests in projects using virtual environments required explicitly setting `--python /path/to/virtualenv/python`.
