@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Redeployment is now enabled against unknown app modes.
+
 ### Removed
 
 - Python 3.5 & 3.6 support.
