@@ -26,9 +26,9 @@ api = Blueprint("api", __name__)
 def index():
     return (
         """<html>
-<head><title>RStudio Connect -- Mocked</title></head><body>
-<h1>RStudio Connect -- Mocked</h1>
-<p>Welcome to the mocked RStudio Connect!
+<head><title>Posit Connect -- Mocked</title></head><body>
+<h1>Posit Connect -- Mocked</h1>
+<p>Welcome to the mocked Posit Connect!
 <hr>
 %s
 </body></html>
@@ -194,7 +194,7 @@ def v1_content_bundle_download(bundle: Bundle, content_id):
         bundle.read_bundle_data(),
         mimetype="application/tar+gzip",
         as_attachment=True,
-        attachment_filename=basename(bundle._tar_file) if bundle._tar_file else None,
+        download_name=basename(bundle._tar_file) if bundle._tar_file else None,
     )
 
 

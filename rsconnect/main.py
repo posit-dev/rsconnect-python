@@ -21,7 +21,7 @@ from .actions import (
     test_server,
     validate_quarto_engines,
     which_quarto,
-    test_shinyapps_server,
+    test_rstudio_server,
 )
 from .actions_content import (
     download_bundle,
@@ -36,7 +36,7 @@ from .actions_content import (
 )
 
 from . import api, VERSION, validation
-from .api import RSConnectExecutor, filter_out_server_info
+from .api import RSConnectExecutor, RSConnectServer, RSConnectClient, filter_out_server_info
 from .bundle import (
     are_apis_supported_on_server,
     create_python_environment,
@@ -70,6 +70,13 @@ from .models import (
     StrippedStringParamType,
     VersionSearchFilterParamType,
 )
+from .json_web_token import (
+    read_secret_key,
+    validate_hs256_secret_key,
+    TokenGenerator,
+    produce_bootstrap_output,
+    parse_client_response,
+)
 
 server_store = ServerStore()
 future_enabled = False
@@ -100,18 +107,18 @@ def cli_exception_handler(func):
 
 
 def server_args(func):
-    @click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
+    @click.option("--name", "-n", help="The nickname of the Posit Connect server to deploy to.")
     @click.option(
         "--server",
         "-s",
         envvar="CONNECT_SERVER",
-        help="The URL for the RStudio Connect server to deploy to.",
+        help="The URL for the Posit Connect server to deploy to.",
     )
     @click.option(
         "--api-key",
         "-k",
         envvar="CONNECT_API_KEY",
-        help="The API key to use to authenticate with RStudio Connect.",
+        help="The API key to use to authenticate with Posit Connect.",
     )
     @click.option(
         "--insecure",
@@ -135,24 +142,24 @@ def server_args(func):
     return wrapper
 
 
-def shinyapps_args(func):
+def rstudio_args(func):
     @click.option(
         "--account",
         "-A",
-        envvar="SHINYAPPS_ACCOUNT",
+        envvar=["SHINYAPPS_ACCOUNT"],
         help="The shinyapps.io account name.",
     )
     @click.option(
         "--token",
         "-T",
-        envvar="SHINYAPPS_TOKEN",
-        help="The shinyapps.io token.",
+        envvar=["SHINYAPPS_TOKEN", "RSCLOUD_TOKEN"],
+        help="The shinyapps.io/Posit Cloud token.",
     )
     @click.option(
         "--secret",
         "-S",
-        envvar="SHINYAPPS_SECRET",
-        help="The shinyapps.io token secret.",
+        envvar=["SHINYAPPS_SECRET", "RSCLOUD_SECRET"],
+        help="The shinyapps.io/Posit Cloud token secret.",
     )
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -226,18 +233,22 @@ def content_args(func):
 @click.option("--future", "-u", is_flag=True, hidden=True, help="Enables future functionality.")
 def cli(future):
     """
-    This command line tool may be used to deploy Jupyter notebooks to RStudio
-    Connect.  Support for deploying other content types is also provided.
+    This command line tool may be used to deploy various types of content to Posit
+    Connect, Posit Cloud, and shinyapps.io.
 
     The tool supports the notion of a simple nickname that represents the
-    information needed to interact with an RStudio Connect server instance.  Use
-    the add, list and remove commands to manage these nicknames.
+    information needed to interact with a deployment target.  Use the add, list and
+    remove commands to manage these nicknames.
 
-    The information about an instance of RStudio Connect includes its URL, the
+    The information about an instance of Posit Connect includes its URL, the
     API key needed to authenticate against that instance, a flag that notes whether
     TLS certificate/host verification should be disabled and a path to a trusted CA
     certificate file to use for TLS.  The last two items are only relevant if the
     URL specifies the "https" protocol.
+
+    For Posit Cloud, the information needed to connect includes the auth token, auth
+    secret, and server ('posit.cloud'). For shinyapps.io, the auth token, auth secret,
+    server ('shinyapps.io'), and account are needed.
     """
     global future_enabled
     future_enabled = future
@@ -275,32 +286,22 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
     return real_server, me
 
 
-def _test_shinyappsio_creds(server: api.ShinyappsServer):
-    with cli_feedback("Checking shinyapps.io credential"):
-        test_shinyapps_server(server)
+def _test_rstudio_creds(server: api.PositServer):
+    with cli_feedback("Checking {} credential".format(server.remote_name)):
+        test_rstudio_server(server)
 
 
-# noinspection SpellCheckingInspection
 @cli.command(
-    short_help="Define a nickname for an RStudio Connect or shinyapps.io server and credential.",
-    help=(
-        "Associate a simple nickname with the information needed to interact with an RStudio Connect server. "
-        "Specifying an existing nickname will cause its stored information to be replaced by what is given "
-        "on the command line."
-    ),
+    short_help="Create an initial admin user to bootstrap a Connect instance.",
+    help="Creates an initial admin user to bootstrap a Connect instance. Returns the provisionend API key.",
+    no_args_is_help=True,
 )
-@click.option("--name", "-n", required=True, help="The nickname of the RStudio Connect server to deploy to.")
 @click.option(
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server to deploy to.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with RStudio Connect.",
+    required=True,
+    help="The URL for the RStudio Connect server.",
 )
 @click.option(
     "--insecure",
@@ -316,11 +317,105 @@ def _test_shinyappsio_creds(server: api.ShinyappsServer):
     type=click.File(),
     help="The path to trusted TLS CA certificates.",
 )
-@shinyapps_args
+@click.option(
+    "--jwt-keypath",
+    "-j",
+    help="The path to the file containing the private key used to sign the JWT.",
+)
+@click.option("--raw", "-r", is_flag=True, help="Return the API key as raw output rather than a JSON object")
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
+@cli_exception_handler
+def bootstrap(
+    server,
+    insecure,
+    cacert,
+    jwt_keypath,
+    raw,
+    verbose,
+):
+    set_verbosity(verbose)
+    if not server.startswith("http"):
+        raise RSConnectException("Server URL expected to begin with transfer protocol (ex. http/https).")
+
+    secret_key = read_secret_key(jwt_keypath)
+    validate_hs256_secret_key(secret_key)
+
+    token_generator = TokenGenerator(secret_key)
+
+    bootstrap_token = token_generator.bootstrap()
+    logger.debug("Generated JWT:\n" + bootstrap_token)
+
+    logger.debug("Insecure: " + str(insecure))
+    ca_data = cacert and text_type(cacert.read())
+
+    with cli_feedback("", stderr=True):
+        connect_server = RSConnectServer(
+            server, None, insecure=insecure, ca_data=ca_data, bootstrap_jwt=bootstrap_token
+        )
+        connect_client = RSConnectClient(connect_server)
+
+        response = connect_client.bootstrap()
+
+        # post-processing on response data
+        status, json_data = parse_client_response(response)
+        output = produce_bootstrap_output(status, json_data)
+        if raw:
+            click.echo(output["api_key"])
+        else:
+            json.dump(output, sys.stdout, indent=2)
+            sys.stdout.write("\n")
+
+
+# noinspection SpellCheckingInspection
+@cli.command(
+    short_help="Define a nickname for a Posit Connect, Posit Cloud, or shinyapps.io server and credential.",
+    help=(
+        "Associate a simple nickname with the information needed to interact with a deployment target. "
+        "Specifying an existing nickname will cause its stored information to be replaced by what is given "
+        "on the command line."
+    ),
+    no_args_is_help=True,
+)
+@click.option("--name", "-n", required=True, help="The nickname of the Posit Connect server to deploy to.")
+@click.option(
+    "--server",
+    "-s",
+    envvar="CONNECT_SERVER",
+    help="The URL for the Posit Connect server to deploy to, OR rstudio.cloud OR shinyapps.io.",
+)
+@click.option(
+    "--api-key",
+    "-k",
+    envvar="CONNECT_API_KEY",
+    help="The API key to use to authenticate with Posit Connect.",
+)
+@click.option(
+    "--insecure",
+    "-i",
+    envvar="CONNECT_INSECURE",
+    is_flag=True,
+    help="Disable TLS certification/host validation.",
+)
+@click.option(
+    "--cacert",
+    "-c",
+    envvar="CONNECT_CA_CERTIFICATE",
+    type=click.File(),
+    help="The path to trusted TLS CA certificates.",
+)
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-def add(name, server, api_key, insecure, cacert, account, token, secret, verbose):
+@rstudio_args
+@click.pass_context
+def add(ctx, name, server, api_key, insecure, cacert, account, token, secret, verbose):
 
     set_verbosity(verbose)
+    if click.__version__ >= "8.0.0" and sys.version_info >= (3, 7):
+        click.echo("Detected the following inputs:")
+        for k, v in locals().items():
+            if k in {"ctx", "verbose"}:
+                continue
+            if v is not None:
+                click.echo("    {}: {}".format(k, ctx.get_parameter_source(k).name))
 
     validation.validate_connection_options(
         url=server,
@@ -334,21 +429,25 @@ def add(name, server, api_key, insecure, cacert, account, token, secret, verbose
 
     old_server = server_store.get_by_name(name)
 
-    if account:
-        shinyapps_server = api.ShinyappsServer(server, account, token, secret)
-        _test_shinyappsio_creds(shinyapps_server)
+    if token:
+        if server and ("rstudio.cloud" in server or "posit.cloud" in server):
+            real_server = api.CloudServer(server, account, token, secret)
+        else:
+            real_server = api.ShinyappsServer(server, account, token, secret)
+
+        _test_rstudio_creds(real_server)
 
         server_store.set(
             name,
-            shinyapps_server.url,
-            account_name=shinyapps_server.account_name,
-            token=shinyapps_server.token,
-            secret=shinyapps_server.secret,
+            real_server.url,
+            account_name=real_server.account_name,
+            token=real_server.token,
+            secret=real_server.secret,
         )
         if old_server:
-            click.echo('Updated shinyapps.io credential "%s".' % name)
+            click.echo('Updated {} credential "{}".'.format(real_server.remote_name, name))
         else:
-            click.echo('Added shinyapps.io credential "%s".' % name)
+            click.echo('Added {} credential "{}".'.format(real_server.remote_name, name))
     else:
         # Server must be pingable and the API key must work to be added.
         real_server, _ = _test_server_and_api(server, api_key, insecure, cacert)
@@ -369,7 +468,7 @@ def add(name, server, api_key, insecure, cacert, account, token, secret, verbose
 
 @cli.command(
     "list",
-    short_help="List the known RStudio Connect servers.",
+    short_help="List the known Posit Connect servers.",
     help="Show the stored information about each known server nickname.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
@@ -387,23 +486,25 @@ def list_servers(verbose):
             for server in servers:
                 click.echo('Nickname: "%s"' % server["name"])
                 click.echo("    URL: %s" % server["url"])
-                click.echo("    API key is saved")
-                if server["insecure"]:
+                if server.get("api_key"):
+                    click.echo("    API key is saved")
+                if server.get("insecure"):
                     click.echo("    Insecure mode (TLS host/certificate validation disabled)")
-                if server["ca_cert"]:
+                if server.get("ca_cert"):
                     click.echo("    Client TLS certificate data provided")
                 click.echo()
 
 
 # noinspection SpellCheckingInspection
 @cli.command(
-    short_help="Show details about an RStudio Connect server.",
+    short_help="Show details about a Posit Connect server.",
     help=(
-        "Show details about an RStudio Connect server and installed Python information. "
-        "Use this command to verify that a URL refers to an RStudio Connect server, optionally, that an "
+        "Show details about a Posit Connect server and installed Python information. "
+        "Use this command to verify that a URL refers to a Posit Connect server, optionally, that an "
         "API key is valid for authentication for that server.  It may also be used to verify that the "
         "information stored as a nickname is still valid."
     ),
+    no_args_is_help=True,
 )
 @server_args
 @cli_exception_handler
@@ -412,7 +513,7 @@ def details(name, server, api_key, insecure, cacert, verbose):
 
     ce = RSConnectExecutor(name, server, api_key, insecure, cacert).validate_server()
 
-    click.echo("    RStudio Connect URL: %s" % ce.remote_server.url)
+    click.echo("    Posit Connect URL: %s" % ce.remote_server.url)
 
     if not ce.remote_server.api_key:
         return
@@ -425,7 +526,7 @@ def details(name, server, api_key, insecure, cacert, verbose):
     python_versions = server_details["python"]["versions"]
     conda_details = server_details["conda"]
 
-    click.echo("    RStudio Connect version: %s" % ("<redacted>" if len(connect_version) == 0 else connect_version))
+    click.echo("    Posit Connect version: %s" % ("<redacted>" if len(connect_version) == 0 else connect_version))
 
     if len(python_versions) == 0:
         click.echo("    No versions of Python are installed.")
@@ -441,14 +542,15 @@ def details(name, server, api_key, insecure, cacert, verbose):
 
 
 @cli.command(
-    short_help="Remove the information about an RStudio Connect server.",
+    short_help="Remove the information about a Posit Connect server.",
     help=(
-        "Remove the information about an RStudio Connect server by nickname or URL. "
+        "Remove the information about a Posit Connect server by nickname or URL. "
         "One of --name or --server is required."
     ),
+    no_args_is_help=True,
 )
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server to remove.")
-@click.option("--server", "-s", help="The URL of the RStudio Connect server to remove.")
+@click.option("--name", "-n", help="The nickname of the Posit Connect server to remove.")
+@click.option("--server", "-s", help="The URL of the Posit Connect server to remove.")
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def remove(name, server, verbose):
     set_verbosity(verbose)
@@ -497,10 +599,11 @@ def _get_names_to_check(file_or_directory):
 @cli.command(
     short_help="Show saved information about the specified deployment.",
     help=(
-        "Display information about the deployment of a Jupyter notebook or manifest. For any given file, "
+        "Display information about a deployment. For any given file, "
         "information about it"
         "s deployments are saved on a per-server basis."
     ),
+    no_args_is_help=True,
 )
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 def info(file):
@@ -536,7 +639,7 @@ def info(file):
             click.echo("No saved deployment information was found for %s." % file)
 
 
-@cli.group(no_args_is_help=True, help="Deploy content to RStudio Connect.")
+@cli.group(no_args_is_help=True, help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io.")
 def deploy():
     pass
 
@@ -617,12 +720,13 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="notebook",
-    short_help="Deploy Jupyter notebook to RStudio Connect [v1.7.0+].",
+    short_help="Deploy Jupyter notebook to Posit Connect [v1.7.0+].",
     help=(
-        "Deploy a Jupyter notebook to RStudio Connect. This may be done by source or as a static HTML "
+        "Deploy a Jupyter notebook to Posit Connect. This may be done by source or as a static HTML "
         "page. If the notebook is deployed as a static HTML page (--static), it cannot be scheduled or "
         "rerun on the Connect server."
     ),
+    no_args_is_help=True,
 )
 @server_args
 @content_args
@@ -650,7 +754,7 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
     "-C",
     is_flag=True,
     hidden=True,
-    help="Use Conda to deploy (requires RStudio Connect version 1.8.2 or later)",
+    help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
 )
 @click.option(
     "--force-generate",
@@ -665,7 +769,7 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
 @click.option(
     "--image",
     "-I",
-    help="Target image to be used during content execution (only applicable if the RStudio Connect "
+    help="Target image to be used during content execution (only applicable if the Posit Connect "
     "server is configured to use off-host execution)",
 )
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
@@ -819,16 +923,17 @@ def deploy_voila(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="manifest",
-    short_help="Deploy content to RStudio Connect by manifest.",
+    short_help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io by manifest.",
     help=(
-        "Deploy content to RStudio Connect using an existing manifest.json "
+        "Deploy content to Posit Connect using an existing manifest.json "
         'file.  The specified file must either be named "manifest.json" or '
         'refer to a directory that contains a file named "manifest.json".'
     ),
+    no_args_is_help=True,
 )
 @server_args
 @content_args
-@shinyapps_args
+@rstudio_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @cli_exception_handler
 def deploy_manifest(
@@ -871,14 +976,15 @@ def deploy_manifest(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="quarto",
-    short_help="Deploy Quarto content to RStudio Connect [v2021.08.0+].",
+    short_help="Deploy Quarto content to Posit Connect [v2021.08.0+].",
     help=(
-        "Deploy a Quarto document or project to RStudio Connect. Should the content use the Quarto Jupyter engine, "
+        "Deploy a Quarto document or project to Posit Connect. Should the content use the Quarto Jupyter engine, "
         'an environment file ("requirements.txt") is created and included in the deployment if one does '
-        "not already exist. Requires RStudio Connect 2021.08.0 or later."
+        "not already exist. Requires Posit Connect 2021.08.0 or later."
         "\n\n"
         "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
     ),
+    no_args_is_help=True,
 )
 @server_args
 @content_args
@@ -916,7 +1022,7 @@ def deploy_manifest(
 @click.option(
     "--image",
     "-I",
-    help="Target image to be used during content execution (only applicable if the RStudio Connect "
+    help="Target image to be used during content execution (only applicable if the Posit Connect "
     "server is configured to use off-host execution)",
 )
 @click.argument("file_or_directory", type=click.Path(exists=True, dir_okay=True, file_okay=True))
@@ -999,8 +1105,9 @@ def deploy_quarto(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="html",
-    short_help="Deploy html content to RStudio Connect.",
-    help=("Deploy an html file, or directory of html files with entrypoint, to RStudio Connect."),
+    short_help="Deploy html content to Posit Connect.",
+    help=("Deploy an html file, or directory of html files with entrypoint, to Posit Connect."),
+    no_args_is_help=True,
 )
 @server_args
 @content_args
@@ -1010,7 +1117,7 @@ def deploy_quarto(
     help=("The name of the html file that is the landing page."),
 )
 @click.option(
-    "--excludes",
+    "--exclude",
     "-x",
     multiple=True,
     help=(
@@ -1031,7 +1138,7 @@ def deploy_html(
     path: str = None,
     entrypoint: str = None,
     extra_files=None,
-    excludes=None,
+    exclude=None,
     title: str = None,
     env_vars: typing.Dict[str, str] = None,
     verbose: bool = False,
@@ -1059,7 +1166,7 @@ def deploy_html(
             path,
             entrypoint,
             extra_files,
-            excludes,
+            exclude,
         )
         .deploy_bundle()
         .save_deployed_info()
@@ -1067,23 +1174,23 @@ def deploy_html(
     )
 
 
-def generate_deploy_python(app_mode, alias, min_version, supported_by_shinyapps=False):
-    shinyapps = shinyapps_args if supported_by_shinyapps else _passthrough
-
+def generate_deploy_python(app_mode, alias, min_version):
     # noinspection SpellCheckingInspection
     @deploy.command(
         name=alias,
-        short_help="Deploy a {desc} to RStudio Connect [v{version}+].".format(
-            desc=app_mode.desc(), version=min_version
+        short_help="Deploy a {desc} to Posit Connect [v{version}+], Posit Cloud, or shinyapps.io.".format(
+            desc=app_mode.desc(),
+            version=min_version,
         ),
         help=(
-            'Deploy a {desc} module to RStudio Connect. The "directory" argument must refer to an '
-            "existing directory that contains the application code."
+            "Deploy a {desc} module to Posit Connect, Posit Cloud, or shinyapps.io (if supported by the platform). "
+            'The "directory" argument must refer to an existing directory that contains the application code.'
         ).format(desc=app_mode.desc()),
+        no_args_is_help=True,
     )
     @server_args
     @content_args
-    @shinyapps
+    @rstudio_args
     @click.option(
         "--entrypoint",
         "-e",
@@ -1126,7 +1233,7 @@ def generate_deploy_python(app_mode, alias, min_version, supported_by_shinyapps=
     @click.option(
         "--image",
         "-I",
-        help="Target image to be used during content execution (only applicable if the RStudio Connect "
+        help="Target image to be used during content execution (only applicable if the Posit Connect "
         "server is configured to use off-host execution)",
     )
     @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
@@ -1199,15 +1306,14 @@ deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias=
 deploy_dash_app = generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
 deploy_streamlit_app = generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
 deploy_bokeh_app = generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
-deploy_shiny = generate_deploy_python(
-    app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0", supported_by_shinyapps=True
-)
+deploy_shiny = generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0")
 
 
 @deploy.command(
     name="other-content",
-    short_help="Describe deploying other content to RStudio Connect.",
-    help="Show help on how to deploy other content to RStudio Connect.",
+    short_help="Describe deploying other content to Posit Connect.",
+    help="Show help on how to deploy other content to Posit Connect.",
+    no_args_is_help=True,
 )
 def deploy_help():
     text = (
@@ -1228,7 +1334,7 @@ def deploy_help():
     short_help="Create a manifest.json file for later deployment.",
     help=(
         "Create a manifest.json file for later deployment. This may be used "
-        "with the git support provided by RStudio Connect or by using the "
+        "with the git support provided by Posit Connect or by using the "
         '"deploy manifest" command in this tool.'
     ),
 )
@@ -1258,7 +1364,7 @@ def write_manifest():
     "-C",
     is_flag=True,
     hidden=True,
-    help="Use Conda to deploy (requires RStudio Connect version 1.8.2 or later)",
+    help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
 )
 @click.option(
     "--force-generate",
@@ -1266,13 +1372,13 @@ def write_manifest():
     is_flag=True,
     help='Force generating "requirements.txt", even if it already exists.',
 )
-@click.option("--hide-all-input", help="Hide all input cells when rendering output")
+@click.option("--hide-all-input", is_flag=True, default=None, help="Hide all input cells when rendering output")
 @click.option("--hide-tagged-input", is_flag=True, default=None, help="Hide input code cells with the 'hide_input' tag")
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
 @click.option(
     "--image",
     "-I",
-    help="Target image to be used during content execution (only applicable if the RStudio Connect "
+    help="Target image to be used during content execution (only applicable if the Posit Connect "
     "server is configured to use off-host execution)",
 )
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
@@ -1434,7 +1540,7 @@ def write_manifest_voila(
         "deployment. Should the content use the Quarto Jupyter engine, "
         'an environment file ("requirements.txt") is created if one does '
         "not already exist. All files are created in the same directory "
-        "as the project. Requires RStudio Connect 2021.08.0 or later."
+        "as the project. Requires Posit Connect 2021.08.0 or later."
         "\n\n"
         "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
     ),
@@ -1473,7 +1579,7 @@ def write_manifest_voila(
 @click.option(
     "--image",
     "-I",
-    help="Target image to be used during content execution (only applicable if the RStudio Connect "
+    help="Target image to be used during content execution (only applicable if the Posit Connect "
     "server is configured to use off-host execution)",
 )
 @click.argument("file_or_directory", type=click.Path(exists=True, dir_okay=True, file_okay=True))
@@ -1593,7 +1699,7 @@ def generate_write_manifest_python(app_mode, alias):
     @click.option(
         "--image",
         "-I",
-        help="Target image to be used during content execution (only applicable if the RStudio Connect "
+        help="Target image to be used during content execution (only applicable if the Posit Connect "
         "server is configured to use off-host execution)",
     )
     @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
@@ -1713,7 +1819,7 @@ def _validate_build_rm_args(guid, all, purge):
         raise RSConnectException("You must specify one of -g/--guid or --all.")
 
 
-@cli.group(no_args_is_help=True, help="Interact with RStudio Connect's content API.")
+@cli.group(no_args_is_help=True, help="Interact with Posit Connect's content API.")
 def content():
     pass
 
@@ -1721,20 +1827,20 @@ def content():
 # noinspection SpellCheckingInspection,DuplicatedCode
 @content.command(
     name="search",
-    short_help="Search for content on RStudio Connect.",
+    short_help="Search for content on Posit Connect.",
 )
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
+@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
 @click.option(
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server.",
+    help="The URL for the Posit Connect server.",
 )
 @click.option(
     "--api-key",
     "-k",
     envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with RStudio Connect.",
+    help="The API key to use to authenticate with Posit Connect.",
 )
 @click.option(
     "--insecure",
@@ -1815,20 +1921,20 @@ def content_search(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @content.command(
     name="describe",
-    short_help="Describe a content item on RStudio Connect.",
+    short_help="Describe a content item on Posit Connect.",
 )
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
+@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
 @click.option(
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server.",
+    help="The URL for the Posit Connect server.",
 )
 @click.option(
     "--api-key",
     "-k",
     envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with RStudio Connect.",
+    help="The API key to use to authenticate with Posit Connect.",
 )
 @click.option(
     "--insecure",
@@ -1868,18 +1974,18 @@ def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     name="download-bundle",
     short_help="Download a content item's source bundle.",
 )
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
+@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
 @click.option(
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server.",
+    help="The URL for the Posit Connect server.",
 )
 @click.option(
     "--api-key",
     "-k",
     envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with RStudio Connect.",
+    help="The API key to use to authenticate with Posit Connect.",
 )
 @click.option(
     "--insecure",
@@ -1928,7 +2034,7 @@ def content_bundle_download(name, server, api_key, insecure, cacert, guid, outpu
             f.write(result.response_body)
 
 
-@content.group(no_args_is_help=True, help="Build content on RStudio Connect. Requires Connect >= 2021.11.1")
+@content.group(no_args_is_help=True, help="Build content on Posit Connect. Requires Connect >= 2021.11.1")
 def build():
     pass
 
@@ -1937,18 +2043,18 @@ def build():
 @build.command(
     name="add", short_help="Mark a content item for build. Use `build run` to invoke the build on the Connect server."
 )
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
+@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
 @click.option(
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server.",
+    help="The URL for the Posit Connect server.",
 )
 @click.option(
     "--api-key",
     "-k",
     envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with RStudio Connect.",
+    help="The API key to use to authenticate with Posit Connect.",
 )
 @click.option(
     "--insecure",
@@ -1991,18 +2097,18 @@ def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
     short_help="Remove a content item from the list of content that are tracked for build. "
     + "Use `build ls` to view the tracked content.",
 )
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
+@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
 @click.option(
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server.",
+    help="The URL for the Posit Connect server.",
 )
 @click.option(
     "--api-key",
     "-k",
     envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with RStudio Connect.",
+    help="The API key to use to authenticate with Posit Connect.",
 )
 @click.option(
     "--insecure",
@@ -2054,18 +2160,18 @@ def remove_content_build(name, server, api_key, insecure, cacert, guid, all, pur
 @build.command(
     name="ls", short_help="List the content items that are being tracked for build on a given Connect server."
 )
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
+@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
 @click.option(
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server.",
+    help="The URL for the Posit Connect server.",
 )
 @click.option(
     "--api-key",
     "-k",
     envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with RStudio Connect.",
+    help="The API key to use to authenticate with Posit Connect.",
 )
 @click.option(
     "--insecure",
@@ -2102,18 +2208,18 @@ def list_content_build(name, server, api_key, insecure, cacert, status, guid, ve
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @build.command(name="history", short_help="Get the build history for a content item.")
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
+@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
 @click.option(
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server.",
+    help="The URL for the Posit Connect server.",
 )
 @click.option(
     "--api-key",
     "-k",
     envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with RStudio Connect.",
+    help="The API key to use to authenticate with Posit Connect.",
 )
 @click.option(
     "--insecure",
@@ -2153,18 +2259,18 @@ def get_build_history(name, server, api_key, insecure, cacert, guid, verbose):
     name="logs",
     short_help="Print the logs for a content build.",
 )
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
+@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
 @click.option(
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server.",
+    help="The URL for the Posit Connect server.",
 )
 @click.option(
     "--api-key",
     "-k",
     envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with RStudio Connect.",
+    help="The API key to use to authenticate with Posit Connect.",
 )
 @click.option(
     "--insecure",
@@ -2216,18 +2322,18 @@ def get_build_logs(name, server, api_key, insecure, cacert, guid, task_id, forma
     name="run",
     short_help="Start building content on a given Connect server.",
 )
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server.")
+@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
 @click.option(
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
-    help="The URL for the RStudio Connect server.",
+    help="The URL for the Posit Connect server.",
 )
 @click.option(
     "--api-key",
     "-k",
     envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with RStudio Connect.",
+    help="The API key to use to authenticate with Posit Connect.",
 )
 @click.option(
     "--insecure",

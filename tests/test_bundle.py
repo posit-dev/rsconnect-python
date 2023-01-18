@@ -1,18 +1,20 @@
 # -*- coding: utf-8 -*-
 import json
+import os
 import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
-
+import pytest
 from unittest import TestCase
-from os.path import dirname, join
+from os.path import dirname, join, basename
 
-from rsconnect.environment import detect_environment
 from rsconnect.bundle import (
     _default_title,
     _default_title_from_manifest,
     _validate_title,
+    get_python_env_info,
     inspect_environment,
     list_files,
     make_manifest_bundle,
@@ -27,9 +29,10 @@ from rsconnect.bundle import (
     validate_extra_files,
     which_python,
 )
+import rsconnect.bundle
 from rsconnect.exception import RSConnectException
 from rsconnect.models import AppModes
-from rsconnect.environment import Environment
+from rsconnect.environment import MakeEnvironment, detect_environment, Environment
 from .utils import get_dir, get_manifest_path
 
 
@@ -273,9 +276,9 @@ class TestBundle(TestCase):
     def test_keep_manifest_specified_file(self):
         self.assertTrue(keep_manifest_specified_file("app.R"))
         self.assertFalse(keep_manifest_specified_file("packrat/packrat.lock"))
-        self.assertTrue(keep_manifest_specified_file("rsconnect"))
+        self.assertFalse(keep_manifest_specified_file("rsconnect"))
         self.assertFalse(keep_manifest_specified_file("rsconnect/bogus.file"))
-        self.assertTrue(keep_manifest_specified_file("rsconnect-python"))
+        self.assertFalse(keep_manifest_specified_file("rsconnect-python"))
         self.assertFalse(keep_manifest_specified_file("rsconnect-python/bogus.file"))
         self.assertFalse(keep_manifest_specified_file(".svn/bogus.file"))
         self.assertFalse(keep_manifest_specified_file(".env/share/jupyter/kernels/python3/kernel.json"))
@@ -649,7 +652,6 @@ class TestBundle(TestCase):
 
         self.assertEqual(which_python(sys.executable), sys.executable)
         self.assertEqual(which_python(None), sys.executable)
-        self.assertEqual(which_python(None, {"RETICULATE_PYTHON": "fake-python"}), "fake-python")
 
     def test_default_title(self):
         self.assertEqual(_default_title("testing.txt"), "testing")
@@ -676,3 +678,106 @@ class TestBundle(TestCase):
         environment = inspect_environment(sys.executable, get_dir("pip1"))
         assert environment is not None
         assert environment.python != ""
+
+
+@pytest.mark.parametrize(
+    (
+        "file_name",
+        "python",
+        "conda_mode",
+        "force_generate",
+        "expected_python",
+        "expected_environment",
+    ),
+    [
+        pytest.param(
+            "path/to/file.py",
+            sys.executable,
+            False,
+            False,
+            sys.executable,
+            MakeEnvironment(
+                conda=None,
+                filename="requirements.txt",
+                locale="en_US.UTF-8",
+                package_manager="pip",
+                source="pip_freeze",
+            ),
+            id="basic",
+        ),
+        pytest.param(
+            "another/file.py",
+            basename(sys.executable),
+            False,
+            False,
+            sys.executable,
+            MakeEnvironment(
+                conda=None,
+                filename="requirements.txt",
+                locale="en_US.UTF-8",
+                package_manager="pip",
+                source="pip_freeze",
+            ),
+            id="which_python",
+        ),
+        pytest.param(
+            "even/moar/file.py",
+            "whython",
+            True,
+            True,
+            "/very/serious/whython",
+            MakeEnvironment(
+                conda="/opt/Conda/bin/conda",
+                filename="requirements.txt",
+                locale="en_US.UTF-8",
+                package_manager="pip",
+                source="pip_freeze",
+            ),
+            id="conda_ish",
+        ),
+        pytest.param(
+            "will/the/files/never/stop.py",
+            "argh.py",
+            False,
+            True,
+            "unused",
+            MakeEnvironment(error="Could not even do things"),
+            id="exploding",
+        ),
+    ],
+)
+def test_get_python_env_info(
+    monkeypatch,
+    file_name,
+    python,
+    conda_mode,
+    force_generate,
+    expected_python,
+    expected_environment,
+):
+    def fake_which_python(python, env=os.environ):
+        return expected_python
+
+    def fake_inspect_environment(
+        python,
+        directory,
+        conda_mode=False,
+        force_generate=False,
+        check_output=subprocess.check_output,
+    ):
+        return expected_environment
+
+    monkeypatch.setattr(rsconnect.bundle, "inspect_environment", fake_inspect_environment)
+
+    monkeypatch.setattr(rsconnect.bundle, "which_python", fake_which_python)
+
+    if expected_environment.error is not None:
+        with pytest.raises(RSConnectException):
+            _, _ = get_python_env_info(file_name, python, conda_mode=conda_mode, force_generate=force_generate)
+    else:
+        python, environment = get_python_env_info(
+            file_name, python, conda_mode=conda_mode, force_generate=force_generate
+        )
+
+        assert python == expected_python
+        assert environment == expected_environment

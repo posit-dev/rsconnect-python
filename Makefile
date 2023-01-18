@@ -20,6 +20,8 @@ endif
 
 TEST_ENV =
 
+RSC_API_KEYS=vetiver-testing/rsconnect_api_keys.json
+
 ifneq ($(CONNECT_SERVER),)
   TEST_ENV += CONNECT_SERVER=$(CONNECT_SERVER)
 endif
@@ -35,10 +37,10 @@ SOURCE_DATE_EPOCH := $(shell date +%s)
 export SOURCE_DATE_EPOCH
 
 .PHONY: all-tests
-all-tests: all-images test-3.5 test-3.6 test-3.7 test-3.8 test-3.9 test-3.10
+all-tests: all-images test-3.7 test-3.8 test-3.9 test-3.10
 
 .PHONY: all-images
-all-images: image-3.5 image-3.6 image-3.7 image-3.8 image-3.9 image-3.10
+all-images: image-3.7 image-3.8 image-3.9 image-3.10
 
 image-%:
 	docker build -t rsconnect-python:$* --build-arg BASE_IMAGE=python:$*-slim .
@@ -62,9 +64,6 @@ mock-test-%: clean-stores
 fmt-%:
 	$(RUNNER) 'black .'
 
-.PHONY: fmt-3.5
-fmt-3.5: .fmt-unsupported
-
 .PHONY: .fmt-unsupported
 .fmt-unsupported:
 	@echo ERROR: This python version cannot run the fmting tools
@@ -82,9 +81,6 @@ lint-%:
 	$(RUNNER) 'flake8 rsconnect/'
 	$(RUNNER) 'flake8 tests/'
 	$(RUNNER) 'mypy -p rsconnect'
-
-.PHONY: lint-3.5
-lint-3.5: .lint-unsupported
 
 .PHONY: .lint-unsupported
 .lint-unsupported:
@@ -171,3 +167,21 @@ promote-docs-in-s3:
 		--cache-control max-age=300 \
 		docs/site/ \
 		s3://docs.rstudio.com/rsconnect-python/
+
+
+dev: vetiver-testing/rsconnect_api_keys.json
+
+dev-start:
+	docker-compose up -d
+	docker-compose exec -T rsconnect bash < vetiver-testing/setup-rsconnect/add-users.sh
+	# curl fails with error 52 without a short sleep....
+	sleep 5
+	curl -s --retry 10 --retry-connrefused http://localhost:3939
+
+dev-stop:
+	docker-compose down
+	rm -f $(RSC_API_KEYS)
+
+$(RSC_API_KEYS): dev-start
+	python vetiver-testing/setup-rsconnect/dump_api_keys.py $@
+	

@@ -15,6 +15,7 @@ import re
 from pprint import pformat
 from collections import defaultdict
 from mimetypes import guess_type
+from pathlib import Path
 import click
 
 
@@ -34,7 +35,7 @@ _module_pattern = re.compile(r"^[A-Za-z0-9_]+:[A-Za-z0-9_]+$")
 
 # From https://github.com/rstudio/rsconnect/blob/485e05a26041ab8183a220da7a506c9d3a41f1ff/R/bundle.R#L85-L88
 # noinspection SpellCheckingInspection
-directories_to_ignore = [
+directories_ignore_list = [
     ".Rproj.user/",
     ".env/",
     ".git/",
@@ -48,6 +49,7 @@ directories_to_ignore = [
     "rsconnect/",
     "venv/",
 ]
+directories_to_ignore = {Path(d) for d in directories_ignore_list}
 
 
 # noinspection SpellCheckingInspection
@@ -191,8 +193,8 @@ def write_manifest(
     nb_name: str,
     environment: Environment,
     output_dir: str,
-    hide_all_input: bool,
-    hide_tagged_input: bool,
+    hide_all_input: bool = False,
+    hide_tagged_input: bool = False,
     image: str = None,
 ) -> typing.Tuple[list, list]:
     """Create a manifest for source publishing the specified notebook.
@@ -424,7 +426,7 @@ def make_notebook_html_bundle(
     return bundle_file
 
 
-def keep_manifest_specified_file(relative_path):
+def keep_manifest_specified_file(relative_path, ignore_path_set=directories_to_ignore):
     """
     A helper to see if the relative path given, which is assumed to have come
     from a manifest.json file, should be kept or ignored.
@@ -432,9 +434,12 @@ def keep_manifest_specified_file(relative_path):
     :param relative_path: the relative path name to check.
     :return: True, if the path should kept or False, if it should be ignored.
     """
-    for ignore_me in directories_to_ignore:
-        if relative_path.startswith(ignore_me):
+    p = Path(relative_path)
+    for parent in p.parents:
+        if parent in ignore_path_set:
             return False
+    if p in ignore_path_set:
+        return False
     return True
 
 
@@ -551,56 +556,6 @@ def list_environment_dirs(directory):
     return envs
 
 
-def _create_api_file_list(
-    directory,  # type: str
-    requirements_file_name,  # type: str
-    extra_files=None,  # type: typing.Optional[typing.List[str]]
-    excludes=None,  # type: typing.Optional[typing.List[str]]
-):
-    # type: (...) -> typing.List[str]
-    """
-    Builds a full list of files under the given directory that should be included
-    in a manifest or bundle.  Extra files and excludes are relative to the given
-    directory and work as you'd expect.
-
-    :param directory: the directory to walk for files.
-    :param requirements_file_name: the name of the requirements file for the current
-    Python environment.
-    :param extra_files: a sequence of any extra files to include in the bundle.
-    :param excludes: a sequence of glob patterns that will exclude matched files.
-    :return: the list of relevant files, relative to the given directory.
-    """
-    # Don't let these top-level files be added via the extra files list.
-    extra_files = extra_files or []
-    skip = [requirements_file_name, "manifest.json"]
-    extra_files = sorted(list(set(extra_files) - set(skip)))
-
-    # Don't include these top-level files.
-    excludes = list(excludes) if excludes else []
-    excludes.append("manifest.json")
-    excludes.append(requirements_file_name)
-    excludes.extend(list_environment_dirs(directory))
-    glob_set = create_glob_set(directory, excludes)
-
-    file_list = []
-
-    for subdir, dirs, files in os.walk(directory):
-        for file in files:
-            abs_path = os.path.join(subdir, file)
-            rel_path = os.path.relpath(abs_path, directory)
-
-            if keep_manifest_specified_file(rel_path) and (rel_path in extra_files or not glob_set.matches(abs_path)):
-                file_list.append(rel_path)
-                # Don't add extra files more than once.
-                if rel_path in extra_files:
-                    extra_files.remove(rel_path)
-
-    for rel_path in extra_files:
-        file_list.append(rel_path)
-
-    return sorted(file_list)
-
-
 def make_api_manifest(
     directory: str,
     entry_point: str,
@@ -625,7 +580,17 @@ def make_api_manifest(
     if is_environment_dir(directory):
         excludes = list(excludes or []) + ["bin/", "lib/"]
 
-    relevant_files = _create_api_file_list(directory, environment.filename, extra_files, excludes)
+    extra_files = extra_files or []
+    skip = [environment.filename, "manifest.json"]
+    extra_files = sorted(list(set(extra_files) - set(skip)))
+
+    # Don't include these top-level files.
+    excludes = list(excludes) if excludes else []
+    excludes.append("manifest.json")
+    excludes.append(environment.filename)
+    excludes.extend(list_environment_dirs(directory))
+
+    relevant_files = create_file_list(directory, extra_files, excludes)
     manifest = make_source_manifest(app_mode, environment, entry_point, None, image)
 
     manifest_add_buffer(manifest, environment.filename, environment.contents)
@@ -657,9 +622,7 @@ def make_html_bundle_content(
     extra_files = list(extra_files) if extra_files else []
     entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/html")
     if not entrypoint:
-        raise RSConnectException(
-            "Unable to infer entry point. Provide an entry point, or ensure path contains exactly one valid content."
-        )
+        raise RSConnectException("Unable to find a valid html entry point.")
 
     if path.startswith(os.curdir):
         path = relpath(path)
@@ -672,43 +635,63 @@ def make_html_bundle_content(
 
     extra_files = extra_files or []
     skip = ["manifest.json"]
-    extra_files = sorted(list(set(extra_files) - set(skip)))
+    extra_files = sorted(set(extra_files) - set(skip))
 
     # Don't include these top-level files.
     excludes = list(excludes) if excludes else []
     excludes.append("manifest.json")
     if not isfile(path):
         excludes.extend(list_environment_dirs(path))
-    glob_set = create_glob_set(path, excludes)
 
-    file_list = []
-
-    for rel_path in extra_files:
-        file_list.append(rel_path)
-
-    if isfile(path):
-        file_list.append(path)
-    else:
-        for subdir, dirs, files in os.walk(path):
-            for file in files:
-                abs_path = os.path.join(subdir, file)
-                rel_path = os.path.relpath(abs_path, path)
-
-                if keep_manifest_specified_file(rel_path) and (
-                    rel_path in extra_files or not glob_set.matches(abs_path)
-                ):
-                    file_list.append(rel_path)
-                    # Don't add extra files more than once.
-                    if rel_path in extra_files:
-                        extra_files.remove(rel_path)
-
-    relevant_files = sorted(file_list)
+    relevant_files = create_file_list(path, extra_files, excludes)
     manifest = make_html_manifest(entrypoint, image)
 
     for rel_path in relevant_files:
         manifest_add_file(manifest, rel_path, path)
 
     return manifest, relevant_files
+
+
+def create_file_list(
+    path: str,
+    extra_files: typing.List[str] = None,
+    excludes: typing.List[str] = None,
+) -> typing.List[str]:
+    """
+    Builds a full list of files under the given path that should be included
+    in a manifest or bundle.  Extra files and excludes are relative to the given
+    directory and work as you'd expect.
+
+    :param path: a file, or a directory to walk for files.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :return: the list of relevant files, relative to the given directory.
+    """
+    extra_files = extra_files or []
+    excludes = excludes if excludes else []
+    glob_set = create_glob_set(path, excludes)
+    exclude_paths = {Path(p) for p in excludes}
+    file_set = set()  # type: typing.Set[str]
+    file_set.union(extra_files)
+
+    if isfile(path):
+        file_set.add(path)
+        return sorted(file_set)
+
+    for subdir, dirs, files in os.walk(path):
+        if Path(subdir) in exclude_paths:
+            continue
+        for file in files:
+            abs_path = os.path.join(subdir, file)
+            rel_path = os.path.relpath(abs_path, path)
+
+            if Path(abs_path) in exclude_paths:
+                continue
+            if keep_manifest_specified_file(rel_path, exclude_paths | directories_to_ignore) and (
+                rel_path in extra_files or not glob_set.matches(abs_path)
+            ):
+                file_set.add(rel_path)
+    return sorted(file_set)
 
 
 def infer_entrypoint(path, mimetype):
@@ -942,25 +925,9 @@ def _create_quarto_file_list(
     excludes = list(excludes) if excludes else []
     excludes.append("manifest.json")
     excludes.extend(list_environment_dirs(directory))
-    glob_set = create_glob_set(directory, excludes)
 
-    file_list = []
-
-    for subdir, dirs, files in os.walk(directory):
-        for file in files:
-            abs_path = os.path.join(subdir, file)
-            rel_path = os.path.relpath(abs_path, directory)
-
-            if keep_manifest_specified_file(rel_path) and (rel_path in extra_files or not glob_set.matches(abs_path)):
-                file_list.append(rel_path)
-                # Don't add extra files more than once.
-                if rel_path in extra_files:
-                    extra_files.remove(rel_path)
-
-    for rel_path in extra_files:
-        file_list.append(rel_path)
-
-    return sorted(file_list)
+    file_list = create_file_list(directory, extra_files, excludes)
+    return file_list
 
 
 def make_quarto_manifest(
@@ -1039,7 +1006,7 @@ def _validate_title(title):
 def _default_title(file_name):
     """
     Produce a default content title from the given file path.  The result is
-    guaranteed to be between 3 and 1024 characters long, as required by RStudio
+    guaranteed to be between 3 and 1024 characters long, as required by Posit
     Connect.
 
     :param file_name: the name from which the title will be derived.
@@ -1218,7 +1185,7 @@ def are_apis_supported_on_server(connect_details):
 
     :param connect_details: details about a Connect server as returned by gather_server_details()
     :return: boolean True if the Connect server supports Python APIs or not or False if not.
-    :error: The RStudio Connect server does not allow for Python APIs.
+    :error: The Posit Connect server does not allow for Python APIs.
     """
     return connect_details["python"]["api_enabled"]
 
@@ -1228,16 +1195,12 @@ def which_python(python, env=os.environ):
 
     In priority order:
     * --python specified on the command line
-    * RETICULATE_PYTHON defined in the environment
     * the python binary running this script
     """
     if python:
         if not (exists(python) and os.access(python, os.X_OK)):
             raise RSConnectException('The file, "%s", does not exist or is not executable.' % python)
         return python
-
-    if "RETICULATE_PYTHON" in env:
-        return os.path.expanduser(env["RETICULATE_PYTHON"])
 
     return sys.executable
 
@@ -1374,6 +1337,14 @@ def write_notebook_manifest_json(
             raise RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
 
     manifest_data = make_source_manifest(app_mode, environment, file_name, None, image)
+    if hide_all_input or hide_tagged_input:
+        if "jupyter" not in manifest_data:
+            manifest_data["jupyter"] = dict()
+        if hide_all_input:
+            manifest_data["jupyter"]["hide_all_input"] = True
+        if hide_tagged_input:
+            manifest_data["jupyter"]["hide_tagged_input"] = True
+
     manifest_add_file(manifest_data, file_name, directory)
     manifest_add_buffer(manifest_data, environment.filename, environment.contents)
 
