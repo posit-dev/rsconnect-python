@@ -748,57 +748,6 @@ def make_html_bundle(
     return bundle_file
 
 
-def create_file_list(
-    path: str,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
-) -> typing.List[str]:
-
-    """
-    Create a file list from extras and excludes. Excludes any existing manifest.json.
-
-    :param path: the file, or the directory containing the files to deploy.
-    :param entry_point: the main entry point for the API.
-    :param extra_files: a sequence of any extra files to include in the bundle.
-    :param excludes: a sequence of glob patterns that will exclude matched files.
-    :return: a list of the files involved.
-    """
-    extra_files = list(extra_files) if extra_files else []
-    excludes = list(excludes) if excludes else []
-
-    if path.startswith(os.curdir):
-        path = relpath(path)
-    extra_files = [relpath(f) if isfile(f) and f.startswith(os.curdir) else f for f in extra_files]
-
-    # exclude environment directories and manifest
-    if is_environment_dir(path):
-        excludes += ["bin/", "lib/"]
-    excludes.append("manifest.json")
-    if isdir(path):
-        excludes.extend(list_environment_dirs(path))
-    glob_set = create_glob_set(path, excludes)
-
-    file_list = []
-
-    for rel_path in extra_files:
-        file_list.append(rel_path)
-
-    if isfile(path):
-        file_list.append(path)
-    else:
-        for subdir, dirs, files in os.walk(path):
-            for file in files:
-                abs_path = os.path.join(subdir, file)
-                rel_path = os.path.relpath(abs_path, path)
-
-                if keep_manifest_specified_file(rel_path) and (
-                    rel_path in extra_files or not glob_set.matches(abs_path)
-                ):
-                    file_list.append(rel_path)
-
-    return sorted(set(file_list))
-
-
 def make_voila_bundle(
     path: str,
     entrypoint: str,
