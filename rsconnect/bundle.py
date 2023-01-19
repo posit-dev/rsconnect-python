@@ -1080,16 +1080,12 @@ def which_python(python, env=os.environ):
 
     In priority order:
     * --python specified on the command line
-    * RETICULATE_PYTHON defined in the environment
     * the python binary running this script
     """
     if python:
         if not (exists(python) and os.access(python, os.X_OK)):
             raise RSConnectException('The file, "%s", does not exist or is not executable.' % python)
         return python
-
-    if "RETICULATE_PYTHON" in env:
-        return os.path.expanduser(env["RETICULATE_PYTHON"])
 
     return sys.executable
 
