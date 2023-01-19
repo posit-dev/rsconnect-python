@@ -4,9 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.14.0] - 2023-01-19
+
+### Changed
+- You can now redeploy to a content with an "unknown" app mode. A content item's app mode is "unknown" if it was created, but never deployed to, or its deployment failed before an app mode could be determined.
 
 ### Removed
+
+- Python 3.5 & 3.6 support.
 
 - `rsconnect-python` no longer considers the `RETICULATE_PYTHON` environment variable.
   In environments where `RETICULATE_PYTHON` is set outside a project context (e.g. by a Posit Workbench administrator),
