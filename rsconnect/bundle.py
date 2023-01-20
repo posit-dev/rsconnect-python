@@ -54,6 +54,97 @@ directories_to_ignore = {Path(d) for d in directories_ignore_list}
 mimetypes.add_type("text/ipynb", ".ipynb")
 
 
+class Manifest:
+    def __init__(self, *args, **kwargs) -> None:
+        self.data = dict()
+        version = kwargs.get("version")
+        environment = kwargs.get("environment")
+        app_mode = kwargs.get("app_mode")
+        entrypoint = kwargs.get("entrypoint")
+        quarto_inspection = kwargs.get("quarto_inspection")
+        environment = kwargs.get("environment")
+        image = kwargs.get("image")
+
+        self.data["version"] = version if version else 1
+        if environment:
+            self.data["locale"] = environment.locale
+
+        self.data["metadata"] = (
+            {
+                "appmode": app_mode.name(),
+            }
+            if app_mode
+            else {
+                "appmode": AppModes.UNKNOWN,
+            }
+        )
+
+        if entrypoint:
+            self.data["metadata"]["entrypoint"] = entrypoint
+
+        if quarto_inspection:
+            self.data["quarto"] = {
+                "version": quarto_inspection.get("quarto", {}).get("version", "99.9.9"),
+                "engines": quarto_inspection.get("engines", []),
+            }
+            project_config = quarto_inspection.get("config", {}).get("project", {})
+            render_targets = project_config.get("render", [])
+            if len(render_targets):
+                self.data["metadata"]["primary_rmd"] = render_targets[0]
+            project_type = project_config.get("type", None)
+            if project_type or len(render_targets) > 1:
+                self.data["metadata"]["content_category"] = "site"
+
+        if environment:
+            package_manager = environment.package_manager
+            self.data["python"] = {
+                "version": environment.python,
+                "package_manager": {
+                    "name": package_manager,
+                    "version": getattr(environment, package_manager),
+                    "package_file": environment.filename,
+                },
+            }
+
+        if image:
+            self.data["environment"] = {
+                "image": image,
+            }
+
+        self.data["files"] = {}
+
+    @classmethod
+    def from_json(cls, json_str):
+        return cls(json.loads(json_str))
+
+    @classmethod
+    def from_json_file(cls, json_path):
+        with open(json_path) as json_file:
+            return cls(json.load(json_file))
+
+    def json(self):
+        return json.dumps(self.data)
+
+    @property
+    def entrypoint(self):
+        if "entrypoint" in self.data:
+            return self.data["entrypoint"]
+        return None
+
+    @entrypoint.setter
+    def entrypoint(self, value):
+        self.data["entrypoint"] = value
+
+    def add_file(self, path):
+        self.data["files"][path] = {"checksum": file_checksum(path)}
+        return self
+
+    def discard_file(self, path):
+        if path in self.data["files"]:
+            del self.data["files"][path]
+        return self
+
+
 # noinspection SpellCheckingInspection
 def make_source_manifest(
     app_mode: AppMode,
