@@ -889,12 +889,12 @@ def make_voila_bundle(
     extra_files.append(voila_config)
 
     manifest = create_voila_manifest_json(**locals())
-    if manifest.get("files") is None:
-        return
+    if manifest.data.get("files") is None:
+        return None
 
     bundle = Bundle()
-    for f in manifest["files"]:
-        bundle.add(f)
+    for f in manifest.data["files"]:
+        bundle.add_file(f)
     return bundle.to_file()
 
 
