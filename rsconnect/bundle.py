@@ -884,43 +884,18 @@ def make_voila_bundle(
     :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: a file-like object containing the bundle tarball.
     """
-    mimetypes.add_type("text/ipynb", ".ipynb")
     voila_config = "voila.json"
     extra_files = list(extra_files) if extra_files else []
-    excludes = list(excludes) if excludes else []
+    extra_files.append(voila_config)
 
-    entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
-    manifest_data = make_source_manifest(AppModes.JUPYTER_VOILA, environment, entrypoint, None, image)
-    base_dir = dirname(entrypoint)
+    manifest = create_voila_manifest_json(**locals())
+    if manifest.get("files") is None:
+        return
 
-    if isfile(path):
-        validate_file_is_notebook(entrypoint)
-        manifest_add_file(manifest_data, entrypoint, base_dir)
-
-    # handle environment files
-    if not exists(join(base_dir, environment.filename)) or force_generate:
-        write_environment_file(environment, base_dir)
-    manifest_add_buffer(manifest_data, environment.filename, environment.contents)
-
-    excludes.extend(["manifest.json"])
-    file_list = create_file_list(path, extra_files, excludes)
-    for rel_path in file_list:
-        manifest_add_file(manifest_data, rel_path, path)
-
-    bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
-    with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
-        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest_data, indent=2))
-        if exists(join(base_dir, voila_config)):
-            bundle_add_file(bundle, voila_config, base_dir)
-        if isfile(path):
-            bundle_add_file(bundle, environment.filename, base_dir)
-        for rel_path in file_list:
-            bundle_add_file(bundle, rel_path, path)
-
-    # rewind file pointer
-    bundle_file.seek(0)
-
-    return bundle_file
+    bundle = Bundle()
+    for f in manifest["files"]:
+        bundle.add(f)
+    return bundle.to_file()
 
 
 def make_api_bundle(
