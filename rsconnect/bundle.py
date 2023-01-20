@@ -1417,7 +1417,7 @@ def write_notebook_manifest_json(
     return exists(join(directory, environment.filename))
 
 
-def write_voila_manifest_json(
+def create_voila_manifest_json(
     path: str,
     entrypoint: str,
     environment: Environment,
@@ -1426,7 +1426,7 @@ def write_voila_manifest_json(
     excludes: typing.List[str] = None,
     force_generate: bool = True,
     image: str = None,
-) -> bool:
+) -> Manifest:
     """
     Creates and writes a manifest.json file for the given path.
 
@@ -1440,34 +1440,30 @@ def write_voila_manifest_json(
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param force_generate: bool indicating whether to force generate manifest and related environment files.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :return: whether the manifest was written.
+    :return: the manifest data structure.
     """
-    mimetypes.add_type("text/ipynb", ".ipynb")
     extra_files = list(extra_files) if extra_files else []
     excludes = list(excludes) if excludes else []
 
     entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
-    manifest_data = make_source_manifest(AppModes.JUPYTER_VOILA, environment, entrypoint, None, image)
     base_dir = dirname(entrypoint)
+    manifest = Manifest(app_mode=AppModes.JUPYTER_VOILA, environment=environment, entrypoint=entrypoint, image=image)
 
     if isfile(path):
         validate_file_is_notebook(entrypoint)
-        manifest_add_file(manifest_data, entrypoint, base_dir)
+        manifest.entrypoint = entrypoint
 
     # handle environment files
     if not exists(join(base_dir, environment.filename)) or force_generate:
-        write_environment_file(environment, base_dir)
-    manifest_add_buffer(manifest_data, environment.filename, environment.contents)
+        manifest.add_file(join(base_dir, environment.filename))
 
     excludes.extend(["manifest.json"])
     file_list = create_file_list(path, extra_files, excludes)
     for rel_path in file_list:
-        manifest_add_file(manifest_data, rel_path, path)
+        path = join(base_dir, rel_path) if os.path.isdir(base_dir) else rel_path
+        manifest.add_file(path)
 
-    manifest_path = join(base_dir, "manifest.json")
-    write_manifest_json(manifest_path, manifest_data)
-
-    return exists(manifest_path)
+    return manifest
 
 
 def create_api_manifest_and_environment_file(
