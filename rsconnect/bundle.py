@@ -145,6 +145,25 @@ class Manifest:
         return self
 
 
+class Bundle:
+    def __init__(self, *args, **kwargs) -> None:
+        self.file_locations = set()
+
+    def add_file(self, filepath):
+        self.file_locations.add(filepath)
+
+    def discard_file(self, filepath):
+        self.file_locations.discard(filepath)
+
+    def to_file(self):
+        bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
+        with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
+            for file in self.file_locations:
+                bundle.add(file)
+        bundle_file.seek(0)
+        return bundle_file
+
+
 # noinspection SpellCheckingInspection
 def make_source_manifest(
     app_mode: AppMode,
