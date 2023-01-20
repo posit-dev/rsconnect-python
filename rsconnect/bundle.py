@@ -51,6 +51,8 @@ directories_ignore_list = [
 ]
 directories_to_ignore = {Path(d) for d in directories_ignore_list}
 
+mimetypes.add_type("text/ipynb", ".ipynb")
+
 
 # noinspection SpellCheckingInspection
 def make_source_manifest(
