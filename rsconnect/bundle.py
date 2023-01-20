@@ -1466,6 +1466,39 @@ def create_voila_manifest_json(
     return manifest
 
 
+def write_voila_manifest_json(
+    path: str,
+    entrypoint: str,
+    environment: Environment,
+    app_mode: AppMode = AppModes.JUPYTER_VOILA,
+    extra_files: typing.List[str] = None,
+    excludes: typing.List[str] = None,
+    force_generate: bool = True,
+    image: str = None,
+) -> bool:
+    """
+    Creates and writes a manifest.json file for the given path.
+
+    :param path: the file, or the directory containing the files to deploy.
+    :param entry_point: the main entry point for the API.
+    :param environment: the Python environment to start with.  This should be what's
+    returned by the inspect_environment() function.
+    :param app_mode: the application mode to assume.  If this is None, the extension
+    portion of the entry point file name will be used to derive one. Previous default = None.
+    :param extra_files: any extra files that should be included in the manifest. Previous default = None.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param force_generate: bool indicating whether to force generate manifest and related environment files.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :return: whether the manifest was written.
+    """
+    manifest = create_voila_manifest_json(**locals())
+    entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
+    base_dir = dirname(entrypoint)
+    manifest_path = join(base_dir, "manifest.json")
+    write_manifest_json(manifest_path, manifest.data)
+    return exists(manifest_path)
+
+
 def create_api_manifest_and_environment_file(
     directory: str,
     entry_point: str,
