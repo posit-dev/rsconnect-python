@@ -147,7 +147,7 @@ class Manifest:
 
 class Bundle:
     def __init__(self, *args, **kwargs) -> None:
-        self.file_locations = set()
+        self.file_locations: set = set()
 
     def add_file(self, filepath):
         self.file_locations.add(filepath)
