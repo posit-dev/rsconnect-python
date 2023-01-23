@@ -122,6 +122,7 @@ class Manifest:
         with open(json_path) as json_file:
             return cls(json.load(json_file))
 
+    @property
     def json(self):
         return json.dumps(self.data)
 
