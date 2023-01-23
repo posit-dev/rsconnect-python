@@ -128,6 +128,8 @@ class Manifest:
 
     @property
     def entrypoint(self):
+        if "metadata" not in self.data:
+            return None
         if "entrypoint" in self.data["metadata"]:
             return self.data["metadata"]["entrypoint"]
         return None
