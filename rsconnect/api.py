@@ -236,7 +236,10 @@ class RSConnectClient(HTTPServer):
             # assume app exists. if it was deleted then Connect will
             # raise an error
             app = self.app_get(app_id)
-            self._server.handle_bad_response(app)
+            try:
+                self._server.handle_bad_response(app)
+            except RSConnectException as e:
+                raise RSConnectException(f"{e} Try setting the --new flag to overwrite the previous deployment.")
 
         app_guid = app["guid"]
         if env_vars:
