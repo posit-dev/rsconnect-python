@@ -127,13 +127,13 @@ class Manifest:
 
     @property
     def entrypoint(self):
-        if "entrypoint" in self.data:
-            return self.data["entrypoint"]
+        if "entrypoint" in self.data["metadata"]:
+            return self.data["metadata"]["entrypoint"]
         return None
 
     @entrypoint.setter
     def entrypoint(self, value):
-        self.data["entrypoint"] = value
+        self.data["metadata"]["entrypoint"] = value
 
     def add_file(self, path):
         self.data["files"][path] = {"checksum": file_checksum(path)}
