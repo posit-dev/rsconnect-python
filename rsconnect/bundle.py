@@ -139,10 +139,14 @@ class Manifest:
         self.data["metadata"]["entrypoint"] = value
 
     def add_file(self, path):
+        base_dir = dirname(self.entrypoint)
+        path = join(base_dir, path) if os.path.isdir(self.entrypoint) else path
         self.data["files"][path] = {"checksum": file_checksum(path)}
         return self
 
     def discard_file(self, path):
+        base_dir = dirname(self.entrypoint)
+        path = join(base_dir, path) if os.path.isdir(self.entrypoint) else path
         if path in self.data["files"]:
             del self.data["files"][path]
         return self
@@ -891,13 +895,19 @@ def make_voila_bundle(
     extra_files = list(extra_files) if extra_files else []
     extra_files.append(voila_config)
 
-    manifest = create_voila_manifest_json(**locals())
+    manifest = create_voila_manifest(**locals())
     if manifest.data.get("files") is None:
         return None
+    entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
+    base_dir = dirname(entrypoint)
+    manifest_path = join(base_dir, "manifest.json")
+    write_manifest_json(manifest_path, manifest.data)
 
     bundle = Bundle()
     for f in manifest.data["files"]:
         bundle.add_file(f)
+    bundle.add_file(manifest_path)
+
     return bundle.to_file()
 
 
@@ -1395,7 +1405,7 @@ def write_notebook_manifest_json(
     return exists(join(directory, environment.filename))
 
 
-def create_voila_manifest_json(
+def create_voila_manifest(
     path: str,
     entrypoint: str,
     environment: Environment,
@@ -1404,6 +1414,7 @@ def create_voila_manifest_json(
     excludes: typing.List[str] = None,
     force_generate: bool = True,
     image: str = None,
+    **kwargs
 ) -> Manifest:
     """
     Creates and writes a manifest.json file for the given path.
@@ -1469,7 +1480,7 @@ def write_voila_manifest_json(
     :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: whether the manifest was written.
     """
-    manifest = create_voila_manifest_json(**locals())
+    manifest = create_voila_manifest(**locals())
     entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
     base_dir = dirname(entrypoint)
     manifest_path = join(base_dir, "manifest.json")
