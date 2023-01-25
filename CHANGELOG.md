@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- The `--cacert` option now supports certificate files encoded in the Distinguished Encoding Rules (DER) binary format. Certificate files with DER encoding must end in a `.cer` or `.der` suffix.
+
+### Changed
+
+- The `--cacert` option now requires that Privacy Enhanced Mail (PEM) formatted certificate files end in a `.ca-bundle`, `.crt`, `.key`, or `.pem` suffix. 
+
 ## [1.14.0] - 2023-01-19
 
 ### Changed
