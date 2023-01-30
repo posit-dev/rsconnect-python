@@ -646,13 +646,6 @@ class TestBundle(TestCase):
         finally:
             shutil.rmtree(directory)
 
-    def test_which_python(self):
-        with self.assertRaises(RSConnectException):
-            which_python("fake.file")
-
-        self.assertEqual(which_python(sys.executable), sys.executable)
-        self.assertEqual(which_python(None), sys.executable)
-
     def test_default_title(self):
         self.assertEqual(_default_title("testing.txt"), "testing")
         self.assertEqual(_default_title("this.is.a.test.ext"), "this.is.a.test")
@@ -781,3 +774,30 @@ def test_get_python_env_info(
 
         assert python == expected_python
         assert environment == expected_environment
+
+
+class WhichPythonTestCase(TestCase):
+    def test_default(self):
+        self.assertEqual(which_python(), sys.executable)
+
+    def test_none(self):
+        self.assertEqual(which_python(None), sys.executable)
+
+    def test_sys(self):
+        self.assertEqual(which_python(sys.executable), sys.executable)
+
+    def test_does_not_exist(self):
+        with tempfile.NamedTemporaryFile() as tmpfile:
+            name = tmpfile.name
+        with self.assertRaises(RSConnectException):
+            which_python(name)
+
+    def test_is_directory(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with self.assertRaises(RSConnectException):
+                which_python(tmpdir)
+
+    def test_is_not_executable(self):
+        with tempfile.NamedTemporaryFile() as tmpfile:
+            with self.assertRaises(RSConnectException):
+                which_python(tmpfile.name)
