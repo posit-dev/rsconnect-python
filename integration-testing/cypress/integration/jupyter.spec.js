@@ -13,13 +13,17 @@ describe('Jupyter Loads', () => {
     cy.get('a[id="rsc-add-server"]').should('be.visible');
     cy.wait(500);
     cy.get('a[id="rsc-add-server"]').click({ force: true });
-    
+    cy.wait(5000);
     cy.get('input[id="rsc-server"]').click();
+    cy.wait(10);
     cy.get('input[id="rsc-server"]').type('http://localhost:3939{enter}')
     cy.get('input[id="rsc-api-key"]').click();
+    cy.wait(50);
     cy.get('input[id="rsc-api-key"]').type('21232f297a57a5a743894a0e4a801fc3{enter}');
     cy.get('input[id="rsc-servername"]').click();
+    cy.wait(10);
     cy.get('input[id="rsc-servername"]').type('localhost{enter}');
+    cy.wait(10);
     cy.get('a[class="btn btn-primary"]').contains(' Add Server').click();
     cy.wait(5000);
   });
