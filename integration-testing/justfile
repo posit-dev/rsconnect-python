@@ -1,0 +1,65 @@
+
+export RSC_LICENSE := env_var_or_default("RSC_LICENSE", "$CONNECT_LICENSE")
+
+all:
+	just run-client run-connect run-cypress
+
+build:
+	docker-compose build
+
+up: 
+	docker-compose up
+
+run-client:
+	docker-compose run -d --rm -p 9999:9999 \
+		client \
+			python -m venv ./client-python/ &&\
+			. ./client-python/bin/activate && \
+			pip install --upgrade pip && \
+			pip install -r docker/requirements.txt && \
+			pip install pipenv && \
+			cd ../ && \
+			make deps dist && \
+			pip install ./dist/rsconnect_python-*.whl && \
+			rsconnect version && \
+			nohup just integration-testing/run-notebook
+		
+# run-client:
+# 	docker-compose run -d -p 9999:9999 \
+# 		client \
+# 			touch new-file.txt
+
+run-notebook:
+	jupyter-nbextension install --sys-prefix --py rsconnect_jupyter && \
+	jupyter-nbextension enable --sys-prefix --py rsconnect_jupyter && \
+	jupyter-serverextension enable --sys-prefix --py rsconnect_jupyter && \
+	jupyter-notebook \
+		-y --ip='0.0.0.0' --port=9999 --hostname jupyter --no-browser --NotebookApp.token='' --allow-root &
+
+run-connect:
+	docker-compose run -d --rm \
+		-p 3939:3939 \
+		-e RSC_LICENSE=$CONNECT_LICENSE \
+		connect
+	
+
+run-cypress:
+	docker-compose run --rm \
+		cypress \
+			cypress run --browser chrome \
+				--env host=$HOSTNAME
+
+bash-cypress:
+    docker-compose run --rm cypress \
+        /bin/bash
+
+bash-client:
+    docker-compose run --rm client \
+        /bin/bash
+
+bash-connect:
+    docker-compose run --rm connect \
+        /bin/bash
+stop:
+	docker-compose down --volumes --remove-orphans && \
+	rm -rf ../dist/rsconnect_python-*.whl

@@ -1,0 +1,48 @@
+
+version: '2.1'
+
+services:
+  client:
+    hostname: client
+    build: 
+      context: ./docker
+      dockerfile: client.Dockerfile
+    volumes:
+      - ../:/rsconnect-python
+    working_dir: /rsconnect-python/integration-testing
+    environment:
+      API_KEY: ${ADMIN_API_KEY}
+      CONNECT_SERVER: ${CONNECT_SERVER}
+      RSC_AUTOMATION_PAT: ${RSC_AUTOMATION_PAT}
+
+  connect:
+    image: rstudio/rstudio-connect:latest
+    restart: always
+    ports:
+      - 3939:3939
+    volumes:
+      - $PWD/docker/rstudio-connect.gcfg:/etc/rstudio-connect/rstudio-connect.gcfg
+    privileged: true
+    environment:
+      RSTUDIO_CONNECT_HASTE: "enabled"
+      RSC_LICENSE: ${CONNECT_LICENSE}
+
+  cypress:
+    image: cypress/included:9.7.0
+    depends_on:
+      - client
+    build: 
+      context: ./docker
+      dockerfile: cypress.Dockerfile
+    volumes:
+      - ../:/rsconnect-python
+    working_dir: /rsconnect-python/integration-testing/
+    environment:
+      CYPRESS_BASE_URL: ${CONNECT_SERVER}
+      JUPYTER_URL: http://0.0.0.0:9999
+      PY_VERSION: ${PY_VERSION}
+      API_KEY: ${ADMIN_API_KEY}
+      TEST_SUBSET: ${TEST_SUBSET}
+      USE_PREFIX: ${USE_PREFIX}
+      PYTHON_BUILD: ${PYTHON_BUILD}
+    entrypoint: ''
