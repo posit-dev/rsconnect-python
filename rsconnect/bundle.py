@@ -1441,6 +1441,8 @@ def create_voila_manifest(
     if isfile(path):
         validate_file_is_notebook(entrypoint)
         manifest.entrypoint = entrypoint
+    else:
+        manifest.entrypoint = "" if not entrypoint else entrypoint  # multi-notebook mode
 
     # handle environment files
     if not exists(join(base_dir, environment.filename)) or force_generate:
