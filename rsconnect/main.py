@@ -6,9 +6,11 @@ import traceback
 import typing
 import textwrap
 import click
-from six import text_type
 from os.path import abspath, dirname, exists, isdir, join
 from functools import wraps
+
+from rsconnect.certificates import read_certificate_file
+
 from .environment import EnvironmentException
 from .exception import RSConnectException
 from .actions import (
@@ -131,7 +133,7 @@ def server_args(func):
         "--cacert",
         "-c",
         envvar="CONNECT_CA_CERTIFICATE",
-        type=click.File(),
+        type=click.Path(exists=True, file_okay=True, dir_okay=False),
         help="The path to trusted TLS CA certificates.",
     )
     @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
@@ -271,7 +273,7 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
     :return: a tuple containing an appropriate ConnectServer object and the username
     of the user the API key represents (or None, if no key was provided).
     """
-    ca_data = ca_cert and text_type(ca_cert.read())
+    ca_data = ca_cert and ca_cert.read()
     me = None
 
     with cli_feedback("Checking %s" % server):
@@ -314,7 +316,7 @@ def _test_rstudio_creds(server: api.PositServer):
     "--cacert",
     "-c",
     envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
     help="The path to trusted TLS CA certificates.",
 )
 @click.option(
@@ -346,7 +348,10 @@ def bootstrap(
     logger.debug("Generated JWT:\n" + bootstrap_token)
 
     logger.debug("Insecure: " + str(insecure))
-    ca_data = cacert and text_type(cacert.read())
+
+    ca_data = None
+    if cacert:
+        ca_data = read_certificate_file(cacert)
 
     with cli_feedback("", stderr=True):
         connect_server = RSConnectServer(
@@ -400,7 +405,7 @@ def bootstrap(
     "--cacert",
     "-c",
     envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
     help="The path to trusted TLS CA certificates.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
@@ -1853,7 +1858,7 @@ def content():
     "--cacert",
     "-c",
     envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
     help="The path to trusted TLS CA certificates.",
 )
 @click.option(
@@ -1947,7 +1952,7 @@ def content_search(
     "--cacert",
     "-c",
     envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
     help="The path to trusted TLS CA certificates.",
 )
 @click.option(
@@ -1998,7 +2003,7 @@ def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     "--cacert",
     "-c",
     envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
     help="The path to trusted TLS CA certificates.",
 )
 @click.option(
@@ -2067,7 +2072,7 @@ def build():
     "--cacert",
     "-c",
     envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
     help="The path to trusted TLS CA certificates.",
 )
 @click.option(
@@ -2121,7 +2126,7 @@ def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
     "--cacert",
     "-c",
     envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
     help="The path to trusted TLS CA certificates.",
 )
 @click.option(
@@ -2184,7 +2189,7 @@ def remove_content_build(name, server, api_key, insecure, cacert, guid, all, pur
     "--cacert",
     "-c",
     envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
     help="The path to trusted TLS CA certificates.",
 )
 @click.option("--status", type=click.Choice(BuildStatus._all), help="Filter results by status of the build operation.")
@@ -2232,7 +2237,7 @@ def list_content_build(name, server, api_key, insecure, cacert, status, guid, ve
     "--cacert",
     "-c",
     envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
     help="The path to trusted TLS CA certificates.",
 )
 @click.option(
@@ -2283,7 +2288,7 @@ def get_build_history(name, server, api_key, insecure, cacert, guid, verbose):
     "--cacert",
     "-c",
     envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
     help="The path to trusted TLS CA certificates.",
 )
 @click.option(
@@ -2346,7 +2351,7 @@ def get_build_logs(name, server, api_key, insecure, cacert, guid, task_id, forma
     "--cacert",
     "-c",
     envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
     help="The path to trusted TLS CA certificates.",
 )
 @click.option(

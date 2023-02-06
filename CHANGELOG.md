@@ -6,7 +6,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The `--cacert` option now supports certificate files encoded in the Distinguished Encoding Rules (DER) binary format. Certificate files with DER encoding must end in a `.cer` or `.der` suffix.
+- The `--python` option now provides additional user guidance when an invalid path is provided.
+
+### Changed
+
+- The `--cacert` option now requires that Privacy Enhanced Mail (PEM) formatted certificate files end in a `.ca-bundle`, `.crt`, `.key`, or `.pem` suffix. 
+
+## [1.14.0] - 2023-01-19
+
+### Changed
+- You can now redeploy to a content with an "unknown" app mode. A content item's app mode is "unknown" if it was created, but never deployed to, or its deployment failed before an app mode could be determined.
+
 ### Removed
+
+- Python 3.5 & 3.6 support.
 
 - `rsconnect-python` no longer considers the `RETICULATE_PYTHON` environment variable.
   In environments where `RETICULATE_PYTHON` is set outside a project context (e.g. by a Posit Workbench administrator),
