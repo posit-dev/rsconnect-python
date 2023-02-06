@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - The `--cacert` option now supports certificate files encoded in the Distinguished Encoding Rules (DER) binary format. Certificate files with DER encoding must end in a `.cer` or `.der` suffix.
+- The `--python` option now provides additional user guidance when an invalid path is provided.
 
 ### Changed
 
