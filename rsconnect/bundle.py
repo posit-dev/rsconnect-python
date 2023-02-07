@@ -794,7 +794,7 @@ def create_file_list(
 
     if isfile(path):
         file_set.add(path)
-        return sorted(file_set)
+        return sorted(file_set - set(excludes))
 
     for subdir, dirs, files in os.walk(path):
         if Path(subdir) in exclude_paths:
