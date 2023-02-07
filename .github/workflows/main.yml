@@ -177,9 +177,9 @@ jobs:
     name: "Test rsconnect-jupyter"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: extractions/setup-just@v1
       - name: Run Cypress Tests
+        uses: actions/checkout@v2
+        uses: extractions/setup-just@v1
         run: |
             just integration-testing/build
             just integration-testing/up
