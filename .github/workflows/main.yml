@@ -180,7 +180,7 @@ jobs:
       - name: Run Cypress Tests
       - uses: actions/checkout@v2
       - uses: extractions/setup-just@v1
-        run: |
+      - run: |
             just integration-testing/build
             just integration-testing/up
             just integration-testing/up-cypress
