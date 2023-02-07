@@ -794,7 +794,7 @@ def create_file_list(
 
     if isfile(path):
         file_set.add(path)
-        return sorted(file_set - set(excludes))
+        return sorted(file_set)
 
     for subdir, dirs, files in os.walk(path):
         if Path(subdir) in exclude_paths:
@@ -890,19 +890,15 @@ def make_voila_bundle(
     :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: a file-like object containing the bundle tarball.
     """
+    voila_config = "voila.json"
     extra_files = list(extra_files) if extra_files else []
-
-    entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
-    base_dir = dirname(entrypoint)
-
-    voila_json_path = join(base_dir, "voila.json")
-    if os.path.isfile(voila_json_path):
-        extra_files.append(voila_json_path)
+    extra_files.append(voila_config)
 
     manifest = create_voila_manifest(**locals())
     if manifest.data.get("files") is None:
         return None
-
+    entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
+    base_dir = dirname(entrypoint)
     manifest_path = join(base_dir, "manifest.json")
     write_manifest_json(manifest_path, manifest.data)
 
@@ -1082,7 +1078,7 @@ def validate_file_is_notebook(file_name):
         raise RSConnectException("A Jupyter notebook (.ipynb) file is required here.")
 
 
-def validate_extra_files_(directory, extra_files):
+def validate_extra_files(directory, extra_files):
     """
     If the user specified a list of extra files, validate that they all exist and are
     beneath the given directory and, if so, return a list of them made relative to that
@@ -1103,26 +1099,6 @@ def validate_extra_files_(directory, extra_files):
             if not exists(join(directory, extra_file)):
                 raise RSConnectException("Could not find file %s under %s" % (extra, directory))
             result.append(extra_file)
-    return result
-
-
-def validate_extra_files(path, extra_files):
-    """
-    If the path is a directory, validate that extra files all exist and are
-    beneath the given directory.
-    In the case that the path is a file, use the directory of the file for validation.
-
-    :param path: a file or directory that the extra files must be relative to.
-    :param extra_files: the list of extra files to qualify and validate.
-    :return: the extra files qualified by the directory.
-    """
-    result = []
-    if extra_files:
-        base_dir = path if isdir(path) else dirname(path)
-        for extra in extra_files:
-            if Path(extra).parent != Path(base_dir):
-                raise RSConnectException(f"{extra} must be under {base_dir}.")
-            result.append(extra)
     return result
 
 
@@ -1479,7 +1455,9 @@ def create_voila_manifest(
     excludes.extend(["manifest.json"])
     file_list = create_file_list(path, extra_files, excludes)
     for rel_path in file_list:
-        manifest.add_file(rel_path)
+        path = join(base_dir, rel_path) if os.path.isdir(base_dir) else rel_path
+        manifest.add_file(path)
+
     return manifest
 
 
