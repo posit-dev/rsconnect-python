@@ -63,4 +63,4 @@ stop:
 
 rm-config:
 	docker compose exec -it client \
-		rm -rf /root/.jupyter && \
+		rm -rf /root/.jupyter
