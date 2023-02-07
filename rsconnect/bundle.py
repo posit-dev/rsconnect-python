@@ -170,19 +170,29 @@ class Manifest:
 
 class Bundle:
     def __init__(self, *args, **kwargs) -> None:
-        self.file_locations: set = set()
+        self.file_paths: set = set()
+        self._deploy_dir = None
+
+    @property
+    def deploy_dir(self):
+        return self._deploy_dir
+
+    @deploy_dir.setter
+    def deploy_dir(self, value):
+        self._deploy_dir = value
 
     def add_file(self, filepath):
-        self.file_locations.add(filepath)
+        self.file_paths.add(filepath)
 
     def discard_file(self, filepath):
-        self.file_locations.discard(filepath)
+        self.file_paths.discard(filepath)
 
-    def to_file(self):
+    def to_file(self, flatten_to_deploy_dir=True):
         bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
         with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
-            for file in self.file_locations:
-                bundle.add(file)
+            for fp in self.file_paths:
+                rel_path = Path(fp).relative_to(self.deploy_dir) if flatten_to_deploy_dir else None
+                bundle.add(fp, arcname=rel_path)
         bundle_file.seek(0)
         return bundle_file
 
@@ -926,7 +936,7 @@ def make_voila_bundle(
     for f in manifest.data["files"]:
         bundle.add_file(f)
     bundle.add_file(manifest_path)
-
+    bundle.deploy_dir = dirname(entrypoint)
     return bundle.to_file()
 
 
