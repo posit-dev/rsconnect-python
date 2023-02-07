@@ -180,40 +180,40 @@ jobs:
       - uses: actions/checkout@v2
       - uses: extractions/setup-just@v1
       - name: Build Services
-        env:
-          ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
-          RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           just integration-testing/build
-          
-      # - uses: actions/checkout@v2
-      # - uses: extractions/setup-just@v1
-      - name: Run Cypress Tests
         env:
           ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
           RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/checkout@v2
+      - uses: extractions/setup-just@v1
+      - name: Run Cypress Tests
         run: |
             just integration-testing/up
             just integration-testing/up-cypress
+        env:
+          ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+          RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Videos are captured whether the suite fails or passes
-      - uses: actions/upload-artifact@v3
-      - name: Save videos
-        if: failure()
-        with:
-          name: cypress-videos_${{ matrix.PY_VERSION }}_native
-          path: integration-testing/cypress/videos
-          if-no-files-found: ignore
-          retention-days: 1
+      # - uses: actions/upload-artifact@v3
+      # - name: Save videos
+      #   if: failure()
+      #   with:
+      #     name: cypress-videos_${{ matrix.PY_VERSION }}_native
+      #     path: integration-testing/cypress/videos
+      #     if-no-files-found: ignore
+      #     retention-days: 1
 
-        # Screenshots are only captured on failure
-      - uses: actions/upload-artifact@v3
-      - name: Save screenshots
-        if: failure()
-        with:
-          name: cypress-screenshots_${{ matrix.PY_VERSION }}_native
-          path: integration-testing/cypress/screenshots
-          if-no-files-found: ignore
-          retention-days: 1
+      #   # Screenshots are only captured on failure
+      # - uses: actions/upload-artifact@v3
+      # - name: Save screenshots
+      #   if: failure()
+      #   with:
+      #     name: cypress-screenshots_${{ matrix.PY_VERSION }}_native
+      #     path: integration-testing/cypress/screenshots
+      #     if-no-files-found: ignore
+      #     retention-days: 1
