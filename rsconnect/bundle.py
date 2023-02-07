@@ -1116,14 +1116,13 @@ def validate_extra_files(path, extra_files):
     :param extra_files: the list of extra files to qualify and validate.
     :return: the extra files qualified by the directory.
     """
-    base_dir = path
-    if isfile(path):
-        base_dir = dirname(path)
     result = []
-    for extra in extra_files:
-        if Path(extra).parent != Path(base_dir):
-            raise RSConnectException(f"{extra} must be under {base_dir}.")
-        result.append(extra)
+    if extra_files:
+        base_dir = path if isdir(path) else dirname(path)
+        for extra in extra_files:
+            if Path(extra).parent != Path(base_dir):
+                raise RSConnectException(f"{extra} must be under {base_dir}.")
+            result.append(extra)
     return result
 
 
