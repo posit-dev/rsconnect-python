@@ -612,7 +612,7 @@ class TestBundle(TestCase):
         self.assertEqual(validate_extra_files(directory, []), [])
         self.assertEqual(
             validate_extra_files(directory, [join(directory, "index.htm")]),
-            ["index.htm"],
+            [os.path.join(directory, "index.htm")],
         )
 
     def test_validate_title(self):
