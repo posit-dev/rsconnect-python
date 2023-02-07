@@ -179,21 +179,21 @@ jobs:
       - name: Build Services
       - uses: actions/checkout@v2
       - uses: extractions/setup-just@v1
-        env: 
+        env:
           ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
           RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
+      - run: |
           just integration-testing/build
 
       - name: Run Cypress Tests
-        env: 
+        env:
           ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
           RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@v2
       - uses: extractions/setup-just@v1
-        run: |
+      - run: |
             just integration-testing/up && just integration-testing/up-cypress
         
       # Videos are captured whether the suite fails or passes
