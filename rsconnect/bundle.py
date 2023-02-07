@@ -1102,6 +1102,27 @@ def validate_extra_files_(directory, extra_files):
     return result
 
 
+def validate_extra_files(path, extra_files):
+    """
+    If the path is a directory, validate that extra files all exist and are
+    beneath the given directory.
+    In the case that the path is a file, use the directory of the file for validation.
+
+    :param path: a file or directory that the extra files must be relative to.
+    :param extra_files: the list of extra files to qualify and validate.
+    :return: the extra files qualified by the directory.
+    """
+    base_dir = path
+    if isfile(path):
+        base_dir = dirname(path)
+    result = []
+    for extra in extra_files:
+        if Path(extra).parent != Path(base_dir):
+            raise RSConnectException(f"{extra} must be under {base_dir}.")
+        result.append(extra)
+    return result
+
+
 def validate_manifest_file(file_or_directory):
     """
     Validates that the name given represents either an existing manifest.json file or
