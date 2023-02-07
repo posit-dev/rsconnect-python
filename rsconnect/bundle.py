@@ -1480,9 +1480,7 @@ def create_voila_manifest(
     excludes.extend(["manifest.json"])
     file_list = create_file_list(path, extra_files, excludes)
     for rel_path in file_list:
-        path = join(base_dir, rel_path) if os.path.isdir(base_dir) else rel_path
-        manifest.add_file(path)
-
+        manifest.add_file(rel_path)
     return manifest
 
 
