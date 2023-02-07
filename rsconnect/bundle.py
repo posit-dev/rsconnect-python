@@ -16,6 +16,7 @@ from pprint import pformat
 from collections import defaultdict
 from mimetypes import guess_type
 from pathlib import Path
+from copy import deepcopy
 import click
 
 
@@ -139,17 +140,32 @@ class Manifest:
         self.data["metadata"]["entrypoint"] = value
 
     def add_file(self, path):
-        base_dir = dirname(self.entrypoint)
-        path = join(base_dir, path) if os.path.isdir(self.entrypoint) else path
         self.data["files"][path] = {"checksum": file_checksum(path)}
         return self
 
     def discard_file(self, path):
-        base_dir = dirname(self.entrypoint)
-        path = join(base_dir, path) if os.path.isdir(self.entrypoint) else path
         if path in self.data["files"]:
             del self.data["files"][path]
         return self
+
+    def make_relative_to_deploy_dir(self):
+        rel_paths = {}
+        for path in self.data["files"]:
+            rel_path = os.path.relpath(path, dirname(self.entrypoint))
+            rel_paths[rel_path] = self.data["files"][path]
+        self.data["files"] = rel_paths
+        self.entrypoint = os.path.relpath(self.entrypoint, dirname(self.entrypoint))
+        return self
+
+    def stage_to_deploy(self):
+        new_manifest = deepcopy(self)
+        new_data_files = {}
+        for path in self.data["files"]:
+            rel_path = os.path.relpath(path, dirname(self.entrypoint))
+            new_data_files[rel_path] = self.data["files"][path]
+        new_manifest.data["files"] = new_data_files
+        new_manifest.entrypoint = os.path.relpath(self.entrypoint, dirname(self.entrypoint))
+        return new_manifest
 
 
 class Bundle:
@@ -904,7 +920,7 @@ def make_voila_bundle(
         return None
 
     manifest_path = join(base_dir, "manifest.json")
-    write_manifest_json(manifest_path, manifest.data)
+    write_manifest_json(manifest_path, manifest.stage_to_deploy().data)
 
     bundle = Bundle()
     for f in manifest.data["files"]:
