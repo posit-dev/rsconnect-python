@@ -35,9 +35,9 @@ services:
 
   cypress:
     image: cypress/included:9.7.0
-    depends_on:
-      client:
-        condition: service_healthy
+    # depends_on:
+    #   client:
+    #     condition: service_healthy
     build: 
       context: ./docker
       dockerfile: cypress.Dockerfile
