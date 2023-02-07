@@ -7,7 +7,7 @@ services:
     hostname: client
     healthcheck:
       test: ["CMD", "curl", "-f", "http://client:9999/tree"]
-      interval: 5s
+      interval: 40s
       timeout: 3s
       retries: 30
     ports:
