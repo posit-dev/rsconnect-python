@@ -890,15 +890,19 @@ def make_voila_bundle(
     :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: a file-like object containing the bundle tarball.
     """
-    voila_config = "voila.json"
     extra_files = list(extra_files) if extra_files else []
-    extra_files.append(voila_config)
+
+    entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
+    base_dir = dirname(entrypoint)
+
+    voila_json_path = join(base_dir, "voila.json")
+    if os.path.isfile(voila_json_path):
+        extra_files.append(voila_json_path)
 
     manifest = create_voila_manifest(**locals())
     if manifest.data.get("files") is None:
         return None
-    entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
-    base_dir = dirname(entrypoint)
+
     manifest_path = join(base_dir, "manifest.json")
     write_manifest_json(manifest_path, manifest.data)
 
