@@ -186,8 +186,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           just integration-testing/build
-      - uses: actions/checkout@v2
-      - uses: extractions/setup-just@v1
       - name: Run Cypress Tests
         env:
           ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
@@ -196,7 +194,7 @@ jobs:
         run: |
             just integration-testing/up
             just integration-testing/up-cypress
-                    
+
       # Videos are captured whether the suite fails or passes
       - uses: actions/upload-artifact@v3
       - name: Save videos
