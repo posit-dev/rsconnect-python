@@ -786,15 +786,15 @@ def create_file_list(
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :return: the list of relevant files, relative to the given directory.
     """
-    extra_files = extra_files or []
-    excludes = excludes if excludes else []
+    extra_files = set(extra_files) if extra_files else set()
+    excludes = set(excludes) if excludes else set()
     glob_set = create_glob_set(path, excludes)
     exclude_paths = {Path(p) for p in excludes}
     file_set = set(extra_files)  # type: typing.Set[str]
 
     if isfile(path):
         file_set.add(path)
-        return sorted(file_set)
+        return sorted(file_set - excludes)
 
     for subdir, dirs, files in os.walk(path):
         if Path(subdir) in exclude_paths:
