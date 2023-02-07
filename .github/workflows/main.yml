@@ -178,8 +178,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run Cypress Tests
-        uses: actions/checkout@v2
-        uses: extractions/setup-just@v1
+      - uses: actions/checkout@v2
+      - uses: extractions/setup-just@v1
         run: |
             just integration-testing/build
             just integration-testing/up
