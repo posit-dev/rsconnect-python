@@ -176,27 +176,26 @@ jobs:
   test-jupyter:
     runs-on: ubuntu-latest
     steps:
-    - name: Build Services
+      - name: Build Services
       - uses: actions/checkout@v2
       - uses: extractions/setup-just@v1
-      - name: Build Docker Images
-      env: 
-        ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
-        RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        just integration-testing/build
+        env: 
+          ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+          RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          just integration-testing/build
 
-    - name: Run Cypress Tests
-      env: 
-        ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
-        RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        - uses: actions/checkout@v2
-        - uses: extractions/setup-just@v1
-      run: |
-          just integration-testing/up && just integration-testing/up-cypress
-      
+      - name: Run Cypress Tests
+        env: 
+          ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+          RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v2
+      - uses: extractions/setup-just@v1
+        run: |
+            just integration-testing/up && just integration-testing/up-cypress
+        
       # Videos are captured whether the suite fails or passes
       - uses: actions/upload-artifact@v3
       - name: Save videos
@@ -207,7 +206,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 1
 
-      # Screenshots are only captured on failure
+        # Screenshots are only captured on failure
       - uses: actions/upload-artifact@v3
       - name: Save screenshots
         if: failure()
