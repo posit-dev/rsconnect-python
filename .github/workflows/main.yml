@@ -172,3 +172,38 @@ jobs:
       - name: Run tests
         run: |
           pytest -m 'vetiver'
+  
+  test-jupyter:
+    name: "Test rsconnect-jupyter"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: extractions/setup-just@v1
+      - name: Build Docker Images
+        env: 
+          ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+          RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          run: just integration-testing/build
+      - name: Start Servers and Run Cypress Tests
+        run: just integration-testing/up && just integration-testing/up-cypress
+      
+      # Videos are captured whether the suite fails or passes
+      - name: Save videos
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: cypress-videos_${{ matrix.PY_VERSION }}_native
+          path: integration-testing/cypress/videos
+          if-no-files-found: ignore
+          retention-days: 1
+
+      # Screenshots are only captured on failure
+      - name: Save screenshots
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: cypress-screenshots_${{ matrix.PY_VERSION }}_native
+          path: integration-testing/cypress/screenshots
+          if-no-files-found: ignore
+          retention-days: 1

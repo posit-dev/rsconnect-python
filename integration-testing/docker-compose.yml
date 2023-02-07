@@ -1,21 +1,27 @@
 
-version: '2.1'
+version: '3'
 
 services:
   client:
+    image: client
     hostname: client
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://client:9999/tree"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    ports:
+      - 9999:9999
     build: 
       context: ./docker
       dockerfile: client.Dockerfile
     volumes:
-      - ../:/rsconnect-python
+      - ../:/rsconnect-python 
     working_dir: /rsconnect-python/integration-testing
-    environment:
-      API_KEY: ${ADMIN_API_KEY}
-      CONNECT_SERVER: ${CONNECT_SERVER}
-      RSC_AUTOMATION_PAT: ${RSC_AUTOMATION_PAT}
+    entrypoint: ''
 
   connect:
+    hostname: connect
     image: rstudio/rstudio-connect:latest
     restart: always
     ports:
@@ -30,7 +36,8 @@ services:
   cypress:
     image: cypress/included:9.7.0
     depends_on:
-      - client
+      client:
+        condition: service_healthy
     build: 
       context: ./docker
       dockerfile: cypress.Dockerfile
@@ -38,11 +45,5 @@ services:
       - ../:/rsconnect-python
     working_dir: /rsconnect-python/integration-testing/
     environment:
-      CYPRESS_BASE_URL: ${CONNECT_SERVER}
-      JUPYTER_URL: http://0.0.0.0:9999
-      PY_VERSION: ${PY_VERSION}
-      API_KEY: ${ADMIN_API_KEY}
-      TEST_SUBSET: ${TEST_SUBSET}
-      USE_PREFIX: ${USE_PREFIX}
-      PYTHON_BUILD: ${PYTHON_BUILD}
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
     entrypoint: ''

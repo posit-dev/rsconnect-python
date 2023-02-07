@@ -41,15 +41,8 @@ Cypress.Commands.add('contentiFrame', (iframe) => {
 });
 
 Cypress.Commands.add('connectLogin', (user) => {
-	cy.request('POST', '/__login__', {
+	cy.request('POST', 'http://connect:3939/__login__', {
 		username: 'admin',
 		password: 'password',
 	})
 });
-
-// Cypress.Commands.add('infoTab', () => {
-//   cy.get('a[class="tab info"]').should('be.visible');
-//   cy.wait(500);
-//   cy.get('a[class="tab info"]').click();
-//   cy.wait(500);
-// });
