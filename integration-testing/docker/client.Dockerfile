@@ -19,7 +19,7 @@ RUN python -m venv ./client-python/ && \
     pip install pipenv && \
     jupyter-nbextension install --sys-prefix --py rsconnect_jupyter
 
-ENTRYPOINT . ./client-python/bin/activate ; \
+CMD . ./client-python/bin/activate ; \
     cd ../ ; \
     make deps dist ; \
     pip install ./dist/rsconnect_python-*.whl ; \

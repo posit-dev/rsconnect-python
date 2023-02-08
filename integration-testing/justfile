@@ -9,13 +9,13 @@ build:
 	docker compose build
 
 up: 
-	docker compose up -d client && docker compose up -d connect
+	docker compose --verbose up -d client && docker compose up -d connect
 
 up-cypress:
 	docker compose up cypress
 
 run-client:
-	docker compose exec -td \
+	docker compose exec -it \
 		client \
 			just setup-client
 
