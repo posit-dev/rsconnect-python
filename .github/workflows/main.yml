@@ -174,27 +174,28 @@ jobs:
           pytest -m 'vetiver'
   
   test-jupyter:
-    name: "Test rsconnect-jupyter"
     runs-on: ubuntu-latest
+    env: 
+      CONNECT_LICENSE: ${{ secrets.RSC_LICENSE }}
+      ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
     steps:
-      - name: Build Containers
       - uses: actions/checkout@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: extractions/setup-just@v1
+      - name: Build Containers
         run: |
             just integration-testing/build
       - name: Start Connect + rsconnect-jupyter
         run: |
             just integration-testing/up
             docker ps
-        env: 
-          CONNECT_LICENSE: ${{ secrets.RSC_LICENSE }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
       - name: Run Cypress Tests
         run: |
             just integration-testing/up-cypress
             docker ps
-        env:
-          ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+        
 
       # Videos are captured whether the suite fails or passes
       # - uses: actions/upload-artifact@v3
