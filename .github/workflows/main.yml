@@ -197,21 +197,21 @@ jobs:
             docker ps        
 
       # Videos are captured whether the suite fails or passes
-      - uses: actions/upload-artifact@v3
       - name: Save videos
-        if: failure()
+        uses: actions/upload-artifact@v3
+        if: always()
         with:
-          name: cypress-videos_${{ matrix.PY_VERSION }}_native
-          path: integration-testing/cypress/videos
+          name: cypress-videos_${{ matrix.PY_VERSION }}_native_prefix
+          path: test/rsconnect-python/cypress/videos
           if-no-files-found: ignore
           retention-days: 1
 
-        # Screenshots are only captured on failure
-      - uses: actions/upload-artifact@v3
+      # Screenshots are only captured on failure
       - name: Save screenshots
+        uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: cypress-screenshots_${{ matrix.PY_VERSION }}_native
-          path: integration-testing/cypress/screenshots
+          name: cypress-screenshots_${{ matrix.PY_VERSION }}_native_prefix
+          path: test/rsconnect-python/cypress/screenshots
           if-no-files-found: ignore
           retention-days: 1
