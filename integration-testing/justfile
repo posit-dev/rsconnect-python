@@ -6,6 +6,7 @@ all:
 	just run-connect
 
 build:
+	ADMIN_API_KEY=${ADMIN_API_KEY} \
 	docker compose build
 
 up: 
