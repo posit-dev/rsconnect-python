@@ -194,25 +194,24 @@ jobs:
       - name: Run Cypress Tests
         run: |
             just integration-testing/up-cypress
-            docker ps
-        
+            docker ps        
 
-      # Videos are captured whether the suite fails or passes
-      # - uses: actions/upload-artifact@v3
-      # - name: Save videos
-      #   if: failure()
-      #   with:
-      #     name: cypress-videos_${{ matrix.PY_VERSION }}_native
-      #     path: integration-testing/cypress/videos
-      #     if-no-files-found: ignore
-      #     retention-days: 1
+      Videos are captured whether the suite fails or passes
+      - uses: actions/upload-artifact@v3
+      - name: Save videos
+        if: failure()
+        with:
+          name: cypress-videos_${{ matrix.PY_VERSION }}_native
+          path: integration-testing/cypress/videos
+          if-no-files-found: ignore
+          retention-days: 1
 
-      #   # Screenshots are only captured on failure
-      # - uses: actions/upload-artifact@v3
-      # - name: Save screenshots
-      #   if: failure()
-      #   with:
-      #     name: cypress-screenshots_${{ matrix.PY_VERSION }}_native
-      #     path: integration-testing/cypress/screenshots
-      #     if-no-files-found: ignore
-      #     retention-days: 1
+        # Screenshots are only captured on failure
+      - uses: actions/upload-artifact@v3
+      - name: Save screenshots
+        if: failure()
+        with:
+          name: cypress-screenshots_${{ matrix.PY_VERSION }}_native
+          path: integration-testing/cypress/screenshots
+          if-no-files-found: ignore
+          retention-days: 1

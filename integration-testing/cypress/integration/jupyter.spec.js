@@ -19,6 +19,8 @@ describe('Publishing Jupyter Notebook', () => {
     cy.get('input[id="rsc-api-key"]').clear().type(Cypress.env('api_key'));
     cy.get('input[id="rsc-servername"]').clear().type('localhost');
     cy.get('a[class="btn btn-primary"]').contains(' Add Server').click();
+    cy.wait(1000);
+    cy.get('span[class="help-block"]').should('not.have.text',"Unable to verify");
   });
   it('Publish Content', () => {
     cy.visit('http://client:9999/tree/integration-testing/content/notebook/stock-report-jupyter.ipynb');
