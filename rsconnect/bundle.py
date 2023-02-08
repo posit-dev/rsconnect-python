@@ -1469,7 +1469,7 @@ def create_voila_manifest(
     excludes = list(excludes) if excludes else []
 
     entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
-    base_dir = dirname(entrypoint)
+    deploy_dir = dirname(entrypoint)
     manifest = Manifest(app_mode=AppModes.JUPYTER_VOILA, environment=environment, entrypoint=entrypoint, image=image)
 
     if isfile(path):
@@ -1479,13 +1479,13 @@ def create_voila_manifest(
         manifest.entrypoint = entrypoint or ""
 
     # handle environment files
-    if not exists(join(base_dir, environment.filename)) or force_generate:
-        manifest.add_file(join(base_dir, environment.filename))
+    if not exists(join(deploy_dir, environment.filename)) or force_generate:
+        manifest.add_file(join(deploy_dir, environment.filename))
 
     excludes.extend(["manifest.json"])
     file_list = create_file_list(path, extra_files, excludes)
     for rel_path in file_list:
-        abs_path = join(base_dir, rel_path)
+        abs_path = join(deploy_dir, rel_path)
         manifest.add_file(abs_path)
     return manifest
 
