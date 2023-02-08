@@ -9,13 +9,10 @@ build:
 	docker compose build
 
 up: 
-	docker compose --verbose up -d client && docker compose up -d connect
+	docker compose up -d client && docker compose up -d connect
 
 up-cypress:
-	docker compose up cypress && \
-	docker compose exec --rm \
-		cypress \
-			cypress run --browser chrome --env api_key=$ADMIN_API_KEY
+	docker compose up cypress
 
 run-client:
 	docker compose exec -it \
@@ -40,7 +37,7 @@ run-connect:
 run-cypress:
 	docker compose exec --rm \
 		cypress \
-			cypress run --browser chrome --env api_key=$ADMIN_API_KEY
+			cypress run --browser chrome
 
 bash-cypress:
 	docker compose run --rm cypress \

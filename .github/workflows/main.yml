@@ -198,8 +198,8 @@ jobs:
       - name: Save videos
         uses: actions/upload-artifact@v3
         if: always()
-        with:
-          name: cypress-videos_${{ matrix.PY_VERSION }}_native_prefix
+        with: 
+          name: cypress-videos
           path: integration-testing/cypress/videos
           if-no-files-found: ignore
           retention-days: 1
@@ -209,7 +209,7 @@ jobs:
         uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: cypress-screenshots_${{ matrix.PY_VERSION }}_native_prefix
+          name: cypress-screenshots
           path: integration-testing/cypress/screenshots
           if-no-files-found: ignore
           retention-days: 1
