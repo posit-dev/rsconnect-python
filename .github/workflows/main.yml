@@ -182,7 +182,9 @@ jobs:
       - run: |
             just integration-testing/build
             just integration-testing/up
+            docker ps
             just integration-testing/up-cypress
+            docker ps
         env:
           ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
           CONNECT_LICENSE: ${{ secrets.RSC_LICENSE }}
