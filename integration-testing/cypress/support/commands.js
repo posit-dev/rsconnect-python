@@ -41,7 +41,7 @@ Cypress.Commands.add('contentiFrame', (iframe) => {
 });
 
 Cypress.Commands.add('connectLogin', (user) => {
-	cy.request('POST', 'http://localhost:3939/__login__', {
+	cy.request('POST', 'http://connect:3939/__login__', {
 		username: 'admin',
 		password: 'password',
 	})

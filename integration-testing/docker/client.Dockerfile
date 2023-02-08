@@ -26,4 +26,5 @@ CMD . ./client-python/bin/activate ; \
     jupyter-nbextension enable --sys-prefix --py rsconnect_jupyter ; \
     jupyter-serverextension enable --sys-prefix --py rsconnect_jupyter ; \
     jupyter-notebook \
-        -y --ip='0.0.0.0' --port=9999 --no-browser --NotebookApp.token='' --allow-root
+        -y --ip='0.0.0.0' --port=9999 --no-browser --NotebookApp.token='' --allow-root ; \
+    tail -f /dev/null

@@ -1,14 +1,15 @@
 
-version: '3.7'
+version: '3'
 
 services:
   client:
     image: client
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://0.0.0.0:9999/tree"]
-    #   start_period: 60s
-    #   timeout: 3s
-    #   retries: 30
+    hostname: client
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://client:9999/tree"]
+      interval: 40s
+      timeout: 3s
+      retries: 30
     ports:
       - 9999:9999
     build: 
@@ -34,10 +35,9 @@ services:
 
   cypress:
     image: cypress/included:9.7.0
-    network_mode: host
-    # depends_on:
-    #   client:
-    #     condition: service_healthy
+    depends_on:
+      client:
+        condition: service_healthy
     build: 
       context: ./docker
       dockerfile: cypress.Dockerfile
