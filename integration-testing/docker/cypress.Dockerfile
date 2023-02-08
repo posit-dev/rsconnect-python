@@ -8,4 +8,4 @@ RUN mkdir -p /libs-cypress && \
     | tar -C /libs-cypress -xz just
 
 ENV PATH=$PATH:/libs-cypress
-CMD cypress run --browser chrome --env api_key=$ADMIN_API_KEY
+CMD tail -f /dev/null

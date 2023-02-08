@@ -189,12 +189,10 @@ jobs:
       - name: Start Connect + rsconnect-jupyter
         run: |
             just integration-testing/up
-            docker ps
         
       - name: Run Cypress Tests
         run: |
             just integration-testing/up-cypress
-            docker ps        
 
       # Videos are captured whether the suite fails or passes
       - name: Save videos
@@ -202,7 +200,7 @@ jobs:
         if: always()
         with:
           name: cypress-videos_${{ matrix.PY_VERSION }}_native_prefix
-          path: test/rsconnect-python/cypress/videos
+          path: integration-testing/cypress/videos
           if-no-files-found: ignore
           retention-days: 1
 
@@ -212,6 +210,6 @@ jobs:
         if: failure()
         with:
           name: cypress-screenshots_${{ matrix.PY_VERSION }}_native_prefix
-          path: test/rsconnect-python/cypress/screenshots
+          path: integration-testing/cypress/screenshots
           if-no-files-found: ignore
           retention-days: 1
