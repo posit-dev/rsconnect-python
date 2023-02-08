@@ -192,6 +192,7 @@ jobs:
         
       - name: Run Cypress Tests
         run: |
+            export ADMIN_API_KEY="${{ secrets.ADMIN_API_KEY }}"
             just integration-testing/up-cypress
 
       # Videos are captured whether the suite fails or passes
