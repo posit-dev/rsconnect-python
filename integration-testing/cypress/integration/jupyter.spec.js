@@ -4,14 +4,14 @@ describe('Publishing Jupyter Notebook', () => {
 
 // all tests had to be run in a single 
   it('Publish button loads', () => {
-    cy.visit('http://client:9999/tree/integration-testing/content/notebook/stock-report-jupyter.ipynb');
+    cy.visit('http://localhost:9999/tree/integration-testing/content/notebook/stock-report-jupyter.ipynb');
     cy.get('button[data-jupyter-action="rsconnect_jupyter:publish"]').click();
     cy.get('a[id="publish-to-connect"]').should('be.visible')
   });
   // wait is required after every action, cypress is too fast for jupyter
   // https://github.com/cypress-io/cypress/issues/249
   it('Add Server', () => {
-    cy.visit('http://client:9999/tree/integration-testing/content/notebook/stock-report-jupyter.ipynb');
+    cy.visit('http://localhost:9999/tree/integration-testing/content/notebook/stock-report-jupyter.ipynb');
     cy.wait(1000);
     cy.get('a[id="publish-to-connect"]').click({ force: true });
     cy.wait(1000);
@@ -21,7 +21,7 @@ describe('Publishing Jupyter Notebook', () => {
     cy.get('a[class="btn btn-primary"]').contains(' Add Server').click();
   });
   it('Publish Content', () => {
-    cy.visit('http://client:9999/tree/integration-testing/content/notebook/stock-report-jupyter.ipynb');
+    cy.visit('http://localhost:9999/tree/integration-testing/content/notebook/stock-report-jupyter.ipynb');
     cy.wait(1000);
     cy.get('a[id="publish-to-connect"]').click({ force: true });
     cy.wait(1000);
@@ -46,7 +46,7 @@ describe('Publishing Jupyter Notebook', () => {
   });
   it('Vist Content in Connect', () => {
     cy.connectLogin();
-    cy.visit('http://connect:3939');
+    cy.visit('http://localhost:3939');
     cy.get('div[class="content-table__display-name"]').first().contains('stock-report-jupyter').click();
     cy.contentiFrame().contains('Stock Report: TSLA');
   });

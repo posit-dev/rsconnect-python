@@ -4,9 +4,8 @@ version: '3.7'
 services:
   client:
     image: client
-    hostname: client
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://client:9999/tree"]
+      test: ["CMD", "curl", "-f", "http://0.0.0.0:9999/tree"]
       start_period: 60s
       timeout: 3s
       retries: 30
@@ -35,6 +34,7 @@ services:
 
   cypress:
     image: cypress/included:9.7.0
+    network_mode: host
     depends_on:
       client:
         condition: service_healthy
