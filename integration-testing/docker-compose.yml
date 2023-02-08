@@ -19,6 +19,7 @@ services:
       - ../:/rsconnect-python 
     working_dir: /rsconnect-python/integration-testing
     entrypoint: ''
+    tty: true
 
   connect:
     hostname: connect
