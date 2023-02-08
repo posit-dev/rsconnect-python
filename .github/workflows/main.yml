@@ -178,22 +178,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Build Containers
-      - uses: actions/checkout@v2
-      - uses: extractions/setup-just@v1
-      - run: |
+        uses: actions/checkout@v2
+        uses: extractions/setup-just@v1
+        run: |
             just integration-testing/build
       - name: Start Connect + rsconnect-jupyter
-      - run: |
+        run: |
             just integration-testing/up
             docker ps
+        env: 
+          CONNECT_LICENSE: ${{ secrets.RSC_LICENSE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Run Cypress Tests
-      - run: |
+        run: |
             just integration-testing/up-cypress
             docker ps
         env:
           ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
-          CONNECT_LICENSE: ${{ secrets.RSC_LICENSE }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Videos are captured whether the suite fails or passes
       # - uses: actions/upload-artifact@v3

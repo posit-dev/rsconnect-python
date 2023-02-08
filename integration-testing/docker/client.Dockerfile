@@ -1,7 +1,8 @@
 FROM python:3.9
 COPY ./requirements.txt .
 EXPOSE 9999
-VOLUME ../../:/rsconnect-python 
+VOLUME ../../:/rsconnect-python/
+
 WORKDIR /rsconnect-python/integration-testing
 
 RUN apt-get update && \
@@ -13,18 +14,14 @@ RUN mkdir -p /libs-client && \
 
 ENV PATH=$PATH:/libs-client
 
-RUN python -m venv ./client-python/ && \
-    . ./client-python/bin/activate && \
-    pip install rsconnect-jupyter && \
+RUN pip install rsconnect-jupyter && \
     pip install pipenv && \
     jupyter-nbextension install --sys-prefix --py rsconnect_jupyter
 
-CMD . ./client-python/bin/activate ; \
-    cd ../ ; \
-    make deps dist ; \
-    pip install ./dist/rsconnect_python-*.whl ; \
-    jupyter-nbextension enable --sys-prefix --py rsconnect_jupyter ; \
-    jupyter-serverextension enable --sys-prefix --py rsconnect_jupyter ; \
+CMD cd ../ && \
+    make deps dist && \
+    pip install ./dist/rsconnect_python-*.whl && \
+    jupyter-nbextension enable --sys-prefix --py rsconnect_jupyter && \
+    jupyter-serverextension enable --sys-prefix --py rsconnect_jupyter && \
     jupyter-notebook \
-        -y --ip='0.0.0.0' --port=9999 --no-browser --NotebookApp.token='' --allow-root ; \
-    tail -f /dev/null
+        -y --ip='0.0.0.0' --port=9999 --no-browser --NotebookApp.token='' --allow-root
