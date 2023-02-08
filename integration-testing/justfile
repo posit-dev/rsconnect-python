@@ -15,7 +15,7 @@ up-cypress:
 	docker compose up cypress
 
 run-client:
-	docker compose exec -it \
+	docker compose exec -td \
 		client \
 			just setup-client
 
