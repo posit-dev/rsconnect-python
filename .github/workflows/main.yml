@@ -196,7 +196,7 @@ jobs:
             just integration-testing/up-cypress
             docker ps        
 
-      Videos are captured whether the suite fails or passes
+      # Videos are captured whether the suite fails or passes
       - uses: actions/upload-artifact@v3
       - name: Save videos
         if: failure()
