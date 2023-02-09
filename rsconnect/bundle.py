@@ -58,6 +58,7 @@ mimetypes.add_type("text/ipynb", ".ipynb")
 class Manifest:
     def __init__(self, *args, **kwargs) -> None:
         self.data = dict()
+        self.buffer = dict()
         version = kwargs.get("version")
         environment = kwargs.get("environment")
         app_mode = kwargs.get("app_mode")
@@ -148,24 +149,47 @@ class Manifest:
             del self.data["files"][path]
         return self
 
-    def make_relative_to_deploy_dir(self):
-        rel_paths = {}
-        for path in self.data["files"]:
-            rel_path = os.path.relpath(path, dirname(self.entrypoint))
-            rel_paths[rel_path] = self.data["files"][path]
-        self.data["files"] = rel_paths
-        self.entrypoint = os.path.relpath(self.entrypoint, dirname(self.entrypoint))
+    def add_to_buffer(self, key, value):
+        self.buffer[key] = value
+        self.data["files"][key] = {"checksum": buffer_checksum(value)}
         return self
 
-    def stage_to_deploy(self):
-        new_manifest = deepcopy(self)
+    def discard_from_buffer(self, key):
+        if key in self.buffer:
+            del self.buffer[key]
+            del self.data["files"][key]
+        return self
+
+    @property
+    def flattened_data(self):
         new_data_files = {}
         for path in self.data["files"]:
             rel_path = os.path.relpath(path, dirname(self.entrypoint))
             new_data_files[rel_path] = self.data["files"][path]
-        new_manifest.data["files"] = new_data_files
-        new_manifest.entrypoint = os.path.relpath(self.entrypoint, dirname(self.entrypoint))
+        return new_data_files
+
+    @property
+    def flattened_buffer(self):
+        new_buffer = {}
+        for k, v in self.buffer.items():
+            rel_path = os.path.relpath(k, dirname(self.entrypoint))
+            new_buffer[rel_path] = v
+        return new_buffer
+
+    @property
+    def flattened_entrypoint(self):
+        return os.path.relpath(self.entrypoint, dirname(self.entrypoint))
+
+    def stage_to_deploy(self):
+        new_manifest = deepcopy(self)
+        new_manifest.data["files"] = self.flattened_data
+        new_manifest.buffer = self.flattened_buffer
+        new_manifest.entrypoint = self.flattened_entrypoint
         return new_manifest
+
+    def make_relative_to_deploy_dir(self):
+        self = self.stage_to_deploy()
+        return self
 
 
 class Bundle:
@@ -1478,10 +1502,7 @@ def create_voila_manifest(
     else:
         manifest.entrypoint = entrypoint or ""
 
-    # handle environment files
-    if not exists(join(deploy_dir, environment.filename)) or force_generate:
-        manifest.add_file(join(deploy_dir, environment.filename))
-
+    manifest.add_to_buffer(join(deploy_dir, environment.filename), environment.contents)
     excludes.extend(["manifest.json"])
     file_list = create_file_list(path, extra_files, excludes)
     for rel_path in file_list:
