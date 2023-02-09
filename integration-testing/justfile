@@ -1,0 +1,71 @@
+
+export RSC_LICENSE := env_var_or_default("RSC_LICENSE", "$CONNECT_LICENSE")
+export ADMIN_API_KEY := env_var_or_default('ADMIN_API_KEY', "${ADMIN_API_KEY}")
+all:
+	just run-connect
+
+build:
+	ADMIN_API_KEY=${ADMIN_API_KEY} \
+	docker compose build
+
+up: 
+	docker compose up -d client && docker compose up -d connect
+
+up-cypress:
+	docker compose up --exit-code-from cypress
+
+# use this target if you want to run Cypress 
+# without shutting down all containers after each run
+up-cypress-local:
+	docker compose up cypress
+
+run-client:
+	docker compose exec -it \
+		client \
+			just setup-client
+
+setup-client:
+	python -m venv ./client-python/ && \
+	. ./client-python/bin/activate && \
+	cd ../ && \
+	make deps dist && \
+	pip install ./dist/rsconnect_python-*.whl && \
+	jupyter-nbextension enable --sys-prefix --py rsconnect_jupyter && \
+	jupyter-serverextension enable --sys-prefix --py rsconnect_jupyter && \
+	jupyter-notebook \
+		-y --ip='0.0.0.0' --port=9999 --no-browser --NotebookApp.token='' --allow-root
+
+run-connect:
+	docker compose exec -it \
+		connect
+
+run-cypress:
+	docker compose exec --rm \
+		cypress \
+			cypress run --browser chrome
+
+bash-cypress:
+	docker compose run --rm cypress \
+	/bin/bash
+
+bash-client:
+    docker compose run --rm client \
+        /bin/bash
+
+bash-connect:
+    docker compose run --rm connect \
+        /bin/bash
+
+inspect-client:
+	docker compose exec -it client /bin/bash
+
+inspect-cypress:
+	docker compose exec -it cypress /bin/bash
+
+stop:
+	docker compose down --volumes --remove-orphans && \
+	rm -rf ../dist/rsconnect_python-*.whl
+
+rm-config:
+	docker compose exec -it client \
+		rm -rf /root/.jupyter
