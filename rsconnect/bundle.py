@@ -1522,7 +1522,9 @@ def create_voila_manifest(
     else:
         manifest.entrypoint = entrypoint or ""
 
-    manifest.add_to_buffer(join(deploy_dir, environment.filename), environment.contents)
+    if not exists(join(deploy_dir, environment.filename)) or force_generate:
+        manifest.add_to_buffer(join(deploy_dir, environment.filename), environment.contents)
+
     excludes.extend(["manifest.json"])
     file_list = create_file_list(path, extra_files, excludes)
     for rel_path in file_list:
