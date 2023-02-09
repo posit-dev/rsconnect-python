@@ -58,7 +58,7 @@ mimetypes.add_type("text/ipynb", ".ipynb")
 class Manifest:
     def __init__(self, *args, **kwargs) -> None:
         self.data = dict()
-        self.buffer = dict()
+        self.buffer: dict = dict()
         version = kwargs.get("version")
         environment = kwargs.get("environment")
         app_mode = kwargs.get("app_mode")
