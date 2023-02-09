@@ -164,7 +164,7 @@ class Manifest:
     def flattened_data(self):
         new_data_files = {}
         for path in self.data["files"]:
-            rel_path = os.path.relpath(path, dirname(self.entrypoint))
+            rel_path = relpath(path, dirname(self.entrypoint))
             new_data_files[rel_path] = self.data["files"][path]
         return new_data_files
 
@@ -172,13 +172,13 @@ class Manifest:
     def flattened_buffer(self):
         new_buffer = {}
         for k, v in self.buffer.items():
-            rel_path = os.path.relpath(k, dirname(self.entrypoint))
+            rel_path = relpath(k, dirname(self.entrypoint))
             new_buffer[rel_path] = v
         return new_buffer
 
     @property
     def flattened_entrypoint(self):
-        return os.path.relpath(self.entrypoint, dirname(self.entrypoint))
+        return relpath(self.entrypoint, dirname(self.entrypoint))
 
     def stage_to_deploy(self):
         new_manifest = deepcopy(self)
@@ -868,7 +868,7 @@ def create_file_list(
             continue
         for file in files:
             abs_path = os.path.join(subdir, file)
-            rel_path = os.path.relpath(abs_path, path)
+            rel_path = relpath(abs_path, path)
 
             if Path(abs_path) in exclude_paths:
                 continue
