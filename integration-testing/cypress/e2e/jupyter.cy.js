@@ -1,8 +1,5 @@
 describe('Publishing Jupyter Notebook', () => {
-  beforeEach(() => {
-  });
 
-// all tests had to be run in a single 
   it('Publish button loads', () => {
     cy.visit('http://client:9999/tree/integration-testing/content/notebook/stock-report-jupyter.ipynb');
     cy.get('button[data-jupyter-action="rsconnect_jupyter:publish"]').click();
@@ -13,7 +10,7 @@ describe('Publishing Jupyter Notebook', () => {
   it('Add Server', () => {
     cy.visit('http://client:9999/tree/integration-testing/content/notebook/stock-report-jupyter.ipynb');
     cy.wait(1000);
-    cy.get('a[id="publish-to-connect"]').click({ force: true });
+    cy.get('a[id="publish-to-connect-fail"]').click({ force: true });
     cy.wait(1000);
     cy.get('input[id="rsc-server"]').clear().type('http://connect:3939');
     cy.get('input[id="rsc-api-key"]').clear().type(Cypress.env('api_key'));

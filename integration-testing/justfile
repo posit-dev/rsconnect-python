@@ -14,6 +14,11 @@ up:
 up-cypress:
 	docker compose up --exit-code-from cypress
 
+# use this target if you want to run Cypress 
+# without shutting down all containers after each run
+up-cypress-local:
+	docker compose up cypress
+
 run-client:
 	docker compose exec -it \
 		client \

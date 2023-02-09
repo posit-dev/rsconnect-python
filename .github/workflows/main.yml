@@ -198,7 +198,7 @@ jobs:
       # Videos are captured whether the suite fails or passes
       - name: Save videos
         uses: actions/upload-artifact@v3
-        if: always()
+        if: success() || failure()
         with: 
           name: cypress-videos
           path: integration-testing/cypress/videos
