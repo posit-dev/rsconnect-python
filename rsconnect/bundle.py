@@ -670,8 +670,7 @@ def create_file_list(
     excludes = excludes if excludes else []
     glob_set = create_glob_set(path, excludes)
     exclude_paths = {Path(p) for p in excludes}
-    file_set = set()  # type: typing.Set[str]
-    file_set.union(extra_files)
+    file_set = set(extra_files)  # type: typing.Set[str]
 
     if isfile(path):
         file_set.add(path)
@@ -1075,19 +1074,24 @@ def are_apis_supported_on_server(connect_details):
     return connect_details["python"]["api_enabled"]
 
 
-def which_python(python, env=os.environ):
-    """Determine which python binary should be used.
+def which_python(python: typing.Optional[str] = None):
+    """Determines which Python executable to use.
 
-    In priority order:
-    * --python specified on the command line
-    * the python binary running this script
+    If the :param python: is provided, then validation is performed to check if the path is an executable file. If
+    None, the invoking system Python executable location is returned.
+
+    :param python: (Optional) path to a python executable.
+    :return: :param python: or `sys.executable`.
     """
-    if python:
-        if not (exists(python) and os.access(python, os.X_OK)):
-            raise RSConnectException('The file, "%s", does not exist or is not executable.' % python)
-        return python
-
-    return sys.executable
+    if python is None:
+        return sys.executable
+    if not exists(python):
+        raise RSConnectException(f"The path '{python}' does not exist. Expected a Python executable.")
+    if isdir(python):
+        raise RSConnectException(f"The path '{python}' is a directory. Expected a Python executable.")
+    if not os.access(python, os.X_OK):
+        raise RSConnectException(f"The path '{python}' is not executable. Expected a Python executable")
+    return python
 
 
 def inspect_environment(
