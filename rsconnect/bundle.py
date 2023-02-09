@@ -1560,7 +1560,7 @@ def write_voila_manifest_json(
     entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
     base_dir = dirname(entrypoint)
     manifest_path = join(base_dir, "manifest.json")
-    write_manifest_json(manifest_path, manifest.data)
+    write_manifest_json(manifest_path, manifest.stage_to_deploy().data)
     return exists(manifest_path)
 
 
