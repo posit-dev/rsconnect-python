@@ -950,7 +950,7 @@ def make_voila_bundle(
 
     manifest = create_voila_manifest(**locals())
     if manifest.data.get("files") is None:
-        return None
+        raise RSConnectException("No valid files were found for the manifest.")
 
     manifest_path = join(deploy_dir, "manifest.json")
     write_manifest_json(manifest_path, manifest.stage_to_deploy().data)
