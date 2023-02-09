@@ -943,9 +943,8 @@ def make_voila_bundle(
     extra_files = list(extra_files) if extra_files else []
 
     entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
-    base_dir = dirname(entrypoint)
-
-    voila_json_path = join(base_dir, "voila.json")
+    deploy_dir = dirname(entrypoint)
+    voila_json_path = join(deploy_dir, "voila.json")
     if os.path.isfile(voila_json_path):
         extra_files.append(voila_json_path)
 
@@ -953,7 +952,7 @@ def make_voila_bundle(
     if manifest.data.get("files") is None:
         return None
 
-    manifest_path = join(base_dir, "manifest.json")
+    manifest_path = join(deploy_dir, "manifest.json")
     write_manifest_json(manifest_path, manifest.stage_to_deploy().data)
 
     bundle = Bundle()
