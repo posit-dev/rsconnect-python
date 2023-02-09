@@ -12,7 +12,7 @@ up:
 	docker compose up -d client && docker compose up -d connect
 
 up-cypress:
-	docker compose up cypress
+	docker compose up --exit-code-from cypress
 
 run-client:
 	docker compose exec -it \
