@@ -1,7 +1,0 @@
-{
-  "testFiles": "**/*.spec.js",
-  "defaultCommandTimeout": 10000,
-  "responseTimeout": 60000,
-  "integrationFolder": "./cypress/integration/",
-  "viewportHeight": 800
-}

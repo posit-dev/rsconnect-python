@@ -1,4 +1,4 @@
-FROM cypress/included:9.7.0
+FROM cypress/included:12.0.0
 
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
     jq
