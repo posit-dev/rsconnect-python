@@ -195,6 +195,7 @@ class Manifest:
 class Bundle:
     def __init__(self, *args, **kwargs) -> None:
         self.file_paths: set = set()
+        self.buffer: dict = {}
         self._deploy_dir = None
 
     @property
@@ -215,10 +216,26 @@ class Bundle:
         bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
         with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
             for fp in self.file_paths:
+                if Path(fp).name in self.buffer:
+                    continue
                 rel_path = Path(fp).relative_to(self.deploy_dir) if flatten_to_deploy_dir else None
                 bundle.add(fp, arcname=rel_path)
+            for k, v in self.buffer.items():
+                buf = io.BytesIO(to_bytes(v))
+                file_info = tarfile.TarInfo(k)
+                file_info.size = len(buf.getvalue())
+                bundle.addfile(file_info, buf)
         bundle_file.seek(0)
         return bundle_file
+
+    def add_to_buffer(self, key, value):
+        self.buffer[key] = value
+        return self
+
+    def discard_from_buffer(self, key):
+        if key in self.buffer:
+            del self.buffer[key]
+        return self
 
 
 # noinspection SpellCheckingInspection
@@ -957,7 +974,11 @@ def make_voila_bundle(
 
     bundle = Bundle()
     for f in manifest.data["files"]:
+        if f in manifest.buffer:
+            continue
         bundle.add_file(f)
+    for k, v in manifest.flattened_buffer.items():
+        bundle.add_to_buffer(k, v)
     bundle.add_file(manifest_path)
     bundle.deploy_dir = dirname(entrypoint)
     return bundle.to_file()
