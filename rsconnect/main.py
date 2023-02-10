@@ -903,15 +903,12 @@ def deploy_voila(
     kwargs = locals()
     set_verbosity(verbose)
     app_mode = AppModes.JUPYTER_VOILA
-    python, environment = get_python_env_info(path, python, conda_mode=False, force_generate=force_generate)
     kwargs["extra_files"] = extra_files = validate_extra_files(dirname(path), extra_files)
-    base_dir = dirname(path)
-    _warn_on_ignored_manifest(base_dir)
-    _warn_if_no_requirements_file(base_dir)
-    _warn_if_environment_directory(base_dir)
-    if force_generate:
-        _warn_on_ignored_requirements(base_dir, environment.filename)
-
+    environment = create_python_environment(
+        path if isdir(path) else dirname(path),
+        force_generate,
+        python,
+    )
     ce = RSConnectExecutor(**kwargs).validate_server().validate_app_mode(app_mode=app_mode)
     ce.make_bundle(
         make_voila_bundle,
