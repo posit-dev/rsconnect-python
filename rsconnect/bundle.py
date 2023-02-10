@@ -861,7 +861,7 @@ def create_file_list(
     file_set = set(extra_files)  # type: typing.Set[str]
 
     if isfile(path):
-        file_set.add(path)
+        file_set.add(Path(path).name)
         return sorted(file_set)
 
     for subdir, dirs, files in os.walk(path):
