@@ -144,6 +144,14 @@ class Manifest:
         self.data["files"][path] = {"checksum": file_checksum(path)}
         return self
 
+    def add_relative_path(self, path):
+        """
+        Assumes that path resides below the deployment directory, construct that path add it to the manifest.
+        """
+        mod_path = join(dirname(self.entrypoint), path)
+        self.data["files"][mod_path] = {"checksum": file_checksum(mod_path)}
+        return self
+
     def discard_file(self, path):
         if path in self.data["files"]:
             del self.data["files"][path]
@@ -1529,8 +1537,7 @@ def create_voila_manifest(
     excludes.extend(["manifest.json"])
     file_list = create_file_list(path, extra_files, excludes)
     for rel_path in file_list:
-        abs_path = join(deploy_dir, rel_path)
-        manifest.add_file(abs_path)
+        manifest.add_relative_path(rel_path)
     return manifest
 
 
