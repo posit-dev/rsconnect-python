@@ -180,7 +180,8 @@ class Manifest:
     def flattened_entrypoint(self):
         return relpath(self.entrypoint, dirname(self.entrypoint))
 
-    def stage_to_deploy(self):
+    @property
+    def flattened_copy(self):
         new_manifest = deepcopy(self)
         new_manifest.data["files"] = self.flattened_data
         new_manifest.buffer = self.flattened_buffer
@@ -188,7 +189,7 @@ class Manifest:
         return new_manifest
 
     def make_relative_to_deploy_dir(self):
-        self = self.stage_to_deploy()
+        self = self.flattened_copy
         return self
 
 
@@ -970,7 +971,7 @@ def make_voila_bundle(
         raise RSConnectException("No valid files were found for the manifest.")
 
     manifest_path = join(deploy_dir, "manifest.json")
-    write_manifest_json(manifest_path, manifest.stage_to_deploy().data)
+    write_manifest_json(manifest_path, manifest.flattened_copy.data)
 
     bundle = Bundle()
     for f in manifest.data["files"]:
@@ -1562,7 +1563,7 @@ def write_voila_manifest_json(
     entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
     base_dir = dirname(entrypoint)
     manifest_path = join(base_dir, "manifest.json")
-    write_manifest_json(manifest_path, manifest.stage_to_deploy().data)
+    write_manifest_json(manifest_path, manifest.flattened_copy.data)
     return exists(manifest_path)
 
 
