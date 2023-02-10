@@ -1,0 +1,33 @@
+; Posit Connect test environment configuration
+
+[Server]
+SenderEmail = testuser@testrsc.com
+EmailProvider = print
+DataDir = /connect-rsconnect-data
+EnableSitemap = true
+AllowConfirmedUsers = true
+Address = http://localhost:3939
+JumpStartEnabled = false
+
+[HTTP]
+Listen = :3939
+NoWarning = true
+
+[Python]
+Enabled = true
+Executable = /opt/python/3.8.10/bin/python
+Executable = /opt/python/3.9.5/bin/python
+
+[Authentication]
+BasicAuth = true
+InsecureDefaultUserAPIKey = true
+APIKeyBcryptCost = 4
+
+[Authorization]
+DefaultUserRole = "publisher"
+
+[Database]
+SeedUsers = true
+
+[Mount]
+BaseDir = /connect-rsconnect-mount
