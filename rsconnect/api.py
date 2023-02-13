@@ -236,7 +236,10 @@ class RSConnectClient(HTTPServer):
             # assume app exists. if it was deleted then Connect will
             # raise an error
             app = self.app_get(app_id)
-            self._server.handle_bad_response(app)
+            try:
+                self._server.handle_bad_response(app)
+            except RSConnectException as e:
+                raise RSConnectException(f"{e} Try setting the --new flag to overwrite the previous deployment.")
 
         app_guid = app["guid"]
         if env_vars:
@@ -845,11 +848,21 @@ class RSConnectExecutor:
                 # Don't read app metadata if app-id is specified. Instead, we need
                 # to get this from the remote.
                 if isinstance(self.remote_server, RSConnectServer):
-                    app = get_app_info(self.remote_server, app_id)
-                    existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
+                    try:
+                        app = get_app_info(self.remote_server, app_id)
+                        existing_app_mode = AppModes.get_by_ordinal(app.get("app_mode", 0), True)
+                    except RSConnectException as e:
+                        raise RSConnectException(
+                            f"{e} Try setting the --new flag to overwrite the previous deployment."
+                        )
                 elif isinstance(self.remote_server, PositServer):
-                    app = get_rstudio_app_info(self.remote_server, app_id)
-                    existing_app_mode = AppModes.get_by_cloud_name(app.json_data["mode"])
+                    try:
+                        app = get_rstudio_app_info(self.remote_server, app_id)
+                        existing_app_mode = AppModes.get_by_cloud_name(app.json_data["mode"])
+                    except RSConnectException as e:
+                        raise RSConnectException(
+                            f"{e} Try setting the --new flag to overwrite the previous deployment."
+                        )
                 else:
                     raise RSConnectException("Unable to infer Connect client.")
             if existing_app_mode and existing_app_mode not in (None, AppModes.UNKNOWN, app_mode):

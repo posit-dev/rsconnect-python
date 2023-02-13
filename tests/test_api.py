@@ -1,4 +1,7 @@
 from unittest import TestCase
+from unittest.mock import Mock, patch
+
+from rsconnect.exception import RSConnectException
 from .utils import (
     require_api_key,
     require_connect,
@@ -73,3 +76,15 @@ class TestAPI(TestCase):
         none_connect_server = RSConnectServer("http://test-server", None)
         none_connect_client = RSConnectClient(none_connect_server)
         self.assertEqual(none_connect_client.get_authorization(), None)
+
+
+class RSConnectClientTestCase(TestCase):
+    def test_deploy_existing_application_with_failure(self):
+        with patch.object(RSConnectClient, "__init__", lambda _, server, cookies, timeout: None):
+            client = RSConnectClient(Mock(), Mock(), Mock())
+            client.app_get = Mock(return_value=Mock())
+            client._server = Mock(spec=RSConnectServer)
+            client._server.handle_bad_response = Mock(side_effect=RSConnectException(""))
+            app_id = Mock()
+            with self.assertRaises(RSConnectException):
+                client.deploy(app_id, app_name=None, app_title=None, title_is_default=None, tarball=None)

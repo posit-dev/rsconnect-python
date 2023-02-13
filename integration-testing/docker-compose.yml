@@ -1,0 +1,49 @@
+
+version: '3'
+
+services:
+  client:
+    image: client
+    hostname: client
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://client:9999/tree"]
+      interval: 40s
+      timeout: 3s
+      retries: 30
+    ports:
+      - 9999:9999
+    build: 
+      context: ./docker
+      dockerfile: client.Dockerfile
+    volumes:
+      - ../:/rsconnect-python 
+    working_dir: /rsconnect-python/integration-testing
+    entrypoint: ''
+
+  connect:
+    hostname: connect
+    image: rstudio/rstudio-connect:latest
+    restart: always
+    ports:
+      - 3939:3939
+    volumes:
+      - $PWD/docker/rstudio-connect.gcfg:/etc/rstudio-connect/rstudio-connect.gcfg
+    privileged: true
+    environment:
+      RSTUDIO_CONNECT_HASTE: "enabled"
+      RSC_LICENSE: ${CONNECT_LICENSE}
+
+  cypress:
+    image: cypress/included:12.0.0
+    depends_on:
+      client:
+        condition: service_healthy
+    build: 
+      context: ./docker
+      dockerfile: cypress.Dockerfile
+    volumes:
+      - ../:/rsconnect-python
+    working_dir: /rsconnect-python/integration-testing/
+    environment:
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
+    entrypoint: ''
