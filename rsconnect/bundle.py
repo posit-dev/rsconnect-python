@@ -872,11 +872,13 @@ def create_file_list(
         file_set.add(Path(path).name)
         return sorted(file_set)
 
-    for subdir, dirs, files in os.walk(path):
-        if Path(subdir) in exclude_paths:
+    for cur_dir, sub_dirs, files in os.walk(path):
+        if Path(cur_dir) in exclude_paths:
+            continue
+        if any(parent in exclude_paths for parent in Path(cur_dir).parents):
             continue
         for file in files:
-            abs_path = os.path.join(subdir, file)
+            abs_path = os.path.join(cur_dir, file)
             rel_path = relpath(abs_path, path)
 
             if Path(abs_path) in exclude_paths:
