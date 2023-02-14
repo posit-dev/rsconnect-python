@@ -968,7 +968,7 @@ def make_voila_bundle(
     """
     extra_files = list(extra_files) if extra_files else []
 
-    entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
+    entrypoint = entrypoint or infer_entrypoint(path=abspath(path), mimetype="text/ipynb")
     deploy_dir = dirname(entrypoint)
     voila_json_path = join(deploy_dir, "voila.json")
     if os.path.isfile(voila_json_path):
@@ -1522,7 +1522,7 @@ def create_voila_manifest(
     excludes = list(excludes) if excludes else []
     excludes.extend([environment.filename, "manifest.json"])
 
-    entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
+    entrypoint = entrypoint or infer_entrypoint(path=abspath(path), mimetype="text/ipynb")
     deploy_dir = dirname(entrypoint)
     excludes.extend(list_environment_dirs(deploy_dir))
     manifest = Manifest(app_mode=AppModes.JUPYTER_VOILA, environment=environment, entrypoint=entrypoint, image=image)
