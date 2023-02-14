@@ -853,6 +853,16 @@ def deploy_notebook(
 @server_args
 @content_args
 @click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.option(
     "--python",
     "-p",
     type=click.Path(exists=True),
@@ -886,7 +896,7 @@ def deploy_voila(
     python=None,
     force_generate=False,
     extra_files=None,
-    excludes=None,
+    exclude=None,
     image: str = "",
     title: str = None,
     env_vars: typing.Dict[str, str] = None,
@@ -915,7 +925,7 @@ def deploy_voila(
         path,
         entrypoint,
         extra_files,
-        excludes,
+        exclude,
         force_generate,
         environment,
         image=image,
