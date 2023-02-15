@@ -891,10 +891,15 @@ def create_file_list(
 
 
 def infer_entrypoint(path, mimetype):
-    if os.path.isfile(path):
-        return path
-    if not os.path.isdir(path):
-        raise ValueError("Entrypoint is not a valid file type or directory.")
+    candidates = infer_entrypoint_candidates(path, mimetype)
+    return candidates.pop() if len(candidates) == 1 else None
+
+
+def infer_entrypoint_candidates(path, mimetype) -> List:
+    if isfile(path):
+        return [path]
+    if not isdir(path):
+        raise RSConnectException("Entrypoint is not a valid file type or directory.")
 
     default_mimetype_entrypoints = defaultdict(str)
     default_mimetype_entrypoints["text/html"] = "index.html"
@@ -903,13 +908,12 @@ def infer_entrypoint(path, mimetype):
 
     for file in os.listdir(path):
         rel_path = os.path.join(path, file)
-        if not os.path.isfile(rel_path):
+        if not isfile(rel_path):
             continue
         mimetype_filelist[guess_type(file)[0]].append(rel_path)
         if file in default_mimetype_entrypoints[mimetype]:
             return file
-    res = mimetype_filelist[mimetype].pop() if len(mimetype_filelist[mimetype]) == 1 else None
-    return res
+    return mimetype_filelist[mimetype] or []
 
 
 def make_html_bundle(
