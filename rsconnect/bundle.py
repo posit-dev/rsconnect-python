@@ -127,7 +127,7 @@ class Manifest:
 
     @property
     def json(self):
-        return json.dumps(self.data)
+        return json.dumps(self.data, indent=2)
 
     @property
     def entrypoint(self):
@@ -618,7 +618,7 @@ def make_notebook_html_bundle(
 
         # manifest
         manifest = make_html_manifest(filename, image)
-        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest))
+        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
 
     # rewind file pointer
     bundle_file.seek(0)
