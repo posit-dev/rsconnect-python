@@ -60,6 +60,7 @@ class Manifest:
     def __init__(self, *args, **kwargs) -> None:
         self.data = dict()
         self.buffer: dict = dict()
+        self._deploy_dir = None
         version = kwargs.get("version")
         environment = kwargs.get("environment")
         app_mode = kwargs.get("app_mode")
@@ -115,6 +116,14 @@ class Manifest:
             }
 
         self.data["files"] = {}
+
+    @property
+    def deploy_dir(self):
+        return self._deploy_dir
+
+    @deploy_dir.setter
+    def deploy_dir(self, value):
+        self._deploy_dir = value
 
     @classmethod
     def from_json(cls, json_str):
@@ -1009,35 +1018,6 @@ def make_voila_bundle(
     :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: a file-like object containing the bundle tarball.
     """
-    extra_files = list(extra_files) if extra_files else []
-    entrypoint_candidates = infer_entrypoint_candidates(path=abspath(path), mimetype="text/ipynb")
-
-    if len(entrypoint_candidates) <= 0:
-        if entrypoint is None:
-            raise RSConnectException("No valid entrypoint found.")
-    elif len(entrypoint_candidates) == 1:
-        if entrypoint:
-            entrypoint = abs_entrypoint(path, entrypoint)
-        else:
-            entrypoint = entrypoint_candidates[0]
-    else:  # len(entrypoint_candidates) > 1:
-        if entrypoint is None and not multi_notebook:
-            raise RSConnectException(
-                """
-                Unable to infer entrypoint from multiple candidates.
-                Multi-notebook deployments need to be specified with the following:                
-                1) A directory as the path
-                2) Set multi_notebook=True,
-                    i.e. --multi-notebook
-                """
-            )
-
-    deploy_dir = guess_deploy_dir(path, entrypoint)
-    if multi_notebook:
-        deploy_dir = entrypoint = abspath(path)
-    voila_json_path = join(deploy_dir, "voila.json")
-    if isfile(voila_json_path):
-        extra_files.append(voila_json_path)
 
     manifest = create_voila_manifest(**locals())
     if manifest.data.get("files") is None:
@@ -1055,7 +1035,7 @@ def make_voila_bundle(
     if multi_notebook and "metadata" in manifest_flattened_copy_data:
         manifest_flattened_copy_data["metadata"]["entrypoint"] = ""
     bundle.add_to_buffer("manifest.json", json.dumps(manifest_flattened_copy_data, indent=2))
-    bundle.deploy_dir = deploy_dir
+    bundle.deploy_dir = manifest.deploy_dir
 
     return bundle.to_file()
 
@@ -1587,22 +1567,45 @@ def create_voila_manifest(
     :return: the manifest data structure.
     """
     extra_files = list(extra_files) if extra_files else []
+    entrypoint_candidates = infer_entrypoint_candidates(path=abspath(path), mimetype="text/ipynb")
+
+    if len(entrypoint_candidates) <= 0:
+        if entrypoint is None:
+            raise RSConnectException("No valid entrypoint provided or found.")
+    elif len(entrypoint_candidates) == 1:
+        if entrypoint:
+            entrypoint = abs_entrypoint(path, entrypoint)
+        else:
+            entrypoint = entrypoint_candidates[0]
+    else:  # len(entrypoint_candidates) > 1:
+        if entrypoint is None and not multi_notebook:
+            raise RSConnectException(
+                """
+                Unable to infer entrypoint from multiple candidates.
+                Multi-notebook deployments need to be specified with the following:
+                1) A directory as the path
+                2) Set multi_notebook=True,
+                    i.e. include --multi-notebook (or -m) in the CLI command.
+                """
+            )
+
+    deploy_dir = guess_deploy_dir(path, entrypoint)
+    if multi_notebook:
+        deploy_dir = entrypoint = abspath(path)
+    extra_files = validate_extra_files(deploy_dir, extra_files)
     excludes = list(excludes) if excludes else []
     excludes.extend([environment.filename, "manifest.json"])
-    deploy_dir = kwargs.get("deploy_dir")
-
-    if not deploy_dir:
-        deploy_dir = guess_deploy_dir(path, entrypoint)
-
-    extra_files = validate_extra_files(deploy_dir, extra_files)
     excludes.extend(list_environment_dirs(deploy_dir))
-    manifest = Manifest(app_mode=AppModes.JUPYTER_VOILA, environment=environment, entrypoint=entrypoint, image=image)
 
-    if isfile(path):
+    voila_json_path = join(deploy_dir, "voila.json")
+    if isfile(voila_json_path):
+        extra_files.append(voila_json_path)
+
+    manifest = Manifest(app_mode=AppModes.JUPYTER_VOILA, environment=environment, entrypoint=entrypoint, image=image)
+    manifest.deploy_dir = deploy_dir
+    if entrypoint and isfile(entrypoint):
         validate_file_is_notebook(entrypoint)
         manifest.entrypoint = entrypoint
-    else:
-        manifest.entrypoint = entrypoint or ""
 
     manifest.add_to_buffer(join(deploy_dir, environment.filename), environment.contents)
 
