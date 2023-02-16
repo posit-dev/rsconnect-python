@@ -853,6 +853,11 @@ def deploy_notebook(
 @server_args
 @content_args
 @click.option(
+    "--entrypoint",
+    "-e",
+    help=("The module and executable object which serves as the entry point."),
+)
+@click.option(
     "--exclude",
     "-x",
     multiple=True,
