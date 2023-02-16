@@ -17,6 +17,7 @@ from collections import defaultdict
 from mimetypes import guess_type
 from pathlib import Path
 from copy import deepcopy
+from typing import List
 import click
 
 
@@ -148,7 +149,8 @@ class Manifest:
         """
         Assumes that path resides below the deployment directory, construct that path add it to the manifest.
         """
-        mod_path = join(dirname(self.entrypoint), path)
+        deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
+        mod_path = join(deploy_dir, path)
         self.data["files"][mod_path] = {"checksum": file_checksum(mod_path)}
         return self
 
@@ -171,16 +173,18 @@ class Manifest:
     @property
     def flattened_data(self):
         new_data_files = {}
+        deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
         for path in self.data["files"]:
-            rel_path = relpath(path, dirname(self.entrypoint))
+            rel_path = relpath(path, deploy_dir)
             new_data_files[rel_path] = self.data["files"][path]
         return new_data_files
 
     @property
     def flattened_buffer(self):
         new_buffer = {}
+        deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
         for k, v in self.buffer.items():
-            rel_path = relpath(k, dirname(self.entrypoint))
+            rel_path = relpath(k, deploy_dir)
             new_buffer[rel_path] = v
         return new_buffer
 
@@ -973,11 +977,35 @@ def make_voila_bundle(
     :return: a file-like object containing the bundle tarball.
     """
     extra_files = list(extra_files) if extra_files else []
+    entrypoint_candidates = infer_entrypoint_candidates(path=abspath(path), mimetype="text/ipynb")
+    multi_notebook_mode = False
+    deploy_dir = abspath(path)
 
-    entrypoint = entrypoint or infer_entrypoint(path=abspath(path), mimetype="text/ipynb")
-    deploy_dir = dirname(entrypoint)
+    if len(entrypoint_candidates) <= 0:
+        if entrypoint is None:
+            raise RSConnectException("No valid entrypoint found.")
+        deploy_dir = dirname(entrypoint)
+    elif len(entrypoint_candidates) == 1:
+        entrypoint = entrypoint or entrypoint_candidates[0]
+        deploy_dir = dirname(entrypoint)
+    else:  # len(entrypoint_candidates) > 1:
+        if entrypoint is None:
+            raise RSConnectException(
+                """
+                Unable to infer entrypoint from multiple candidates.
+                Multi-notebook deployments need to be specified with the following:
+                1) An empty string entrypoint, i.e. ""
+                2) A directory as the path
+                """
+            )
+        elif entrypoint == "":
+            multi_notebook_mode = True
+            deploy_dir = entrypoint = abspath(path)
+        else:
+            deploy_dir = dirname(entrypoint)
+
     voila_json_path = join(deploy_dir, "voila.json")
-    if os.path.isfile(voila_json_path):
+    if isfile(voila_json_path):
         extra_files.append(voila_json_path)
 
     manifest = create_voila_manifest(**locals())
@@ -985,7 +1013,10 @@ def make_voila_bundle(
         raise RSConnectException("No valid files were found for the manifest.")
 
     manifest_path = join(deploy_dir, "manifest.json")
-    write_manifest_json(manifest_path, manifest.flattened_copy.data)
+    manifest_flattened_copy_data = manifest.flattened_copy.data
+    if multi_notebook_mode and "metadata" in manifest_flattened_copy_data:
+        manifest_flattened_copy_data["metadata"]["entrypoint"] = ""
+    write_manifest_json(manifest_path, manifest_flattened_copy_data)
 
     bundle = Bundle()
     for f in manifest.data["files"]:
@@ -995,7 +1026,7 @@ def make_voila_bundle(
     for k, v in manifest.flattened_buffer.items():
         bundle.add_to_buffer(k, v)
     bundle.add_file(manifest_path)
-    bundle.deploy_dir = dirname(entrypoint)
+    bundle.deploy_dir = deploy_dir
     return bundle.to_file()
 
 
@@ -1527,9 +1558,33 @@ def create_voila_manifest(
     extra_files = list(extra_files) if extra_files else []
     excludes = list(excludes) if excludes else []
     excludes.extend([environment.filename, "manifest.json"])
+    deploy_dir = kwargs.get("deploy_dir")
 
-    entrypoint = entrypoint or infer_entrypoint(path=abspath(path), mimetype="text/ipynb")
-    deploy_dir = dirname(entrypoint)
+    if not deploy_dir:
+        entrypoint_candidates = infer_entrypoint_candidates(path=abspath(path), mimetype="text/ipynb")
+        deploy_dir = abspath(path)
+        if len(entrypoint_candidates) <= 0:
+            if entrypoint is None:
+                raise RSConnectException("No valid entrypoint found.")
+            deploy_dir = dirname(entrypoint)
+        elif len(entrypoint_candidates) == 1:
+            entrypoint = entrypoint or entrypoint_candidates[0]
+            deploy_dir = dirname(entrypoint)
+        else:  # len(entrypoint_candidates) > 1:
+            if entrypoint is None:
+                raise RSConnectException(
+                    """
+                    Unable to infer entrypoint from multiple candidates.
+                    Multi-notebook deployments need to be specified with the following:
+                    1) An empty string entrypoint, i.e. ""
+                    2) A directory as the path
+                    """
+                )
+            elif entrypoint == "":
+                deploy_dir = entrypoint = abspath(path)
+            else:
+                deploy_dir = dirname(entrypoint)
+
     excludes.extend(list_environment_dirs(deploy_dir))
     manifest = Manifest(app_mode=AppModes.JUPYTER_VOILA, environment=environment, entrypoint=entrypoint, image=image)
 
@@ -1573,9 +1628,8 @@ def write_voila_manifest_json(
     :return: whether the manifest was written.
     """
     manifest = create_voila_manifest(**locals())
-    entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/ipynb")
-    base_dir = dirname(entrypoint)
-    manifest_path = join(base_dir, "manifest.json")
+    deploy_dir = dirname(manifest.entrypoint) if isfile(manifest.entrypoint) else manifest.entrypoint
+    manifest_path = join(deploy_dir, "manifest.json")
     write_manifest_json(manifest_path, manifest.flattened_copy.data)
     return exists(manifest_path)
 
