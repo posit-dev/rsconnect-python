@@ -1012,12 +1012,6 @@ def make_voila_bundle(
     if manifest.data.get("files") is None:
         raise RSConnectException("No valid files were found for the manifest.")
 
-    manifest_path = join(deploy_dir, "manifest.json")
-    manifest_flattened_copy_data = manifest.flattened_copy.data
-    if multi_notebook_mode and "metadata" in manifest_flattened_copy_data:
-        manifest_flattened_copy_data["metadata"]["entrypoint"] = ""
-    write_manifest_json(manifest_path, manifest_flattened_copy_data)
-
     bundle = Bundle()
     for f in manifest.data["files"]:
         if f in manifest.buffer:
@@ -1025,8 +1019,13 @@ def make_voila_bundle(
         bundle.add_file(f)
     for k, v in manifest.flattened_buffer.items():
         bundle.add_to_buffer(k, v)
-    bundle.add_file(manifest_path)
+
+    manifest_flattened_copy_data = manifest.flattened_copy.data
+    if multi_notebook_mode and "metadata" in manifest_flattened_copy_data:
+        manifest_flattened_copy_data["metadata"]["entrypoint"] = ""
+    bundle.add_to_buffer("manifest.json", json.dumps(manifest_flattened_copy_data, indent=2))
     bundle.deploy_dir = deploy_dir
+
     return bundle.to_file()
 
 
