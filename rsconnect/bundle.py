@@ -952,6 +952,37 @@ def make_html_bundle(
     return bundle_file
 
 
+def guess_deploy_dir(path, entrypoint):
+    deploy_dir = None
+    if isfile(path):
+        if not entrypoint:
+            deploy_dir = dirname(abspath(path))
+        if isfile(entrypoint) and path != entrypoint:
+            raise RSConnectException("Path and entrypoint need to match if they are are files.")
+        if isdir(entrypoint):
+            raise RSConnectException("Entrypoint cannot be a directory while the path is a file.")
+    elif isdir(path):
+        if not entrypoint:
+            deploy_dir = abspath(path)
+        elif isdir(entrypoint):
+            raise RSConnectException("Path and entrypoint cannot both be directories.")
+        guess_entry_file = os.path.join(abspath(path), basename(entrypoint))
+        if isfile(guess_entry_file):
+            deploy_dir = dirname(guess_entry_file)
+    else:
+        deploy_dir = abspath(path)
+    return deploy_dir
+
+
+def abs_entrypoint(path, entrypoint):
+    if isfile(entrypoint):
+        return abspath(entrypoint)
+    guess_entry_file = os.path.join(abspath(path), basename(entrypoint))
+    if isfile(guess_entry_file):
+        return guess_entry_file
+    return None
+
+
 def make_voila_bundle(
     path: str,
     entrypoint: str,
@@ -979,15 +1010,15 @@ def make_voila_bundle(
     extra_files = list(extra_files) if extra_files else []
     entrypoint_candidates = infer_entrypoint_candidates(path=abspath(path), mimetype="text/ipynb")
     multi_notebook_mode = False
-    deploy_dir = abspath(path)
 
     if len(entrypoint_candidates) <= 0:
         if entrypoint is None:
             raise RSConnectException("No valid entrypoint found.")
-        deploy_dir = dirname(entrypoint)
     elif len(entrypoint_candidates) == 1:
-        entrypoint = entrypoint or entrypoint_candidates[0]
-        deploy_dir = dirname(entrypoint)
+        if entrypoint:
+            entrypoint = abs_entrypoint(path, entrypoint)
+        else:
+            entrypoint = entrypoint_candidates[0]
     else:  # len(entrypoint_candidates) > 1:
         if entrypoint is None:
             raise RSConnectException(
@@ -1000,10 +1031,9 @@ def make_voila_bundle(
             )
         elif entrypoint == "":
             multi_notebook_mode = True
-            deploy_dir = entrypoint = abspath(path)
-        else:
-            deploy_dir = dirname(entrypoint)
+            entrypoint = abspath(path)
 
+    deploy_dir = guess_deploy_dir(path, entrypoint)
     voila_json_path = join(deploy_dir, "voila.json")
     if isfile(voila_json_path):
         extra_files.append(voila_json_path)
@@ -1560,29 +1590,7 @@ def create_voila_manifest(
     deploy_dir = kwargs.get("deploy_dir")
 
     if not deploy_dir:
-        entrypoint_candidates = infer_entrypoint_candidates(path=abspath(path), mimetype="text/ipynb")
-        deploy_dir = abspath(path)
-        if len(entrypoint_candidates) <= 0:
-            if entrypoint is None:
-                raise RSConnectException("No valid entrypoint found.")
-            deploy_dir = dirname(entrypoint)
-        elif len(entrypoint_candidates) == 1:
-            entrypoint = entrypoint or entrypoint_candidates[0]
-            deploy_dir = dirname(entrypoint)
-        else:  # len(entrypoint_candidates) > 1:
-            if entrypoint is None:
-                raise RSConnectException(
-                    """
-                    Unable to infer entrypoint from multiple candidates.
-                    Multi-notebook deployments need to be specified with the following:
-                    1) An empty string entrypoint, i.e. ""
-                    2) A directory as the path
-                    """
-                )
-            elif entrypoint == "":
-                deploy_dir = entrypoint = abspath(path)
-            else:
-                deploy_dir = dirname(entrypoint)
+        deploy_dir = guess_deploy_dir(path, entrypoint)
 
     extra_files = validate_extra_files(deploy_dir, extra_files)
     excludes.extend(list_environment_dirs(deploy_dir))
