@@ -1584,6 +1584,7 @@ def create_voila_manifest(
             else:
                 deploy_dir = dirname(entrypoint)
 
+    extra_files = validate_extra_files(deploy_dir, extra_files)
     excludes.extend(list_environment_dirs(deploy_dir))
     manifest = Manifest(app_mode=AppModes.JUPYTER_VOILA, environment=environment, entrypoint=entrypoint, image=image)
 
