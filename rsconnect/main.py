@@ -858,6 +858,12 @@ def deploy_notebook(
     help=("The module and executable object which serves as the entry point."),
 )
 @click.option(
+    "--multi-notebook",
+    "-m",
+    is_flag=True,
+    help=("Deploy in multi-notebook mode."),
+)
+@click.option(
     "--exclude",
     "-x",
     multiple=True,
@@ -914,6 +920,7 @@ def deploy_voila(
     insecure: bool = False,
     cacert: typing.IO = None,
     connect_server: api.RSConnectServer = None,
+    multi_notebook: bool = False,
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -934,6 +941,7 @@ def deploy_voila(
         force_generate,
         environment,
         image=image,
+        multi_notebook=multi_notebook,
     ).deploy_bundle().save_deployed_info().emit_task_log()
 
 
@@ -1500,6 +1508,12 @@ def write_manifest_notebook(
         "This option may be repeated."
     ),
 )
+@click.option(
+    "--multi-notebook",
+    "-m",
+    is_flag=True,
+    help=("Set the manifest for multi-notebook mode."),
+)
 def write_manifest_voila(
     path: str,
     entrypoint: str,
@@ -1510,6 +1524,7 @@ def write_manifest_voila(
     extra_files,
     exclude,
     image,
+    multi_notebook,
 ):
     set_verbosity(verbose)
     with cli_feedback("Checking arguments"):
@@ -1546,6 +1561,7 @@ def write_manifest_voila(
             exclude,
             force_generate,
             image,
+            multi_notebook,
         )
 
 

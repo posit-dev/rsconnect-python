@@ -966,9 +966,10 @@ def guess_deploy_dir(path, entrypoint):
             deploy_dir = abspath(path)
         elif isdir(entrypoint):
             raise RSConnectException("Path and entrypoint cannot both be directories.")
-        guess_entry_file = os.path.join(abspath(path), basename(entrypoint))
-        if isfile(guess_entry_file):
-            deploy_dir = dirname(guess_entry_file)
+        elif entrypoint:
+            guess_entry_file = os.path.join(abspath(path), basename(entrypoint))
+            if isfile(guess_entry_file):
+                deploy_dir = dirname(guess_entry_file)
     else:
         deploy_dir = abspath(path)
     return deploy_dir
@@ -991,6 +992,7 @@ def make_voila_bundle(
     force_generate: bool,
     environment: Environment,
     image: str = None,
+    multi_notebook: bool = False,
 ) -> typing.IO[bytes]:
     """
     Create an voila bundle, given a path and/or entrypoint.
@@ -1009,7 +1011,6 @@ def make_voila_bundle(
     """
     extra_files = list(extra_files) if extra_files else []
     entrypoint_candidates = infer_entrypoint_candidates(path=abspath(path), mimetype="text/ipynb")
-    multi_notebook_mode = False
 
     if len(entrypoint_candidates) <= 0:
         if entrypoint is None:
@@ -1020,20 +1021,20 @@ def make_voila_bundle(
         else:
             entrypoint = entrypoint_candidates[0]
     else:  # len(entrypoint_candidates) > 1:
-        if entrypoint is None:
+        if entrypoint is None and not multi_notebook:
             raise RSConnectException(
                 """
                 Unable to infer entrypoint from multiple candidates.
-                Multi-notebook deployments need to be specified with the following:
-                1) An empty string entrypoint, i.e. ""
-                2) A directory as the path
+                Multi-notebook deployments need to be specified with the following:                
+                1) A directory as the path
+                2) Set multi_notebook=True,
+                    i.e. --multi-notebook
                 """
             )
-        elif entrypoint == "":
-            multi_notebook_mode = True
-            entrypoint = abspath(path)
 
     deploy_dir = guess_deploy_dir(path, entrypoint)
+    if multi_notebook:
+        deploy_dir = entrypoint = abspath(path)
     voila_json_path = join(deploy_dir, "voila.json")
     if isfile(voila_json_path):
         extra_files.append(voila_json_path)
@@ -1051,7 +1052,7 @@ def make_voila_bundle(
         bundle.add_to_buffer(k, v)
 
     manifest_flattened_copy_data = manifest.flattened_copy.data
-    if multi_notebook_mode and "metadata" in manifest_flattened_copy_data:
+    if multi_notebook and "metadata" in manifest_flattened_copy_data:
         manifest_flattened_copy_data["metadata"]["entrypoint"] = ""
     bundle.add_to_buffer("manifest.json", json.dumps(manifest_flattened_copy_data, indent=2))
     bundle.deploy_dir = deploy_dir
@@ -1567,6 +1568,7 @@ def create_voila_manifest(
     excludes: typing.List[str] = None,
     force_generate: bool = True,
     image: str = None,
+    multi_notebook: bool = False,
     **kwargs
 ) -> Manifest:
     """
@@ -1619,6 +1621,7 @@ def write_voila_manifest_json(
     excludes: typing.List[str] = None,
     force_generate: bool = True,
     image: str = None,
+    multi_notebook: bool = False,
 ) -> bool:
     """
     Creates and writes a manifest.json file for the given path.
@@ -1637,8 +1640,11 @@ def write_voila_manifest_json(
     """
     manifest = create_voila_manifest(**locals())
     deploy_dir = dirname(manifest.entrypoint) if isfile(manifest.entrypoint) else manifest.entrypoint
+    manifest_flattened_copy_data = manifest.flattened_copy.data
+    if multi_notebook and "metadata" in manifest_flattened_copy_data:
+        manifest_flattened_copy_data["metadata"]["entrypoint"] = ""
     manifest_path = join(deploy_dir, "manifest.json")
-    write_manifest_json(manifest_path, manifest.flattened_copy.data)
+    write_manifest_json(manifest_path, manifest_flattened_copy_data)
     return exists(manifest_path)
 
 
