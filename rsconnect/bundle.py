@@ -962,31 +962,35 @@ def make_html_bundle(
 
 
 def guess_deploy_dir(path, entrypoint):
+    abs_path = abspath(path) if path else None
+    abs_entrypoint = abspath(entrypoint) if entrypoint else None
     if not path and not entrypoint:
         raise RSConnectException("No path or entrypoint provided.")
     deploy_dir = None
     if path and isfile(path):
         if not entrypoint:
-            deploy_dir = dirname(abspath(path))
-        elif isfile(entrypoint) and path != entrypoint:
-            raise RSConnectException("Path and entrypoint need to match if they are are files.")
+            deploy_dir = dirname(abs_path)
+        elif isfile(entrypoint) and abs_path != abs_entrypoint:
+            raise RSConnectException("Path and entrypoint need to match if they are both files.")
+        elif isfile(entrypoint) and abs_path == abs_entrypoint:
+            deploy_dir = dirname(abs_path)
         elif isdir(entrypoint):
             raise RSConnectException("Entrypoint cannot be a directory while the path is a file.")
     elif path and isdir(path):
         if not entrypoint:
-            deploy_dir = abspath(path)
+            deploy_dir = abs_path
         elif entrypoint and isdir(entrypoint):
             raise RSConnectException("Path and entrypoint cannot both be directories.")
         elif entrypoint:
-            guess_entry_file = os.path.join(abspath(path), basename(entrypoint))
+            guess_entry_file = os.path.join(abs_path, basename(entrypoint))
             if isfile(guess_entry_file):
                 deploy_dir = dirname(guess_entry_file)
             elif isfile(entrypoint):
-                deploy_dir = dirname(abspath(entrypoint))
+                deploy_dir = dirname(abs_entrypoint)
     elif not path and entrypoint:
         raise RSConnectException("A path needs to be provided.")
     else:
-        deploy_dir = abspath(path)
+        deploy_dir = abs_path
     return deploy_dir
 
 
