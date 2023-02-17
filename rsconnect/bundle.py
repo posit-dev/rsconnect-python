@@ -962,23 +962,29 @@ def make_html_bundle(
 
 
 def guess_deploy_dir(path, entrypoint):
+    if not path and not entrypoint:
+        raise RSConnectException("No path or entrypoint provided.")
     deploy_dir = None
-    if isfile(path):
+    if path and isfile(path):
         if not entrypoint:
             deploy_dir = dirname(abspath(path))
-        if isfile(entrypoint) and path != entrypoint:
+        elif isfile(entrypoint) and path != entrypoint:
             raise RSConnectException("Path and entrypoint need to match if they are are files.")
-        if isdir(entrypoint):
+        elif isdir(entrypoint):
             raise RSConnectException("Entrypoint cannot be a directory while the path is a file.")
-    elif isdir(path):
+    elif path and isdir(path):
         if not entrypoint:
             deploy_dir = abspath(path)
-        elif isdir(entrypoint):
+        elif entrypoint and isdir(entrypoint):
             raise RSConnectException("Path and entrypoint cannot both be directories.")
         elif entrypoint:
             guess_entry_file = os.path.join(abspath(path), basename(entrypoint))
             if isfile(guess_entry_file):
                 deploy_dir = dirname(guess_entry_file)
+            elif isfile(entrypoint):
+                deploy_dir = dirname(abspath(entrypoint))
+    elif not path and entrypoint:
+        raise RSConnectException("A path needs to be provided.")
     else:
         deploy_dir = abspath(path)
     return deploy_dir
@@ -1578,6 +1584,7 @@ def create_voila_manifest(
     extra_files = list(extra_files) if extra_files else []
     entrypoint_candidates = infer_entrypoint_candidates(path=abspath(path), mimetype="text/ipynb")
 
+    deploy_dir = guess_deploy_dir(path, entrypoint)
     if len(entrypoint_candidates) <= 0 and not multi_notebook:
         if entrypoint is None:
             raise RSConnectException(MULTI_NOTEBOOK_EXC_MSG)
@@ -1590,7 +1597,6 @@ def create_voila_manifest(
         if entrypoint is None and not multi_notebook:
             raise RSConnectException(MULTI_NOTEBOOK_EXC_MSG)
 
-    deploy_dir = guess_deploy_dir(path, entrypoint)
     if multi_notebook:
         deploy_dir = entrypoint = abspath(path)
     extra_files = validate_extra_files(deploy_dir, extra_files)
