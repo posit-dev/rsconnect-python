@@ -1539,6 +1539,15 @@ def write_notebook_manifest_json(
     return exists(join(directory, environment.filename))
 
 
+MULTI_NOTEBOOK_EXC_MSG = """
+Unable to infer entrypoint.
+Multi-notebook deployments need to be specified with the following:
+1) A directory as the path
+2) Set multi_notebook=True,
+    i.e. include --multi-notebook (or -m) in the CLI command.
+"""
+
+
 def create_voila_manifest(
     path: str,
     entrypoint: str,
@@ -1569,25 +1578,17 @@ def create_voila_manifest(
     extra_files = list(extra_files) if extra_files else []
     entrypoint_candidates = infer_entrypoint_candidates(path=abspath(path), mimetype="text/ipynb")
 
-    if len(entrypoint_candidates) <= 0:
+    if len(entrypoint_candidates) <= 0 and not multi_notebook:
         if entrypoint is None:
-            raise RSConnectException("No valid entrypoint provided or found.")
-    elif len(entrypoint_candidates) == 1:
+            raise RSConnectException(MULTI_NOTEBOOK_EXC_MSG)
+    elif len(entrypoint_candidates) == 1 and not multi_notebook:
         if entrypoint:
             entrypoint = abs_entrypoint(path, entrypoint)
         else:
             entrypoint = entrypoint_candidates[0]
     else:  # len(entrypoint_candidates) > 1:
         if entrypoint is None and not multi_notebook:
-            raise RSConnectException(
-                """
-                Unable to infer entrypoint from multiple candidates.
-                Multi-notebook deployments need to be specified with the following:
-                1) A directory as the path
-                2) Set multi_notebook=True,
-                    i.e. include --multi-notebook (or -m) in the CLI command.
-                """
-            )
+            raise RSConnectException(MULTI_NOTEBOOK_EXC_MSG)
 
     deploy_dir = guess_deploy_dir(path, entrypoint)
     if multi_notebook:
