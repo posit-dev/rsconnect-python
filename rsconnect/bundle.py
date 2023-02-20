@@ -181,6 +181,8 @@ class Manifest:
 
     @property
     def flattened_data(self):
+        if self.entrypoint is None:
+            raise RSConnectException("A valid entrypoint must be provided.")
         new_data_files = {}
         deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
         for path in self.data["files"]:
@@ -190,6 +192,8 @@ class Manifest:
 
     @property
     def flattened_buffer(self):
+        if self.entrypoint is None:
+            raise RSConnectException("A valid entrypoint must be provided.")
         new_buffer = {}
         deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
         for k, v in self.buffer.items():
@@ -199,10 +203,14 @@ class Manifest:
 
     @property
     def flattened_entrypoint(self):
+        if self.entrypoint is None:
+            raise RSConnectException("A valid entrypoint must be provided.")
         return relpath(self.entrypoint, dirname(self.entrypoint))
 
     @property
     def flattened_copy(self):
+        if self.entrypoint is None:
+            raise RSConnectException("A valid entrypoint must be provided.")
         new_manifest = deepcopy(self)
         new_manifest.data["files"] = self.flattened_data
         new_manifest.buffer = self.flattened_buffer
