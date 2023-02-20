@@ -1595,6 +1595,8 @@ def create_voila_manifest(
     :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: the manifest data structure.
     """
+    if not path:
+        raise RSConnectException("A valid path must be provided.")
     extra_files = list(extra_files) if extra_files else []
     entrypoint_candidates = infer_entrypoint_candidates(path=abspath(path), mimetype="text/ipynb")
 
