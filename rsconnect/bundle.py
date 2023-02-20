@@ -1305,6 +1305,14 @@ def validate_entry_point(entry_point, directory):
     return entry_point
 
 
+def _warn_on_ignored_entrypoint(entrypoint):
+    if entrypoint:
+        click.secho(
+            "    Warning: entrypoint will not be used or considered for multi-notebook mode.",
+            fg="yellow",
+        )
+
+
 def _warn_on_ignored_manifest(directory):
     """
     Checks for the existence of a file called manifest.json in the given directory.
@@ -1601,19 +1609,23 @@ def create_voila_manifest(
     entrypoint_candidates = infer_entrypoint_candidates(path=abspath(path), mimetype="text/ipynb")
 
     deploy_dir = guess_deploy_dir(path, entrypoint)
-    if len(entrypoint_candidates) <= 0 and not multi_notebook:
-        if entrypoint is None:
-            raise RSConnectException(MULTI_NOTEBOOK_EXC_MSG)
-    elif len(entrypoint_candidates) == 1 and not multi_notebook:
-        if entrypoint:
-            entrypoint = abs_entrypoint(path, entrypoint)
-        else:
-            entrypoint = entrypoint_candidates[0]
-    else:  # len(entrypoint_candidates) > 1:
-        if entrypoint is None and not multi_notebook:
-            raise RSConnectException(MULTI_NOTEBOOK_EXC_MSG)
+    if not multi_notebook:
+        if len(entrypoint_candidates) <= 0:
+            if entrypoint is None:
+                raise RSConnectException(MULTI_NOTEBOOK_EXC_MSG)
+        elif len(entrypoint_candidates) == 1:
+            if entrypoint:
+                entrypoint = abs_entrypoint(path, entrypoint)
+            else:
+                entrypoint = entrypoint_candidates[0]
+        else:  # len(entrypoint_candidates) > 1:
+            if entrypoint is None:
+                raise RSConnectException(MULTI_NOTEBOOK_EXC_MSG)
 
     if multi_notebook:
+        if path and not isdir(path):
+            raise RSConnectException(MULTI_NOTEBOOK_EXC_MSG)
+        _warn_on_ignored_entrypoint(entrypoint)
         deploy_dir = entrypoint = abspath(path)
     extra_files = validate_extra_files(deploy_dir, extra_files)
     excludes = list(excludes) if excludes else []
