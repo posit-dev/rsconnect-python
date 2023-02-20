@@ -909,10 +909,12 @@ def infer_entrypoint(path, mimetype):
 
 
 def infer_entrypoint_candidates(path, mimetype) -> List:
+    if not path:
+        return []
     if isfile(path):
         return [path]
     if not isdir(path):
-        raise RSConnectException("Entrypoint is not a valid file type or directory.")
+        return []
 
     default_mimetype_entrypoints = defaultdict(str)
     default_mimetype_entrypoints["text/html"] = "index.html"
