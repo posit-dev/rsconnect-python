@@ -1613,6 +1613,7 @@ def create_voila_manifest(
         if len(entrypoint_candidates) <= 0:
             if entrypoint is None:
                 raise RSConnectException(MULTI_NOTEBOOK_EXC_MSG)
+            entrypoint = abs_entrypoint(path, entrypoint)
         elif len(entrypoint_candidates) == 1:
             if entrypoint:
                 entrypoint = abs_entrypoint(path, entrypoint)
