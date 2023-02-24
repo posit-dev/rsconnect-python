@@ -1278,3 +1278,66 @@ def test_make_voila_bundle_multi_notebook(
             reqs = tar.extractfile("requirements.txt").read()
             assert reqs == b"bqplot"
             assert ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+
+@pytest.mark.parametrize(
+    (
+        "path",
+        "entrypoint",
+    ),
+    [
+        (
+            dashboard_dir,
+            dashboard_ipynb,
+        ),
+    ],
+)
+def test_make_voila_bundle_2(
+    path,
+    entrypoint,
+):
+    environment = Environment(
+        conda=None,
+        contents="numpy\nipywidgets\nbqplot\n",
+        error=None,
+        filename="requirements.txt",
+        locale="en_US.UTF-8",
+        package_manager="pip",
+        pip="23.0",
+        python="3.8.12",
+        source="file",
+    )
+    ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "jupyter-voila", "entrypoint": "dashboard.ipynb"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "d51994456975ff487749acc247ae6d63"},
+            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
+            "dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+        },
+    }
+    with make_voila_bundle(
+        path,
+        entrypoint,
+        extra_files=None,
+        excludes=None,
+        force_generate=True,
+        environment=environment,
+        image=None,
+        multi_notebook=False,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "bqplot.ipynb",
+            "dashboard.ipynb",
+            "manifest.json",
+            "requirements.txt",
+        ]
+        reqs = tar.extractfile("requirements.txt").read()
+        assert reqs == b"numpy\nipywidgets\nbqplot\n"
+        assert ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
