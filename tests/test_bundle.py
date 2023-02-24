@@ -810,6 +810,8 @@ class WhichPythonTestCase(TestCase):
 cur_dir = os.path.dirname(__file__)
 bqplot_dir = os.path.join(cur_dir, "./testdata/voila/bqplot/")
 bqplot_ipynb = os.path.join(bqplot_dir, "bqplot.ipynb")
+dashboard_dir = os.path.join(cur_dir, "./testdata/voila/dashboard/")
+dashboard_ipynb = os.path.join(dashboard_dir, "dashboard.ipynb")
 multivoila_dir = os.path.join(cur_dir, "./testdata/voila/multi-voila/")
 
 
@@ -863,7 +865,7 @@ class Test_guess_deploy_dir(TestCase):
         ),
     ],
 )
-def test_create_voila_manifest(path, entrypoint):
+def test_create_voila_manifest_1(path, entrypoint):
     environment = Environment(
         conda=None,
         contents="bqplot\n",
@@ -919,6 +921,58 @@ def test_create_voila_manifest(path, entrypoint):
             multi_notebook=False,
         )
         assert ans == json.loads(manifest.flattened_copy.json)
+
+
+@pytest.mark.parametrize(
+    (
+        "path",
+        "entrypoint",
+    ),
+    [
+        (
+            dashboard_dir,
+            dashboard_ipynb,
+        ),
+    ],
+)
+def test_create_voila_manifest_2(path, entrypoint):
+    environment = Environment(
+        conda=None,
+        contents="numpy\nipywidgets\nbqplot\n",
+        error=None,
+        filename="requirements.txt",
+        locale="en_US.UTF-8",
+        package_manager="pip",
+        pip="23.0",
+        python="3.8.12",
+        source="file",
+    )
+    ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "jupyter-voila", "entrypoint": "dashboard.ipynb"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "d51994456975ff487749acc247ae6d63"},
+            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
+            "dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+        },
+    }
+    manifest = create_voila_manifest(
+        path,
+        entrypoint,
+        environment,
+        app_mode=AppModes.JUPYTER_VOILA,
+        extra_files=None,
+        excludes=None,
+        force_generate=True,
+        image=None,
+        multi_notebook=False,
+    )
+    assert ans == json.loads(manifest.flattened_copy.json)
 
 
 @pytest.mark.parametrize(

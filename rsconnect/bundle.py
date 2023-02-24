@@ -1621,6 +1621,7 @@ def create_voila_manifest(
         else:  # len(entrypoint_candidates) > 1:
             if entrypoint is None:
                 raise RSConnectException(MULTI_NOTEBOOK_EXC_MSG)
+            entrypoint = abs_entrypoint(path, entrypoint)
 
     if multi_notebook:
         if path and not isdir(path):
