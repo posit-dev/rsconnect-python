@@ -847,7 +847,7 @@ def deploy_notebook(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="voila",
-    short_help="Deploy Jupyter notebook in Voila mode to RStudio Connect [v2023.02.0+].",
+    short_help="Deploy Jupyter notebook in Voila mode to RStudio Connect [v2023.03.0+].",
     help=("Deploy a Jupyter notebook in Voila mode to RStudio Connect."),
     no_args_is_help=True,
 )
