@@ -1068,7 +1068,7 @@ def is_python_enabled_on_server(connect_details):
 
     :error: The Posit Connect server does not have Python enabled.
     """
-    return any(connect_details["python"]["versions"])
+    return any(connect_details.get("python", {}).get("versions", []))
 
 
 def are_apis_supported_on_server(connect_details):
