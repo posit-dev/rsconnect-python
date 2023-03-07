@@ -49,11 +49,13 @@ from .bundle import (
     make_api_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
+    make_voila_bundle,
     read_manifest_app_mode,
     write_notebook_manifest_json,
     write_api_manifest_json,
     write_environment_file,
     write_quarto_manifest_json,
+    write_voila_manifest_json,
     validate_entry_point,
     validate_extra_files,
     validate_file_is_notebook,
@@ -844,6 +846,108 @@ def deploy_notebook(
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
+    name="voila",
+    short_help="Deploy Jupyter notebook in Voila mode to RStudio Connect [v2023.03.0+].",
+    help=("Deploy a Jupyter notebook in Voila mode to RStudio Connect."),
+    no_args_is_help=True,
+)
+@server_args
+@content_args
+@click.option(
+    "--entrypoint",
+    "-e",
+    help=("The module and executable object which serves as the entry point."),
+)
+@click.option(
+    "--multi-notebook",
+    "-m",
+    is_flag=True,
+    help=("Deploy in multi-notebook mode."),
+)
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.option(
+    "--python",
+    "-p",
+    type=click.Path(exists=True),
+    help=(
+        "Path to Python interpreter whose environment should be used. "
+        "The Python environment must have the rsconnect package installed."
+    ),
+)
+@click.option(
+    "--force-generate",
+    "-g",
+    is_flag=True,
+    help='Force generating "requirements.txt", even if it already exists.',
+)
+@click.option(
+    "--image",
+    "-I",
+    help="Target image to be used during content execution (only applicable if the RStudio Connect "
+    "server is configured to use off-host execution)",
+)
+@click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@cli_exception_handler
+def deploy_voila(
+    path: str = None,
+    entrypoint: str = None,
+    python=None,
+    force_generate=False,
+    extra_files=None,
+    exclude=None,
+    image: str = "",
+    title: str = None,
+    env_vars: typing.Dict[str, str] = None,
+    verbose: bool = False,
+    new: bool = False,
+    app_id: str = None,
+    name: str = None,
+    server: str = None,
+    api_key: str = None,
+    insecure: bool = False,
+    cacert: typing.IO = None,
+    connect_server: api.RSConnectServer = None,
+    multi_notebook: bool = False,
+):
+    kwargs = locals()
+    set_verbosity(verbose)
+    app_mode = AppModes.JUPYTER_VOILA
+    kwargs["extra_files"] = extra_files = validate_extra_files(dirname(path), extra_files)
+    environment = create_python_environment(
+        path if isdir(path) else dirname(path),
+        force_generate,
+        python,
+    )
+    ce = RSConnectExecutor(**kwargs).validate_server().validate_app_mode(app_mode=app_mode)
+    ce.make_bundle(
+        make_voila_bundle,
+        path,
+        entrypoint,
+        extra_files,
+        exclude,
+        force_generate,
+        environment,
+        image=image,
+        multi_notebook=multi_notebook,
+    ).deploy_bundle().save_deployed_info().emit_task_log()
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@deploy.command(
     name="manifest",
     short_help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io by manifest.",
     help=(
@@ -1356,6 +1460,110 @@ def write_manifest_notebook(
     else:
         with cli_feedback("Creating %s" % environment.filename):
             write_environment_file(environment, base_dir)
+
+
+@write_manifest.command(
+    name="voila",
+    short_help="Create a manifest.json file for a Voila notebook.",
+    help=(
+        "Create a manifest.json file for a Voila notebook for later deployment. "
+        'This will create an environment file ("requirements.txt") if one does '
+        "not exist. All files are created in the same directory as the notebook file."
+    ),
+)
+@click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
+@click.option(
+    "--python",
+    "-p",
+    type=click.Path(exists=True),
+    help="Path to Python interpreter whose environment should be used. "
+    + "The Python environment must have the rsconnect package installed.",
+)
+@click.option(
+    "--force-generate",
+    "-g",
+    is_flag=True,
+    help='Force generating "requirements.txt", even if it already exists.',
+)
+@click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+@click.option(
+    "--image",
+    "-I",
+    help="Target image to be used during content execution (only applicable if the RStudio Connect "
+    "server is configured to use off-host execution)",
+)
+@click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@click.option("--entrypoint", "-e", help=("The module and executable object which serves as the entry point."))
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.option(
+    "--multi-notebook",
+    "-m",
+    is_flag=True,
+    help=("Set the manifest for multi-notebook mode."),
+)
+def write_manifest_voila(
+    path: str,
+    entrypoint: str,
+    overwrite,
+    python,
+    force_generate,
+    verbose,
+    extra_files,
+    exclude,
+    image,
+    multi_notebook,
+):
+    set_verbosity(verbose)
+    with cli_feedback("Checking arguments"):
+        base_dir = dirname(path)
+        extra_files = validate_extra_files(base_dir, extra_files)
+        manifest_path = join(base_dir, "manifest.json")
+
+        if exists(manifest_path) and not overwrite:
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+
+    with cli_feedback("Inspecting Python environment"):
+        python, environment = get_python_env_info(path, python, False, force_generate)
+
+    _warn_on_ignored_conda_env(environment)
+
+    environment_file_exists = exists(join(base_dir, environment.filename))
+
+    if environment_file_exists and not force_generate:
+        click.secho(
+            "    Warning: %s already exists and will not be overwritten." % environment.filename,
+            fg="yellow",
+        )
+    else:
+        with cli_feedback("Creating %s" % environment.filename):
+            write_environment_file(environment, base_dir)
+
+    with cli_feedback("Creating manifest.json"):
+        write_voila_manifest_json(
+            path,
+            entrypoint,
+            environment,
+            AppModes.JUPYTER_VOILA,
+            extra_files,
+            exclude,
+            force_generate,
+            image,
+            multi_notebook,
+        )
 
 
 @write_manifest.command(

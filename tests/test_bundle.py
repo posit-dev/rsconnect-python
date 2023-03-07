@@ -8,7 +8,7 @@ import tarfile
 import tempfile
 import pytest
 from unittest import TestCase
-from os.path import dirname, join, basename
+from os.path import dirname, join, basename, abspath
 
 from rsconnect.bundle import (
     _default_title,
@@ -21,6 +21,7 @@ from rsconnect.bundle import (
     make_notebook_html_bundle,
     make_notebook_source_bundle,
     keep_manifest_specified_file,
+    make_voila_bundle,
     to_bytes,
     make_source_manifest,
     make_quarto_manifest,
@@ -28,6 +29,9 @@ from rsconnect.bundle import (
     validate_entry_point,
     validate_extra_files,
     which_python,
+    guess_deploy_dir,
+    Manifest,
+    create_voila_manifest,
 )
 import rsconnect.bundle
 from rsconnect.exception import RSConnectException
@@ -801,3 +805,539 @@ class WhichPythonTestCase(TestCase):
         with tempfile.NamedTemporaryFile() as tmpfile:
             with self.assertRaises(RSConnectException):
                 which_python(tmpfile.name)
+
+
+cur_dir = os.path.dirname(__file__)
+bqplot_dir = os.path.join(cur_dir, "./testdata/voila/bqplot/")
+bqplot_ipynb = os.path.join(bqplot_dir, "bqplot.ipynb")
+dashboard_dir = os.path.join(cur_dir, "./testdata/voila/dashboard/")
+dashboard_ipynb = os.path.join(dashboard_dir, "dashboard.ipynb")
+multivoila_dir = os.path.join(cur_dir, "./testdata/voila/multi-voila/")
+
+
+class Test_guess_deploy_dir(TestCase):
+    def test_guess_deploy_dir(self):
+        with self.assertRaises(RSConnectException):
+            guess_deploy_dir(None, None)
+        with self.assertRaises(RSConnectException):
+            guess_deploy_dir(None, bqplot_dir)
+        with self.assertRaises(RSConnectException):
+            guess_deploy_dir(bqplot_dir, bqplot_dir)
+        self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_dir, None))
+        self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_ipynb, None))
+        self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_ipynb, bqplot_ipynb))
+        self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_dir, "bqplot.ipynb"))
+
+
+@pytest.mark.parametrize(
+    (
+        "path",
+        "entrypoint",
+    ),
+    [
+        (
+            None,
+            None,
+        ),
+        (
+            None,
+            bqplot_ipynb,
+        ),
+        (
+            bqplot_dir,
+            bqplot_dir,
+        ),
+        (
+            bqplot_dir,
+            None,
+        ),
+        (
+            bqplot_ipynb,
+            None,
+        ),
+        (
+            bqplot_ipynb,
+            bqplot_ipynb,
+        ),
+        (
+            bqplot_dir,
+            bqplot_ipynb,
+        ),
+    ],
+)
+def test_create_voila_manifest_1(path, entrypoint):
+    environment = Environment(
+        conda=None,
+        contents="bqplot\n",
+        error=None,
+        filename="requirements.txt",
+        locale="en_US.UTF-8",
+        package_manager="pip",
+        pip="23.0",
+        python="3.8.12",
+        source="file",
+    )
+    ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "jupyter-voila", "entrypoint": "bqplot.ipynb"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "9cce1aac313043abd5690f67f84338ed"},
+            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
+        },
+    }
+    manifest = Manifest()
+    if (path, entrypoint) in (
+        (None, None),
+        (None, bqplot_ipynb),
+        (bqplot_dir, bqplot_dir),
+    ):
+        with pytest.raises(RSConnectException) as _:
+            manifest = create_voila_manifest(
+                path,
+                entrypoint,
+                environment,
+                app_mode=AppModes.JUPYTER_VOILA,
+                extra_files=None,
+                excludes=None,
+                force_generate=True,
+                image=None,
+                multi_notebook=False,
+            )
+    else:
+        manifest = create_voila_manifest(
+            path,
+            entrypoint,
+            environment,
+            app_mode=AppModes.JUPYTER_VOILA,
+            extra_files=None,
+            excludes=None,
+            force_generate=True,
+            image=None,
+            multi_notebook=False,
+        )
+        assert ans == json.loads(manifest.flattened_copy.json)
+
+
+@pytest.mark.parametrize(
+    (
+        "path",
+        "entrypoint",
+    ),
+    [
+        (
+            dashboard_dir,
+            dashboard_ipynb,
+        ),
+    ],
+)
+def test_create_voila_manifest_2(path, entrypoint):
+    environment = Environment(
+        conda=None,
+        contents="numpy\nipywidgets\nbqplot\n",
+        error=None,
+        filename="requirements.txt",
+        locale="en_US.UTF-8",
+        package_manager="pip",
+        pip="23.0",
+        python="3.8.12",
+        source="file",
+    )
+    ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "jupyter-voila", "entrypoint": "dashboard.ipynb"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "d51994456975ff487749acc247ae6d63"},
+            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
+            "dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+        },
+    }
+    manifest = create_voila_manifest(
+        path,
+        entrypoint,
+        environment,
+        app_mode=AppModes.JUPYTER_VOILA,
+        extra_files=None,
+        excludes=None,
+        force_generate=True,
+        image=None,
+        multi_notebook=False,
+    )
+    assert ans == json.loads(manifest.flattened_copy.json)
+
+
+@pytest.mark.parametrize(
+    (
+        "path",
+        "entrypoint",
+    ),
+    [
+        (
+            None,
+            None,
+        ),
+        (
+            None,
+            bqplot_ipynb,
+        ),
+        (
+            multivoila_dir,
+            multivoila_dir,
+        ),
+        (
+            multivoila_dir,
+            None,
+        ),
+        (
+            bqplot_ipynb,
+            None,
+        ),
+        (
+            bqplot_ipynb,
+            bqplot_ipynb,
+        ),
+        (
+            multivoila_dir,
+            bqplot_ipynb,
+        ),
+    ],
+)
+def test_create_voila_manifest_multi_notebook(path, entrypoint):
+    environment = Environment(
+        conda=None,
+        contents="bqplot\n",
+        error=None,
+        filename="requirements.txt",
+        locale="en_US.UTF-8",
+        package_manager="pip",
+        pip="23.0",
+        python="3.8.12",
+        source="file",
+    )
+    ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "jupyter-voila", "entrypoint": "multi-voila"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "9cce1aac313043abd5690f67f84338ed"},
+            "bqplot/bqplot.ipynb": {"checksum": "9f283b29889500e6c78e83ad1257e03f"},
+            "dashboard/dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+        },
+    }
+    manifest = Manifest()
+    if (path, entrypoint) in (
+        (None, None),
+        (None, bqplot_ipynb),
+        (multivoila_dir, multivoila_dir),
+        (bqplot_ipynb, None),
+        (bqplot_ipynb, bqplot_ipynb),
+    ):
+        with pytest.raises(RSConnectException) as _:
+            manifest = create_voila_manifest(
+                path,
+                entrypoint,
+                environment,
+                app_mode=AppModes.JUPYTER_VOILA,
+                extra_files=None,
+                excludes=None,
+                force_generate=True,
+                image=None,
+                multi_notebook=True,
+            )
+    else:
+        manifest = create_voila_manifest(
+            path,
+            entrypoint,
+            environment,
+            app_mode=AppModes.JUPYTER_VOILA,
+            extra_files=None,
+            excludes=None,
+            force_generate=True,
+            image=None,
+            multi_notebook=True,
+        )
+        assert ans == json.loads(manifest.flattened_copy.json)
+
+
+@pytest.mark.parametrize(
+    (
+        "path",
+        "entrypoint",
+    ),
+    [
+        (
+            None,
+            None,
+        ),
+        (
+            None,
+            bqplot_ipynb,
+        ),
+        (
+            bqplot_dir,
+            bqplot_dir,
+        ),
+        (
+            bqplot_dir,
+            None,
+        ),
+        (
+            bqplot_ipynb,
+            None,
+        ),
+        (
+            bqplot_ipynb,
+            bqplot_ipynb,
+        ),
+        (
+            bqplot_dir,
+            bqplot_ipynb,
+        ),
+    ],
+)
+def test_make_voila_bundle(
+    path,
+    entrypoint,
+):
+    environment = Environment(
+        conda=None,
+        contents="bqplot",
+        error=None,
+        filename="requirements.txt",
+        locale="en_US.UTF-8",
+        package_manager="pip",
+        pip="23.0",
+        python="3.8.12",
+        source="file",
+    )
+    ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "jupyter-voila", "entrypoint": "bqplot.ipynb"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "9395f3162b7779c57c86b187fa441d96"},
+            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
+        },
+    }
+    if (path, entrypoint) in (
+        (None, None),
+        (None, bqplot_ipynb),
+        (bqplot_dir, bqplot_dir),
+    ):
+        with pytest.raises(RSConnectException) as _:
+            bundle = make_voila_bundle(
+                path,
+                entrypoint,
+                extra_files=None,
+                excludes=None,
+                force_generate=True,
+                environment=environment,
+                image=None,
+                multi_notebook=False,
+            )
+    else:
+        with make_voila_bundle(
+            path,
+            entrypoint,
+            extra_files=None,
+            excludes=None,
+            force_generate=True,
+            environment=environment,
+            image=None,
+            multi_notebook=False,
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            names = sorted(tar.getnames())
+            assert names == [
+                "bqplot.ipynb",
+                "manifest.json",
+                "requirements.txt",
+            ]
+            reqs = tar.extractfile("requirements.txt").read()
+            assert reqs == b"bqplot"
+            assert ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+
+@pytest.mark.parametrize(
+    (
+        "path",
+        "entrypoint",
+    ),
+    [
+        (
+            None,
+            None,
+        ),
+        (
+            None,
+            bqplot_ipynb,
+        ),
+        (
+            multivoila_dir,
+            multivoila_dir,
+        ),
+        (
+            multivoila_dir,
+            None,
+        ),
+        (
+            bqplot_ipynb,
+            None,
+        ),
+        (
+            bqplot_ipynb,
+            bqplot_ipynb,
+        ),
+        (
+            multivoila_dir,
+            bqplot_ipynb,
+        ),
+    ],
+)
+def test_make_voila_bundle_multi_notebook(
+    path,
+    entrypoint,
+):
+    environment = Environment(
+        conda=None,
+        contents="bqplot",
+        error=None,
+        filename="requirements.txt",
+        locale="en_US.UTF-8",
+        package_manager="pip",
+        pip="23.0",
+        python="3.8.12",
+        source="file",
+    )
+    ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "jupyter-voila", "entrypoint": ""},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "9395f3162b7779c57c86b187fa441d96"},
+            "bqplot/bqplot.ipynb": {"checksum": "9f283b29889500e6c78e83ad1257e03f"},
+            "dashboard/dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+        },
+    }
+    if (path, entrypoint) in (
+        (None, None),
+        (None, bqplot_ipynb),
+        (multivoila_dir, multivoila_dir),
+        (bqplot_ipynb, None),
+        (bqplot_ipynb, bqplot_ipynb),
+    ):
+        with pytest.raises(RSConnectException) as _:
+            bundle = make_voila_bundle(
+                path,
+                entrypoint,
+                extra_files=None,
+                excludes=None,
+                force_generate=True,
+                environment=environment,
+                image=None,
+                multi_notebook=True,
+            )
+    else:
+        with make_voila_bundle(
+            path,
+            entrypoint,
+            extra_files=None,
+            excludes=None,
+            force_generate=True,
+            environment=environment,
+            image=None,
+            multi_notebook=True,
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            names = sorted(tar.getnames())
+            assert names == [
+                "bqplot/bqplot.ipynb",
+                "dashboard/dashboard.ipynb",
+                "manifest.json",
+                "requirements.txt",
+            ]
+            reqs = tar.extractfile("requirements.txt").read()
+            assert reqs == b"bqplot"
+            assert ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+
+@pytest.mark.parametrize(
+    (
+        "path",
+        "entrypoint",
+    ),
+    [
+        (
+            dashboard_dir,
+            dashboard_ipynb,
+        ),
+    ],
+)
+def test_make_voila_bundle_2(
+    path,
+    entrypoint,
+):
+    environment = Environment(
+        conda=None,
+        contents="numpy\nipywidgets\nbqplot\n",
+        error=None,
+        filename="requirements.txt",
+        locale="en_US.UTF-8",
+        package_manager="pip",
+        pip="23.0",
+        python="3.8.12",
+        source="file",
+    )
+    ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "jupyter-voila", "entrypoint": "dashboard.ipynb"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "d51994456975ff487749acc247ae6d63"},
+            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
+            "dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+        },
+    }
+    with make_voila_bundle(
+        path,
+        entrypoint,
+        extra_files=None,
+        excludes=None,
+        force_generate=True,
+        environment=environment,
+        image=None,
+        multi_notebook=False,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "bqplot.ipynb",
+            "dashboard.ipynb",
+            "manifest.json",
+            "requirements.txt",
+        ]
+        reqs = tar.extractfile("requirements.txt").read()
+        assert reqs == b"numpy\nipywidgets\nbqplot\n"
+        assert ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
