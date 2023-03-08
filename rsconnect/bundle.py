@@ -977,7 +977,7 @@ def infer_entrypoint_candidates(path, mimetype) -> List:
             continue
         mimetype_filelist[guess_type(file)[0]].append(rel_path)
         if file in default_mimetype_entrypoints[mimetype]:
-            return file
+            return [file]
     return mimetype_filelist[mimetype] or []
 
 
