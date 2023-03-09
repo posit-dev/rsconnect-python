@@ -817,6 +817,107 @@ def make_api_manifest(
     return manifest, relevant_files
 
 
+def create_html_manifest(
+    path: str,
+    entrypoint: str,
+    app_mode: AppMode = AppModes.STATIC,
+    extra_files: typing.List[str] = None,
+    excludes: typing.List[str] = None,
+    image: str = None,
+    **kwargs
+) -> Manifest:
+    """
+    Creates and writes a manifest.json file for the given path.
+
+    :param path: the file, or the directory containing the files to deploy.
+    :param entry_point: the main entry point for the API.
+    :param environment: the Python environment to start with.  This should be what's
+    returned by the inspect_environment() function.
+    :param app_mode: the application mode to assume.  If this is None, the extension
+    portion of the entry point file name will be used to derive one. Previous default = None.
+    :param extra_files: any extra files that should be included in the manifest. Previous default = None.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param force_generate: bool indicating whether to force generate manifest and related environment files.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :return: the manifest data structure.
+    """
+    if not path:
+        raise RSConnectException("A valid path must be provided.")
+    extra_files = list(extra_files) if extra_files else []
+    entrypoint_candidates = infer_entrypoint_candidates(path=abspath(path), mimetype="text/html")
+
+    deploy_dir = guess_deploy_dir(path, entrypoint)
+    if len(entrypoint_candidates) <= 0:
+        if entrypoint is None:
+            raise RSConnectException("No valid entrypoint found.")
+        entrypoint = abs_entrypoint(path, entrypoint)
+    elif len(entrypoint_candidates) == 1:
+        if entrypoint:
+            entrypoint = abs_entrypoint(path, entrypoint)
+        else:
+            entrypoint = entrypoint_candidates[0]
+    else:  # len(entrypoint_candidates) > 1:
+        if entrypoint is None:
+            raise RSConnectException("No valid entrypoint found.")
+        entrypoint = abs_entrypoint(path, entrypoint)
+
+    extra_files = validate_extra_files(deploy_dir, extra_files)
+    excludes = list(excludes) if excludes else []
+    excludes.extend(["manifest.json"])
+    excludes.extend(list_environment_dirs(deploy_dir))
+
+    manifest = Manifest(app_mode=AppModes.STATIC, entrypoint=entrypoint, image=image)
+    manifest.deploy_dir = deploy_dir
+
+    file_list = create_abspath_list(path, extra_files, excludes)
+    for abs_path in file_list:
+        manifest.add_file(abs_path)
+
+    return manifest
+
+
+def make_html_bundle(
+    path: str,
+    entrypoint: str,
+    extra_files: typing.List[str],
+    excludes: typing.List[str],
+    image: str = None,
+) -> typing.IO[bytes]:
+    """
+    Create an voila bundle, given a path and/or entrypoint.
+
+    The bundle contains a manifest.json file created for the given notebook entrypoint file.
+    If the related environment file (requirements.txt) doesn't
+    exist (or force_generate is set to True), the environment file will also be written.
+
+    :param path: the file, or the directory containing the files to deploy.
+    :param entry_point: the main entry point.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param force_generate: bool indicating whether to force generate manifest and related environment files.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :return: a file-like object containing the bundle tarball.
+    """
+
+    manifest = create_html_manifest(**locals())
+    if manifest.data.get("files") is None:
+        raise RSConnectException("No valid files were found for the manifest.")
+
+    bundle = Bundle()
+    for f in manifest.data["files"]:
+        if f in manifest.buffer:
+            continue
+        bundle.add_file(f)
+    for k, v in manifest.flattened_buffer.items():
+        bundle.add_to_buffer(k, v)
+
+    manifest_flattened_copy_data = manifest.flattened_copy.data
+    bundle.add_to_buffer("manifest.json", json.dumps(manifest_flattened_copy_data, indent=2))
+    bundle.deploy_dir = manifest.deploy_dir
+
+    return bundle.to_file()
+
+
 def create_file_list(
     path: str,
     extra_files: typing.List[str] = None,
