@@ -817,57 +817,6 @@ def make_api_manifest(
     return manifest, relevant_files
 
 
-def make_html_bundle_content(
-    path: str,
-    entrypoint: str,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
-    image: str = None,
-) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]:
-
-    """
-    Makes a manifest for static html deployment.
-
-    :param path: the file, or the directory containing the files to deploy.
-    :param entry_point: the main entry point for the API.
-    :param extra_files: a sequence of any extra files to include in the bundle.
-    :param excludes: a sequence of glob patterns that will exclude matched files.
-    :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :return: the manifest and a list of the files involved.
-    """
-    extra_files = list(extra_files) if extra_files else []
-    entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/html")
-    if not entrypoint:
-        raise RSConnectException("Unable to find a valid html entry point.")
-
-    if path.startswith(os.curdir):
-        path = relpath(path)
-    if entrypoint.startswith(os.curdir):
-        entrypoint = relpath(entrypoint)
-    extra_files = [relpath(f) if isfile(f) and f.startswith(os.curdir) else f for f in extra_files]
-
-    if is_environment_dir(path):
-        excludes = list(excludes or []) + ["bin/", "lib/"]
-
-    extra_files = extra_files or []
-    skip = ["manifest.json"]
-    extra_files = sorted(set(extra_files) - set(skip))
-
-    # Don't include these top-level files.
-    excludes = list(excludes) if excludes else []
-    excludes.append("manifest.json")
-    if not isfile(path):
-        excludes.extend(list_environment_dirs(path))
-
-    relevant_files = create_file_list(path, extra_files, excludes)
-    manifest = make_html_manifest(entrypoint, image)
-
-    for rel_path in relevant_files:
-        manifest_add_file(manifest, rel_path, path)
-
-    return manifest, relevant_files
-
-
 def create_file_list(
     path: str,
     extra_files: typing.List[str] = None,
@@ -979,38 +928,6 @@ def infer_entrypoint_candidates(path, mimetype) -> List:
         if file in default_mimetype_entrypoints[mimetype]:
             return [file]
     return mimetype_filelist[mimetype] or []
-
-
-def make_html_bundle(
-    path: str,
-    entry_point: str,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
-    image: str = None,
-) -> typing.IO[bytes]:
-    """
-    Create an html bundle, given a path and a manifest.
-
-    :param path: the file, or the directory containing the files to deploy.
-    :param entry_point: the main entry point for the API.
-    :param extra_files: a sequence of any extra files to include in the bundle.
-    :param excludes: a sequence of glob patterns that will exclude matched files.
-    :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :return: a file-like object containing the bundle tarball.
-    """
-    manifest, relevant_files = make_html_bundle_content(path, entry_point, extra_files, excludes, image)
-    bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
-
-    with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
-        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
-
-        for rel_path in relevant_files:
-            bundle_add_file(bundle, rel_path, path)
-
-    # rewind file pointer
-    bundle_file.seek(0)
-
-    return bundle_file
 
 
 def guess_deploy_dir(path, entrypoint):
