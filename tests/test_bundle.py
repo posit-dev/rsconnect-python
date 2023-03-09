@@ -1381,7 +1381,7 @@ def test_create_html_manifest():
         )
     single_file_index_file_ans = {
         "version": 1,
-        "metadata": {"appmode": "static", "entrypoint": "index.html"},
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
         "files": {"index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
     }
     manifest = create_html_manifest(
@@ -1392,7 +1392,7 @@ def test_create_html_manifest():
 
     single_file_index_dir_ans = {
         "version": 1,
-        "metadata": {"appmode": "static", "entrypoint": "index.html"},
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
         "files": {
             "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
             "test1.txt": {"checksum": "3e7705498e8be60520841409ebc69bc1"},
@@ -1414,7 +1414,7 @@ def test_create_html_manifest():
 
     multi_file_index_file_ans = {
         "version": 1,
-        "metadata": {"appmode": "static", "entrypoint": "index.html"},
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
         "files": {"index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
     }
 
@@ -1426,7 +1426,7 @@ def test_create_html_manifest():
 
     multi_file_index_dir_ans = {
         "version": 1,
-        "metadata": {"appmode": "static", "entrypoint": "index.html"},
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
         "files": {
             "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
             "main.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
@@ -1447,7 +1447,7 @@ def test_create_html_manifest():
 
     multi_file_nonindex_file_ans = {
         "version": 1,
-        "metadata": {"appmode": "static", "entrypoint": "b.html"},
+        "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
         "files": {"b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
     }
 
@@ -1459,7 +1459,7 @@ def test_create_html_manifest():
 
     multi_file_nonindex_dir_and_file_ans = {
         "version": 1,
-        "metadata": {"appmode": "static", "entrypoint": "b.html"},
+        "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
         "files": {
             "a.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
             "b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
