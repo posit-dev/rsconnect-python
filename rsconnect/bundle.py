@@ -68,6 +68,7 @@ class Manifest:
         quarto_inspection = kwargs.get("quarto_inspection")
         environment = kwargs.get("environment")
         image = kwargs.get("image")
+        primary_html = kwargs.get("primary_html")
 
         self.data["version"] = version if version else 1
         if environment:
@@ -82,6 +83,8 @@ class Manifest:
                 "appmode": AppModes.UNKNOWN,
             }
         )
+        if primary_html:
+            self.data["metadata"]["primary_html"] = primary_html
 
         if entrypoint:
             self.data["metadata"]["entrypoint"] = entrypoint
@@ -150,6 +153,18 @@ class Manifest:
     def entrypoint(self, value):
         self.data["metadata"]["entrypoint"] = value
 
+    @property
+    def primary_html(self):
+        if "metadata" not in self.data:
+            return None
+        if "primary_html" in self.data["metadata"]:
+            return self.data["metadata"]["primary_html"]
+        return None
+
+    @primary_html.setter
+    def primary_html(self, value):
+        self.data["metadata"]["primary_html"] = value
+
     def add_file(self, path):
         self.data["files"][path] = {"checksum": file_checksum(path)}
         return self
@@ -208,6 +223,12 @@ class Manifest:
         return relpath(self.entrypoint, dirname(self.entrypoint))
 
     @property
+    def flattened_primary_html(self):
+        if self.primary_html is None:
+            raise RSConnectException("A valid primary_html must be provided.")
+        return relpath(self.primary_html, dirname(self.primary_html))
+
+    @property
     def flattened_copy(self):
         if self.entrypoint is None:
             raise RSConnectException("A valid entrypoint must be provided.")
@@ -215,6 +236,8 @@ class Manifest:
         new_manifest.data["files"] = self.flattened_data
         new_manifest.buffer = self.flattened_buffer
         new_manifest.entrypoint = self.flattened_entrypoint
+        if self.primary_html:
+            new_manifest.primary_html = self.flattened_primary_html
         return new_manifest
 
     def make_relative_to_deploy_dir(self):
@@ -866,7 +889,7 @@ def create_html_manifest(
     excludes.extend(["manifest.json"])
     excludes.extend(list_environment_dirs(deploy_dir))
 
-    manifest = Manifest(app_mode=AppModes.STATIC, entrypoint=entrypoint, image=image)
+    manifest = Manifest(app_mode=AppModes.STATIC, entrypoint=entrypoint, primary_html=entrypoint, image=image)
     manifest.deploy_dir = deploy_dir
 
     file_list = create_abspath_list(path, extra_files, excludes)
