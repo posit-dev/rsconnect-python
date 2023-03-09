@@ -891,7 +891,7 @@ def create_html_manifest(
     manifest = Manifest(app_mode=AppModes.STATIC, entrypoint=entrypoint, primary_html=entrypoint, image=image)
     manifest.deploy_dir = deploy_dir
 
-    file_list = create_abspath_list(path, extra_files, excludes)
+    file_list = create_file_list(path, extra_files, excludes, use_abspath=True)
     for abs_path in file_list:
         manifest.add_file(abs_path)
 
@@ -944,6 +944,7 @@ def create_file_list(
     path: str,
     extra_files: typing.List[str] = None,
     excludes: typing.List[str] = None,
+    use_abspath: bool = False,
 ) -> typing.List[str]:
     """
     Builds a full list of files under the given path that should be included
@@ -962,7 +963,8 @@ def create_file_list(
     file_set = set(extra_files)  # type: typing.Set[str]
 
     if isfile(path):
-        file_set.add(path)
+        path_to_add = abspath(path) if use_abspath else path
+        file_set.add(path_to_add)
         return sorted(file_set)
 
     for cur_dir, sub_dirs, files in os.walk(path):
@@ -971,57 +973,16 @@ def create_file_list(
         if any(parent in exclude_paths for parent in Path(cur_dir).parents):
             continue
         for file in files:
-            abs_path = os.path.join(cur_dir, file)
-            rel_path = relpath(abs_path, path)
+            cur_path = os.path.join(cur_dir, file)
+            rel_path = relpath(cur_path, path)
 
-            if Path(abs_path) in exclude_paths:
+            if Path(cur_path) in exclude_paths:
                 continue
             if keep_manifest_specified_file(rel_path, exclude_paths | directories_to_ignore) and (
-                rel_path in extra_files or not glob_set.matches(abs_path)
+                rel_path in extra_files or not glob_set.matches(cur_path)
             ):
-                file_set.add(rel_path)
-    return sorted(file_set)
-
-
-def create_abspath_list(
-    path: str,
-    extra_files: typing.List[str] = None,
-    excludes: typing.List[str] = None,
-) -> typing.List[str]:
-    """
-    Builds a absolute path list of files under the given path that should be included
-    in a manifest or bundle.
-
-    :param path: a file, or a directory to walk for files.
-    :param extra_files: a sequence of any extra files to include in the bundle.
-    :param excludes: a sequence of glob patterns that will exclude matched files.
-    :return: the list of relevant files, relative to the given directory.
-    """
-    extra_files = extra_files or []
-    excludes = excludes if excludes else []
-    glob_set = create_glob_set(path, excludes)
-    exclude_paths = {Path(p) for p in excludes}
-    file_set = set(extra_files)  # type: typing.Set[str]
-
-    if isfile(path):
-        file_set.add(abspath(path))
-        return sorted(file_set)
-
-    for cur_dir, sub_dirs, files in os.walk(path):
-        if Path(cur_dir) in exclude_paths:
-            continue
-        if any(parent in exclude_paths for parent in Path(cur_dir).parents):
-            continue
-        for file in files:
-            abs_path = os.path.join(cur_dir, file)
-            rel_path = relpath(abs_path, path)
-
-            if Path(abs_path) in exclude_paths:
-                continue
-            if keep_manifest_specified_file(rel_path, exclude_paths | directories_to_ignore) and (
-                rel_path in extra_files or not glob_set.matches(abs_path)
-            ):
-                file_set.add(abspath(abs_path))
+                path_to_add = abspath(cur_path) if use_abspath else rel_path
+                file_set.add(path_to_add)
     return sorted(file_set)
 
 
@@ -1733,7 +1694,7 @@ def create_voila_manifest(
 
     manifest.add_to_buffer(join(deploy_dir, environment.filename), environment.contents)
 
-    file_list = create_abspath_list(path, extra_files, excludes)
+    file_list = create_file_list(path, extra_files, excludes, use_abspath=True)
     for abs_path in file_list:
         manifest.add_file(abs_path)
     return manifest
