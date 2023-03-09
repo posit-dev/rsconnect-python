@@ -814,6 +814,8 @@ bqplot_ipynb = os.path.join(bqplot_dir, "bqplot.ipynb")
 dashboard_dir = os.path.join(cur_dir, "./testdata/voila/dashboard/")
 dashboard_ipynb = os.path.join(dashboard_dir, "dashboard.ipynb")
 multivoila_dir = os.path.join(cur_dir, "./testdata/voila/multi-voila/")
+nonexistent_dir = os.path.join(cur_dir, "./testdata/nonexistent/")
+nonexistent_file = os.path.join(cur_dir, "nonexistent.txt")
 
 
 class Test_guess_deploy_dir(TestCase):
@@ -824,6 +826,12 @@ class Test_guess_deploy_dir(TestCase):
             guess_deploy_dir(None, bqplot_dir)
         with self.assertRaises(RSConnectException):
             guess_deploy_dir(bqplot_dir, bqplot_dir)
+        with self.assertRaises(RSConnectException):
+            guess_deploy_dir(nonexistent_dir, None)
+        with self.assertRaises(RSConnectException):
+            guess_deploy_dir(None, nonexistent_file)
+        with self.assertRaises(RSConnectException):
+            guess_deploy_dir(nonexistent_dir, nonexistent_file)
         self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_dir, None))
         self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_ipynb, None))
         self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_ipynb, bqplot_ipynb))

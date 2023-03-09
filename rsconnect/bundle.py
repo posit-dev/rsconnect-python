@@ -1055,6 +1055,10 @@ def infer_entrypoint_candidates(path, mimetype) -> List:
 
 
 def guess_deploy_dir(path, entrypoint):
+    if path and not exists(path):
+        raise RSConnectException(f"Path {path} does not exist.")
+    if entrypoint and not exists(entrypoint):
+        raise RSConnectException(f"Entrypoint {entrypoint} does not exist.")
     abs_path = abspath(path) if path else None
     abs_entrypoint = abspath(entrypoint) if entrypoint else None
     if not path and not entrypoint:
