@@ -14,6 +14,7 @@ from rsconnect.bundle import (
     _default_title,
     _default_title_from_manifest,
     _validate_title,
+    create_html_manifest,
     get_python_env_info,
     inspect_environment,
     list_files,
@@ -1341,3 +1342,132 @@ def test_make_voila_bundle_2(
         reqs = tar.extractfile("requirements.txt").read()
         assert reqs == b"numpy\nipywidgets\nbqplot\n"
         assert ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+
+single_file_index_dir = os.path.join(cur_dir, "./testdata/html_tests/single_file_index")
+single_file_index_file = os.path.join(cur_dir, "./testdata/html_tests/single_file_index/index.html")
+single_file_nonindex_dir = os.path.join(cur_dir, "./testdata/html_tests/single_file_nonindex")
+multi_file_index_dir = os.path.join(cur_dir, "./testdata/html_tests/multi_file_index")
+multi_file_index_file = os.path.join(cur_dir, "./testdata/html_tests/multi_file_index/index.html")
+multi_file_nonindex_dir = os.path.join(cur_dir, "./testdata/html_tests/multi_file_nonindex")
+multi_file_nonindex_file = os.path.join(cur_dir, "./testdata/html_tests/multi_file_nonindex/b.html")
+
+
+def test_create_html_manifest():
+
+    with pytest.raises(RSConnectException) as _:
+        _, _ = create_html_manifest(
+            None,
+            None,
+            extra_files=None,
+            excludes=None,
+            image=None,
+        )
+    with pytest.raises(RSConnectException) as _:
+        _, _ = create_html_manifest(
+            None,
+            single_file_index_file,
+            extra_files=None,
+            excludes=None,
+            image=None,
+        )
+    with pytest.raises(RSConnectException) as _:
+        _, _ = create_html_manifest(
+            multi_file_nonindex_dir,
+            None,
+            extra_files=None,
+            excludes=None,
+            image=None,
+        )
+    single_file_index_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "entrypoint": "index.html"},
+        "files": {"index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+    }
+    manifest = create_html_manifest(
+        single_file_index_file,
+        None,
+    )
+    assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
+
+    single_file_index_dir_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "entrypoint": "index.html"},
+        "files": {
+            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "test1.txt": {"checksum": "3e7705498e8be60520841409ebc69bc1"},
+            "test_folder1/testfoldertext1.txt": {"checksum": "0a576fd324b6985bac6aa934131d2f5c"},
+        },
+    }
+
+    manifest = create_html_manifest(
+        single_file_index_dir,
+        None,
+    )
+    assert single_file_index_dir_ans == json.loads(manifest.flattened_copy.json)
+
+    manifest = create_html_manifest(
+        single_file_index_dir,
+        single_file_index_file,
+    )
+    assert single_file_index_dir_ans == json.loads(manifest.flattened_copy.json)
+
+    multi_file_index_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "entrypoint": "index.html"},
+        "files": {"index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+    }
+
+    manifest = create_html_manifest(
+        multi_file_index_file,
+        None,
+    )
+    assert multi_file_index_file_ans == json.loads(manifest.flattened_copy.json)
+
+    multi_file_index_dir_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "entrypoint": "index.html"},
+        "files": {
+            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "main.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+        },
+    }
+
+    manifest = create_html_manifest(
+        multi_file_index_dir,
+        None,
+    )
+    assert multi_file_index_dir_ans == json.loads(manifest.flattened_copy.json)
+
+    manifest = create_html_manifest(
+        multi_file_index_dir,
+        multi_file_index_file,
+    )
+    assert multi_file_index_dir_ans == json.loads(manifest.flattened_copy.json)
+
+    multi_file_nonindex_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "entrypoint": "b.html"},
+        "files": {"b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+    }
+
+    manifest = create_html_manifest(
+        multi_file_nonindex_file,
+        None,
+    )
+    assert multi_file_nonindex_file_ans == json.loads(manifest.flattened_copy.json)
+
+    multi_file_nonindex_dir_and_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "entrypoint": "b.html"},
+        "files": {
+            "a.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+        },
+    }
+
+    manifest = create_html_manifest(
+        multi_file_nonindex_dir,
+        multi_file_nonindex_file,
+    )
+    assert multi_file_nonindex_dir_and_file_ans == json.loads(manifest.flattened_copy.json)
