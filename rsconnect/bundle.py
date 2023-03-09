@@ -843,7 +843,6 @@ def make_api_manifest(
 def create_html_manifest(
     path: str,
     entrypoint: str,
-    app_mode: AppMode = AppModes.STATIC,
     extra_files: typing.List[str] = None,
     excludes: typing.List[str] = None,
     image: str = None,
@@ -884,7 +883,7 @@ def create_html_manifest(
             raise RSConnectException("No valid entrypoint found.")
         entrypoint = abs_entrypoint(path, entrypoint)
 
-    extra_files = validate_extra_files(deploy_dir, extra_files)
+    extra_files = validate_extra_files(deploy_dir, extra_files, use_abspath=True)
     excludes = list(excludes) if excludes else []
     excludes.extend(["manifest.json"])
     excludes.extend(list_environment_dirs(deploy_dir))
@@ -1315,7 +1314,7 @@ def validate_file_is_notebook(file_name):
         raise RSConnectException("A Jupyter notebook (.ipynb) file is required here.")
 
 
-def validate_extra_files(directory, extra_files):
+def validate_extra_files(directory, extra_files, use_abspath=False):
     """
     If the user specified a list of extra files, validate that they all exist and are
     beneath the given directory and, if so, return a list of them made relative to that
@@ -1335,6 +1334,7 @@ def validate_extra_files(directory, extra_files):
                 raise RSConnectException("%s must be under %s." % (extra_file, directory))
             if not exists(join(directory, extra_file)):
                 raise RSConnectException("Could not find file %s under %s" % (extra, directory))
+            extra_file = abspath(join(directory, extra_file)) if use_abspath else extra_file
             result.append(extra_file)
     return result
 
