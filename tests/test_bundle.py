@@ -835,7 +835,7 @@ class Test_guess_deploy_dir(TestCase):
         self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_dir, None))
         self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_ipynb, None))
         self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_ipynb, bqplot_ipynb))
-        self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_dir, "bqplot.ipynb"))
+        self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_dir, bqplot_ipynb))
 
 
 @pytest.mark.parametrize(
@@ -1357,8 +1357,10 @@ single_file_index_file = os.path.join(cur_dir, "./testdata/html_tests/single_fil
 single_file_nonindex_dir = os.path.join(cur_dir, "./testdata/html_tests/single_file_nonindex")
 multi_file_index_dir = os.path.join(cur_dir, "./testdata/html_tests/multi_file_index")
 multi_file_index_file = os.path.join(cur_dir, "./testdata/html_tests/multi_file_index/index.html")
+multi_file_index_file2 = os.path.join(cur_dir, "./testdata/html_tests/multi_file_index/main.html")
 multi_file_nonindex_dir = os.path.join(cur_dir, "./testdata/html_tests/multi_file_nonindex")
-multi_file_nonindex_file = os.path.join(cur_dir, "./testdata/html_tests/multi_file_nonindex/b.html")
+multi_file_nonindex_fileb = os.path.join(cur_dir, "./testdata/html_tests/multi_file_nonindex/b.html")
+multi_file_nonindex_filea = os.path.join(cur_dir, "./testdata/html_tests/multi_file_nonindex/a.html")
 
 
 def test_create_html_manifest():
@@ -1460,7 +1462,7 @@ def test_create_html_manifest():
     }
 
     manifest = create_html_manifest(
-        multi_file_nonindex_file,
+        multi_file_nonindex_fileb,
         None,
     )
     assert multi_file_nonindex_file_ans == json.loads(manifest.flattened_copy.json)
@@ -1476,6 +1478,37 @@ def test_create_html_manifest():
 
     manifest = create_html_manifest(
         multi_file_nonindex_dir,
-        multi_file_nonindex_file,
+        multi_file_nonindex_fileb,
     )
     assert multi_file_nonindex_dir_and_file_ans == json.loads(manifest.flattened_copy.json)
+
+    multi_file_nonindex_file_extras_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
+        "files": {
+            "a.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+        },
+    }
+    manifest = create_html_manifest(
+        multi_file_nonindex_fileb,
+        None,
+        extra_files=[multi_file_nonindex_filea],
+    )
+    assert multi_file_nonindex_file_extras_ans == json.loads(manifest.flattened_copy.json)
+
+    multi_file_index_dir_extras_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {
+            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "main.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+        },
+    }
+
+    manifest = create_html_manifest(
+        multi_file_index_dir,
+        None,
+        extra_files=[multi_file_index_file2],
+    )
+    assert multi_file_index_dir_extras_ans == json.loads(manifest.flattened_copy.json)
