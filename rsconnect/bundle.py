@@ -921,12 +921,12 @@ def infer_entrypoint_candidates(path, mimetype) -> List:
     mimetype_filelist = defaultdict(list)
 
     for file in os.listdir(path):
-        rel_path = os.path.join(path, file)
-        if not isfile(rel_path):
+        abs_path = os.path.join(path, file)
+        if not isfile(abs_path):
             continue
-        mimetype_filelist[guess_type(file)[0]].append(rel_path)
+        mimetype_filelist[guess_type(file)[0]].append(abs_path)
         if file in default_mimetype_entrypoints[mimetype]:
-            return [file]
+            return [abs_path]
     return mimetype_filelist[mimetype] or []
 
 
