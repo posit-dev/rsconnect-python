@@ -906,7 +906,7 @@ def make_html_bundle(
     image: str = None,
 ) -> typing.IO[bytes]:
     """
-    Create an voila bundle, given a path and/or entrypoint.
+    Create an html bundle, given a path and/or entrypoint.
 
     The bundle contains a manifest.json file created for the given notebook entrypoint file.
     If the related environment file (requirements.txt) doesn't
