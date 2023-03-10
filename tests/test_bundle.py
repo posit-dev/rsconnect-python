@@ -18,6 +18,7 @@ from rsconnect.bundle import (
     get_python_env_info,
     inspect_environment,
     list_files,
+    make_html_bundle,
     make_manifest_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
@@ -1512,3 +1513,205 @@ def test_create_html_manifest():
         extra_files=[multi_file_index_file2],
     )
     assert multi_file_index_dir_extras_ans == json.loads(manifest.flattened_copy.json)
+
+
+def test_make_html_bundle():
+    single_file_index_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {"index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+    }
+    with make_html_bundle(
+        single_file_index_file,
+        None,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "index.html",
+            "manifest.json",
+        ]
+        assert single_file_index_file_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+    single_file_index_dir_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {
+            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "test1.txt": {"checksum": "3e7705498e8be60520841409ebc69bc1"},
+            "test_folder1/testfoldertext1.txt": {"checksum": "0a576fd324b6985bac6aa934131d2f5c"},
+        },
+    }
+    with make_html_bundle(
+        single_file_index_dir,
+        None,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "index.html",
+            "manifest.json",
+            "test1.txt",
+            "test_folder1/testfoldertext1.txt",
+        ]
+        assert single_file_index_dir_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+    with make_html_bundle(
+        single_file_index_dir,
+        single_file_index_file,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "index.html",
+            "manifest.json",
+            "test1.txt",
+            "test_folder1/testfoldertext1.txt",
+        ]
+        assert single_file_index_dir_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+    multi_file_index_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {"index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+    }
+    with make_html_bundle(
+        multi_file_index_file,
+        None,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "index.html",
+            "manifest.json",
+        ]
+        assert multi_file_index_file_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+    multi_file_index_dir_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {
+            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "main.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+        },
+    }
+    with make_html_bundle(
+        multi_file_index_dir,
+        None,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "index.html",
+            "main.html",
+            "manifest.json",
+        ]
+        assert multi_file_index_dir_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+    with make_html_bundle(
+        multi_file_index_dir,
+        multi_file_index_file,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "index.html",
+            "main.html",
+            "manifest.json",
+        ]
+        assert multi_file_index_dir_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+    multi_file_nonindex_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
+        "files": {"b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+    }
+    with make_html_bundle(
+        multi_file_nonindex_fileb,
+        None,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "b.html",
+            "manifest.json",
+        ]
+        assert multi_file_nonindex_file_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+    multi_file_nonindex_dir_and_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
+        "files": {
+            "a.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+        },
+    }
+    with make_html_bundle(
+        multi_file_nonindex_dir,
+        multi_file_nonindex_fileb,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "a.html",
+            "b.html",
+            "manifest.json",
+        ]
+        assert multi_file_nonindex_dir_and_file_ans == json.loads(
+            tar.extractfile("manifest.json").read().decode("utf-8")
+        )
+
+    multi_file_nonindex_file_extras_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
+        "files": {
+            "a.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+        },
+    }
+    with make_html_bundle(
+        multi_file_nonindex_fileb,
+        None,
+        [multi_file_nonindex_filea],
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "a.html",
+            "b.html",
+            "manifest.json",
+        ]
+        assert multi_file_nonindex_file_extras_ans == json.loads(
+            tar.extractfile("manifest.json").read().decode("utf-8")
+        )
+
+    multi_file_index_dir_extras_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {
+            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "main.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+        },
+    }
+
+    with make_html_bundle(
+        multi_file_index_dir,
+        None,
+        [multi_file_index_file2],
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "index.html",
+            "main.html",
+            "manifest.json",
+        ]
+        assert multi_file_index_dir_extras_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
