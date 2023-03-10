@@ -7,8 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 ### Added
-
 - The `CONNECT_REQUEST_TIMEOUT` environment variable, which configures the request timeout for all blocking HTTP and HTTPS operations. This value translates into seconds (e.g., `CONNECT_REQUEST_TIMEOUT=60` is equivalent to 60 seconds.) By default, this value is 300. 
+- Added `deploy voila` command to deploy Jupyter Voila notebooks. 
+
+### Changed
+- `deploy html` was refactored. Its behavior is described below.
+
+#### Deploying HTML
+Specifying a directory in the path will result in that entire directory*, subdirectories, and sub contents included in the deploy bundle. The entire directory is included whether or not an entrypoint was supplied
+
+
+e.g.
+using the following directory,
+```
+├─ my_project/
+│ ├─ index.html
+│ ├─ second.html
+```
+and the following command:
+```
+rsconnect deploy html -n local my_project
+```
+or this command:
+```
+rsconnect deploy html -n local my_project -e my_project/index.html
+```
+we will have a bundle which includes both `index.html` and `second.html`
+
+- specifying a file in the path will result in that file* - not the entire directory - included in the deploy bundle
+
+e.g.
+using the following directory,
+```
+├─ my_project/
+│ ├─ index.html
+│ ├─ second.html
+```
+and the following command:
+```
+rsconnect deploy html -n local my_project/second.html
+```
+we will have a bundle which includes `second.html`
+
+- a note regarding entrypiont
+    - providing an entrypoint is optional if there's an `index.html` inside the project directory, or if there's a *single* html file in the project directory.
+    - if there are multiple html files in the project directory and it contains no `index.html`, we will get an exception when deploying that directory unless an entrypoint is specified.
+
+- if we want to specify an entrypint, and we are executing the deploy command outside a project folder, we must specify the full path of the entrypoint:
+
+```
+rsconnect deploy html -n local my_project -e my_project/second.html
+```
+
+- if we want to specify an entrypint,  and we are executing the deploy command inside the project folder, we can abbreviate the entrypoint, like so:
+```
+cd my_project
+rsconnect deploy html -n local ./ -e second.html
+```
+
+
+*Plus the manifest & other necessary files needed for the bundle to work on Connect.
+
 
 ## [1.14.1] - 2023-02-09
 
