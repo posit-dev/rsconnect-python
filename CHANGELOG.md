@@ -68,7 +68,6 @@ rsconnect deploy html -n local ./ -e second.html
 
 *Plus the manifest & other necessary files needed for the bundle to work on Connect.
 
-
 ## [1.14.1] - 2023-02-09
 
 ### Fixed
