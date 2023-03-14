@@ -964,7 +964,7 @@ xargs printf -- '-g %s\n' < guids.txt | xargs rsconnect content build add
 ```
 ## Programmatic Provisioning
 
-RStudio Connect supports the programmatic bootstrapping of an admininistrator API key 
+Posit Connect supports the programmatic bootstrapping of an admininistrator API key 
 for scripted provisioning tasks. This process is supported by the `rsconnect bootstrap` command,
 which uses a JSON Web Token to request an initial API key from a fresh Connect instance. 
 
