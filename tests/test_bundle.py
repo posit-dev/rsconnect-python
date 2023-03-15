@@ -1056,10 +1056,6 @@ def test_create_voila_manifest_multi_notebook(path, entrypoint):
         python="3.8.12",
         source="file",
     )
-    if sys.platform == 'win32':
-        checksum_hash = ""
-    else:
-        checksum_hash = ""
 
     ans = {
         "version": 1,
