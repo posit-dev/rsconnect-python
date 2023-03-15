@@ -537,6 +537,12 @@ class TestBundle(TestCase):
             None,
             None,
         )
+
+        if sys.platform == 'win32':
+            checksum_hash = "74203044cc283b7b3e775559b6e986fa"
+        else:
+            checksum_hash = "6f83f7f33bf6983dd474ecbc6640a26b"
+
         self.assertEqual(
             manifest,
             {
@@ -547,7 +553,7 @@ class TestBundle(TestCase):
                     "a": {"checksum": "4a3eb92956aa3e16a9f0a84a43c943e7"},
                     "b": {"checksum": "b249e5b536d30e6282cea227f3a73669"},
                     "c": {"checksum": "53b36f1d5b6f7fb2cfaf0c15af7ffb2d"},
-                    "requirements.txt": {"checksum": "6f83f7f33bf6983dd474ecbc6640a26b"},
+                    "requirements.txt": {"checksum": checksum_hash},
                 },
             },
         )
@@ -566,6 +572,7 @@ class TestBundle(TestCase):
             ["requirements.txt"],
             None,
         )
+        
         self.assertEqual(
             manifest,
             {
