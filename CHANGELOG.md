@@ -4,10 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.15.0] - 2023-03-15
 
 ### Added
-- Added `deploy voila` command to deploy Jupyter Voila notebooks. 
+- Added `deploy voila` command to deploy Jupyter Voila notebooks. See the [user documentation](https://docs.posit.co/connect/user/publishing-cli-notebook/#interactive-voila-deployment)
+    for more information.
 
 ### Changed
 - `deploy html` was refactored. Its behavior is described below.
