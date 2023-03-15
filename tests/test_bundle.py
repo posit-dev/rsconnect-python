@@ -93,6 +93,8 @@ class TestBundle(TestCase):
 
             if sys.version_info[0] == 2:
                 ipynb_hash = "38aa30662bc16e91e6804cf21d7722f7"
+            elif sys.platform == 'win32':
+                ipynb_hash = "6cd380f003642754cf95dc65bc9d3f4e"
             else:
                 ipynb_hash = "36873800b48ca5ab54760d60ba06703a"
 
@@ -168,8 +170,15 @@ class TestBundle(TestCase):
 
             if sys.version_info[0] == 2:
                 ipynb_hash = "38aa30662bc16e91e6804cf21d7722f7"
+            elif sys.platform == 'win32':
+                ipynb_hash = "6cd380f003642754cf95dc65bc9d3f4e"
             else:
                 ipynb_hash = "36873800b48ca5ab54760d60ba06703a"
+
+            if sys.platform == 'win32':
+                data_csv_hash = "56a7e0581160202c8045351ef2591df1"
+            else: 
+                data_csv_hash = "f2bd77cc2752b3efbb732b761d2aa3c3"
 
             # noinspection SpellCheckingInspection
             self.assertEqual(
@@ -192,7 +201,7 @@ class TestBundle(TestCase):
                         "dummy.ipynb": {
                             "checksum": ipynb_hash,
                         },
-                        "data.csv": {"checksum": "f2bd77cc2752b3efbb732b761d2aa3c3"},
+                        "data.csv": {"checksum": data_csv_hash},
                     },
                 },
             )
@@ -887,6 +896,12 @@ def test_create_voila_manifest_1(path, entrypoint):
         python="3.8.12",
         source="file",
     )
+
+    if sys.platform == 'win32':
+        checksum_hash = "b7ba4ec7b6721c86ab883f5e6e2ea68f"
+    else:
+        checksum_hash = "79f8622228eded646a3038848de5ffd9"
+
     ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
@@ -897,7 +912,7 @@ def test_create_voila_manifest_1(path, entrypoint):
         },
         "files": {
             "requirements.txt": {"checksum": "9cce1aac313043abd5690f67f84338ed"},
-            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
+            "bqplot.ipynb": {"checksum": checksum_hash},
         },
     }
     manifest = Manifest()
@@ -957,6 +972,14 @@ def test_create_voila_manifest_2(path, entrypoint):
         python="3.8.12",
         source="file",
     )
+    
+    if sys.platform == 'win32':
+        bqplot_hash = "b7ba4ec7b6721c86ab883f5e6e2ea68f"
+        dashboard_hash = "b2d7dc369ac602c7d7a703b6eb868562"
+    else:
+        bqplot_hash = "79f8622228eded646a3038848de5ffd9"
+        dashboard_hash = "6b42a0730d61e5344a3e734f5bbeec25"
+    
     ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
@@ -967,8 +990,8 @@ def test_create_voila_manifest_2(path, entrypoint):
         },
         "files": {
             "requirements.txt": {"checksum": "d51994456975ff487749acc247ae6d63"},
-            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
-            "dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+            "bqplot.ipynb": {"checksum": bqplot_hash},
+            "dashboard.ipynb": {"checksum": dashboard_hash},
         },
     }
     manifest = create_voila_manifest(
@@ -1033,6 +1056,11 @@ def test_create_voila_manifest_multi_notebook(path, entrypoint):
         python="3.8.12",
         source="file",
     )
+    if sys.platform == 'win32':
+        checksum_hash = ""
+    else:
+        checksum_hash = ""
+
     ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
@@ -1133,6 +1161,12 @@ def test_make_voila_bundle(
         python="3.8.12",
         source="file",
     )
+    
+    if sys.platform == "win32":
+        checksum_hash = "b7ba4ec7b6721c86ab883f5e6e2ea68f"
+    else: 
+        checksum_hash = "79f8622228eded646a3038848de5ffd9"
+    
     ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
@@ -1143,7 +1177,7 @@ def test_make_voila_bundle(
         },
         "files": {
             "requirements.txt": {"checksum": "9395f3162b7779c57c86b187fa441d96"},
-            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
+            "bqplot.ipynb": {"checksum": checksum_hash},
         },
     }
     if (path, entrypoint) in (
