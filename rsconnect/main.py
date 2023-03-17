@@ -2417,6 +2417,118 @@ def start_content_build(
         build_start(ce.remote_server, parallelism, aborted, error, all, poll_wait, debug)
 
 
+@cli.group(no_args_is_help=True, help="Interact with Posit Connect's system API.")
+def system():
+    pass
+
+@system.group(no_args_is_help=True, help="Interact with Posit Connect's system caches.")
+def caches():
+    pass
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@caches.command(
+    name="list",
+    short_help="List runtime caches present on a Posit Connect server.",
+)
+@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
+@click.option(
+    "--server",
+    "-s",
+    envvar="CONNECT_SERVER",
+    help="The URL for the Posit Connect server.",
+)
+@click.option(
+    "--api-key",
+    "-k",
+    envvar="CONNECT_API_KEY",
+    help="The API key to use to authenticate with Posit Connect.",
+)
+@click.option(
+    "--insecure",
+    "-i",
+    envvar="CONNECT_INSECURE",
+    is_flag=True,
+    help="Disable TLS certification/host validation.",
+)
+@click.option(
+    "--cacert",
+    "-c",
+    envvar="CONNECT_CA_CERTIFICATE",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+    help="The path to trusted TLS CA certificates.",
+)
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
+def system_caches_list(name, server, api_key, insecure, cacert, verbose):
+    set_verbosity(verbose)
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        result = ce.list_runtime_caches()
+        json.dump(result, sys.stdout, indent=2)
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@caches.command(
+    name="delete",
+    short_help="Delete a runtime cache on a Posit Connect server.",
+)
+@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
+@click.option(
+    "--server",
+    "-s",
+    envvar="CONNECT_SERVER",
+    help="The URL for the Posit Connect server.",
+)
+@click.option(
+    "--api-key",
+    "-k",
+    envvar="CONNECT_API_KEY",
+    help="The API key to use to authenticate with Posit Connect.",
+)
+@click.option(
+    "--insecure",
+    "-i",
+    envvar="CONNECT_INSECURE",
+    is_flag=True,
+    help="Disable TLS certification/host validation.",
+)
+@click.option(
+    "--cacert",
+    "-c",
+    envvar="CONNECT_CA_CERTIFICATE",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+    help="The path to trusted TLS CA certificates.",
+)
+@click.option(
+    "--language",
+    "-l",
+    help="The language of the target cache.",
+)
+@click.option(
+    "--version",
+    "-V",
+    help="The version of the target cache.",
+)
+@click.option(
+    "--image-name",
+    "-I",
+    help="Either \"Local\" or the image name of the target cache's execution environment.",
+)
+@click.option(
+    "--dry-run",
+    "-d",
+    is_flag=True,
+    help="If true, verify that deletion would occur, but do not delete.",
+)
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
+def system_caches_list(name, server, api_key, insecure, cacert, verbose, language, version, image_name, dry_run):
+    set_verbosity(verbose)
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        result = ce.delete_runtime_cache(language, version, image_name, dry_run)
+        json.dump(result, sys.stdout, indent=2)
+
+
+
 if __name__ == "__main__":
     cli()
     click.echo()
