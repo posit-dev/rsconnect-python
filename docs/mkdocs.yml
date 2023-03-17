@@ -1,6 +1,14 @@
 site_name: 'Posit Connect: rsconnect-python'
 copyright: Posit Software, PBC. All Rights Reserved
 
+# We activate GA only when hosted on our public docs site
+# and not when installed.
+#
+# See overrides/partials/integrations/analytics.html
+google_analytics:
+  - 'GTM-KHBDBW7'
+  - 'auto'
+
 markdown_extensions:
   - toc:
       permalink: "#"
