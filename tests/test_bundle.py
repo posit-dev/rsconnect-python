@@ -543,8 +543,14 @@ class TestBundle(TestCase):
 
         if sys.platform == "win32":
             checksum_hash = "74203044cc283b7b3e775559b6e986fa"
+            a_hash = "f4751c084b3ade4d736c6293ab8468c9"
+            b_hash = "4976d559975b5232cf09a10afaf8d0a8"
+            c_hash = "09c56e1b9e6ae34c6662717c47a7e187"
         else:
             checksum_hash = "6f83f7f33bf6983dd474ecbc6640a26b"
+            a_hash = "4a3eb92956aa3e16a9f0a84a43c943e7"
+            b_hash = "b249e5b536d30e6282cea227f3a73669"
+            c_hash = "53b36f1d5b6f7fb2cfaf0c15af7ffb2d"
 
         self.assertEqual(
             manifest,
@@ -553,9 +559,9 @@ class TestBundle(TestCase):
                 "metadata": {"appmode": "quarto-shiny"},
                 "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
                 "files": {
-                    "a": {"checksum": "4a3eb92956aa3e16a9f0a84a43c943e7"},
-                    "b": {"checksum": "b249e5b536d30e6282cea227f3a73669"},
-                    "c": {"checksum": "53b36f1d5b6f7fb2cfaf0c15af7ffb2d"},
+                    "a": {"checksum": a_hash},
+                    "b": {"checksum": b_hash},
+                    "c": {"checksum": c_hash},
                     "requirements.txt": {"checksum": checksum_hash},
                 },
             },
@@ -989,7 +995,7 @@ def test_create_voila_manifest_2(path, entrypoint):
     else:
         bqplot_hash = "79f8622228eded646a3038848de5ffd9"
         dashboard_hash = "6b42a0730d61e5344a3e734f5bbeec25"
-    
+
     ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
@@ -1233,7 +1239,6 @@ def test_make_voila_bundle(
             assert reqs == b"bqplot"
             assert ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
 
-
 @pytest.mark.parametrize(
     (
         "path",
@@ -1285,6 +1290,17 @@ def test_make_voila_bundle_multi_notebook(
         python="3.8.12",
         source="file",
     )
+
+    bqplot_path = os.path.join("bqplot", "bqplot.ipynb")
+    dashboard_path = os.path.join("dashboard", "dashboard.ipynb")
+
+    if sys.platform == "win32":
+        bqplot_hash = "ddb4070466d3c45b2f233dd39906ddf6"
+        dashboard_hash = "b2d7dc369ac602c7d7a703b6eb868562"
+    else:
+        bqplot_path = "9f283b29889500e6c78e83ad1257e03f"
+        dashboard_path = "6b42a0730d61e5344a3e734f5bbeec25"
+
     ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
@@ -1295,8 +1311,8 @@ def test_make_voila_bundle_multi_notebook(
         },
         "files": {
             "requirements.txt": {"checksum": "9395f3162b7779c57c86b187fa441d96"},
-            "bqplot/bqplot.ipynb": {"checksum": "9f283b29889500e6c78e83ad1257e03f"},
-            "dashboard/dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+            bqplot_path: {"checksum": bqplot_hash},
+            dashboard_path: {"checksum": dashboard_hash},
         },
     }
     if (path, entrypoint) in (
@@ -1448,10 +1464,16 @@ def test_create_html_manifest():
             excludes=None,
             image=None,
         )
+
+    if sys.platform == "win32":
+        index_hash = "0c3d8c84223089949954d069f2eef7e9"
+    else:
+        index_hash = "c14bd63e50295f94b761ffe9d41e3742"
+
     single_file_index_file_ans = {
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
-        "files": {"index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+        "files": {"index.html": {"checksum": index_hash}},
     }
     manifest = create_html_manifest(
         single_file_index_file,
