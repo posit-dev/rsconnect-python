@@ -1,4 +1,4 @@
-/client-python/
-/cypress/videos/
-/cypress/screenshots/
-/content/*/.ipynb_checkpoints
+client-python/
+cypress/videos/
+cypress/screenshots/
+content/*/.ipynb_checkpoints
