@@ -1298,8 +1298,8 @@ def test_make_voila_bundle_multi_notebook(
         bqplot_hash = "ddb4070466d3c45b2f233dd39906ddf6"
         dashboard_hash = "b2d7dc369ac602c7d7a703b6eb868562"
     else:
-        bqplot_path = "9f283b29889500e6c78e83ad1257e03f"
-        dashboard_path = "6b42a0730d61e5344a3e734f5bbeec25"
+        bqplot_hash = "9f283b29889500e6c78e83ad1257e03f"
+        dashboard_hash = "6b42a0730d61e5344a3e734f5bbeec25"
 
     ans = {
         "version": 1,
