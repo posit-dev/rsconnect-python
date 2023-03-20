@@ -208,10 +208,10 @@ class TestBundle(TestCase):
         paths = [
             "notebook.ipynb",
             "somedata.csv",
-            "subdir/subfile",
-            "subdir2/subfile2",
-            ".ipynb_checkpoints/notebook.ipynb",
-            ".git/config",
+            os.path.join("subdir","subfile"),
+            os.path.join("subdir2", "subfile2"),
+            os.path.join(".ipynb_checkpoints", "notebook.ipynb"),
+            os.path.join(".git", "config"),
         ]
 
         def walk(base_dir):
@@ -219,8 +219,8 @@ class TestBundle(TestCase):
             file_names = []
 
             for path in paths:
-                if "/" in path:
-                    dir_name, file_name = path.split("/", 1)
+                if os.sep in path:
+                    dir_name, file_name = path.split(os.sep, 1)
                     dir_names.append(dir_name)
                 else:
                     file_names.append(path)
@@ -229,13 +229,13 @@ class TestBundle(TestCase):
 
             for subdir in dir_names:
                 for path in paths:
-                    if path.startswith(subdir + "/"):
-                        yield base_dir + "/" + subdir, [], [path.split("/", 1)[1]]
+                    if path.startswith(subdir + os.sep):
+                        yield base_dir + os.sep + subdir, [], [path.split(os.sep, 1)[1]]
 
-        files = list_files("/", True, walk=walk)
+        files = list_files(os.sep, True, walk=walk)
         self.assertEqual(files, paths[:4])
 
-        files = list_files("/", False, walk=walk)
+        files = list_files(os.sep, False, walk=walk)
         self.assertEqual(files, paths[:2])
 
     def test_html_bundle1(self):
