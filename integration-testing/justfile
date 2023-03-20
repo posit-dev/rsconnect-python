@@ -1,14 +1,16 @@
-
 export RSC_LICENSE := env_var_or_default("RSC_LICENSE", "$CONNECT_LICENSE")
 export ADMIN_API_KEY := env_var_or_default('ADMIN_API_KEY', "${ADMIN_API_KEY}")
+
+
 all:
-	just run-connect
+	just up && just up-cypress
 
 build:
 	ADMIN_API_KEY=${ADMIN_API_KEY} \
 	docker compose build
 
 up: 
+	docker compose pull connect && \
 	docker compose up -d client && docker compose up -d connect
 
 up-cypress:
@@ -61,6 +63,9 @@ inspect-client:
 
 inspect-cypress:
 	docker compose exec -it cypress /bin/bash
+
+inspect-connect:
+	docker compose exec -it connect /bin/bash
 
 stop:
 	docker compose down --volumes --remove-orphans && \
