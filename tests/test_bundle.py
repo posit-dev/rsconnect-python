@@ -93,7 +93,7 @@ class TestBundle(TestCase):
 
             if sys.version_info[0] == 2:
                 ipynb_hash = "38aa30662bc16e91e6804cf21d7722f7"
-            elif sys.platform == 'win32':
+            elif sys.platform == "win32":
                 ipynb_hash = "6cd380f003642754cf95dc65bc9d3f4e"
             else:
                 ipynb_hash = "36873800b48ca5ab54760d60ba06703a"
@@ -170,14 +170,11 @@ class TestBundle(TestCase):
 
             if sys.version_info[0] == 2:
                 ipynb_hash = "38aa30662bc16e91e6804cf21d7722f7"
-            elif sys.platform == 'win32':
+            elif sys.platform == "win32":
                 ipynb_hash = "6cd380f003642754cf95dc65bc9d3f4e"
+                data_csv_hash = "56a7e0581160202c8045351ef2591df1"
             else:
                 ipynb_hash = "36873800b48ca5ab54760d60ba06703a"
-
-            if sys.platform == 'win32':
-                data_csv_hash = "56a7e0581160202c8045351ef2591df1"
-            else: 
                 data_csv_hash = "f2bd77cc2752b3efbb732b761d2aa3c3"
 
             # noinspection SpellCheckingInspection
@@ -499,6 +496,12 @@ class TestBundle(TestCase):
             None,
             None,
         )
+
+        if sys.platform == "win32":
+            req_hash = "74203044cc283b7b3e775559b6e986fa"
+        else:
+            req_hash = "6f83f7f33bf6983dd474ecbc6640a26b"
+        
         self.assertEqual(
             manifest,
             {
@@ -510,7 +513,7 @@ class TestBundle(TestCase):
                     "version": "3.9.12",
                     "package_manager": {"name": "pip", "version": "22.0.4", "package_file": "requirements.txt"},
                 },
-                "files": {"requirements.txt": {"checksum": "6f83f7f33bf6983dd474ecbc6640a26b"}},
+                "files": {"requirements.txt": {"checksum": req_hash}},
             },
         )
 
@@ -538,7 +541,7 @@ class TestBundle(TestCase):
             None,
         )
 
-        if sys.platform == 'win32':
+        if sys.platform == "win32":
             checksum_hash = "74203044cc283b7b3e775559b6e986fa"
         else:
             checksum_hash = "6f83f7f33bf6983dd474ecbc6640a26b"
@@ -826,12 +829,12 @@ class WhichPythonTestCase(TestCase):
 
 
 cur_dir = os.path.dirname(__file__)
-bqplot_dir = os.path.join(cur_dir, "./testdata/voila/bqplot/")
+bqplot_dir = os.path.join(cur_dir, "testdata", "voila", "bqplot", "")
 bqplot_ipynb = os.path.join(bqplot_dir, "bqplot.ipynb")
-dashboard_dir = os.path.join(cur_dir, "./testdata/voila/dashboard/")
+dashboard_dir = os.path.join(cur_dir, "testdata", "voila", "dashboard", "")
 dashboard_ipynb = os.path.join(dashboard_dir, "dashboard.ipynb")
-multivoila_dir = os.path.join(cur_dir, "./testdata/voila/multi-voila/")
-nonexistent_dir = os.path.join(cur_dir, "./testdata/nonexistent/")
+multivoila_dir = os.path.join(cur_dir, "testdata", "voila", "multi-voila", "")
+nonexistent_dir = os.path.join(cur_dir, "testdata", "nonexistent", "")
 nonexistent_file = os.path.join(cur_dir, "nonexistent.txt")
 
 
@@ -904,7 +907,7 @@ def test_create_voila_manifest_1(path, entrypoint):
         source="file",
     )
 
-    if sys.platform == 'win32':
+    if sys.platform == "win32":
         checksum_hash = "b7ba4ec7b6721c86ab883f5e6e2ea68f"
     else:
         checksum_hash = "79f8622228eded646a3038848de5ffd9"
@@ -980,7 +983,7 @@ def test_create_voila_manifest_2(path, entrypoint):
         source="file",
     )
     
-    if sys.platform == 'win32':
+    if sys.platform == "win32":
         bqplot_hash = "b7ba4ec7b6721c86ab883f5e6e2ea68f"
         dashboard_hash = "b2d7dc369ac602c7d7a703b6eb868562"
     else:
@@ -1064,6 +1067,16 @@ def test_create_voila_manifest_multi_notebook(path, entrypoint):
         source="file",
     )
 
+    bqplot_path = os.path.join("bqplot", "bqplot.ipynb")
+    dashboard_path = os.path.join("dashboard", "dashboard.ipynb")
+    
+    if sys.platform == "win32":
+        bqplot_hash = "ddb4070466d3c45b2f233dd39906ddf6"
+        dashboard_hash = "b2d7dc369ac602c7d7a703b6eb868562"
+    else: 
+       bqplot_hash = "9f283b29889500e6c78e83ad1257e03f" 
+       dashboard_hash = "6b42a0730d61e5344a3e734f5bbeec25"
+
     ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
@@ -1074,8 +1087,8 @@ def test_create_voila_manifest_multi_notebook(path, entrypoint):
         },
         "files": {
             "requirements.txt": {"checksum": "9cce1aac313043abd5690f67f84338ed"},
-            "bqplot/bqplot.ipynb": {"checksum": "9f283b29889500e6c78e83ad1257e03f"},
-            "dashboard/dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+            bqplot_path: {"checksum": bqplot_hash},
+            dashboard_path: {"checksum": dashboard_hash},
         },
     }
     manifest = Manifest()
@@ -1354,6 +1367,14 @@ def test_make_voila_bundle_2(
         python="3.8.12",
         source="file",
     )
+
+    if sys.platform == "win32":
+        bqplot_hash = "b7ba4ec7b6721c86ab883f5e6e2ea68f"
+        dashboard_hash = "b2d7dc369ac602c7d7a703b6eb868562"
+    else:
+        bqplot_hash = "79f8622228eded646a3038848de5ffd9"
+        dashboard_hash = "6b42a0730d61e5344a3e734f5bbeec25"
+
     ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
@@ -1364,8 +1385,8 @@ def test_make_voila_bundle_2(
         },
         "files": {
             "requirements.txt": {"checksum": "d51994456975ff487749acc247ae6d63"},
-            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
-            "dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+            "bqplot.ipynb": {"checksum": bqplot_hash},
+            "dashboard.ipynb": {"checksum": dashboard_hash},
         },
     }
     with make_voila_bundle(
@@ -1390,15 +1411,15 @@ def test_make_voila_bundle_2(
         assert ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
 
 
-single_file_index_dir = os.path.join(cur_dir, "./testdata/html_tests/single_file_index")
-single_file_index_file = os.path.join(cur_dir, "./testdata/html_tests/single_file_index/index.html")
-single_file_nonindex_dir = os.path.join(cur_dir, "./testdata/html_tests/single_file_nonindex")
-multi_file_index_dir = os.path.join(cur_dir, "./testdata/html_tests/multi_file_index")
-multi_file_index_file = os.path.join(cur_dir, "./testdata/html_tests/multi_file_index/index.html")
-multi_file_index_file2 = os.path.join(cur_dir, "./testdata/html_tests/multi_file_index/main.html")
-multi_file_nonindex_dir = os.path.join(cur_dir, "./testdata/html_tests/multi_file_nonindex")
-multi_file_nonindex_fileb = os.path.join(cur_dir, "./testdata/html_tests/multi_file_nonindex/b.html")
-multi_file_nonindex_filea = os.path.join(cur_dir, "./testdata/html_tests/multi_file_nonindex/a.html")
+single_file_index_dir = os.path.join(cur_dir, "testdata", "html_tests", "single_file_index")
+single_file_index_file = os.path.join(cur_dir, "testdata", "html_tests", "single_file_index", "index.html")
+single_file_nonindex_dir = os.path.join(cur_dir, "testdata", "html_tests", "single_file_nonindex")
+multi_file_index_dir = os.path.join(cur_dir, "testdata", "html_tests", "multi_file_index")
+multi_file_index_file = os.path.join(cur_dir, "testdata", "html_tests", "multi_file_index", "index.html")
+multi_file_index_file2 = os.path.join(cur_dir, "testdata", "html_tests", "multi_file_index", "main.html")
+multi_file_nonindex_dir = os.path.join(cur_dir, "testdata", "html_tests", "multi_file_nonindex")
+multi_file_nonindex_fileb = os.path.join(cur_dir, "testdata", "html_tests", "multi_file_nonindex", "b.html")
+multi_file_nonindex_filea = os.path.join(cur_dir, "testdata", "html_tests", "multi_file_nonindex", "a.html")
 
 
 def test_create_html_manifest():
