@@ -501,7 +501,7 @@ class TestBundle(TestCase):
             req_hash = "74203044cc283b7b3e775559b6e986fa"
         else:
             req_hash = "6f83f7f33bf6983dd474ecbc6640a26b"
-        
+
         self.assertEqual(
             manifest,
             {
@@ -575,7 +575,7 @@ class TestBundle(TestCase):
             ["requirements.txt"],
             None,
         )
-        
+
         self.assertEqual(
             manifest,
             {
@@ -982,7 +982,7 @@ def test_create_voila_manifest_2(path, entrypoint):
         python="3.8.12",
         source="file",
     )
-    
+
     if sys.platform == "win32":
         bqplot_hash = "b7ba4ec7b6721c86ab883f5e6e2ea68f"
         dashboard_hash = "b2d7dc369ac602c7d7a703b6eb868562"
@@ -1069,13 +1069,13 @@ def test_create_voila_manifest_multi_notebook(path, entrypoint):
 
     bqplot_path = os.path.join("bqplot", "bqplot.ipynb")
     dashboard_path = os.path.join("dashboard", "dashboard.ipynb")
-    
+
     if sys.platform == "win32":
         bqplot_hash = "ddb4070466d3c45b2f233dd39906ddf6"
         dashboard_hash = "b2d7dc369ac602c7d7a703b6eb868562"
-    else: 
-       bqplot_hash = "9f283b29889500e6c78e83ad1257e03f" 
-       dashboard_hash = "6b42a0730d61e5344a3e734f5bbeec25"
+    else:
+        bqplot_hash = "9f283b29889500e6c78e83ad1257e03f"
+        dashboard_hash = "6b42a0730d61e5344a3e734f5bbeec25"
 
     ans = {
         "version": 1,
@@ -1177,12 +1177,12 @@ def test_make_voila_bundle(
         python="3.8.12",
         source="file",
     )
-    
+
     if sys.platform == "win32":
         checksum_hash = "b7ba4ec7b6721c86ab883f5e6e2ea68f"
-    else: 
+    else:
         checksum_hash = "79f8622228eded646a3038848de5ffd9"
-    
+
     ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
