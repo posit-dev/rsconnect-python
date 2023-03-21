@@ -29,7 +29,7 @@ a server with only Python 3.8 installed will fail to match content deployed with
 Python 3.7. Your administrator may also enable exact Python version matching which
 will be stricter and require matching major, minor, and patch versions. For more
 information see the [Posit Connect Admin Guide chapter titled Python Version
-Matching](https://docs.posit.co/connect/admin/python.html#python-version-matching).
+Matching](https://docs.posit.co/connect/admin/python/#python-version-matching).
 
 ### Installation
 
