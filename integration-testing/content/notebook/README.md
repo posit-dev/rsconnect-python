@@ -9,8 +9,8 @@ This stock report is generated using Python and Jupyter Notebook. Stock prices a
 
 * [Jupyter Homepage](https://jupyter.org/)
 * [Jupyter Documentation](https://jupyter.org/documentation)
-* [Using Jupyter Notebooks in {systemDisplayName}](https://docs.rstudio.com/connect/user/jupyter-notebook/)
-* [User Guide for rsconnect_jupyter](https://docs.rstudio.com/rsconnect-jupyter/)
+* [Using Jupyter Notebooks in {systemDisplayName}](https://docs.posit.co/connect/user/jupyter-notebook/)
+* [User Guide for rsconnect_jupyter](https://docs.posit.co/rsconnect-jupyter/)
 
 ## Requirements
 

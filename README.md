@@ -29,7 +29,7 @@ a server with only Python 3.8 installed will fail to match content deployed with
 Python 3.7. Your administrator may also enable exact Python version matching which
 will be stricter and require matching major, minor, and patch versions. For more
 information see the [Posit Connect Admin Guide chapter titled Python Version
-Matching](https://docs.rstudio.com/connect/admin/python.html#python-version-matching).
+Matching](https://docs.posit.co/connect/admin/python/#python-version-matching).
 
 ### Installation
 
@@ -722,7 +722,7 @@ of the available search flags.
 > **Note:** The `rsconnect content build` subcommand requires Posit Connect >= 2021.11.1
 
 Posit Connect caches R and Python packages in the configured
-[`Server.DataDir`](https://docs.rstudio.com/connect/admin/appendix/configuration/#Server.DataDir).
+[`Server.DataDir`](https://docs.posit.co/connect/admin/appendix/configuration/#Server.DataDir).
 Under certain circumstances (examples below), these package caches can become stale
 and need to be rebuilt. This refresh automatically occurs when a Posit Connect
 user visits the content. You may wish to refresh some content before it is visited
@@ -741,7 +741,7 @@ The following are some common scenarios where performing a content build might b
 > **Note:** The `content build` command is non-destructive, meaning that it does nothing to purge
 > existing packrat/python package caches before a build. If you have an
 > existing cache, it should be cleared prior to starting a content build.
-> See the [migration documentation](https://docs.rstudio.com/connect/admin/appendix/cli/#migration) for details.
+> See the [migration documentation](https://docs.posit.co/connect/admin/appendix/cli/#migration) for details.
 
 > **Note:** You may use the [`rsconnect content search`](#content-search) subcommand to help
 > identify high priority content items to build.
@@ -964,7 +964,7 @@ xargs printf -- '-g %s\n' < guids.txt | xargs rsconnect content build add
 ```
 ## Programmatic Provisioning
 
-RStudio Connect supports the programmatic bootstrapping of an admininistrator API key 
+Posit Connect supports the programmatic bootstrapping of an admininistrator API key 
 for scripted provisioning tasks. This process is supported by the `rsconnect bootstrap` command,
 which uses a JSON Web Token to request an initial API key from a fresh Connect instance. 
 
@@ -977,4 +977,4 @@ $ rsconnect bootstrap --server https://connect.example.org:3939 --jwt-keypath /p
 ```
 
 A full description on how to use `rsconnect bootstrap` in a provisioning workflow is provided in the Connect administrator guide's 
-[programmatic provisioning](https://docs.rstudio.com/connect/admin/programmatic-provisioning) documentation.
+[programmatic provisioning](https://docs.posit.co/connect/admin/programmatic-provisioning) documentation.
