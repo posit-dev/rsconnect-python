@@ -589,9 +589,9 @@ class TestBundle(TestCase):
                 "metadata": {"appmode": "quarto-shiny"},
                 "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
                 "files": {
-                    "a": {"checksum": "4a3eb92956aa3e16a9f0a84a43c943e7"},
-                    "b": {"checksum": "b249e5b536d30e6282cea227f3a73669"},
-                    "c": {"checksum": "53b36f1d5b6f7fb2cfaf0c15af7ffb2d"},
+                    "a": {"checksum": a_hash},
+                    "b": {"checksum": b_hash},
+                    "c": {"checksum": c_hash},
                 },
             },
         )
@@ -1481,13 +1481,24 @@ def test_create_html_manifest():
     )
     assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
 
+    test_folder_path = os.path.join("test_folder1", "testfoldertext1.txt")
+
+    if sys.platform == "win32":
+        index_html_hash = "0c3d8c84223089949954d069f2eef7e9"
+        txt_hash = "e6a96602853b20607831eec27dbb6cf0"
+        folder_txt_hash = "14bbe9e7bfefdfe9a7863be93585d5eb"
+    else: 
+        index_html_hash = "c14bd63e50295f94b761ffe9d41e3742"
+        txt_hash = "3e7705498e8be60520841409ebc69bc1"
+        folder_txt_hash =  "0a576fd324b6985bac6aa934131d2f5c"
+
     single_file_index_dir_ans = {
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
         "files": {
-            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
-            "test1.txt": {"checksum": "3e7705498e8be60520841409ebc69bc1"},
-            "test_folder1/testfoldertext1.txt": {"checksum": "0a576fd324b6985bac6aa934131d2f5c"},
+            "index.html": {"checksum": index_html_hash},
+            "test1.txt": {"checksum": txt_hash},
+            test_folder_path: {"checksum": folder_txt_hash},
         },
     }
 
@@ -1596,10 +1607,16 @@ def test_create_html_manifest():
 
 
 def test_make_html_bundle():
+    
+    if sys.platform == "win32":
+        index_hash = "0c3d8c84223089949954d069f2eef7e9"
+    else:
+        index_hash = "c14bd63e50295f94b761ffe9d41e3742"
+
     single_file_index_file_ans = {
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
-        "files": {"index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+        "files": {"index.html": {"checksum": index_hash}},
     }
     with make_html_bundle(
         single_file_index_file,
