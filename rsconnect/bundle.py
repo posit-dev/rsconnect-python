@@ -5,6 +5,7 @@ Manifest generation and bundling utilities
 import hashlib
 import io
 import json
+import mimetypes
 import os
 import subprocess
 import sys
@@ -15,6 +16,8 @@ from pprint import pformat
 from collections import defaultdict
 from mimetypes import guess_type
 from pathlib import Path
+from copy import deepcopy
+from typing import List
 import click
 
 
@@ -49,6 +52,243 @@ directories_ignore_list = [
     "venv/",
 ]
 directories_to_ignore = {Path(d) for d in directories_ignore_list}
+
+mimetypes.add_type("text/ipynb", ".ipynb")
+
+
+class Manifest:
+    def __init__(self, *args, **kwargs) -> None:
+        self.data = dict()
+        self.buffer: dict = dict()
+        self._deploy_dir = None
+        version = kwargs.get("version")
+        environment = kwargs.get("environment")
+        app_mode = kwargs.get("app_mode")
+        entrypoint = kwargs.get("entrypoint")
+        quarto_inspection = kwargs.get("quarto_inspection")
+        environment = kwargs.get("environment")
+        image = kwargs.get("image")
+        primary_html = kwargs.get("primary_html")
+
+        self.data["version"] = version if version else 1
+        if environment:
+            self.data["locale"] = environment.locale
+
+        self.data["metadata"] = (
+            {
+                "appmode": app_mode.name(),
+            }
+            if app_mode
+            else {
+                "appmode": AppModes.UNKNOWN,
+            }
+        )
+        if primary_html:
+            self.data["metadata"]["primary_html"] = primary_html
+
+        if entrypoint:
+            self.data["metadata"]["entrypoint"] = entrypoint
+
+        if quarto_inspection:
+            self.data["quarto"] = {
+                "version": quarto_inspection.get("quarto", {}).get("version", "99.9.9"),
+                "engines": quarto_inspection.get("engines", []),
+            }
+            project_config = quarto_inspection.get("config", {}).get("project", {})
+            render_targets = project_config.get("render", [])
+            if len(render_targets):
+                self.data["metadata"]["primary_rmd"] = render_targets[0]
+            project_type = project_config.get("type", None)
+            if project_type or len(render_targets) > 1:
+                self.data["metadata"]["content_category"] = "site"
+
+        if environment:
+            package_manager = environment.package_manager
+            self.data["python"] = {
+                "version": environment.python,
+                "package_manager": {
+                    "name": package_manager,
+                    "version": getattr(environment, package_manager),
+                    "package_file": environment.filename,
+                },
+            }
+
+        if image:
+            self.data["environment"] = {
+                "image": image,
+            }
+
+        self.data["files"] = {}
+
+    @property
+    def deploy_dir(self):
+        return self._deploy_dir
+
+    @deploy_dir.setter
+    def deploy_dir(self, value):
+        self._deploy_dir = value
+
+    @classmethod
+    def from_json(cls, json_str):
+        return cls(json.loads(json_str))
+
+    @classmethod
+    def from_json_file(cls, json_path):
+        with open(json_path) as json_file:
+            return cls(json.load(json_file))
+
+    @property
+    def json(self):
+        return json.dumps(self.data, indent=2)
+
+    @property
+    def entrypoint(self):
+        if "metadata" not in self.data:
+            return None
+        if "entrypoint" in self.data["metadata"]:
+            return self.data["metadata"]["entrypoint"]
+        return None
+
+    @entrypoint.setter
+    def entrypoint(self, value):
+        self.data["metadata"]["entrypoint"] = value
+
+    @property
+    def primary_html(self):
+        if "metadata" not in self.data:
+            return None
+        if "primary_html" in self.data["metadata"]:
+            return self.data["metadata"]["primary_html"]
+        return None
+
+    @primary_html.setter
+    def primary_html(self, value):
+        self.data["metadata"]["primary_html"] = value
+
+    def add_file(self, path):
+        self.data["files"][path] = {"checksum": file_checksum(path)}
+        return self
+
+    def add_relative_path(self, path):
+        """
+        Assumes that path resides below the deployment directory, construct that path add it to the manifest.
+        """
+        deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
+        mod_path = join(deploy_dir, path)
+        self.data["files"][mod_path] = {"checksum": file_checksum(mod_path)}
+        return self
+
+    def discard_file(self, path):
+        if path in self.data["files"]:
+            del self.data["files"][path]
+        return self
+
+    def add_to_buffer(self, key, value):
+        self.buffer[key] = value
+        self.data["files"][key] = {"checksum": buffer_checksum(value)}
+        return self
+
+    def discard_from_buffer(self, key):
+        if key in self.buffer:
+            del self.buffer[key]
+            del self.data["files"][key]
+        return self
+
+    @property
+    def flattened_data(self):
+        if self.entrypoint is None:
+            raise RSConnectException("A valid entrypoint must be provided.")
+        new_data_files = {}
+        deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
+        for path in self.data["files"]:
+            rel_path = relpath(path, deploy_dir)
+            new_data_files[rel_path] = self.data["files"][path]
+        return new_data_files
+
+    @property
+    def flattened_buffer(self):
+        if self.entrypoint is None:
+            raise RSConnectException("A valid entrypoint must be provided.")
+        new_buffer = {}
+        deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
+        for k, v in self.buffer.items():
+            rel_path = relpath(k, deploy_dir)
+            new_buffer[rel_path] = v
+        return new_buffer
+
+    @property
+    def flattened_entrypoint(self):
+        if self.entrypoint is None:
+            raise RSConnectException("A valid entrypoint must be provided.")
+        return relpath(self.entrypoint, dirname(self.entrypoint))
+
+    @property
+    def flattened_primary_html(self):
+        if self.primary_html is None:
+            raise RSConnectException("A valid primary_html must be provided.")
+        return relpath(self.primary_html, dirname(self.primary_html))
+
+    @property
+    def flattened_copy(self):
+        if self.entrypoint is None:
+            raise RSConnectException("A valid entrypoint must be provided.")
+        new_manifest = deepcopy(self)
+        new_manifest.data["files"] = self.flattened_data
+        new_manifest.buffer = self.flattened_buffer
+        new_manifest.entrypoint = self.flattened_entrypoint
+        if self.primary_html:
+            new_manifest.primary_html = self.flattened_primary_html
+        return new_manifest
+
+    def make_relative_to_deploy_dir(self):
+        self = self.flattened_copy
+        return self
+
+
+class Bundle:
+    def __init__(self, *args, **kwargs) -> None:
+        self.file_paths: set = set()
+        self.buffer: dict = {}
+        self._deploy_dir = None
+
+    @property
+    def deploy_dir(self):
+        return self._deploy_dir
+
+    @deploy_dir.setter
+    def deploy_dir(self, value):
+        self._deploy_dir = value
+
+    def add_file(self, filepath):
+        self.file_paths.add(filepath)
+
+    def discard_file(self, filepath):
+        self.file_paths.discard(filepath)
+
+    def to_file(self, flatten_to_deploy_dir=True):
+        bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
+        with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
+            for fp in self.file_paths:
+                if Path(fp).name in self.buffer:
+                    continue
+                rel_path = Path(fp).relative_to(self.deploy_dir) if flatten_to_deploy_dir else None
+                bundle.add(fp, arcname=rel_path)
+            for k, v in self.buffer.items():
+                buf = io.BytesIO(to_bytes(v))
+                file_info = tarfile.TarInfo(k)
+                file_info.size = len(buf.getvalue())
+                bundle.addfile(file_info, buf)
+        bundle_file.seek(0)
+        return bundle_file
+
+    def add_to_buffer(self, key, value):
+        self.buffer[key] = value
+        return self
+
+    def discard_from_buffer(self, key):
+        if key in self.buffer:
+            del self.buffer[key]
+        return self
 
 
 # noinspection SpellCheckingInspection
@@ -418,7 +658,7 @@ def make_notebook_html_bundle(
 
         # manifest
         manifest = make_html_manifest(filename, image)
-        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest))
+        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
 
     # rewind file pointer
     bundle_file.seek(0)
@@ -600,61 +840,111 @@ def make_api_manifest(
     return manifest, relevant_files
 
 
-def make_html_bundle_content(
+def create_html_manifest(
+    path: str,
+    entrypoint: str,
+    extra_files: typing.List[str] = None,
+    excludes: typing.List[str] = None,
+    image: str = None,
+    **kwargs
+) -> Manifest:
+    """
+    Creates and writes a manifest.json file for the given path.
+
+    :param path: the file, or the directory containing the files to deploy.
+    :param entry_point: the main entry point for the API.
+    :param environment: the Python environment to start with.  This should be what's
+    returned by the inspect_environment() function.
+    :param app_mode: the application mode to assume.  If this is None, the extension
+    portion of the entry point file name will be used to derive one. Previous default = None.
+    :param extra_files: any extra files that should be included in the manifest. Previous default = None.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param force_generate: bool indicating whether to force generate manifest and related environment files.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :return: the manifest data structure.
+    """
+    if not path:
+        raise RSConnectException("A valid path must be provided.")
+    extra_files = list(extra_files) if extra_files else []
+    entrypoint_candidates = infer_entrypoint_candidates(path=abspath(path), mimetype="text/html")
+
+    deploy_dir = guess_deploy_dir(path, entrypoint)
+    if len(entrypoint_candidates) <= 0:
+        if entrypoint is None:
+            raise RSConnectException("No valid entrypoint found.")
+        entrypoint = abs_entrypoint(path, entrypoint)
+    elif len(entrypoint_candidates) == 1:
+        if entrypoint:
+            entrypoint = abs_entrypoint(path, entrypoint)
+        else:
+            entrypoint = entrypoint_candidates[0]
+    else:  # len(entrypoint_candidates) > 1:
+        if entrypoint is None:
+            raise RSConnectException("No valid entrypoint found.")
+        entrypoint = abs_entrypoint(path, entrypoint)
+
+    extra_files = validate_extra_files(deploy_dir, extra_files, use_abspath=True)
+    excludes = list(excludes) if excludes else []
+    excludes.extend(["manifest.json"])
+    excludes.extend(list_environment_dirs(deploy_dir))
+
+    manifest = Manifest(app_mode=AppModes.STATIC, entrypoint=entrypoint, primary_html=entrypoint, image=image)
+    manifest.deploy_dir = deploy_dir
+
+    file_list = create_file_list(path, extra_files, excludes, use_abspath=True)
+    for abs_path in file_list:
+        manifest.add_file(abs_path)
+
+    return manifest
+
+
+def make_html_bundle(
     path: str,
     entrypoint: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
     image: str = None,
-) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]:
-
+) -> typing.IO[bytes]:
     """
-    Makes a manifest for static html deployment.
+    Create an html bundle, given a path and/or entrypoint.
+
+    The bundle contains a manifest.json file created for the given notebook entrypoint file.
+    If the related environment file (requirements.txt) doesn't
+    exist (or force_generate is set to True), the environment file will also be written.
 
     :param path: the file, or the directory containing the files to deploy.
-    :param entry_point: the main entry point for the API.
+    :param entry_point: the main entry point.
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param force_generate: bool indicating whether to force generate manifest and related environment files.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :return: the manifest and a list of the files involved.
+    :return: a file-like object containing the bundle tarball.
     """
-    extra_files = list(extra_files) if extra_files else []
-    entrypoint = entrypoint or infer_entrypoint(path=path, mimetype="text/html")
-    if not entrypoint:
-        raise RSConnectException("Unable to find a valid html entry point.")
 
-    if path.startswith(os.curdir):
-        path = relpath(path)
-    if entrypoint.startswith(os.curdir):
-        entrypoint = relpath(entrypoint)
-    extra_files = [relpath(f) if isfile(f) and f.startswith(os.curdir) else f for f in extra_files]
+    manifest = create_html_manifest(**locals())
+    if manifest.data.get("files") is None:
+        raise RSConnectException("No valid files were found for the manifest.")
 
-    if is_environment_dir(path):
-        excludes = list(excludes or []) + ["bin/", "lib/"]
+    bundle = Bundle()
+    for f in manifest.data["files"]:
+        if f in manifest.buffer:
+            continue
+        bundle.add_file(f)
+    for k, v in manifest.flattened_buffer.items():
+        bundle.add_to_buffer(k, v)
 
-    extra_files = extra_files or []
-    skip = ["manifest.json"]
-    extra_files = sorted(set(extra_files) - set(skip))
+    manifest_flattened_copy_data = manifest.flattened_copy.data
+    bundle.add_to_buffer("manifest.json", json.dumps(manifest_flattened_copy_data, indent=2))
+    bundle.deploy_dir = manifest.deploy_dir
 
-    # Don't include these top-level files.
-    excludes = list(excludes) if excludes else []
-    excludes.append("manifest.json")
-    if not isfile(path):
-        excludes.extend(list_environment_dirs(path))
-
-    relevant_files = create_file_list(path, extra_files, excludes)
-    manifest = make_html_manifest(entrypoint, image)
-
-    for rel_path in relevant_files:
-        manifest_add_file(manifest, rel_path, path)
-
-    return manifest, relevant_files
+    return bundle.to_file()
 
 
 def create_file_list(
     path: str,
     extra_files: typing.List[str] = None,
     excludes: typing.List[str] = None,
+    use_abspath: bool = False,
 ) -> typing.List[str]:
     """
     Builds a full list of files under the given path that should be included
@@ -673,77 +963,148 @@ def create_file_list(
     file_set = set(extra_files)  # type: typing.Set[str]
 
     if isfile(path):
-        file_set.add(path)
+        path_to_add = abspath(path) if use_abspath else path
+        file_set.add(path_to_add)
         return sorted(file_set)
 
-    for subdir, dirs, files in os.walk(path):
-        if Path(subdir) in exclude_paths:
+    for cur_dir, sub_dirs, files in os.walk(path):
+        if Path(cur_dir) in exclude_paths:
+            continue
+        if any(parent in exclude_paths for parent in Path(cur_dir).parents):
             continue
         for file in files:
-            abs_path = os.path.join(subdir, file)
-            rel_path = os.path.relpath(abs_path, path)
+            cur_path = os.path.join(cur_dir, file)
+            rel_path = relpath(cur_path, path)
 
-            if Path(abs_path) in exclude_paths:
+            if Path(cur_path) in exclude_paths:
                 continue
             if keep_manifest_specified_file(rel_path, exclude_paths | directories_to_ignore) and (
-                rel_path in extra_files or not glob_set.matches(abs_path)
+                rel_path in extra_files or not glob_set.matches(cur_path)
             ):
-                file_set.add(rel_path)
+                path_to_add = abspath(cur_path) if use_abspath else rel_path
+                file_set.add(path_to_add)
     return sorted(file_set)
 
 
 def infer_entrypoint(path, mimetype):
-    if os.path.isfile(path):
-        return path
-    if not os.path.isdir(path):
-        raise ValueError("Entrypoint is not a valid file type or directory.")
+    candidates = infer_entrypoint_candidates(path, mimetype)
+    return candidates.pop() if len(candidates) == 1 else None
 
-    default_mimetype_entrypoints = {"text/html": "index.html"}
-    if mimetype not in default_mimetype_entrypoints:
-        raise ValueError("Not supported mimetype inference.")
+
+def infer_entrypoint_candidates(path, mimetype) -> List:
+    if not path:
+        return []
+    if isfile(path):
+        return [path]
+    if not isdir(path):
+        return []
+
+    default_mimetype_entrypoints = defaultdict(str)
+    default_mimetype_entrypoints["text/html"] = "index.html"
 
     mimetype_filelist = defaultdict(list)
 
     for file in os.listdir(path):
-        rel_path = os.path.join(path, file)
-        if not os.path.isfile(rel_path):
+        abs_path = os.path.join(path, file)
+        if not isfile(abs_path):
             continue
-        mimetype_filelist[guess_type(file)[0]].append(rel_path)
+        mimetype_filelist[guess_type(file)[0]].append(abs_path)
         if file in default_mimetype_entrypoints[mimetype]:
-            return file
-    return mimetype_filelist[mimetype].pop() if len(mimetype_filelist[mimetype]) == 1 else None
+            return [abs_path]
+    return mimetype_filelist[mimetype] or []
 
 
-def make_html_bundle(
+def guess_deploy_dir(path, entrypoint):
+    if path and not exists(path):
+        raise RSConnectException(f"Path {path} does not exist.")
+    if entrypoint and not exists(entrypoint):
+        raise RSConnectException(f"Entrypoint {entrypoint} does not exist.")
+    abs_path = abspath(path) if path else None
+    abs_entrypoint = abspath(entrypoint) if entrypoint else None
+    if not path and not entrypoint:
+        raise RSConnectException("No path or entrypoint provided.")
+    deploy_dir = None
+    if path and isfile(path):
+        if not entrypoint:
+            deploy_dir = dirname(abs_path)
+        elif isfile(entrypoint) and abs_path != abs_entrypoint:
+            raise RSConnectException("Path and entrypoint need to match if they are both files.")
+        elif isfile(entrypoint) and abs_path == abs_entrypoint:
+            deploy_dir = dirname(abs_path)
+        elif isdir(entrypoint):
+            raise RSConnectException("Entrypoint cannot be a directory while the path is a file.")
+    elif path and isdir(path):
+        if not entrypoint:
+            deploy_dir = abs_path
+        elif entrypoint and isdir(entrypoint):
+            raise RSConnectException("Path and entrypoint cannot both be directories.")
+        elif entrypoint:
+            guess_entry_file = os.path.join(abs_path, basename(entrypoint))
+            if isfile(guess_entry_file):
+                deploy_dir = dirname(guess_entry_file)
+            elif isfile(entrypoint):
+                deploy_dir = dirname(abs_entrypoint)
+    elif not path and entrypoint:
+        raise RSConnectException("A path needs to be provided.")
+    else:
+        deploy_dir = abs_path
+    return deploy_dir
+
+
+def abs_entrypoint(path, entrypoint):
+    if isfile(entrypoint):
+        return abspath(entrypoint)
+    guess_entry_file = os.path.join(abspath(path), basename(entrypoint))
+    if isfile(guess_entry_file):
+        return guess_entry_file
+    return None
+
+
+def make_voila_bundle(
     path: str,
-    entry_point: str,
+    entrypoint: str,
     extra_files: typing.List[str],
     excludes: typing.List[str],
+    force_generate: bool,
+    environment: Environment,
     image: str = None,
+    multi_notebook: bool = False,
 ) -> typing.IO[bytes]:
     """
-    Create an html bundle, given a path and a manifest.
+    Create an voila bundle, given a path and/or entrypoint.
+
+    The bundle contains a manifest.json file created for the given notebook entrypoint file.
+    If the related environment file (requirements.txt) doesn't
+    exist (or force_generate is set to True), the environment file will also be written.
 
     :param path: the file, or the directory containing the files to deploy.
-    :param entry_point: the main entry point for the API.
+    :param entry_point: the main entry point.
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param force_generate: bool indicating whether to force generate manifest and related environment files.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: a file-like object containing the bundle tarball.
     """
-    manifest, relevant_files = make_html_bundle_content(path, entry_point, extra_files, excludes, image)
-    bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
 
-    with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
-        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
+    manifest = create_voila_manifest(**locals())
+    if manifest.data.get("files") is None:
+        raise RSConnectException("No valid files were found for the manifest.")
 
-        for rel_path in relevant_files:
-            bundle_add_file(bundle, rel_path, path)
+    bundle = Bundle()
+    for f in manifest.data["files"]:
+        if f in manifest.buffer:
+            continue
+        bundle.add_file(f)
+    for k, v in manifest.flattened_buffer.items():
+        bundle.add_to_buffer(k, v)
 
-    # rewind file pointer
-    bundle_file.seek(0)
+    manifest_flattened_copy_data = manifest.flattened_copy.data
+    if multi_notebook and "metadata" in manifest_flattened_copy_data:
+        manifest_flattened_copy_data["metadata"]["entrypoint"] = ""
+    bundle.add_to_buffer("manifest.json", json.dumps(manifest_flattened_copy_data, indent=2))
+    bundle.deploy_dir = manifest.deploy_dir
 
-    return bundle_file
+    return bundle.to_file()
 
 
 def make_api_bundle(
@@ -914,7 +1275,7 @@ def validate_file_is_notebook(file_name):
         raise RSConnectException("A Jupyter notebook (.ipynb) file is required here.")
 
 
-def validate_extra_files(directory, extra_files):
+def validate_extra_files(directory, extra_files, use_abspath=False):
     """
     If the user specified a list of extra files, validate that they all exist and are
     beneath the given directory and, if so, return a list of them made relative to that
@@ -934,6 +1295,7 @@ def validate_extra_files(directory, extra_files):
                 raise RSConnectException("%s must be under %s." % (extra_file, directory))
             if not exists(join(directory, extra_file)):
                 raise RSConnectException("Could not find file %s under %s" % (extra, directory))
+            extra_file = abspath(join(directory, extra_file)) if use_abspath else extra_file
             result.append(extra_file)
     return result
 
@@ -989,6 +1351,14 @@ def validate_entry_point(entry_point, directory):
         raise RSConnectException('Entry point is not in "module:object" format.')
 
     return entry_point
+
+
+def _warn_on_ignored_entrypoint(entrypoint):
+    if entrypoint:
+        click.secho(
+            "    Warning: entrypoint will not be used or considered for multi-notebook mode.",
+            fg="yellow",
+        )
 
 
 def _warn_on_ignored_manifest(directory):
@@ -1252,6 +1622,127 @@ def write_notebook_manifest_json(
     write_manifest_json(manifest_path, manifest_data)
 
     return exists(join(directory, environment.filename))
+
+
+MULTI_NOTEBOOK_EXC_MSG = """
+Unable to infer entrypoint.
+Multi-notebook deployments need to be specified with the following:
+1) A directory as the path
+2) Set multi_notebook=True,
+    i.e. include --multi-notebook (or -m) in the CLI command.
+"""
+
+
+def create_voila_manifest(
+    path: str,
+    entrypoint: str,
+    environment: Environment,
+    app_mode: AppMode = AppModes.JUPYTER_VOILA,
+    extra_files: typing.List[str] = None,
+    excludes: typing.List[str] = None,
+    force_generate: bool = True,
+    image: str = None,
+    multi_notebook: bool = False,
+    **kwargs
+) -> Manifest:
+    """
+    Creates and writes a manifest.json file for the given path.
+
+    :param path: the file, or the directory containing the files to deploy.
+    :param entry_point: the main entry point for the API.
+    :param environment: the Python environment to start with.  This should be what's
+    returned by the inspect_environment() function.
+    :param app_mode: the application mode to assume.  If this is None, the extension
+    portion of the entry point file name will be used to derive one. Previous default = None.
+    :param extra_files: any extra files that should be included in the manifest. Previous default = None.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param force_generate: bool indicating whether to force generate manifest and related environment files.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :return: the manifest data structure.
+    """
+    if not path:
+        raise RSConnectException("A valid path must be provided.")
+    extra_files = list(extra_files) if extra_files else []
+    entrypoint_candidates = infer_entrypoint_candidates(path=abspath(path), mimetype="text/ipynb")
+
+    deploy_dir = guess_deploy_dir(path, entrypoint)
+    if not multi_notebook:
+        if len(entrypoint_candidates) <= 0:
+            if entrypoint is None:
+                raise RSConnectException(MULTI_NOTEBOOK_EXC_MSG)
+            entrypoint = abs_entrypoint(path, entrypoint)
+        elif len(entrypoint_candidates) == 1:
+            if entrypoint:
+                entrypoint = abs_entrypoint(path, entrypoint)
+            else:
+                entrypoint = entrypoint_candidates[0]
+        else:  # len(entrypoint_candidates) > 1:
+            if entrypoint is None:
+                raise RSConnectException(MULTI_NOTEBOOK_EXC_MSG)
+            entrypoint = abs_entrypoint(path, entrypoint)
+
+    if multi_notebook:
+        if path and not isdir(path):
+            raise RSConnectException(MULTI_NOTEBOOK_EXC_MSG)
+        _warn_on_ignored_entrypoint(entrypoint)
+        deploy_dir = entrypoint = abspath(path)
+    extra_files = validate_extra_files(deploy_dir, extra_files)
+    excludes = list(excludes) if excludes else []
+    excludes.extend([environment.filename, "manifest.json"])
+    excludes.extend(list_environment_dirs(deploy_dir))
+
+    voila_json_path = join(deploy_dir, "voila.json")
+    if isfile(voila_json_path):
+        extra_files.append(voila_json_path)
+
+    manifest = Manifest(app_mode=AppModes.JUPYTER_VOILA, environment=environment, entrypoint=entrypoint, image=image)
+    manifest.deploy_dir = deploy_dir
+    if entrypoint and isfile(entrypoint):
+        validate_file_is_notebook(entrypoint)
+        manifest.entrypoint = entrypoint
+
+    manifest.add_to_buffer(join(deploy_dir, environment.filename), environment.contents)
+
+    file_list = create_file_list(path, extra_files, excludes, use_abspath=True)
+    for abs_path in file_list:
+        manifest.add_file(abs_path)
+    return manifest
+
+
+def write_voila_manifest_json(
+    path: str,
+    entrypoint: str,
+    environment: Environment,
+    app_mode: AppMode = AppModes.JUPYTER_VOILA,
+    extra_files: typing.List[str] = None,
+    excludes: typing.List[str] = None,
+    force_generate: bool = True,
+    image: str = None,
+    multi_notebook: bool = False,
+) -> bool:
+    """
+    Creates and writes a manifest.json file for the given path.
+
+    :param path: the file, or the directory containing the files to deploy.
+    :param entry_point: the main entry point for the API.
+    :param environment: the Python environment to start with.  This should be what's
+    returned by the inspect_environment() function.
+    :param app_mode: the application mode to assume.  If this is None, the extension
+    portion of the entry point file name will be used to derive one. Previous default = None.
+    :param extra_files: any extra files that should be included in the manifest. Previous default = None.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param force_generate: bool indicating whether to force generate manifest and related environment files.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :return: whether the manifest was written.
+    """
+    manifest = create_voila_manifest(**locals())
+    deploy_dir = dirname(manifest.entrypoint) if isfile(manifest.entrypoint) else manifest.entrypoint
+    manifest_flattened_copy_data = manifest.flattened_copy.data
+    if multi_notebook and "metadata" in manifest_flattened_copy_data:
+        manifest_flattened_copy_data["metadata"]["entrypoint"] = ""
+    manifest_path = join(deploy_dir, "manifest.json")
+    write_manifest_json(manifest_path, manifest_flattened_copy_data)
+    return exists(manifest_path)
 
 
 def create_api_manifest_and_environment_file(

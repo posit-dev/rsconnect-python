@@ -8,19 +8,22 @@ import tarfile
 import tempfile
 import pytest
 from unittest import TestCase
-from os.path import dirname, join, basename
+from os.path import dirname, join, basename, abspath
 
 from rsconnect.bundle import (
     _default_title,
     _default_title_from_manifest,
     _validate_title,
+    create_html_manifest,
     get_python_env_info,
     inspect_environment,
     list_files,
+    make_html_bundle,
     make_manifest_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
     keep_manifest_specified_file,
+    make_voila_bundle,
     to_bytes,
     make_source_manifest,
     make_quarto_manifest,
@@ -28,6 +31,9 @@ from rsconnect.bundle import (
     validate_entry_point,
     validate_extra_files,
     which_python,
+    guess_deploy_dir,
+    Manifest,
+    create_voila_manifest,
 )
 import rsconnect.bundle
 from rsconnect.exception import RSConnectException
@@ -801,3 +807,911 @@ class WhichPythonTestCase(TestCase):
         with tempfile.NamedTemporaryFile() as tmpfile:
             with self.assertRaises(RSConnectException):
                 which_python(tmpfile.name)
+
+
+cur_dir = os.path.dirname(__file__)
+bqplot_dir = os.path.join(cur_dir, "./testdata/voila/bqplot/")
+bqplot_ipynb = os.path.join(bqplot_dir, "bqplot.ipynb")
+dashboard_dir = os.path.join(cur_dir, "./testdata/voila/dashboard/")
+dashboard_ipynb = os.path.join(dashboard_dir, "dashboard.ipynb")
+multivoila_dir = os.path.join(cur_dir, "./testdata/voila/multi-voila/")
+nonexistent_dir = os.path.join(cur_dir, "./testdata/nonexistent/")
+nonexistent_file = os.path.join(cur_dir, "nonexistent.txt")
+
+
+class Test_guess_deploy_dir(TestCase):
+    def test_guess_deploy_dir(self):
+        with self.assertRaises(RSConnectException):
+            guess_deploy_dir(None, None)
+        with self.assertRaises(RSConnectException):
+            guess_deploy_dir(None, bqplot_dir)
+        with self.assertRaises(RSConnectException):
+            guess_deploy_dir(bqplot_dir, bqplot_dir)
+        with self.assertRaises(RSConnectException):
+            guess_deploy_dir(nonexistent_dir, None)
+        with self.assertRaises(RSConnectException):
+            guess_deploy_dir(None, nonexistent_file)
+        with self.assertRaises(RSConnectException):
+            guess_deploy_dir(nonexistent_dir, nonexistent_file)
+        self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_dir, None))
+        self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_ipynb, None))
+        self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_ipynb, bqplot_ipynb))
+        self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_dir, bqplot_ipynb))
+
+
+@pytest.mark.parametrize(
+    (
+        "path",
+        "entrypoint",
+    ),
+    [
+        (
+            None,
+            None,
+        ),
+        (
+            None,
+            bqplot_ipynb,
+        ),
+        (
+            bqplot_dir,
+            bqplot_dir,
+        ),
+        (
+            bqplot_dir,
+            None,
+        ),
+        (
+            bqplot_ipynb,
+            None,
+        ),
+        (
+            bqplot_ipynb,
+            bqplot_ipynb,
+        ),
+        (
+            bqplot_dir,
+            bqplot_ipynb,
+        ),
+    ],
+)
+def test_create_voila_manifest_1(path, entrypoint):
+    environment = Environment(
+        conda=None,
+        contents="bqplot\n",
+        error=None,
+        filename="requirements.txt",
+        locale="en_US.UTF-8",
+        package_manager="pip",
+        pip="23.0",
+        python="3.8.12",
+        source="file",
+    )
+    ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "jupyter-voila", "entrypoint": "bqplot.ipynb"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "9cce1aac313043abd5690f67f84338ed"},
+            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
+        },
+    }
+    manifest = Manifest()
+    if (path, entrypoint) in (
+        (None, None),
+        (None, bqplot_ipynb),
+        (bqplot_dir, bqplot_dir),
+    ):
+        with pytest.raises(RSConnectException) as _:
+            manifest = create_voila_manifest(
+                path,
+                entrypoint,
+                environment,
+                app_mode=AppModes.JUPYTER_VOILA,
+                extra_files=None,
+                excludes=None,
+                force_generate=True,
+                image=None,
+                multi_notebook=False,
+            )
+    else:
+        manifest = create_voila_manifest(
+            path,
+            entrypoint,
+            environment,
+            app_mode=AppModes.JUPYTER_VOILA,
+            extra_files=None,
+            excludes=None,
+            force_generate=True,
+            image=None,
+            multi_notebook=False,
+        )
+        assert ans == json.loads(manifest.flattened_copy.json)
+
+
+@pytest.mark.parametrize(
+    (
+        "path",
+        "entrypoint",
+    ),
+    [
+        (
+            dashboard_dir,
+            dashboard_ipynb,
+        ),
+    ],
+)
+def test_create_voila_manifest_2(path, entrypoint):
+    environment = Environment(
+        conda=None,
+        contents="numpy\nipywidgets\nbqplot\n",
+        error=None,
+        filename="requirements.txt",
+        locale="en_US.UTF-8",
+        package_manager="pip",
+        pip="23.0",
+        python="3.8.12",
+        source="file",
+    )
+    ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "jupyter-voila", "entrypoint": "dashboard.ipynb"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "d51994456975ff487749acc247ae6d63"},
+            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
+            "dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+        },
+    }
+    manifest = create_voila_manifest(
+        path,
+        entrypoint,
+        environment,
+        app_mode=AppModes.JUPYTER_VOILA,
+        extra_files=None,
+        excludes=None,
+        force_generate=True,
+        image=None,
+        multi_notebook=False,
+    )
+    assert ans == json.loads(manifest.flattened_copy.json)
+
+
+@pytest.mark.parametrize(
+    (
+        "path",
+        "entrypoint",
+    ),
+    [
+        (
+            None,
+            None,
+        ),
+        (
+            None,
+            bqplot_ipynb,
+        ),
+        (
+            multivoila_dir,
+            multivoila_dir,
+        ),
+        (
+            multivoila_dir,
+            None,
+        ),
+        (
+            bqplot_ipynb,
+            None,
+        ),
+        (
+            bqplot_ipynb,
+            bqplot_ipynb,
+        ),
+        (
+            multivoila_dir,
+            bqplot_ipynb,
+        ),
+    ],
+)
+def test_create_voila_manifest_multi_notebook(path, entrypoint):
+    environment = Environment(
+        conda=None,
+        contents="bqplot\n",
+        error=None,
+        filename="requirements.txt",
+        locale="en_US.UTF-8",
+        package_manager="pip",
+        pip="23.0",
+        python="3.8.12",
+        source="file",
+    )
+    ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "jupyter-voila", "entrypoint": "multi-voila"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "9cce1aac313043abd5690f67f84338ed"},
+            "bqplot/bqplot.ipynb": {"checksum": "9f283b29889500e6c78e83ad1257e03f"},
+            "dashboard/dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+        },
+    }
+    manifest = Manifest()
+    if (path, entrypoint) in (
+        (None, None),
+        (None, bqplot_ipynb),
+        (multivoila_dir, multivoila_dir),
+        (bqplot_ipynb, None),
+        (bqplot_ipynb, bqplot_ipynb),
+    ):
+        with pytest.raises(RSConnectException) as _:
+            manifest = create_voila_manifest(
+                path,
+                entrypoint,
+                environment,
+                app_mode=AppModes.JUPYTER_VOILA,
+                extra_files=None,
+                excludes=None,
+                force_generate=True,
+                image=None,
+                multi_notebook=True,
+            )
+    else:
+        manifest = create_voila_manifest(
+            path,
+            entrypoint,
+            environment,
+            app_mode=AppModes.JUPYTER_VOILA,
+            extra_files=None,
+            excludes=None,
+            force_generate=True,
+            image=None,
+            multi_notebook=True,
+        )
+        assert ans == json.loads(manifest.flattened_copy.json)
+
+
+@pytest.mark.parametrize(
+    (
+        "path",
+        "entrypoint",
+    ),
+    [
+        (
+            None,
+            None,
+        ),
+        (
+            None,
+            bqplot_ipynb,
+        ),
+        (
+            bqplot_dir,
+            bqplot_dir,
+        ),
+        (
+            bqplot_dir,
+            None,
+        ),
+        (
+            bqplot_ipynb,
+            None,
+        ),
+        (
+            bqplot_ipynb,
+            bqplot_ipynb,
+        ),
+        (
+            bqplot_dir,
+            bqplot_ipynb,
+        ),
+    ],
+)
+def test_make_voila_bundle(
+    path,
+    entrypoint,
+):
+    environment = Environment(
+        conda=None,
+        contents="bqplot",
+        error=None,
+        filename="requirements.txt",
+        locale="en_US.UTF-8",
+        package_manager="pip",
+        pip="23.0",
+        python="3.8.12",
+        source="file",
+    )
+    ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "jupyter-voila", "entrypoint": "bqplot.ipynb"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "9395f3162b7779c57c86b187fa441d96"},
+            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
+        },
+    }
+    if (path, entrypoint) in (
+        (None, None),
+        (None, bqplot_ipynb),
+        (bqplot_dir, bqplot_dir),
+    ):
+        with pytest.raises(RSConnectException) as _:
+            bundle = make_voila_bundle(
+                path,
+                entrypoint,
+                extra_files=None,
+                excludes=None,
+                force_generate=True,
+                environment=environment,
+                image=None,
+                multi_notebook=False,
+            )
+    else:
+        with make_voila_bundle(
+            path,
+            entrypoint,
+            extra_files=None,
+            excludes=None,
+            force_generate=True,
+            environment=environment,
+            image=None,
+            multi_notebook=False,
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            names = sorted(tar.getnames())
+            assert names == [
+                "bqplot.ipynb",
+                "manifest.json",
+                "requirements.txt",
+            ]
+            reqs = tar.extractfile("requirements.txt").read()
+            assert reqs == b"bqplot"
+            assert ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+
+@pytest.mark.parametrize(
+    (
+        "path",
+        "entrypoint",
+    ),
+    [
+        (
+            None,
+            None,
+        ),
+        (
+            None,
+            bqplot_ipynb,
+        ),
+        (
+            multivoila_dir,
+            multivoila_dir,
+        ),
+        (
+            multivoila_dir,
+            None,
+        ),
+        (
+            bqplot_ipynb,
+            None,
+        ),
+        (
+            bqplot_ipynb,
+            bqplot_ipynb,
+        ),
+        (
+            multivoila_dir,
+            bqplot_ipynb,
+        ),
+    ],
+)
+def test_make_voila_bundle_multi_notebook(
+    path,
+    entrypoint,
+):
+    environment = Environment(
+        conda=None,
+        contents="bqplot",
+        error=None,
+        filename="requirements.txt",
+        locale="en_US.UTF-8",
+        package_manager="pip",
+        pip="23.0",
+        python="3.8.12",
+        source="file",
+    )
+    ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "jupyter-voila", "entrypoint": ""},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "9395f3162b7779c57c86b187fa441d96"},
+            "bqplot/bqplot.ipynb": {"checksum": "9f283b29889500e6c78e83ad1257e03f"},
+            "dashboard/dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+        },
+    }
+    if (path, entrypoint) in (
+        (None, None),
+        (None, bqplot_ipynb),
+        (multivoila_dir, multivoila_dir),
+        (bqplot_ipynb, None),
+        (bqplot_ipynb, bqplot_ipynb),
+    ):
+        with pytest.raises(RSConnectException) as _:
+            bundle = make_voila_bundle(
+                path,
+                entrypoint,
+                extra_files=None,
+                excludes=None,
+                force_generate=True,
+                environment=environment,
+                image=None,
+                multi_notebook=True,
+            )
+    else:
+        with make_voila_bundle(
+            path,
+            entrypoint,
+            extra_files=None,
+            excludes=None,
+            force_generate=True,
+            environment=environment,
+            image=None,
+            multi_notebook=True,
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            names = sorted(tar.getnames())
+            assert names == [
+                "bqplot/bqplot.ipynb",
+                "dashboard/dashboard.ipynb",
+                "manifest.json",
+                "requirements.txt",
+            ]
+            reqs = tar.extractfile("requirements.txt").read()
+            assert reqs == b"bqplot"
+            assert ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+
+@pytest.mark.parametrize(
+    (
+        "path",
+        "entrypoint",
+    ),
+    [
+        (
+            dashboard_dir,
+            dashboard_ipynb,
+        ),
+    ],
+)
+def test_make_voila_bundle_2(
+    path,
+    entrypoint,
+):
+    environment = Environment(
+        conda=None,
+        contents="numpy\nipywidgets\nbqplot\n",
+        error=None,
+        filename="requirements.txt",
+        locale="en_US.UTF-8",
+        package_manager="pip",
+        pip="23.0",
+        python="3.8.12",
+        source="file",
+    )
+    ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "jupyter-voila", "entrypoint": "dashboard.ipynb"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "d51994456975ff487749acc247ae6d63"},
+            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
+            "dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+        },
+    }
+    with make_voila_bundle(
+        path,
+        entrypoint,
+        extra_files=None,
+        excludes=None,
+        force_generate=True,
+        environment=environment,
+        image=None,
+        multi_notebook=False,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "bqplot.ipynb",
+            "dashboard.ipynb",
+            "manifest.json",
+            "requirements.txt",
+        ]
+        reqs = tar.extractfile("requirements.txt").read()
+        assert reqs == b"numpy\nipywidgets\nbqplot\n"
+        assert ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+
+single_file_index_dir = os.path.join(cur_dir, "./testdata/html_tests/single_file_index")
+single_file_index_file = os.path.join(cur_dir, "./testdata/html_tests/single_file_index/index.html")
+single_file_nonindex_dir = os.path.join(cur_dir, "./testdata/html_tests/single_file_nonindex")
+multi_file_index_dir = os.path.join(cur_dir, "./testdata/html_tests/multi_file_index")
+multi_file_index_file = os.path.join(cur_dir, "./testdata/html_tests/multi_file_index/index.html")
+multi_file_index_file2 = os.path.join(cur_dir, "./testdata/html_tests/multi_file_index/main.html")
+multi_file_nonindex_dir = os.path.join(cur_dir, "./testdata/html_tests/multi_file_nonindex")
+multi_file_nonindex_fileb = os.path.join(cur_dir, "./testdata/html_tests/multi_file_nonindex/b.html")
+multi_file_nonindex_filea = os.path.join(cur_dir, "./testdata/html_tests/multi_file_nonindex/a.html")
+
+
+def test_create_html_manifest():
+
+    with pytest.raises(RSConnectException) as _:
+        _, _ = create_html_manifest(
+            None,
+            None,
+            extra_files=None,
+            excludes=None,
+            image=None,
+        )
+    with pytest.raises(RSConnectException) as _:
+        _, _ = create_html_manifest(
+            None,
+            single_file_index_file,
+            extra_files=None,
+            excludes=None,
+            image=None,
+        )
+    with pytest.raises(RSConnectException) as _:
+        _, _ = create_html_manifest(
+            multi_file_nonindex_dir,
+            None,
+            extra_files=None,
+            excludes=None,
+            image=None,
+        )
+    single_file_index_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {"index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+    }
+    manifest = create_html_manifest(
+        single_file_index_file,
+        None,
+    )
+    assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
+
+    single_file_index_dir_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {
+            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "test1.txt": {"checksum": "3e7705498e8be60520841409ebc69bc1"},
+            "test_folder1/testfoldertext1.txt": {"checksum": "0a576fd324b6985bac6aa934131d2f5c"},
+        },
+    }
+
+    manifest = create_html_manifest(
+        single_file_index_dir,
+        None,
+    )
+    assert single_file_index_dir_ans == json.loads(manifest.flattened_copy.json)
+
+    manifest = create_html_manifest(
+        single_file_index_dir,
+        single_file_index_file,
+    )
+    assert single_file_index_dir_ans == json.loads(manifest.flattened_copy.json)
+
+    multi_file_index_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {"index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+    }
+
+    manifest = create_html_manifest(
+        multi_file_index_file,
+        None,
+    )
+    assert multi_file_index_file_ans == json.loads(manifest.flattened_copy.json)
+
+    multi_file_index_dir_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {
+            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "main.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+        },
+    }
+
+    manifest = create_html_manifest(
+        multi_file_index_dir,
+        None,
+    )
+    assert multi_file_index_dir_ans == json.loads(manifest.flattened_copy.json)
+
+    manifest = create_html_manifest(
+        multi_file_index_dir,
+        multi_file_index_file,
+    )
+    assert multi_file_index_dir_ans == json.loads(manifest.flattened_copy.json)
+
+    multi_file_nonindex_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
+        "files": {"b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+    }
+
+    manifest = create_html_manifest(
+        multi_file_nonindex_fileb,
+        None,
+    )
+    assert multi_file_nonindex_file_ans == json.loads(manifest.flattened_copy.json)
+
+    multi_file_nonindex_dir_and_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
+        "files": {
+            "a.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+        },
+    }
+
+    manifest = create_html_manifest(
+        multi_file_nonindex_dir,
+        multi_file_nonindex_fileb,
+    )
+    assert multi_file_nonindex_dir_and_file_ans == json.loads(manifest.flattened_copy.json)
+
+    multi_file_nonindex_file_extras_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
+        "files": {
+            "a.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+        },
+    }
+    manifest = create_html_manifest(
+        multi_file_nonindex_fileb,
+        None,
+        extra_files=[multi_file_nonindex_filea],
+    )
+    assert multi_file_nonindex_file_extras_ans == json.loads(manifest.flattened_copy.json)
+
+    multi_file_index_dir_extras_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {
+            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "main.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+        },
+    }
+
+    manifest = create_html_manifest(
+        multi_file_index_dir,
+        None,
+        extra_files=[multi_file_index_file2],
+    )
+    assert multi_file_index_dir_extras_ans == json.loads(manifest.flattened_copy.json)
+
+
+def test_make_html_bundle():
+    single_file_index_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {"index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+    }
+    with make_html_bundle(
+        single_file_index_file,
+        None,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "index.html",
+            "manifest.json",
+        ]
+        assert single_file_index_file_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+    single_file_index_dir_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {
+            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "test1.txt": {"checksum": "3e7705498e8be60520841409ebc69bc1"},
+            "test_folder1/testfoldertext1.txt": {"checksum": "0a576fd324b6985bac6aa934131d2f5c"},
+        },
+    }
+    with make_html_bundle(
+        single_file_index_dir,
+        None,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "index.html",
+            "manifest.json",
+            "test1.txt",
+            "test_folder1/testfoldertext1.txt",
+        ]
+        assert single_file_index_dir_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+    with make_html_bundle(
+        single_file_index_dir,
+        single_file_index_file,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "index.html",
+            "manifest.json",
+            "test1.txt",
+            "test_folder1/testfoldertext1.txt",
+        ]
+        assert single_file_index_dir_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+    multi_file_index_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {"index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+    }
+    with make_html_bundle(
+        multi_file_index_file,
+        None,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "index.html",
+            "manifest.json",
+        ]
+        assert multi_file_index_file_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+    multi_file_index_dir_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {
+            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "main.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+        },
+    }
+    with make_html_bundle(
+        multi_file_index_dir,
+        None,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "index.html",
+            "main.html",
+            "manifest.json",
+        ]
+        assert multi_file_index_dir_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+    with make_html_bundle(
+        multi_file_index_dir,
+        multi_file_index_file,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "index.html",
+            "main.html",
+            "manifest.json",
+        ]
+        assert multi_file_index_dir_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+    multi_file_nonindex_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
+        "files": {"b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+    }
+    with make_html_bundle(
+        multi_file_nonindex_fileb,
+        None,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "b.html",
+            "manifest.json",
+        ]
+        assert multi_file_nonindex_file_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+    multi_file_nonindex_dir_and_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
+        "files": {
+            "a.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+        },
+    }
+    with make_html_bundle(
+        multi_file_nonindex_dir,
+        multi_file_nonindex_fileb,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "a.html",
+            "b.html",
+            "manifest.json",
+        ]
+        assert multi_file_nonindex_dir_and_file_ans == json.loads(
+            tar.extractfile("manifest.json").read().decode("utf-8")
+        )
+
+    multi_file_nonindex_file_extras_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
+        "files": {
+            "a.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+        },
+    }
+    with make_html_bundle(
+        multi_file_nonindex_fileb,
+        None,
+        [multi_file_nonindex_filea],
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "a.html",
+            "b.html",
+            "manifest.json",
+        ]
+        assert multi_file_nonindex_file_extras_ans == json.loads(
+            tar.extractfile("manifest.json").read().decode("utf-8")
+        )
+
+    multi_file_index_dir_extras_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {
+            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "main.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+        },
+    }
+
+    with make_html_bundle(
+        multi_file_index_dir,
+        None,
+        [multi_file_index_file2],
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "index.html",
+            "main.html",
+            "manifest.json",
+        ]
+        assert multi_file_index_dir_extras_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))

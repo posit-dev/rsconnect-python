@@ -13,11 +13,13 @@ from six.moves.http_cookies import SimpleCookie
 from six.moves.urllib_parse import urlparse, urlencode, urljoin
 import base64
 
+from .timeouts import get_timeout
+
 _user_agent = "rsconnect-python/%s" % VERSION
 
 
 # noinspection PyUnusedLocal,PyUnresolvedReferences
-def _create_plain_connection(host_name, port, disable_tls_check, ca_data, timeout):
+def _create_plain_connection(host_name, port, disable_tls_check, ca_data):
     """
     This function is used to create a plain HTTP connection.  Note that the 3rd and 4th
     parameters are ignored; they are present to make the signature match the companion
@@ -27,9 +29,10 @@ def _create_plain_connection(host_name, port, disable_tls_check, ca_data, timeou
     :param port:  the port to connect to.
     :param disable_tls_check: notes whether TLS verification should be disabled (ignored).
     :param ca_data: any certificate authority information to use (ignored).
-    :param timeout: the timeout value to use for socket operations.
     :return: a plain HTTP connection.
     """
+    timeout = get_timeout()
+    logger.debug(f"The HTTPConnection timeout is set to '{timeout}' seconds")
     return http.HTTPConnection(host_name, port=(port or http.HTTP_PORT), timeout=timeout)
 
 
@@ -59,7 +62,7 @@ def _get_proxy_headers(*args, **kwargs):
 
 
 # noinspection PyUnresolvedReferences
-def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout):
+def _create_ssl_connection(host_name, port, disable_tls_check, ca_data):
     """
     This function is used to create a TLS encrypted HTTP connection (SSL).
 
@@ -74,6 +77,8 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data, timeout)
         raise ValueError("Cannot both disable TLS checking and provide a custom certificate")
     _, _, proxyHost, proxyPort = _get_proxy()
     headers = _get_proxy_headers()
+    timeout = get_timeout()
+    logger.debug(f"The HTTPSConnection timeout is set to '{timeout}' seconds")
     if ca_data is not None:
         return http.HTTPSConnection(
             host_name,
@@ -162,7 +167,7 @@ class HTTPServer(object):
     server.
     """
 
-    def __init__(self, url, disable_tls_check=False, ca_data=None, cookies=None, timeout=30):
+    def __init__(self, url, disable_tls_check=False, ca_data=None, cookies=None):
         """
         Constructs an HTTPServer object.
 
@@ -174,7 +179,6 @@ class HTTPServer(object):
         certificates.
         :param cookies: an optional cookie jar.  Must be of type `CookieJar` defined in this
         same file (i.e., not the one Python provides).
-        :param timeout: the timeout value to use for socket operations.
         """
         self._url = urlparse(url)
 
@@ -184,7 +188,6 @@ class HTTPServer(object):
         self._disable_tls_check = disable_tls_check
         self._ca_data = ca_data
         self._cookies = cookies if cookies is not None else CookieJar()
-        self._timeout = timeout
         self._headers = {"User-Agent": _user_agent}
         self._conn = None
         self._proxy_headers = _get_proxy_headers()
@@ -216,7 +219,6 @@ class HTTPServer(object):
             self._url.port,
             self._disable_tls_check,
             self._ca_data,
-            self._timeout,
         )
         return self
 

@@ -78,6 +78,7 @@ class AppModes(object):
     SHINY_QUARTO = AppMode(13, "quarto-shiny", "Shiny Quarto Document")
     STATIC_QUARTO = AppMode(14, "quarto-static", "Quarto Document", ".qmd")
     PYTHON_SHINY = AppMode(15, "python-shiny", "Python Shiny Application")
+    JUPYTER_VOILA = AppMode(16, "jupyter-voila", "Jupyter Voila Application")
 
     _modes = [
         UNKNOWN,
@@ -96,6 +97,7 @@ class AppModes(object):
         SHINY_QUARTO,
         STATIC_QUARTO,
         PYTHON_SHINY,
+        JUPYTER_VOILA,
     ]
 
     _cloud_to_connect_modes = {
