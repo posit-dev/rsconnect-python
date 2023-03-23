@@ -40,6 +40,7 @@ from .actions_content import (
 from . import api, VERSION, validation
 from .api import RSConnectExecutor, RSConnectServer, RSConnectClient, filter_out_server_info
 from .bundle import (
+    is_python_enabled_on_server,
     are_apis_supported_on_server,
     create_python_environment,
     default_title_from_manifest,
@@ -1306,7 +1307,7 @@ def generate_deploy_python(app_mode, alias, min_version):
         (
             ce.validate_server()
             .validate_app_mode(app_mode=app_mode)
-            .check_server_capabilities([are_apis_supported_on_server])
+            .check_server_capabilities([is_python_enabled_on_server, are_apis_supported_on_server])
             .make_bundle(
                 make_api_bundle,
                 directory,
