@@ -2520,12 +2520,12 @@ def system_caches_list(name, server, api_key, insecure, cacert, verbose):
     help="If true, verify that deletion would occur, but do not delete.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
-def system_caches_list(name, server, api_key, insecure, cacert, verbose, language, version, image_name, dry_run):
+def system_caches_delete(name, server, api_key, insecure, cacert, verbose, language, version, image_name, dry_run):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         result = ce.delete_runtime_cache(language, version, image_name, dry_run)
-        json.dump(result, sys.stdout, indent=2)
+        logger.debug(result)
 
 
 

@@ -151,7 +151,6 @@ class HTTPResponse(object):
             self.status = response.status
             self.reason = response.reason
             self.content_type = response.getheader("Content-Type")
-
             if self.content_type and self.content_type.startswith("application/json") and len(self.response_body) > 0:
                 self.json_data = json.loads(self.response_body)
 
