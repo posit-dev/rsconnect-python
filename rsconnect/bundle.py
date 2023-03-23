@@ -1432,6 +1432,15 @@ def fake_module_file_from_directory(directory: str):
     return join(directory, app_name + ".py")
 
 
+def is_python_enabled_on_server(connect_details):
+    """
+    Returns whether or not the Connect server has Python itself enabled.
+
+    :error: The Posit Connect server does not have Python enabled.
+    """
+    return any(connect_details.get("python", {}).get("versions", []))
+
+
 def are_apis_supported_on_server(connect_details):
     """
     Returns whether or not the Connect server has Python itself enabled and its license allows
