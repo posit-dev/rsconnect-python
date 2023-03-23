@@ -8,7 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - The `CONNECT_REQUEST_TIMEOUT` environment variable, which configures the request timeout for all blocking HTTP and HTTPS operations. This value translates into seconds (e.g., `CONNECT_REQUEST_TIMEOUT=60` is equivalent to 60 seconds.) By default, this value is 300. 
-- Added `deploy voila` command to deploy Jupyter Voila notebooks. 
+
+## [1.15.0] - 2023-03-15
+
+### Added
+- Added `deploy voila` command to deploy Jupyter Voila notebooks. See the [user documentation](https://docs.posit.co/connect/user/publishing-cli-notebook/#interactive-voila-deployment)
+    for more information.
 
 ### Changed
 - `deploy html` was refactored. Its behavior is described below.

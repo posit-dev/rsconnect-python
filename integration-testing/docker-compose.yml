@@ -1,4 +1,3 @@
-
 version: '3'
 
 services:
@@ -22,7 +21,7 @@ services:
 
   connect:
     hostname: connect
-    image: rstudio/rstudio-connect:latest
+    image: rstudio/rstudio-connect:bionic
     restart: always
     ports:
       - 3939:3939
@@ -34,7 +33,7 @@ services:
       RSC_LICENSE: ${CONNECT_LICENSE}
 
   cypress:
-    image: cypress/included:12.0.0
+    image: cypress/included:12.7.0
     depends_on:
       client:
         condition: service_healthy
