@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+- The `CONNECT_REQUEST_TIMEOUT` environment variable, which configures the request timeout for all blocking HTTP and HTTPS operations. This value translates into seconds (e.g., `CONNECT_REQUEST_TIMEOUT=60` is equivalent to 60 seconds.) By default, this value is 300. 
+
 ## [1.15.0] - 2023-03-15
 
 ### Added
@@ -13,10 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - `deploy html` was refactored. Its behavior is described below.
 
-### deploy html
-- specifying a directory in the path will result in that entire directory*, subdirectories, and sub contents included in the deploy bundle
-    - the entire directory is included whether or not an entrypoint was supplied
-
+#### Deploying HTML
+Specifying a directory in the path will result in that entire directory*, subdirectories, and sub contents included in the deploy bundle. The entire directory is included whether or not an entrypoint was supplied
 
 
 e.g.
