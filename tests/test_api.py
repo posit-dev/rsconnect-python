@@ -125,8 +125,7 @@ class TestSystemRuntimeCachesAPI(TestCase):
 
         # Print expectations
         output_lines = captured_output.getvalue().splitlines()
-        self.assertEqual(output_lines[0], "Would delete cache: 'Python', version: '1.2.3', image_name: 'teapot'")
-        self.assertEqual(output_lines[1], "Dry run finished")
+        self.assertEqual(output_lines[0], "Dry run finished")
 
         # Result expectations
         self.assertDictEqual(mocked_output, result)
@@ -174,12 +173,9 @@ class TestSystemRuntimeCachesAPI(TestCase):
         sys.stdout = sys.__stdout__
 
         # Print expectations
-        output_lines = captured_output.getvalue().splitlines()
-        self.assertEqual(
-            output_lines[0],
-            "Deleting cache: 'Python', version: '1.2.3', image_name: 'teapot', task_id: 'this_is_a_task_id'",
-        )
-        self.assertEqual(output_lines[1], "Cache deletion finished")
+        # TODO: *We* don't print anything here anymore. Unsure how to capture log messages from Connect.
+        # output_lines = captured_output.getvalue().splitlines()
+        # self.assertEqual(output_lines[0], "Cache deletion finished")
 
         # Result expectations
         self.assertDictEqual(mocked_task_status, result)
@@ -198,7 +194,7 @@ class TestSystemRuntimeCachesAPI(TestCase):
         )
 
         with self.assertRaisesRegex(RSConnectException, "Cache path does not exist"):
-            result = ce.delete_runtime_cache(language="Python", version="1.2.3", image_name="teapot", dry_run=False)
+            ce.delete_runtime_cache(language="Python", version="1.2.3", image_name="teapot", dry_run=False)
 
 
 class RSConnectClientTestCase(TestCase):

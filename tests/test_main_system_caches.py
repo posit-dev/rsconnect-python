@@ -1,8 +1,6 @@
 import json
 import unittest
 from os import system
-import io
-import sys
 
 from click.testing import CliRunner
 
