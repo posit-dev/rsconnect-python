@@ -2432,34 +2432,7 @@ def caches():
     name="list",
     short_help="List runtime caches present on a Posit Connect server.",
 )
-@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the Posit Connect server.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with Posit Connect.",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    help="The path to trusted TLS CA certificates.",
-)
-@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
+@server_args
 def system_caches_list(name, server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
