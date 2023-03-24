@@ -2421,6 +2421,7 @@ def start_content_build(
 def system():
     pass
 
+
 @system.group(no_args_is_help=True, help="Interact with Posit Connect's system caches.")
 def caches():
     pass
@@ -2465,6 +2466,7 @@ def system_caches_list(name, server, api_key, insecure, cacert, verbose):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         result = ce.list_runtime_caches()
         json.dump(result, sys.stdout, indent=2)
+
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @caches.command(
@@ -2511,7 +2513,7 @@ def system_caches_list(name, server, api_key, insecure, cacert, verbose):
 @click.option(
     "--image-name",
     "-I",
-    help="Either \"Local\" or the image name of the target cache's execution environment.",
+    help='Either "Local" or the image name of the target cache\'s execution environment.',
 )
 @click.option(
     "--dry-run",
@@ -2526,7 +2528,6 @@ def system_caches_delete(name, server, api_key, insecure, cacert, verbose, langu
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         result = ce.delete_runtime_cache(language, version, image_name, dry_run)
         logger.debug(result)
-
 
 
 if __name__ == "__main__":

@@ -82,7 +82,6 @@ class TestAPI(TestCase):
         self.assertEqual(none_connect_client.get_authorization(), None)
 
 
-
 class TestSystemRuntimeCachesAPI(TestCase):
     # RSConnectExecutor.list_runtime_caches() returns the resulting JSON from the server.
     @httpretty.activate(verbose=True, allow_net_connect=False)
@@ -90,16 +89,8 @@ class TestSystemRuntimeCachesAPI(TestCase):
         ce = RSConnectExecutor(None, "http://test-server/", "api_key")
         mocked_response = {
             "caches": [
-                {
-                    "language": "R",
-                    "version": "3.6.3",
-                    "image_name": "Local"
-                },
-                {
-                    "language": "Python",
-                    "version": "5.6.7",
-                    "image_name": "teapot.bak"
-                }
+                {"language": "R", "version": "3.6.3", "image_name": "Local"},
+                {"language": "Python", "version": "5.6.7", "image_name": "teapot.bak"},
             ]
         }
         httpretty.register_uri(
@@ -107,30 +98,24 @@ class TestSystemRuntimeCachesAPI(TestCase):
             "http://test-server/__api__/v1/system/caches/runtime",
             body=json.dumps(mocked_response),
             status=200,
-            forcing_headers={'Content-Type': 'application/json'}
+            forcing_headers={"Content-Type": "application/json"},
         )
         result = ce.list_runtime_caches()
         self.assertDictEqual(result, mocked_response)
-
 
     # # RSConnectExecutor.delete_runtime_cache() dry run returns expected request
     # # RSConnectExecutor.delete_runtime_cache() dry run prints expected messages
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_executor_delete_runtime_cache_dry_run(self):
         ce = RSConnectExecutor(None, "http://test-server/", "api_key")
-        mocked_output = {
-            "language": "Python",
-            "version": "1.2.3",
-            "image_name": "teapot",
-            "task_id": None
-        }
+        mocked_output = {"language": "Python", "version": "1.2.3", "image_name": "teapot", "task_id": None}
 
         httpretty.register_uri(
             httpretty.DELETE,
             "http://test-server/__api__/v1/system/caches/runtime",
             body=json.dumps(mocked_output),
             status=200,
-            forcing_headers={'Content-Type': 'application/json'}
+            forcing_headers={"Content-Type": "application/json"},
         )
 
         captured_output = io.StringIO()
@@ -140,14 +125,8 @@ class TestSystemRuntimeCachesAPI(TestCase):
 
         # Print expectations
         output_lines = captured_output.getvalue().splitlines()
-        self.assertEqual(
-            output_lines[0],
-            "Would delete cache: 'Python', version: '1.2.3', image_name: 'teapot'"
-        )
-        self.assertEqual(
-            output_lines[1],
-            "Dry run finished"
-        )
+        self.assertEqual(output_lines[0], "Would delete cache: 'Python', version: '1.2.3', image_name: 'teapot'")
+        self.assertEqual(output_lines[1], "Dry run finished")
 
         # Result expectations
         self.assertDictEqual(mocked_output, result)
@@ -161,37 +140,32 @@ class TestSystemRuntimeCachesAPI(TestCase):
             "language": "Python",
             "version": "1.2.3",
             "image_name": "teapot",
-            "task_id": "this_is_a_task_id"
+            "task_id": "this_is_a_task_id",
         }
         httpretty.register_uri(
             httpretty.DELETE,
             "http://test-server/__api__/v1/system/caches/runtime",
             body=json.dumps(mocked_delete_output),
             status=200,
-            forcing_headers={'Content-Type': 'application/json'}
+            forcing_headers={"Content-Type": "application/json"},
         )
 
         mocked_task_status = {
             "id": "this_is_a_task_id",
             "user_id": 1,
-            "status": [
-                "Removing runtime cache"
-            ],
-            "result": {
-                "type": "",
-                "data": None
-            },
+            "status": ["Removing runtime cache"],
+            "result": {"type": "", "data": None},
             "finished": True,
             "code": 0,
             "error": "",
-            "last_status": 1
+            "last_status": 1,
         }
         httpretty.register_uri(
             httpretty.GET,
             "http://test-server/__api__/tasks/this_is_a_task_id",
             body=json.dumps(mocked_task_status),
             status=200,
-            forcing_headers={'Content-Type': 'application/json'}
+            forcing_headers={"Content-Type": "application/json"},
         )
 
         captured_output = io.StringIO()
@@ -203,12 +177,9 @@ class TestSystemRuntimeCachesAPI(TestCase):
         output_lines = captured_output.getvalue().splitlines()
         self.assertEqual(
             output_lines[0],
-            "Deleting cache: 'Python', version: '1.2.3', image_name: 'teapot', task_id: 'this_is_a_task_id'"
+            "Deleting cache: 'Python', version: '1.2.3', image_name: 'teapot', task_id: 'this_is_a_task_id'",
         )
-        self.assertEqual(
-            output_lines[1],
-            "Cache deletion finished"
-        )
+        self.assertEqual(output_lines[1], "Cache deletion finished")
 
         # Result expectations
         self.assertDictEqual(mocked_task_status, result)
@@ -217,25 +188,17 @@ class TestSystemRuntimeCachesAPI(TestCase):
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_executor_delete_runtime_cache_error(self):
         ce = RSConnectExecutor(None, "http://test-server/", "api_key")
-        mocked_delete_output = {
-            "code": 4,
-            "error": "Cache path does not exist",
-            "payload": None
-            }
+        mocked_delete_output = {"code": 4, "error": "Cache path does not exist", "payload": None}
         httpretty.register_uri(
             httpretty.DELETE,
             "http://test-server/__api__/v1/system/caches/runtime",
             body=json.dumps(mocked_delete_output),
             status=404,
-            forcing_headers={'Content-Type': 'application/json'}
+            forcing_headers={"Content-Type": "application/json"},
         )
 
         with self.assertRaisesRegex(RSConnectException, "Cache path does not exist"):
             result = ce.delete_runtime_cache(language="Python", version="1.2.3", image_name="teapot", dry_run=False)
-
-
-
-
 
 
 class RSConnectClientTestCase(TestCase):

@@ -219,12 +219,11 @@ class RSConnectClient(HTTPServer):
         response = self.get("v1/system/caches/runtime")
         self._server.handle_bad_response(response)
         return response
-    
+
     def system_caches_runtime_delete(self, target):
         response = self.delete("v1/system/caches/runtime", body=target)
         self._server.handle_bad_response(response)
         return response
-
 
     def task_get(self, task_id, first_status=None):
         params = None
@@ -994,25 +993,22 @@ class RSConnectExecutor:
 
     def list_runtime_caches(self):
         return self.client.system_caches_runtime_list()
-    
+
     def delete_runtime_cache(self, language, version, image_name, dry_run):
-        target = {
-            "language": language,
-            "version": version,
-            "image_name": image_name,
-            "dry_run": dry_run
-        }
+        target = {"language": language, "version": version, "image_name": image_name, "dry_run": dry_run}
         result = self.client.system_caches_runtime_delete(target)
         if result["task_id"] == None:
-            print(f"Would delete cache: '{result['language']}', version: '{result['version']}', image_name: '{result['image_name']}'")
+            print(
+                f"Would delete cache: '{result['language']}', version: '{result['version']}', image_name: '{result['image_name']}'"
+            )
             print("Dry run finished")
             return result
         else:
-            print(f"Deleting cache: '{result['language']}', version: '{result['version']}', image_name: '{result['image_name']}', task_id: '{result['task_id']}'")
+            print(
+                f"Deleting cache: '{result['language']}', version: '{result['version']}', image_name: '{result['image_name']}', task_id: '{result['task_id']}'"
+            )
             (log_lines, task_status) = self.client.wait_for_task(
-                result["task_id"],
-                connect_logger.info,
-                raise_on_error=False
+                result["task_id"], connect_logger.info, raise_on_error=False
             )
 
             # Task status cannot be finished because we have no timeout.
@@ -1024,7 +1020,6 @@ class RSConnectExecutor:
                 raise RSConnectException("Cache deletion failed with error: {}".format(task_status["error"]))
 
             return task_status
-
 
 
 def filter_out_server_info(**kwargs):

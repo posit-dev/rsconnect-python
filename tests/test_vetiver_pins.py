@@ -2,15 +2,15 @@ import pytest
 
 vetiver = pytest.importorskip("vetiver", reason="vetiver library not installed")
 
-import json # noqa
-import pins # noqa
-import pandas as pd # noqa
-import numpy as np # noqa
+import json  # noqa
+import pins  # noqa
+import pandas as pd  # noqa
+import numpy as np  # noqa
 
 from pins.boards import BoardRsConnect  # noqa
 from pins.rsconnect.api import RsConnectApi  # noqa
 from pins.rsconnect.fs import RsConnectFs  # noqa
-from rsconnect.api import RSConnectServer, RSConnectClient # noqa
+from rsconnect.api import RSConnectServer, RSConnectClient  # noqa
 
 RSC_SERVER_URL = "http://localhost:3939"
 RSC_KEYS_FNAME = "vetiver-testing/rsconnect_api_keys.json"
@@ -85,7 +85,7 @@ def test_deploy(rsc_short):
     rsc_api = list(filter(lambda x: x["title"] == "testapivetiver", dicts))
     content_url = rsc_api[0].get("content_url")
 
-    h = {"Authorization": 'Key {}'.format(get_key("susan"))}
+    h = {"Authorization": "Key {}".format(get_key("susan"))}
 
     endpoint = vetiver.vetiver_endpoint(content_url + "/predict")
     response = vetiver.predict(endpoint, X_df, headers=h)

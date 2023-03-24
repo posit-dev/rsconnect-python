@@ -243,7 +243,6 @@ class HTTPServer(object):
     def delete(self, path, query_params=None, body=None, decode_response=True):
         return self.request("DELETE", path, query_params, body, decode_response=decode_response)
 
-
     def request(
         self,
         method,
