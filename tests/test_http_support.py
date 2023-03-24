@@ -19,7 +19,7 @@ class TestHTTPSupport(TestCase):
 
     def test_create_ssl_checks(self):
         with self.assertRaises(ValueError):
-            _create_ssl_connection(None, None, True, "fake", 10)
+            _create_ssl_connection(None, None, True, "fake")
 
     def test_append_to_path(self):
         self.assertEqual(append_to_path("path/", "/sub"), "path/sub")

@@ -1432,6 +1432,15 @@ def fake_module_file_from_directory(directory: str):
     return join(directory, app_name + ".py")
 
 
+def is_python_enabled_on_server(connect_details):
+    """
+    Returns whether or not the Connect server has Python itself enabled.
+
+    :error: The Posit Connect server does not have Python enabled.
+    """
+    return any(connect_details.get("python", {}).get("versions", []))
+
+
 def are_apis_supported_on_server(connect_details):
     """
     Returns whether or not the Connect server has Python itself enabled and its license allows
@@ -1677,7 +1686,7 @@ def create_voila_manifest(
             raise RSConnectException(MULTI_NOTEBOOK_EXC_MSG)
         _warn_on_ignored_entrypoint(entrypoint)
         deploy_dir = entrypoint = abspath(path)
-    extra_files = validate_extra_files(deploy_dir, extra_files)
+    extra_files = validate_extra_files(deploy_dir, extra_files, use_abspath=True)
     excludes = list(excludes) if excludes else []
     excludes.extend([environment.filename, "manifest.json"])
     excludes.extend(list_environment_dirs(deploy_dir))

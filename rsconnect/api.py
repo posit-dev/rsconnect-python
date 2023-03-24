@@ -28,6 +28,7 @@ from .models import AppModes
 from .metadata import ServerStore, AppStore
 from .exception import RSConnectException
 from .bundle import _default_title, fake_module_file_from_directory
+from .timeouts import get_timeout
 
 
 class AbstractRemoteServer:
@@ -127,7 +128,7 @@ class S3Server(AbstractRemoteServer):
 
 
 class RSConnectClient(HTTPServer):
-    def __init__(self, server: RSConnectServer, cookies=None, timeout=30):
+    def __init__(self, server: RSConnectServer, cookies=None):
         if cookies is None:
             cookies = server.cookie_jar
         super().__init__(
@@ -135,7 +136,6 @@ class RSConnectClient(HTTPServer):
             server.insecure,
             server.ca_data,
             cookies,
-            timeout,
         )
         self._server = server
 
@@ -292,7 +292,7 @@ class RSConnectClient(HTTPServer):
         return results
 
     def wait_for_task(
-        self, task_id, log_callback, abort_func=lambda: False, timeout=None, poll_wait=0.5, raise_on_error=True
+        self, task_id, log_callback, abort_func=lambda: False, timeout=get_timeout(), poll_wait=0.5, raise_on_error=True
     ):
 
         last_status = None
@@ -397,7 +397,7 @@ class RSConnectExecutor:
             token=token,
             secret=secret,
         )
-        self.setup_client(cookies, timeout)
+        self.setup_client(cookies)
 
     @classmethod
     def fromConnectServer(cls, connect_server, **kwargs):
@@ -495,11 +495,11 @@ class RSConnectExecutor:
         else:
             raise RSConnectException("Unable to infer Connect server type and setup server.")
 
-    def setup_client(self, cookies=None, timeout=30, **kwargs):
+    def setup_client(self, cookies=None, **kwargs):
         if isinstance(self.remote_server, RSConnectServer):
-            self.client = RSConnectClient(self.remote_server, cookies, timeout)
+            self.client = RSConnectClient(self.remote_server, cookies)
         elif isinstance(self.remote_server, PositServer):
-            self.client = PositClient(self.remote_server, timeout)
+            self.client = PositClient(self.remote_server)
         else:
             raise RSConnectException("Unable to infer Connect client.")
 
@@ -688,7 +688,7 @@ class RSConnectExecutor:
     def upload_rstudio_bundle(self, prepare_deploy_result, bundle_size: int, contents):
         upload_url = prepare_deploy_result.presigned_url
         parsed_upload_url = urlparse(upload_url)
-        with S3Client("{}://{}".format(parsed_upload_url.scheme, parsed_upload_url.netloc), timeout=120) as s3_client:
+        with S3Client("{}://{}".format(parsed_upload_url.scheme, parsed_upload_url.netloc)) as s3_client:
             upload_result = s3_client.upload(
                 "{}?{}".format(parsed_upload_url.path, parsed_upload_url.query),
                 prepare_deploy_result.presigned_checksum,
@@ -1053,14 +1053,14 @@ class PositClient(HTTPServer):
 
     _TERMINAL_STATUSES = {"success", "failed", "error"}
 
-    def __init__(self, rstudio_server: PositServer, timeout: int = 30):
+    def __init__(self, rstudio_server: PositServer):
         self._token = rstudio_server.token
         try:
             self._key = base64.b64decode(rstudio_server.secret)
         except binascii.Error as e:
             raise RSConnectException("Invalid secret.") from e
         self._server = rstudio_server
-        super().__init__(rstudio_server.url, timeout=timeout)
+        super().__init__(rstudio_server.url)
 
     def _get_canonical_request(self, method, path, timestamp, content_hash):
         return "\n".join([method, path, timestamp, content_hash])
@@ -1146,7 +1146,7 @@ class PositClient(HTTPServer):
     def get_current_user(self):
         return self.get("/v1/users/me")
 
-    def wait_until_task_is_successful(self, task_id, timeout=180):
+    def wait_until_task_is_successful(self, task_id, timeout=get_timeout()):
         print()
         print("Waiting for task: {}".format(task_id))
         start_time = time.time()
@@ -1397,7 +1397,7 @@ def emit_task_log(
     task_id,
     log_callback,
     abort_func=lambda: False,
-    timeout=None,
+    timeout=get_timeout(),
     poll_wait=0.5,
     raise_on_error=True,
 ):

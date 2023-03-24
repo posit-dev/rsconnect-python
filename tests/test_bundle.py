@@ -814,6 +814,7 @@ bqplot_dir = os.path.join(cur_dir, "./testdata/voila/bqplot/")
 bqplot_ipynb = os.path.join(bqplot_dir, "bqplot.ipynb")
 dashboard_dir = os.path.join(cur_dir, "./testdata/voila/dashboard/")
 dashboard_ipynb = os.path.join(dashboard_dir, "dashboard.ipynb")
+dashboard_extra_ipynb = os.path.join(dashboard_dir, "bqplot.ipynb")
 multivoila_dir = os.path.join(cur_dir, "./testdata/voila/multi-voila/")
 nonexistent_dir = os.path.join(cur_dir, "./testdata/nonexistent/")
 nonexistent_file = os.path.join(cur_dir, "nonexistent.txt")
@@ -977,6 +978,46 @@ def test_create_voila_manifest_2(path, entrypoint):
         environment,
         app_mode=AppModes.JUPYTER_VOILA,
         extra_files=None,
+        excludes=None,
+        force_generate=True,
+        image=None,
+        multi_notebook=False,
+    )
+    assert ans == json.loads(manifest.flattened_copy.json)
+
+
+def test_create_voila_manifest_extra():
+    environment = Environment(
+        conda=None,
+        contents="numpy\nipywidgets\nbqplot\n",
+        error=None,
+        filename="requirements.txt",
+        locale="en_US.UTF-8",
+        package_manager="pip",
+        pip="23.0.1",
+        python="3.8.12",
+        source="file",
+    )
+    ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "jupyter-voila", "entrypoint": "dashboard.ipynb"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "d51994456975ff487749acc247ae6d63"},
+            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
+            "dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+        },
+    }
+    manifest = create_voila_manifest(
+        dashboard_ipynb,
+        None,
+        environment,
+        app_mode=AppModes.JUPYTER_VOILA,
+        extra_files=[dashboard_extra_ipynb],
         excludes=None,
         force_generate=True,
         image=None,
@@ -1335,6 +1376,54 @@ def test_make_voila_bundle_2(
         path,
         entrypoint,
         extra_files=None,
+        excludes=None,
+        force_generate=True,
+        environment=environment,
+        image=None,
+        multi_notebook=False,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "bqplot.ipynb",
+            "dashboard.ipynb",
+            "manifest.json",
+            "requirements.txt",
+        ]
+        reqs = tar.extractfile("requirements.txt").read()
+        assert reqs == b"numpy\nipywidgets\nbqplot\n"
+        assert ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+
+def test_make_voila_bundle_extra():
+    environment = Environment(
+        conda=None,
+        contents="numpy\nipywidgets\nbqplot\n",
+        error=None,
+        filename="requirements.txt",
+        locale="en_US.UTF-8",
+        package_manager="pip",
+        pip="23.0.1",
+        python="3.8.12",
+        source="file",
+    )
+    ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "jupyter-voila", "entrypoint": "dashboard.ipynb"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "d51994456975ff487749acc247ae6d63"},
+            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
+            "dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+        },
+    }
+    with make_voila_bundle(
+        dashboard_ipynb,
+        None,
+        extra_files=[dashboard_extra_ipynb],
         excludes=None,
         force_generate=True,
         environment=environment,

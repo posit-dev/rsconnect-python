@@ -41,8 +41,39 @@ Cypress.Commands.add('contentiFrame', (iframe) => {
 });
 
 Cypress.Commands.add('connectLogin', (user) => {
-	cy.request('POST', 'http://connect:3939/__login__', {
-		username: 'admin',
-		password: 'password',
-	})
+  cy.request('POST', 'http://connect:3939/__login__', {
+    username: 'admin',
+    password: 'password',
+  });
 });
+
+Cypress.Commands.add('addServer', () => {
+    cy.get('button[data-jupyter-action="rsconnect_jupyter:publish"]')
+    .click();
+    cy.get('a[id="publish-to-connect"]').click({ force: true });
+    cy.wait(1000);
+    cy.get('input[id="rsc-server"]').clear().type('http://connect:3939');
+    cy.get('input[id="rsc-api-key"]').clear().type(Cypress.env('api_key'));
+    cy.get('input[id="rsc-servername"]').clear().type('http://connect:3939');
+    cy.get('a[class="btn btn-primary"]').contains(' Add Server')
+      .click();
+    cy.wait(1000);
+    cy.get('span[class="help-block"]').should('not.have.text',"Unable to verify");
+});
+
+Cypress.Commands.add('removeServer', () => {
+    cy.get('button[data-jupyter-action="rsconnect_jupyter:publish"]')
+    .click();
+    cy.get('a[id="publish-to-connect"]').click({ force: true });
+    cy.wait(1000);
+    cy.get('div[id="rsc-select-server"]')
+      .contains('http://connect:3939')
+      .get('button[class="pull-right btn btn-danger btn-xs"]')
+      .click();
+});
+
+// Cypress.Commands.add('setSessionStorage', (key, value) => {
+//   cy.window().then((window) => {
+//     window.sessionStorage.setItem(key, value)
+//   })
+// })

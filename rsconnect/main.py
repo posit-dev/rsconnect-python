@@ -40,6 +40,7 @@ from .actions_content import (
 from . import api, VERSION, validation
 from .api import RSConnectExecutor, RSConnectServer, RSConnectClient, filter_out_server_info
 from .bundle import (
+    is_python_enabled_on_server,
     are_apis_supported_on_server,
     create_python_environment,
     default_title_from_manifest,
@@ -847,8 +848,8 @@ def deploy_notebook(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="voila",
-    short_help="Deploy Jupyter notebook in Voila mode to RStudio Connect [v2023.03.0+].",
-    help=("Deploy a Jupyter notebook in Voila mode to RStudio Connect."),
+    short_help="Deploy Jupyter notebook in Voila mode to Posit Connect [v2023.03.0+].",
+    help=("Deploy a Jupyter notebook in Voila mode to Posit Connect."),
     no_args_is_help=True,
 )
 @server_args
@@ -926,7 +927,6 @@ def deploy_voila(
     kwargs = locals()
     set_verbosity(verbose)
     app_mode = AppModes.JUPYTER_VOILA
-    kwargs["extra_files"] = extra_files = validate_extra_files(dirname(path), extra_files)
     environment = create_python_environment(
         path if isdir(path) else dirname(path),
         force_generate,
@@ -1306,7 +1306,7 @@ def generate_deploy_python(app_mode, alias, min_version):
         (
             ce.validate_server()
             .validate_app_mode(app_mode=app_mode)
-            .check_server_capabilities([are_apis_supported_on_server])
+            .check_server_capabilities([is_python_enabled_on_server, are_apis_supported_on_server])
             .make_bundle(
                 make_api_bundle,
                 directory,

@@ -1,4 +1,4 @@
-FROM cypress/included:12.0.0
+FROM cypress/included:12.7.0
 
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
     jq
@@ -10,3 +10,4 @@ RUN mkdir -p /libs-cypress && \
 ENV ADMIN_API_KEY=${ADMIN_API_KEY}
 ENV PATH=$PATH:/libs-cypress
 CMD cypress run --browser chrome --env api_key=${ADMIN_API_KEY}
+# CMD run cypress:open --env api_key=${ADMIN_API_KEY}
