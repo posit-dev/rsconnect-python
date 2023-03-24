@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - The `CONNECT_REQUEST_TIMEOUT` environment variable, which configures the request timeout for all blocking HTTP and HTTPS operations. This value translates into seconds (e.g., `CONNECT_REQUEST_TIMEOUT=60` is equivalent to 60 seconds.) By default, this value is 300. 
 
+### Fixed
+
+- Extra files were not being included in deploy Voila.
+
+- Error message to indicate the Python also has to be configured in Connect.
+
 ## [1.15.0] - 2023-03-15
 
 ### Added
