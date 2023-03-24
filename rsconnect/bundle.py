@@ -1686,7 +1686,7 @@ def create_voila_manifest(
             raise RSConnectException(MULTI_NOTEBOOK_EXC_MSG)
         _warn_on_ignored_entrypoint(entrypoint)
         deploy_dir = entrypoint = abspath(path)
-    extra_files = validate_extra_files(deploy_dir, extra_files)
+    extra_files = validate_extra_files(deploy_dir, extra_files, use_abspath=True)
     excludes = list(excludes) if excludes else []
     excludes.extend([environment.filename, "manifest.json"])
     excludes.extend(list_environment_dirs(deploy_dir))
