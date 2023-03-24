@@ -998,27 +998,12 @@ class RSConnectExecutor:
         target = {"language": language, "version": version, "image_name": image_name, "dry_run": dry_run}
         result = self.client.system_caches_runtime_delete(target)
         if result["task_id"] == None:
-            print(
-                f"Would delete cache: '{result['language']}', version: '{result['version']}', image_name: '{result['image_name']}'"
-            )
             print("Dry run finished")
             return result
         else:
-            print(
-                f"Deleting cache: '{result['language']}', version: '{result['version']}', image_name: '{result['image_name']}', task_id: '{result['task_id']}'"
-            )
             (log_lines, task_status) = self.client.wait_for_task(
                 result["task_id"], connect_logger.info, raise_on_error=False
             )
-
-            # Task status cannot be finished because we have no timeout.
-            if task_status["finished"]:
-                print("Cache deletion finished")
-
-            # I don't think this can technically happen
-            if task_status["error"] != "":
-                raise RSConnectException("Cache deletion failed with error: {}".format(task_status["error"]))
-
             return task_status
 
 

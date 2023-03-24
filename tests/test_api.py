@@ -103,8 +103,8 @@ class TestSystemRuntimeCachesAPI(TestCase):
         result = ce.list_runtime_caches()
         self.assertDictEqual(result, mocked_response)
 
-    # # RSConnectExecutor.delete_runtime_cache() dry run returns expected request
-    # # RSConnectExecutor.delete_runtime_cache() dry run prints expected messages
+    # RSConnectExecutor.delete_runtime_cache() dry run returns expected request
+    # RSConnectExecutor.delete_runtime_cache() dry run prints expected messages
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_executor_delete_runtime_cache_dry_run(self):
         ce = RSConnectExecutor(None, "http://test-server/", "api_key")
