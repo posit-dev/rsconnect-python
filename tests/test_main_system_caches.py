@@ -16,13 +16,21 @@ ADD_CACHE_COMMAND = "docker-compose exec rsconnect mkdir -p /data/python-environ
 RM_CACHE_COMMAND = "docker-compose exec rsconnect rm -Rf /data/python-environments/pip/1.2.3"
 # The following returns int(0) if dir exists, else int(256).
 CACHE_EXISTS_COMMAND = "docker-compose exec rsconnect [ -d /data/python-environments/pip/1.2.3 ]"
+SERVICE_RUNNING_COMMAND = "docker-compose ps --services --filter 'status=running' | grep rsconnect"
+
+def rsconnect_service_running():
+    exit_code = system(SERVICE_RUNNING_COMMAND)
+    if exit_code == 0:
+        return True
+    else:
+        return False
 
 
 def cache_dir_exists():
     exit_code = system(CACHE_EXISTS_COMMAND)
     if exit_code == 0:
         return True
-    if exit_code == 256:
+    else:
         return False
 
 
@@ -45,6 +53,8 @@ class TestSystemCachesList(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         system(ADD_CACHE_COMMAND)
+        if not rsconnect_service_running():
+            raise unittest.SkipTest("rsconnect docker service is not available")
         return super().setUpClass()
 
     @classmethod
@@ -85,6 +95,8 @@ class TestSystemCachesDelete(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         system(ADD_CACHE_COMMAND)
+        if not rsconnect_service_running():
+            raise unittest.SkipTest("rsconnect docker service is not available")
         return super().setUpClass()
 
     @classmethod

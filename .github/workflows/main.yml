@@ -147,7 +147,7 @@ jobs:
             event_type: 'rsconnect_python_latest'
           })
   test-rsconnect:
-    name: "Test vetiver"
+    name: "Integration tests against latest Connect"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -172,6 +172,8 @@ jobs:
       - name: Run tests
         run: |
           pytest -m 'vetiver'
+          python -m unittest tests.test_main_system_caches
+
   
   test-jupyter:
     runs-on: ubuntu-latest
