@@ -25,6 +25,7 @@
 htmlcov
 test-home/
 venv
+coverage.xml
 
 # Temporary dev files
 vetiver-testing/rsconnect_api_keys.json

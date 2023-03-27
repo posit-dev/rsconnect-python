@@ -10,6 +10,7 @@ on:
 permissions:
   id-token: write
   contents: write
+  pull-requests: write
 jobs:
   test:
     strategy:
@@ -34,6 +35,11 @@ jobs:
     - run: make lint
     - run: python setup.py --version
     - run: make test-${{ matrix.python-version }}
+    - if: github.event_name == 'pull_request' && matrix.python-version == '3.8'
+      uses: orgoro/coverage@v3
+      with:
+        coverageFile: coverage.xml
+        token: ${{ secrets.GITHUB_TOKEN }}
   prerelease-test:
     runs-on: ubuntu-latest
     continue-on-error: true
