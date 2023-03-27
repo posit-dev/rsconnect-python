@@ -103,6 +103,7 @@ class TestSystemRuntimeCachesAPI(TestCase):
         result = ce.runtime_caches
         self.assertDictEqual(result, mocked_response)
 
+    # RSConnectExecutor.delete_runtime_cache() dry run returns expected request
     # RSConnectExecutor.delete_runtime_cache() dry run prints expected messages
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_executor_delete_runtime_cache_dry_run(self):
@@ -119,12 +120,15 @@ class TestSystemRuntimeCachesAPI(TestCase):
 
         captured_output = io.StringIO()
         sys.stdout = captured_output
-        result = ce.delete_runtime_cache(language="Python", version="1.2.3", image_name="teapot", dry_run=True)
+        ce.delete_runtime_cache(language="Python", version="1.2.3", image_name="teapot", dry_run=True)
         sys.stdout = sys.__stdout__
 
         # Print expectations
         output_lines = captured_output.getvalue().splitlines()
         self.assertEqual(output_lines[0], "Dry run finished")
+
+        # Result expectations
+        self.assertDictEqual(mocked_output, ce.state["result"])
 
     # RSConnectExecutor.delete_runtime_cache() wet run returns expected request
     # RSConnectExecutor.delete_runtime_cache() wet run prints expected messages
@@ -165,11 +169,16 @@ class TestSystemRuntimeCachesAPI(TestCase):
 
         captured_output = io.StringIO()
         sys.stdout = captured_output
-        result = ce.delete_runtime_cache(language="Python", version="1.2.3", image_name="teapot", dry_run=False)
+        ce.delete_runtime_cache(language="Python", version="1.2.3", image_name="teapot", dry_run=False)
         sys.stdout = sys.__stdout__
 
         # Print expectations
-        # TODO: Figure out how to capture the output of `connect_logger` and make assertions.
+        # TODO: *We* don't print anything here anymore. Unsure how to capture log messages from Connect.
+        # output_lines = captured_output.getvalue().splitlines()
+        # self.assertEqual(output_lines[0], "Cache deletion finished")
+
+        # Result expectations
+        self.assertDictEqual(mocked_task_status, ce.state["task_status"])
 
     # RSConnectExecutor.delete_runtime_cache() raises the correct error
     @httpretty.activate(verbose=True, allow_net_connect=False)

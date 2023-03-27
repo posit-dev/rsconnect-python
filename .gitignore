@@ -25,3 +25,6 @@
 htmlcov
 test-home/
 venv
+
+# Temporary dev files
+vetiver-testing/rsconnect_api_keys.json
