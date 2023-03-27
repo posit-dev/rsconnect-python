@@ -991,7 +991,8 @@ class RSConnectExecutor:
 
         return name
 
-    def list_runtime_caches(self):
+    @property
+    def runtime_caches(self):
         return self.client.system_caches_runtime_list()
 
     def delete_runtime_cache(self, language, version, image_name, dry_run):
@@ -999,12 +1000,11 @@ class RSConnectExecutor:
         result = self.client.system_caches_runtime_delete(target)
         if result["task_id"] is None:
             print("Dry run finished")
-            return result
         else:
             (log_lines, task_status) = self.client.wait_for_task(
                 result["task_id"], connect_logger.info, raise_on_error=False
             )
-            return task_status
+        return self
 
 
 def filter_out_server_info(**kwargs):

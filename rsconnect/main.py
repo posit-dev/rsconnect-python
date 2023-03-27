@@ -2195,7 +2195,7 @@ def system_caches_list(name, server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
-        result = ce.list_runtime_caches()
+        result = ce.runtime_caches
         json.dump(result, sys.stdout, indent=2)
 
 
@@ -2230,8 +2230,7 @@ def system_caches_delete(name, server, api_key, insecure, cacert, verbose, langu
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
-        result = ce.delete_runtime_cache(language, version, image_name, dry_run)
-        logger.debug(result)
+        ce.delete_runtime_cache(language, version, image_name, dry_run)
 
 
 if __name__ == "__main__":
