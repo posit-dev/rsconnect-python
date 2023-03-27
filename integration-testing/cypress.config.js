@@ -18,4 +18,5 @@ module.exports = defineConfig({
     defaultCommandTimeout: 10000,
     specPattern: "cypress/e2e/**/*.cy.js",
   },
+  "retries": 2
 })
