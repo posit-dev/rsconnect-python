@@ -927,7 +927,6 @@ def deploy_voila(
     kwargs = locals()
     set_verbosity(verbose)
     app_mode = AppModes.JUPYTER_VOILA
-    kwargs["extra_files"] = extra_files = validate_extra_files(dirname(path), extra_files)
     environment = create_python_environment(
         path if isdir(path) else dirname(path),
         force_generate,
