@@ -169,7 +169,7 @@ jobs:
         run: |
           docker-compose up --build -d
           pip freeze > requirements.txt
-          make dev-start-integration
+          make dev
         env:
           RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
