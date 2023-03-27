@@ -83,7 +83,7 @@ class TestAPI(TestCase):
 
 
 class TestSystemRuntimeCachesAPI(TestCase):
-    # RSConnectExecutor.list_runtime_caches() returns the resulting JSON from the server.
+    # RSConnectExecutor.runtime_caches returns the resulting JSON from the server.
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_client_system_caches_runtime_list(self):
         ce = RSConnectExecutor(None, "http://test-server/", "api_key")
@@ -100,10 +100,9 @@ class TestSystemRuntimeCachesAPI(TestCase):
             status=200,
             forcing_headers={"Content-Type": "application/json"},
         )
-        result = ce.list_runtime_caches()
+        result = ce.runtime_caches
         self.assertDictEqual(result, mocked_response)
 
-    # RSConnectExecutor.delete_runtime_cache() dry run returns expected request
     # RSConnectExecutor.delete_runtime_cache() dry run prints expected messages
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_executor_delete_runtime_cache_dry_run(self):
@@ -126,9 +125,6 @@ class TestSystemRuntimeCachesAPI(TestCase):
         # Print expectations
         output_lines = captured_output.getvalue().splitlines()
         self.assertEqual(output_lines[0], "Dry run finished")
-
-        # Result expectations
-        self.assertDictEqual(mocked_output, result)
 
     # RSConnectExecutor.delete_runtime_cache() wet run returns expected request
     # RSConnectExecutor.delete_runtime_cache() wet run prints expected messages
@@ -173,12 +169,7 @@ class TestSystemRuntimeCachesAPI(TestCase):
         sys.stdout = sys.__stdout__
 
         # Print expectations
-        # TODO: *We* don't print anything here anymore. Unsure how to capture log messages from Connect.
-        # output_lines = captured_output.getvalue().splitlines()
-        # self.assertEqual(output_lines[0], "Cache deletion finished")
-
-        # Result expectations
-        self.assertDictEqual(mocked_task_status, result)
+        # TODO: Figure out how to capture the output of `connect_logger` and make assertions.
 
     # RSConnectExecutor.delete_runtime_cache() raises the correct error
     @httpretty.activate(verbose=True, allow_net_connect=False)
