@@ -15,9 +15,12 @@ from rsconnect.bundle import (
     _default_title_from_manifest,
     _validate_title,
     create_html_manifest,
+    create_python_environment,
     get_python_env_info,
     inspect_environment,
     list_files,
+    make_api_bundle,
+    make_api_manifest,
     make_html_bundle,
     make_manifest_bundle,
     make_notebook_html_bundle,
@@ -1804,3 +1807,80 @@ def test_make_html_bundle():
             "manifest.json",
         ]
         assert multi_file_index_dir_extras_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+
+bokeh_dir = os.path.join(cur_dir, "./testdata/top-5-income-share-bokeh")
+bokeh_file = os.path.join(cur_dir, "./testdata/top-5-income-share-bokeh/app.py")
+
+
+def test_make_api_manifest():
+    bokeh_dir_ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-bokeh"},  # "entrypoint": "app"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "77477063f2527bde7b55a087da0a5520"},
+            "README.md": {"checksum": "45c02fd6996a3929ac6cb184307e8124"},
+            "app.py": {"checksum": "b965e780a74b524f0ab5263a214614d7"},
+            "data.csv": {"checksum": "9cdb0252eca1273dcd0ce12f9b9196a5"},
+        },
+    }
+
+    environment = create_python_environment(
+        bokeh_dir,
+    )
+    manifest, _ = make_api_manifest(
+        bokeh_dir,
+        None,
+        AppModes.BOKEH_APP,
+        environment,
+        None,
+        None,
+    )
+
+    assert bokeh_dir_ans["metadata"] == manifest["metadata"]
+    assert bokeh_dir_ans["files"].keys() == manifest["files"].keys()
+
+
+def test_make_api_bundle():
+    bokeh_dir_ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-bokeh"},  # "entrypoint": "app"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "77477063f2527bde7b55a087da0a5520"},
+            "README.md": {"checksum": "45c02fd6996a3929ac6cb184307e8124"},
+            "app.py": {"checksum": "b965e780a74b524f0ab5263a214614d7"},
+            "data.csv": {"checksum": "9cdb0252eca1273dcd0ce12f9b9196a5"},
+        },
+    }
+    environment = create_python_environment(
+        bokeh_dir,
+    )
+    with make_api_bundle(
+        bokeh_dir,
+        None,
+        AppModes.BOKEH_APP,
+        environment,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "README.md",
+            "app.py",
+            "data.csv",
+            "manifest.json",
+            "requirements.txt",
+        ]
+        bundle_json = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+        assert bokeh_dir_ans["metadata"] == bundle_json["metadata"]
+        assert bokeh_dir_ans["files"].keys() == bundle_json["files"].keys()
