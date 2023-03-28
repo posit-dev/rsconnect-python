@@ -15,9 +15,12 @@ from rsconnect.bundle import (
     _default_title_from_manifest,
     _validate_title,
     create_html_manifest,
+    create_python_environment,
     get_python_env_info,
     inspect_environment,
     list_files,
+    make_api_bundle,
+    make_api_manifest,
     make_html_bundle,
     make_manifest_bundle,
     make_notebook_html_bundle,
@@ -1715,3 +1718,83 @@ def test_make_html_bundle():
             "manifest.json",
         ]
         assert multi_file_index_dir_extras_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+
+fastapi_dir = os.path.join(cur_dir, "./testdata/stock-api-fastapi")
+fastapi_file = os.path.join(cur_dir, "./testdata/stock-api-fastapi/main.py")
+
+
+def test_validate_entry_point():
+    assert "main" == validate_entry_point(entry_point=None, directory=fastapi_dir)
+
+
+def test_make_api_manifest():
+    fastapi_dir_ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-fastapi"},  # "entrypoint": "main"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "7bdadcb7a5f74f377b453cf6e980f114"},
+            "README.md": {"checksum": "30a14a7b8eb6282d532d7fdaa36abb0f"},
+            "main.py": {"checksum": "a8d8820f25be4dc8e2bf51a5ba1690b6"},
+            "prices.csv": {"checksum": "012afa636c426748177b38160135307a"},
+        },
+    }
+    environment = create_python_environment(
+        fastapi_dir,
+    )
+    manifest, _ = make_api_manifest(
+        fastapi_dir,
+        None,
+        AppModes.PYTHON_FASTAPI,
+        environment,
+        None,
+        None,
+    )
+
+    assert fastapi_dir_ans["metadata"] == manifest["metadata"]
+    assert fastapi_dir_ans["files"].keys() == manifest["files"].keys()
+
+
+def test_make_api_bundle():
+    fastapi_dir_ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-fastapi"},  # "entrypoint": "main"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "7bdadcb7a5f74f377b453cf6e980f114"},
+            "README.md": {"checksum": "30a14a7b8eb6282d532d7fdaa36abb0f"},
+            "main.py": {"checksum": "a8d8820f25be4dc8e2bf51a5ba1690b6"},
+            "prices.csv": {"checksum": "012afa636c426748177b38160135307a"},
+        },
+    }
+    environment = create_python_environment(
+        fastapi_dir,
+    )
+    with make_api_bundle(
+        fastapi_dir,
+        None,
+        AppModes.PYTHON_FASTAPI,
+        environment,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "README.md",
+            "main.py",
+            "manifest.json",
+            "prices.csv",
+            "requirements.txt",
+        ]
+        bundle_json = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+        assert fastapi_dir_ans["metadata"] == bundle_json["metadata"]
+        assert fastapi_dir_ans["files"].keys() == bundle_json["files"].keys()
