@@ -1804,3 +1804,39 @@ def test_make_html_bundle():
             "manifest.json",
         ]
         assert multi_file_index_dir_extras_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+
+pyshiny_manifest_dir = os.path.join(cur_dir, "./testdata/pyshiny_with_manifest")
+pyshiny_manifest_file = os.path.join(cur_dir, "./testdata/pyshiny_with_manifest/manifest.json")
+
+
+def test_make_manifest_bundle():
+    manifest = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-shiny", "entrypoint": "app"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "2a4bdca32428db1f47c6a7f0ba830a9b"},
+            "README.md": {"checksum": "4c7804f5c8cb5ec05c34e92cab45f6c7"},
+            "app.py": {"checksum": "a7726fc4fe5374b54158a049180653a1"},
+            "data.csv": {"checksum": "9cdb0252eca1273dcd0ce12f9b9196a5"},
+        },
+    }
+    with make_manifest_bundle(
+        pyshiny_manifest_file,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "README.md",
+            "app.py",
+            "data.csv",
+            "manifest.json",
+            "requirements.txt",
+        ]
+        bundle_json = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+        assert manifest["metadata"] == bundle_json["metadata"]
+        assert manifest["files"].keys() == bundle_json["files"].keys()
