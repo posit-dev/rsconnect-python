@@ -15,9 +15,12 @@ from rsconnect.bundle import (
     _default_title_from_manifest,
     _validate_title,
     create_html_manifest,
+    create_python_environment,
     get_python_env_info,
     inspect_environment,
     list_files,
+    make_api_bundle,
+    make_api_manifest,
     make_html_bundle,
     make_manifest_bundle,
     make_notebook_html_bundle,
@@ -1804,3 +1807,79 @@ def test_make_html_bundle():
             "manifest.json",
         ]
         assert multi_file_index_dir_extras_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+
+flask_dir = os.path.join(cur_dir, "./testdata/stock-api-flask")
+flask_file = os.path.join(cur_dir, "./testdata/stock-api-flask/main.py")
+
+
+def test_make_api_manifest():
+    flask_dir_ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-api"},  # "entrypoint": "app"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "e34bcdf75e2a80c4c0b0b53a14af5f41"},
+            "README.md": {"checksum": "15659923bfe23eed7ca4450ce1adbe41"},
+            "app.py": {"checksum": "9799c3b834b555cf02e5896ad2997674"},
+            "prices.csv": {"checksum": "012afa636c426748177b38160135307a"},
+        },
+    }
+    environment = create_python_environment(
+        flask_dir,
+    )
+    manifest, _ = make_api_manifest(
+        flask_dir,
+        None,
+        AppModes.PYTHON_API,
+        environment,
+        None,
+        None,
+    )
+
+    assert flask_dir_ans["metadata"] == manifest["metadata"]
+    assert flask_dir_ans["files"].keys() == manifest["files"].keys()
+
+
+def test_make_api_bundle():
+    flask_dir_ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-api"},  # "entrypoint": "app"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "e34bcdf75e2a80c4c0b0b53a14af5f41"},
+            "README.md": {"checksum": "15659923bfe23eed7ca4450ce1adbe41"},
+            "app.py": {"checksum": "9799c3b834b555cf02e5896ad2997674"},
+            "prices.csv": {"checksum": "012afa636c426748177b38160135307a"},
+        },
+    }
+    environment = create_python_environment(
+        flask_dir,
+    )
+    with make_api_bundle(
+        flask_dir,
+        None,
+        AppModes.PYTHON_API,
+        environment,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "README.md",
+            "app.py",
+            "manifest.json",
+            "prices.csv",
+            "requirements.txt",
+        ]
+        bundle_json = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+        assert flask_dir_ans["metadata"] == bundle_json["metadata"]
+        assert flask_dir_ans["files"].keys() == bundle_json["files"].keys()
