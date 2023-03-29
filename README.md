@@ -587,7 +587,7 @@ Generated from <code>rsconnect-python {{ rsconnect_python.version }}</code>
 
 The user can render a Jupyter notebook without its corresponding input code cells by passing the '--hide-all-input' flag through the cli:
 
-```
+```bash
 rsconnect deploy notebook \
     --server https://connect.example.org:3939 \
     --api-key my-api-key \
@@ -599,7 +599,7 @@ To selectively hide input cells in a Jupyter notebook, the user needs to follow 
 1. tag cells with the 'hide_input' tag,
 2. then pass the ' --hide-tagged-input' flag through the cli:
 
-```
+```bash
 rsconnect deploy notebook \
     --server https://connect.example.org:3939 \
     --api-key my-api-key \
@@ -627,19 +627,19 @@ dashboard from a browser.
 > other command line utilities like [`jq`](https://stedolan.github.io/jq/) for further post-processing.
 
 ```bash
-$ rsconnect content --help
-Usage: rsconnect content [OPTIONS] COMMAND [ARGS]...
+rsconnect content --help
+# Usage: rsconnect content [OPTIONS] COMMAND [ARGS]...
 
-  Interact with Posit Connect's content API.
+#   Interact with Posit Connect's content API.
 
-Options:
-  --help  Show this message and exit.
+# Options:
+#   --help  Show this message and exit.
 
-Commands:
-  build            Build content on Posit Connect.
-  describe         Describe a content item on Posit Connect.
-  download-bundle  Download a content item's source bundle.
-  search           Search for content on Posit Connect.
+# Commands:
+#   build            Build content on Posit Connect.
+#   describe         Describe a content item on Posit Connect.
+#   download-bundle  Download a content item's source bundle.
+#   search           Search for content on Posit Connect.
 ```
 
 ### Content Search
@@ -649,68 +649,68 @@ to find specific content on a given Posit Connect server. The search returns
 metadata for each content item that meets the search criteria.
 
 ```bash
-$ rsconnect content search --help
-Usage: rsconnect content search [OPTIONS]
+rsconnect content search --help
+# Usage: rsconnect content search [OPTIONS]
 
-Options:
-  -n, --name TEXT                 The nickname of the Posit Connect server.
-  -s, --server TEXT               The URL for the Posit Connect server.
-  -k, --api-key TEXT              The API key to use to authenticate with
-                                  Posit Connect.
+# Options:
+#   -n, --name TEXT                 The nickname of the Posit Connect server.
+#   -s, --server TEXT               The URL for the Posit Connect server.
+#   -k, --api-key TEXT              The API key to use to authenticate with
+#                                   Posit Connect.
 
-  -i, --insecure                  Disable TLS certification/host validation.
-  -c, --cacert FILENAME           The path to trusted TLS CA certificates.
-  --published                     Search only published content.
-  --unpublished                   Search only unpublished content.
-  --content-type [unknown|shiny|rmd-static|rmd-shiny|static|api|tensorflow-saved-model|jupyter-static|python-api|python-dash|python-streamlit|python-bokeh|python-fastapi|quarto-shiny|quarto-static]
-                                  Filter content results by content type.
-  --r-version VERSIONSEARCHFILTER
-                                  Filter content results by R version.
-  --py-version VERSIONSEARCHFILTER
-                                  Filter content results by Python version.
-  --title-contains TEXT           Filter content results by title.
-  --order-by [created|last_deployed]
-                                  Order content results.
-  -v, --verbose                   Print detailed messages.
-  --help                          Show this message and exit.
+#   -i, --insecure                  Disable TLS certification/host validation.
+#   -c, --cacert FILENAME           The path to trusted TLS CA certificates.
+#   --published                     Search only published content.
+#   --unpublished                   Search only unpublished content.
+#   --content-type [unknown|shiny|rmd-static|rmd-shiny|static|api|tensorflow-saved-model|jupyter-static|python-api|python-dash|python-streamlit|python-bokeh|python-fastapi|quarto-shiny|quarto-static]
+#                                   Filter content results by content type.
+#   --r-version VERSIONSEARCHFILTER
+#                                   Filter content results by R version.
+#   --py-version VERSIONSEARCHFILTER
+#                                   Filter content results by Python version.
+#   --title-contains TEXT           Filter content results by title.
+#   --order-by [created|last_deployed]
+#                                   Order content results.
+#   -v, --verbose                   Print detailed messages.
+#   --help                          Show this message and exit.
 
-$ rsconnect content search
-[
-  {
-    "max_conns_per_process": null,
-    "content_category": "",
-    "load_factor": null,
-    "cluster_name": "Local",
-    "description": "",
-    "bundle_id": "142",
-    "image_name": null,
-    "r_version": null,
-    "content_url": "https://connect.example.org:3939/content/4ffc819c-065c-420c-88eb-332db1133317/",
-    "connection_timeout": null,
-    "min_processes": null,
-    "last_deployed_time": "2021-12-02T18:09:11Z",
-    "name": "logs-api-python",
-    "title": "logs-api-python",
-    "created_time": "2021-07-19T19:17:32Z",
-    "read_timeout": null,
-    "guid": "4ffc819c-065c-420c-88eb-332db1133317",
-    "parameterized": false,
-    "run_as": null,
-    "py_version": "3.8.2",
-    "idle_timeout": null,
-    "app_role": "owner",
-    "access_type": "acl",
-    "app_mode": "python-api",
-    "init_timeout": null,
-    "id": "18",
-    "quarto_version": null,
-    "dashboard_url": "https://connect.example.org:3939/connect/#/apps/4ffc819c-065c-420c-88eb-332db1133317",
-    "run_as_current_user": false,
-    "owner_guid": "edf26318-0027-4d9d-bbbb-54703ebb1855",
-    "max_processes": null
-  },
-  ...
-]
+rsconnect content search
+# [
+#   {
+#     "max_conns_per_process": null,
+#     "content_category": "",
+#     "load_factor": null,
+#     "cluster_name": "Local",
+#     "description": "",
+#     "bundle_id": "142",
+#     "image_name": null,
+#     "r_version": null,
+#     "content_url": "https://connect.example.org:3939/content/4ffc819c-065c-420c-88eb-332db1133317/",
+#     "connection_timeout": null,
+#     "min_processes": null,
+#     "last_deployed_time": "2021-12-02T18:09:11Z",
+#     "name": "logs-api-python",
+#     "title": "logs-api-python",
+#     "created_time": "2021-07-19T19:17:32Z",
+#     "read_timeout": null,
+#     "guid": "4ffc819c-065c-420c-88eb-332db1133317",
+#     "parameterized": false,
+#     "run_as": null,
+#     "py_version": "3.8.2",
+#     "idle_timeout": null,
+#     "app_role": "owner",
+#     "access_type": "acl",
+#     "app_mode": "python-api",
+#     "init_timeout": null,
+#     "id": "18",
+#     "quarto_version": null,
+#     "dashboard_url": "https://connect.example.org:3939/connect/#/apps/4ffc819c-065c-420c-88eb-332db1133317",
+#     "run_as_current_user": false,
+#     "owner_guid": "edf26318-0027-4d9d-bbbb-54703ebb1855",
+#     "max_processes": null
+#   },
+#   ...
+# ]
 ```
 
 See [this section](#searching-for-content) for more comprehensive usage examples
@@ -746,7 +746,7 @@ The following are some common scenarios where performing a content build might b
 > **Note:** You may use the [`rsconnect content search`](#content-search) subcommand to help
 > identify high priority content items to build.
 
-```
+```bash
 rsconnect content build --help
 Usage: rsconnect content build [OPTIONS] COMMAND [ARGS]...
 
@@ -778,7 +778,7 @@ To build a specific content item, first `add` it to the list of content that is
 > You may set the environment variable `CONNECT_CONTENT_BUILD_DIR` to override this directory location.
 
 ```bash
-$ rsconnect content build add --guid 4ffc819c-065c-420c-88eb-332db1133317
+rsconnect content build add --guid 4ffc819c-065c-420c-88eb-332db1133317
 ```
 
 > **Note:** See [this section](#add-to-build-from-search-results) for
@@ -788,13 +788,13 @@ $ rsconnect content build add --guid 4ffc819c-065c-420c-88eb-332db1133317
 To view all currently "tracked" content items, use the `rsconnect content build ls` subcommand.
 
 ```bash
-$ rsconnect content build ls
+rsconnect content build ls
 ```
 
 To view only the "tracked" content items that have not yet been built, use the `--status NEEDS_BUILD` flag.
 
 ```bash
-$ rsconnect content build ls --status NEEDS_BUILD
+rsconnect content build ls --status NEEDS_BUILD
 ```
 
 Once the content items have been added, you may initiate a build
@@ -802,59 +802,59 @@ using the `rsconnect content build run` subcommand. This command will attempt to
 build all "tracked" content that has the status `NEEDS_BUILD`.
 
 ```bash
-$ rsconnect content build run
-[INFO] 2021-12-14T13:02:45-0500 Initializing ContentBuildStore for https://connect.example.org:3939
-[INFO] 2021-12-14T13:02:45-0500 Starting content build (https://connect.example.org:3939)...
-[INFO] 2021-12-14T13:02:45-0500 Starting build: 4ffc819c-065c-420c-88eb-332db1133317
-[INFO] 2021-12-14T13:02:50-0500 Running = 1, Pending = 0, Success = 0, Error = 0
-[INFO] 2021-12-14T13:02:50-0500 Build succeeded: 4ffc819c-065c-420c-88eb-332db1133317
-[INFO] 2021-12-14T13:02:55-0500 Running = 0, Pending = 0, Success = 1, Error = 0
-[INFO] 2021-12-14T13:02:55-0500 1/1 content builds completed in 0:00:10
-[INFO] 2021-12-14T13:02:55-0500 Success = 1, Error = 0
-[INFO] 2021-12-14T13:02:55-0500 Content build complete.
+rsconnect content build run
+# [INFO] 2021-12-14T13:02:45-0500 Initializing ContentBuildStore for https://connect.example.org:3939
+# [INFO] 2021-12-14T13:02:45-0500 Starting content build (https://connect.example.org:3939)...
+# [INFO] 2021-12-14T13:02:45-0500 Starting build: 4ffc819c-065c-420c-88eb-332db1133317
+# [INFO] 2021-12-14T13:02:50-0500 Running = 1, Pending = 0, Success = 0, Error = 0
+# [INFO] 2021-12-14T13:02:50-0500 Build succeeded: 4ffc819c-065c-420c-88eb-332db1133317
+# [INFO] 2021-12-14T13:02:55-0500 Running = 0, Pending = 0, Success = 1, Error = 0
+# [INFO] 2021-12-14T13:02:55-0500 1/1 content builds completed in 0:00:10
+# [INFO] 2021-12-14T13:02:55-0500 Success = 1, Error = 0
+# [INFO] 2021-12-14T13:02:55-0500 Content build complete.
 ```
 
 Sometimes content builds will fail and require debugging by the publisher or administrator.
 Use the `rsconnect content build ls` to identify content builds that resulted in errors
 and inspect the build logs with the `rsconnect content build logs` subcommand.
 
-```
-$ rsconnect content build ls --status ERROR
-[INFO] 2021-12-14T13:07:32-0500 Initializing ContentBuildStore for https://connect.example.org:3939
-[
-  {
-    "rsconnect_build_status": "ERROR",
-    "last_deployed_time": "2021-12-02T18:09:11Z",
-    "owner_guid": "edf26318-0027-4d9d-bbbb-54703ebb1855",
-    "rsconnect_last_build_log": "/Users/david/code/posit/rsconnect-python/rsconnect-build/logs/connect_example_org_3939/4ffc819c-065c-420c-88eb-332db1133317/pZoqfBoi6BgpKde5.log",
-    "guid": "4ffc819c-065c-420c-88eb-332db1133317",
-    "rsconnect_build_task_result": {
-      "user_id": 1,
-      "error": "Cannot find compatible environment: no compatible Local environment with Python version 3.9.5",
-      "code": 1,
-      "finished": true,
-      "result": {
-        "data": "An error occurred while building the content",
-        "type": "build-failed-error"
-      },
-      "id": "pZoqfBoi6BgpKde5"
-    },
-    "dashboard_url": "https://connect.example.org:3939/connect/#/apps/4ffc819c-065c-420c-88eb-332db1133317",
-    "name": "logs-api-python",
-    "title": "logs-api-python",
-    "content_url": "https://connect.example.org:3939/content/4ffc819c-065c-420c-88eb-332db1133317/",
-    "bundle_id": "141",
-    "rsconnect_last_build_time": "2021-12-14T18:07:16Z",
-    "created_time": "2021-07-19T19:17:32Z",
-    "app_mode": "python-api"
-  }
-]
+```bash
+rsconnect content build ls --status ERROR
+# [INFO] 2021-12-14T13:07:32-0500 Initializing ContentBuildStore for https://connect.example.org:3939
+# [
+#   {
+#     "rsconnect_build_status": "ERROR",
+#     "last_deployed_time": "2021-12-02T18:09:11Z",
+#     "owner_guid": "edf26318-0027-4d9d-bbbb-54703ebb1855",
+#     "rsconnect_last_build_log": "/Users/david/code/posit/rsconnect-python/rsconnect-build/logs/connect_example_org_3939/4ffc819c-065c-420c-88eb-332db1133317/pZoqfBoi6BgpKde5.log",
+#     "guid": "4ffc819c-065c-420c-88eb-332db1133317",
+#     "rsconnect_build_task_result": {
+#       "user_id": 1,
+#       "error": "Cannot find compatible environment: no compatible Local environment with Python version 3.9.5",
+#       "code": 1,
+#       "finished": true,
+#       "result": {
+#         "data": "An error occurred while building the content",
+#         "type": "build-failed-error"
+#       },
+#       "id": "pZoqfBoi6BgpKde5"
+#     },
+#     "dashboard_url": "https://connect.example.org:3939/connect/#/apps/4ffc819c-065c-420c-88eb-332db1133317",
+#     "name": "logs-api-python",
+#     "title": "logs-api-python",
+#     "content_url": "https://connect.example.org:3939/content/4ffc819c-065c-420c-88eb-332db1133317/",
+#     "bundle_id": "141",
+#     "rsconnect_last_build_time": "2021-12-14T18:07:16Z",
+#     "created_time": "2021-07-19T19:17:32Z",
+#     "app_mode": "python-api"
+#   }
+# ]
 
-$ rsconnect content build logs --guid 4ffc819c-065c-420c-88eb-332db1133317
-[INFO] 2021-12-14T13:09:27-0500 Initializing ContentBuildStore for https://connect.example.org:3939
-Building Python API...
-Cannot find compatible environment: no compatible Local environment with Python version 3.9.5
-Task failed. Task exited with status 1.
+rsconnect content build logs --guid 4ffc819c-065c-420c-88eb-332db1133317
+# [INFO] 2021-12-14T13:09:27-0500 Initializing ContentBuildStore for https://connect.example.org:3939
+# Building Python API...
+# Cannot find compatible environment: no compatible Local environment with Python version 3.9.5
+# Task failed. Task exited with status 1.
 ```
 
 ## Common Usage Examples
@@ -873,31 +873,31 @@ of the content on a Posit Connect server, both published and unpublished content
 
 ```bash
 # return only published content
-$ rsconnect content search --published
+rsconnect content search --published
 
 # return only unpublished content
-$ rsconnect content search --unpublished
+rsconnect content search --unpublished
 
 # return published content where the python version is at least 3.9.0
-$ rsconnect content search --published --py-version ">=3.9.0"
+rsconnect content search --published --py-version ">=3.9.0"
 
 # return published content where the R version is exactly 3.6.3
-$ rsconnect content search --published --r-version "==3.6.3"
+rsconnect content search --published --r-version "==3.6.3"
 
 # return published content where the content type is a static RMD
-$ rsconnect content search --content-type rmd-static
+rsconnect content search --content-type rmd-static
 
 # return published content where the content type is either shiny OR fast-api
-$ rsconnect content search --content-type shiny --content-type python-fastapi
+rsconnect content search --content-type shiny --content-type python-fastapi
 
 # return all content, published or unpublished, where the title contains the text "Stock Report"
-$ rsconnect content search --title-contains "Stock Report"
+rsconnect content search --title-contains "Stock Report"
 
 # return published content, results are ordered by when the content was last deployed
-$ rsconnect content search --published --order-by last_deployed
+rsconnect content search --published --order-by last_deployed
 
 # return published content, results are ordered by when the content was created
-$ rsconnect content search --published --order-by created
+rsconnect content search --published --order-by created
 ```
 
 ### Finding r and python versions
@@ -907,31 +907,31 @@ r and python that are currently in use on your Posit Connect server before a mig
 
 ```bash
 # search for all published content and print the unique r and python version combinations
-$ rsconnect content search --published | jq -c '.[] | {py_version,r_version}' | sort |
+rsconnect content search --published | jq -c '.[] | {py_version,r_version}' | sort |
 uniq
-{"py_version":"3.8.2","r_version":"3.5.3"}
-{"py_version":"3.8.2","r_version":"3.6.3"}
-{"py_version":"3.8.2","r_version":null}
-{"py_version":null,"r_version":"3.5.3"}
-{"py_version":null,"r_version":"3.6.3"}
-{"py_version":null,"r_version":null}
+# {"py_version":"3.8.2","r_version":"3.5.3"}
+# {"py_version":"3.8.2","r_version":"3.6.3"}
+# {"py_version":"3.8.2","r_version":null}
+# {"py_version":null,"r_version":"3.5.3"}
+# {"py_version":null,"r_version":"3.6.3"}
+# {"py_version":null,"r_version":null}
 ```
 
 ### Finding recently deployed content
 
 ```bash
 # return only the 10 most recently deployed content items
-$ rsconnect content search --order-by last_deployed --published | jq -c 'limit(10; .[]) | { guid, last_deployed_time }'
-{"guid":"4ffc819c-065c-420c-88eb-332db1133317","last_deployed_time":"2021-12-02T18:09:11Z"}
-{"guid":"aa2603f8-1988-484f-a335-193f2c57e6c4","last_deployed_time":"2021-12-01T20:56:07Z"}
-{"guid":"051252f0-4f70-438f-9be1-d818a3b5f8d9","last_deployed_time":"2021-12-01T20:37:01Z"}
-{"guid":"015143da-b75f-407c-81b1-99c4a724341e","last_deployed_time":"2021-11-30T16:56:21Z"}
-{"guid":"bcc74209-3a81-4b9c-acd5-d24a597c256c","last_deployed_time":"2021-11-30T15:51:07Z"}
-{"guid":"f21d7767-c99e-4dd4-9b00-ff8ec9ae2f53","last_deployed_time":"2021-11-23T18:46:28Z"}
-{"guid":"da4f709c-c383-4fbc-89e2-f032b2d7e91d","last_deployed_time":"2021-11-23T18:46:28Z"}
-{"guid":"9180809d-38fd-4730-a0e0-8568c45d87b7","last_deployed_time":"2021-11-23T15:16:19Z"}
-{"guid":"2b1d2ab8-927d-4956-bbf9-29798d039bc5","last_deployed_time":"2021-11-22T18:33:17Z"}
-{"guid":"c96db3f3-87a1-4df5-9f58-eb109c397718","last_deployed_time":"2021-11-19T20:25:33Z"}
+rsconnect content search --order-by last_deployed --published | jq -c 'limit(10; .[]) | { guid, last_deployed_time }'
+# {"guid":"4ffc819c-065c-420c-88eb-332db1133317","last_deployed_time":"2021-12-02T18:09:11Z"}
+# {"guid":"aa2603f8-1988-484f-a335-193f2c57e6c4","last_deployed_time":"2021-12-01T20:56:07Z"}
+# {"guid":"051252f0-4f70-438f-9be1-d818a3b5f8d9","last_deployed_time":"2021-12-01T20:37:01Z"}
+# {"guid":"015143da-b75f-407c-81b1-99c4a724341e","last_deployed_time":"2021-11-30T16:56:21Z"}
+# {"guid":"bcc74209-3a81-4b9c-acd5-d24a597c256c","last_deployed_time":"2021-11-30T15:51:07Z"}
+# {"guid":"f21d7767-c99e-4dd4-9b00-ff8ec9ae2f53","last_deployed_time":"2021-11-23T18:46:28Z"}
+# {"guid":"da4f709c-c383-4fbc-89e2-f032b2d7e91d","last_deployed_time":"2021-11-23T18:46:28Z"}
+# {"guid":"9180809d-38fd-4730-a0e0-8568c45d87b7","last_deployed_time":"2021-11-23T15:16:19Z"}
+# {"guid":"2b1d2ab8-927d-4956-bbf9-29798d039bc5","last_deployed_time":"2021-11-22T18:33:17Z"}
+# {"guid":"c96db3f3-87a1-4df5-9f58-eb109c397718","last_deployed_time":"2021-11-19T20:25:33Z"}
 ```
 
 ### Add to build from search results
@@ -942,11 +942,12 @@ based on the results of a `rsconnect content search`. For example:
 ```bash
 # search for all API type content, then
 # for each guid, add it to the "tracked" content items
-$ for guid in $(rsconnect content search \
---published \
---content-type python-api \
---content-type api | jq -r '.[].guid'); do \
-rsconnect content build add --guid $guid; done
+for guid in $(rsconnect content search \
+        --published \
+        --content-type python-api \
+        --content-type api | jq -r '.[].guid'); do
+    rsconnect content build add --guid $guid
+done
 ```
 
 Adding content items one at a time can be a slow operation. This is because
@@ -973,7 +974,7 @@ which uses a JSON Web Token to request an initial API key from a fresh Connect i
     This feature **requires Python version 3.6 or higher**.
 
 ```bash
-$ rsconnect bootstrap --server https://connect.example.org:3939 --jwt-keypath /path/to/secret.key
+rsconnect bootstrap --server https://connect.example.org:3939 --jwt-keypath /path/to/secret.key
 ```
 
 A full description on how to use `rsconnect bootstrap` in a provisioning workflow is provided in the Connect administrator guide's 
@@ -982,9 +983,10 @@ A full description on how to use `rsconnect bootstrap` in a provisioning workflo
 ## Server Administration Tasks
 
 Starting with the 2023.04 edition of Posit Connect, `rsconnect-python` can be
-used to perform certain server administration tasks, for instance managing
+used to perform certain server administration tasks, such as instance managing
 runtime caches. For more information on runtime caches in Posit Connect, see the
-Connect Admin Guide's section on [runtime caches](TODO:Link).
+Connect Admin Guide's section on [runtime
+caches]([TODO:Link](https://docs.posit.co/connect/admin/server-management/runtime-caches/)).
 
 Examples in this section will use `--name myserver` to stand in for your Connect
 server information. See [Managing Server
@@ -1004,31 +1006,36 @@ cache entry will contain the following information:
 
 ```bash
 rsconnect system caches list --name myserver
-{
-  "caches": [
-    {
-      "language": "R",
-      "version": "3.6.3",
-      "image_name": "Local"
-    },
-    {
-      "language": "Python",
-      "version": "3.8.12",
-      "image_name": "Local"
-    },
-        {
-      "language": "R",
-      "version": "3.6.3",
-      "image_name": "teapot"
-    },
-    {
-      "language": "Python",
-      "version": "3.8.12",
-      "image_name": "teapot"
-    }
-  ]
-}⏎
+# {
+#   "caches": [
+#     {
+#       "language": "R",
+#       "version": "3.6.3",
+#       "image_name": "Local"
+#     },
+#     {
+#       "language": "Python",
+#       "version": "3.8.12",
+#       "image_name": "Local"
+#     },
+#         {
+#       "language": "R",
+#       "version": "3.6.3",
+#       "image_name": "rstudio_r-base__distro"
+#     },
+#     {
+#       "language": "Python",
+#       "version": "3.8.12",
+#       "image_name": "rstudio_r-base__distro"
+#     }
+#   ]
+# }
 ```
+
+!!! note
+
+    The `image_name` field returned by the server will use sanitized versions
+    of names.
 
 ### Delete Runtime Caches
 
@@ -1038,11 +1045,11 @@ In these cases, you will need to delete the affected runtime caches using the
 
 !!! warning
 
-  After deleting a cache, the first time affected content is visited, Connect
-  will need to reconstruct its environment. This can take a long time. To
-  mitigate this, you can use the [`content build`](#content-build) command to
-  rebuild affected content ahead of time. You may want to do this just for
-  high-priority content, or for all content.
+    After deleting a cache, the first time affected content is visited, Connect
+    will need to reconstruct its environment. This can take a long time. To
+    mitigate this, you can use the [`content build`](#content-build) command to
+    rebuild affected content ahead of time. You may want to do this just for
+    high-priority content, or for all content.
 
 To delete a runtime cache, call the `system caches delete` command, specifying a
 Connect server, as well as the language (`-l, --language`), version (`-V,
@@ -1050,14 +1057,28 @@ Connect server, as well as the language (`-l, --language`), version (`-V,
 delete. Deleting a large cache might take a while. The command will wait for
 Connect to finish the task.
 
+Use the dry run option (`-d, --dry-run`) to surface any errors ahead of
+deletion.
+
 ```bash
-❯ rsconnect system caches delete --name myserver --language Python --version 5.6.7 --image-name teapot
-Deleting runtime cache
-Successfully deleted runtime cache
+rsconnect system caches delete \
+    --name myserver \
+    --language Python \
+    --version 5.6.7 \
+    --image-name rstudio/r-base:distro \
+    --dry-run
+# Dry run finished
+
+rsconnect system caches delete \
+    --name myserver \
+    --language Python \
+    --version 5.6.7 \
+    --image-name rstudio/r-base:distro
+# Deleting runtime cache...
+# Successfully deleted runtime cache
 ```
 
-You should run this command for each cache you wish to delete.
-
-To determine whether your a deletion request would fail without risking
-deletion, you can use the dry run option (`-d, --dry-run`) to surface any errors
-but stop short of actually deleting a cache if one is found.
+The `--image-name` value can either be the literal image name or the sanitized
+name returned by the `list` command.
+    
+You should run these commands for each cache you wish to delete.
