@@ -953,7 +953,7 @@ Adding content items one at a time can be a slow operation. This is because
 `rsconnect content build add` must fetch metadata for each content item before it
 is added to the "tracked" content items. By providing multiple `--guid` arguments
 to the `rsconnect content build add` subcommand, we can fetch metadata for multiple content items
-in a single api call, which speeds up the operation sigificantly.
+in a single api call, which speeds up the operation significantly.
 
 ```bash
 # write the guid of every published content item to a file called guids.txt
@@ -964,7 +964,7 @@ xargs printf -- '-g %s\n' < guids.txt | xargs rsconnect content build add
 ```
 ## Programmatic Provisioning
 
-Posit Connect supports the programmatic bootstrapping of an admininistrator API key 
+Posit Connect supports the programmatic bootstrapping of an administrator API key 
 for scripted provisioning tasks. This process is supported by the `rsconnect bootstrap` command,
 which uses a JSON Web Token to request an initial API key from a fresh Connect instance. 
 
@@ -978,3 +978,86 @@ $ rsconnect bootstrap --server https://connect.example.org:3939 --jwt-keypath /p
 
 A full description on how to use `rsconnect bootstrap` in a provisioning workflow is provided in the Connect administrator guide's 
 [programmatic provisioning](https://docs.posit.co/connect/admin/programmatic-provisioning) documentation.
+
+## Server Administration Tasks
+
+Starting with the 2023.04 edition of Posit Connect, `rsconnect-python` can be
+used to perform certain server administration tasks, for instance managing
+runtime caches. For more information on runtime caches in Posit Connect, see the
+Connect Admin Guide's section on [runtime caches](TODO:Link).
+
+Examples in this section will use `--name myserver` to stand in for your Connect
+server information. See [Managing Server
+Information](#managing-server-information) above for more details.
+
+### Enumerate Runtime Caches
+
+Use the command below to enumerate runtime caches on a Connect server. The
+command will output a JSON object containing a list of runtime caches . Each
+cache entry will contain the following information:
+
+- `language`: The language of content that uses the cache, either R or Python.
+- `version`: The language version of the content that uses the cache.
+- `image_name`: The execution environment of the cache. The string `Local`
+  denotes native execution. For Connect instances that use off-host execution,
+  the name of the image that uses the cache will be displayed.
+
+```bash
+rsconnect system caches list --name myserver
+{
+  "caches": [
+    {
+      "language": "R",
+      "version": "3.6.3",
+      "image_name": "Local"
+    },
+    {
+      "language": "Python",
+      "version": "3.8.12",
+      "image_name": "Local"
+    },
+        {
+      "language": "R",
+      "version": "3.6.3",
+      "image_name": "teapot"
+    },
+    {
+      "language": "Python",
+      "version": "3.8.12",
+      "image_name": "teapot"
+    }
+  ]
+}⏎
+```
+
+### Delete Runtime Caches
+
+When Connect's execution environment changes, runtime caches may be invalidated.
+In these cases, you will need to delete the affected runtime caches using the
+`system caches delete` command.
+
+!!! warning
+
+  After deleting a cache, the first time affected content is visited, Connect
+  will need to reconstruct its environment. This can take a long time. To
+  mitigate this, you can use the [`content build`](#content-build) command to
+  rebuild affected content ahead of time. You may want to do this just for
+  high-priority content, or for all content.
+
+To delete a runtime cache, call the `system caches delete` command, specifying a
+Connect server, as well as the language (`-l, --language`), version (`-V,
+--version`), and image name (`-I, --image-name`) for the cache you wish to
+delete. Deleting a large cache might take a while. The command will wait for
+Connect to finish the task.
+
+```bash
+❯ rsconnect system caches delete --name myserver --language Python --version 5.6.7 --image-name teapot
+Deleting runtime cache
+Successfully deleted runtime cache
+```
+
+You should run this command for each cache you wish to delete.
+
+To determine whether your a deletion request would fail without risking
+deletion, you can use the dry run option (`-d, --dry-run`) to surface any errors
+but stop short of actually deleting a cache if one is found.
