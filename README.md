@@ -103,7 +103,7 @@ The information used by the `rsconnect` command to communicate with a Posit Conn
 server can be tedious to repeat on every command. To help, the CLI supports the idea
 of saving this information, making it usable by a simple nickname.
 
-> **Note**
+> **Warning**
 > One item of information saved is the API key used to authenticate with
 > Posit Connect. Although the file where this information is saved is marked as
 > accessible by the owner only, it's important to remember that the key is present
