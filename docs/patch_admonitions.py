@@ -1,51 +1,52 @@
-import re
+#!/usr/bin/env python3
 
-from os.path import abspath, dirname, join
+#
+# Reads from STDIN. Writes to STDOUT. Messages to STDERR.
+#
+# Rewrites GitHub admonitions into mkdocs admonitions.
+#
+# This is because the README.md needs to use GitHub admonitions, while mkdocs
+# wants its separate style when rendering. Only warnings and notes are
+# supported by both flavors of admonitions.
+#
+# Input:
+#
+# > **Warning**
+# > This is the warning text.
+#
+# > **Note**
+# > This is the note text.
+#
+# Output:
+# !!! warning
+#     This is the warning text.
+#
+# !!! note
+#     This is the note text.
 
-block_pattern = re.compile(r"^> \*\*(\w+):\*\* ")
-control = {"Important": "warning"}
+import sys
 
+def rewrite(gh_admonition, mkdocs_admonition, lines):
+    for i in range(len(lines)):
+        line = lines[i]
+        # The GitHub admonition starts with something like:
+        #     > **Note**
+        # and continues until the current blockquote ends.
+        # The start of the GitHub admonition MUST be on its own line.
+        if gh_admonition == line.rstrip():
+            lines[i] = f"!!! { mkdocs_admonition }\n"
+            for j in range(i+1, len(lines)):
+                if lines[j].startswith("> "):
+                    text = lines[j][2:]
+                    lines[j] = f"    { text }"
+                else:
+                    # Left the blockquote; stop rewriting.
+                    break
+    return lines
 
-def find_interesting_block(start=0):
-    for line in range(start, len(lines)):
-        match = block_pattern.match(lines[line])
-        if match:
-            return line, match.group(1)
-    return -1, None
+lines = sys.stdin.readlines()
 
+lines = rewrite("> **Note**", "note", lines)
+lines = rewrite("> **Warning**", "warning", lines)
 
-def get_block_text(start):
-    first = lines[start]
-    p = first.index(":** ") + 4
-    result = ["    %s" % first[p:]]
-    line = start + 1
-    while line < len(lines) and lines[line].startswith("> "):
-        result.append("    %s" % lines[line][2:])
-        line = line + 1
-    return result, line
-
-
-def format_header(key):
-    style = control[key] if key in control else key.lower()
-    return '!!! %s "%s"\n' % (style, key)
-
-
-directory = abspath(dirname(__file__))
-source = join(dirname(directory), "README.md")
-target = join(directory, "docs", "index.md")
-
-with open(source, "r") as fd:
-    lines = fd.readlines()
-
-index, word = find_interesting_block()
-
-while word:
-    block, last = get_block_text(index)
-    block.insert(0, format_header(word))
-    lines[index:last] = block
-    index, word = find_interesting_block(index + len(block))
-
-with open(target, "w") as fd:
-    fd.writelines(lines)
-
-print("%s generated." % target)
+sys.stdout.writelines(lines)

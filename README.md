@@ -476,7 +476,9 @@ is trusted by your Jupyter Notebook server, API client or user's browser, then y
 don't need to do anything special. You can test this out with the `details` command:
 
 ```bash
-rsconnect details --api-key my-api-key --server https://connect.example.org:3939
+rsconnect details \
+    --api-key my-api-key \
+    --server https://connect.example.org:3939
 ```
 
 If this fails with a TLS Certificate Validation error, then you have two options.
@@ -903,13 +905,16 @@ rsconnect content search --content-type rmd-static
 # return published content where the content type is either shiny OR fast-api
 rsconnect content search --content-type shiny --content-type python-fastapi
 
-# return all content, published or unpublished, where the title contains the text "Stock Report"
+# return all content, published or unpublished, where the title contains the
+# text "Stock Report"
 rsconnect content search --title-contains "Stock Report"
 
-# return published content, results are ordered by when the content was last deployed
+# return published content, results are ordered by when the content was last
+# deployed
 rsconnect content search --published --order-by last_deployed
 
-# return published content, results are ordered by when the content was created
+# return published content, results are ordered by when the content was
+# created
 rsconnect content search --published --order-by created
 ```
 
@@ -919,7 +924,8 @@ One common use for the `search` command might be to find the versions of
 r and python that are currently in use on your Posit Connect server before a migration.
 
 ```bash
-# search for all published content and print the unique r and python version combinations
+# search for all published content and print the unique r and python version
+# combinations
 rsconnect content search --published | jq -c '.[] | {py_version,r_version}' | sort |
 uniq
 # {"py_version":"3.8.2","r_version":"3.5.3"}
@@ -934,7 +940,9 @@ uniq
 
 ```bash
 # return only the 10 most recently deployed content items
-rsconnect content search --order-by last_deployed --published | jq -c 'limit(10; .[]) | { guid, last_deployed_time }'
+rsconnect content search \
+    --order-by last_deployed \
+    --published | jq -c 'limit(10; .[]) | { guid, last_deployed_time }'
 # {"guid":"4ffc819c-065c-420c-88eb-332db1133317","last_deployed_time":"2021-12-02T18:09:11Z"}
 # {"guid":"aa2603f8-1988-484f-a335-193f2c57e6c4","last_deployed_time":"2021-12-01T20:56:07Z"}
 # {"guid":"051252f0-4f70-438f-9be1-d818a3b5f8d9","last_deployed_time":"2021-12-01T20:37:01Z"}
@@ -973,7 +981,7 @@ in a single api call, which speeds up the operation significantly.
 # write the guid of every published content item to a file called guids.txt
 rsconnect content search --published | jq '.[].guid' > guids.txt
 
-# bulk-add from the guids.txt by executing a single `rsconnect content build add` command
+# bulk-add from the guids.txt with a single `rsconnect content build add` command
 xargs printf -- '-g %s\n' < guids.txt | xargs rsconnect content build add
 ```
 ## Programmatic Provisioning
@@ -986,7 +994,9 @@ which uses a JSON Web Token to request an initial API key from a fresh Connect i
 > This feature **requires Python version 3.6 or higher**.
 
 ```bash
-rsconnect bootstrap --server https://connect.example.org:3939 --jwt-keypath /path/to/secret.key
+rsconnect bootstrap \
+    --server https://connect.example.org:3939 \
+    --jwt-keypath /path/to/secret.key
 ```
 
 A full description on how to use `rsconnect bootstrap` in a provisioning workflow is provided in the Connect administrator guide's 
