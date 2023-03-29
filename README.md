@@ -1,8 +1,7 @@
 # The rsconnect-python CLI
 
-!!! warning
-
-    As of version 1.14.0, rsconnect-python requires Python version 3.7 or higher.
+> **Warning**
+> As of version 1.14.0, rsconnect-python requires Python version 3.7 or higher.
 
 This package provides a CLI (command-line interface) for interacting
 with and deploying to Posit Connect. This is also used by the
@@ -61,7 +60,8 @@ rsconnect deploy notebook \
     my-notebook.ipynb
 ```
 
-> **Note:** The examples here use long command line options, but there are short
+> **Note**
+> The examples here use long command line options, but there are short
 > options (`-s`, `-k`, etc.) available also. Run `rsconnect deploy notebook --help`
 > for details.
 
@@ -103,7 +103,8 @@ The information used by the `rsconnect` command to communicate with a Posit Conn
 server can be tedious to repeat on every command. To help, the CLI supports the idea
 of saving this information, making it usable by a simple nickname.
 
-> **Important:** One item of information saved is the API key used to authenticate with
+> **Note**
+> One item of information saved is the API key used to authenticate with
 > Posit Connect. Although the file where this information is saved is marked as
 > accessible by the owner only, it's important to remember that the key is present
 > in the file as plain text so care must be taken to prevent any unauthorized access
@@ -119,7 +120,8 @@ you will need to include the `--cacert` option that points to your certificate
 authority (CA) trusted certificates file. Both of these options can be saved along
 with the URL and API Key for a server.
 
-> **Note:** When certificate information is saved for the server, the specified file
+> **Note** 
+> When certificate information is saved for the server, the specified file
 > is read and its _contents_ are saved under the server's nickname. If the CA file's
 > contents are ever changed, you will need to add the server information again.
 
@@ -136,7 +138,8 @@ rsconnect add \
     --name myserver
 ```
 
-> **Note:** The `rsconnect` CLI will verify that the serve URL and API key
+> **Note** 
+> The `rsconnect` CLI will verify that the serve URL and API key
 > are valid. If either is found not to be, no information will be saved.
 
 If any of the access information for the server changes, simply rerun the
@@ -262,7 +265,8 @@ Here is an example of the `write-manifest` command:
 rsconnect write-manifest notebook my-notebook.ipynb
 ```
 
-> **Note:** Manifests for static (pre-rendered) notebooks cannot be created.
+> **Note**
+> Manifests for static (pre-rendered) notebooks cannot be created.
 
 ### API/Application Deployment Options
 
@@ -389,7 +393,8 @@ Here is an example of the `deploy manifest` command:
 rsconnect deploy manifest /path/to/manifest.json
 ```
 
-> **Note:** In this case, the existing content is deployed as-is. Python environment
+> **Note**
+> In this case, the existing content is deployed as-is. Python environment
 > inspection and notebook pre-rendering, if needed, are assumed to be done already
 > and represented in the manifest.
 
@@ -529,7 +534,8 @@ You must be the owner of the target deployment, or a collaborator with permissio
 change the content. The type of content (static notebook, notebook with source code,
 API, or application) must match the existing deployment.
 
-> **Note:** There is no confirmation required to update a deployment. If you do so
+> **Note**
+> There is no confirmation required to update a deployment. If you do so
 > accidentally, use the "Source Versions" dialog in the Posit Connect dashboard to
 > activate the previous version and remove the erroneous one.
 
@@ -622,7 +628,8 @@ rsconnect-python supports multiple options for interacting with Posit Connect's
 to search, download, and rebuild content on Posit Connect without needing to access the
 dashboard from a browser.
 
-> **Note:** The `rsconnect content` CLI subcommands are intended to be easily scriptable.
+> **Note**
+> The `rsconnect content` CLI subcommands are intended to be easily scriptable.
 > The default output format is `JSON` so that the results can be easily piped into
 > other command line utilities like [`jq`](https://stedolan.github.io/jq/) for further post-processing.
 
@@ -719,7 +726,8 @@ of the available search flags.
 
 ### Content Build
 
-> **Note:** The `rsconnect content build` subcommand requires Posit Connect >= 2021.11.1
+> **Note**
+> The `rsconnect content build` subcommand requires Posit Connect >= 2021.11.1
 
 Posit Connect caches R and Python packages in the configured
 [`Server.DataDir`](https://docs.posit.co/connect/admin/appendix/configuration/#Server.DataDir).
@@ -738,12 +746,14 @@ The following are some common scenarios where performing a content build might b
 - changes to Python or R installations
 - switching from source to binary package repositories or vice versa
 
-> **Note:** The `content build` command is non-destructive, meaning that it does nothing to purge
+> **Note**
+> The `content build` command is non-destructive, meaning that it does nothing to purge
 > existing packrat/python package caches before a build. If you have an
 > existing cache, it should be cleared prior to starting a content build.
 > See the [migration documentation](https://docs.posit.co/connect/admin/appendix/cli/#migration) for details.
 
-> **Note:** You may use the [`rsconnect content search`](#content-search) subcommand to help
+> **Note**
+> You may use the [`rsconnect content search`](#content-search) subcommand to help
 > identify high priority content items to build.
 
 ```bash
@@ -773,7 +783,8 @@ Commands:
 To build a specific content item, first `add` it to the list of content that is
 "tracked" for building using its GUID.
 
-> **Note:** Metadata for "tracked" content items is stored in a local directory called
+> **Note**
+> Metadata for "tracked" content items is stored in a local directory called
 > `rsconnect-build` which will be automatically created in your current working directory.
 > You may set the environment variable `CONNECT_CONTENT_BUILD_DIR` to override this directory location.
 
@@ -781,7 +792,8 @@ To build a specific content item, first `add` it to the list of content that is
 rsconnect content build add --guid 4ffc819c-065c-420c-88eb-332db1133317
 ```
 
-> **Note:** See [this section](#add-to-build-from-search-results) for
+> **Note**
+> See [this section](#add-to-build-from-search-results) for
 > an example of how to add multiple content items in bulk, from the results
 > of a `rsconnect content search` command.
 
@@ -866,7 +878,8 @@ The following are some examples of how publishers might use the
 By default, the `rsconnect content search` command will return metadata for ALL
 of the content on a Posit Connect server, both published and unpublished content.
 
-> **Note:** When using the `--r-version` and `--py-version` flags, users should
+> **Note**
+> When using the `--r-version` and `--py-version` flags, users should
 > make sure to quote the arguments to avoid conflicting with your shell. For
 > example, bash would interpret `--py-version >3.0.0` as a shell redirect because of the
 > unquoted `>` character.
@@ -969,9 +982,8 @@ Posit Connect supports the programmatic bootstrapping of an administrator API ke
 for scripted provisioning tasks. This process is supported by the `rsconnect bootstrap` command,
 which uses a JSON Web Token to request an initial API key from a fresh Connect instance. 
 
-!!! warning 
-  
-    This feature **requires Python version 3.6 or higher**.
+> **Warning**
+> This feature **requires Python version 3.6 or higher**.
 
 ```bash
 rsconnect bootstrap --server https://connect.example.org:3939 --jwt-keypath /path/to/secret.key
@@ -1032,7 +1044,7 @@ rsconnect system caches list --name myserver
 # }
 ```
 
-> **Info**
+> **Note**
 > The `image_name` field returned by the server will use sanitized versions
 > of names.
 
