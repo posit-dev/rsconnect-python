@@ -1008,7 +1008,7 @@ Starting with the 2023.04 edition of Posit Connect, `rsconnect-python` can be
 used to perform certain server administration tasks, such as instance managing
 runtime caches. For more information on runtime caches in Posit Connect, see the
 Connect Admin Guide's section on [runtime
-caches]([TODO:Link](https://docs.posit.co/connect/admin/server-management/runtime-caches/)).
+caches](https://docs.posit.co/connect/admin/server-management/runtime-caches/).
 
 Examples in this section will use `--name myserver` to stand in for your Connect
 server information. See [Managing Server
