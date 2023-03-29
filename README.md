@@ -1032,10 +1032,9 @@ rsconnect system caches list --name myserver
 # }
 ```
 
-!!! note
-
-    The `image_name` field returned by the server will use sanitized versions
-    of names.
+> **Info**
+> The `image_name` field returned by the server will use sanitized versions
+> of names.
 
 ### Delete Runtime Caches
 
@@ -1043,13 +1042,12 @@ When Connect's execution environment changes, runtime caches may be invalidated.
 In these cases, you will need to delete the affected runtime caches using the
 `system caches delete` command.
 
-!!! warning
-
-    After deleting a cache, the first time affected content is visited, Connect
-    will need to reconstruct its environment. This can take a long time. To
-    mitigate this, you can use the [`content build`](#content-build) command to
-    rebuild affected content ahead of time. You may want to do this just for
-    high-priority content, or for all content.
+> **Warning**
+> After deleting a cache, the first time affected content is visited, Connect
+> will need to reconstruct its environment. This can take a long time. To
+> mitigate this, you can use the [`content build`](#content-build) command to
+> rebuild affected content ahead of time. You may want to do this just for
+> high-priority content, or for all content.
 
 To delete a runtime cache, call the `system caches delete` command, specifying a
 Connect server, as well as the language (`-l, --language`), version (`-V,
