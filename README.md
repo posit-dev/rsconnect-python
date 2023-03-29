@@ -1037,18 +1037,18 @@ rsconnect system caches list --name myserver
 #     },
 #     {
 #       "language": "Python",
-#       "version": "3.8.12",
+#       "version": "3.9.5",
 #       "image_name": "Local"
 #     },
 #         {
 #       "language": "R",
 #       "version": "3.6.3",
-#       "image_name": "rstudio_r-base__distro"
+#       "image_name": "rstudio/content-base:r3.6.3-py3.9.5-bionic"
 #     },
 #     {
 #       "language": "Python",
-#       "version": "3.8.12",
-#       "image_name": "rstudio_r-base__distro"
+#       "version": "3.9.5",
+#       "image_name": "rstudio/content-base:r3.6.3-py3.9.5-bionic"
 #     }
 #   ]
 # }
@@ -1084,16 +1084,16 @@ deletion.
 rsconnect system caches delete \
     --name myserver \
     --language Python \
-    --version 5.6.7 \
-    --image-name rstudio/r-base:distro \
+    --version 3.9.5 \
+    --image-name rstudio/content-base__r3.6.3-py3.9.5-bionic \
     --dry-run
 # Dry run finished
 
 rsconnect system caches delete \
     --name myserver \
     --language Python \
-    --version 5.6.7 \
-    --image-name rstudio/r-base:distro
+    --version 3.9.5 \
+    --image-name rstudio/content-base__r3.6.3-py3.9.5-bionic
 # Deleting runtime cache...
 # Successfully deleted runtime cache
 ```
