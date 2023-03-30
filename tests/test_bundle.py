@@ -826,9 +826,9 @@ class WhichPythonTestCase(TestCase):
             with self.assertRaises(RSConnectException):
                 which_python(tmpdir)
 
+    @pytest.mark.skipif(sys.platform.startswith("win"), reason = "os.X_OK always returns True")
     def test_is_not_executable(self):
         with tempfile.NamedTemporaryFile() as tmpfile:
-            # assert os.access(tmpfile.name, os.X_OK) == False #for windows this fails, linux this passes
             with self.assertRaises(RSConnectException):
                 which_python(tmpfile.name)
 
