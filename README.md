@@ -1085,7 +1085,7 @@ rsconnect system caches delete \
     --name myserver \
     --language Python \
     --version 3.9.5 \
-    --image-name rstudio/content-base__r3.6.3-py3.9.5-bionic \
+    --image-name rstudio/content-base:r3.6.3-py3.9.5-bionic \
     --dry-run
 # Dry run finished
 
@@ -1093,12 +1093,16 @@ rsconnect system caches delete \
     --name myserver \
     --language Python \
     --version 3.9.5 \
-    --image-name rstudio/content-base__r3.6.3-py3.9.5-bionic
+    --image-name rstudio/content-base:r3.6.3-py3.9.5-bionic
 # Deleting runtime cache...
 # Successfully deleted runtime cache
 ```
 
-The `--image-name` value can either be the literal image name or the sanitized
-name returned by the `list` command.
-    
 You should run these commands for each cache you wish to delete.
+
+The following parameters specify the target cache:
+- `language` (required) must name `R` or `Python`. It is case-insensitive.
+- `version` (required) must be a three-part version number, e.g. `3.8.12`.
+- `image-name` (optional) defaults to `Local`, which targets caches used for
+  natively-executed content. Off-host images can be specified using either the
+  literal image name or the sanitized name returned by the `list` command.

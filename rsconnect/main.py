@@ -2218,7 +2218,8 @@ def system_caches_list(name, server, api_key, insecure, cacert, verbose):
 @click.option(
     "--image-name",
     "-I",
-    help='Either "Local" or the image name of the target cache\'s execution environment.',
+    default="Local",
+    help='The image name of the target cache\'s execution environment. Defaults to "Local".',
 )
 @click.option(
     "--dry-run",
