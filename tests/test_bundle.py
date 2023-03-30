@@ -230,7 +230,7 @@ class TestBundle(TestCase):
                     if path.startswith(subdir + os.sep):
                         yield base_dir + os.sep + subdir, [], [path.split(os.sep, 1)[1]]
 
-        files = list_files(os.sep, True, walk=walk)
+        files = list_files(".", True, walk=walk)
         self.assertEqual(files, paths[:4])
 
         files = list_files(os.sep, False, walk=walk)
@@ -828,6 +828,7 @@ class WhichPythonTestCase(TestCase):
 
     def test_is_not_executable(self):
         with tempfile.NamedTemporaryFile() as tmpfile:
+            # assert os.access(tmpfile.name, os.X_OK) == False #for windows this fails, linux this passes
             with self.assertRaises(RSConnectException):
                 which_python(tmpfile.name)
 
