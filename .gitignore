@@ -25,3 +25,4 @@
 htmlcov
 test-home/
 venv
+coverage.xml
