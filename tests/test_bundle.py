@@ -2084,3 +2084,79 @@ def test_make_api_bundle_flask():
         bundle_json = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
         assert flask_dir_ans["metadata"] == bundle_json["metadata"]
         assert flask_dir_ans["files"].keys() == bundle_json["files"].keys()
+
+
+streamlit_dir = os.path.join(cur_dir, "./testdata/top-5-income-share-streamlit")
+streamlit_file = os.path.join(cur_dir, "./testdata/top-5-income-share-streamlit/app.py")
+
+
+def test_make_api_manifest_streamlit():
+    streamlit_dir_ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-streamlit"},  # "entrypoint": "app1"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "22354e5a4240bacbd3bc379cab0e73e9"},
+            "README.md": {"checksum": "73b002e9ba030b3a3bc9a8a32d56a7b1"},
+            "app1.py": {"checksum": "b203bc6d9512029a414ccbb63514e603"},
+            "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
+        },
+    }
+    environment = create_python_environment(
+        streamlit_dir,
+    )
+    manifest, _ = make_api_manifest(
+        streamlit_dir,
+        None,
+        AppModes.STREAMLIT_APP,
+        environment,
+        None,
+        None,
+    )
+    assert streamlit_dir_ans["metadata"] == manifest["metadata"]
+    assert streamlit_dir_ans["files"].keys() == manifest["files"].keys()
+
+
+def test_make_api_bundle_streamlit():
+    streamlit_dir_ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-streamlit"},  # "entrypoint": "app1"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "22354e5a4240bacbd3bc379cab0e73e9"},
+            "README.md": {"checksum": "73b002e9ba030b3a3bc9a8a32d56a7b1"},
+            "app1.py": {"checksum": "b203bc6d9512029a414ccbb63514e603"},
+            "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
+        },
+    }
+    environment = create_python_environment(
+        streamlit_dir,
+    )
+    with make_api_bundle(
+        streamlit_dir,
+        None,
+        AppModes.STREAMLIT_APP,
+        environment,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "README.md",
+            "app1.py",
+            "data.csv",
+            "manifest.json",
+            "requirements.txt",
+        ]
+
+        bundle_json = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+        assert streamlit_dir_ans["metadata"] == bundle_json["metadata"]
+        assert streamlit_dir_ans["files"].keys() == bundle_json["files"].keys()
