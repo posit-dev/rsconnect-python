@@ -2313,3 +2313,79 @@ def test_make_api_bundle_bokeh():
         bundle_json = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
         assert bokeh_dir_ans["metadata"] == bundle_json["metadata"]
         assert bokeh_dir_ans["files"].keys() == bundle_json["files"].keys()
+
+
+shiny_dir = os.path.join(cur_dir, "./testdata/top-5-income-share-shiny")
+shiny_file = os.path.join(cur_dir, "./testdata/top-5-income-share-shiny/app.py")
+
+
+def test_make_api_manifest_shiny():
+    shiny_dir_ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-shiny"},  # "entrypoint": "app4"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "2a4bdca32428db1f47c6a7f0ba830a9b"},
+            "README.md": {"checksum": "7d083dbcdd4731d91bcb470e746b3a38"},
+            "app4.py": {"checksum": "f7e4b3b7ff0ada525ec388d037ff6c6a"},
+            "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
+        },
+    }
+    environment = create_python_environment(
+        shiny_dir,
+    )
+    manifest, _ = make_api_manifest(
+        shiny_dir,
+        None,
+        AppModes.PYTHON_SHINY,
+        environment,
+        None,
+        None,
+    )
+
+    assert shiny_dir_ans["metadata"] == manifest["metadata"]
+    assert shiny_dir_ans["files"].keys() == manifest["files"].keys()
+
+
+def test_make_api_bundle_shiny():
+    shiny_dir_ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-shiny"},  # "entrypoint": "app4"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "2a4bdca32428db1f47c6a7f0ba830a9b"},
+            "README.md": {"checksum": "7d083dbcdd4731d91bcb470e746b3a38"},
+            "app4.py": {"checksum": "f7e4b3b7ff0ada525ec388d037ff6c6a"},
+            "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
+        },
+    }
+    environment = create_python_environment(
+        shiny_dir,
+    )
+    with make_api_bundle(
+        shiny_dir,
+        None,
+        AppModes.PYTHON_SHINY,
+        environment,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "README.md",
+            "app4.py",
+            "data.csv",
+            "manifest.json",
+            "requirements.txt",
+        ]
+        bundle_json = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+        assert shiny_dir_ans["metadata"] == bundle_json["metadata"]
+        assert shiny_dir_ans["files"].keys() == bundle_json["files"].keys()
