@@ -74,7 +74,6 @@ class TestBundle(TestCase):
         with make_notebook_source_bundle(
             nb_path, environment, None, hide_all_input=False, hide_tagged_input=False, image=None
         ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
-
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
@@ -96,6 +95,8 @@ class TestBundle(TestCase):
 
             if sys.version_info[0] == 2:
                 ipynb_hash = "38aa30662bc16e91e6804cf21d7722f7"
+            elif sys.platform == "win32":
+                ipynb_hash = "6cd380f003642754cf95dc65bc9d3f4e"
             else:
                 ipynb_hash = "36873800b48ca5ab54760d60ba06703a"
 
@@ -143,7 +144,6 @@ class TestBundle(TestCase):
             hide_tagged_input=False,
             image="rstudio/connect:bionic",
         ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
-
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
@@ -171,8 +171,12 @@ class TestBundle(TestCase):
 
             if sys.version_info[0] == 2:
                 ipynb_hash = "38aa30662bc16e91e6804cf21d7722f7"
+            elif sys.platform == "win32":
+                ipynb_hash = "6cd380f003642754cf95dc65bc9d3f4e"
+                data_csv_hash = "56a7e0581160202c8045351ef2591df1"
             else:
                 ipynb_hash = "36873800b48ca5ab54760d60ba06703a"
+                data_csv_hash = "f2bd77cc2752b3efbb732b761d2aa3c3"
 
             # noinspection SpellCheckingInspection
             self.assertEqual(
@@ -195,7 +199,7 @@ class TestBundle(TestCase):
                         "dummy.ipynb": {
                             "checksum": ipynb_hash,
                         },
-                        "data.csv": {"checksum": "f2bd77cc2752b3efbb732b761d2aa3c3"},
+                        "data.csv": {"checksum": data_csv_hash},
                     },
                 },
             )
@@ -205,10 +209,10 @@ class TestBundle(TestCase):
         paths = [
             "notebook.ipynb",
             "somedata.csv",
-            "subdir/subfile",
-            "subdir2/subfile2",
-            ".ipynb_checkpoints/notebook.ipynb",
-            ".git/config",
+            os.path.join("subdir", "subfile"),
+            os.path.join("subdir2", "subfile2"),
+            os.path.join(".ipynb_checkpoints", "notebook.ipynb"),
+            os.path.join(".git", "config"),
         ]
 
         def walk(base_dir):
@@ -216,8 +220,8 @@ class TestBundle(TestCase):
             file_names = []
 
             for path in paths:
-                if "/" in path:
-                    dir_name, file_name = path.split("/", 1)
+                if os.sep in path:
+                    dir_name, file_name = path.split(os.sep, 1)
                     dir_names.append(dir_name)
                 else:
                     file_names.append(path)
@@ -226,13 +230,13 @@ class TestBundle(TestCase):
 
             for subdir in dir_names:
                 for path in paths:
-                    if path.startswith(subdir + "/"):
-                        yield base_dir + "/" + subdir, [], [path.split("/", 1)[1]]
+                    if path.startswith(subdir + os.sep):
+                        yield base_dir + os.sep + subdir, [], [path.split(os.sep, 1)[1]]
 
-        files = list_files("/", True, walk=walk)
+        files = list_files(".", True, walk=walk)
         self.assertEqual(files, paths[:4])
 
-        files = list_files("/", False, walk=walk)
+        files = list_files(os.sep, False, walk=walk)
         self.assertEqual(files, paths[:2])
 
     def test_html_bundle1(self):
@@ -493,6 +497,12 @@ class TestBundle(TestCase):
             None,
             None,
         )
+
+        if sys.platform == "win32":
+            req_hash = "74203044cc283b7b3e775559b6e986fa"
+        else:
+            req_hash = "6f83f7f33bf6983dd474ecbc6640a26b"
+
         self.assertEqual(
             manifest,
             {
@@ -504,7 +514,7 @@ class TestBundle(TestCase):
                     "version": "3.9.12",
                     "package_manager": {"name": "pip", "version": "22.0.4", "package_file": "requirements.txt"},
                 },
-                "files": {"requirements.txt": {"checksum": "6f83f7f33bf6983dd474ecbc6640a26b"}},
+                "files": {"requirements.txt": {"checksum": req_hash}},
             },
         )
 
@@ -531,6 +541,18 @@ class TestBundle(TestCase):
             None,
             None,
         )
+
+        if sys.platform == "win32":
+            checksum_hash = "74203044cc283b7b3e775559b6e986fa"
+            a_hash = "f4751c084b3ade4d736c6293ab8468c9"
+            b_hash = "4976d559975b5232cf09a10afaf8d0a8"
+            c_hash = "09c56e1b9e6ae34c6662717c47a7e187"
+        else:
+            checksum_hash = "6f83f7f33bf6983dd474ecbc6640a26b"
+            a_hash = "4a3eb92956aa3e16a9f0a84a43c943e7"
+            b_hash = "b249e5b536d30e6282cea227f3a73669"
+            c_hash = "53b36f1d5b6f7fb2cfaf0c15af7ffb2d"
+
         self.assertEqual(
             manifest,
             {
@@ -538,10 +560,10 @@ class TestBundle(TestCase):
                 "metadata": {"appmode": "quarto-shiny"},
                 "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
                 "files": {
-                    "a": {"checksum": "4a3eb92956aa3e16a9f0a84a43c943e7"},
-                    "b": {"checksum": "b249e5b536d30e6282cea227f3a73669"},
-                    "c": {"checksum": "53b36f1d5b6f7fb2cfaf0c15af7ffb2d"},
-                    "requirements.txt": {"checksum": "6f83f7f33bf6983dd474ecbc6640a26b"},
+                    "a": {"checksum": a_hash},
+                    "b": {"checksum": b_hash},
+                    "c": {"checksum": c_hash},
+                    "requirements.txt": {"checksum": checksum_hash},
                 },
             },
         )
@@ -560,6 +582,7 @@ class TestBundle(TestCase):
             ["requirements.txt"],
             None,
         )
+
         self.assertEqual(
             manifest,
             {
@@ -567,9 +590,9 @@ class TestBundle(TestCase):
                 "metadata": {"appmode": "quarto-shiny"},
                 "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
                 "files": {
-                    "a": {"checksum": "4a3eb92956aa3e16a9f0a84a43c943e7"},
-                    "b": {"checksum": "b249e5b536d30e6282cea227f3a73669"},
-                    "c": {"checksum": "53b36f1d5b6f7fb2cfaf0c15af7ffb2d"},
+                    "a": {"checksum": a_hash},
+                    "b": {"checksum": b_hash},
+                    "c": {"checksum": c_hash},
                 },
             },
         )
@@ -806,6 +829,7 @@ class WhichPythonTestCase(TestCase):
             with self.assertRaises(RSConnectException):
                 which_python(tmpdir)
 
+    @pytest.mark.skipif(sys.platform.startswith("win"), reason="os.X_OK always returns True")
     def test_is_not_executable(self):
         with tempfile.NamedTemporaryFile() as tmpfile:
             with self.assertRaises(RSConnectException):
@@ -813,13 +837,13 @@ class WhichPythonTestCase(TestCase):
 
 
 cur_dir = os.path.dirname(__file__)
-bqplot_dir = os.path.join(cur_dir, "./testdata/voila/bqplot/")
+bqplot_dir = os.path.join(cur_dir, "testdata", "voila", "bqplot", "")
 bqplot_ipynb = os.path.join(bqplot_dir, "bqplot.ipynb")
-dashboard_dir = os.path.join(cur_dir, "./testdata/voila/dashboard/")
+dashboard_dir = os.path.join(cur_dir, "testdata", "voila", "dashboard", "")
 dashboard_ipynb = os.path.join(dashboard_dir, "dashboard.ipynb")
+multivoila_dir = os.path.join(cur_dir, "testdata", "voila", "multi-voila", "")
+nonexistent_dir = os.path.join(cur_dir, "testdata", "nonexistent", "")
 dashboard_extra_ipynb = os.path.join(dashboard_dir, "bqplot.ipynb")
-multivoila_dir = os.path.join(cur_dir, "./testdata/voila/multi-voila/")
-nonexistent_dir = os.path.join(cur_dir, "./testdata/nonexistent/")
 nonexistent_file = os.path.join(cur_dir, "nonexistent.txt")
 
 
@@ -891,6 +915,12 @@ def test_create_voila_manifest_1(path, entrypoint):
         python="3.8.12",
         source="file",
     )
+
+    if sys.platform == "win32":
+        checksum_hash = "b7ba4ec7b6721c86ab883f5e6e2ea68f"
+    else:
+        checksum_hash = "79f8622228eded646a3038848de5ffd9"
+
     ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
@@ -901,7 +931,7 @@ def test_create_voila_manifest_1(path, entrypoint):
         },
         "files": {
             "requirements.txt": {"checksum": "9cce1aac313043abd5690f67f84338ed"},
-            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
+            "bqplot.ipynb": {"checksum": checksum_hash},
         },
     }
     manifest = Manifest()
@@ -961,6 +991,14 @@ def test_create_voila_manifest_2(path, entrypoint):
         python="3.8.12",
         source="file",
     )
+
+    if sys.platform == "win32":
+        bqplot_hash = "b7ba4ec7b6721c86ab883f5e6e2ea68f"
+        dashboard_hash = "b2d7dc369ac602c7d7a703b6eb868562"
+    else:
+        bqplot_hash = "79f8622228eded646a3038848de5ffd9"
+        dashboard_hash = "6b42a0730d61e5344a3e734f5bbeec25"
+
     ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
@@ -971,8 +1009,8 @@ def test_create_voila_manifest_2(path, entrypoint):
         },
         "files": {
             "requirements.txt": {"checksum": "d51994456975ff487749acc247ae6d63"},
-            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
-            "dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+            "bqplot.ipynb": {"checksum": bqplot_hash},
+            "dashboard.ipynb": {"checksum": dashboard_hash},
         },
     }
     manifest = create_voila_manifest(
@@ -1001,6 +1039,16 @@ def test_create_voila_manifest_extra():
         python="3.8.12",
         source="file",
     )
+
+    if sys.platform == "win32":
+        requirements_checksum = "d51994456975ff487749acc247ae6d63"
+        bqplot_checksum = "b7ba4ec7b6721c86ab883f5e6e2ea68f"
+        dashboard_checksum = "b2d7dc369ac602c7d7a703b6eb868562"
+    else:
+        requirements_checksum = "d51994456975ff487749acc247ae6d63"
+        bqplot_checksum = "79f8622228eded646a3038848de5ffd9"
+        dashboard_checksum = "6b42a0730d61e5344a3e734f5bbeec25"
+
     ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
@@ -1010,9 +1058,9 @@ def test_create_voila_manifest_extra():
             "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
         },
         "files": {
-            "requirements.txt": {"checksum": "d51994456975ff487749acc247ae6d63"},
-            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
-            "dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+            "requirements.txt": {"checksum": requirements_checksum},
+            "bqplot.ipynb": {"checksum": bqplot_checksum},
+            "dashboard.ipynb": {"checksum": dashboard_checksum},
         },
     }
     manifest = create_voila_manifest(
@@ -1077,6 +1125,17 @@ def test_create_voila_manifest_multi_notebook(path, entrypoint):
         python="3.8.12",
         source="file",
     )
+
+    bqplot_path = os.path.join("bqplot", "bqplot.ipynb")
+    dashboard_path = os.path.join("dashboard", "dashboard.ipynb")
+
+    if sys.platform == "win32":
+        bqplot_hash = "ddb4070466d3c45b2f233dd39906ddf6"
+        dashboard_hash = "b2d7dc369ac602c7d7a703b6eb868562"
+    else:
+        bqplot_hash = "9f283b29889500e6c78e83ad1257e03f"
+        dashboard_hash = "6b42a0730d61e5344a3e734f5bbeec25"
+
     ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
@@ -1087,8 +1146,8 @@ def test_create_voila_manifest_multi_notebook(path, entrypoint):
         },
         "files": {
             "requirements.txt": {"checksum": "9cce1aac313043abd5690f67f84338ed"},
-            "bqplot/bqplot.ipynb": {"checksum": "9f283b29889500e6c78e83ad1257e03f"},
-            "dashboard/dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+            bqplot_path: {"checksum": bqplot_hash},
+            dashboard_path: {"checksum": dashboard_hash},
         },
     }
     manifest = Manifest()
@@ -1177,6 +1236,12 @@ def test_make_voila_bundle(
         python="3.8.12",
         source="file",
     )
+
+    if sys.platform == "win32":
+        checksum_hash = "b7ba4ec7b6721c86ab883f5e6e2ea68f"
+    else:
+        checksum_hash = "79f8622228eded646a3038848de5ffd9"
+
     ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
@@ -1187,7 +1252,7 @@ def test_make_voila_bundle(
         },
         "files": {
             "requirements.txt": {"checksum": "9395f3162b7779c57c86b187fa441d96"},
-            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
+            "bqplot.ipynb": {"checksum": checksum_hash},
         },
     }
     if (path, entrypoint) in (
@@ -1279,6 +1344,17 @@ def test_make_voila_bundle_multi_notebook(
         python="3.8.12",
         source="file",
     )
+
+    bqplot_path = os.path.join("bqplot", "bqplot.ipynb")
+    dashboard_path = os.path.join("dashboard", "dashboard.ipynb")
+
+    if sys.platform == "win32":
+        bqplot_hash = "ddb4070466d3c45b2f233dd39906ddf6"
+        dashboard_hash = "b2d7dc369ac602c7d7a703b6eb868562"
+    else:
+        bqplot_hash = "9f283b29889500e6c78e83ad1257e03f"
+        dashboard_hash = "6b42a0730d61e5344a3e734f5bbeec25"
+
     ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
@@ -1289,8 +1365,8 @@ def test_make_voila_bundle_multi_notebook(
         },
         "files": {
             "requirements.txt": {"checksum": "9395f3162b7779c57c86b187fa441d96"},
-            "bqplot/bqplot.ipynb": {"checksum": "9f283b29889500e6c78e83ad1257e03f"},
-            "dashboard/dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+            bqplot_path: {"checksum": bqplot_hash},
+            dashboard_path: {"checksum": dashboard_hash},
         },
     }
     if (path, entrypoint) in (
@@ -1361,6 +1437,14 @@ def test_make_voila_bundle_2(
         python="3.8.12",
         source="file",
     )
+
+    if sys.platform == "win32":
+        bqplot_hash = "b7ba4ec7b6721c86ab883f5e6e2ea68f"
+        dashboard_hash = "b2d7dc369ac602c7d7a703b6eb868562"
+    else:
+        bqplot_hash = "79f8622228eded646a3038848de5ffd9"
+        dashboard_hash = "6b42a0730d61e5344a3e734f5bbeec25"
+
     ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
@@ -1371,8 +1455,8 @@ def test_make_voila_bundle_2(
         },
         "files": {
             "requirements.txt": {"checksum": "d51994456975ff487749acc247ae6d63"},
-            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
-            "dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+            "bqplot.ipynb": {"checksum": bqplot_hash},
+            "dashboard.ipynb": {"checksum": dashboard_hash},
         },
     }
     with make_voila_bundle(
@@ -1398,6 +1482,15 @@ def test_make_voila_bundle_2(
 
 
 def test_make_voila_bundle_extra():
+    if sys.platform == "win32":
+        bqplot_hash = "b7ba4ec7b6721c86ab883f5e6e2ea68f"
+        dashboard_hash = "b2d7dc369ac602c7d7a703b6eb868562"
+    else:
+        bqplot_hash = "79f8622228eded646a3038848de5ffd9"
+        dashboard_hash = "6b42a0730d61e5344a3e734f5bbeec25"
+
+    requirements_hash = "d51994456975ff487749acc247ae6d63"
+
     environment = Environment(
         conda=None,
         contents="numpy\nipywidgets\nbqplot\n",
@@ -1418,9 +1511,9 @@ def test_make_voila_bundle_extra():
             "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
         },
         "files": {
-            "requirements.txt": {"checksum": "d51994456975ff487749acc247ae6d63"},
-            "bqplot.ipynb": {"checksum": "79f8622228eded646a3038848de5ffd9"},
-            "dashboard.ipynb": {"checksum": "6b42a0730d61e5344a3e734f5bbeec25"},
+            "requirements.txt": {"checksum": requirements_hash},
+            "bqplot.ipynb": {"checksum": bqplot_hash},
+            "dashboard.ipynb": {"checksum": dashboard_hash},
         },
     }
     with make_voila_bundle(
@@ -1445,19 +1538,18 @@ def test_make_voila_bundle_extra():
         assert ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
 
 
-single_file_index_dir = os.path.join(cur_dir, "./testdata/html_tests/single_file_index")
-single_file_index_file = os.path.join(cur_dir, "./testdata/html_tests/single_file_index/index.html")
-single_file_nonindex_dir = os.path.join(cur_dir, "./testdata/html_tests/single_file_nonindex")
-multi_file_index_dir = os.path.join(cur_dir, "./testdata/html_tests/multi_file_index")
-multi_file_index_file = os.path.join(cur_dir, "./testdata/html_tests/multi_file_index/index.html")
-multi_file_index_file2 = os.path.join(cur_dir, "./testdata/html_tests/multi_file_index/main.html")
-multi_file_nonindex_dir = os.path.join(cur_dir, "./testdata/html_tests/multi_file_nonindex")
-multi_file_nonindex_fileb = os.path.join(cur_dir, "./testdata/html_tests/multi_file_nonindex/b.html")
-multi_file_nonindex_filea = os.path.join(cur_dir, "./testdata/html_tests/multi_file_nonindex/a.html")
+single_file_index_dir = os.path.join(cur_dir, "testdata", "html_tests", "single_file_index")
+single_file_index_file = os.path.join(cur_dir, "testdata", "html_tests", "single_file_index", "index.html")
+single_file_nonindex_dir = os.path.join(cur_dir, "testdata", "html_tests", "single_file_nonindex")
+multi_file_index_dir = os.path.join(cur_dir, "testdata", "html_tests", "multi_file_index")
+multi_file_index_file = os.path.join(cur_dir, "testdata", "html_tests", "multi_file_index", "index.html")
+multi_file_index_file2 = os.path.join(cur_dir, "testdata", "html_tests", "multi_file_index", "main.html")
+multi_file_nonindex_dir = os.path.join(cur_dir, "testdata", "html_tests", "multi_file_nonindex")
+multi_file_nonindex_fileb = os.path.join(cur_dir, "testdata", "html_tests", "multi_file_nonindex", "b.html")
+multi_file_nonindex_filea = os.path.join(cur_dir, "testdata", "html_tests", "multi_file_nonindex", "a.html")
 
 
 def test_create_html_manifest():
-
     with pytest.raises(RSConnectException) as _:
         _, _ = create_html_manifest(
             None,
@@ -1482,10 +1574,22 @@ def test_create_html_manifest():
             excludes=None,
             image=None,
         )
+
+    test_folder_path = os.path.join("test_folder1", "testfoldertext1.txt")
+
+    if sys.platform == "win32":
+        index_hash = "0c3d8c84223089949954d069f2eef7e9"
+        txt_hash = "e6a96602853b20607831eec27dbb6cf0"
+        folder_txt_hash = "14bbe9e7bfefdfe9a7863be93585d5eb"
+    else:
+        index_hash = "c14bd63e50295f94b761ffe9d41e3742"
+        txt_hash = "3e7705498e8be60520841409ebc69bc1"
+        folder_txt_hash = "0a576fd324b6985bac6aa934131d2f5c"
+
     single_file_index_file_ans = {
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
-        "files": {"index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+        "files": {"index.html": {"checksum": index_hash}},
     }
     manifest = create_html_manifest(
         single_file_index_file,
@@ -1497,9 +1601,9 @@ def test_create_html_manifest():
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
         "files": {
-            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
-            "test1.txt": {"checksum": "3e7705498e8be60520841409ebc69bc1"},
-            "test_folder1/testfoldertext1.txt": {"checksum": "0a576fd324b6985bac6aa934131d2f5c"},
+            "index.html": {"checksum": index_hash},
+            "test1.txt": {"checksum": txt_hash},
+            test_folder_path: {"checksum": folder_txt_hash},
         },
     }
 
@@ -1518,7 +1622,7 @@ def test_create_html_manifest():
     multi_file_index_file_ans = {
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
-        "files": {"index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+        "files": {"index.html": {"checksum": index_hash}},
     }
 
     manifest = create_html_manifest(
@@ -1531,8 +1635,8 @@ def test_create_html_manifest():
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
         "files": {
-            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
-            "main.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "index.html": {"checksum": index_hash},
+            "main.html": {"checksum": index_hash},
         },
     }
 
@@ -1551,7 +1655,7 @@ def test_create_html_manifest():
     multi_file_nonindex_file_ans = {
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
-        "files": {"b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+        "files": {"b.html": {"checksum": index_hash}},
     }
 
     manifest = create_html_manifest(
@@ -1564,8 +1668,8 @@ def test_create_html_manifest():
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
         "files": {
-            "a.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
-            "b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "a.html": {"checksum": index_hash},
+            "b.html": {"checksum": index_hash},
         },
     }
 
@@ -1579,8 +1683,8 @@ def test_create_html_manifest():
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
         "files": {
-            "a.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
-            "b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "a.html": {"checksum": index_hash},
+            "b.html": {"checksum": index_hash},
         },
     }
     manifest = create_html_manifest(
@@ -1594,8 +1698,8 @@ def test_create_html_manifest():
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
         "files": {
-            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
-            "main.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "index.html": {"checksum": index_hash},
+            "main.html": {"checksum": index_hash},
         },
     }
 
@@ -1608,10 +1712,21 @@ def test_create_html_manifest():
 
 
 def test_make_html_bundle():
+    folder_path = os.path.join("test_folder1", "testfoldertext1.txt")
+
+    if sys.platform == "win32":
+        index_hash = "0c3d8c84223089949954d069f2eef7e9"
+        txt_hash = "e6a96602853b20607831eec27dbb6cf0"
+        folder_txt_hash = "14bbe9e7bfefdfe9a7863be93585d5eb"
+    else:
+        index_hash = "c14bd63e50295f94b761ffe9d41e3742"
+        txt_hash = "3e7705498e8be60520841409ebc69bc1"
+        folder_txt_hash = "0a576fd324b6985bac6aa934131d2f5c"
+
     single_file_index_file_ans = {
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
-        "files": {"index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+        "files": {"index.html": {"checksum": index_hash}},
     }
     with make_html_bundle(
         single_file_index_file,
@@ -1630,9 +1745,9 @@ def test_make_html_bundle():
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
         "files": {
-            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
-            "test1.txt": {"checksum": "3e7705498e8be60520841409ebc69bc1"},
-            "test_folder1/testfoldertext1.txt": {"checksum": "0a576fd324b6985bac6aa934131d2f5c"},
+            "index.html": {"checksum": index_hash},
+            "test1.txt": {"checksum": txt_hash},
+            folder_path: {"checksum": folder_txt_hash},
         },
     }
     with make_html_bundle(
@@ -1665,11 +1780,17 @@ def test_make_html_bundle():
         ]
         assert single_file_index_dir_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
 
+    if sys.platform == "win32":
+        index_checksum = "0c3d8c84223089949954d069f2eef7e9"
+    else:
+        index_checksum = "c14bd63e50295f94b761ffe9d41e3742"
+
     multi_file_index_file_ans = {
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
-        "files": {"index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+        "files": {"index.html": {"checksum": index_checksum}},
     }
+
     with make_html_bundle(
         multi_file_index_file,
         None,
@@ -1687,8 +1808,8 @@ def test_make_html_bundle():
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
         "files": {
-            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
-            "main.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "index.html": {"checksum": index_checksum},
+            "main.html": {"checksum": index_checksum},
         },
     }
     with make_html_bundle(
@@ -1722,7 +1843,7 @@ def test_make_html_bundle():
     multi_file_nonindex_file_ans = {
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
-        "files": {"b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"}},
+        "files": {"b.html": {"checksum": index_checksum}},
     }
     with make_html_bundle(
         multi_file_nonindex_fileb,
@@ -1741,8 +1862,8 @@ def test_make_html_bundle():
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
         "files": {
-            "a.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
-            "b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "a.html": {"checksum": index_checksum},
+            "b.html": {"checksum": index_checksum},
         },
     }
     with make_html_bundle(
@@ -1765,8 +1886,8 @@ def test_make_html_bundle():
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
         "files": {
-            "a.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
-            "b.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "a.html": {"checksum": index_checksum},
+            "b.html": {"checksum": index_checksum},
         },
     }
     with make_html_bundle(
@@ -1789,8 +1910,8 @@ def test_make_html_bundle():
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
         "files": {
-            "index.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
-            "main.html": {"checksum": "c14bd63e50295f94b761ffe9d41e3742"},
+            "index.html": {"checksum": index_checksum},
+            "main.html": {"checksum": index_checksum},
         },
     }
 
@@ -1809,11 +1930,167 @@ def test_make_html_bundle():
         assert multi_file_index_dir_extras_ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
 
 
+fastapi_dir = os.path.join(cur_dir, "./testdata/stock-api-fastapi")
+fastapi_file = os.path.join(cur_dir, "./testdata/stock-api-fastapi/main.py")
+
+
+def test_validate_entry_point():
+    assert "main" == validate_entry_point(entry_point=None, directory=fastapi_dir)
+
+
+def test_make_api_manifest_fastapi():
+    fastapi_dir_ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-fastapi"},  # "entrypoint": "main"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "7bdadcb7a5f74f377b453cf6e980f114"},
+            "README.md": {"checksum": "30a14a7b8eb6282d532d7fdaa36abb0f"},
+            "main.py": {"checksum": "a8d8820f25be4dc8e2bf51a5ba1690b6"},
+            "prices.csv": {"checksum": "012afa636c426748177b38160135307a"},
+        },
+    }
+    environment = create_python_environment(
+        fastapi_dir,
+    )
+    manifest, _ = make_api_manifest(
+        fastapi_dir,
+        None,
+        AppModes.PYTHON_FASTAPI,
+        environment,
+        None,
+        None,
+    )
+
+    assert fastapi_dir_ans["metadata"] == manifest["metadata"]
+    assert fastapi_dir_ans["files"].keys() == manifest["files"].keys()
+
+
+def test_make_api_bundle_fastapi():
+    fastapi_dir_ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-fastapi"},  # "entrypoint": "main"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "7bdadcb7a5f74f377b453cf6e980f114"},
+            "README.md": {"checksum": "30a14a7b8eb6282d532d7fdaa36abb0f"},
+            "main.py": {"checksum": "a8d8820f25be4dc8e2bf51a5ba1690b6"},
+            "prices.csv": {"checksum": "012afa636c426748177b38160135307a"},
+        },
+    }
+    environment = create_python_environment(
+        fastapi_dir,
+    )
+    with make_api_bundle(
+        fastapi_dir,
+        None,
+        AppModes.PYTHON_FASTAPI,
+        environment,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "README.md",
+            "main.py",
+            "manifest.json",
+            "prices.csv",
+            "requirements.txt",
+        ]
+        bundle_json = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+        assert fastapi_dir_ans["metadata"] == bundle_json["metadata"]
+        assert fastapi_dir_ans["files"].keys() == bundle_json["files"].keys()
+
+
+flask_dir = os.path.join(cur_dir, "./testdata/stock-api-flask")
+flask_file = os.path.join(cur_dir, "./testdata/stock-api-flask/main.py")
+
+
+def test_make_api_manifest_flask():
+    flask_dir_ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-api"},  # "entrypoint": "app"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "e34bcdf75e2a80c4c0b0b53a14af5f41"},
+            "README.md": {"checksum": "15659923bfe23eed7ca4450ce1adbe41"},
+            "app.py": {"checksum": "9799c3b834b555cf02e5896ad2997674"},
+            "prices.csv": {"checksum": "012afa636c426748177b38160135307a"},
+        },
+    }
+    environment = create_python_environment(
+        flask_dir,
+    )
+    manifest, _ = make_api_manifest(
+        flask_dir,
+        None,
+        AppModes.PYTHON_API,
+        environment,
+        None,
+        None,
+    )
+
+    assert flask_dir_ans["metadata"] == manifest["metadata"]
+    assert flask_dir_ans["files"].keys() == manifest["files"].keys()
+
+
+def test_make_api_bundle_flask():
+    flask_dir_ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-api"},  # "entrypoint": "app"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "e34bcdf75e2a80c4c0b0b53a14af5f41"},
+            "README.md": {"checksum": "15659923bfe23eed7ca4450ce1adbe41"},
+            "app.py": {"checksum": "9799c3b834b555cf02e5896ad2997674"},
+            "prices.csv": {"checksum": "012afa636c426748177b38160135307a"},
+        },
+    }
+    environment = create_python_environment(
+        flask_dir,
+    )
+    with make_api_bundle(
+        flask_dir,
+        None,
+        AppModes.PYTHON_API,
+        environment,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "README.md",
+            "app.py",
+            "manifest.json",
+            "prices.csv",
+            "requirements.txt",
+        ]
+        bundle_json = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+        assert flask_dir_ans["metadata"] == bundle_json["metadata"]
+        assert flask_dir_ans["files"].keys() == bundle_json["files"].keys()
+
+
 streamlit_dir = os.path.join(cur_dir, "./testdata/top-5-income-share-streamlit")
 streamlit_file = os.path.join(cur_dir, "./testdata/top-5-income-share-streamlit/app.py")
 
 
-def test_make_api_manifest():
+def test_make_api_manifest_streamlit():
     streamlit_dir_ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
@@ -1844,7 +2121,7 @@ def test_make_api_manifest():
     assert streamlit_dir_ans["files"].keys() == manifest["files"].keys()
 
 
-def test_make_api_bundle():
+def test_make_api_bundle_streamlit():
     streamlit_dir_ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
