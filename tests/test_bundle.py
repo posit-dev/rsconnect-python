@@ -1813,7 +1813,7 @@ flask_dir = os.path.join(cur_dir, "./testdata/stock-api-flask")
 flask_file = os.path.join(cur_dir, "./testdata/stock-api-flask/main.py")
 
 
-def test_make_api_manifest():
+def test_make_api_manifest_flask():
     flask_dir_ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
@@ -1845,7 +1845,7 @@ def test_make_api_manifest():
     assert flask_dir_ans["files"].keys() == manifest["files"].keys()
 
 
-def test_make_api_bundle():
+def test_make_api_bundle_flask():
     flask_dir_ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
