@@ -1,3 +1,5 @@
+import os
+
 from unittest import TestCase
 
 from rsconnect.models import AppMode, AppModes, GlobMatcher
@@ -91,14 +93,14 @@ class TestModels(TestCase):
             ("dir/*.txt", "dir/file", False),
             ("dir/*.txt", "dir/file.txt", True),
             ("dir/*.txt", "dir/.txt", True),
-            ("dir/**/*.txt", "dir/a.txt", True),
-            ("dir/**/*.txt", "dir/sub/a.txt", True),
-            ("dir/**/*.txt", "dir/sub/sub/a.txt", True),
-            ("dir/**/*.txt", "dir/sub/sub/a.obj", False),
-            ("dir/**/*", "dir/sub/sub/sub/a.txt", True),
-            ("dir/**/*", "dir/sub/sub/a.bob", True),
-            ("dir/**/*", "dir/sub/z.o", True),
-            ("dir/**/*", "dir/abc", True),
+            (os.path.join("dir", "**", "*.txt"), os.path.join("dir", "a.txt"), True),
+            (os.path.join("dir", "**", "*.txt"), os.path.join("dir", "sub", "a.txt"), True),
+            (os.path.join("dir", "**", "*.txt"), os.path.join("dir", "sub", "sub", "a.txt"), True),
+            (os.path.join("dir", "**", "*.txt"), os.path.join("dir", "sub", "sub", "a.obj"), False),
+            (os.path.join("dir", "**", "*"), os.path.join("dir", "sub", "sub", "sub", "a.txt"), True),
+            (os.path.join("dir", "**", "*"), os.path.join("dir", "sub", "sub", "a.bob"), True),
+            (os.path.join("dir", "**", "*"), os.path.join("dir", "sub", "z.o"), True),
+            (os.path.join("dir", "**", "*"), os.path.join("dir", "abc"), True),
         ]
 
         for case in cases:
@@ -112,4 +114,4 @@ class TestModels(TestCase):
             self.assertEqual(matcher.matches(case[1]), case[2], msg)
 
         with self.assertRaises(ValueError):
-            GlobMatcher("./blah/**/blah/**/*.txt")
+            GlobMatcher(os.path.join(".", "blah", "**", "blah", "**", "*.txt"))

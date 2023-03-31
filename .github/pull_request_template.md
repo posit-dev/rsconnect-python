@@ -1,33 +1,33 @@
-<!--- Provide a general summary of your changes in the title. -->
+<!-- Provide a general summary of your changes in the title. -->
+<!-- Examples: Updates pull request template -->
 
-## Description
-<!--- Please describe the problem you are addressing and your proposed changes. -->
+## Intent
+<!-- Describe what problem you are addressing in this pull request. -->
+<!-- If this change is associated with an open issue, please link to it here. -->
+<!-- Example: "Resolves #24" -->
+<!-- See https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue -->
 
-## Motivation and Context
-<!--- Even small changes deserve a little attention to detail. -->
-<!--- Why is this change required? What problem does it solve? -->
-<!--- If it fixes an open issue, please link to the issue here. -->
-<!--- Example: "Addresses Issue # 1" -->
+## Type of Change
+<!-- What types of changes does your code introduce? Put an `x` in all the boxes that apply. -->
+<!-- If you check more than one box, you may need to refactor this change into separate pull requests -->
 
-## How Has This Been Tested?
-<!--- Please describe in detail how you tested your changes. -->
-<!--- Automation should be used to verify that a change remains in place. -->
-<!--- Automated tests should be included in this pull request. -->
+- [ ] Bug Fix           <!-- A change which fixes an existing issue --> 
+- [ ] New Feature       <!-- A change which adds additional functionality -->
+- [ ] Breaking Change   <!-- A breaking change which causes existing functionality to change -->
 
-<!--- If applicable, enumerate the steps that someone can take to exercise this change manually. -->
-<!--- Please include details of your testing environment. -->
-<!--- Detail is important! -->
+## Approach
+<!-- Describe how you solved this problem and any trade-offs you encountered. -->
+<!-- Link any additional documentation associated with this change here -->
 
-### Screenshots (if appropriate):
+## Automated Tests
+<!-- Describe the automated tests associated with this change. -->
+<!-- If automated tests are not included in this change, please state why. -->
 
-## Types of Changes
-<!--- What types of changes does your code introduce? Put an `x` in all the boxes that apply. -->
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to change)
+## Directions for Reviewers
+<!-- Provide steps for reviewers to validate this change manually. -->
 
-## Checklist:
+## Checklist
 <!--- Go over all the following points, and put an `x` in all the boxes that apply: -->
 <!--- If you need clarification on any of these, feel free to ask. We're here to help! -->
-- [ ] I have added tests to cover my changes.
 - [ ] I have updated [CHANGELOG.md](../CHANGELOG.md) to cover notable changes.
+- [ ] I have updated all related GitHub issues to reflect their current state.

@@ -35,7 +35,7 @@ def build_add_content(connect_server, content_guids_with_bundle):
             + "please wait for it to finish before adding new content."
         )
 
-    with RSConnectClient(connect_server, timeout=120) as client:
+    with RSConnectClient(connect_server) as client:
         if len(content_guids_with_bundle) == 1:
             all_content = [client.content_get(content_guids_with_bundle[0].guid)]
         else:
@@ -290,7 +290,7 @@ def download_bundle(connect_server, guid_with_bundle):
     """
     :param guid_with_bundle: models.ContentGuidWithBundle
     """
-    with RSConnectClient(connect_server, timeout=120) as client:
+    with RSConnectClient(connect_server) as client:
         # bundle_id not provided so grab the latest
         if not guid_with_bundle.bundle_id:
             content = client.get_content(guid_with_bundle.guid)
@@ -309,7 +309,7 @@ def get_content(connect_server, guid):
     :param guid: a single guid as a string or list of guids.
     :return: a list of content items.
     """
-    with RSConnectClient(connect_server, timeout=120) as client:
+    with RSConnectClient(connect_server) as client:
         if isinstance(guid, str):
             result = [client.get_content(guid)]
         else:
@@ -320,7 +320,7 @@ def get_content(connect_server, guid):
 def search_content(
     connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
 ):
-    with RSConnectClient(connect_server, timeout=120) as client:
+    with RSConnectClient(connect_server) as client:
         result = client.search_content()
         result = _apply_content_filters(
             result, published, unpublished, content_type, r_version, py_version, title_contains
