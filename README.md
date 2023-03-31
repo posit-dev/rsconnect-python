@@ -56,7 +56,7 @@ Here's an example command that deploys a Jupyter notebook to Posit Connect.
 
 ```bash
 rsconnect deploy notebook \
-    --server https://connect.example.org:3939 \
+    --server https://connect.example.org \
     --api-key my-api-key \
     my-notebook.ipynb
 ```
@@ -132,7 +132,7 @@ Use the `add` command to store information about a Posit Connect server:
 ```bash
 rsconnect add \
     --api-key my-api-key \
-    --server https://connect.example.org:3939 \
+    --server https://connect.example.org \
     --name myserver
 ```
 
@@ -179,14 +179,14 @@ You can verify that a URL refers to a running instance of Posit Connect by using
 the `details` command:
 
 ```bash
-rsconnect details --server https://connect.example.org:3939
+rsconnect details --server https://connect.example.org
 ```
 
 In this form, `rsconnect` will only tell you whether the URL given does, in fact, refer
 to a running Posit Connect instance. If you include a valid API key:
 
 ```bash
-rsconnect details --server https://connect.example.org:3939 --api-key my-api-key
+rsconnect details --server https://connect.example.org --api-key my-api-key
 ```
 
 the tool will provide the version of Posit Connect (if the server is configured to
@@ -471,7 +471,7 @@ is trusted by your Jupyter Notebook server, API client or user's browser, then y
 don't need to do anything special. You can test this out with the `details` command:
 
 ```bash
-rsconnect details --api-key my-api-key --server https://connect.example.org:3939
+rsconnect details --api-key my-api-key --server https://connect.example.org
 ```
 
 If this fails with a TLS Certificate Validation error, then you have two options.
@@ -483,7 +483,7 @@ If this fails with a TLS Certificate Validation error, then you have two options
     ```bash
     rsconnect details \
         --api-key my-api-key \
-        --server https://connect.example.org:3939 \
+        --server https://connect.example.org \
         --cacert /path/to/certificate.pem
     ```
 
@@ -493,7 +493,7 @@ If this fails with a TLS Certificate Validation error, then you have two options
     ```bash
     rsconnect add \
         --api-key my-api-key \
-        --server https://connect.example.org:3939 \
+        --server https://connect.example.org \
         --insecure
     ```
 
@@ -589,7 +589,7 @@ The user can render a Jupyter notebook without its corresponding input code cell
 
 ```
 rsconnect deploy notebook \
-    --server https://connect.example.org:3939 \
+    --server https://connect.example.org \
     --api-key my-api-key \
     --hide-all-input \
     my-notebook.ipynb
@@ -601,7 +601,7 @@ To selectively hide input cells in a Jupyter notebook, the user needs to follow 
 
 ```
 rsconnect deploy notebook \
-    --server https://connect.example.org:3939 \
+    --server https://connect.example.org \
     --api-key my-api-key \
     --hide-tagged-input \
     my-notebook.ipynb
@@ -685,7 +685,7 @@ $ rsconnect content search
     "bundle_id": "142",
     "image_name": null,
     "r_version": null,
-    "content_url": "https://connect.example.org:3939/content/4ffc819c-065c-420c-88eb-332db1133317/",
+    "content_url": "https://connect.example.org/content/4ffc819c-065c-420c-88eb-332db1133317/",
     "connection_timeout": null,
     "min_processes": null,
     "last_deployed_time": "2021-12-02T18:09:11Z",
@@ -704,7 +704,7 @@ $ rsconnect content search
     "init_timeout": null,
     "id": "18",
     "quarto_version": null,
-    "dashboard_url": "https://connect.example.org:3939/connect/#/apps/4ffc819c-065c-420c-88eb-332db1133317",
+    "dashboard_url": "https://connect.example.org/connect/#/apps/4ffc819c-065c-420c-88eb-332db1133317",
     "run_as_current_user": false,
     "owner_guid": "edf26318-0027-4d9d-bbbb-54703ebb1855",
     "max_processes": null
@@ -803,8 +803,8 @@ build all "tracked" content that has the status `NEEDS_BUILD`.
 
 ```bash
 $ rsconnect content build run
-[INFO] 2021-12-14T13:02:45-0500 Initializing ContentBuildStore for https://connect.example.org:3939
-[INFO] 2021-12-14T13:02:45-0500 Starting content build (https://connect.example.org:3939)...
+[INFO] 2021-12-14T13:02:45-0500 Initializing ContentBuildStore for https://connect.example.org
+[INFO] 2021-12-14T13:02:45-0500 Starting content build (https://connect.example.org)...
 [INFO] 2021-12-14T13:02:45-0500 Starting build: 4ffc819c-065c-420c-88eb-332db1133317
 [INFO] 2021-12-14T13:02:50-0500 Running = 1, Pending = 0, Success = 0, Error = 0
 [INFO] 2021-12-14T13:02:50-0500 Build succeeded: 4ffc819c-065c-420c-88eb-332db1133317
@@ -820,7 +820,7 @@ and inspect the build logs with the `rsconnect content build logs` subcommand.
 
 ```
 $ rsconnect content build ls --status ERROR
-[INFO] 2021-12-14T13:07:32-0500 Initializing ContentBuildStore for https://connect.example.org:3939
+[INFO] 2021-12-14T13:07:32-0500 Initializing ContentBuildStore for https://connect.example.org
 [
   {
     "rsconnect_build_status": "ERROR",
@@ -839,10 +839,10 @@ $ rsconnect content build ls --status ERROR
       },
       "id": "pZoqfBoi6BgpKde5"
     },
-    "dashboard_url": "https://connect.example.org:3939/connect/#/apps/4ffc819c-065c-420c-88eb-332db1133317",
+    "dashboard_url": "https://connect.example.org/connect/#/apps/4ffc819c-065c-420c-88eb-332db1133317",
     "name": "logs-api-python",
     "title": "logs-api-python",
-    "content_url": "https://connect.example.org:3939/content/4ffc819c-065c-420c-88eb-332db1133317/",
+    "content_url": "https://connect.example.org/content/4ffc819c-065c-420c-88eb-332db1133317/",
     "bundle_id": "141",
     "rsconnect_last_build_time": "2021-12-14T18:07:16Z",
     "created_time": "2021-07-19T19:17:32Z",
@@ -851,7 +851,7 @@ $ rsconnect content build ls --status ERROR
 ]
 
 $ rsconnect content build logs --guid 4ffc819c-065c-420c-88eb-332db1133317
-[INFO] 2021-12-14T13:09:27-0500 Initializing ContentBuildStore for https://connect.example.org:3939
+[INFO] 2021-12-14T13:09:27-0500 Initializing ContentBuildStore for https://connect.example.org
 Building Python API...
 Cannot find compatible environment: no compatible Local environment with Python version 3.9.5
 Task failed. Task exited with status 1.
@@ -973,7 +973,7 @@ which uses a JSON Web Token to request an initial API key from a fresh Connect i
     This feature **requires Python version 3.6 or higher**.
 
 ```bash
-$ rsconnect bootstrap --server https://connect.example.org:3939 --jwt-keypath /path/to/secret.key
+$ rsconnect bootstrap --server https://connect.example.org --jwt-keypath /path/to/secret.key
 ```
 
 A full description on how to use `rsconnect bootstrap` in a provisioning workflow is provided in the Connect administrator guide's 
