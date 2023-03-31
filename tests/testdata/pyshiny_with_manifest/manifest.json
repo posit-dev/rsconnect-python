@@ -3,7 +3,7 @@
   "locale": "en_US.UTF-8",
   "metadata": {
     "appmode": "python-shiny",
-    "entrypoint": "app"
+    "entrypoint": "app5"
   },
   "python": {
     "version": "3.8.12",
@@ -15,16 +15,16 @@
   },
   "files": {
     "requirements.txt": {
-      "checksum": "2a4bdca32428db1f47c6a7f0ba830a9b"
+      "checksum": "c82f1a9894e5510b2f0c16fa63aaa004"
     },
     "README.md": {
-      "checksum": "4c7804f5c8cb5ec05c34e92cab45f6c7"
+      "checksum": "7d083dbcdd4731d91bcb470e746b3a38"
     },
-    "app.py": {
-      "checksum": "a7726fc4fe5374b54158a049180653a1"
+    "app5.py": {
+      "checksum": "f7e4b3b7ff0ada525ec388d037ff6c6a"
     },
     "data.csv": {
-      "checksum": "9cdb0252eca1273dcd0ce12f9b9196a5"
+      "checksum": "aabd9d1210246c69403532a6a9d24286"
     }
   }
 }
