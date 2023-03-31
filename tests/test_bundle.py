@@ -2094,16 +2094,16 @@ def test_make_api_manifest_streamlit():
     streamlit_dir_ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
-        "metadata": {"appmode": "python-streamlit"},  # "entrypoint": "app"},
+        "metadata": {"appmode": "python-streamlit"},  # "entrypoint": "app1"},
         "python": {
             "version": "3.8.12",
             "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
         },
         "files": {
             "requirements.txt": {"checksum": "22354e5a4240bacbd3bc379cab0e73e9"},
-            "README.md": {"checksum": "2a566a3afba3e28b357af975b984ca29"},
-            "app.py": {"checksum": "0940a696b7caf2a94467b2cb7a2ed0c4"},
-            "data.csv": {"checksum": "9cdb0252eca1273dcd0ce12f9b9196a5"},
+            "README.md": {"checksum": "73b002e9ba030b3a3bc9a8a32d56a7b1"},
+            "app1.py": {"checksum": "b203bc6d9512029a414ccbb63514e603"},
+            "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
         },
     }
     environment = create_python_environment(
@@ -2125,16 +2125,16 @@ def test_make_api_bundle_streamlit():
     streamlit_dir_ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
-        "metadata": {"appmode": "python-streamlit"},  # "entrypoint": "app"},
+        "metadata": {"appmode": "python-streamlit"},  # "entrypoint": "app1"},
         "python": {
             "version": "3.8.12",
             "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
         },
         "files": {
             "requirements.txt": {"checksum": "22354e5a4240bacbd3bc379cab0e73e9"},
-            "README.md": {"checksum": "2a566a3afba3e28b357af975b984ca29"},
-            "app.py": {"checksum": "0940a696b7caf2a94467b2cb7a2ed0c4"},
-            "data.csv": {"checksum": "9cdb0252eca1273dcd0ce12f9b9196a5"},
+            "README.md": {"checksum": "73b002e9ba030b3a3bc9a8a32d56a7b1"},
+            "app1.py": {"checksum": "b203bc6d9512029a414ccbb63514e603"},
+            "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
         },
     }
     environment = create_python_environment(
@@ -2151,7 +2151,7 @@ def test_make_api_bundle_streamlit():
         names = sorted(tar.getnames())
         assert names == [
             "README.md",
-            "app.py",
+            "app1.py",
             "data.csv",
             "manifest.json",
             "requirements.txt",
