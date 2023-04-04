@@ -441,7 +441,9 @@ def add(ctx, name, server, api_key, insecure, cacert, account, token, secret, ve
         else:
             real_server = api.ShinyappsServer(server, account, token, secret)
 
+        print(f"**** testing! {real_server.token}")
         _test_rstudio_creds(real_server)
+        print(f"**** tested!")
 
         server_store.set(
             name,
