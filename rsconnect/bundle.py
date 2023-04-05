@@ -69,20 +69,22 @@ class Manifest:
         environment = kwargs.get("environment")
         image = kwargs.get("image")
         primary_html = kwargs.get("primary_html")
+        metadata = kwargs.get("metadata")
+        files = kwargs.get("files")
 
         self.data["version"] = version if version else 1
         if environment:
             self.data["locale"] = environment.locale
 
-        self.data["metadata"] = (
-            {
-                "appmode": app_mode.name(),
-            }
-            if app_mode
-            else {
-                "appmode": AppModes.UNKNOWN,
-            }
-        )
+        if metadata and isinstance(metadata, dict):
+            self.data["metadata"] = metadata
+        else:
+            self.data["metadata"] = {}
+            if isinstance(app_mode, AppMode):
+                self.data["metadata"]["appmode"] = app_mode.name()
+            else:
+                self.data["metadata"]["appmode"] = AppModes.UNKNOWN
+
         if primary_html:
             self.data["metadata"]["primary_html"] = primary_html
 
@@ -119,6 +121,8 @@ class Manifest:
             }
 
         self.data["files"] = {}
+        if files and isinstance(files, dict):
+            self.data["files"] = files
 
     @property
     def deploy_dir(self):
@@ -130,12 +134,12 @@ class Manifest:
 
     @classmethod
     def from_json(cls, json_str):
-        return cls(json.loads(json_str))
+        return cls(**json.loads(json_str))
 
     @classmethod
     def from_json_file(cls, json_path):
         with open(json_path) as json_file:
-            return cls(json.load(json_file))
+            return cls(**json.load(json_file))
 
     @property
     def json(self):
