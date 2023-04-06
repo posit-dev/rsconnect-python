@@ -204,6 +204,7 @@ class Manifest:
             raise RSConnectException("A valid entrypoint must be provided.")
         new_data_files = {}
         deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
+        deploy_dir = self.deploy_dir or deploy_dir
         for path in self.data["files"]:
             rel_path = relpath(path, deploy_dir)
             new_data_files[rel_path] = self.data["files"][path]
@@ -215,6 +216,7 @@ class Manifest:
             raise RSConnectException("A valid entrypoint must be provided.")
         new_buffer = {}
         deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
+        deploy_dir = self.deploy_dir or deploy_dir
         for k, v in self.buffer.items():
             rel_path = relpath(k, deploy_dir)
             new_buffer[rel_path] = v
