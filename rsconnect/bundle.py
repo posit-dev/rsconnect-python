@@ -244,10 +244,6 @@ class Manifest:
             new_manifest.primary_html = self.flattened_primary_html
         return new_manifest
 
-    def make_relative_to_deploy_dir(self):
-        self = self.flattened_copy
-        return self
-
 
 class Bundle:
     def __init__(self, *args, **kwargs) -> None:
