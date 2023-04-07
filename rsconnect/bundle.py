@@ -173,15 +173,6 @@ class Manifest:
         self.data["files"][path] = {"checksum": file_checksum(path)}
         return self
 
-    def add_relative_path(self, path):
-        """
-        Assumes that path resides below the deployment directory, construct that path add it to the manifest.
-        """
-        deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
-        mod_path = join(deploy_dir, path)
-        self.data["files"][mod_path] = {"checksum": file_checksum(mod_path)}
-        return self
-
     def discard_file(self, path):
         if path in self.data["files"]:
             del self.data["files"][path]
