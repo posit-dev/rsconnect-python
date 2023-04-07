@@ -189,10 +189,14 @@ class Manifest:
             del self.data["files"][key]
         return self
 
-    @property
-    def flattened_data(self):
+    def block_on_empty_entrypoint(self):
         if self.entrypoint is None:
             raise RSConnectException("A valid entrypoint must be provided.")
+        return self
+
+    @property
+    def flattened_data(self):
+        self.block_on_empty_entrypoint()
         new_data_files = {}
         deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
         deploy_dir = self.deploy_dir or deploy_dir
@@ -203,8 +207,7 @@ class Manifest:
 
     @property
     def flattened_buffer(self):
-        if self.entrypoint is None:
-            raise RSConnectException("A valid entrypoint must be provided.")
+        self.block_on_empty_entrypoint()
         new_buffer = {}
         deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
         deploy_dir = self.deploy_dir or deploy_dir
@@ -215,8 +218,7 @@ class Manifest:
 
     @property
     def flattened_entrypoint(self):
-        if self.entrypoint is None:
-            raise RSConnectException("A valid entrypoint must be provided.")
+        self.block_on_empty_entrypoint()
         return relpath(self.entrypoint, dirname(self.entrypoint))
 
     @property
@@ -227,8 +229,7 @@ class Manifest:
 
     @property
     def flattened_copy(self):
-        if self.entrypoint is None:
-            raise RSConnectException("A valid entrypoint must be provided.")
+        self.block_on_empty_entrypoint()
         new_manifest = deepcopy(self)
         new_manifest.data["files"] = self.flattened_data
         new_manifest.buffer = self.flattened_buffer
