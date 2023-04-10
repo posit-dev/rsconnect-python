@@ -20,10 +20,10 @@ jobs:
         uses: snyk/actions/python@master
         with:
           command: monitor
-          args: --file=setup.py --package-manager=pip --project-name=setup.py --org=${{ env.SNYK_ORG }}
+          args: --file=setup.py --package-manager=pip --project-name=rsconnect-python --org=${{ env.SNYK_ORG }}
 
       - name: Run Snyk (requirements.txt)
         uses: snyk/actions/python@master
         with:
           command: monitor
-          args: --file=requirements.txt --package-manager=pip --project-name=requirements.txt --org=${{ env.SNYK_ORG }}
+          args: --file=requirements.txt --package-manager=pip --project-name=rsconnect-python --org=${{ env.SNYK_ORG }}
