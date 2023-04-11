@@ -78,6 +78,8 @@ class Manifest:
 
         if metadata and isinstance(metadata, dict):
             self.data["metadata"] = metadata
+        elif metadata and not isinstance(metadata, dict):
+            raise TypeError("metadata must be a dictionary.")
         else:
             self.data["metadata"] = {}
             if isinstance(app_mode, AppMode):
@@ -123,6 +125,8 @@ class Manifest:
         self.data["files"] = {}
         if files and isinstance(files, dict):
             self.data["files"] = files
+        elif files and not isinstance(files, dict):
+            raise TypeError("files must be a dictionary.")
 
     @property
     def deploy_dir(self):
