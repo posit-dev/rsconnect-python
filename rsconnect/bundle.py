@@ -57,20 +57,23 @@ mimetypes.add_type("text/ipynb", ".ipynb")
 
 
 class Manifest:
-    def __init__(self, *args, **kwargs) -> None:
-        self.data = dict()
+    def __init__(
+        self,
+        *args,
+        version: int = None,
+        environment: Environment = None,
+        app_mode: AppMode = None,
+        entrypoint: str = None,
+        quarto_inspection: dict = None,
+        image: str = None,
+        primary_html: str = None,
+        metadata: dict = None,
+        files: dict = None,
+        **kwargs
+    ) -> None:
+        self.data: dict = dict()
         self.buffer: dict = dict()
-        self._deploy_dir = None
-        version = kwargs.get("version")
-        environment = kwargs.get("environment")
-        app_mode = kwargs.get("app_mode")
-        entrypoint = kwargs.get("entrypoint")
-        quarto_inspection = kwargs.get("quarto_inspection")
-        environment = kwargs.get("environment")
-        image = kwargs.get("image")
-        primary_html = kwargs.get("primary_html")
-        metadata = kwargs.get("metadata")
-        files = kwargs.get("files")
+        self._deploy_dir: str = None
 
         self.data["version"] = version if version else 1
         if environment:
