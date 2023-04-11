@@ -1218,10 +1218,6 @@ class ShinyappsService:
             self._server.handle_bad_response(application)
 
             if visibility is not None:
-                print(f"application: {application.json_data}")
-                print(f"deployment: {application.json_data['deployment']}")
-                print(f"properties: {application.json_data['deployment']['properties']}")
-                print(f"visibility: {application.json_data['deployment']['properties']['application.visibility']}")
                 if visibility != application.json_data["deployment"]["properties"]["application.visibility"]:
                     property_update = self._rstudio_client.update_application_property(
                         application.json_data["id"], "application.visibility", visibility
