@@ -149,6 +149,25 @@ class TestMain:
             status=200,
         )
 
+        def post_application_property_callback(request, uri, response_headers):
+            parsed_request = _load_json(request.body)
+            try:
+                assert parsed_request == {"value": "private"}
+            except AssertionError as e:
+                return _error_to_response(e)
+            return [
+                201,
+                {},
+                b"",
+            ]
+
+        httpretty.register_uri(
+            httpretty.PUT,
+            "https://api.shinyapps.io/v1/applications/8442/properties/application.visibility",
+            body=post_application_property_callback,
+            status=200,
+        )
+
         def post_bundle_callback(request, uri, response_headers):
             parsed_request = _load_json(request.body)
             del parsed_request["checksum"]
@@ -246,6 +265,8 @@ class TestMain:
             "c29tZVNlY3JldAo=",
             "--title",
             "myApp",
+            "--visibility",
+            "private"
         ]
         try:
             result = runner.invoke(cli, args)
@@ -317,7 +338,7 @@ class TestMain:
             space_id = 917733 if project_application_id else None
             parsed_request = _load_json(request.body)
             try:
-                assert parsed_request == {"name": "myapp", "space": space_id, "project": project_id}
+                assert parsed_request == {"name": "myapp", "space": space_id, "project": project_id, "visibility": "public"}
             except AssertionError as e:
                 return _error_to_response(e)
             return [
@@ -439,6 +460,8 @@ class TestMain:
             "c29tZVNlY3JldAo=",
             "--title",
             "myApp",
+            "--visibility",
+            "public"
         ]
         try:
             result = runner.invoke(cli, args)

@@ -696,6 +696,7 @@ class RSConnectExecutor:
         title_is_default: bool = False,
         bundle: IO = None,
         env_vars=None,
+        visibility=None,
     ):
         app_id = app_id or self.get("app_id")
         deployment_name = deployment_name or self.get("deployment_name")
@@ -703,6 +704,7 @@ class RSConnectExecutor:
         title_is_default = title_is_default or self.get("title_is_default")
         bundle = bundle or self.get("bundle")
         env_vars = env_vars or self.get("env_vars")
+        visibility = visibility or self.get("visibility")
 
         if isinstance(self.remote_server, RSConnectServer):
             result = self.client.deploy(
@@ -728,6 +730,7 @@ class RSConnectExecutor:
                     deployment_name,
                     bundle_size,
                     bundle_hash,
+                    visibility,
                 )
                 self.upload_rstudio_bundle(prepare_deploy_result, bundle_size, contents)
                 shinyapps_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
@@ -738,6 +741,7 @@ class RSConnectExecutor:
                     deployment_name,
                     bundle_size,
                     bundle_hash,
+                    visibility,
                 )
                 self.upload_rstudio_bundle(prepare_deploy_result, bundle_size, contents)
                 cloud_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
@@ -1072,6 +1076,9 @@ class PositClient(HTTPServer):
     def get_application(self, application_id):
         return self.get("/v1/applications/{}".format(application_id))
 
+    def update_application_property(self, application_id: int, property: str, value: str):
+        return self.put("/v1/applications/{}/properties/{}".format(application_id, property), body={"value": value})
+
     def get_content(self, content_id):
         return self.get("/v1/content/{}".format(content_id))
 
@@ -1083,13 +1090,18 @@ class PositClient(HTTPServer):
         }
         return self.post("/v1/applications/", body=application_data)
 
-    def create_output(self, name, project_id=None, space_id=None):
+    def create_output(self, name: str, project_id: int, space_id: int, visibility: typing.Optional[str]):
         data = {
             "name": name,
             "space": space_id,
             "project": project_id,
         }
+        if visibility is not None:
+            data["visibility"] = visibility
         return self.post("/v1/outputs/", body=data)
+
+    def update_output(self, output_id: int, output_data: dict):
+        return self.patch("/v1/outputs/{}".format(output_id), body=output_data)
 
     def get_accounts(self):
         return self.get("/v1/accounts/")
@@ -1173,7 +1185,14 @@ class ShinyappsService:
         self._rstudio_client = rstudio_client
         self._server = server
 
-    def prepare_deploy(self, app_id: typing.Optional[int], app_name: str, bundle_size: int, bundle_hash: str):
+    def prepare_deploy(
+        self,
+        app_id: typing.Optional[int],
+        app_name: str,
+        bundle_size: int,
+        bundle_hash: str,
+        visibility: typing.Optional[str],
+    ):
         accounts = self._rstudio_client.get_accounts()
         self._server.handle_bad_response(accounts)
         account = next(
@@ -1187,9 +1206,28 @@ class ShinyappsService:
 
         if app_id is None:
             application = self._rstudio_client.create_application(account["id"], app_name)
+            self._server.handle_bad_response(application)
+            if visibility is not None:
+                property_update = self._rstudio_client.update_application_property(
+                    application.json_data["id"], "application.visibility", visibility
+                )
+                self._server.handle_bad_response(property_update)
+
         else:
             application = self._rstudio_client.get_application(app_id)
-        self._server.handle_bad_response(application)
+            self._server.handle_bad_response(application)
+
+            if visibility is not None:
+                print(f"application: {application.json_data}")
+                print(f"deployment: {application.json_data['deployment']}")
+                print(f"properties: {application.json_data['deployment']['properties']}")
+                print(f"visibility: {application.json_data['deployment']['properties']['application.visibility']}")
+                if visibility != application.json_data["deployment"]["properties"]["application.visibility"]:
+                    property_update = self._rstudio_client.update_application_property(
+                        application.json_data["id"], "application.visibility", visibility
+                    )
+                    self._server.handle_bad_response(property_update)
+
         app_id_int = application.json_data["id"]
         app_url = application.json_data["url"]
 
@@ -1228,6 +1266,7 @@ class CloudService:
         app_name: str,
         bundle_size: int,
         bundle_hash: str,
+        visibility: typing.Optional[str],
     ):
         if app_id is None:
             project_application_id = os.getenv("LUCID_APPLICATION_ID")
@@ -1242,7 +1281,9 @@ class CloudService:
                 project_id = None
                 space_id = None
 
-            output = self._rstudio_client.create_output(name=app_name, project_id=project_id, space_id=space_id)
+            output = self._rstudio_client.create_output(
+                name=app_name, project_id=project_id, space_id=space_id, visibility=visibility
+            )
             self._server.handle_bad_response(output)
             app_id = output.json_data["source_id"]
             application = self._rstudio_client.get_application(app_id)
@@ -1252,6 +1293,9 @@ class CloudService:
             self._server.handle_bad_response(application)
             output = self._rstudio_client.get_content(application.json_data["content_id"])
             self._server.handle_bad_response(output)
+            if visibility is not None and output.json_data["visibility"] != visibility:
+                update_output = self._rstudio_client.update_output(output.json_data["id"], {"visibility": visibility})
+                self._server.handle_bad_response(update_output)
 
         app_id_int = application.json_data["id"]
         app_url = output.json_data["url"]

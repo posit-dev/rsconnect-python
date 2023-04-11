@@ -961,6 +961,13 @@ def deploy_voila(
 @content_args
 @rstudio_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
+@click.option(
+    "--visibility",
+    "-V",
+    type=click.Choice(['public', 'private']),
+    help="The visibility of the resource being deployed. (public or private, Posit Cloud and shinyapps.io only. "
+         "Cloud defaults to public; shinyapps.io defaults to private.)",
+)
 @cli_exception_handler
 def deploy_manifest(
     name: str,
@@ -977,6 +984,7 @@ def deploy_manifest(
     verbose: bool,
     file: str,
     env_vars: typing.Dict[str, str],
+    visibility: typing.Optional[str],
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -1268,6 +1276,13 @@ def generate_deploy_python(app_mode, alias, min_version):
         nargs=-1,
         type=click.Path(exists=True, dir_okay=False, file_okay=True),
     )
+    @click.option(
+        "--visibility",
+        "-V",
+        type=click.Choice(['public', 'private']),
+        help="The visibility of the resource being deployed. (public or private, Posit Cloud and shinyapps.io only. "
+             "Cloud defaults to public; shinyapps.io defaults to private.)",
+    )
     @cli_exception_handler
     def deploy_app(
         name: str,
@@ -1286,6 +1301,7 @@ def generate_deploy_python(app_mode, alias, min_version):
         verbose: bool,
         directory,
         extra_files,
+        visibility: typing.Optional[str],
         env_vars: typing.Dict[str, str],
         image: str,
         account: str = None,
