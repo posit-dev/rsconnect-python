@@ -2425,3 +2425,26 @@ def test_make_manifest_bundle():
         bundle_json = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
         assert manifest["metadata"] == bundle_json["metadata"]
         assert manifest["files"].keys() == bundle_json["files"].keys()
+
+
+def test_make_bundle_empty_manifest():
+    manifest = {}
+    with pytest.raises(TypeError):
+        make_manifest_bundle(manifest)
+
+
+def test_make_bundle_missing_file_in_manifest():
+    manifest = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-shiny", "entrypoint": "app5"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements1.txt": {"checksum": "c82f1a9894e5510b2f0c16fa63aaa004"},
+        },
+    }
+    with pytest.raises(TypeError):
+        make_manifest_bundle(manifest)
