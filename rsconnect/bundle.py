@@ -79,16 +79,14 @@ class Manifest:
         if environment:
             self.data["locale"] = environment.locale
 
-        if metadata and isinstance(metadata, dict):
-            self.data["metadata"] = metadata
-        elif metadata and not isinstance(metadata, dict):
-            raise TypeError("metadata must be a dictionary.")
-        else:
+        if metadata is None:
             self.data["metadata"] = {}
-            if isinstance(app_mode, AppMode):
-                self.data["metadata"]["appmode"] = app_mode.name()
-            else:
+            if app_mode is None:
                 self.data["metadata"]["appmode"] = AppModes.UNKNOWN
+            else:
+                self.data["metadata"]["appmode"] = app_mode.name()
+        else:
+            self.data["metadata"] = metadata
 
         if primary_html:
             self.data["metadata"]["primary_html"] = primary_html
