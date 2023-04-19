@@ -124,10 +124,8 @@ class Manifest:
             }
 
         self.data["files"] = {}
-        if files and isinstance(files, dict):
+        if files:
             self.data["files"] = files
-        elif files and not isinstance(files, dict):
-            raise TypeError("files must be a dictionary.")
 
     @property
     def deploy_dir(self):
