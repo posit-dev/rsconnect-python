@@ -1,0 +1,21 @@
+{
+    "version": 1,
+    "locale": "en_US.UTF-8",
+    "metadata": {
+        "appmode": "python-shiny",
+        "entrypoint": "app5"
+    },
+    "python": {
+        "version": "3.8.12",
+        "package_manager": {
+            "name": "pip",
+            "version": "23.0.1",
+            "package_file": "requirements.txt"
+        }
+    },
+    "files": {
+        "app9.py": {
+            "checksum": "f7e4b3b7ff0ada525ec388d037ff6c6a"
+        }
+    }
+}
