@@ -2432,8 +2432,8 @@ missing_file_manifest = os.path.join(cur_dir, "./testdata/Manifest_data/missing_
 
 
 def test_make_bundle_empty_manifest():
-    with pytest.raises(TypeError):
-        make_manifest_bundle(Exception)
+    with pytest.raises(Exception):
+        make_manifest_bundle(empty_manifest_file)
 
 
 def test_make_bundle_missing_file_in_manifest():
