@@ -2389,3 +2389,53 @@ def test_make_api_bundle_shiny():
         bundle_json = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
         assert shiny_dir_ans["metadata"] == bundle_json["metadata"]
         assert shiny_dir_ans["files"].keys() == bundle_json["files"].keys()
+
+
+pyshiny_manifest_dir = os.path.join(cur_dir, "./testdata/pyshiny_with_manifest")
+pyshiny_manifest_file = os.path.join(cur_dir, "./testdata/pyshiny_with_manifest/manifest.json")
+
+
+def test_make_manifest_bundle():
+    manifest = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-shiny", "entrypoint": "app5"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "c82f1a9894e5510b2f0c16fa63aaa004"},
+            "README.md": {"checksum": "7d083dbcdd4731d91bcb470e746b3a38"},
+            "app5.py": {"checksum": "f7e4b3b7ff0ada525ec388d037ff6c6a"},
+            "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
+        },
+    }
+    with make_manifest_bundle(
+        pyshiny_manifest_file,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "README.md",
+            "app5.py",
+            "data.csv",
+            "manifest.json",
+            "requirements.txt",
+        ]
+        bundle_json = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+        assert manifest["metadata"] == bundle_json["metadata"]
+        assert manifest["files"].keys() == bundle_json["files"].keys()
+
+
+empty_manifest_file = os.path.join(cur_dir, "./testdata/Manifest_data/empty_manifest.json")
+missing_file_manifest = os.path.join(cur_dir, "./testdata/Manifest_data/missing_file_manifest.json")
+
+
+def test_make_bundle_empty_manifest():
+    with pytest.raises(Exception):
+        make_manifest_bundle(empty_manifest_file)
+
+
+def test_make_bundle_missing_file_in_manifest():
+    with pytest.raises(FileNotFoundError):
+        make_manifest_bundle(missing_file_manifest)
