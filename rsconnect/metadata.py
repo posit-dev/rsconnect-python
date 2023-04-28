@@ -18,7 +18,7 @@ from .exception import RSConnectException
 from .log import logger
 from .models import AppMode, AppModes
 
-METADATA_RECORD_VERSION = 1
+APPSTORE_VERSION = 1
 
 def config_dirname(platform=sys.platform, env=os.environ):
     """Get the user's configuration directory path for this platform."""
@@ -447,7 +447,7 @@ class AppStore(DataStore):
                 app_guid=app_guid,
                 title=title,
                 app_mode=app_mode.name() if isinstance(app_mode, AppMode) else app_mode,
-                record_version=METADATA_RECORD_VERSION,
+                appstore_version=APPSTORE_VERSION,
             ),
         )
 
