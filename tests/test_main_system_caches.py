@@ -141,4 +141,4 @@ class TestSystemCachesDelete(unittest.TestCase):
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 1)
 
-        self.assertRegex(result.output, "Cache path does not exist")
+        self.assertRegex(result.output, "Cache does not exist")

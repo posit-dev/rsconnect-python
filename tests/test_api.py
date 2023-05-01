@@ -184,7 +184,7 @@ class TestSystemRuntimeCachesAPI(TestCase):
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_executor_delete_runtime_cache_error(self):
         ce = RSConnectExecutor(None, "http://test-server/", "api_key")
-        mocked_delete_output = {"code": 4, "error": "Cache path does not exist", "payload": None}
+        mocked_delete_output = {"code": 4, "error": "Cache does not exist", "payload": None}
         httpretty.register_uri(
             httpretty.DELETE,
             "http://test-server/__api__/v1/system/caches/runtime",
@@ -193,7 +193,7 @@ class TestSystemRuntimeCachesAPI(TestCase):
             forcing_headers={"Content-Type": "application/json"},
         )
 
-        with self.assertRaisesRegex(RSConnectException, "Cache path does not exist"):
+        with self.assertRaisesRegex(RSConnectException, "Cache does not exist"):
             ce.delete_runtime_cache(language="Python", version="1.2.3", image_name="teapot", dry_run=False)
 
 
