@@ -274,7 +274,9 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
     :return: a tuple containing an appropriate ConnectServer object and the username
     of the user the API key represents (or None, if no key was provided).
     """
-    ca_data = ca_cert and ca_cert.read()
+    ca_data = None
+    if ca_cert:
+        ca_data = read_certificate_file(ca_cert)
     me = None
 
     with cli_feedback("Checking %s" % server):
