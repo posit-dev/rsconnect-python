@@ -15,12 +15,13 @@ jobs:
   test:
     strategy:
       matrix:
-        # TODO: work on windows-latest compatibility?
         os: [ubuntu-latest]
         python-version: ['3.7', '3.8', '3.9', '3.10', '3.11']
         include:
         - os: macos-latest
           python-version: '3.9'
+        - os: windows-latest
+          python-version: '3.9'          
     runs-on: ${{ matrix.os }}
     name: test (py${{ matrix.python-version }} ${{ matrix.os }})
     steps:

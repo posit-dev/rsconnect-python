@@ -1,0 +1,13 @@
+asgiref==3.4.1
+click==8.0.4
+fastapi==0.75.0
+h11==0.13.0
+numpy>=1.19.5
+pandas==1.1.5
+pydantic==1.9.0
+python-dateutil
+pytz==2021.3
+six==1.16.0
+starlette==0.17.1
+typing-extensions==4.1.1
+uvicorn>=0.17.0
