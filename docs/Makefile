@@ -24,7 +24,7 @@ build: docs/index.md docs/changelog.md
 	$(BUILD_RUNNER) /bin/sh -c "pip3 install /rsconnect_python && mkdocs build"
 
 docs/index.md: $(CURDIR)/../README.md
-	python3 patch_admonitions.py
+	python3 patch_admonitions.py < $(CURDIR)/../README.md > docs/index.md
 
 docs/changelog.md: $(CURDIR)/../CHANGELOG.md
 	cp -v $^ $@

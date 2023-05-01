@@ -5,7 +5,6 @@ from rsconnect.certificates import read_certificate_file
 
 
 class ParseCertificateFileTestCase(TestCase):
-
     def test_parse_certificate_file_ca_bundle(self):
         res = read_certificate_file("tests/testdata/certificates/localhost.ca-bundle")
         self.assertTrue(res)

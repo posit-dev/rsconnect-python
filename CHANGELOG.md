@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - cacert read error when adding/updating a server.
 
+## Unreleased
+
+### Added
+- Added `system caches list` and `system caches delete` commands which allow administrators to enumerate and delete R and Python runtime caches from Connect servers.
+
 ## [1.16.0] - 2023-03-27
 
 ### Added

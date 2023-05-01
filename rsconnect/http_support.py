@@ -156,7 +156,6 @@ class HTTPResponse(object):
             self.status = response.status
             self.reason = response.reason
             self.content_type = response.getheader("Content-Type")
-
             if self.content_type and self.content_type.startswith("application/json") and len(self.response_body) > 0:
                 self.json_data = json.loads(self.response_body)
 
@@ -242,6 +241,9 @@ class HTTPServer(object):
         return self.request(
             "PUT", path, query_params=query_params, body=body, headers=headers, decode_response=decode_response
         )
+
+    def delete(self, path, query_params=None, body=None, decode_response=True):
+        return self.request("DELETE", path, query_params, body, decode_response=decode_response)
 
     def request(
         self,
