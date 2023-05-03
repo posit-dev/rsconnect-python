@@ -24,7 +24,7 @@ from . import validation
 from .certificates import read_certificate_file
 from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
 from .log import logger, connect_logger, cls_logged, console_logger
-from .models import AppModes
+from .models import AppMode, AppModes
 from .metadata import ServerStore, AppStore
 from .exception import RSConnectException
 from .bundle import _default_title, fake_module_file_from_directory
@@ -700,12 +700,13 @@ class RSConnectExecutor:
     @cls_logged("Deploying bundle ...")
     def deploy_bundle(
         self,
-        app_id: int = None,
+        app_id: typing.Union[str, int] = None,
         deployment_name: str = None,
         title: str = None,
         title_is_default: bool = False,
         bundle: IO = None,
         env_vars=None,
+        app_mode=None,
     ):
         app_id = app_id or self.get("app_id")
         deployment_name = deployment_name or self.get("deployment_name")
@@ -713,6 +714,7 @@ class RSConnectExecutor:
         title_is_default = title_is_default or self.get("title_is_default")
         bundle = bundle or self.get("bundle")
         env_vars = env_vars or self.get("env_vars")
+        app_mode = app_mode or self.get("app_mode")
 
         if isinstance(self.remote_server, RSConnectServer):
             result = self.client.deploy(
@@ -734,7 +736,7 @@ class RSConnectExecutor:
             if isinstance(self.remote_server, ShinyappsServer):
                 shinyapps_service = ShinyappsService(self.client, self.remote_server)
                 prepare_deploy_result = shinyapps_service.prepare_deploy(
-                    app_id,
+                    typing.cast(int, app_id),
                     deployment_name,
                     bundle_size,
                     bundle_hash,
@@ -748,9 +750,10 @@ class RSConnectExecutor:
                     deployment_name,
                     bundle_size,
                     bundle_hash,
+                    app_mode,
                 )
                 self.upload_rstudio_bundle(prepare_deploy_result, bundle_size, contents)
-                cloud_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
+                cloud_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.application_id)
 
             print("Application successfully deployed to {}".format(prepare_deploy_result.app_url))
             webbrowser.open_new(prepare_deploy_result.app_url)
@@ -868,7 +871,7 @@ class RSConnectExecutor:
                 elif isinstance(self.remote_server, PositServer):
                     try:
                         app = get_rstudio_app_info(self.remote_server, app_id)
-                        existing_app_mode = AppModes.get_by_cloud_name(app.json_data["mode"])
+                        existing_app_mode = AppModes.get_by_cloud_name(app["mode"])
                     except RSConnectException as e:
                         raise RSConnectException(
                             f"{e} Try setting the --new flag to overwrite the previous deployment."
@@ -1026,7 +1029,7 @@ class S3Client(HTTPServer):
 
 
 class PrepareDeployResult:
-    def __init__(self, app_id: int, app_url: str, bundle_id: int, presigned_url: str, presigned_checksum: str):
+    def __init__(self, app_id: str, app_url: str, bundle_id: int, presigned_url: str, presigned_checksum: str):
         self.app_id = app_id
         self.app_url = app_url
         self.bundle_id = bundle_id
@@ -1036,7 +1039,14 @@ class PrepareDeployResult:
 
 class PrepareDeployOutputResult(PrepareDeployResult):
     def __init__(
-        self, app_id: int, app_url: str, bundle_id: int, presigned_url: str, presigned_checksum: str, output_id: int
+        self,
+        app_id: str,
+        app_url: str,
+        bundle_id: int,
+        presigned_url: str,
+        presigned_checksum: str,
+        output_id: int,
+        application_id: int,
     ):
         super().__init__(
             app_id=app_id,
@@ -1046,6 +1056,7 @@ class PrepareDeployOutputResult(PrepareDeployResult):
             presigned_checksum=presigned_checksum,
         )
         self.output_id = output_id
+        self.application_id = application_id
 
 
 class PositClient(HTTPServer):
@@ -1070,6 +1081,15 @@ class PositClient(HTTPServer):
     def _get_canonical_request_signature(self, request):
         result = hmac.new(self._key, request.encode(), hashlib.sha256).hexdigest()
         return base64.b64encode(result.encode()).decode()
+
+    def _tweak_response(self, response):
+        return (
+            response.json_data
+            if (
+                response.status and response.status >= 200 and response.status <= 299 and response.json_data is not None
+            )
+            else response
+        )
 
     def get_extra_headers(self, url, method, body):
         canonical_request_method = method.upper()
@@ -1097,10 +1117,14 @@ class PositClient(HTTPServer):
         }
 
     def get_application(self, application_id):
-        return self.get("/v1/applications/{}".format(application_id))
+        response = self.get("/v1/applications/{}".format(application_id))
+        self._server.handle_bad_response(response)
+        return response
 
     def get_content(self, content_id):
-        return self.get("/v1/content/{}".format(content_id))
+        response = self.get("/v1/content/{}".format(content_id))
+        self._server.handle_bad_response(response)
+        return response
 
     def create_application(self, account_id, application_name):
         application_data = {
@@ -1108,23 +1132,32 @@ class PositClient(HTTPServer):
             "name": application_name,
             "template": "shiny",
         }
-        return self.post("/v1/applications/", body=application_data)
+        response = self.post("/v1/applications/", body=application_data)
+        self._server.handle_bad_response(response)
+        return response
 
-    def create_output(self, name, project_id=None, space_id=None):
-        data = {
-            "name": name,
-            "space": space_id,
-            "project": project_id,
-        }
-        return self.post("/v1/outputs/", body=data)
+    def create_output(self, name: str, application_type: str, project_id=None, space_id=None):
+        data = {"name": name, "space": space_id, "project": project_id, "application_type": application_type}
+        response = self.post("/v1/outputs/", body=data)
+        self._server.handle_bad_response(response)
+        return response
+
+    def create_revision(self, content_id):
+        response = self.post("/v1/outputs/{}/revisions".format(content_id), body={})
+        self._server.handle_bad_response(response)
+        return response
 
     def get_accounts(self):
-        return self.get("/v1/accounts/")
+        response = self.get("/v1/accounts/")
+        self._server.handle_bad_response(response)
+        return response
 
     def _get_applications_like_name_page(self, name: str, offset: int):
-        return self.get(
+        response = self.get(
             "/v1/applications?filter=name:like:{}&offset={}&count=100&use_advanced_filters=true".format(name, offset)
         )
+        self._server.handle_bad_response(response)
+        return response
 
     def create_bundle(self, application_id: int, content_type: str, content_length: int, checksum: str):
         bundle_data = {
@@ -1133,20 +1166,29 @@ class PositClient(HTTPServer):
             "content_length": content_length,
             "checksum": checksum,
         }
-        result = self.post("/v1/bundles", body=bundle_data)
-        return result
+        response = self.post("/v1/bundles", body=bundle_data)
+        self._server.handle_bad_response(response)
+        return response
 
     def set_bundle_status(self, bundle_id, bundle_status):
-        return self.post("/v1/bundles/{}/status".format(bundle_id), body={"status": bundle_status})
+        response = self.post("/v1/bundles/{}/status".format(bundle_id), body={"status": bundle_status})
+        self._server.handle_bad_response(response)
+        return response
 
     def deploy_application(self, bundle_id, app_id):
-        return self.post("/v1/applications/{}/deploy".format(app_id), body={"bundle": bundle_id, "rebuild": False})
+        response = self.post("/v1/applications/{}/deploy".format(app_id), body={"bundle": bundle_id, "rebuild": False})
+        self._server.handle_bad_response(response)
+        return response
 
     def get_task(self, task_id):
-        return self.get("/v1/tasks/{}".format(task_id), query_params={"legacy": "true"})
+        response = self.get("/v1/tasks/{}".format(task_id), query_params={"legacy": "true"})
+        self._server.handle_bad_response(response)
+        return response
 
     def get_current_user(self):
-        return self.get("/v1/users/me")
+        response = self.get("/v1/users/me")
+        self._server.handle_bad_response(response)
+        return response
 
     def wait_until_task_is_successful(self, task_id, timeout=get_timeout()):
         print()
@@ -1154,11 +1196,10 @@ class PositClient(HTTPServer):
         start_time = time.time()
         while time.time() - start_time < timeout:
             task = self.get_task(task_id)
-            self._server.handle_bad_response(task)
-            finished = task.json_data["finished"]
-            status = task.json_data["status"]
-            description = task.json_data["description"]
-            error = task.json_data["error"]
+            finished = task["finished"]
+            status = task["status"]
+            description = task["description"]
+            error = task["error"]
 
             if finished:
                 break
@@ -1181,12 +1222,12 @@ class PositClient(HTTPServer):
         self._server.handle_bad_response(results)
         offset = 0
 
-        while len(applications) < int(results.json_data["total"]):
+        while len(applications) < int(results["total"]):
             results = self._get_applications_like_name_page(name, offset)
             self._server.handle_bad_response(results)
-            applications = results.json_data["applications"]
+            applications = results["applications"]
             applications.extend(applications)
-            offset += int(results.json_data["count"])
+            offset += int(results["count"])
 
         return [app["name"] for app in applications]
 
@@ -1203,9 +1244,7 @@ class ShinyappsService:
     def prepare_deploy(self, app_id: typing.Optional[int], app_name: str, bundle_size: int, bundle_hash: str):
         accounts = self._rstudio_client.get_accounts()
         self._server.handle_bad_response(accounts)
-        account = next(
-            filter(lambda acct: acct["name"] == self._server.account_name, accounts.json_data["accounts"]), None
-        )
+        account = next(filter(lambda acct: acct["name"] == self._server.account_name, accounts["accounts"]), None)
         # TODO: also check this during `add` command
         if account is None:
             raise RSConnectException(
@@ -1217,8 +1256,8 @@ class ShinyappsService:
         else:
             application = self._rstudio_client.get_application(app_id)
         self._server.handle_bad_response(application)
-        app_id_int = application.json_data["id"]
-        app_url = application.json_data["url"]
+        app_id_int = application["id"]
+        app_url = application["url"]
 
         bundle = self._rstudio_client.create_bundle(app_id_int, "application/x-tar", bundle_size, bundle_hash)
         self._server.handle_bad_response(bundle)
@@ -1226,18 +1265,25 @@ class ShinyappsService:
         return PrepareDeployResult(
             app_id_int,
             app_url,
-            int(bundle.json_data["id"]),
-            bundle.json_data["presigned_url"],
-            bundle.json_data["presigned_checksum"],
+            int(bundle["id"]),
+            bundle["presigned_url"],
+            bundle["presigned_checksum"],
         )
 
     def do_deploy(self, bundle_id, app_id):
-        bundle_status_response = self._rstudio_client.set_bundle_status(bundle_id, "ready")
-        self._server.handle_bad_response(bundle_status_response)
-
+        self._rstudio_client.set_bundle_status(bundle_id, "ready")
         deploy_task = self._rstudio_client.deploy_application(bundle_id, app_id)
-        self._server.handle_bad_response(deploy_task)
-        self._rstudio_client.wait_until_task_is_successful(deploy_task.json_data["id"])
+        self._rstudio_client.wait_until_task_is_successful(deploy_task["id"])
+
+
+class CloudResourceIdentity:
+    def __init__(self, identifier):
+        if isinstance(identifier, str) and identifier.startswith("lucid:content:"):
+            self.content_id = identifier.split(":")[-1]
+            self.application_id = None
+        else:
+            self.application_id = identifier
+            self.content_id = None
 
 
 class CloudService:
@@ -1245,64 +1291,73 @@ class CloudService:
     Encapsulates operations involving multiple API calls to Posit Cloud.
     """
 
-    def __init__(self, rstudio_client: PositClient, server: CloudServer):
-        self._rstudio_client = rstudio_client
+    def __init__(self, cloud_client: PositClient, server: CloudServer):
+        self._rstudio_client = cloud_client
         self._server = server
 
     def prepare_deploy(
         self,
-        app_id: typing.Optional[int],
+        app_id: typing.Optional[typing.Union[str, int]],
         app_name: str,
         bundle_size: int,
         bundle_hash: str,
+        app_mode: AppMode,
     ):
+        application_type = "static" if app_mode == AppModes.STATIC else "connect"
+
         if app_id is None:
+            # this is a new deployment.
+            # get the Posit Cloud project so that we can associate the deployment with it
             project_application_id = os.getenv("LUCID_APPLICATION_ID")
             if project_application_id is not None:
                 project_application = self._rstudio_client.get_application(project_application_id)
-                self._server.handle_bad_response(project_application)
-                project_id = project_application.json_data["content_id"]
+                project_id = project_application["content_id"]
                 project = self._rstudio_client.get_content(project_id)
-                self._server.handle_bad_response(project)
-                space_id = project.json_data["space_id"]
+                space_id = project["space_id"]
             else:
                 project_id = None
                 space_id = None
 
-            output = self._rstudio_client.create_output(name=app_name, project_id=project_id, space_id=space_id)
-            self._server.handle_bad_response(output)
-            app_id = output.json_data["source_id"]
-            application = self._rstudio_client.get_application(app_id)
-            self._server.handle_bad_response(application)
+            output = self._rstudio_client.create_output(
+                name=app_name, application_type=application_type, project_id=project_id, space_id=space_id
+            )
+            app_id_int = output["source_id"]
         else:
-            application = self._rstudio_client.get_application(app_id)
-            self._server.handle_bad_response(application)
-            output = self._rstudio_client.get_content(application.json_data["content_id"])
-            self._server.handle_bad_response(output)
+            # this is a redeployment
+            cloud_resource_identity = CloudResourceIdentity(app_id)
+            if cloud_resource_identity.content_id:
+                output = self._rstudio_client.get_content(cloud_resource_identity.content_id)
+                app_id_int = output["source_id"]
+                content_id = output["id"]
+            else:
+                application = self._rstudio_client.get_application(app_id)
+                # content_id will appear on static applications as output_id
+                content_id = application.get("content_id") or application.get("output_id")
+                app_id_int = application["id"]
 
-        app_id_int = application.json_data["id"]
-        app_url = output.json_data["url"]
-        output_id = output.json_data["id"]
+            if application_type == "static":
+                revision = self._rstudio_client.create_revision(content_id)
+                app_id_int = revision["application_id"]
+
+        app_url = output["url"]
+        output_id = output["id"]
 
         bundle = self._rstudio_client.create_bundle(app_id_int, "application/x-tar", bundle_size, bundle_hash)
-        self._server.handle_bad_response(bundle)
 
         return PrepareDeployOutputResult(
-            app_id=app_id_int,
+            app_id="lucid:content:{}".format(output_id),
+            application_id=app_id_int,
             app_url=app_url,
-            bundle_id=int(bundle.json_data["id"]),
-            presigned_url=bundle.json_data["presigned_url"],
-            presigned_checksum=bundle.json_data["presigned_checksum"],
+            bundle_id=int(bundle["id"]),
+            presigned_url=bundle["presigned_url"],
+            presigned_checksum=bundle["presigned_checksum"],
             output_id=output_id,
         )
 
     def do_deploy(self, bundle_id, app_id):
-        bundle_status_response = self._rstudio_client.set_bundle_status(bundle_id, "ready")
-        self._server.handle_bad_response(bundle_status_response)
-
+        self._rstudio_client.set_bundle_status(bundle_id, "ready")
         deploy_task = self._rstudio_client.deploy_application(bundle_id, app_id)
-        self._server.handle_bad_response(deploy_task)
-        self._rstudio_client.wait_until_task_is_successful(deploy_task.json_data["id"])
+        self._rstudio_client.wait_until_task_is_successful(deploy_task["id"])
 
 
 def verify_server(connect_server):
@@ -1372,10 +1427,13 @@ def get_app_info(connect_server, app_id):
 
 
 def get_rstudio_app_info(server, app_id):
+    cloud_resource_identity = CloudResourceIdentity(app_id)
     with PositClient(server) as client:
-        result = client.get_application(app_id)
-        server.handle_bad_response(result)
-        return result
+        if cloud_resource_identity.content_id:
+            response = client.get_content(cloud_resource_identity.content_id)
+            return response["source"]
+        else:
+            return client.get_application(app_id)
 
 
 def get_app_config(connect_server, app_id):
