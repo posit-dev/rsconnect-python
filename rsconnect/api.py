@@ -1422,14 +1422,9 @@ def get_app_info(connect_server, app_id):
 
 
 def get_rstudio_app_info(server, app_id):
-    cloud_resource_identity = CloudResourceIdentity(app_id)
     with PositClient(server) as client:
-        if cloud_resource_identity.content_id:
-            response = client.get_content(cloud_resource_identity.content_id)
-            return response["source"]
-        else:
-            return client.get_application(app_id)
-
+        response = client.get_content(app_id)
+        return response["source"]
 
 def get_app_config(connect_server, app_id):
     """
