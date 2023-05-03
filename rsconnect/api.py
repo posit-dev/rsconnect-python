@@ -1336,7 +1336,6 @@ class CloudService:
                 revision = self._rstudio_client.create_revision(content_id)
                 app_id_int = revision["application_id"]
 
-
         app_url = output["url"]
         output_id = output["id"]
 
@@ -1428,6 +1427,7 @@ def get_rstudio_app_info(server, app_id):
     with PositClient(server) as client:
         response = client.get_content(app_id)
         return response["source"]
+
 
 def get_app_config(connect_server, app_id):
     """
