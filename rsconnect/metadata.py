@@ -403,12 +403,13 @@ class AppStore(DataStore):
     hash is derived from the entry point file name.
     """
 
-    def __init__(self, app_file):
+    def __init__(self, app_file, appstore_version=1):
         base_name = str(basename(app_file).rsplit(".", 1)[0]) + ".json"
         super(AppStore, self).__init__(
             join(dirname(app_file), "rsconnect-python", base_name),
             join(config_dirname(), "applications", sha1(abspath(app_file)) + ".json"),
         )
+        self.appstore_version = appstore_version
 
     def get(self, server_url):
         """
@@ -446,6 +447,7 @@ class AppStore(DataStore):
                 app_guid=app_guid,
                 title=title,
                 app_mode=app_mode.name() if isinstance(app_mode, AppMode) else app_mode,
+                appstore_version=self.appstore_version,
             ),
         )
 
