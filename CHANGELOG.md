@@ -5,6 +5,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## Unreleased
 
+### Added
+- `deploy html` and `deploy manifest` now support deployment to Posit Cloud.
+
+### Changed
+- Cloud deployments accept the content id instead of application id in the --app-id field.
+- The `app_id` field in application store files also stores the content id instead of the application id.
+- Application store files include a `version` field, set to 1 for this release.
+
+## Unreleased
+
 ### Fixed
 - getdefaultlocale deprecated
 
