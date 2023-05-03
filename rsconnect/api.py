@@ -1330,9 +1330,12 @@ class CloudService:
                 content_id = application.get("content_id") or application.get("output_id")
                 app_id_int = application["id"]
 
+                output = self._rstudio_client.get_content(content_id)
+
             if application_type == "static":
                 revision = self._rstudio_client.create_revision(content_id)
                 app_id_int = revision["application_id"]
+
 
         app_url = output["url"]
         output_id = output["id"]
