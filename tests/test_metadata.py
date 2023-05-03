@@ -199,7 +199,7 @@ class TestAppMetadata(TestCase):
                 title="Important Title",
                 app_mode="static",
                 filename="/path/to/file",
-                appstore_version=1,
+                app_store_version=1,
             ),
         )
 
@@ -213,7 +213,7 @@ class TestAppMetadata(TestCase):
                 title="Untitled",
                 app_mode="jupyter-static",
                 filename="/path/to/file",
-                appstore_version=1,
+                app_store_version=1,
             ),
         )
 

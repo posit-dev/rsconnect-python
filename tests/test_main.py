@@ -442,7 +442,8 @@ class TestMain:
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     @pytest.mark.parametrize(
-        "command_and_arg",
+        "command,arg",
+
         [
             [
                 "manifest",
@@ -455,10 +456,12 @@ class TestMain:
         ],
         ids=["using manifest", "using html"],
     )
-    def test_deploy_static_cloud(self, command_and_arg):
+    def test_deploy_static_cloud(self, command, arg):
         """
         Verify that an app with app_mode as static can deploy to cloud.
         """
+        shutil.rmtree(os.path.join(arg, 'rsconnect-python'), ignore_errors=True)
+
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
 
@@ -583,7 +586,8 @@ class TestMain:
         runner = CliRunner()
         args = [
             "deploy",
-            *command_and_arg,
+            command,
+            arg,
             "--server",
             "rstudio.cloud",
             "--account",

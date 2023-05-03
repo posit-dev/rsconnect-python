@@ -25,7 +25,7 @@ from .certificates import read_certificate_file
 from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
 from .log import logger, connect_logger, cls_logged, console_logger
 from .models import AppMode, AppModes
-from .metadata import ServerStore, AppStore
+from .metadata import ServerStore, AppStore, CURRENT_APP_STORE_VERSION
 from .exception import RSConnectException
 from .bundle import _default_title, fake_module_file_from_directory
 from .timeouts import get_timeout
@@ -745,12 +745,9 @@ class RSConnectExecutor:
                 shinyapps_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
             else:
                 cloud_service = CloudService(self.client, self.remote_server)
+                app_store_version = self.get("app_store_version")
                 prepare_deploy_result = cloud_service.prepare_deploy(
-                    app_id,
-                    deployment_name,
-                    bundle_size,
-                    bundle_hash,
-                    app_mode,
+                    app_id, deployment_name, bundle_size, bundle_hash, app_mode, app_store_version
                 )
                 self.upload_rstudio_bundle(prepare_deploy_result, bundle_size, contents)
                 cloud_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.application_id)
@@ -851,11 +848,16 @@ class RSConnectExecutor:
             raise RSConnectException("Specify either a new deploy or an app ID but not both.")
 
         existing_app_mode = None
+        app_store_version = CURRENT_APP_STORE_VERSION
         if not new:
             if app_id is None:
                 # Possible redeployment - check for saved metadata.
                 # Use the saved app information unless overridden by the user.
-                app_id, existing_app_mode = app_store.resolve(self.remote_server.url, app_id, app_mode)
+                app_id, existing_app_mode, app_store_version = app_store.resolve(
+                    self.remote_server.url, app_id, app_mode
+                )
+                self.state["app_store_version"] = app_store_version
+
                 logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
             elif app_id is not None:
                 # Don't read app metadata if app-id is specified. Instead, we need
@@ -888,6 +890,7 @@ class RSConnectExecutor:
 
         self.state["app_id"] = app_id
         self.state["app_mode"] = app_mode
+        self.state["app_store_version"] = app_store_version
         return self
 
     @property
@@ -1276,16 +1279,6 @@ class ShinyappsService:
         self._rstudio_client.wait_until_task_is_successful(deploy_task["id"])
 
 
-class CloudResourceIdentity:
-    def __init__(self, identifier):
-        if isinstance(identifier, str) and identifier.startswith("lucid:content:"):
-            self.content_id = identifier.split(":")[-1]
-            self.application_id = None
-        else:
-            self.application_id = identifier
-            self.content_id = None
-
-
 class CloudService:
     """
     Encapsulates operations involving multiple API calls to Posit Cloud.
@@ -1302,6 +1295,7 @@ class CloudService:
         bundle_size: int,
         bundle_hash: str,
         app_mode: AppMode,
+        app_store_version: typing.Optional[int],
     ):
         application_type = "static" if app_mode == AppModes.STATIC else "connect"
 
@@ -1324,12 +1318,13 @@ class CloudService:
             app_id_int = output["source_id"]
         else:
             # this is a redeployment
-            cloud_resource_identity = CloudResourceIdentity(app_id)
-            if cloud_resource_identity.content_id:
-                output = self._rstudio_client.get_content(cloud_resource_identity.content_id)
+            if app_store_version is not None:
+                # versioned app store files store content id in app_id
+                output = self._rstudio_client.get_content(app_id)
                 app_id_int = output["source_id"]
                 content_id = output["id"]
             else:
+                # unversioned appstore files (deployed using a prior release) store application id id app_id
                 application = self._rstudio_client.get_application(app_id)
                 # content_id will appear on static applications as output_id
                 content_id = application.get("content_id") or application.get("output_id")
@@ -1345,7 +1340,7 @@ class CloudService:
         bundle = self._rstudio_client.create_bundle(app_id_int, "application/x-tar", bundle_size, bundle_hash)
 
         return PrepareDeployOutputResult(
-            app_id="lucid:content:{}".format(output_id),
+            app_id=output_id,
             application_id=app_id_int,
             app_url=app_url,
             bundle_id=int(bundle["id"]),
