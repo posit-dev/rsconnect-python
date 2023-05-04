@@ -744,7 +744,7 @@ class RSConnectExecutor:
                 self.upload_rstudio_bundle(prepare_deploy_result, bundle_size, contents)
                 shinyapps_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
             else:
-                cloud_service = CloudService(self.client, self.remote_server)
+                cloud_service = CloudService(self.client, self.remote_server, os.getenv("LUCID_APPLICATION_ID"))
                 app_store_version = self.get("app_store_version")
                 prepare_deploy_result = cloud_service.prepare_deploy(
                     app_id, deployment_name, bundle_size, bundle_hash, app_mode, app_store_version
@@ -1282,7 +1282,7 @@ class CloudService:
     Encapsulates operations involving multiple API calls to Posit Cloud.
     """
 
-    def __init__(self, cloud_client: PositClient, server: CloudServer, project_application_id: typing.Optional[str] = os.getenv("LUCID_APPLICATION_ID")):
+    def __init__(self, cloud_client: PositClient, server: CloudServer, project_application_id: typing.Optional[str]):
         self._rstudio_client = cloud_client
         self._server = server
         self._project_application_id = project_application_id
