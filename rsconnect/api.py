@@ -1048,7 +1048,6 @@ class PrepareDeployOutputResult(PrepareDeployResult):
         bundle_id: int,
         presigned_url: str,
         presigned_checksum: str,
-        output_id: int,
         application_id: int,
     ):
         super().__init__(
@@ -1058,7 +1057,6 @@ class PrepareDeployOutputResult(PrepareDeployResult):
             presigned_url=presigned_url,
             presigned_checksum=presigned_checksum,
         )
-        self.output_id = output_id
         self.application_id = application_id
 
 
@@ -1284,9 +1282,10 @@ class CloudService:
     Encapsulates operations involving multiple API calls to Posit Cloud.
     """
 
-    def __init__(self, cloud_client: PositClient, server: CloudServer):
+    def __init__(self, cloud_client: PositClient, server: CloudServer, project_application_id: typing.Optional[str] = os.getenv("LUCID_APPLICATION_ID")):
         self._rstudio_client = cloud_client
         self._server = server
+        self._project_application_id = project_application_id
 
     def prepare_deploy(
         self,
@@ -1296,15 +1295,14 @@ class CloudService:
         bundle_hash: str,
         app_mode: AppMode,
         app_store_version: typing.Optional[int],
-    ):
+    ) -> PrepareDeployOutputResult:
         application_type = "static" if app_mode == AppModes.STATIC else "connect"
 
         if app_id is None:
             # this is a new deployment.
             # get the Posit Cloud project so that we can associate the deployment with it
-            project_application_id = os.getenv("LUCID_APPLICATION_ID")
-            if project_application_id is not None:
-                project_application = self._rstudio_client.get_application(project_application_id)
+            if self._project_application_id is not None:
+                project_application = self._rstudio_client.get_application(self._project_application_id)
                 project_id = project_application["content_id"]
                 project = self._rstudio_client.get_content(project_id)
                 space_id = project["space_id"]
@@ -1324,7 +1322,7 @@ class CloudService:
                 app_id_int = output["source_id"]
                 content_id = output["id"]
             else:
-                # unversioned appstore files (deployed using a prior release) store application id id app_id
+                # unversioned appstore files (deployed using a prior release) store application id in app_id
                 application = self._rstudio_client.get_application(app_id)
                 # content_id will appear on static applications as output_id
                 content_id = application.get("content_id") or application.get("output_id")
@@ -1348,7 +1346,6 @@ class CloudService:
             bundle_id=int(bundle["id"]),
             presigned_url=bundle["presigned_url"],
             presigned_checksum=bundle["presigned_checksum"],
-            output_id=output_id,
         )
 
     def do_deploy(self, bundle_id, app_id):
