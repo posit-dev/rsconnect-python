@@ -224,8 +224,7 @@ def test_server(connect_server):
 def test_rstudio_server(server: api.PositServer):
     with api.PositClient(server) as client:
         try:
-            result = client.get_current_user()
-            server.handle_bad_response(result)
+            client.get_current_user()
         except RSConnectException as exc:
             raise RSConnectException("Failed to verify with {} ({}).".format(server.remote_name, exc))
 
