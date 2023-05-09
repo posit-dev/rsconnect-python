@@ -25,7 +25,7 @@ from .certificates import read_certificate_file
 from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
 from .log import logger, connect_logger, cls_logged, console_logger
 from .models import AppMode, AppModes
-from .metadata import ServerStore, AppStore, CURRENT_APP_STORE_VERSION
+from .metadata import ServerStore, AppStore
 from .exception import RSConnectException
 from .bundle import _default_title, fake_module_file_from_directory
 from .timeouts import get_timeout
@@ -848,7 +848,6 @@ class RSConnectExecutor:
             raise RSConnectException("Specify either a new deploy or an app ID but not both.")
 
         existing_app_mode = None
-        app_store_version = CURRENT_APP_STORE_VERSION
         if not new:
             if app_id is None:
                 # Possible redeployment - check for saved metadata.

@@ -380,9 +380,6 @@ def sha1(s):
     return base64.urlsafe_b64encode(m.digest()).decode("utf-8").rstrip("=")
 
 
-CURRENT_APP_STORE_VERSION = 1
-
-
 class AppStore(DataStore):
     """
     Defines a metadata store for information about where the app has been
@@ -409,13 +406,12 @@ class AppStore(DataStore):
     are made.
     """
 
-    def __init__(self, app_file, app_store_version=CURRENT_APP_STORE_VERSION):
+    def __init__(self, app_file):
         base_name = str(basename(app_file).rsplit(".", 1)[0]) + ".json"
         super(AppStore, self).__init__(
             join(dirname(app_file), "rsconnect-python", base_name),
             join(config_dirname(), "applications", sha1(abspath(app_file)) + ".json"),
         )
-        self.app_store_version = app_store_version
 
     def get(self, server_url):
         """
@@ -453,7 +449,7 @@ class AppStore(DataStore):
                 app_guid=app_guid,
                 title=title,
                 app_mode=app_mode.name() if isinstance(app_mode, AppMode) else app_mode,
-                app_store_version=self.app_store_version,
+                app_store_version=self.current_app_store_version,
             ),
         )
 
@@ -461,7 +457,7 @@ class AppStore(DataStore):
         metadata = self.get(server)
         if metadata is None:
             logger.debug("No previous deployment to this server was found; this will be a new deployment.")
-            return app_id, app_mode, CURRENT_APP_STORE_VERSION
+            return app_id, app_mode, self.current_app_store_version
 
         logger.debug("Found previous deployment data in %s" % self.get_path())
 
@@ -474,6 +470,10 @@ class AppStore(DataStore):
 
         app_store_version = metadata.get("app_store_version")
         return app_id, app_mode, app_store_version
+
+    @property
+    def current_app_store_version(self):
+        return 1
 
 
 DEFAULT_BUILD_DIR = join(os.getcwd(), "rsconnect-build")

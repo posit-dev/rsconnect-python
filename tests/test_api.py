@@ -6,7 +6,6 @@ import httpretty
 import sys
 import io
 from rsconnect.exception import RSConnectException
-from rsconnect.metadata import CURRENT_APP_STORE_VERSION
 from rsconnect.models import AppModes
 from .utils import (
     require_api_key,
@@ -257,7 +256,7 @@ class CloudServiceTestCase(TestCase):
             bundle_size=bundle_size,
             bundle_hash=bundle_hash,
             app_mode=app_mode,
-            app_store_version=CURRENT_APP_STORE_VERSION,
+            app_store_version=1,
         )
 
         cloud_client.get_application.assert_called_with(project_application_id)
@@ -301,7 +300,7 @@ class CloudServiceTestCase(TestCase):
             bundle_size=bundle_size,
             bundle_hash=bundle_hash,
             app_mode=app_mode,
-            app_store_version=CURRENT_APP_STORE_VERSION,
+            app_store_version=1,
         )
         cloud_client.get_content.assert_called_with(1)
         cloud_client.create_bundle.assert_called_with(10, "application/x-tar", bundle_size, bundle_hash)
@@ -343,7 +342,7 @@ class CloudServiceTestCase(TestCase):
             bundle_size=bundle_size,
             bundle_hash=bundle_hash,
             app_mode=app_mode,
-            app_store_version=CURRENT_APP_STORE_VERSION,
+            app_store_version=1,
         )
         cloud_client.get_content.assert_called_with(1)
         cloud_client.create_revision.assert_called_with(1)
