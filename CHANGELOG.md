@@ -5,19 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## Unreleased
 
-### Fixed
-- getdefaultlocale deprecated
-
-## Unreleased
-
-### Fixed
-
-- cacert read error when adding/updating a server.
-
-## Unreleased
-
 ### Added
-- Added `system caches list` and `system caches delete` commands which allow administrators to enumerate and delete R and Python runtime caches from Connect servers.
+- Added `system caches list` and `system caches delete` commands which allow administrators to enumerate and delete R and Python runtime caches from Connect servers [#384](https://github.com/rstudio/rsconnect-python/pull/384). Read more about the feature in our [docs](https://docs.posit.co/connect/admin/server-management/runtime-caches/).
+
+### Fixed
+- cacert read error when adding/updating a server [#403](https://github.com/rstudio/rsconnect-python/issues/403).
+- getdefaultlocale no longer work with newer versions of Python [#397](https://github.com/rstudio/rsconnect-python/issues/397) [#399](https://github.com/rstudio/rsconnect-python/issues/399).
+- extra files not being included in write-manifest [#416](https://github.com/rstudio/rsconnect-python/issues/416).
 
 ## [1.16.0] - 2023-03-27
 
