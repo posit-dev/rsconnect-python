@@ -1432,7 +1432,6 @@ def write_manifest_notebook(
         validate_file_is_notebook(file)
 
         base_dir = dirname(file)
-        extra_files = validate_extra_files(base_dir, extra_files)
         manifest_path = join(base_dir, "manifest.json")
 
         if exists(manifest_path) and not overwrite:
@@ -1532,7 +1531,6 @@ def write_manifest_voila(
     set_verbosity(verbose)
     with cli_feedback("Checking arguments"):
         base_dir = dirname(path)
-        extra_files = validate_extra_files(base_dir, extra_files)
         manifest_path = join(base_dir, "manifest.json")
 
         if exists(manifest_path) and not overwrite:
@@ -1642,7 +1640,6 @@ def write_manifest_quarto(
         base_dir = dirname(file_or_directory)
 
     with cli_feedback("Checking arguments"):
-        extra_files = validate_extra_files(base_dir, extra_files)
         manifest_path = join(base_dir, "manifest.json")
 
         if exists(manifest_path) and not overwrite:
@@ -1816,7 +1813,6 @@ def _write_framework_manifest(
 
     with cli_feedback("Checking arguments"):
         entrypoint = validate_entry_point(entrypoint, directory)
-        extra_files = validate_extra_files(directory, extra_files)
         manifest_path = join(directory, "manifest.json")
 
         if exists(manifest_path) and not overwrite:
