@@ -20,8 +20,6 @@ endif
 
 TEST_ENV =
 
-RSC_API_KEYS=vetiver-testing/rsconnect_api_keys.json
-
 ifneq ($(CONNECT_SERVER),)
   TEST_ENV += CONNECT_SERVER=$(CONNECT_SERVER)
 endif
@@ -168,20 +166,16 @@ promote-docs-in-s3:
 		docs/site/ \
 		s3://docs.rstudio.com/rsconnect-python/
 
+RSC_API_KEYS=vetiver-testing/rsconnect_api_keys.json
 
-dev: vetiver-testing/rsconnect_api_keys.json
-
-dev-start:
+dev:
 	docker-compose up -d
 	docker-compose exec -T rsconnect bash < vetiver-testing/setup-rsconnect/add-users.sh
 	# curl fails with error 52 without a short sleep....
 	sleep 5
 	curl -s --retry 10 --retry-connrefused http://localhost:3939
+	python vetiver-testing/setup-rsconnect/dump_api_keys.py $(RSC_API_KEYS)
 
 dev-stop:
 	docker-compose down
 	rm -f $(RSC_API_KEYS)
-
-$(RSC_API_KEYS): dev-start
-	python vetiver-testing/setup-rsconnect/dump_api_keys.py $@
-	

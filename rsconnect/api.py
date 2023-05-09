@@ -215,6 +215,16 @@ class RSConnectClient(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
+    def system_caches_runtime_list(self):
+        response = self.get("v1/system/caches/runtime")
+        self._server.handle_bad_response(response)
+        return response
+
+    def system_caches_runtime_delete(self, target):
+        response = self.delete("v1/system/caches/runtime", body=target)
+        self._server.handle_bad_response(response)
+        return response
+
     def task_get(self, task_id, first_status=None):
         params = None
         if first_status is not None:
@@ -984,6 +994,23 @@ class RSConnectExecutor:
             name = find_unique_name(self.remote_server, name)
 
         return name
+
+    @property
+    def runtime_caches(self):
+        return self.client.system_caches_runtime_list()
+
+    def delete_runtime_cache(self, language, version, image_name, dry_run):
+        target = {"language": language, "version": version, "image_name": image_name, "dry_run": dry_run}
+        result = self.client.system_caches_runtime_delete(target)
+        self.state["result"] = result
+        if result["task_id"] is None:
+            print("Dry run finished")
+        else:
+            (log_lines, task_status) = self.client.wait_for_task(
+                result["task_id"], connect_logger.info, raise_on_error=False
+            )
+            self.state["task_status"] = task_status
+        return self
 
 
 def filter_out_server_info(**kwargs):

@@ -57,32 +57,37 @@ mimetypes.add_type("text/ipynb", ".ipynb")
 
 
 class Manifest:
-    def __init__(self, *args, **kwargs) -> None:
-        self.data = dict()
+    def __init__(
+        self,
+        *args,
+        version: int = None,
+        environment: Environment = None,
+        app_mode: AppMode = None,
+        entrypoint: str = None,
+        quarto_inspection: dict = None,
+        image: str = None,
+        primary_html: str = None,
+        metadata: dict = None,
+        files: dict = None,
+        **kwargs
+    ) -> None:
+        self.data: dict = dict()
         self.buffer: dict = dict()
-        self._deploy_dir = None
-        version = kwargs.get("version")
-        environment = kwargs.get("environment")
-        app_mode = kwargs.get("app_mode")
-        entrypoint = kwargs.get("entrypoint")
-        quarto_inspection = kwargs.get("quarto_inspection")
-        environment = kwargs.get("environment")
-        image = kwargs.get("image")
-        primary_html = kwargs.get("primary_html")
+        self._deploy_dir: str = None
 
         self.data["version"] = version if version else 1
         if environment:
             self.data["locale"] = environment.locale
 
-        self.data["metadata"] = (
-            {
-                "appmode": app_mode.name(),
-            }
-            if app_mode
-            else {
-                "appmode": AppModes.UNKNOWN,
-            }
-        )
+        if metadata is None:
+            self.data["metadata"] = {}
+            if app_mode is None:
+                self.data["metadata"]["appmode"] = AppModes.UNKNOWN
+            else:
+                self.data["metadata"]["appmode"] = app_mode.name()
+        else:
+            self.data["metadata"] = metadata
+
         if primary_html:
             self.data["metadata"]["primary_html"] = primary_html
 
@@ -119,6 +124,8 @@ class Manifest:
             }
 
         self.data["files"] = {}
+        if files:
+            self.data["files"] = files
 
     @property
     def deploy_dir(self):
@@ -130,12 +137,12 @@ class Manifest:
 
     @classmethod
     def from_json(cls, json_str):
-        return cls(json.loads(json_str))
+        return cls(**json.loads(json_str))
 
     @classmethod
     def from_json_file(cls, json_path):
         with open(json_path) as json_file:
-            return cls(json.load(json_file))
+            return cls(**json.load(json_file))
 
     @property
     def json(self):
@@ -169,15 +176,6 @@ class Manifest:
         self.data["files"][path] = {"checksum": file_checksum(path)}
         return self
 
-    def add_relative_path(self, path):
-        """
-        Assumes that path resides below the deployment directory, construct that path add it to the manifest.
-        """
-        deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
-        mod_path = join(deploy_dir, path)
-        self.data["files"][mod_path] = {"checksum": file_checksum(mod_path)}
-        return self
-
     def discard_file(self, path):
         if path in self.data["files"]:
             del self.data["files"][path]
@@ -194,12 +192,17 @@ class Manifest:
             del self.data["files"][key]
         return self
 
-    @property
-    def flattened_data(self):
+    def raise_on_empty_entrypoint(self):
         if self.entrypoint is None:
             raise RSConnectException("A valid entrypoint must be provided.")
+        return self
+
+    @property
+    def flattened_data(self):
+        self.raise_on_empty_entrypoint()
         new_data_files = {}
         deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
+        deploy_dir = self.deploy_dir or deploy_dir
         for path in self.data["files"]:
             rel_path = relpath(path, deploy_dir)
             new_data_files[rel_path] = self.data["files"][path]
@@ -207,10 +210,10 @@ class Manifest:
 
     @property
     def flattened_buffer(self):
-        if self.entrypoint is None:
-            raise RSConnectException("A valid entrypoint must be provided.")
+        self.raise_on_empty_entrypoint()
         new_buffer = {}
         deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
+        deploy_dir = self.deploy_dir or deploy_dir
         for k, v in self.buffer.items():
             rel_path = relpath(k, deploy_dir)
             new_buffer[rel_path] = v
@@ -218,8 +221,7 @@ class Manifest:
 
     @property
     def flattened_entrypoint(self):
-        if self.entrypoint is None:
-            raise RSConnectException("A valid entrypoint must be provided.")
+        self.raise_on_empty_entrypoint()
         return relpath(self.entrypoint, dirname(self.entrypoint))
 
     @property
@@ -230,8 +232,7 @@ class Manifest:
 
     @property
     def flattened_copy(self):
-        if self.entrypoint is None:
-            raise RSConnectException("A valid entrypoint must be provided.")
+        self.raise_on_empty_entrypoint()
         new_manifest = deepcopy(self)
         new_manifest.data["files"] = self.flattened_data
         new_manifest.buffer = self.flattened_buffer
@@ -239,10 +240,6 @@ class Manifest:
         if self.primary_html:
             new_manifest.primary_html = self.flattened_primary_html
         return new_manifest
-
-    def make_relative_to_deploy_dir(self):
-        self = self.flattened_copy
-        return self
 
 
 class Bundle:

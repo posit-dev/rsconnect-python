@@ -289,7 +289,9 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
     :return: a tuple containing an appropriate ConnectServer object and the username
     of the user the API key represents (or None, if no key was provided).
     """
-    ca_data = ca_cert and ca_cert.read()
+    ca_data = None
+    if ca_cert:
+        ca_data = read_certificate_file(ca_cert)
     me = None
 
     with cli_feedback("Checking %s" % server):
@@ -1882,33 +1884,7 @@ def content():
     name="search",
     short_help="Search for content on Posit Connect.",
 )
-@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the Posit Connect server.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with Posit Connect.",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    help="The path to trusted TLS CA certificates.",
-)
+@server_args
 @click.option(
     "--published",
     is_flag=True,
@@ -1944,7 +1920,6 @@ def content():
     type=click.Choice(["created", "last_deployed"]),
     help="Order content results.",
 )
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 # todo: --format option (json, text)
 @cli_exception_handler
 def content_search(
@@ -1976,33 +1951,7 @@ def content_search(
     name="describe",
     short_help="Describe a content item on Posit Connect.",
 )
-@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the Posit Connect server.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with Posit Connect.",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    help="The path to trusted TLS CA certificates.",
-)
+@server_args
 @click.option(
     "--guid",
     "-g",
@@ -2012,7 +1961,6 @@ def content_search(
     metavar="TEXT",
     help="The GUID of a content item to describe. This flag can be passed multiple times.",
 )
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 # todo: --format option (json, text)
 def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
@@ -2027,33 +1975,7 @@ def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     name="download-bundle",
     short_help="Download a content item's source bundle.",
 )
-@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the Posit Connect server.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with Posit Connect.",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    help="The path to trusted TLS CA certificates.",
-)
+@server_args
 @click.option(
     "--guid",
     "-g",
@@ -2074,7 +1996,6 @@ def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     is_flag=True,
     help="Overwrite the output file if it already exists.",
 )
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def content_bundle_download(name, server, api_key, insecure, cacert, guid, output, overwrite, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
@@ -2096,33 +2017,7 @@ def build():
 @build.command(
     name="add", short_help="Mark a content item for build. Use `build run` to invoke the build on the Connect server."
 )
-@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the Posit Connect server.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with Posit Connect.",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    help="The path to trusted TLS CA certificates.",
-)
+@server_args
 @click.option(
     "--guid",
     "-g",
@@ -2132,7 +2027,6 @@ def build():
     metavar="GUID[,BUNDLE_ID]",
     help="Add a content item by its guid. This flag can be passed multiple times.",
 )
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
@@ -2150,33 +2044,7 @@ def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
     short_help="Remove a content item from the list of content that are tracked for build. "
     + "Use `build ls` to view the tracked content.",
 )
-@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the Posit Connect server.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with Posit Connect.",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    help="The path to trusted TLS CA certificates.",
-)
+@server_args
 @click.option(
     "--guid",
     "-g",
@@ -2196,7 +2064,6 @@ def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
     is_flag=True,
     help="Remove build history and log files from the local filesystem.",
 )
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def remove_content_build(name, server, api_key, insecure, cacert, guid, all, purge, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
@@ -2213,33 +2080,7 @@ def remove_content_build(name, server, api_key, insecure, cacert, guid, all, pur
 @build.command(
     name="ls", short_help="List the content items that are being tracked for build on a given Connect server."
 )
-@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the Posit Connect server.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with Posit Connect.",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    help="The path to trusted TLS CA certificates.",
-)
+@server_args
 @click.option("--status", type=click.Choice(BuildStatus._all), help="Filter results by status of the build operation.")
 @click.option(
     "--guid",
@@ -2261,33 +2102,7 @@ def list_content_build(name, server, api_key, insecure, cacert, status, guid, ve
 
 # noinspection SpellCheckingInspection,DuplicatedCode
 @build.command(name="history", short_help="Get the build history for a content item.")
-@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the Posit Connect server.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with Posit Connect.",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    help="The path to trusted TLS CA certificates.",
-)
+@server_args
 @click.option(
     "--guid",
     "-g",
@@ -2296,7 +2111,6 @@ def list_content_build(name, server, api_key, insecure, cacert, status, guid, ve
     metavar="TEXT",
     help="The guid of the content item.",
 )
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 # todo: --format option (json, text)
 def get_build_history(name, server, api_key, insecure, cacert, guid, verbose):
     set_verbosity(verbose)
@@ -2312,33 +2126,7 @@ def get_build_history(name, server, api_key, insecure, cacert, guid, verbose):
     name="logs",
     short_help="Print the logs for a content build.",
 )
-@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the Posit Connect server.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with Posit Connect.",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    help="The path to trusted TLS CA certificates.",
-)
+@server_args
 @click.option(
     "--guid",
     "-g",
@@ -2361,7 +2149,6 @@ def get_build_history(name, server, api_key, insecure, cacert, guid, verbose):
     default=LogOutputFormat.DEFAULT,
     help="The output format of the logs. Defaults to text.",
 )
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def get_build_logs(name, server, api_key, insecure, cacert, guid, task_id, format, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
@@ -2375,33 +2162,7 @@ def get_build_logs(name, server, api_key, insecure, cacert, guid, task_id, forma
     name="run",
     short_help="Start building content on a given Connect server.",
 )
-@click.option("--name", "-n", help="The nickname of the Posit Connect server.")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the Posit Connect server.",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with Posit Connect.",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    help="The path to trusted TLS CA certificates.",
-)
+@server_args
 @click.option(
     "--parallelism",
     type=click.IntRange(min=1, clamp=True),
@@ -2425,7 +2186,6 @@ def get_build_logs(name, server, api_key, insecure, cacert, guid, task_id, forma
     help="The output format of the logs. Defaults to text.",
 )
 @click.option("--debug", is_flag=True, help="Log stacktraces from exceptions during background operations.")
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
 def start_content_build(
     name, server, api_key, insecure, cacert, parallelism, aborted, error, all, poll_wait, format, debug, verbose
 ):
@@ -2434,6 +2194,65 @@ def start_content_build(
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
         build_start(ce.remote_server, parallelism, aborted, error, all, poll_wait, debug)
+
+
+@cli.group(no_args_is_help=True, help="Interact with Posit Connect's system API.")
+def system():
+    pass
+
+
+@system.group(no_args_is_help=True, help="Interact with Posit Connect's system caches.")
+def caches():
+    pass
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@caches.command(
+    name="list",
+    short_help="List runtime caches present on a Posit Connect server.",
+)
+@server_args
+def system_caches_list(name, server, api_key, insecure, cacert, verbose):
+    set_verbosity(verbose)
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        result = ce.runtime_caches
+        json.dump(result, sys.stdout, indent=2)
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@caches.command(
+    name="delete",
+    short_help="Delete a runtime cache on a Posit Connect server.",
+)
+@server_args
+@click.option(
+    "--language",
+    "-l",
+    help="The language of the target cache.",
+)
+@click.option(
+    "--version",
+    "-V",
+    help="The version of the target cache.",
+)
+@click.option(
+    "--image-name",
+    "-I",
+    default="Local",
+    help='The image name of the target cache\'s execution environment. Defaults to "Local".',
+)
+@click.option(
+    "--dry-run",
+    "-d",
+    is_flag=True,
+    help="If true, verify that deletion would occur, but do not delete.",
+)
+def system_caches_delete(name, server, api_key, insecure, cacert, verbose, language, version, image_name, dry_run):
+    set_verbosity(verbose)
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce.delete_runtime_cache(language, version, image_name, dry_run)
 
 
 if __name__ == "__main__":

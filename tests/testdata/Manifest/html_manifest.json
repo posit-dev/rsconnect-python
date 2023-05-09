@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "metadata": {
+    "appmode": "static",
+    "primary_html": "index.html",
+    "entrypoint": "index.html"
+  },
+  "files": {
+    "index.html": {
+      "checksum": "c14bd63e50295f94b761ffe9d41e3742"
+    },
+    "test1.txt": {
+      "checksum": "3e7705498e8be60520841409ebc69bc1"
+    },
+    "test_folder1/testfoldertext1.txt": {
+      "checksum": "0a576fd324b6985bac6aa934131d2f5c"
+    }
+  }
+}
