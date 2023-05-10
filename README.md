@@ -1004,7 +1004,7 @@ A full description on how to use `rsconnect bootstrap` in a provisioning workflo
 
 ## Server Administration Tasks
 
-Starting with the 2023.04 edition of Posit Connect, `rsconnect-python` can be
+Starting with the 2023.05 edition of Posit Connect, `rsconnect-python` can be
 used to perform certain server administration tasks, such as instance managing
 runtime caches. For more information on runtime caches in Posit Connect, see the
 Connect Admin Guide's section on [runtime
@@ -1015,6 +1015,7 @@ server information. See [Managing Server
 Information](#managing-server-information) above for more details.
 
 ### Enumerate Runtime Caches
+*New in Connect 2023.05*
 
 Use the command below to enumerate runtime caches on a Connect server. The
 command will output a JSON object containing a list of runtime caches . Each
@@ -1059,6 +1060,7 @@ rsconnect system caches list --name myserver
 > of names.
 
 ### Delete Runtime Caches
+*New in Connect 2023.05*
 
 When Connect's execution environment changes, runtime caches may be invalidated.
 In these cases, you will need to delete the affected runtime caches using the
