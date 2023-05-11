@@ -848,6 +848,7 @@ class RSConnectExecutor:
             raise RSConnectException("Specify either a new deploy or an app ID but not both.")
 
         existing_app_mode = None
+        app_store_version = 0
         if not new:
             if app_id is None:
                 # Possible redeployment - check for saved metadata.
