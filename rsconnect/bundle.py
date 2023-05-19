@@ -173,7 +173,8 @@ class Manifest:
         self.data["metadata"]["primary_html"] = value
 
     def add_file(self, path):
-        self.data["files"][path] = {"checksum": file_checksum(path)}
+        manifestPath = Path(path).as_posix()
+        self.data["files"][manifestPath] = {"checksum": file_checksum(path)}
         return self
 
     def discard_file(self, path):
@@ -296,7 +297,6 @@ def make_source_manifest(
     quarto_inspection: typing.Dict[str, typing.Any],
     image: str = None,
 ) -> typing.Dict[str, typing.Any]:
-
     manifest = {
         "version": 1,
     }  # type: typing.Dict[str, typing.Any]
@@ -543,7 +543,6 @@ def make_notebook_source_bundle(
 
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
-
         # add the manifest first in case we want to partially untar the bundle for inspection
         bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
         bundle_add_buffer(bundle, environment.filename, environment.contents)
