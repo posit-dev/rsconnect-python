@@ -206,7 +206,8 @@ class Manifest:
         deploy_dir = self.deploy_dir or deploy_dir
         for path in self.data["files"]:
             rel_path = relpath(path, deploy_dir)
-            new_data_files[rel_path] = self.data["files"][path]
+            manifestPath = Path(rel_path).as_posix()
+            new_data_files[manifestPath] = self.data["files"][path]
         return new_data_files
 
     @property
@@ -217,7 +218,8 @@ class Manifest:
         deploy_dir = self.deploy_dir or deploy_dir
         for k, v in self.buffer.items():
             rel_path = relpath(k, deploy_dir)
-            new_buffer[rel_path] = v
+            manifestPath = Path(rel_path).as_posix()
+            new_buffer[manifestPath] = v
         return new_buffer
 
     @property
