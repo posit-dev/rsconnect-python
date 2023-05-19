@@ -355,7 +355,8 @@ def manifest_add_file(manifest, rel_path, base_dir):
     path = join(base_dir, rel_path) if os.path.isdir(base_dir) else rel_path
     if "files" not in manifest:
         manifest["files"] = {}
-    manifest["files"][rel_path] = {"checksum": file_checksum(path)}
+    manifestPath = Path(rel_path).as_posix()
+    manifest["files"][manifestPath] = {"checksum": file_checksum(path)}
 
 
 def manifest_add_buffer(manifest, filename, buf):
