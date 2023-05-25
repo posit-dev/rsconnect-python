@@ -1126,9 +1126,6 @@ def test_create_voila_manifest_multi_notebook(path, entrypoint):
         source="file",
     )
 
-    bqplot_path = os.path.join("bqplot", "bqplot.ipynb")
-    dashboard_path = os.path.join("dashboard", "dashboard.ipynb")
-
     if sys.platform == "win32":
         bqplot_hash = "ddb4070466d3c45b2f233dd39906ddf6"
         dashboard_hash = "b2d7dc369ac602c7d7a703b6eb868562"
@@ -1146,8 +1143,8 @@ def test_create_voila_manifest_multi_notebook(path, entrypoint):
         },
         "files": {
             "requirements.txt": {"checksum": "9cce1aac313043abd5690f67f84338ed"},
-            bqplot_path: {"checksum": bqplot_hash},
-            dashboard_path: {"checksum": dashboard_hash},
+            "bqplot/bqplot.ipynb": {"checksum": bqplot_hash},
+            "dashboard/dashboard.ipynb": {"checksum": dashboard_hash},
         },
     }
     manifest = Manifest()
@@ -1182,7 +1179,7 @@ def test_create_voila_manifest_multi_notebook(path, entrypoint):
             image=None,
             multi_notebook=True,
         )
-        assert ans == json.loads(manifest.flattened_copy.json)
+        assert json.loads(manifest.flattened_copy.json) == ans
 
 
 @pytest.mark.parametrize(
@@ -1345,9 +1342,6 @@ def test_make_voila_bundle_multi_notebook(
         source="file",
     )
 
-    bqplot_path = os.path.join("bqplot", "bqplot.ipynb")
-    dashboard_path = os.path.join("dashboard", "dashboard.ipynb")
-
     if sys.platform == "win32":
         bqplot_hash = "ddb4070466d3c45b2f233dd39906ddf6"
         dashboard_hash = "b2d7dc369ac602c7d7a703b6eb868562"
@@ -1365,8 +1359,8 @@ def test_make_voila_bundle_multi_notebook(
         },
         "files": {
             "requirements.txt": {"checksum": "9395f3162b7779c57c86b187fa441d96"},
-            bqplot_path: {"checksum": bqplot_hash},
-            dashboard_path: {"checksum": dashboard_hash},
+            "bqplot/bqplot.ipynb": {"checksum": bqplot_hash},
+            "dashboard/dashboard.ipynb": {"checksum": dashboard_hash},
         },
     }
     if (path, entrypoint) in (
@@ -1407,7 +1401,7 @@ def test_make_voila_bundle_multi_notebook(
             ]
             reqs = tar.extractfile("requirements.txt").read()
             assert reqs == b"bqplot"
-            assert ans == json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+            assert json.loads(tar.extractfile("manifest.json").read().decode("utf-8")) == ans
 
 
 @pytest.mark.parametrize(
@@ -1575,8 +1569,6 @@ def test_create_html_manifest():
             image=None,
         )
 
-    test_folder_path = os.path.join("test_folder1", "testfoldertext1.txt")
-
     if sys.platform == "win32":
         index_hash = "0c3d8c84223089949954d069f2eef7e9"
         txt_hash = "e6a96602853b20607831eec27dbb6cf0"
@@ -1603,7 +1595,7 @@ def test_create_html_manifest():
         "files": {
             "index.html": {"checksum": index_hash},
             "test1.txt": {"checksum": txt_hash},
-            test_folder_path: {"checksum": folder_txt_hash},
+            "test_folder1/testfoldertext1.txt": {"checksum": folder_txt_hash},
         },
     }
 
@@ -1712,8 +1704,6 @@ def test_create_html_manifest():
 
 
 def test_make_html_bundle():
-    folder_path = os.path.join("test_folder1", "testfoldertext1.txt")
-
     if sys.platform == "win32":
         index_hash = "0c3d8c84223089949954d069f2eef7e9"
         txt_hash = "e6a96602853b20607831eec27dbb6cf0"
@@ -1747,7 +1737,7 @@ def test_make_html_bundle():
         "files": {
             "index.html": {"checksum": index_hash},
             "test1.txt": {"checksum": txt_hash},
-            folder_path: {"checksum": folder_txt_hash},
+            "test_folder1/testfoldertext1.txt": {"checksum": folder_txt_hash},
         },
     }
     with make_html_bundle(
