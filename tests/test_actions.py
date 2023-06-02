@@ -10,15 +10,12 @@ from unittest import TestCase
 
 from rsconnect.actions import (
     _verify_server,
-    are_apis_supported_on_server,
-    check_server_capabilities,
     create_api_deployment_bundle,
     create_notebook_deployment_bundle,
     deploy_dash_app,
     deploy_python_api,
     deploy_streamlit_app,
     deploy_bokeh_app,
-    is_conda_supported_on_server,
 )
 from rsconnect.api import RSConnectServer
 from rsconnect.environment import MakeEnvironment
@@ -36,39 +33,6 @@ class TestActions(TestCase):
         with self.assertRaises(RSConnectException):
             _verify_server(RSConnectServer("fake-url", None))
 
-    def test_check_server_capabilities(self):
-        no_api_support = {"python": {"api_enabled": False}}
-        api_support = {"python": {"api_enabled": True}}
-
-        with self.assertRaises(RSConnectException) as context:
-            check_server_capabilities(None, (are_apis_supported_on_server,), lambda x: no_api_support)
-        self.assertEqual(
-            str(context.exception),
-            "The Posit Connect server does not allow for Python APIs.",
-        )
-
-        check_server_capabilities(None, (are_apis_supported_on_server,), lambda x: api_support)
-
-        no_conda = api_support
-        conda_not_supported = {"conda": {"supported": False}}
-        conda_supported = {"conda": {"supported": True}}
-
-        with self.assertRaises(RSConnectException) as context:
-            check_server_capabilities(None, (is_conda_supported_on_server,), lambda x: no_conda)
-        self.assertEqual(
-            str(context.exception),
-            "Conda is not supported on the target server.  " + "Try deploying without requesting Conda.",
-        )
-
-        with self.assertRaises(RSConnectException) as context:
-            check_server_capabilities(None, (is_conda_supported_on_server,), lambda x: conda_not_supported)
-        self.assertEqual(
-            str(context.exception),
-            "Conda is not supported on the target server.  " + "Try deploying without requesting Conda.",
-        )
-
-        check_server_capabilities(None, (is_conda_supported_on_server,), lambda x: conda_supported)
-
         # noinspection PyUnusedLocal
         def fake_cap(details):
             return False
@@ -77,20 +41,6 @@ class TestActions(TestCase):
         def fake_cap_with_doc(details):
             """A docstring."""
             return False
-
-        with self.assertRaises(RSConnectException) as context:
-            check_server_capabilities(None, (fake_cap,), lambda x: None)
-        self.assertEqual(
-            str(context.exception),
-            "The server does not satisfy the fake_cap capability check.",
-        )
-
-        with self.assertRaises(RSConnectException) as context:
-            check_server_capabilities(None, (fake_cap_with_doc,), lambda x: None)
-        self.assertEqual(
-            str(context.exception),
-            "The server does not satisfy the fake_cap_with_doc capability check.",
-        )
 
     def test_deploy_python_api_validates(self):
         directory = get_api_path("flask")

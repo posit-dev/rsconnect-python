@@ -272,19 +272,6 @@ def gather_server_details(connect_server):
     }
 
 
-def are_apis_supported_on_server(connect_details):
-    """
-    Returns whether or not the Connect server has Python itself enabled and its license allows
-    for API usage.  This controls whether APIs may be deployed..
-
-    :param connect_details: details about a Connect server as returned by gather_server_details()
-    :return: boolean True if the Connect server supports Python APIs or not or False if not.
-    :error: The Posit Connect server does not allow for Python APIs.
-    """
-    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-    return connect_details["python"]["api_enabled"]
-
-
 def is_conda_supported_on_server(connect_details):
     """
     Returns whether or not conda is supported on a Connect server.
@@ -294,34 +281,6 @@ def is_conda_supported_on_server(connect_details):
     :error: Conda is not supported on the target server.  Try deploying without requesting Conda.
     """
     return connect_details.get("conda", {}).get("supported", False)
-
-
-def check_server_capabilities(connect_server, capability_functions, details_source=gather_server_details):
-    """
-    Uses a sequence of functions that check for capabilities in a Connect server.  The
-    server settings data is retrieved by the gather_server_details() function.
-
-    Each function provided must accept one dictionary argument which will be the server
-    settings data returned by the gather_server_details() function.  That function must
-    return a boolean value.  It must also contain a docstring which itself must contain
-    an ":error:" tag as the last thing in the docstring.  If the function returns False,
-    an exception is raised with the function's ":error:" text as its message.
-
-    :param connect_server: the information needed to interact with the Connect server.
-    :param capability_functions: a sequence of functions that will be called.
-    :param details_source: the source for obtaining server details, gather_server_details(),
-    by default.
-    """
-    details = details_source(connect_server)
-
-    for function in capability_functions:
-        if not function(details):
-            index = function.__doc__.find(":error:") if function.__doc__ else -1
-            if index >= 0:
-                message = function.__doc__[index + 7 :].strip()
-            else:
-                message = "The server does not satisfy the %s capability check." % function.__name__
-            raise RSConnectException(message)
 
 
 def _make_deployment_name(remote_server: api.TargetableServer, title: str, force_unique: bool) -> str:
@@ -830,7 +789,6 @@ def deploy_app(
     (
         ce.validate_server()
         .validate_app_mode(app_mode=app_mode)
-        .check_server_capabilities([are_apis_supported_on_server])
         .make_bundle(
             make_api_bundle,
             directory,
