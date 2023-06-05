@@ -145,12 +145,12 @@ def server_args(func):
     return wrapper
 
 
-def rstudio_args(func):
+def cloud_shinyapps_args(func):
     @click.option(
         "--account",
         "-A",
         envvar=["SHINYAPPS_ACCOUNT"],
-        help="The shinyapps.io account name.",
+        help="The shinyapps.io/Posit Cloud account name.",
     )
     @click.option(
         "--token",
@@ -427,7 +427,7 @@ def bootstrap(
     help="The path to trusted TLS CA certificates.",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-@rstudio_args
+@cloud_shinyapps_args
 @click.pass_context
 def add(ctx, name, server, api_key, insecure, cacert, account, token, secret, verbose):
 
@@ -976,7 +976,7 @@ def deploy_voila(
 )
 @server_args
 @content_args
-@rstudio_args
+@cloud_shinyapps_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @rstudio_deploy_args
 @cli_exception_handler
@@ -1150,12 +1150,13 @@ def deploy_quarto(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="html",
-    short_help="Deploy html content to Posit Connect.",
-    help=("Deploy an html file, or directory of html files with entrypoint, to Posit Connect."),
+    short_help="Deploy html content to Posit Connect or Posit Cloud.",
+    help=("Deploy an html file, or directory of html files with entrypoint, to Posit Connect or Posit Cloud."),
     no_args_is_help=True,
 )
 @server_args
 @content_args
+@cloud_shinyapps_args
 @click.option(
     "--entrypoint",
     "-e",
@@ -1194,6 +1195,9 @@ def deploy_html(
     api_key: str = None,
     insecure: bool = False,
     cacert: typing.IO = None,
+    account: str = None,
+    token: str = None,
+    secret: str = None,
 ):
     kwargs = locals()
     ce = None
@@ -1235,7 +1239,7 @@ def generate_deploy_python(app_mode, alias, min_version):
     )
     @server_args
     @content_args
-    @rstudio_args
+    @cloud_shinyapps_args
     @click.option(
         "--entrypoint",
         "-e",
@@ -1451,7 +1455,6 @@ def write_manifest_notebook(
         validate_file_is_notebook(file)
 
         base_dir = dirname(file)
-        extra_files = validate_extra_files(base_dir, extra_files)
         manifest_path = join(base_dir, "manifest.json")
 
         if exists(manifest_path) and not overwrite:
@@ -1551,7 +1554,6 @@ def write_manifest_voila(
     set_verbosity(verbose)
     with cli_feedback("Checking arguments"):
         base_dir = dirname(path)
-        extra_files = validate_extra_files(base_dir, extra_files)
         manifest_path = join(base_dir, "manifest.json")
 
         if exists(manifest_path) and not overwrite:
@@ -1661,7 +1663,6 @@ def write_manifest_quarto(
         base_dir = dirname(file_or_directory)
 
     with cli_feedback("Checking arguments"):
-        extra_files = validate_extra_files(base_dir, extra_files)
         manifest_path = join(base_dir, "manifest.json")
 
         if exists(manifest_path) and not overwrite:
@@ -1835,7 +1836,6 @@ def _write_framework_manifest(
 
     with cli_feedback("Checking arguments"):
         entrypoint = validate_entry_point(entrypoint, directory)
-        extra_files = validate_extra_files(directory, extra_files)
         manifest_path = join(directory, "manifest.json")
 
         if exists(manifest_path) and not overwrite:

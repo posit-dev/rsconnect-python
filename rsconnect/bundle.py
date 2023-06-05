@@ -173,7 +173,8 @@ class Manifest:
         self.data["metadata"]["primary_html"] = value
 
     def add_file(self, path):
-        self.data["files"][path] = {"checksum": file_checksum(path)}
+        manifestPath = Path(path).as_posix()
+        self.data["files"][manifestPath] = {"checksum": file_checksum(path)}
         return self
 
     def discard_file(self, path):
@@ -205,7 +206,8 @@ class Manifest:
         deploy_dir = self.deploy_dir or deploy_dir
         for path in self.data["files"]:
             rel_path = relpath(path, deploy_dir)
-            new_data_files[rel_path] = self.data["files"][path]
+            manifestPath = Path(rel_path).as_posix()
+            new_data_files[manifestPath] = self.data["files"][path]
         return new_data_files
 
     @property
@@ -216,7 +218,8 @@ class Manifest:
         deploy_dir = self.deploy_dir or deploy_dir
         for k, v in self.buffer.items():
             rel_path = relpath(k, deploy_dir)
-            new_buffer[rel_path] = v
+            manifestPath = Path(rel_path).as_posix()
+            new_buffer[manifestPath] = v
         return new_buffer
 
     @property
@@ -296,7 +299,6 @@ def make_source_manifest(
     quarto_inspection: typing.Dict[str, typing.Any],
     image: str = None,
 ) -> typing.Dict[str, typing.Any]:
-
     manifest = {
         "version": 1,
     }  # type: typing.Dict[str, typing.Any]
@@ -355,7 +357,8 @@ def manifest_add_file(manifest, rel_path, base_dir):
     path = join(base_dir, rel_path) if os.path.isdir(base_dir) else rel_path
     if "files" not in manifest:
         manifest["files"] = {}
-    manifest["files"][rel_path] = {"checksum": file_checksum(path)}
+    manifestPath = Path(rel_path).as_posix()
+    manifest["files"][manifestPath] = {"checksum": file_checksum(path)}
 
 
 def manifest_add_buffer(manifest, filename, buf):
@@ -543,7 +546,6 @@ def make_notebook_source_bundle(
 
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
-
         # add the manifest first in case we want to partially untar the bundle for inspection
         bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
         bundle_add_buffer(bundle, environment.filename, environment.contents)

@@ -396,19 +396,23 @@ class AppStore(DataStore):
     * App GUID
     * Title
     * App mode
+    * App store file version
 
     The metadata file for an app is written in the same directory as the app's
     entry point file, if that directory is writable.  Otherwise, it is stored
     in the user's config directory under `applications/{hash}.json` where the
-    hash is derived from the entry point file name.
+    hash is derived from the entry point file name. The file contains a version
+    field, which is incremented when backwards-incompatible file format changes
+    are made.
     """
 
-    def __init__(self, app_file):
+    def __init__(self, app_file, version=1):
         base_name = str(basename(app_file).rsplit(".", 1)[0]) + ".json"
         super(AppStore, self).__init__(
             join(dirname(app_file), "rsconnect-python", base_name),
             join(config_dirname(), "applications", sha1(abspath(app_file)) + ".json"),
         )
+        self.version = version
 
     def get(self, server_url):
         """
@@ -446,6 +450,7 @@ class AppStore(DataStore):
                 app_guid=app_guid,
                 title=title,
                 app_mode=app_mode.name() if isinstance(app_mode, AppMode) else app_mode,
+                app_store_version=self.version,
             ),
         )
 
@@ -453,7 +458,7 @@ class AppStore(DataStore):
         metadata = self.get(server)
         if metadata is None:
             logger.debug("No previous deployment to this server was found; this will be a new deployment.")
-            return app_id, app_mode
+            return app_id, app_mode, self.version
 
         logger.debug("Found previous deployment data in %s" % self.get_path())
 
@@ -463,7 +468,9 @@ class AppStore(DataStore):
 
         # app mode cannot be changed on redeployment
         app_mode = AppModes.get_by_name(metadata.get("app_mode"))
-        return app_id, app_mode
+
+        app_store_version = metadata.get("app_store_version")
+        return app_id, app_mode, app_store_version
 
 
 DEFAULT_BUILD_DIR = join(os.getcwd(), "rsconnect-build")
