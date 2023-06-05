@@ -750,7 +750,7 @@ class RSConnectExecutor:
                 cloud_service = CloudService(self.client, self.remote_server, os.getenv("LUCID_APPLICATION_ID"))
                 app_store_version = self.get("app_store_version")
                 prepare_deploy_result = cloud_service.prepare_deploy(
-                    app_id, deployment_name, bundle_size, bundle_hash, app_mode, visibility, app_store_version
+                    app_id, deployment_name, bundle_size, bundle_hash, app_mode, app_store_version
                 )
                 self.upload_rstudio_bundle(prepare_deploy_result, bundle_size, contents)
                 cloud_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.application_id)
