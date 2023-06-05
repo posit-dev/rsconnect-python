@@ -1324,7 +1324,6 @@ class CloudService:
         bundle_size: int,
         bundle_hash: str,
         app_mode: AppMode,
-        visibility: typing.Optional[str],
         app_store_version: typing.Optional[int],
     ) -> PrepareDeployOutputResult:
         application_type = "static" if app_mode == AppModes.STATIC else "connect"
