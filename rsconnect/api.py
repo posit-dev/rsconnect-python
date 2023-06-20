@@ -294,7 +294,6 @@ class RSConnectClient(HTTPServer):
     def wait_for_task(
         self, task_id, log_callback, abort_func=lambda: False, timeout=get_timeout(), poll_wait=0.5, raise_on_error=True
     ):
-
         last_status = None
         ending = time.time() + timeout if timeout else 999999999999
 
@@ -653,36 +652,6 @@ class RSConnectExecutor:
 
         d["bundle"] = bundle
 
-        return self
-
-    def check_server_capabilities(self, capability_functions):
-        """
-        Uses a sequence of functions that check for capabilities in a Connect server.  The
-        server settings data is retrieved by the gather_server_details() function.
-
-        Each function provided must accept one dictionary argument which will be the server
-        settings data returned by the gather_server_details() function.  That function must
-        return a boolean value.  It must also contain a docstring which itself must contain
-        an ":error:" tag as the last thing in the docstring.  If the function returns False,
-        an exception is raised with the function's ":error:" text as its message.
-
-        :param capability_functions: a sequence of functions that will be called.
-        :param details_source: the source for obtaining server details, gather_server_details(),
-        by default.
-        """
-        if isinstance(self.remote_server, PositServer):
-            return self
-
-        details = self.server_details
-
-        for function in capability_functions:
-            if not function(details):
-                index = function.__doc__.find(":error:") if function.__doc__ else -1
-                if index >= 0:
-                    message = function.__doc__[index + 7 :].strip()
-                else:
-                    message = "The server does not satisfy the %s capability check." % function.__name__
-                raise RSConnectException(message)
         return self
 
     def upload_rstudio_bundle(self, prepare_deploy_result, bundle_size: int, contents):
