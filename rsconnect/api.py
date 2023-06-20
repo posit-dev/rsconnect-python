@@ -1095,7 +1095,9 @@ class PositClient(HTTPServer):
         return response
 
     def update_application_property(self, application_id: int, property: str, value: str):
-        return self.put("/v1/applications/{}/properties/{}".format(application_id, property), body={"value": value})
+        response = self.put("/v1/applications/{}/properties/{}".format(application_id, property), body={"value": value})
+        self._server.handle_bad_response(response)
+        return response
 
     def get_content(self, content_id):
         response = self.get("/v1/content/{}".format(content_id))
