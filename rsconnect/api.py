@@ -676,6 +676,7 @@ class RSConnectExecutor:
         bundle: IO = None,
         env_vars=None,
         app_mode=None,
+        visibility=None,
     ):
         app_id = app_id or self.get("app_id")
         deployment_name = deployment_name or self.get("deployment_name")
@@ -684,6 +685,7 @@ class RSConnectExecutor:
         bundle = bundle or self.get("bundle")
         env_vars = env_vars or self.get("env_vars")
         app_mode = app_mode or self.get("app_mode")
+        visibility = visibility or self.get("visibility")
 
         if isinstance(self.remote_server, RSConnectServer):
             result = self.client.deploy(
@@ -709,6 +711,7 @@ class RSConnectExecutor:
                     deployment_name,
                     bundle_size,
                     bundle_hash,
+                    visibility,
                 )
                 self.upload_rstudio_bundle(prepare_deploy_result, bundle_size, contents)
                 shinyapps_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
@@ -1091,6 +1094,11 @@ class PositClient(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
+    def update_application_property(self, application_id: int, property: str, value: str):
+        response = self.put("/v1/applications/{}/properties/{}".format(application_id, property), body={"value": value})
+        self._server.handle_bad_response(response)
+        return response
+
     def get_content(self, content_id):
         response = self.get("/v1/content/{}".format(content_id))
         self._server.handle_bad_response(response)
@@ -1116,6 +1124,9 @@ class PositClient(HTTPServer):
         response = self.post("/v1/outputs/{}/revisions".format(content_id), body={})
         self._server.handle_bad_response(response)
         return response
+
+    def update_output(self, output_id: int, output_data: dict):
+        return self.patch("/v1/outputs/{}".format(output_id), body=output_data)
 
     def get_accounts(self):
         response = self.get("/v1/accounts/")
@@ -1211,7 +1222,14 @@ class ShinyappsService:
         self._rstudio_client = rstudio_client
         self._server = server
 
-    def prepare_deploy(self, app_id: typing.Optional[int], app_name: str, bundle_size: int, bundle_hash: str):
+    def prepare_deploy(
+        self,
+        app_id: typing.Optional[int],
+        app_name: str,
+        bundle_size: int,
+        bundle_hash: str,
+        visibility: typing.Optional[str],
+    ):
         accounts = self._rstudio_client.get_accounts()
         self._server.handle_bad_response(accounts)
         account = next(filter(lambda acct: acct["name"] == self._server.account_name, accounts["accounts"]), None)
@@ -1223,9 +1241,23 @@ class ShinyappsService:
 
         if app_id is None:
             application = self._rstudio_client.create_application(account["id"], app_name)
+            self._server.handle_bad_response(application)
+            if visibility is not None:
+                property_update = self._rstudio_client.update_application_property(
+                    application["id"], "application.visibility", visibility
+                )
+                self._server.handle_bad_response(property_update)
+
         else:
             application = self._rstudio_client.get_application(app_id)
-        self._server.handle_bad_response(application)
+            self._server.handle_bad_response(application)
+
+            if visibility is not None:
+                if visibility != application["deployment"]["properties"]["application.visibility"]:
+                    self._rstudio_client.update_application_property(
+                        application["id"], "application.visibility", visibility
+                    )
+
         app_id_int = application["id"]
         app_url = application["url"]
 

@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - getdefaultlocale no longer work with newer versions of Python [#397](https://github.com/rstudio/rsconnect-python/issues/397) [#399](https://github.com/rstudio/rsconnect-python/issues/399).
 - extra files not being included in write-manifest [#416](https://github.com/rstudio/rsconnect-python/issues/416).
 
+## Unreleased
+
+### Added
+- Deploys for Posit Cloud and shinyapps.io now accept the `--visibility` flag.
+
 ## [1.16.0] - 2023-03-27
 
 ### Added
