@@ -1431,27 +1431,6 @@ def fake_module_file_from_directory(directory: str):
     return join(directory, app_name + ".py")
 
 
-def is_python_enabled_on_server(connect_details):
-    """
-    Returns whether or not the Connect server has Python itself enabled.
-
-    :error: The Posit Connect server does not have Python enabled.
-    """
-    return any(connect_details.get("python", {}).get("versions", []))
-
-
-def are_apis_supported_on_server(connect_details):
-    """
-    Returns whether or not the Connect server has Python itself enabled and its license allows
-    for API usage.  This controls whether APIs may be deployed..
-
-    :param connect_details: details about a Connect server as returned by gather_server_details()
-    :return: boolean True if the Connect server supports Python APIs or not or False if not.
-    :error: The Posit Connect server does not allow for Python APIs.
-    """
-    return connect_details["python"]["api_enabled"]
-
-
 def which_python(python: typing.Optional[str] = None):
     """Determines which Python executable to use.
 
