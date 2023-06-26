@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Deploys for Posit Cloud and shinyapps.io now accept the `--visibility` flag.
 
+### Changed
+- Removes redundant client-side compatibility checks in favor of server-side compatibility checks when deploying Python content. Note that the error handling may differ between versions of Connect. See Connect release notes for additional details regarding compatibility.
+
 ## [1.17.1] - 2023-05-25
 
 ### Fixed
