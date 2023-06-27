@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.0] - 2023-06-26
+
+### Added
+- Deploys for Posit Cloud and shinyapps.io now accept the `--visibility` flag.
+
+### Changed
+- Removes redundant client-side compatibility checks in favor of server-side compatibility checks when deploying Python content. Note that the error handling may differ between versions of Connect. See Connect release notes for additional details regarding compatibility.
+
 ## [1.17.1] - 2023-05-25
 
 ### Fixed
@@ -26,15 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - getdefaultlocale no longer work with newer versions of Python [#397](https://github.com/rstudio/rsconnect-python/issues/397) [#399](https://github.com/rstudio/rsconnect-python/issues/399).
 - extra files not being included in write-manifest [#416](https://github.com/rstudio/rsconnect-python/issues/416).
 
-## Unreleased
-
-### Added
-- Deploys for Posit Cloud and shinyapps.io now accept the `--visibility` flag.
-
 ## [1.16.0] - 2023-03-27
 
 ### Added
-- The `CONNECT_REQUEST_TIMEOUT` environment variable, which configures the request timeout for all blocking HTTP and HTTPS operations. This value translates into seconds (e.g., `CONNECT_REQUEST_TIMEOUT=60` is equivalent to 60 seconds.) By default, this value is 300. 
+- The `CONNECT_REQUEST_TIMEOUT` environment variable, which configures the request timeout for all blocking HTTP and HTTPS operations. This value translates into seconds (e.g., `CONNECT_REQUEST_TIMEOUT=60` is equivalent to 60 seconds.) By default, this value is 300.
 
 ### Fixed
 
@@ -111,7 +114,7 @@ rsconnect deploy html -n local ./ -e second.html
 ### Fixed
 
 - Extra files were not being included in certain deploy and write-manifest commands.
- 
+
 ### Added
 
 - The `--cacert` option now supports certificate files encoded in the Distinguished Encoding Rules (DER) binary format. Certificate files with DER encoding must end in a `.cer` or `.der` suffix.
@@ -119,7 +122,7 @@ rsconnect deploy html -n local ./ -e second.html
 
 ### Changed
 
-- The `--cacert` option now requires that Privacy Enhanced Mail (PEM) formatted certificate files end in a `.ca-bundle`, `.crt`, `.key`, or `.pem` suffix. 
+- The `--cacert` option now requires that Privacy Enhanced Mail (PEM) formatted certificate files end in a `.ca-bundle`, `.crt`, `.key`, or `.pem` suffix.
 
 ## [1.14.0] - 2023-01-19
 
@@ -138,7 +141,7 @@ rsconnect deploy html -n local ./ -e second.html
 ## [1.13.0] - 2022-12-02
 
 ### Added
-- When running rsconnect bootstrap, you can now specify the jwt secret using the CONNECT_BOOTSTRAP_SECRETKEY environment variable. 
+- When running rsconnect bootstrap, you can now specify the jwt secret using the CONNECT_BOOTSTRAP_SECRETKEY environment variable.
 
 ### Changed
 - Update pip_freeze to use `pip freeze` since Connect filters for valid package paths in the backend and it no longer depends on the undocumented behavior of `pip list --format=freeze`. This reverts the change made in 1.5.2.
@@ -153,7 +156,7 @@ rsconnect deploy html -n local ./ -e second.html
 ## [1.12.0] - 2022-10-26
 
 ### Added
-- You can now use the new rsconnect bootstrap command to programmatically provision an initial administrator api key on a fresh Connect instance. This requires RStudio Connect release 2022.10.0 or later and Python version >= 3.6. 
+- You can now use the new rsconnect bootstrap command to programmatically provision an initial administrator api key on a fresh Connect instance. This requires RStudio Connect release 2022.10.0 or later and Python version >= 3.6.
 
 ## [1.11.0] - 2022-10-12
 
@@ -180,7 +183,7 @@ rsconnect deploy html -n local ./ -e second.html
 
 ### Changed
 
-- As a prelude to setting and documenting rsconnect-python APIs, various functions in `actions` have been moved to `bundle`, or replaced with RSConnectExecutor. The moved functions now include a deprecation warning, and will be fully deprecated in a future release. 
+- As a prelude to setting and documenting rsconnect-python APIs, various functions in `actions` have been moved to `bundle`, or replaced with RSConnectExecutor. The moved functions now include a deprecation warning, and will be fully deprecated in a future release.
 
 ## [1.8.1] - 2022-05-31
 
@@ -202,12 +205,12 @@ Corrected changelog heading.
   write-manifest quarto` to create a manifest file.
 
 - An `image` command line option has been added to the `write-manifest` and
-  `deploy` commands to specify the target image to be used on the RStudio Connect 
-  server during content execution. This is only supported for the `api`, `bokeh`, `dash`, 
-  `fastapi`, `notebook`, `quarto` and `streamlit` sub-commands. It is only 
+  `deploy` commands to specify the target image to be used on the RStudio Connect
+  server during content execution. This is only supported for the `api`, `bokeh`, `dash`,
+  `fastapi`, `notebook`, `quarto` and `streamlit` sub-commands. It is only
   applicable if the RStudio Connect server is configured to use off-host execution.
 
-- You can now deploy static content such as html and its associated assets with 
+- You can now deploy static content such as html and its associated assets with
   `rsconnect deploy html`.
 
 ## [1.7.1] - 2022-02-15
