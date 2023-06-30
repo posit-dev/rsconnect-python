@@ -434,7 +434,7 @@ filename referenced in the manifest.
 ### Environment variables
 You can set environment variables during deployment. Their names and values will be
 passed to Posit Connect during deployment so you can use them in your code. Note that 
-if you're using `rsconnect` to deploy to shinyapps.io, environment variable management
+if you are using `rsconnect` to deploy to shinyapps.io, environment variable management
 is not supported on that platform.
 
 For example, if `notebook.ipynb` contains
