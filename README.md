@@ -431,9 +431,11 @@ containing the API or application.
 When using `rsconnect deploy manifest`, the title is derived from the primary
 filename referenced in the manifest.
 
-### Environment Variables
+### Environment variables
 You can set environment variables during deployment. Their names and values will be
-passed to Posit Connect during deployment so you can use them in your code.
+passed to Posit Connect during deployment so you can use them in your code. Note that 
+if you are using `rsconnect` to deploy to shinyapps.io, environment variable management
+is not supported on that platform.
 
 For example, if `notebook.ipynb` contains
 ```python
