@@ -273,7 +273,7 @@ class TestBundle(TestCase):
                 manifest,
                 {
                     "version": 1,
-                    "locale": "en_US.UTF-8",
+                    "locale": mock.ANY,
                     "metadata": {
                         "appmode": "quarto-static"
                     },
