@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 import json
 import os
+import pytest
 import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
-import pytest
-from unittest import TestCase
-from os.path import dirname, join, basename, abspath
 
+from os.path import dirname, join, basename, abspath
+from unittest import mock, TestCase
+
+import rsconnect.bundle
 from rsconnect.bundle import (
     _default_title,
     _default_title_from_manifest,
@@ -25,6 +27,7 @@ from rsconnect.bundle import (
     make_manifest_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
+    make_quarto_source_bundle,
     keep_manifest_specified_file,
     make_voila_bundle,
     to_bytes,
@@ -38,10 +41,9 @@ from rsconnect.bundle import (
     Manifest,
     create_voila_manifest,
 )
-import rsconnect.bundle
+from rsconnect.environment import MakeEnvironment, detect_environment, Environment
 from rsconnect.exception import RSConnectException
 from rsconnect.models import AppModes
-from rsconnect.environment import MakeEnvironment, detect_environment, Environment
 from .utils import get_dir, get_manifest_path
 
 
@@ -61,7 +63,7 @@ class TestBundle(TestCase):
         self.assertEqual(to_bytes("abc123"), b"abc123")
         self.assertEqual(to_bytes("åbc123"), b"\xc3\xa5bc123")
 
-    def test_source_bundle1(self):
+    def test_make_notebook_source_bundle1(self):
         self.maxDiff = 5000
         directory = get_dir("pip1")
         nb_path = join(directory, "dummy.ipynb")
@@ -125,7 +127,7 @@ class TestBundle(TestCase):
                 },
             )
 
-    def test_source_bundle2(self):
+    def test_make_notebook_source_bundle2(self):
         self.maxDiff = 5000
         directory = get_dir("pip2")
         nb_path = join(directory, "dummy.ipynb")
@@ -200,6 +202,144 @@ class TestBundle(TestCase):
                             "checksum": ipynb_hash,
                         },
                         "data.csv": {"checksum": data_csv_hash},
+                    },
+                },
+            )
+
+    def test_make_quarto_source_bundle_from_project(self):
+        temp_proj = tempfile.mkdtemp()
+
+        # add project files
+        fp = open(join(temp_proj, "myquarto.qmd"), "w")
+        fp.write("---\n")
+        fp.write("title: myquarto\n")
+        fp.write("jupyter: python3\n")
+        fp.write("---\n\n")
+        fp.write("```{python}\n")
+        fp.write("1 + 1\n")
+        fp.write("```\n")
+        fp.close()
+
+        fp = open(join(temp_proj, "_quarto.yml"), "w")
+        fp.write("project:\n")
+        fp.write('  title: "myquarto"\n')
+        fp.write('editor: visual\n')
+
+        environment = detect_environment(temp_proj)
+
+        # mock the result of running of `quarto inspect <project_dir>`
+        inspect = {
+            'quarto': {'version': '1.3.433'},
+            'dir': temp_proj,
+            'engines': ['jupyter'],
+            'config': {
+                'project': {'title': 'myquarto'},
+                'editor': 'visual',
+                'language': {}
+            },
+            'files': {
+                'input': [temp_proj + '/myquarto.qmd'],
+                'resources': [],
+                'config': [temp_proj + '/_quarto.yml'],
+                'configResources': []
+            }
+        }
+
+        with make_quarto_source_bundle(temp_proj,
+                                       inspect,
+                                       AppModes.STATIC_QUARTO,
+                                       environment,
+                                       [],
+                                       [],
+                                       None) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            names = sorted(tar.getnames())
+            self.assertEqual(
+                names,
+                [
+                    "_quarto.yml",
+                    "manifest.json",
+                    "myquarto.qmd",
+                    "requirements.txt",
+                ],
+            )
+
+            reqs = tar.extractfile("requirements.txt").read()
+            self.assertIsNotNone(reqs)
+
+            manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+            # noinspection SpellCheckingInspection
+            self.assertEqual(
+                manifest,
+                {
+                    "version": 1,
+                    "locale": "en_US.UTF-8",
+                    "metadata": {
+                        "appmode": "quarto-static"
+                    },
+                    "python": {
+                        "version": self.python_version(),
+                        "package_manager": {
+                            "name": "pip",
+                            "package_file": "requirements.txt",
+                            "version": mock.ANY,
+                        },
+                    },
+                    "quarto": {'engines': ['jupyter'], 'version': mock.ANY},
+                    "files": {
+                        "_quarto.yml": {"checksum": mock.ANY},
+                        "myquarto.qmd": {"checksum": mock.ANY},
+                    },
+                },
+            )
+
+    def test_make_quarto_source_bundle_from_file(self):
+        temp_proj = tempfile.mkdtemp()
+
+        # add single qmd file with markdown engine
+        fp = open(join(temp_proj, "myquarto.qmd"), "w")
+        fp.write("---\n")
+        fp.write("title: myquarto\n")
+        fp.write("engine: markdown\n")
+        fp.write("---\n\n")
+        fp.write("### This is a test\n")
+        fp.close()
+
+        # mock the result of running of `quarto inspect <qmd_file>`
+        inspect = {
+            'quarto': {'version': '1.3.433'},
+            'engines': ['markdown'],
+        }
+
+        with make_quarto_source_bundle(temp_proj,
+                                       inspect,
+                                       AppModes.STATIC_QUARTO,
+                                       None,
+                                       [],
+                                       [],
+                                       None) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            names = sorted(tar.getnames())
+            self.assertEqual(
+                names,
+                [
+                    "manifest.json",
+                    "myquarto.qmd",
+                ],
+            )
+
+            manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+            # noinspection SpellCheckingInspection
+            self.assertEqual(
+                manifest,
+                {
+                    "version": 1,
+                    "metadata": {
+                        "appmode": "quarto-static"
+                    },
+                    "quarto": {'engines': ['markdown'], 'version': mock.ANY},
+                    "files": {
+                        "myquarto.qmd": {"checksum": mock.ANY},
                     },
                 },
             )
@@ -409,8 +549,8 @@ class TestBundle(TestCase):
             },
         )
 
-    def test_make_quarto_manifest(self):
-        temp = tempfile.mkdtemp()
+    def test_make_quarto_manifest_project_no_opt_params(self):
+        temp_proj = tempfile.mkdtemp()
 
         # Verify the optional parameters
         # image=None,  # type: str
@@ -420,7 +560,7 @@ class TestBundle(TestCase):
 
         # No optional parameters
         manifest, _ = make_quarto_manifest(
-            temp,
+            temp_proj,
             {
                 "quarto": {"version": "0.9.16"},
                 "engines": ["jupyter"],
@@ -428,8 +568,8 @@ class TestBundle(TestCase):
             },
             AppModes.SHINY_QUARTO,
             None,
-            None,
-            None,
+            [],
+            [],
             None,
         )
         self.assertEqual(
@@ -442,9 +582,47 @@ class TestBundle(TestCase):
             },
         )
 
+    def test_make_quarto_manifest_doc_no_opt_params(self):
+        _, temp_doc = tempfile.mkstemp()
+
+        # Verify the optional parameters
+        # image=None,  # type: str
+        # environment=None,  # type: typing.Optional[Environment]
+        # extra_files=None,  # type: typing.Optional[typing.List[str]]
+        # excludes=None,  # type: typing.Optional[typing.List[str]]
+
+        # No optional parameters
+        manifest, _ = make_quarto_manifest(
+            temp_doc,
+            {
+                "quarto": {"version": "0.9.16"},
+                "engines": ["jupyter"],
+                "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
+            },
+            AppModes.STATIC_QUARTO,
+            None,
+            [],
+            [],
+            None,
+        )
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {"appmode": "quarto-static"},
+                "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
+                "files": {
+                    basename(temp_doc): {'checksum': mock.ANY}
+                },
+            },
+        )
+
+    def test_make_quarto_manifest_project_with_image(self):
+        temp_proj = tempfile.mkdtemp()
+
         # include image parameter
         manifest, _ = make_quarto_manifest(
-            temp,
+            temp_proj,
             {
                 "quarto": {"version": "0.9.16"},
                 "engines": ["jupyter"],
@@ -452,8 +630,8 @@ class TestBundle(TestCase):
             },
             AppModes.SHINY_QUARTO,
             None,
-            None,
-            None,
+            [],
+            [],
             "rstudio/connect:bionic",
         )
         self.assertEqual(
@@ -467,15 +645,18 @@ class TestBundle(TestCase):
             },
         )
 
-        # Files used within this test
-        fp = open(join(temp, "requirements.txt"), "w")
+    def test_make_quarto_manifest_project_with_env(self):
+        temp_proj = tempfile.mkdtemp()
+
+        # add a requirements.txt file in the project dir
+        fp = open(join(temp_proj, "requirements.txt"), "w")
         fp.write("dash\n")
         fp.write("pandas\n")
         fp.close()
 
         # include environment parameter
         manifest, _ = make_quarto_manifest(
-            temp,
+            temp_proj,
             {
                 "quarto": {"version": "0.9.16"},
                 "engines": ["jupyter"],
@@ -493,8 +674,8 @@ class TestBundle(TestCase):
                 python="3.9.12",
                 source="file",
             ),
-            None,
-            None,
+            [],
+            [],
             None,
         )
 
@@ -518,18 +699,22 @@ class TestBundle(TestCase):
             },
         )
 
+    def test_make_quarto_manifest_project_with_extra_files(self):
+        temp_proj = tempfile.mkdtemp()
+
         # include extra_files parameter
-        fp = open(join(temp, "a"), "w")
+        fp = open(join(temp_proj, "a"), "w")
         fp.write("This is file a\n")
         fp.close()
-        fp = open(join(temp, "b"), "w")
+        fp = open(join(temp_proj, "b"), "w")
         fp.write("This is file b\n")
         fp.close()
-        fp = open(join(temp, "c"), "w")
+        fp = open(join(temp_proj, "c"), "w")
         fp.write("This is file c\n")
         fp.close()
+
         manifest, _ = make_quarto_manifest(
-            temp,
+            temp_proj,
             {
                 "quarto": {"version": "0.9.16"},
                 "engines": ["jupyter"],
@@ -538,17 +723,15 @@ class TestBundle(TestCase):
             AppModes.SHINY_QUARTO,
             None,
             ["a", "b", "c"],
-            None,
+            [],
             None,
         )
 
         if sys.platform == "win32":
-            checksum_hash = "74203044cc283b7b3e775559b6e986fa"
             a_hash = "f4751c084b3ade4d736c6293ab8468c9"
             b_hash = "4976d559975b5232cf09a10afaf8d0a8"
             c_hash = "09c56e1b9e6ae34c6662717c47a7e187"
         else:
-            checksum_hash = "6f83f7f33bf6983dd474ecbc6640a26b"
             a_hash = "4a3eb92956aa3e16a9f0a84a43c943e7"
             b_hash = "b249e5b536d30e6282cea227f3a73669"
             c_hash = "53b36f1d5b6f7fb2cfaf0c15af7ffb2d"
@@ -563,14 +746,33 @@ class TestBundle(TestCase):
                     "a": {"checksum": a_hash},
                     "b": {"checksum": b_hash},
                     "c": {"checksum": c_hash},
-                    "requirements.txt": {"checksum": checksum_hash},
                 },
             },
         )
 
-        # include excludes parameter
+    def test_make_quarto_manifest_project_with_excludes(self):
+        temp_proj = tempfile.mkdtemp()
+
+        # add a requirements.txt file in the project dir
+        fp = open(join(temp_proj, "requirements.txt"), "w")
+        fp.write("dash\n")
+        fp.write("pandas\n")
+        fp.close()
+
+        # add other files
+        fp = open(join(temp_proj, "d"), "w")
+        fp.write("This is file d\n")
+        fp.close()
+        fp = open(join(temp_proj, "e"), "w")
+        fp.write("This is file e\n")
+        fp.close()
+        fp = open(join(temp_proj, "f"), "w")
+        fp.write("This is file f\n")
+        fp.close()
+
+        # exclude the requirements.txt file, but not the other files
         manifest, _ = make_quarto_manifest(
-            temp,
+            temp_proj,
             {
                 "quarto": {"version": "0.9.16"},
                 "engines": ["jupyter"],
@@ -578,7 +780,7 @@ class TestBundle(TestCase):
             },
             AppModes.SHINY_QUARTO,
             None,
-            ["a", "b", "c"],
+            ["d", "e", "f"],
             ["requirements.txt"],
             None,
         )
@@ -590,9 +792,9 @@ class TestBundle(TestCase):
                 "metadata": {"appmode": "quarto-shiny"},
                 "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
                 "files": {
-                    "a": {"checksum": a_hash},
-                    "b": {"checksum": b_hash},
-                    "c": {"checksum": c_hash},
+                    "d": {"checksum": mock.ANY},
+                    "e": {"checksum": mock.ANY},
+                    "f": {"checksum": mock.ANY},
                 },
             },
         )

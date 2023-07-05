@@ -411,7 +411,7 @@ def bundle_add_file(bundle, rel_path, base_dir):
     The file path is relative to the notebook directory.
     """
     path = join(base_dir, rel_path) if os.path.isdir(base_dir) else rel_path
-    logger.debug("adding file: %s", rel_path)
+    logger.debug("adding file: %s", path)
     bundle.add(path, arcname=rel_path)
 
 
@@ -580,11 +580,11 @@ def make_quarto_source_bundle(
 
     base_dir = file_or_directory
     if not isdir(file_or_directory):
-        base_dir = basename(file_or_directory)
+        base_dir = dirname(file_or_directory)
 
     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
         bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
-        if environment:
+        if environment and environment.source != 'file':
             bundle_add_buffer(bundle, environment.filename, environment.contents)
 
         for rel_path in relevant_files:
@@ -851,7 +851,7 @@ def create_html_manifest(
     Creates and writes a manifest.json file for the given path.
 
     :param path: the file, or the directory containing the files to deploy.
-    :param entry_point: the main entry point for the API.
+    :param entrypoint: the main entry point for the API.
     :param environment: the Python environment to start with.  This should be what's
     returned by the inspect_environment() function.
     :param app_mode: the application mode to assume.  If this is None, the extension
@@ -908,14 +908,11 @@ def make_html_bundle(
     Create an html bundle, given a path and/or entrypoint.
 
     The bundle contains a manifest.json file created for the given notebook entrypoint file.
-    If the related environment file (requirements.txt) doesn't
-    exist (or force_generate is set to True), the environment file will also be written.
 
     :param path: the file, or the directory containing the files to deploy.
-    :param entry_point: the main entry point.
+    :param entrypoint: the main entry point.
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param excludes: a sequence of glob patterns that will exclude matched files.
-    :param force_generate: bool indicating whether to force generate manifest and related environment files.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
     :return: a file-like object containing the bundle tarball.
     """
@@ -964,6 +961,7 @@ def create_file_list(
     if isfile(path):
         path_to_add = abspath(path) if use_abspath else path
         file_set.add(path_to_add)
+        click.secho(f"    Bundling {len(file_set)} files...", fg="yellow")
         return sorted(file_set)
 
     for cur_dir, sub_dirs, files in os.walk(path):
@@ -982,6 +980,8 @@ def create_file_list(
             ):
                 path_to_add = abspath(cur_path) if use_abspath else rel_path
                 file_set.add(path_to_add)
+
+    click.secho(f"    Bundling {len(file_set)} files...", fg="yellow")
     return sorted(file_set)
 
 
@@ -1077,7 +1077,7 @@ def make_voila_bundle(
     exist (or force_generate is set to True), the environment file will also be written.
 
     :param path: the file, or the directory containing the files to deploy.
-    :param entry_point: the main entry point.
+    :param entrypoint: the main entry point.
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param force_generate: bool indicating whether to force generate manifest and related environment files.
@@ -1171,6 +1171,7 @@ def _create_quarto_file_list(
     excludes.extend(list_environment_dirs(directory))
 
     file_list = create_file_list(directory, extra_files, excludes)
+    click.secho(f"    Bundling {len(file_list)} files...", fg="yellow")
     return file_list
 
 
@@ -1196,7 +1197,9 @@ def make_quarto_manifest(
     :return: the manifest and a list of the files involved.
     """
     if environment:
-        extra_files = list(extra_files or []) + [environment.filename]
+        extra_files = list(extra_files or [])
+        if environment.source == 'file':
+            extra_files = extra_files + [environment.filename]
 
     base_dir = file_or_directory
     if isdir(file_or_directory):
@@ -1219,7 +1222,8 @@ def make_quarto_manifest(
     else:
         # Standalone Quarto document
         base_dir = dirname(file_or_directory)
-        relevant_files = [file_or_directory] + extra_files
+        file_name = basename(file_or_directory)
+        relevant_files = [file_name] + extra_files
 
     manifest = make_source_manifest(
         app_mode,
