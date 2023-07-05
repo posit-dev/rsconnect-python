@@ -354,7 +354,7 @@ class CloudServiceTestCase(TestCase):
             "presigned_checksum": "the_checksum",
         }
 
-        prepare_deploy_result = cloud_service.prepare_deploy(
+        cloud_service.prepare_deploy(
             app_id=app_id,
             app_name=app_name,
             bundle_size=bundle_size,
