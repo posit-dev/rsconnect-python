@@ -3,7 +3,7 @@ version: '3.2'
 services:
 
   rsconnect:
-    image: rstudio/rstudio-connect-preview:dev-jammy-daily
+    image: rstudio/rstudio-connect:jammy
     restart: always
     ports:
       - 3939:3939
