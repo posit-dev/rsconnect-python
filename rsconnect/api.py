@@ -300,8 +300,6 @@ class RSConnectClient(HTTPServer):
         poll_wait=0.5,
         raise_on_error=True,
     ):
-        last_status = None
-        ending = time.time() + timeout if timeout else 999999999999
 
         if log_callback is None:
             log_lines = []
@@ -309,10 +307,12 @@ class RSConnectClient(HTTPServer):
         else:
             log_lines = None
 
+        last_status = None
+        start_time = time.time()
         sleep_duration = 0.5
         time_slept = 0
         while True:
-            if time.time() >= ending:
+            if (time.time() - start_time) > timeout:
                 raise RSConnectException("Task timed out after %d seconds" % timeout)
             elif abort_func():
                 raise RSConnectException("Task aborted.")
@@ -747,7 +747,7 @@ class RSConnectExecutor:
         task_id: int = None,
         log_callback=connect_logger,
         abort_func: Callable[[], bool] = lambda: False,
-        timeout: int = None,
+        timeout: int = get_task_timeout(),
         poll_wait: float = 0.5,
         raise_on_error: bool = True,
     ):
