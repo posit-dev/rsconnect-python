@@ -13,7 +13,7 @@ from six.moves.http_cookies import SimpleCookie
 from six.moves.urllib_parse import urlparse, urlencode, urljoin
 import base64
 
-from .timeouts import get_timeout
+from .timeouts import get_request_timeout
 
 _user_agent = "rsconnect-python/%s" % VERSION
 
@@ -31,7 +31,7 @@ def _create_plain_connection(host_name, port, disable_tls_check, ca_data):
     :param ca_data: any certificate authority information to use (ignored).
     :return: a plain HTTP connection.
     """
-    timeout = get_timeout()
+    timeout = get_request_timeout()
     logger.debug(f"The HTTPConnection timeout is set to '{timeout}' seconds")
     return http.HTTPConnection(host_name, port=(port or http.HTTP_PORT), timeout=timeout)
 
@@ -77,7 +77,7 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data):
         raise ValueError("Cannot both disable TLS checking and provide a custom certificate")
     _, _, proxyHost, proxyPort = _get_proxy()
     headers = _get_proxy_headers()
-    timeout = get_timeout()
+    timeout = get_request_timeout()
     logger.debug(f"The HTTPSConnection timeout is set to '{timeout}' seconds")
     if ca_data is not None:
         return http.HTTPSConnection(
