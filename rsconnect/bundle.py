@@ -584,7 +584,7 @@ def make_quarto_source_bundle(
 
     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
         bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
-        if environment and environment.source != 'file':
+        if environment:
             bundle_add_buffer(bundle, environment.filename, environment.contents)
 
         for rel_path in relevant_files:
@@ -961,7 +961,6 @@ def create_file_list(
     if isfile(path):
         path_to_add = abspath(path) if use_abspath else path
         file_set.add(path_to_add)
-        click.secho(f"    Bundling {len(file_set)} files...", fg="yellow")
         return sorted(file_set)
 
     for cur_dir, sub_dirs, files in os.walk(path):
@@ -981,7 +980,6 @@ def create_file_list(
                 path_to_add = abspath(cur_path) if use_abspath else rel_path
                 file_set.add(path_to_add)
 
-    click.secho(f"    Bundling {len(file_set)} files...", fg="yellow")
     return sorted(file_set)
 
 
@@ -1171,7 +1169,6 @@ def _create_quarto_file_list(
     excludes.extend(list_environment_dirs(directory))
 
     file_list = create_file_list(directory, extra_files, excludes)
-    click.secho(f"    Bundling {len(file_list)} files...", fg="yellow")
     return file_list
 
 
@@ -1198,8 +1195,6 @@ def make_quarto_manifest(
     """
     if environment:
         extra_files = list(extra_files or [])
-        if environment.source == 'file':
-            extra_files = extra_files + [environment.filename]
 
     base_dir = file_or_directory
     if isdir(file_or_directory):
@@ -1218,6 +1213,11 @@ def make_quarto_manifest(
                 # For foo.qmd, we would get an output-file=foo.html, but foo_files is not available.
                 excludes = excludes + [t + ".html", t + "_files"]
 
+        # relevant files don't need to include requirements.txt file because it is
+        # always added to the manifest (as a buffer) from the environment contents
+        if environment:
+            excludes.append(environment.filename)
+
         relevant_files = _create_quarto_file_list(base_dir, extra_files, excludes)
     else:
         # Standalone Quarto document
@@ -1232,6 +1232,9 @@ def make_quarto_manifest(
         quarto_inspection,
         image,
     )
+
+    if environment:
+        manifest_add_buffer(manifest, environment.filename, environment.contents)
 
     for rel_path in relevant_files:
         manifest_add_file(manifest, rel_path, base_dir)

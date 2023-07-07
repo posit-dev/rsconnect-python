@@ -289,6 +289,100 @@ class TestBundle(TestCase):
                     "files": {
                         "_quarto.yml": {"checksum": mock.ANY},
                         "myquarto.qmd": {"checksum": mock.ANY},
+                        "requirements.txt": {"checksum": mock.ANY},
+                    },
+                },
+            )
+
+    def test_make_quarto_source_bundle_from_project_with_requirements(self):
+        temp_proj = tempfile.mkdtemp()
+
+        # add project files
+        fp = open(join(temp_proj, "myquarto.qmd"), "w")
+        fp.write("---\n")
+        fp.write("title: myquarto\n")
+        fp.write("jupyter: python3\n")
+        fp.write("---\n\n")
+        fp.write("```{python}\n")
+        fp.write("1 + 1\n")
+        fp.write("```\n")
+        fp.close()
+
+        fp = open(join(temp_proj, "_quarto.yml"), "w")
+        fp.write("project:\n")
+        fp.write('  title: "myquarto"\n')
+        fp.write('editor: visual\n')
+
+        fp = open(join(temp_proj, "requirements.txt"), "w")
+        fp.write("dash\n")
+        fp.write("pandas\n")
+        fp.close()
+
+        environment = detect_environment(temp_proj)
+
+        # mock the result of running of `quarto inspect <project_dir>`
+        inspect = {
+            'quarto': {'version': '1.3.433'},
+            'dir': temp_proj,
+            'engines': ['jupyter'],
+            'config': {
+                'project': {'title': 'myquarto'},
+                'editor': 'visual',
+                'language': {}
+            },
+            'files': {
+                'input': [temp_proj + '/myquarto.qmd'],
+                'resources': [],
+                'config': [temp_proj + '/_quarto.yml'],
+                'configResources': []
+            }
+        }
+
+        with make_quarto_source_bundle(temp_proj,
+                                       inspect,
+                                       AppModes.STATIC_QUARTO,
+                                       environment,
+                                       [],
+                                       [],
+                                       None) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            names = sorted(tar.getnames())
+            self.assertEqual(
+                names,
+                [
+                    "_quarto.yml",
+                    "manifest.json",
+                    "myquarto.qmd",
+                    "requirements.txt",
+                ],
+            )
+
+            reqs = tar.extractfile("requirements.txt").read()
+            self.assertIsNotNone(reqs)
+
+            manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+            # noinspection SpellCheckingInspection
+            self.assertEqual(
+                manifest,
+                {
+                    "version": 1,
+                    "locale": mock.ANY,
+                    "metadata": {
+                        "appmode": "quarto-static"
+                    },
+                    "python": {
+                        "version": self.python_version(),
+                        "package_manager": {
+                            "name": "pip",
+                            "package_file": "requirements.txt",
+                            "version": mock.ANY,
+                        },
+                    },
+                    "quarto": {'engines': ['jupyter'], 'version': mock.ANY},
+                    "files": {
+                        "_quarto.yml": {"checksum": mock.ANY},
+                        "myquarto.qmd": {"checksum": mock.ANY},
+                        "requirements.txt": {"checksum": mock.ANY},
                     },
                 },
             )
@@ -679,11 +773,6 @@ class TestBundle(TestCase):
             None,
         )
 
-        if sys.platform == "win32":
-            req_hash = "74203044cc283b7b3e775559b6e986fa"
-        else:
-            req_hash = "6f83f7f33bf6983dd474ecbc6640a26b"
-
         self.assertEqual(
             manifest,
             {
@@ -695,7 +784,7 @@ class TestBundle(TestCase):
                     "version": "3.9.12",
                     "package_manager": {"name": "pip", "version": "22.0.4", "package_file": "requirements.txt"},
                 },
-                "files": {"requirements.txt": {"checksum": req_hash}},
+                "files": {"requirements.txt": {"checksum": mock.ANY}},
             },
         )
 
