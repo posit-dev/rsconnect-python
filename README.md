@@ -1081,7 +1081,15 @@ Connect server, as well as the language (`-l, --language`), version (`-V,
 delete. Deleting a large cache might take a while. The command will wait for
 Connect to finish the task.
 
-Use the dry run option (`-d, --dry-run`) to surface any errors ahead of
+Use the following parameters specify the target cache:
+
+- `language` (required) must name `R` or `Python`. It is case-insensitive.
+- `version` (required) must be a three-part version number, e.g. `3.8.12`.
+- `image-name` (optional) defaults to `Local`, which targets caches used for
+  natively-executed content. Off-host images can be specified using either the
+  literal image name or the sanitized name returned by the `list` command.
+
+Use the dry run flag (`-d, --dry-run`) to surface any errors ahead of
 deletion.
 
 ```bash
@@ -1103,10 +1111,3 @@ rsconnect system caches delete \
 ```
 
 You should run these commands for each cache you wish to delete.
-
-The following parameters specify the target cache:
-- `language` (required) must name `R` or `Python`. It is case-insensitive.
-- `version` (required) must be a three-part version number, e.g. `3.8.12`.
-- `image-name` (optional) defaults to `Local`, which targets caches used for
-  natively-executed content. Off-host images can be specified using either the
-  literal image name or the sanitized name returned by the `list` command.
