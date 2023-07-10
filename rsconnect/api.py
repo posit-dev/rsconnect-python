@@ -28,7 +28,7 @@ from .models import AppMode, AppModes
 from .metadata import ServerStore, AppStore
 from .exception import RSConnectException
 from .bundle import _default_title, fake_module_file_from_directory
-from .timeouts import get_timeout
+from .timeouts import get_task_timeout
 
 
 class AbstractRemoteServer:
@@ -292,10 +292,14 @@ class RSConnectClient(HTTPServer):
         return results
 
     def wait_for_task(
-        self, task_id, log_callback, abort_func=lambda: False, timeout=get_timeout(), poll_wait=0.5, raise_on_error=True
+        self,
+        task_id,
+        log_callback,
+        abort_func=lambda: False,
+        timeout=get_task_timeout(),
+        poll_wait=0.5,
+        raise_on_error=True,
     ):
-        last_status = None
-        ending = time.time() + timeout if timeout else 999999999999
 
         if log_callback is None:
             log_lines = []
@@ -303,10 +307,12 @@ class RSConnectClient(HTTPServer):
         else:
             log_lines = None
 
+        last_status = None
+        start_time = time.time()
         sleep_duration = 0.5
         time_slept = 0
         while True:
-            if time.time() >= ending:
+            if (time.time() - start_time) > timeout:
                 raise RSConnectException("Task timed out after %d seconds" % timeout)
             elif abort_func():
                 raise RSConnectException("Task aborted.")
@@ -741,7 +747,7 @@ class RSConnectExecutor:
         task_id: int = None,
         log_callback=connect_logger,
         abort_func: Callable[[], bool] = lambda: False,
-        timeout: int = None,
+        timeout: int = get_task_timeout(),
         poll_wait: float = 0.5,
         raise_on_error: bool = True,
     ):
@@ -1171,7 +1177,7 @@ class PositClient(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
-    def wait_until_task_is_successful(self, task_id, timeout=get_timeout()):
+    def wait_until_task_is_successful(self, task_id, timeout=get_task_timeout()):
         print()
         print("Waiting for task: {}".format(task_id))
         start_time = time.time()
@@ -1448,7 +1454,7 @@ def emit_task_log(
     task_id,
     log_callback,
     abort_func=lambda: False,
-    timeout=get_timeout(),
+    timeout=get_task_timeout(),
     poll_wait=0.5,
     raise_on_error=True,
 ):
