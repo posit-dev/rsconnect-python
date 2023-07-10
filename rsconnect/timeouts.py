@@ -1,5 +1,4 @@
 import os
-import sys
 from typing import Union
 
 from rsconnect.exception import RSConnectException
@@ -8,7 +7,7 @@ _CONNECT_REQUEST_TIMEOUT_KEY: str = "CONNECT_REQUEST_TIMEOUT"
 _CONNECT_REQUEST_TIMEOUT_DEFAULT_VALUE: str = "300"
 
 _CONNECT_TASK_TIMEOUT_KEY: str = "CONNECT_TASK_TIMEOUT"
-_CONNECT_TASK_TIMEOUT_DEFAULT_VALUE: str = str(sys.maxsize)
+_CONNECT_TASK_TIMEOUT_DEFAULT_VALUE: str = "86400"
 
 
 def get_request_timeout() -> int:
@@ -50,7 +49,7 @@ def get_task_timeout() -> int:
 
     The timeout value is intended to be interpreted in seconds. A value of 60 is equal to sixty seconds, or one minute.
 
-    If CONNECT_TASK_TIMEOUT is unset, a default value of sys.maxsize is used.
+    If CONNECT_TASK_TIMEOUT is unset, a default value of 86,400 (1 day) is used.
 
     If CONNECT_TASK_TIMEOUT is set to a value less or equal to 0, an `RSConnectException` is raised.
 
