@@ -11,6 +11,7 @@ permissions:
   id-token: write
   contents: write
   pull-requests: write
+
 jobs:
   test:
     strategy:
@@ -41,6 +42,7 @@ jobs:
       with:
         coverageFile: coverage.xml
         token: ${{ secrets.GITHUB_TOKEN }}
+
   prerelease-test:
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -56,6 +58,7 @@ jobs:
     - run: make lint
     - run: python setup.py --version
     - run: make mock-test-3.8
+
   distributions:
     needs: test
     runs-on: ubuntu-latest
@@ -109,6 +112,7 @@ jobs:
       with:
         user: __token__
         password: ${{ secrets.PYPI_TOKEN }}
+
   docs:
     needs: test
     runs-on: ubuntu-latest
@@ -139,6 +143,7 @@ jobs:
         aws-region: us-east-1
     - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
       run: make promote-docs-in-s3
+
   dispatch:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: distributions
@@ -153,6 +158,7 @@ jobs:
             repo: 'rsconnect-jupyter',
             event_type: 'rsconnect_python_latest'
           })
+
   test-rsconnect:
     name: "Integration tests against latest Connect"
     runs-on: ubuntu-latest
@@ -166,7 +172,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip install -r vetiver-testing/vetiver-requirements.txt
-      - name: run RStudio Connect
+      - name: Run RStudio Connect
         run: |
           docker-compose up --build -d
           pip freeze > requirements.txt
@@ -174,13 +180,16 @@ jobs:
         env:
           RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      - name: Get logs in case of failure
+        run: |
+          docker-compose logs rsconnect
+        if: ${{ failure() }}
 
       # NOTE: edited to run checks for python package
       - name: Run tests
         run: |
           pytest tests/test_main_system_caches.py
           pytest -m 'vetiver'
-
   
   test-jupyter:
     runs-on: ubuntu-latest
