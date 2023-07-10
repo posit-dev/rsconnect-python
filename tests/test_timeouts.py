@@ -1,5 +1,4 @@
 import os
-import sys
 
 from unittest import TestCase
 from unittest.mock import patch
@@ -36,7 +35,7 @@ class GetRequestTimeoutTestCase(TestCase):
 class GetTaskTimeoutTestCase(TestCase):
     def test_get_default_timeout(self):
         timeout = get_task_timeout()
-        self.assertEqual(sys.maxsize, timeout)
+        self.assertEqual(24 * 60 * 60, timeout)
 
     def test_get_valid_timeout_from_environment(self):
         with patch.dict(os.environ, {"CONNECT_TASK_TIMEOUT": "24"}):
