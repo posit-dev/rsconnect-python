@@ -1,4 +1,6 @@
 import os
+import textwrap
+
 from typing import Union
 
 from rsconnect.exception import RSConnectException
@@ -70,3 +72,18 @@ def get_task_timeout() -> int:
         raise RSConnectException(f"'CONNECT_TASK_TIMEOUT' is set to '{timeout}'. The value must be a positive integer.")
 
     return timeout
+
+
+def get_task_timeout_help_message(timeout=get_task_timeout()) -> str:
+    """Gets a human friendly help message for adjusting the task timeout value."""
+
+    return f"The task timed out after {timeout} seconds." + textwrap.dedent(
+        f"""
+
+        You may try increasing the task timeout value using the {_CONNECT_TASK_TIMEOUT_KEY} environment variable. The default value is {_CONNECT_TASK_TIMEOUT_DEFAULT_VALUE} seconds. The current value is {get_task_timeout()} seconds.
+
+        Example:
+
+            CONNECT_TASK_TIMEOUT={_CONNECT_TASK_TIMEOUT_DEFAULT_VALUE} rsconnect deploy api --server <your-server> --api-key <your-api-key> ./
+        """  # noqa: E501
+    )
