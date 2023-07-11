@@ -28,7 +28,7 @@ from .models import AppMode, AppModes
 from .metadata import ServerStore, AppStore
 from .exception import RSConnectException
 from .bundle import _default_title, fake_module_file_from_directory
-from .timeouts import get_task_timeout
+from .timeouts import get_task_timeout, get_task_timeout_help_message
 
 
 class AbstractRemoteServer:
@@ -313,7 +313,7 @@ class RSConnectClient(HTTPServer):
         time_slept = 0
         while True:
             if (time.time() - start_time) > timeout:
-                raise RSConnectException("Task timed out after %d seconds" % timeout)
+                raise RSConnectException(get_task_timeout_help_message(timeout))
             elif abort_func():
                 raise RSConnectException("Task aborted.")
 
@@ -1195,7 +1195,7 @@ class PositClient(HTTPServer):
             time.sleep(2)
 
         if not finished:
-            raise RSConnectException("Application deployment timed out.")
+            raise RSConnectException(get_task_timeout_help_message(timeout))
 
         if status != "success":
             raise RSConnectException("Application deployment failed with error: {}".format(error))

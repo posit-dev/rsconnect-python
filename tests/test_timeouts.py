@@ -4,7 +4,7 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from rsconnect.exception import RSConnectException
-from rsconnect.timeouts import get_request_timeout, get_task_timeout
+from rsconnect.timeouts import get_request_timeout, get_task_timeout, get_task_timeout_help_message
 
 
 class GetRequestTimeoutTestCase(TestCase):
@@ -56,3 +56,11 @@ class GetTaskTimeoutTestCase(TestCase):
         with patch.dict(os.environ, {"CONNECT_TASK_TIMEOUT": "-24"}):
             with self.assertRaises(RSConnectException):
                 get_task_timeout()
+
+class GetTaskTimeoutHelpMessageTestCase(TestCase):
+    def test_get_task_timeout_help_message(self):
+        res = get_task_timeout_help_message(1)
+        self.assertTrue("The task timed out after 1 seconds." in res)
+        self.assertTrue("You may try increasing the task timeout value using the CONNECT_TASK_TIMEOUT environment variable." in res)  # noqa: E501
+        self.assertTrue("The default value is 86400 seconds." in res)
+        self.assertTrue("The current value is 86400 seconds." in res)
