@@ -26,7 +26,7 @@ from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
 from .log import logger, connect_logger, cls_logged, console_logger
 from .models import AppMode, AppModes
 from .metadata import ServerStore, AppStore
-from .exception import RSConnectException
+from .exception import RSConnectException, DeploymentFailedException
 from .bundle import _default_title, fake_module_file_from_directory
 from .timeouts import get_task_timeout, get_task_timeout_help_message
 
@@ -1172,6 +1172,11 @@ class PositClient(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
+    def get_task_logs(self, task_id):
+        response = self.get("/v1/tasks/{}/logs".format(task_id))
+        self._server.handle_bad_response(response)
+        return response
+
     def get_current_user(self):
         response = self.get("/v1/users/me")
         self._server.handle_bad_response(response)
@@ -1198,7 +1203,7 @@ class PositClient(HTTPServer):
             raise RSConnectException(get_task_timeout_help_message(timeout))
 
         if status != "success":
-            raise RSConnectException("Application deployment failed with error: {}".format(error))
+            raise DeploymentFailedException("Application deployment failed with error: {}".format(error))
 
         print("Task done: {}".format(description))
 
@@ -1281,7 +1286,12 @@ class ShinyappsService:
     def do_deploy(self, bundle_id, app_id):
         self._rstudio_client.set_bundle_status(bundle_id, "ready")
         deploy_task = self._rstudio_client.deploy_application(bundle_id, app_id)
-        self._rstudio_client.wait_until_task_is_successful(deploy_task["id"])
+        try:
+            self._rstudio_client.wait_until_task_is_successful(deploy_task["id"])
+        except DeploymentFailedException as e:
+            logs = self._rstudio_client.get_task_logs(deploy_task["id"])
+            logger.error("Build logs:\n{}".format(logs))
+            raise e
 
 
 class CloudService:
@@ -1358,7 +1368,13 @@ class CloudService:
     def do_deploy(self, bundle_id, app_id):
         self._rstudio_client.set_bundle_status(bundle_id, "ready")
         deploy_task = self._rstudio_client.deploy_application(bundle_id, app_id)
-        self._rstudio_client.wait_until_task_is_successful(deploy_task["id"])
+        try:
+            self._rstudio_client.wait_until_task_is_successful(deploy_task["id"])
+        except DeploymentFailedException as e:
+            logs = self._rstudio_client.get_task_logs(deploy_task["id"])
+            if len(logs) > 0:
+                logger.error("Build logs:\n{}".format(logs))
+            raise e
 
 
 def verify_server(connect_server):
