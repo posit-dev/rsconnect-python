@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Failed deploys to shinyapps.io will now output build logs. Posit Cloud application deploys will also output build logs once supported server-side.
+- Redeploy to Posit Cloud from a project now correctly associates the content with that project.
 
 ## [1.19.0] - 2023-07-12
 

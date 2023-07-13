@@ -1319,6 +1319,12 @@ class CloudService:
         self._server = server
         self._project_application_id = project_application_id
 
+    def _get_current_project_id(self):
+        if self._project_application_id is not None:
+            project_application = self._rstudio_client.get_application(self._project_application_id)
+            return project_application["content_id"]
+        return None
+
     def prepare_deploy(
         self,
         app_id: typing.Optional[typing.Union[str, int]],
@@ -1331,11 +1337,10 @@ class CloudService:
         application_type = "static" if app_mode == AppModes.STATIC else "connect"
 
         if app_id is None:
-            # this is a new deployment.
-            # get the Posit Cloud project so that we can associate the deployment with it
-            if self._project_application_id is not None:
-                project_application = self._rstudio_client.get_application(self._project_application_id)
-                project_id = project_application["content_id"]
+            # this is a deployment of a new output
+            # associate the current Posit Cloud project and space (if any) to the new output
+            project_id = self._get_current_project_id()
+            if project_id is not None:
                 project = self._rstudio_client.get_content(project_id)
                 space_id = project["space_id"]
             else:
@@ -1347,7 +1352,7 @@ class CloudService:
             )
             app_id_int = output["source_id"]
         else:
-            # this is a redeployment
+            # this is a redeployment of an existing output
             if app_store_version is not None:
                 # versioned app store files store content id in app_id
                 output = self._rstudio_client.get_content(app_id)
@@ -1359,12 +1364,16 @@ class CloudService:
                 # content_id will appear on static applications as output_id
                 content_id = application.get("content_id") or application.get("output_id")
                 app_id_int = application["id"]
-
                 output = self._rstudio_client.get_content(content_id)
 
             if application_type == "static":
                 revision = self._rstudio_client.create_revision(content_id)
                 app_id_int = revision["application_id"]
+
+            # associate the output with the current Posit Cloud project (if any)
+            project_id = self._get_current_project_id()
+            if project_id is not None:
+                self._rstudio_client.update_output(output["id"], {"project": project_id})
 
         app_url = output["url"]
         output_id = output["id"]
