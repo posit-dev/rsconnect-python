@@ -1172,6 +1172,16 @@ class PositClient(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
+    # /tasks?filter=parent_id:eq:1318096033&filter=action:eq:image-build'
+    def get_shinyapps_build_task(self, parent_task_id):
+        response = self.get("/v1/tasks",
+                            query_params={"filter": [
+                                "parent_id:eq:{}".format(parent_task_id),
+                                "action:eq:image-build",
+                            ]})
+        self._server.handle_bad_response(response)
+        return response
+
     def get_task_logs(self, task_id):
         response = self.get("/v1/tasks/{}/logs".format(task_id))
         self._server.handle_bad_response(response)
@@ -1289,8 +1299,10 @@ class ShinyappsService:
         try:
             self._rstudio_client.wait_until_task_is_successful(deploy_task["id"])
         except DeploymentFailedException as e:
-            logs = self._rstudio_client.get_task_logs(deploy_task["id"])
-            logger.error("Build logs:\n{}".format(logs))
+            build_task_result = self._rstudio_client.get_shinyapps_build_task(deploy_task['id'])
+            build_task = build_task_result['tasks'][0]
+            logs = self._rstudio_client.get_task_logs(build_task["id"])
+            logger.error("Build logs:\n{}".format(logs.response_body))
             raise e
 
 
@@ -1371,9 +1383,9 @@ class CloudService:
         try:
             self._rstudio_client.wait_until_task_is_successful(deploy_task["id"])
         except DeploymentFailedException as e:
-            logs = self._rstudio_client.get_task_logs(deploy_task["id"])
-            if len(logs) > 0:
-                logger.error("Build logs:\n{}".format(logs))
+            logs_response = self._rstudio_client.get_task_logs(deploy_task["id"])
+            if len(logs_response.response_body) > 0:
+                logger.error("Build logs:\n{}".format(logs_response.response_body))
             raise e
 
 
