@@ -5,7 +5,10 @@ import json
 import httpretty
 import sys
 import io
-from rsconnect.exception import RSConnectException
+
+import pytest
+
+from rsconnect.exception import RSConnectException, DeploymentFailedException
 from rsconnect.models import AppModes
 from .utils import (
     require_api_key,
@@ -19,6 +22,8 @@ from rsconnect.api import (
     CloudService,
     PositClient,
     CloudServer,
+    ShinyappsServer,
+    ShinyappsService,
 )
 
 
@@ -218,39 +223,85 @@ class RSConnectClientTestCase(TestCase):
                 client.deploy(app_id, app_name=None, app_title=None, title_is_default=None, tarball=None)
 
 
+class ShinyappsServiceTestCase(TestCase):
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.cloud_client = Mock(spec=PositClient)
+        server = ShinyappsServer("https://api.posit.cloud", "the_account", "the_token", "the_secret")
+        self.service = ShinyappsService(self.cloud_client, server)
+
+    def test_do_deploy(self):
+        bundle_id = 1
+        app_id = 2
+        task_id = 3
+
+        self.cloud_client.deploy_application.return_value = {'id': task_id}
+
+        self.service.do_deploy(bundle_id, app_id)
+
+        self.cloud_client.set_bundle_status.assert_called_with(bundle_id, 'ready')
+        self.cloud_client.deploy_application.assert_called_with(bundle_id, app_id)
+        self.cloud_client.wait_until_task_is_successful.assert_called_with(task_id)
+
+    def test_do_deploy_failure(self):
+        bundle_id = 1
+        app_id = 2
+        task_id = 3
+        build_task_id = 4
+
+        self.cloud_client.deploy_application.return_value = {'id': task_id}
+        self.cloud_client.wait_until_task_is_successful.side_effect = DeploymentFailedException('uh oh')
+        self.cloud_client.get_shinyapps_build_task.return_value = {'tasks': [{'id': build_task_id}]}
+        task_logs_response = Mock()
+        task_logs_response.response_body = "here's why it failed"
+        self.cloud_client.get_task_logs.return_value = task_logs_response
+
+        with pytest.raises(DeploymentFailedException):
+            self.service.do_deploy(bundle_id, app_id)
+
+        self.cloud_client.set_bundle_status.assert_called_with(bundle_id, 'ready')
+        self.cloud_client.deploy_application.assert_called_with(bundle_id, app_id)
+        self.cloud_client.wait_until_task_is_successful.assert_called_with(task_id)
+        self.cloud_client.get_shinyapps_build_task.assert_called_with(task_id)
+        self.cloud_client.get_task_logs.assert_called_with(build_task_id)
+
+
 class CloudServiceTestCase(TestCase):
-    def test_prepare_new_deploy(self):
-        cloud_client = Mock(spec=PositClient)
-        server = CloudServer("https://api.posit.cloud", "the_account", "the_token", "the_secret")
-        project_application_id = "20"
-        cloud_service = CloudService(
-            cloud_client=cloud_client, server=server, project_application_id=project_application_id
+
+    def setUp(self):
+        self.cloud_client = Mock(spec=PositClient)
+        self.server = CloudServer("https://api.posit.cloud", "the_account", "the_token", "the_secret")
+        self.project_application_id = "20"
+        self.cloud_service = CloudService(
+            cloud_client=self.cloud_client, server=self.server, project_application_id=self.project_application_id
         )
 
+    def test_prepare_new_deploy(self):
         app_id = None
         app_name = "my app"
         bundle_size = 5000
         bundle_hash = "the_hash"
         app_mode = AppModes.PYTHON_SHINY
 
-        cloud_client.get_application.return_value = {
+        self.cloud_client.get_application.return_value = {
             "content_id": 2,
         }
-        cloud_client.get_content.return_value = {
+        self.cloud_client.get_content.return_value = {
             "space_id": 1000,
         }
-        cloud_client.create_output.return_value = {
+        self.cloud_client.create_output.return_value = {
             "id": 1,
             "source_id": 10,
             "url": "https://posit.cloud/content/1",
         }
-        cloud_client.create_bundle.return_value = {
+        self.cloud_client.create_bundle.return_value = {
             "id": 100,
             "presigned_url": "https://presigned.url",
             "presigned_checksum": "the_checksum",
         }
 
-        prepare_deploy_result = cloud_service.prepare_deploy(
+        prepare_deploy_result = self.cloud_service.prepare_deploy(
             app_id=app_id,
             app_name=app_name,
             bundle_size=bundle_size,
@@ -259,12 +310,12 @@ class CloudServiceTestCase(TestCase):
             app_store_version=1,
         )
 
-        cloud_client.get_application.assert_called_with(project_application_id)
-        cloud_client.get_content.assert_called_with(2)
-        cloud_client.create_output.assert_called_with(
+        self.cloud_client.get_application.assert_called_with(self.project_application_id)
+        self.cloud_client.get_content.assert_called_with(2)
+        self.cloud_client.create_output.assert_called_with(
             name=app_name, application_type="connect", project_id=2, space_id=1000
         )
-        cloud_client.create_bundle.assert_called_with(10, "application/x-tar", bundle_size, bundle_hash)
+        self.cloud_client.create_bundle.assert_called_with(10, "application/x-tar", bundle_size, bundle_hash)
 
         assert prepare_deploy_result.app_id == 1
         assert prepare_deploy_result.application_id == 10
@@ -274,27 +325,20 @@ class CloudServiceTestCase(TestCase):
         assert prepare_deploy_result.presigned_checksum == "the_checksum"
 
     def test_prepare_redeploy(self):
-        cloud_client = Mock(spec=PositClient)
-        server = CloudServer("https://api.posit.cloud", "the_account", "the_token", "the_secret")
-        project_application_id = "20"
-        cloud_service = CloudService(
-            cloud_client=cloud_client, server=server, project_application_id=project_application_id
-        )
-
         app_id = 1
         app_name = "my app"
         bundle_size = 5000
         bundle_hash = "the_hash"
         app_mode = AppModes.PYTHON_SHINY
 
-        cloud_client.get_content.return_value = {"id": 1, "source_id": 10, "url": "https://posit.cloud/content/1"}
-        cloud_client.create_bundle.return_value = {
+        self.cloud_client.get_content.return_value = {"id": 1, "source_id": 10, "url": "https://posit.cloud/content/1"}
+        self.cloud_client.create_bundle.return_value = {
             "id": 100,
             "presigned_url": "https://presigned.url",
             "presigned_checksum": "the_checksum",
         }
 
-        prepare_deploy_result = cloud_service.prepare_deploy(
+        prepare_deploy_result = self.cloud_service.prepare_deploy(
             app_id=app_id,
             app_name=app_name,
             bundle_size=bundle_size,
@@ -302,8 +346,8 @@ class CloudServiceTestCase(TestCase):
             app_mode=app_mode,
             app_store_version=1,
         )
-        cloud_client.get_content.assert_called_with(1)
-        cloud_client.create_bundle.assert_called_with(10, "application/x-tar", bundle_size, bundle_hash)
+        self.cloud_client.get_content.assert_called_with(1)
+        self.cloud_client.create_bundle.assert_called_with(10, "application/x-tar", bundle_size, bundle_hash)
 
         assert prepare_deploy_result.app_id == 1
         assert prepare_deploy_result.application_id == 10
@@ -313,30 +357,23 @@ class CloudServiceTestCase(TestCase):
         assert prepare_deploy_result.presigned_checksum == "the_checksum"
 
     def test_prepare_redeploy_static(self):
-        cloud_client = Mock(spec=PositClient)
-        server = CloudServer("https://api.posit.cloud", "the_account", "the_token", "the_secret")
-        project_application_id = "20"
-        cloud_service = CloudService(
-            cloud_client=cloud_client, server=server, project_application_id=project_application_id
-        )
-
         app_id = 1
         app_name = "my app"
         bundle_size = 5000
         bundle_hash = "the_hash"
         app_mode = AppModes.STATIC
 
-        cloud_client.get_content.return_value = {"id": 1, "source_id": 10, "url": "https://posit.cloud/content/1"}
-        cloud_client.create_revision.return_value = {
+        self.cloud_client.get_content.return_value = {"id": 1, "source_id": 10, "url": "https://posit.cloud/content/1"}
+        self.cloud_client.create_revision.return_value = {
             "application_id": 11,
         }
-        cloud_client.create_bundle.return_value = {
+        self.cloud_client.create_bundle.return_value = {
             "id": 100,
             "presigned_url": "https://presigned.url",
             "presigned_checksum": "the_checksum",
         }
 
-        prepare_deploy_result = cloud_service.prepare_deploy(
+        prepare_deploy_result = self.cloud_service.prepare_deploy(
             app_id=app_id,
             app_name=app_name,
             bundle_size=bundle_size,
@@ -344,9 +381,9 @@ class CloudServiceTestCase(TestCase):
             app_mode=app_mode,
             app_store_version=1,
         )
-        cloud_client.get_content.assert_called_with(1)
-        cloud_client.create_revision.assert_called_with(1)
-        cloud_client.create_bundle.assert_called_with(11, "application/x-tar", bundle_size, bundle_hash)
+        self.cloud_client.get_content.assert_called_with(1)
+        self.cloud_client.create_revision.assert_called_with(1)
+        self.cloud_client.create_bundle.assert_called_with(11, "application/x-tar", bundle_size, bundle_hash)
 
         assert prepare_deploy_result.app_id == 1
         assert prepare_deploy_result.application_id == 11
@@ -356,31 +393,24 @@ class CloudServiceTestCase(TestCase):
         assert prepare_deploy_result.presigned_checksum == "the_checksum"
 
     def test_prepare_redeploy_preversioned_app_store(self):
-        cloud_client = Mock(spec=PositClient)
-        server = CloudServer("https://api.posit.cloud", "the_account", "the_token", "the_secret")
-        project_application_id = "20"
-        cloud_service = CloudService(
-            cloud_client=cloud_client, server=server, project_application_id=project_application_id
-        )
-
         app_id = 10
         app_name = "my app"
         bundle_size = 5000
         bundle_hash = "the_hash"
         app_mode = AppModes.PYTHON_SHINY
 
-        cloud_client.get_application.return_value = {
+        self.cloud_client.get_application.return_value = {
             "id": 10,
             "content_id": 1,
         }
-        cloud_client.get_content.return_value = {"id": 1, "source_id": 10, "url": "https://posit.cloud/content/1"}
-        cloud_client.create_bundle.return_value = {
+        self.cloud_client.get_content.return_value = {"id": 1, "source_id": 10, "url": "https://posit.cloud/content/1"}
+        self.cloud_client.create_bundle.return_value = {
             "id": 100,
             "presigned_url": "https://presigned.url",
             "presigned_checksum": "the_checksum",
         }
 
-        prepare_deploy_result = cloud_service.prepare_deploy(
+        prepare_deploy_result = self.cloud_service.prepare_deploy(
             app_id=app_id,
             app_name=app_name,
             bundle_size=bundle_size,
@@ -388,9 +418,9 @@ class CloudServiceTestCase(TestCase):
             app_mode=app_mode,
             app_store_version=None,
         )
-        cloud_client.get_application.assert_called_with(10)
-        cloud_client.get_content.assert_called_with(1)
-        cloud_client.create_bundle.assert_called_with(10, "application/x-tar", bundle_size, bundle_hash)
+        self.cloud_client.get_application.assert_called_with(10)
+        self.cloud_client.get_content.assert_called_with(1)
+        self.cloud_client.create_bundle.assert_called_with(10, "application/x-tar", bundle_size, bundle_hash)
 
         assert prepare_deploy_result.app_id == 1
         assert prepare_deploy_result.application_id == 10
@@ -398,3 +428,46 @@ class CloudServiceTestCase(TestCase):
         assert prepare_deploy_result.bundle_id == 100
         assert prepare_deploy_result.presigned_url == "https://presigned.url"
         assert prepare_deploy_result.presigned_checksum == "the_checksum"
+
+    # def do_deploy(self, bundle_id, app_id):
+    #     self._rstudio_client.set_bundle_status(bundle_id, "ready")
+    #     deploy_task = self._rstudio_client.deploy_application(bundle_id, app_id)
+    #     try:
+    #         self._rstudio_client.wait_until_task_is_successful(deploy_task["id"])
+    #     except DeploymentFailedException as e:
+    #         logs_response = self._rstudio_client.get_task_logs(deploy_task["id"])
+    #         if len(logs_response.response_body) > 0:
+    #             logger.error("Build logs:\n{}".format(logs_response.response_body))
+    #         raise e
+
+    def test_do_deploy(self):
+        bundle_id = 1
+        app_id = 2
+        task_id = 3
+
+        self.cloud_client.deploy_application.return_value = {'id': task_id}
+
+        self.cloud_service.do_deploy(bundle_id, app_id)
+
+        self.cloud_client.set_bundle_status.assert_called_with(bundle_id, 'ready')
+        self.cloud_client.deploy_application.assert_called_with(bundle_id, app_id)
+        self.cloud_client.wait_until_task_is_successful.assert_called_with(task_id)
+
+    def test_do_deploy_failure(self):
+        bundle_id = 1
+        app_id = 2
+        task_id = 3
+
+        self.cloud_client.deploy_application.return_value = {'id': task_id}
+        self.cloud_client.wait_until_task_is_successful.side_effect = DeploymentFailedException('uh oh')
+        task_logs_response = Mock()
+        task_logs_response.response_body = "here's why it failed"
+        self.cloud_client.get_task_logs.return_value = task_logs_response
+
+        with pytest.raises(DeploymentFailedException):
+            self.cloud_service.do_deploy(bundle_id, app_id)
+
+        self.cloud_client.set_bundle_status.assert_called_with(bundle_id, 'ready')
+        self.cloud_client.deploy_application.assert_called_with(bundle_id, app_id)
+        self.cloud_client.wait_until_task_is_successful.assert_called_with(task_id)
+        self.cloud_client.get_task_logs.assert_called_with(task_id)
