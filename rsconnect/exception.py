@@ -4,5 +4,6 @@ class RSConnectException(Exception):
         self.message = message
         self.cause = cause
 
+
 class DeploymentFailedException(RSConnectException):
     pass
