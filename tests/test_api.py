@@ -429,17 +429,6 @@ class CloudServiceTestCase(TestCase):
         assert prepare_deploy_result.presigned_url == "https://presigned.url"
         assert prepare_deploy_result.presigned_checksum == "the_checksum"
 
-    # def do_deploy(self, bundle_id, app_id):
-    #     self._rstudio_client.set_bundle_status(bundle_id, "ready")
-    #     deploy_task = self._rstudio_client.deploy_application(bundle_id, app_id)
-    #     try:
-    #         self._rstudio_client.wait_until_task_is_successful(deploy_task["id"])
-    #     except DeploymentFailedException as e:
-    #         logs_response = self._rstudio_client.get_task_logs(deploy_task["id"])
-    #         if len(logs_response.response_body) > 0:
-    #             logger.error("Build logs:\n{}".format(logs_response.response_body))
-    #         raise e
-
     def test_do_deploy(self):
         bundle_id = 1
         app_id = 2
