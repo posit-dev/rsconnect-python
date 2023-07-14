@@ -422,10 +422,11 @@ class CloudServiceTestCase(TestCase):
             app_mode=app_mode,
             app_store_version=None,
         )
-        self.cloud_client.get_application.assert_has_calls([call(app_id), call(project_application_id)])
+        # first call is to get the current project id, second call is to get the application
+        self.cloud_client.get_application.assert_has_calls([call(project_application_id), call(app_id)])
         self.cloud_client.get_content.assert_called_with(1)
         self.cloud_client.create_bundle.assert_called_with(10, "application/x-tar", bundle_size, bundle_hash)
-        cloud_client.update_output.assert_called_with(1, {"project": 1})
+        self.cloud_client.update_output.assert_called_with(1, {"project": 1})
 
         assert prepare_deploy_result.app_id == 1
         assert prepare_deploy_result.application_id == 10

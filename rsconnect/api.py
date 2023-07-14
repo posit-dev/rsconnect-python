@@ -1336,10 +1336,10 @@ class CloudService:
     ) -> PrepareDeployOutputResult:
         application_type = "static" if app_mode == AppModes.STATIC else "connect"
 
+        project_id = self._get_current_project_id()
+
         if app_id is None:
             # this is a deployment of a new output
-            # associate the current Posit Cloud project and space (if any) to the new output
-            project_id = self._get_current_project_id()
             if project_id is not None:
                 project = self._rstudio_client.get_content(project_id)
                 space_id = project["space_id"]
@@ -1347,6 +1347,7 @@ class CloudService:
                 project_id = None
                 space_id = None
 
+            # create the new output and associate it with the current Posit Cloud project and space
             output = self._rstudio_client.create_output(
                 name=app_name, application_type=application_type, project_id=project_id, space_id=space_id
             )
@@ -1371,7 +1372,6 @@ class CloudService:
                 app_id_int = revision["application_id"]
 
             # associate the output with the current Posit Cloud project (if any)
-            project_id = self._get_current_project_id()
             if project_id is not None:
                 self._rstudio_client.update_output(output["id"], {"project": project_id})
 
