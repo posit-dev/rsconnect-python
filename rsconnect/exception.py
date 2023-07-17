@@ -3,3 +3,7 @@ class RSConnectException(Exception):
         super(RSConnectException, self).__init__(message)
         self.message = message
         self.cause = cause
+
+
+class DeploymentFailedException(RSConnectException):
+    pass

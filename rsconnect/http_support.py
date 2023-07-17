@@ -271,7 +271,7 @@ class HTTPServer(object):
     ):
         full_uri = path
         if query_params is not None:
-            full_uri = "%s?%s" % (path, urlencode(query_params))
+            full_uri = "%s?%s" % (path, urlencode(query_params, doseq=True))
         headers = self._headers.copy()
         if self._proxy_headers:
             headers.update(self._proxy_headers)
