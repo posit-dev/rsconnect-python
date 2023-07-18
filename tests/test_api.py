@@ -1,5 +1,5 @@
 from unittest import TestCase
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, call
 import json
 
 import httpretty
@@ -332,6 +332,7 @@ class CloudServiceTestCase(TestCase):
         app_mode = AppModes.PYTHON_SHINY
 
         self.cloud_client.get_content.return_value = {"id": 1, "source_id": 10, "url": "https://posit.cloud/content/1"}
+        self.cloud_client.get_application.return_value = {"id": 10, "content_id": 200}
         self.cloud_client.create_bundle.return_value = {
             "id": 100,
             "presigned_url": "https://presigned.url",
@@ -348,6 +349,7 @@ class CloudServiceTestCase(TestCase):
         )
         self.cloud_client.get_content.assert_called_with(1)
         self.cloud_client.create_bundle.assert_called_with(10, "application/x-tar", bundle_size, bundle_hash)
+        self.cloud_client.update_output.assert_called_with(1, {"project": 200})
 
         assert prepare_deploy_result.app_id == 1
         assert prepare_deploy_result.application_id == 10
@@ -364,6 +366,7 @@ class CloudServiceTestCase(TestCase):
         app_mode = AppModes.STATIC
 
         self.cloud_client.get_content.return_value = {"id": 1, "source_id": 10, "url": "https://posit.cloud/content/1"}
+        self.cloud_client.get_application.return_value = {"id": 10, "content_id": 200}
         self.cloud_client.create_revision.return_value = {
             "application_id": 11,
         }
@@ -384,6 +387,7 @@ class CloudServiceTestCase(TestCase):
         self.cloud_client.get_content.assert_called_with(1)
         self.cloud_client.create_revision.assert_called_with(1)
         self.cloud_client.create_bundle.assert_called_with(11, "application/x-tar", bundle_size, bundle_hash)
+        self.cloud_client.update_output.assert_called_with(1, {"project": 200})
 
         assert prepare_deploy_result.app_id == 1
         assert prepare_deploy_result.application_id == 11
@@ -418,9 +422,11 @@ class CloudServiceTestCase(TestCase):
             app_mode=app_mode,
             app_store_version=None,
         )
-        self.cloud_client.get_application.assert_called_with(10)
+        # first call is to get the current project id, second call is to get the application
+        self.cloud_client.get_application.assert_has_calls([call(self.project_application_id), call(app_id)])
         self.cloud_client.get_content.assert_called_with(1)
         self.cloud_client.create_bundle.assert_called_with(10, "application/x-tar", bundle_size, bundle_hash)
+        self.cloud_client.update_output.assert_called_with(1, {"project": 1})
 
         assert prepare_deploy_result.app_id == 1
         assert prepare_deploy_result.application_id == 10

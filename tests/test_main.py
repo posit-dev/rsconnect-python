@@ -350,6 +350,13 @@ class TestMain:
             body=post_output_callback,
         )
 
+        httpretty.register_uri(
+            httpretty.PATCH,
+            "https://api.posit.cloud/v1/outputs/1",
+            body=open("tests/testdata/rstudio-responses/create-output.json", "r").read(),
+            status=200,
+        )
+
         def post_bundle_callback(request, uri, response_headers):
             parsed_request = _load_json(request.body)
             del parsed_request["checksum"]
