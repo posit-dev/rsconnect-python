@@ -1,8 +1,5 @@
 # The rsconnect-python CLI
 
-> **Warning**
-> As of version 1.14.0, rsconnect-python requires Python version 3.7 or higher.
-
 This package provides a CLI (command-line interface) for interacting
 with and deploying to Posit Connect. This is also used by the
 [`rsconnect-jupyter`](https://github.com/rstudio/rsconnect-jupyter) package to deploy
