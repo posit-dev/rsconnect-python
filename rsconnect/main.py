@@ -965,7 +965,7 @@ def deploy_voila(
     name="manifest",
     short_help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io by manifest.",
     help=(
-        "Deploy content to Posit Connect using an existing manifest.json "
+        "Deploy content to Posit Connect, Posit Cloud, or shinyapps.io using an existing manifest.json "
         'file.  The specified file must either be named "manifest.json" or '
         'refer to a directory that contains a file named "manifest.json".'
     ),
@@ -1018,13 +1018,13 @@ def deploy_manifest(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="quarto",
-    short_help="Deploy Quarto content to Posit Connect [v2021.08.0+].",
+    short_help="Deploy Quarto content to Posit Connect [v2021.08.0+] or Posit Cloud.",
     help=(
-        "Deploy a Quarto document or project to Posit Connect. Should the content use the Quarto Jupyter engine, "
-        'an environment file ("requirements.txt") is created and included in the deployment if one does '
-        "not already exist. Requires Posit Connect 2021.08.0 or later."
-        "\n\n"
-        "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
+        'Deploy a Quarto document or project to Posit Connect or Posit Cloud. Should the content use the Quarto '
+        'Jupyter engine, an environment file ("requirements.txt") is created and included in the deployment if one '
+        'does not already exist. Requires Posit Connect 2021.08.0 or later.'
+        '\n\n'
+        'FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project.'
     ),
     no_args_is_help=True,
 )

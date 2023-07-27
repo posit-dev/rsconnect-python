@@ -268,7 +268,6 @@ class ShinyappsServiceTestCase(TestCase):
 
 
 class CloudServiceTestCase(TestCase):
-
     def setUp(self):
         self.cloud_client = Mock(spec=PositClient)
         self.server = CloudServer("https://api.posit.cloud", "the_account", "the_token", "the_secret")
@@ -277,7 +276,7 @@ class CloudServiceTestCase(TestCase):
             cloud_client=self.cloud_client, server=self.server, project_application_id=self.project_application_id
         )
 
-    def test_prepare_new_deploy(self):
+    def test_prepare_new_deploy_python_shiny(self):
         app_id = None
         app_name = "my app"
         bundle_size = 5000
@@ -313,7 +312,7 @@ class CloudServiceTestCase(TestCase):
         self.cloud_client.get_application.assert_called_with(self.project_application_id)
         self.cloud_client.get_content.assert_called_with(2)
         self.cloud_client.create_output.assert_called_with(
-            name=app_name, application_type="connect", project_id=2, space_id=1000
+            name=app_name, application_type="connect", project_id=2, space_id=1000, render_by=None
         )
         self.cloud_client.create_bundle.assert_called_with(10, "application/x-tar", bundle_size, bundle_hash)
 
@@ -323,6 +322,52 @@ class CloudServiceTestCase(TestCase):
         assert prepare_deploy_result.bundle_id == 100
         assert prepare_deploy_result.presigned_url == "https://presigned.url"
         assert prepare_deploy_result.presigned_checksum == "the_checksum"
+
+    def test_prepare_new_deploy_static_quarto(self):
+        cloud_client = Mock(spec=PositClient)
+        server = CloudServer("https://api.posit.cloud", "the_account", "the_token", "the_secret")
+        project_application_id = "20"
+        cloud_service = CloudService(
+            cloud_client=cloud_client, server=server, project_application_id=project_application_id
+        )
+
+        app_id = None
+        app_name = "my app"
+        bundle_size = 5000
+        bundle_hash = "the_hash"
+        app_mode = AppModes.STATIC_QUARTO
+
+        cloud_client.get_application.return_value = {
+            "content_id": 2,
+        }
+        cloud_client.get_content.return_value = {
+            "space_id": 1000,
+        }
+        cloud_client.create_output.return_value = {
+            "id": 1,
+            "source_id": 10,
+            "url": "https://posit.cloud/content/1",
+        }
+        cloud_client.create_bundle.return_value = {
+            "id": 100,
+            "presigned_url": "https://presigned.url",
+            "presigned_checksum": "the_checksum",
+        }
+
+        cloud_service.prepare_deploy(
+            app_id=app_id,
+            app_name=app_name,
+            bundle_size=bundle_size,
+            bundle_hash=bundle_hash,
+            app_mode=app_mode,
+            app_store_version=1,
+        )
+
+        cloud_client.get_application.assert_called_with(project_application_id)
+        cloud_client.get_content.assert_called_with(2)
+        cloud_client.create_output.assert_called_with(
+            name=app_name, application_type="static", project_id=2, space_id=1000, render_by='server'
+        )
 
     def test_prepare_redeploy(self):
         app_id = 1

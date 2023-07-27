@@ -1120,8 +1120,15 @@ class PositClient(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
-    def create_output(self, name: str, application_type: str, project_id=None, space_id=None):
-        data = {"name": name, "space": space_id, "project": project_id, "application_type": application_type}
+    def create_output(self, name: str, application_type: str, project_id=None, space_id=None, render_by=None):
+        data = {
+            "name": name,
+            "space": space_id,
+            "project": project_id,
+            "application_type": application_type
+        }
+        if render_by:
+            data['render_by'] = render_by
         response = self.post("/v1/outputs/", body=data)
         self._server.handle_bad_response(response)
         return response
@@ -1334,7 +1341,14 @@ class CloudService:
         app_mode: AppMode,
         app_store_version: typing.Optional[int],
     ) -> PrepareDeployOutputResult:
-        application_type = "static" if app_mode == AppModes.STATIC else "connect"
+
+        application_type = "static" if app_mode in [
+            AppModes.STATIC,
+            AppModes.STATIC_QUARTO] else "connect"
+        logger.debug(f"application_type: {application_type}")
+
+        render_by = "server" if app_mode == AppModes.STATIC_QUARTO else None
+        logger.debug(f"render_by: {render_by}")
 
         project_id = self._get_current_project_id()
 
@@ -1348,9 +1362,11 @@ class CloudService:
                 space_id = None
 
             # create the new output and associate it with the current Posit Cloud project and space
-            output = self._rstudio_client.create_output(
-                name=app_name, application_type=application_type, project_id=project_id, space_id=space_id
-            )
+            output = self._rstudio_client.create_output(name=app_name,
+                                                        application_type=application_type,
+                                                        project_id=project_id,
+                                                        space_id=space_id,
+                                                        render_by=render_by)
             app_id_int = output["source_id"]
         else:
             # this is a redeployment of an existing output

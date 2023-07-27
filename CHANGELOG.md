@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - The `CONNECT_TASK_TIMEOUT` environment variable, which configures the timeout for [task based operations](https://docs.posit.co/connect/api/#get-/v1/tasks/-id-). This value translates into seconds (e.g., `CONNECT_TASK_TIMEOUT=60` is equivalent to 60 seconds.) By default, this value is set to 86,400 seconds (e.g., 24 hours).
+- Deploys for Posit Cloud now support Quarto source files or projects with `markdown` or `jupyter` engines.
+
 
 ## [1.18.0] - 2023-06-27
 
