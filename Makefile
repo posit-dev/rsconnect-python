@@ -172,8 +172,8 @@ dev:
 	docker-compose up -d
 	docker-compose exec -T rsconnect bash < vetiver-testing/setup-rsconnect/add-users.sh
 	# curl fails with error 52 without a short sleep....
-	sleep 5
-	curl -s --retry 10 --retry-connrefused http://localhost:3939
+	# sleep 5
+	# curl -s --retry 10 --retry-connrefused http://localhost:3939
 	python vetiver-testing/setup-rsconnect/dump_api_keys.py $(RSC_API_KEYS)
 
 dev-stop:
