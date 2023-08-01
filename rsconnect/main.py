@@ -244,6 +244,34 @@ def content_args(func):
     return wrapper
 
 
+def runtime_environment_args(func):
+    @click.option(
+        "--image",
+        "-I",
+        help="Target image to be used during content build and execution. This option is only applicable if the Connect "
+        "server is configured to use off-host execution.",
+    )
+    @click.option(
+        "--no-env-restore-py",
+        is_flag=True,
+        help="Disable Python environment restore. When this flag is provided, Connect will not "
+        "perform any Python package installation. It is the user's responsibility to ensure required "
+        "packages are installed in the runtime environment.",
+    )
+    @click.option(
+        "--no-env-restore-r",
+        is_flag=True,
+        help="Disable R environment restore. When this flag is provided, Connect will not "
+        "perform any R package installation. It is the user's responsibility to ensure required "
+        "packages are installed in the runtime environment.",
+    )
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 @click.group(no_args_is_help=True)
 @click.option("--future", "-u", is_flag=True, hidden=True, help="Enables future functionality.")
 def cli(future):
@@ -750,6 +778,7 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
 )
 @server_args
 @content_args
+@runtime_environment_args
 @click.option(
     "--static",
     "-S",
@@ -786,12 +815,6 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
 @click.option(
     "--hide-tagged-input", is_flag=True, default=False, help="Hide input code cells with the 'hide_input' tag"
 )
-@click.option(
-    "--image",
-    "-I",
-    help="Target image to be used during content execution (only applicable if the Posit Connect "
-    "server is configured to use off-host execution)",
-)
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
     "extra_files",
@@ -819,6 +842,8 @@ def deploy_notebook(
     hide_tagged_input: bool,
     env_vars: typing.Dict[str, str],
     image: str,
+    no_env_restore_py: bool,
+    no_env_restore_r: bool,
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -845,6 +870,8 @@ def deploy_notebook(
             hide_all_input,
             hide_tagged_input,
             image=image,
+            no_env_restore_py=no_env_restore_py,
+            no_env_restore_r=no_env_restore_r,
         )
     else:
         ce.make_bundle(
@@ -855,6 +882,8 @@ def deploy_notebook(
             hide_all_input,
             hide_tagged_input,
             image=image,
+            no_env_restore_py=no_env_restore_py,
+            no_env_restore_r=no_env_restore_r,
         )
     ce.deploy_bundle().save_deployed_info().emit_task_log()
 
@@ -868,6 +897,7 @@ def deploy_notebook(
 )
 @server_args
 @content_args
+@runtime_environment_args
 @click.option(
     "--entrypoint",
     "-e",
@@ -904,12 +934,6 @@ def deploy_notebook(
     is_flag=True,
     help='Force generating "requirements.txt", even if it already exists.',
 )
-@click.option(
-    "--image",
-    "-I",
-    help="Target image to be used during content execution (only applicable if the RStudio Connect "
-    "server is configured to use off-host execution)",
-)
 @click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
     "extra_files",
@@ -925,6 +949,8 @@ def deploy_voila(
     extra_files=None,
     exclude=None,
     image: str = "",
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
     title: str = None,
     env_vars: typing.Dict[str, str] = None,
     verbose: bool = False,
@@ -956,6 +982,8 @@ def deploy_voila(
         force_generate,
         environment,
         image=image,
+        no_env_restore_py=no_env_restore_py,
+        no_env_restore_r=no_env_restore_r,
         multi_notebook=multi_notebook,
     ).deploy_bundle().save_deployed_info().emit_task_log()
 
@@ -1030,6 +1058,7 @@ def deploy_manifest(
 )
 @server_args
 @content_args
+@runtime_environment_args
 @click.option(
     "--exclude",
     "-x",
@@ -1061,12 +1090,6 @@ def deploy_manifest(
     is_flag=True,
     help='Force generating "requirements.txt", even if it already exists.',
 )
-@click.option(
-    "--image",
-    "-I",
-    help="Target image to be used during content execution (only applicable if the Posit Connect "
-    "server is configured to use off-host execution)",
-)
 @click.argument("file_or_directory", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
     "extra_files",
@@ -1092,6 +1115,8 @@ def deploy_quarto(
     extra_files,
     env_vars: typing.Dict[str, str],
     image: str,
+    no_env_restore_py: bool,
+    no_env_restore_r: bool,
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -1137,6 +1162,8 @@ def deploy_quarto(
             inspect,
             environment,
             image=image,
+            no_env_restore_py=no_env_restore_py,
+            no_env_restore_r=no_env_restore_r,
         )
         .deploy_bundle()
         .save_deployed_info()
@@ -1237,6 +1264,7 @@ def generate_deploy_python(app_mode, alias, min_version):
     @server_args
     @content_args
     @cloud_shinyapps_args
+    @runtime_environment_args
     @click.option(
         "--entrypoint",
         "-e",
@@ -1276,12 +1304,6 @@ def generate_deploy_python(app_mode, alias, min_version):
         is_flag=True,
         help='Force generating "requirements.txt", even if it already exists.',
     )
-    @click.option(
-        "--image",
-        "-I",
-        help="Target image to be used during content execution (only applicable if the Posit Connect "
-        "server is configured to use off-host execution)",
-    )
     @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
     @click.argument(
         "extra_files",
@@ -1310,6 +1332,8 @@ def generate_deploy_python(app_mode, alias, min_version):
         visibility: typing.Optional[str],
         env_vars: typing.Dict[str, str],
         image: str,
+        no_env_restore_py: bool,
+        no_env_restore_r: bool,
         account: str = None,
         token: str = None,
         secret: str = None,
@@ -1337,6 +1361,8 @@ def generate_deploy_python(app_mode, alias, min_version):
                 extra_files,
                 exclude,
                 image=image,
+                no_env_restore_py,
+                no_env_restore_r,
             )
             .deploy_bundle()
             .save_deployed_info()
@@ -1422,18 +1448,13 @@ def write_manifest():
 @click.option("--hide-all-input", is_flag=True, default=None, help="Hide all input cells when rendering output")
 @click.option("--hide-tagged-input", is_flag=True, default=None, help="Hide input code cells with the 'hide_input' tag")
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
-@click.option(
-    "--image",
-    "-I",
-    help="Target image to be used during content execution (only applicable if the Posit Connect "
-    "server is configured to use off-host execution)",
-)
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
     "extra_files",
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@runtime_environment_args
 def write_manifest_notebook(
     overwrite,
     python,
@@ -1443,6 +1464,8 @@ def write_manifest_notebook(
     file,
     extra_files,
     image,
+    no_env_restore_py,
+    no_env_restore_r,
     hide_all_input=None,
     hide_tagged_input=None,
 ):
@@ -1470,6 +1493,8 @@ def write_manifest_notebook(
             hide_all_input,
             hide_tagged_input,
             image,
+            no_env_restore_py,
+            no_env_restore_r,
         )
 
     if environment_file_exists and not force_generate:
@@ -1506,12 +1531,6 @@ def write_manifest_notebook(
     help='Force generating "requirements.txt", even if it already exists.',
 )
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
-@click.option(
-    "--image",
-    "-I",
-    help="Target image to be used during content execution (only applicable if the RStudio Connect "
-    "server is configured to use off-host execution)",
-)
 @click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
     "extra_files",
@@ -1535,6 +1554,7 @@ def write_manifest_notebook(
     is_flag=True,
     help=("Set the manifest for multi-notebook mode."),
 )
+@runtime_environment_args
 def write_manifest_voila(
     path: str,
     entrypoint: str,
@@ -1545,6 +1565,8 @@ def write_manifest_voila(
     extra_files,
     exclude,
     image,
+    no_env_restore_py,
+    no_env_restore_r,
     multi_notebook,
 ):
     set_verbosity(verbose)
@@ -1581,6 +1603,8 @@ def write_manifest_voila(
             exclude,
             force_generate,
             image,
+            no_env_restore_py,
+            no_env_restore_r,
             multi_notebook,
         )
 
@@ -1629,18 +1653,13 @@ def write_manifest_voila(
     help='Force generating "requirements.txt", even if it already exists.',
 )
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
-@click.option(
-    "--image",
-    "-I",
-    help="Target image to be used during content execution (only applicable if the Posit Connect "
-    "server is configured to use off-host execution)",
-)
 @click.argument("file_or_directory", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
     "extra_files",
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@runtime_environment_args
 def write_manifest_quarto(
     overwrite,
     exclude,
@@ -1651,6 +1670,8 @@ def write_manifest_quarto(
     file_or_directory,
     extra_files,
     image,
+    no_env_restore_py,
+    no_env_restore_r,
 ):
     set_verbosity(verbose)
 
@@ -1695,6 +1716,8 @@ def write_manifest_quarto(
             extra_files,
             exclude,
             image,
+            no_env_restore_py,
+            no_env_restore_r,
         )
 
 
@@ -1748,18 +1771,13 @@ def generate_write_manifest_python(app_mode, alias):
         help='Force generating "requirements.txt", even if it already exists.',
     )
     @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
-    @click.option(
-        "--image",
-        "-I",
-        help="Target image to be used during content execution (only applicable if the Posit Connect "
-        "server is configured to use off-host execution)",
-    )
     @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
     @click.argument(
         "extra_files",
         nargs=-1,
         type=click.Path(exists=True, dir_okay=False, file_okay=True),
     )
+    @runtime_environment_args
     def manifest_writer(
         overwrite,
         entrypoint,
@@ -1771,6 +1789,8 @@ def generate_write_manifest_python(app_mode, alias):
         directory,
         extra_files,
         image,
+        no_env_restore_py,
+        no_env_restore_r,
     ):
         _write_framework_manifest(
             overwrite,
@@ -1784,6 +1804,8 @@ def generate_write_manifest_python(app_mode, alias):
             extra_files,
             app_mode,
             image,
+            no_env_restore_py,
+            no_env_restore_r,
         )
 
     return manifest_writer
@@ -1810,6 +1832,8 @@ def _write_framework_manifest(
     extra_files,
     app_mode,
     image,
+    no_env_restore_py,
+    no_env_restore_r,
 ):
     """
     A common function for writing manifests for APIs as well as Dash, Streamlit, and Bokeh apps.
@@ -1827,6 +1851,8 @@ def _write_framework_manifest(
     :param extra_files: any extra files that should be included.
     :param app_mode: the app mode to use.
     :param image: an optional docker image for off-host execution.
+    :param no_env_restore_py: whether the user is responsible for Python package installation in the runtime environment.
+    :param no_env_restore_r: whether the user is responsible for R package installation in the runtime environment.
     """
     set_verbosity(verbose)
 
@@ -1851,6 +1877,8 @@ def _write_framework_manifest(
             extra_files,
             exclude,
             image,
+            no_env_restore_py,
+            no_env_restore_r,
         )
 
     if environment_file_exists and not force_generate:

@@ -66,6 +66,8 @@ class Manifest:
         entrypoint: str = None,
         quarto_inspection: dict = None,
         image: str = None,
+        no_env_restore_py: bool = False,
+        no_env_restore_r: bool = False,
         primary_html: str = None,
         metadata: dict = None,
         files: dict = None,
@@ -118,10 +120,17 @@ class Manifest:
                 },
             }
 
-        if image:
-            self.data["environment"] = {
-                "image": image,
-            }
+
+        if image or no_env_restore_py or no_env_restore_r:
+            self.data["environment"] = {}
+            if image:
+                self.data["environment"]["image"] = image
+            if no_env_restore_py or no_env_restore_r:
+                self.data["environment"]["environment_management"] = {}
+                if no_env_restore_py:
+                    self.data["environment"]["environment_management"]["python"] = False
+                if no_env_restore_r:
+                    self.data["environment"]["environment_management"]["r"] = False
 
         self.data["files"] = {}
         if files:
@@ -298,6 +307,8 @@ def make_source_manifest(
     entrypoint: str,
     quarto_inspection: typing.Dict[str, typing.Any],
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
 ) -> typing.Dict[str, typing.Any]:
     manifest = {
         "version": 1,
@@ -339,10 +350,17 @@ def make_source_manifest(
             },
         }
 
-    if image:
-        manifest["environment"] = {
-            "image": image,
-        }
+
+    if image or no_env_restore_py or no_env_restore_r:
+        manifest["environment"] = {}
+        if image:
+            manifest["environment"]["image"] = image
+        if no_env_restore_py or no_env_restore_r:
+            manifest["environment"]["environment_management"] = {}
+            if no_env_restore_py:
+                manifest["environment"]["environment_management"]["python"] = False
+            if no_env_restore_r:
+                manifest["environment"]["environment_management"]["r"] = False
 
     manifest["files"] = {}
 
@@ -435,6 +453,8 @@ def write_manifest(
     hide_all_input: bool = False,
     hide_tagged_input: bool = False,
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
 ) -> typing.Tuple[list, list]:
     """Create a manifest for source publishing the specified notebook.
 
@@ -444,7 +464,8 @@ def write_manifest(
     Returns the list of filenames written.
     """
     manifest_filename = "manifest.json"
-    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, environment, nb_name, None, image)
+    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, environment, nb_name, None,
+                                    image, no_env_restore_py, no_env_restore_r)
     if hide_all_input:
         if "jupyter" not in manifest:
             manifest["jupyter"] = {}
@@ -513,6 +534,8 @@ def make_notebook_source_bundle(
     hide_all_input: bool,
     hide_tagged_input: bool,
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
 ) -> typing.IO[bytes]:
     """Create a bundle containing the specified notebook and python environment.
 
@@ -523,7 +546,8 @@ def make_notebook_source_bundle(
     base_dir = dirname(file)
     nb_name = basename(file)
 
-    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, environment, nb_name, None, image)
+    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, environment, nb_name, None,
+                                    image, no_env_restore_py, no_env_restore_r)
     if hide_all_input:
         if "jupyter" not in manifest:
             manifest["jupyter"] = {}
@@ -566,6 +590,8 @@ def make_quarto_source_bundle(
     extra_files: typing.List[str],
     excludes: typing.List[str],
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
 ) -> typing.IO[bytes]:
     """
     Create a bundle containing the specified Quarto content and (optional)
@@ -574,7 +600,8 @@ def make_quarto_source_bundle(
     Returns a file-like object containing the bundle tarball.
     """
     manifest, relevant_files = make_quarto_manifest(
-        file_or_directory, inspect, app_mode, environment, extra_files, excludes, image
+        file_or_directory, inspect, app_mode, environment, extra_files, excludes,
+        image, no_env_restore_py, no_env_restore_r,
     )
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
 
@@ -599,6 +626,8 @@ def make_quarto_source_bundle(
 def make_html_manifest(
     filename: str,
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
 ) -> typing.Dict[str, typing.Any]:
     # noinspection SpellCheckingInspection
     manifest = {
@@ -608,10 +637,17 @@ def make_html_manifest(
             "primary_html": filename,
         },
     }
-    if image:
-        manifest["environment"] = {
-            "image": image,
-        }
+
+    if image or no_env_restore_py or no_env_restore_r:
+        manifest["environment"] = {}
+        if image:
+            manifest["environment"]["image"] = image
+        if no_env_restore_py or no_env_restore_r:
+            manifest["environment"]["environment_management"] = {}
+            if no_env_restore_py:
+                manifest["environment"]["environment_management"]["python"] = False
+            if no_env_restore_r:
+                manifest["environment"]["environment_management"]["r"] = False
     return manifest
 
 
@@ -621,6 +657,8 @@ def make_notebook_html_bundle(
     hide_all_input: bool,
     hide_tagged_input: bool,
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
     check_output: typing.Callable = subprocess.check_output,
 ) -> typing.IO[bytes]:
     # noinspection SpellCheckingInspection
@@ -656,7 +694,7 @@ def make_notebook_html_bundle(
         bundle_add_buffer(bundle, filename, output)
 
         # manifest
-        manifest = make_html_manifest(filename, image)
+        manifest = make_html_manifest(filename, image, no_env_restore_py, no_env_restore_r)
         bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
 
     # rewind file pointer
@@ -802,6 +840,8 @@ def make_api_manifest(
     extra_files: typing.List[str],
     excludes: typing.List[str],
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
 ) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]:
     """
     Makes a manifest for an API.
@@ -813,6 +853,8 @@ def make_api_manifest(
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :param no_env_restore_py: whether the user is responsible for Python package installation in the runtime environment. Default = False.
+    :param no_env_restore_r: whether the user is responsible for R package installation in the runtime environment. Default = False.
     :return: the manifest and a list of the files involved.
     """
     if is_environment_dir(directory):
@@ -829,7 +871,8 @@ def make_api_manifest(
     excludes.extend(list_environment_dirs(directory))
 
     relevant_files = create_file_list(directory, extra_files, excludes)
-    manifest = make_source_manifest(app_mode, environment, entry_point, None, image)
+    manifest = make_source_manifest(app_mode, environment, entry_point, None,
+                                    image, no_env_restore_py, no_env_restore_r)
 
     manifest_add_buffer(manifest, environment.filename, environment.contents)
 
@@ -845,6 +888,8 @@ def create_html_manifest(
     extra_files: typing.List[str] = None,
     excludes: typing.List[str] = None,
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
     **kwargs
 ) -> Manifest:
     """
@@ -860,6 +905,8 @@ def create_html_manifest(
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param force_generate: bool indicating whether to force generate manifest and related environment files.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :param no_env_restore_py: whether the user is responsible for Python package installation in the runtime environment. Default = False.
+    :param no_env_restore_r: whether the user is responsible for R package installation in the runtime environment. Default = False.
     :return: the manifest data structure.
     """
     if not path:
@@ -887,7 +934,8 @@ def create_html_manifest(
     excludes.extend(["manifest.json"])
     excludes.extend(list_environment_dirs(deploy_dir))
 
-    manifest = Manifest(app_mode=AppModes.STATIC, entrypoint=entrypoint, primary_html=entrypoint, image=image)
+    manifest = Manifest(app_mode=AppModes.STATIC, entrypoint=entrypoint, primary_html=entrypoint,
+                        image=image, no_env_restore_py=no_env_restore_py, no_env_restore_r=no_env_restore_r)
     manifest.deploy_dir = deploy_dir
 
     file_list = create_file_list(path, extra_files, excludes, use_abspath=True)
@@ -903,6 +951,8 @@ def make_html_bundle(
     extra_files: typing.List[str],
     excludes: typing.List[str],
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
 ) -> typing.IO[bytes]:
     """
     Create an html bundle, given a path and/or entrypoint.
@@ -914,6 +964,8 @@ def make_html_bundle(
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :param no_env_restore_py: whether the user is responsible for Python package installation in the runtime environment. Default = False.
+    :param no_env_restore_r: whether the user is responsible for R package installation in the runtime environment. Default = False.
     :return: a file-like object containing the bundle tarball.
     """
 
@@ -1065,6 +1117,8 @@ def make_voila_bundle(
     force_generate: bool,
     environment: Environment,
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
     multi_notebook: bool = False,
 ) -> typing.IO[bytes]:
     """
@@ -1080,6 +1134,8 @@ def make_voila_bundle(
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param force_generate: bool indicating whether to force generate manifest and related environment files.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :param no_env_restore_py: whether the user is responsible for Python package installation in the runtime environment. Default = False.
+    :param no_env_restore_r: whether the user is responsible for R package installation in the runtime environment. Default = False.
     :return: a file-like object containing the bundle tarball.
     """
 
@@ -1112,6 +1168,8 @@ def make_api_bundle(
     extra_files: typing.List[str],
     excludes: typing.List[str],
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
 ) -> typing.IO[bytes]:
     """
     Create an API bundle, given a directory path and a manifest.
@@ -1123,10 +1181,13 @@ def make_api_bundle(
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :param no_env_restore_py: whether the user is responsible for Python package installation in the runtime environment. Default = False.
+    :param no_env_restore_r: whether the user is responsible for R package installation in the runtime environment. Default = False.
     :return: a file-like object containing the bundle tarball.
     """
     manifest, relevant_files = make_api_manifest(
-        directory, entry_point, app_mode, environment, extra_files, excludes, image
+        directory, entry_point, app_mode, environment, extra_files, excludes,
+        image, no_env_restore_py, no_env_restore_r,
     )
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
 
@@ -1180,6 +1241,8 @@ def make_quarto_manifest(
     extra_files: typing.List[str],
     excludes: typing.List[str],
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
 ) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]:
     """
     Makes a manifest for a Quarto project.
@@ -1191,6 +1254,8 @@ def make_quarto_manifest(
     :param extra_files: Any extra files to include in the manifest.
     :param excludes: A sequence of glob patterns to exclude when enumerating files to bundle.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :param no_env_restore_py: whether the user is responsible for Python package installation in the runtime environment. Default = False.
+    :param no_env_restore_r: whether the user is responsible for R package installation in the runtime environment. Default = False.
     :return: the manifest and a list of the files involved.
     """
     if environment:
@@ -1231,6 +1296,8 @@ def make_quarto_manifest(
         None,
         quarto_inspection,
         image,
+        no_env_restore_py,
+        no_env_restore_r,
     )
 
     if environment:
@@ -1520,6 +1587,8 @@ def create_notebook_manifest_and_environment_file(
     hide_all_input: bool,
     hide_tagged_input: bool,
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given notebook entry point file.
@@ -1539,11 +1608,14 @@ def create_notebook_manifest_and_environment_file(
     :param hide_tagged_input: If True, will hide input code cells with the 'hide_input' tag
     when rendering output.   Previous default = False.
     :param image: an optional docker image for off-host execution. Previous default = None.
+    :param no_env_restore_py: whether the user is responsible for Python package installation in the runtime environment. Default = False.
+    :param no_env_restore_r: whether the user is responsible for R package installation in the runtime environment. Default = False.
     :return:
     """
     if (
         not write_notebook_manifest_json(
-            entry_point_file, environment, app_mode, extra_files, hide_all_input, hide_tagged_input, image
+            entry_point_file, environment, app_mode, extra_files, hide_all_input, hide_tagged_input,
+            image, no_env_restore_py, no_env_restore_r,
         )
         or force
     ):
@@ -1558,6 +1630,8 @@ def write_notebook_manifest_json(
     hide_all_input: bool,
     hide_tagged_input: bool,
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
 ) -> bool:
     """
     Creates and writes a manifest.json file for the given entry point file.  If
@@ -1575,6 +1649,8 @@ def write_notebook_manifest_json(
     :param hide_tagged_input: If True, will hide input code cells with the 'hide_input' tag
     when rendering output.  Previous default = False.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :param no_env_restore_py: whether the user is responsible for Python package installation in the runtime environment. Default = False.
+    :param no_env_restore_r: whether the user is responsible for R package installation in the runtime environment. Default = False.
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
     """
@@ -1589,7 +1665,8 @@ def write_notebook_manifest_json(
         if app_mode == AppModes.UNKNOWN:
             raise RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
 
-    manifest_data = make_source_manifest(app_mode, environment, file_name, None, image)
+    manifest_data = make_source_manifest(app_mode, environment, file_name, None,
+                                         image, no_env_restore_py, no_env_restore_r)
     if hide_all_input or hide_tagged_input:
         if "jupyter" not in manifest_data:
             manifest_data["jupyter"] = dict()
@@ -1627,6 +1704,8 @@ def create_voila_manifest(
     excludes: typing.List[str] = None,
     force_generate: bool = True,
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
     multi_notebook: bool = False,
     **kwargs
 ) -> Manifest:
@@ -1643,6 +1722,8 @@ def create_voila_manifest(
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param force_generate: bool indicating whether to force generate manifest and related environment files.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :param no_env_restore_py: whether the user is responsible for Python package installation in the runtime environment. Default = False.
+    :param no_env_restore_r: whether the user is responsible for R package installation in the runtime environment. Default = False.
     :return: the manifest data structure.
     """
     if not path:
@@ -1680,7 +1761,8 @@ def create_voila_manifest(
     if isfile(voila_json_path):
         extra_files.append(voila_json_path)
 
-    manifest = Manifest(app_mode=AppModes.JUPYTER_VOILA, environment=environment, entrypoint=entrypoint, image=image)
+    manifest = Manifest(app_mode=AppModes.JUPYTER_VOILA, environment=environment, entrypoint=entrypoint,
+                        image=image, no_env_restore_py=no_env_restore_py, no_env_restore_r=no_env_restore_r)
     manifest.deploy_dir = deploy_dir
     if entrypoint and isfile(entrypoint):
         validate_file_is_notebook(entrypoint)
@@ -1703,6 +1785,8 @@ def write_voila_manifest_json(
     excludes: typing.List[str] = None,
     force_generate: bool = True,
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
     multi_notebook: bool = False,
 ) -> bool:
     """
@@ -1718,6 +1802,8 @@ def write_voila_manifest_json(
     :param excludes: a sequence of glob patterns that will exclude matched files.
     :param force_generate: bool indicating whether to force generate manifest and related environment files.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :param no_env_restore_py: whether the user is responsible for Python package installation in the runtime environment. Default = False.
+    :param no_env_restore_r: whether the user is responsible for R package installation in the runtime environment. Default = False.
     :return: whether the manifest was written.
     """
     manifest = create_voila_manifest(**locals())
@@ -1739,6 +1825,8 @@ def create_api_manifest_and_environment_file(
     excludes: typing.List[str],
     force: bool,
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given Python API entry point.  If
@@ -1755,10 +1843,13 @@ def create_api_manifest_and_environment_file(
     :param force: if True, forces the environment file to be written. even if it
     already exists. Previous default = True.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :param no_env_restore_py: whether the user is responsible for Python package installation in the runtime environment. Default = False.
+    :param no_env_restore_r: whether the user is responsible for R package installation in the runtime environment. Default = False.
     :return:
     """
     if (
-        not write_api_manifest_json(directory, entry_point, environment, app_mode, extra_files, excludes, image)
+        not write_api_manifest_json(directory, entry_point, environment, app_mode, extra_files, excludes,
+                                    image, no_env_restore_py, no_env_restore_r)
         or force
     ):
         write_environment_file(environment, directory)
@@ -1772,6 +1863,8 @@ def write_api_manifest_json(
     extra_files: typing.List[str],
     excludes: typing.List[str],
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
 ) -> bool:
     """
     Creates and writes a manifest.json file for the given entry point file.  If
@@ -1786,11 +1879,14 @@ def write_api_manifest_json(
     :param extra_files: any extra files that should be included in the manifest. Previous default = None.
     :param excludes: a sequence of glob patterns that will exclude matched files. Previous default = None.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :param no_env_restore_py: whether the user is responsible for Python package installation in the runtime environment. Default = False.
+    :param no_env_restore_r: whether the user is responsible for R package installation in the runtime environment. Default = False.
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
     """
     extra_files = validate_extra_files(directory, extra_files)
-    manifest, _ = make_api_manifest(directory, entry_point, app_mode, environment, extra_files, excludes, image)
+    manifest, _ = make_api_manifest(directory, entry_point, app_mode, environment, extra_files, excludes,
+                                    image, no_env_restore_py, no_env_restore_r)
     manifest_path = join(directory, "manifest.json")
 
     write_manifest_json(manifest_path, manifest)
@@ -1847,6 +1943,8 @@ def write_quarto_manifest_json(
     extra_files: typing.List[str],
     excludes: typing.List[str],
     image: str = None,
+    no_env_restore_py: bool = False,
+    no_env_restore_r: bool = False,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given Quarto project.
@@ -1858,10 +1956,13 @@ def write_quarto_manifest_json(
     :param extra_files: Any extra files to include in the manifest.
     :param excludes: A sequence of glob patterns to exclude when enumerating files to bundle.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :param no_env_restore_py: whether the user is responsible for Python package installation in the runtime environment. Default = False.
+    :param no_env_restore_r: whether the user is responsible for R package installation in the runtime environment. Default = False.
     """
 
     extra_files = validate_extra_files(directory, extra_files)
-    manifest, _ = make_quarto_manifest(directory, inspect, app_mode, environment, extra_files, excludes, image)
+    manifest, _ = make_quarto_manifest(directory, inspect, app_mode, environment, extra_files, excludes,
+                                       image, no_env_restore_py, no_env_restore_r)
     manifest_path = join(directory, "manifest.json")
 
     write_manifest_json(manifest_path, manifest)
