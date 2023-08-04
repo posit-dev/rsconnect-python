@@ -75,7 +75,7 @@ class TestBundle(TestCase):
         environment = detect_environment(directory)
         with make_notebook_source_bundle(
             nb_path, environment, None, hide_all_input=False, hide_tagged_input=False,
-            image=None, disable_env_management_py=False, disable_env_management_r=False,
+            image=None, env_management_py=None, env_management_r=None,
         ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             names = sorted(tar.getnames())
             self.assertEqual(
@@ -146,8 +146,8 @@ class TestBundle(TestCase):
             hide_all_input=False,
             hide_tagged_input=False,
             image="rstudio/connect:bionic",
-            disable_env_management_py=True,
-            disable_env_management_r=True,
+            env_management_py=False,
+            env_management_r=False,
         ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             names = sorted(tar.getnames())
             self.assertEqual(
@@ -570,7 +570,8 @@ class TestBundle(TestCase):
         )
 
         # include image parameter
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None, "rstudio/connect:bionic")
+        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
+                                        image="rstudio/connect:bionic")
         self.assertEqual(
             manifest,
             {
@@ -583,8 +584,9 @@ class TestBundle(TestCase):
             },
         )
 
-        # include disable_env_management_py parameter
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None, None, True, False)
+        # include env_management_py parameter
+        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
+                                        env_management_py=False)
         self.assertEqual(
             manifest,
             {
@@ -599,8 +601,9 @@ class TestBundle(TestCase):
             },
         )
 
-        # include disable_env_management_r parameter
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None, None, False, True)
+        # include env_management_r parameter
+        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
+                                        env_management_r=False)
         self.assertEqual(
             manifest,
             {
@@ -616,7 +619,8 @@ class TestBundle(TestCase):
         )
 
         # include all runtime environment parameters
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None, "rstudio/connect:bionic", True, True)
+        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
+                                        image="rstudio/connect:bionic", env_management_py=False, env_management_r=False)
         self.assertEqual(
             manifest,
             {
@@ -985,9 +989,9 @@ class TestBundle(TestCase):
             },
         )
 
-        # include disable_env_management_py parameter
+        # include env_management_py parameter
         manifest = make_html_manifest("abc.html",
-                                      disable_env_management_py=True)
+                                      env_management_py=False)
         # print(manifest)
         self.assertEqual(
             manifest,
@@ -1005,9 +1009,9 @@ class TestBundle(TestCase):
             },
         )
 
-        # include disable_env_management_r parameter
+        # include env_management_r parameter
         manifest = make_html_manifest("abc.html",
-                                      disable_env_management_r=True)
+                                      env_management_r=False)
         # print(manifest)
         self.assertEqual(
             manifest,
@@ -1028,8 +1032,8 @@ class TestBundle(TestCase):
         # include all runtime environment parameters
         manifest = make_html_manifest("abc.html",
                                       image="rstudio/connect:bionic",
-                                      disable_env_management_py=True,
-                                      disable_env_management_r=True)
+                                      env_management_py=False,
+                                      env_management_r=False)
         # print(manifest)
         self.assertEqual(
             manifest,
@@ -2025,8 +2029,8 @@ def test_create_html_manifest():
         single_file_index_file,
         None,
         image="rstudio/connect:bionic",
-        disable_env_management_py=True,
-        disable_env_management_r=True,
+        env_management_py=False,
+        env_management_r=False,
     )
     assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
 
@@ -2043,12 +2047,12 @@ def test_create_html_manifest():
         single_file_index_file,
         None,
         image="rstudio/connect:bionic",
-        disable_env_management_py=None,
-        disable_env_management_r=None,
+        env_management_py=None,
+        env_management_r=None,
     )
     assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
 
-    # check disable_env_management_py param
+    # check env_management_py param
     single_file_index_file_ans = {
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
@@ -2062,11 +2066,11 @@ def test_create_html_manifest():
     manifest = create_html_manifest(
         single_file_index_file,
         None,
-        disable_env_management_py=True,
+        env_management_py=False,
     )
     assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
 
-    # check disable_env_management_r param
+    # check env_management_r param
     single_file_index_file_ans = {
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
@@ -2080,7 +2084,7 @@ def test_create_html_manifest():
     manifest = create_html_manifest(
         single_file_index_file,
         None,
-        disable_env_management_r=True,
+        env_management_r=False,
     )
     assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
 
