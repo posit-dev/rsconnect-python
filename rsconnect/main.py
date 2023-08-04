@@ -252,14 +252,14 @@ def runtime_environment_args(func):
         "server is configured to use off-host execution.",
     )
     @click.option(
-        "--no-env-management-py",
+        "--disable-env-management-py",
         is_flag=True,
         help="Disable Python environment management. When this flag is provided, Connect will not "
         "perform any Python package installation. It is the user's responsibility to ensure required "
         "packages are installed in the runtime environment.",
     )
     @click.option(
-        "--no-env-management-r",
+        "--disable-env-management-r",
         is_flag=True,
         help="Disable R environment management. When this flag is provided, Connect will not "
         "perform any R package installation. It is the user's responsibility to ensure required "
@@ -842,8 +842,8 @@ def deploy_notebook(
     hide_tagged_input: bool,
     env_vars: typing.Dict[str, str],
     image: str,
-    no_env_management_py: bool,
-    no_env_management_r: bool,
+    disable_env_management_py: bool,
+    disable_env_management_r: bool,
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -870,8 +870,8 @@ def deploy_notebook(
             hide_all_input,
             hide_tagged_input,
             image=image,
-            no_env_management_py=no_env_management_py,
-            no_env_management_r=no_env_management_r,
+            disable_env_management_py=disable_env_management_py,
+            disable_env_management_r=disable_env_management_r,
         )
     else:
         ce.make_bundle(
@@ -882,8 +882,8 @@ def deploy_notebook(
             hide_all_input,
             hide_tagged_input,
             image=image,
-            no_env_management_py=no_env_management_py,
-            no_env_management_r=no_env_management_r,
+            disable_env_management_py=disable_env_management_py,
+            disable_env_management_r=disable_env_management_r,
         )
     ce.deploy_bundle().save_deployed_info().emit_task_log()
 
@@ -949,8 +949,8 @@ def deploy_voila(
     extra_files=None,
     exclude=None,
     image: str = "",
-    no_env_management_py: bool = False,
-    no_env_management_r: bool = False,
+    disable_env_management_py: bool = False,
+    disable_env_management_r: bool = False,
     title: str = None,
     env_vars: typing.Dict[str, str] = None,
     verbose: bool = False,
@@ -982,8 +982,8 @@ def deploy_voila(
         force_generate,
         environment,
         image=image,
-        no_env_management_py=no_env_management_py,
-        no_env_management_r=no_env_management_r,
+        disable_env_management_py=disable_env_management_py,
+        disable_env_management_r=disable_env_management_r,
         multi_notebook=multi_notebook,
     ).deploy_bundle().save_deployed_info().emit_task_log()
 
@@ -1115,8 +1115,8 @@ def deploy_quarto(
     extra_files,
     env_vars: typing.Dict[str, str],
     image: str,
-    no_env_management_py: bool,
-    no_env_management_r: bool,
+    disable_env_management_py: bool,
+    disable_env_management_r: bool,
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -1162,8 +1162,8 @@ def deploy_quarto(
             inspect,
             environment,
             image=image,
-            no_env_management_py=no_env_management_py,
-            no_env_management_r=no_env_management_r,
+            disable_env_management_py=disable_env_management_py,
+            disable_env_management_r=disable_env_management_r,
         )
         .deploy_bundle()
         .save_deployed_info()
@@ -1332,8 +1332,8 @@ def generate_deploy_python(app_mode, alias, min_version):
         visibility: typing.Optional[str],
         env_vars: typing.Dict[str, str],
         image: str,
-        no_env_management_py: bool,
-        no_env_management_r: bool,
+        disable_env_management_py: bool,
+        disable_env_management_r: bool,
         account: str = None,
         token: str = None,
         secret: str = None,
@@ -1361,8 +1361,8 @@ def generate_deploy_python(app_mode, alias, min_version):
                 extra_files,
                 exclude,
                 image=image,
-                no_env_management_py=no_env_management_py,
-                no_env_management_r=no_env_management_r,
+                disable_env_management_py=disable_env_management_py,
+                disable_env_management_r=disable_env_management_r,
             )
             .deploy_bundle()
             .save_deployed_info()
@@ -1464,8 +1464,8 @@ def write_manifest_notebook(
     file,
     extra_files,
     image,
-    no_env_management_py,
-    no_env_management_r,
+    disable_env_management_py,
+    disable_env_management_r,
     hide_all_input=None,
     hide_tagged_input=None,
 ):
@@ -1493,8 +1493,8 @@ def write_manifest_notebook(
             hide_all_input,
             hide_tagged_input,
             image,
-            no_env_management_py,
-            no_env_management_r,
+            disable_env_management_py,
+            disable_env_management_r,
         )
 
     if environment_file_exists and not force_generate:
@@ -1565,8 +1565,8 @@ def write_manifest_voila(
     extra_files,
     exclude,
     image,
-    no_env_management_py,
-    no_env_management_r,
+    disable_env_management_py,
+    disable_env_management_r,
     multi_notebook,
 ):
     set_verbosity(verbose)
@@ -1603,8 +1603,8 @@ def write_manifest_voila(
             exclude,
             force_generate,
             image,
-            no_env_management_py,
-            no_env_management_r,
+            disable_env_management_py,
+            disable_env_management_r,
             multi_notebook,
         )
 
@@ -1670,8 +1670,8 @@ def write_manifest_quarto(
     file_or_directory,
     extra_files,
     image,
-    no_env_management_py,
-    no_env_management_r,
+    disable_env_management_py,
+    disable_env_management_r,
 ):
     set_verbosity(verbose)
 
@@ -1716,8 +1716,8 @@ def write_manifest_quarto(
             extra_files,
             exclude,
             image,
-            no_env_management_py,
-            no_env_management_r,
+            disable_env_management_py,
+            disable_env_management_r,
         )
 
 
@@ -1789,8 +1789,8 @@ def generate_write_manifest_python(app_mode, alias):
         directory,
         extra_files,
         image,
-        no_env_management_py,
-        no_env_management_r,
+        disable_env_management_py,
+        disable_env_management_r,
     ):
         _write_framework_manifest(
             overwrite,
@@ -1804,8 +1804,8 @@ def generate_write_manifest_python(app_mode, alias):
             extra_files,
             app_mode,
             image,
-            no_env_management_py,
-            no_env_management_r,
+            disable_env_management_py,
+            disable_env_management_r,
         )
 
     return manifest_writer
@@ -1832,8 +1832,8 @@ def _write_framework_manifest(
     extra_files,
     app_mode,
     image,
-    no_env_management_py,
-    no_env_management_r,
+    disable_env_management_py,
+    disable_env_management_r,
 ):
     """
     A common function for writing manifests for APIs as well as Dash, Streamlit, and Bokeh apps.
@@ -1851,9 +1851,9 @@ def _write_framework_manifest(
     :param extra_files: any extra files that should be included.
     :param app_mode: the app mode to use.
     :param image: an optional docker image for off-host execution.
-    :param no_env_management_py: True indicates that the user is responsible for Python package installation
+    :param disable_env_management_py: True indicates that the user is responsible for Python package installation
         in the runtime environment. Default = False.
-    :param no_env_management_r: True indicates that the user is responsible for R package installation
+    :param disable_env_management_r: True indicates that the user is responsible for R package installation
         in the runtime environment. Default = False.
     """
     set_verbosity(verbose)
@@ -1879,8 +1879,8 @@ def _write_framework_manifest(
             extra_files,
             exclude,
             image,
-            no_env_management_py,
-            no_env_management_r,
+            disable_env_management_py,
+            disable_env_management_r,
         )
 
     if environment_file_exists and not force_generate:

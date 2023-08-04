@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add `--no-env-management-py` and `--no-env-management-r` flags for all content types that support environment restores (non static).
+- Add `--disable-env-management-py` and `--disable-env-management-r` flags for all content types that support environment restores (non static).
   This flag indicates to Connect that the user is responsible for Python/R package installation and Connect should not install
   packages during the build.  The Python/R packages must still be available in the runtime environment in order to run the content.
   This is especially useful if off-host execution is enabled when the execution environment (specified by `--image`) already contains the required

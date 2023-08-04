@@ -527,8 +527,8 @@ def write_quarto_manifest_json(
     extra_files: typing.List[str],
     excludes: typing.List[str],
     image: str = None,
-    no_env_management_py: bool = False,
-    no_env_management_r: bool = False,
+    disable_env_management_py: bool = False,
+    disable_env_management_r: bool = False,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given Quarto project.
@@ -540,9 +540,9 @@ def write_quarto_manifest_json(
     :param extra_files: Any extra files to include in the manifest.
     :param excludes: A sequence of glob patterns to exclude when enumerating files to bundle.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param no_env_management_py: True indicates that the user is responsible for Python package installation
+    :param disable_env_management_py: True indicates that the user is responsible for Python package installation
         in the runtime environment. Default = False. Default = False.
-    :param no_env_management_r: True indicates that the user is responsible for R package installation
+    :param disable_env_management_r: True indicates that the user is responsible for R package installation
         in the runtime environment. Default = False.
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
@@ -555,8 +555,8 @@ def write_quarto_manifest_json(
         extra_files,
         excludes,
         image,
-        no_env_management_py,
-        no_env_management_r,
+        disable_env_management_py,
+        disable_env_management_r,
     )
 
     base_dir = file_or_directory
@@ -632,8 +632,8 @@ def deploy_jupyter_notebook(
     hide_all_input: bool,
     hide_tagged_input: bool,
     image: str = None,
-    no_env_management_py: bool = False,
-    no_env_management_r: bool = False,
+    disable_env_management_py: bool = False,
+    disable_env_management_r: bool = False,
 ) -> None:
     """
     A function to deploy a Jupyter notebook to Connect.  Depending on the files involved
@@ -661,9 +661,9 @@ def deploy_jupyter_notebook(
     :param hide_tagged_input: If True, will hide input code cells with the 'hide_input' tag when rendering
     output. Previous default = False.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param no_env_management_py: True indicates that the user is responsible for Python package installation
+    :param disable_env_management_py: True indicates that the user is responsible for Python package installation
         in the runtime environment. Default = False. Default = False.
-    :param no_env_management_r: True indicates that the user is responsible for R package installation
+    :param disable_env_management_r: True indicates that the user is responsible for R package installation
         in the runtime environment. Default = False.
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
@@ -713,8 +713,8 @@ def deploy_jupyter_notebook(
             hide_all_input,
             hide_tagged_input,
             image=image,
-            no_env_management_py=no_env_management_py,
-            no_env_management_r=no_env_management_r,
+            disable_env_management_py=disable_env_management_py,
+            disable_env_management_r=disable_env_management_r,
         )
     else:
         ce.make_bundle(
@@ -725,8 +725,8 @@ def deploy_jupyter_notebook(
             hide_all_input,
             hide_tagged_input,
             image=image,
-            no_env_management_py=no_env_management_py,
-            no_env_management_r=no_env_management_r,
+            disable_env_management_py=disable_env_management_py,
+            disable_env_management_r=disable_env_management_r,
         )
     ce.deploy_bundle().save_deployed_info().emit_task_log()
 
@@ -765,8 +765,8 @@ def deploy_app(
     extra_files: typing.List[str] = None,
     env_vars: typing.Dict[str, str] = None,
     image: str = None,
-    no_env_management_py: bool = False,
-    no_env_management_r: bool = False,
+    disable_env_management_py: bool = False,
+    disable_env_management_r: bool = False,
     account: str = None,
     token: str = None,
     secret: str = None,
@@ -818,8 +818,8 @@ def deploy_app(
             extra_files,
             excludes,
             image=image,
-            no_env_management_py=no_env_management_py,
-            no_env_management_r=no_env_management_r,
+            disable_env_management_py=disable_env_management_py,
+            disable_env_management_r=disable_env_management_r,
         )
         .deploy_bundle()
         .save_deployed_info()
@@ -841,8 +841,8 @@ def deploy_python_api(
     force_generate: bool,
     log_callback: typing.Callable,
     image: str = None,
-    no_env_management_py: bool = False,
-    no_env_management_r: bool = False,
+    disable_env_management_py: bool = False,
+    disable_env_management_r: bool = False,
 ) -> typing.Tuple[str, typing.Union[list, None]]:
     """
     A function to deploy a Python WSGi API module to Connect.  Depending on the files involved
@@ -867,9 +867,9 @@ def deploy_python_api(
     If a log callback is provided, then None will be returned for the log lines part
     of the return tuple. Previous default = None.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param no_env_management_py: True indicates that the user is responsible for Python package installation
+    :param disable_env_management_py: True indicates that the user is responsible for Python package installation
         in the runtime environment. Default = False. Default = False.
-    :param no_env_management_r: True indicates that the user is responsible for R package installation
+    :param disable_env_management_r: True indicates that the user is responsible for R package installation
         in the runtime environment. Default = False.
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
@@ -891,8 +891,8 @@ def deploy_python_fastapi(
     force_generate: bool,
     log_callback: typing.Callable,
     image: str = None,
-    no_env_management_py: bool = False,
-    no_env_management_r: bool = False,
+    disable_env_management_py: bool = False,
+    disable_env_management_r: bool = False,
 ) -> typing.Tuple[str, typing.Union[list, None]]:
     """
     A function to deploy a Python ASGI API module to Posit Connect.  Depending on the files involved
@@ -917,9 +917,9 @@ def deploy_python_fastapi(
         If a log callback is provided, then None will be returned for the log lines part
         of the return tuple. Previous default = None.
         :param image: the optional docker image to be specified for off-host execution. Default = None.
-        :param no_env_management_py: True indicates that the user is responsible for Python package installation
+        :param disable_env_management_py: True indicates that the user is responsible for Python package installation
         in the runtime environment. Default = False. Default = False.
-        :param no_env_management_r: True indicates that the user is responsible for R package installation
+        :param disable_env_management_r: True indicates that the user is responsible for R package installation
         in the runtime environment. Default = False.
         :return: the ultimate URL where the deployed app may be accessed and the sequence
         of log lines.  The log lines value will be None if a log callback was provided.
@@ -983,8 +983,8 @@ def deploy_dash_app(
     force_generate: bool,
     log_callback: typing.Callable,
     image: str = None,
-    no_env_management_py: bool = False,
-    no_env_management_r: bool = False,
+    disable_env_management_py: bool = False,
+    disable_env_management_r: bool = False,
 ) -> typing.Tuple[str, typing.Union[list, None]]:
     """
     A function to deploy a Python Dash app module to Connect.  Depending on the files involved
@@ -1009,9 +1009,9 @@ def deploy_dash_app(
     If a log callback is provided, then None will be returned for the log lines part
     of the return tuple. Previous default = None.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param no_env_management_py: True indicates that the user is responsible for Python package installation
+    :param disable_env_management_py: True indicates that the user is responsible for Python package installation
         in the runtime environment. Default = False. Default = False.
-    :param no_env_management_r: True indicates that the user is responsible for R package installation
+    :param disable_env_management_r: True indicates that the user is responsible for R package installation
         in the runtime environment. Default = False.
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
@@ -1033,8 +1033,8 @@ def deploy_streamlit_app(
     force_generate: bool,
     log_callback: typing.Callable,
     image: str = None,
-    no_env_management_py: bool = False,
-    no_env_management_r: bool = False,
+    disable_env_management_py: bool = False,
+    disable_env_management_r: bool = False,
 ) -> typing.Tuple[str, typing.Union[list, None]]:
     """
     A function to deploy a Python Streamlit app module to Connect.  Depending on the files involved
@@ -1059,9 +1059,9 @@ def deploy_streamlit_app(
     If a log callback is provided, then None will be returned for the log lines part
     of the return tuple. Previous default = None.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param no_env_management_py: True indicates that the user is responsible for Python package installation
+    :param disable_env_management_py: True indicates that the user is responsible for Python package installation
         in the runtime environment. Default = False. Default = False.
-    :param no_env_management_r: True indicates that the user is responsible for R package installation
+    :param disable_env_management_r: True indicates that the user is responsible for R package installation
         in the runtime environment. Default = False.
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
@@ -1083,8 +1083,8 @@ def deploy_bokeh_app(
     force_generate: bool,
     log_callback: typing.Callable,
     image: str = None,
-    no_env_management_py: bool = False,
-    no_env_management_r: bool = False,
+    disable_env_management_py: bool = False,
+    disable_env_management_r: bool = False,
 ) -> typing.Tuple[str, typing.Union[list, None]]:
     """
     A function to deploy a Python Bokeh app module to Connect.  Depending on the files involved
@@ -1109,9 +1109,9 @@ def deploy_bokeh_app(
     If a log callback is provided, then None will be returned for the log lines part
     of the return tuple. Previous default = None.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param no_env_management_py: True indicates that the user is responsible for Python package installation
+    :param disable_env_management_py: True indicates that the user is responsible for Python package installation
         in the runtime environment. Default = False. Default = False.
-    :param no_env_management_r: True indicates that the user is responsible for R package installation
+    :param disable_env_management_r: True indicates that the user is responsible for R package installation
         in the runtime environment. Default = False.
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
@@ -1196,8 +1196,8 @@ def create_notebook_deployment_bundle(
     hide_all_input: bool,
     hide_tagged_input: bool,
     image: str = None,
-    no_env_management_py: bool = False,
-    no_env_management_r: bool = False,
+    disable_env_management_py: bool = False,
+    disable_env_management_r: bool = False,
 ) -> typing.IO[bytes]:
     """
     Create an in-memory bundle, ready to deploy.
@@ -1215,9 +1215,9 @@ def create_notebook_deployment_bundle(
     :param hide_tagged_input: If True, will hide input code cells with
     the 'hide_input' tag when rendering output.  Previous default = False.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param no_env_management_py: True indicates that the user is responsible for Python package installation
+    :param disable_env_management_py: True indicates that the user is responsible for Python package installation
         in the runtime environment. Default = False. Default = False.
-    :param no_env_management_r: True indicates that the user is responsible for R package installation
+    :param disable_env_management_r: True indicates that the user is responsible for R package installation
         in the runtime environment. Default = False.
 
     :return: the bundle.
@@ -1235,8 +1235,8 @@ def create_notebook_deployment_bundle(
                 hide_all_input,
                 hide_tagged_input,
                 image=image,
-                no_env_management_py=no_env_management_py,
-                no_env_management_r=no_env_management_r,
+                disable_env_management_py=disable_env_management_py,
+                disable_env_management_r=disable_env_management_r,
             )
         except subprocess.CalledProcessError as exc:
             # Jupyter rendering failures are often due to
@@ -1250,8 +1250,8 @@ def create_notebook_deployment_bundle(
             hide_all_input,
             hide_tagged_input,
             image=image,
-            no_env_management_py=no_env_management_py,
-            no_env_management_r=no_env_management_r,
+            disable_env_management_py=disable_env_management_py,
+            disable_env_management_r=disable_env_management_r,
         )
 
 
@@ -1264,8 +1264,8 @@ def create_api_deployment_bundle(
     environment: Environment,
     extra_files_need_validating: bool,
     image: str = None,
-    no_env_management_py: bool = False,
-    no_env_management_r: bool = False,
+    disable_env_management_py: bool = False,
+    disable_env_management_r: bool = False,
 ) -> typing.IO[bytes]:
     """
     Create an in-memory bundle, ready to deploy.
@@ -1281,9 +1281,9 @@ def create_api_deployment_bundle(
     with the specified directory.  If you provide False here, make sure the names
     are properly qualified first. Previous default = True.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param no_env_management_py: True indicates that the user is responsible for Python package installation
+    :param disable_env_management_py: True indicates that the user is responsible for Python package installation
         in the runtime environment. Default = False. Default = False.
-    :param no_env_management_r: True indicates that the user is responsible for R package installation
+    :param disable_env_management_r: True indicates that the user is responsible for R package installation
         in the runtime environment. Default = False.
     :return: the bundle.
     """
@@ -1296,7 +1296,7 @@ def create_api_deployment_bundle(
         app_mode = AppModes.PYTHON_API
 
     return make_api_bundle(directory, entry_point, app_mode, environment, extra_files, excludes,
-                           image, no_env_management_py, no_env_management_r)
+                           image, disable_env_management_py, disable_env_management_r)
 
 
 def create_quarto_deployment_bundle(
@@ -1307,8 +1307,8 @@ def create_quarto_deployment_bundle(
     inspect: typing.Dict[str, typing.Any],
     environment: Environment,
     image: str = None,
-    no_env_management_py: bool = False,
-    no_env_management_r: bool = False,
+    disable_env_management_py: bool = False,
+    disable_env_management_r: bool = False,
 ) -> typing.IO[bytes]:
     """
     Create an in-memory bundle, ready to deploy.
@@ -1324,9 +1324,9 @@ def create_quarto_deployment_bundle(
     with the specified directory.  If you provide False here, make sure the names
     are properly qualified first. Previous default = True.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param no_env_management_py: True indicates that the user is responsible for Python package installation
+    :param disable_env_management_py: True indicates that the user is responsible for Python package installation
         in the runtime environment. Default = False. Default = False.
-    :param no_env_management_r: True indicates that the user is responsible for R package installation
+    :param disable_env_management_r: True indicates that the user is responsible for R package installation
         in the runtime environment. Default = False.
     :return: the bundle.
     """
@@ -1334,7 +1334,7 @@ def create_quarto_deployment_bundle(
         app_mode = AppModes.STATIC_QUARTO
 
     return make_quarto_source_bundle(file_or_directory, inspect, app_mode, environment, extra_files, excludes,
-                                     image, no_env_management_py, no_env_management_r)
+                                     image, disable_env_management_py, disable_env_management_r)
 
 
 def deploy_bundle(
@@ -1412,8 +1412,8 @@ def create_notebook_manifest_and_environment_file(
     hide_all_input: bool,
     hide_tagged_input: bool,
     image: str = None,
-    no_env_management_py: bool = False,
-    no_env_management_r: bool = False,
+    disable_env_management_py: bool = False,
+    disable_env_management_r: bool = False,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given notebook entry point file.
@@ -1433,9 +1433,9 @@ def create_notebook_manifest_and_environment_file(
     :param hide_tagged_input: If True, will hide input code cells with the 'hide_input' tag
     when rendering output.   Previous default = False.
     :param image: an optional docker image for off-host execution. Previous default = None.
-    :param no_env_management_py: True indicates that the user is responsible for Python package installation
+    :param disable_env_management_py: True indicates that the user is responsible for Python package installation
         in the runtime environment. Default = False. Default = False.
-    :param no_env_management_r: True indicates that the user is responsible for R package installation
+    :param disable_env_management_r: True indicates that the user is responsible for R package installation
         in the runtime environment. Default = False.
     :return:
     """
@@ -1443,7 +1443,7 @@ def create_notebook_manifest_and_environment_file(
     if (
         not write_notebook_manifest_json(
             entry_point_file, environment, app_mode, extra_files, hide_all_input, hide_tagged_input,
-            image, no_env_management_py, no_env_management_r,
+            image, disable_env_management_py, disable_env_management_r,
         )
         or force
     ):
@@ -1458,8 +1458,8 @@ def write_notebook_manifest_json(
     hide_all_input: bool,
     hide_tagged_input: bool,
     image: str = None,
-    no_env_management_py: bool = False,
-    no_env_management_r: bool = False,
+    disable_env_management_py: bool = False,
+    disable_env_management_r: bool = False,
 ) -> bool:
     """
     Creates and writes a manifest.json file for the given entry point file.  If
@@ -1477,9 +1477,9 @@ def write_notebook_manifest_json(
     :param hide_tagged_input: If True, will hide input code cells with the 'hide_input' tag
     when rendering output.  Previous default = False.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param no_env_management_py: True indicates that the user is responsible for Python package installation
+    :param disable_env_management_py: True indicates that the user is responsible for Python package installation
         in the runtime environment. Default = False. Default = False.
-    :param no_env_management_r: True indicates that the user is responsible for R package installation
+    :param disable_env_management_r: True indicates that the user is responsible for R package installation
         in the runtime environment. Default = False.
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
@@ -1497,7 +1497,7 @@ def write_notebook_manifest_json(
             raise RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
 
     manifest_data = make_source_manifest(app_mode, environment, file_name, None,
-                                         image, no_env_management_py, no_env_management_r)
+                                         image, disable_env_management_py, disable_env_management_r)
     manifest_add_file(manifest_data, file_name, directory)
     manifest_add_buffer(manifest_data, environment.filename, environment.contents)
 
@@ -1518,8 +1518,8 @@ def create_api_manifest_and_environment_file(
     excludes: typing.List[str],
     force: bool,
     image: str = None,
-    no_env_management_py: bool = False,
-    no_env_management_r: bool = False,
+    disable_env_management_py: bool = False,
+    disable_env_management_r: bool = False,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given Python API entry point.  If
@@ -1536,16 +1536,16 @@ def create_api_manifest_and_environment_file(
     :param force: if True, forces the environment file to be written. even if it
     already exists. Previous default = True.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param no_env_management_py: True indicates that the user is responsible for Python package installation
+    :param disable_env_management_py: True indicates that the user is responsible for Python package installation
         in the runtime environment. Default = False. Default = False.
-    :param no_env_management_r: True indicates that the user is responsible for R package installation
+    :param disable_env_management_r: True indicates that the user is responsible for R package installation
         in the runtime environment. Default = False.
     :return:
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     if (
         not write_api_manifest_json(directory, entry_point, environment, app_mode, extra_files, excludes,
-                                    image, no_env_management_py, no_env_management_r)
+                                    image, disable_env_management_py, disable_env_management_r)
         or force
     ):
         write_environment_file(environment, directory)
@@ -1559,8 +1559,8 @@ def write_api_manifest_json(
     extra_files: typing.List[str],
     excludes: typing.List[str],
     image: str = None,
-    no_env_management_py: bool = False,
-    no_env_management_r: bool = False,
+    disable_env_management_py: bool = False,
+    disable_env_management_r: bool = False,
 ) -> bool:
     """
     Creates and writes a manifest.json file for the given entry point file.  If
@@ -1575,9 +1575,9 @@ def write_api_manifest_json(
     :param extra_files: any extra files that should be included in the manifest. Previous default = None.
     :param excludes: a sequence of glob patterns that will exclude matched files. Previous default = None.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param no_env_management_py: True indicates that the user is responsible for Python package installation
+    :param disable_env_management_py: True indicates that the user is responsible for Python package installation
         in the runtime environment. Default = False. Default = False.
-    :param no_env_management_r: True indicates that the user is responsible for R package installation
+    :param disable_env_management_r: True indicates that the user is responsible for R package installation
         in the runtime environment. Default = False.
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
@@ -1585,7 +1585,7 @@ def write_api_manifest_json(
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     extra_files = validate_extra_files(directory, extra_files)
     manifest, _ = make_api_manifest(directory, entry_point, app_mode, environment, extra_files, excludes,
-                                    image, no_env_management_py, no_env_management_r)
+                                    image, disable_env_management_py, disable_env_management_r)
     manifest_path = join(directory, "manifest.json")
 
     write_manifest_json(manifest_path, manifest)
