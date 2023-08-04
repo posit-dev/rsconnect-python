@@ -261,8 +261,8 @@ def runtime_environment_args(func):
     @click.option(
         "--image",
         "-I",
-        help="Target image to be used during content build and execution. This option is only applicable if the Connect "
-        "server is configured to use off-host execution.",
+        help="Target image to be used during content build and execution. "
+        "This option is only applicable if the Connect server is configured to use off-host execution.",
     )
     @click.option(
         "--disable-env-management",

@@ -635,7 +635,7 @@ def make_html_manifest(
             "appmode": "static",
             "primary_html": filename,
         },
-    }
+    }  # type: typing.Dict[str, typing.Any]
 
     if image or env_management_py is not None or env_management_r is not None:
         manifest["environment"] = {}
