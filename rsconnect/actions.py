@@ -540,10 +540,10 @@ def write_quarto_manifest_json(
     :param extra_files: Any extra files to include in the manifest.
     :param excludes: A sequence of glob patterns to exclude when enumerating files to bundle.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param env_management_py: False indicates that the user is responsible for Python package installation
-        in the runtime environment. Default = None.
-    :param env_management_r: False indicates that the user is responsible for R package installation
-        in the runtime environment. Default = None.
+    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
 
@@ -661,10 +661,10 @@ def deploy_jupyter_notebook(
     :param hide_tagged_input: If True, will hide input code cells with the 'hide_input' tag when rendering
     output. Previous default = False.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param env_management_py: False indicates that the user is responsible for Python package installation
-        in the runtime environment. Default = None.
-    :param env_management_r: False indicates that the user is responsible for R package installation
-        in the runtime environment. Default = None.
+    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
@@ -867,10 +867,10 @@ def deploy_python_api(
     If a log callback is provided, then None will be returned for the log lines part
     of the return tuple. Previous default = None.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param env_management_py: False indicates that the user is responsible for Python package installation
-        in the runtime environment. Default = None.
-    :param env_management_r: False indicates that the user is responsible for R package installation
-        in the runtime environment. Default = None.
+    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
@@ -917,10 +917,10 @@ def deploy_python_fastapi(
         If a log callback is provided, then None will be returned for the log lines part
         of the return tuple. Previous default = None.
         :param image: the optional docker image to be specified for off-host execution. Default = None.
-        :param env_management_py: False indicates that the user is responsible for Python package installation
-        in the runtime environment. Default = None.
-        :param env_management_r: False indicates that the user is responsible for R package installation
-        in the runtime environment. Default = None.
+        :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+        :param env_management_r: False prevents Connect from managing the R environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
         :return: the ultimate URL where the deployed app may be accessed and the sequence
         of log lines.  The log lines value will be None if a log callback was provided.
     """
@@ -1009,10 +1009,10 @@ def deploy_dash_app(
     If a log callback is provided, then None will be returned for the log lines part
     of the return tuple. Previous default = None.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param env_management_py: False indicates that the user is responsible for Python package installation
-        in the runtime environment. Default = None.
-    :param env_management_r: False indicates that the user is responsible for R package installation
-        in the runtime environment. Default = None.
+    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
@@ -1059,10 +1059,10 @@ def deploy_streamlit_app(
     If a log callback is provided, then None will be returned for the log lines part
     of the return tuple. Previous default = None.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param env_management_py: False indicates that the user is responsible for Python package installation
-        in the runtime environment. Default = None.
-    :param env_management_r: False indicates that the user is responsible for R package installation
-        in the runtime environment. Default = None.
+    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
@@ -1109,10 +1109,10 @@ def deploy_bokeh_app(
     If a log callback is provided, then None will be returned for the log lines part
     of the return tuple. Previous default = None.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param env_management_py: False indicates that the user is responsible for Python package installation
-        in the runtime environment. Default = None.
-    :param env_management_r: False indicates that the user is responsible for R package installation
-        in the runtime environment. Default = None.
+    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
@@ -1215,10 +1215,10 @@ def create_notebook_deployment_bundle(
     :param hide_tagged_input: If True, will hide input code cells with
     the 'hide_input' tag when rendering output.  Previous default = False.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param env_management_py: False indicates that the user is responsible for Python package installation
-        in the runtime environment. Default = None.
-    :param env_management_r: False indicates that the user is responsible for R package installation
-        in the runtime environment. Default = None.
+    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
 
     :return: the bundle.
     """
@@ -1281,10 +1281,10 @@ def create_api_deployment_bundle(
     with the specified directory.  If you provide False here, make sure the names
     are properly qualified first. Previous default = True.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param env_management_py: False indicates that the user is responsible for Python package installation
-        in the runtime environment. Default = None.
-    :param env_management_r: False indicates that the user is responsible for R package installation
-        in the runtime environment. Default = None.
+    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :return: the bundle.
     """
     entry_point = validate_entry_point(entry_point, directory)
@@ -1324,10 +1324,10 @@ def create_quarto_deployment_bundle(
     with the specified directory.  If you provide False here, make sure the names
     are properly qualified first. Previous default = True.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param env_management_py: False indicates that the user is responsible for Python package installation
-        in the runtime environment. Default = None.
-    :param env_management_r: False indicates that the user is responsible for R package installation
-        in the runtime environment. Default = None.
+    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :return: the bundle.
     """
     if app_mode is None:
@@ -1433,10 +1433,10 @@ def create_notebook_manifest_and_environment_file(
     :param hide_tagged_input: If True, will hide input code cells with the 'hide_input' tag
     when rendering output.   Previous default = False.
     :param image: an optional docker image for off-host execution. Previous default = None.
-    :param env_management_py: False indicates that the user is responsible for Python package installation
-        in the runtime environment. Default = None.
-    :param env_management_r: False indicates that the user is responsible for R package installation
-        in the runtime environment. Default = None.
+    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :return:
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
@@ -1477,10 +1477,10 @@ def write_notebook_manifest_json(
     :param hide_tagged_input: If True, will hide input code cells with the 'hide_input' tag
     when rendering output.  Previous default = False.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param env_management_py: False indicates that the user is responsible for Python package installation
-        in the runtime environment. Default = None.
-    :param env_management_r: False indicates that the user is responsible for R package installation
-        in the runtime environment. Default = None.
+    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
     """
@@ -1536,10 +1536,10 @@ def create_api_manifest_and_environment_file(
     :param force: if True, forces the environment file to be written. even if it
     already exists. Previous default = True.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param env_management_py: False indicates that the user is responsible for Python package installation
-        in the runtime environment. Default = None.
-    :param env_management_r: False indicates that the user is responsible for R package installation
-        in the runtime environment. Default = None.
+    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :return:
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
@@ -1575,10 +1575,10 @@ def write_api_manifest_json(
     :param extra_files: any extra files that should be included in the manifest. Previous default = None.
     :param excludes: a sequence of glob patterns that will exclude matched files. Previous default = None.
     :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param env_management_py: False indicates that the user is responsible for Python package installation
-        in the runtime environment. Default = None.
-    :param env_management_r: False indicates that the user is responsible for R package installation
-        in the runtime environment. Default = None.
+    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
     """

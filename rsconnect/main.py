@@ -243,15 +243,20 @@ def content_args(func):
 
     return wrapper
 
-
-# inverts bool args if they are provided, otherwise returns None
-def env_management_callback(ctx, param, value):
+# This callback handles the "shorthand" --disable-env-management option.
+# If the shorthand flag is provided, then it takes precendence over the R and Python flags.
+# This callback also inverts the --disable-env-management-r and
+# --disable-env-management-py boolean flags if they are provided,
+# otherwise returns None. This is so that we can pass the
+# non-negative (env_management_r, env_management_py) args to our API functions,
+# which is more consistent when writing these values to the manifest.
+def env_management_callback(ctx, param, value) -> typing.Optional[bool]:
     # eval the shorthand flag if it was provided
     disable_env_management = ctx.params.get('disable_env_management')
     if disable_env_management is not None:
         value = disable_env_management
 
-    # invert env_management value if it was provided
+    # invert value if it is defined.
     if value is not None:
         return not value
     return value
@@ -276,8 +281,9 @@ def runtime_environment_args(func):
         "env_management_py",
         is_flag=True,
         default=None,
-        help="Disable Python environment management. Connect will not perform any Python package installation. "
-        "It is the user's responsibility to ensure required packages are installed in the runtime environment.",
+        help="Disable Python environment management for this bundle. "
+        "Connect will not create an environment or install packages. An administrator must install the "
+        " required packages in the correct Python environment on the Connect server.",
         callback=env_management_callback,
     )
     @click.option(
@@ -285,8 +291,9 @@ def runtime_environment_args(func):
         "env_management_r",
         is_flag=True,
         default=None,
-        help="Disable R environment management. Connect will not perform any R package installation. "
-        "It is the user's responsibility to ensure required packages are installed in the runtime environment.",
+        help="Disable R environment management for this bundle. "
+        "Connect will not create an environment or install packages. An administrator must install the "
+        " required packages in the correct R environment on the Connect server.",
         callback=env_management_callback,
     )
     @functools.wraps(func)
@@ -1883,10 +1890,10 @@ def _write_framework_manifest(
     :param extra_files: any extra files that should be included.
     :param app_mode: the app mode to use.
     :param image: an optional docker image for off-host execution.
-    :param env_management_py: False indicates that the user is responsible for Python package installation
-        in the runtime environment. Default = None.
-    :param env_management_r: False indicates that the user is responsible for R package installation
-        in the runtime environment. Default = None.
+    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
     """
     set_verbosity(verbose)
 
