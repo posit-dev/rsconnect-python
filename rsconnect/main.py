@@ -283,7 +283,7 @@ def runtime_environment_args(func):
         default=None,
         help="Disable Python environment management for this bundle. "
         "Connect will not create an environment or install packages. An administrator must install the "
-        " required packages in the correct Python environment on the Connect server.",
+        "required packages in the correct Python environment on the Connect server.",
         callback=env_management_callback,
     )
     @click.option(
@@ -293,7 +293,7 @@ def runtime_environment_args(func):
         default=None,
         help="Disable R environment management for this bundle. "
         "Connect will not create an environment or install packages. An administrator must install the "
-        " required packages in the correct R environment on the Connect server.",
+        "required packages in the correct R environment on the Connect server.",
         callback=env_management_callback,
     )
     @functools.wraps(func)
