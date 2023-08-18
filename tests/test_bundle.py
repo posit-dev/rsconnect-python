@@ -74,7 +74,8 @@ class TestBundle(TestCase):
         # the kernel environment and not the notebook server environment.
         environment = detect_environment(directory)
         with make_notebook_source_bundle(
-            nb_path, environment, None, hide_all_input=False, hide_tagged_input=False, image=None
+            nb_path, environment, None, hide_all_input=False, hide_tagged_input=False,
+            image=None, env_management_py=None, env_management_r=None,
         ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             names = sorted(tar.getnames())
             self.assertEqual(
@@ -145,6 +146,8 @@ class TestBundle(TestCase):
             hide_all_input=False,
             hide_tagged_input=False,
             image="rstudio/connect:bionic",
+            env_management_py=False,
+            env_management_r=False,
         ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             names = sorted(tar.getnames())
             self.assertEqual(
@@ -196,7 +199,13 @@ class TestBundle(TestCase):
                             "package_file": "requirements.txt",
                         },
                     },
-                    "environment": {"image": "rstudio/connect:bionic"},
+                    "environment": {
+                        "image": "rstudio/connect:bionic",
+                        "environment_management": {
+                            "python": False,
+                            "r": False,
+                        }
+                    },
                     "files": {
                         "dummy.ipynb": {
                             "checksum": ipynb_hash,
@@ -554,20 +563,76 @@ class TestBundle(TestCase):
         # quarto_inspection=None,  # type: typing.Optional[typing.Dict[str, typing.Any]]
 
         # No optional parameters
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None, None)
+        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None)
         self.assertEqual(
             manifest,
             {"version": 1, "metadata": {"appmode": "python-api"}, "files": {}},
         )
 
         # include image parameter
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None, "rstudio/connect:bionic")
+        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
+                                        image="rstudio/connect:bionic")
         self.assertEqual(
             manifest,
             {
                 "version": 1,
                 "metadata": {"appmode": "python-api"},
-                "environment": {"image": "rstudio/connect:bionic"},
+                "environment": {
+                    "image": "rstudio/connect:bionic",
+                },
+                "files": {},
+            },
+        )
+
+        # include env_management_py parameter
+        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
+                                        env_management_py=False)
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {"appmode": "python-api"},
+                 "environment": {
+                    "environment_management": {
+                        "python": False
+                    }
+                },
+                "files": {},
+            },
+        )
+
+        # include env_management_r parameter
+        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
+                                        env_management_r=False)
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {"appmode": "python-api"},
+                 "environment": {
+                    "environment_management": {
+                        "r": False
+                    }
+                },
+                "files": {},
+            },
+        )
+
+        # include all runtime environment parameters
+        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
+                                        image="rstudio/connect:bionic", env_management_py=False, env_management_r=False)
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {"appmode": "python-api"},
+                 "environment": {
+                    "image": "rstudio/connect:bionic",
+                    "environment_management": {
+                        "r": False,
+                        "python": False
+                    }
+                },
                 "files": {},
             },
         )
@@ -893,7 +958,7 @@ class TestBundle(TestCase):
         # image=None,  # type: str
 
         # No optional parameters
-        manifest = make_html_manifest("abc.html", None)
+        manifest = make_html_manifest("abc.html")
         # print(manifest)
         self.assertEqual(
             manifest,
@@ -907,7 +972,8 @@ class TestBundle(TestCase):
         )
 
         # include image parameter
-        manifest = make_html_manifest("abc.html", image="rstudio/connect:bionic")
+        manifest = make_html_manifest("abc.html",
+                                      image="rstudio/connect:bionic")
         # print(manifest)
         self.assertEqual(
             manifest,
@@ -917,7 +983,73 @@ class TestBundle(TestCase):
                     "appmode": "static",
                     "primary_html": "abc.html",
                 },
-                "environment": {"image": "rstudio/connect:bionic"},
+                "environment": {
+                    "image": "rstudio/connect:bionic",
+                },
+            },
+        )
+
+        # include env_management_py parameter
+        manifest = make_html_manifest("abc.html",
+                                      env_management_py=False)
+        # print(manifest)
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {
+                    "appmode": "static",
+                    "primary_html": "abc.html",
+                },
+                "environment": {
+                    "environment_management": {
+                        "python": False,
+                    }
+                },
+            },
+        )
+
+        # include env_management_r parameter
+        manifest = make_html_manifest("abc.html",
+                                      env_management_r=False)
+        # print(manifest)
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {
+                    "appmode": "static",
+                    "primary_html": "abc.html",
+                },
+                "environment": {
+                    "environment_management": {
+                        "r": False,
+                    }
+                },
+            },
+        )
+
+        # include all runtime environment parameters
+        manifest = make_html_manifest("abc.html",
+                                      image="rstudio/connect:bionic",
+                                      env_management_py=False,
+                                      env_management_r=False)
+        # print(manifest)
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {
+                    "appmode": "static",
+                    "primary_html": "abc.html",
+                },
+                "environment": {
+                    "image": "rstudio/connect:bionic",
+                    "environment_management": {
+                        "python": False,
+                        "r": False,
+                    }
+                },
             },
         )
 
@@ -1877,6 +2009,82 @@ def test_create_html_manifest():
     manifest = create_html_manifest(
         single_file_index_file,
         None,
+    )
+    assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
+
+    # check all runtime_environment vars
+    single_file_index_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {"index.html": {"checksum": index_hash}},
+        "environment": {
+            "image": "rstudio/connect:bionic",
+            "environment_management": {
+                "python": False,
+                "r": False,
+            }
+        },
+    }
+    manifest = create_html_manifest(
+        single_file_index_file,
+        None,
+        image="rstudio/connect:bionic",
+        env_management_py=False,
+        env_management_r=False,
+    )
+    assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
+
+    # check image param
+    single_file_index_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {"index.html": {"checksum": index_hash}},
+        "environment": {
+            "image": "rstudio/connect:bionic",
+        },
+    }
+    manifest = create_html_manifest(
+        single_file_index_file,
+        None,
+        image="rstudio/connect:bionic",
+        env_management_py=None,
+        env_management_r=None,
+    )
+    assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
+
+    # check env_management_py param
+    single_file_index_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {"index.html": {"checksum": index_hash}},
+        "environment": {
+            "environment_management": {
+                "python": False,
+            }
+        },
+    }
+    manifest = create_html_manifest(
+        single_file_index_file,
+        None,
+        env_management_py=False,
+    )
+    assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
+
+    # check env_management_r param
+    single_file_index_file_ans = {
+        "version": 1,
+        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
+        "files": {"index.html": {"checksum": index_hash}},
+        "environment": {
+            "environment_management": {
+                "r": False,
+            }
+        },
+    }
+    manifest = create_html_manifest(
+        single_file_index_file,
+        None,
+        env_management_r=False,
     )
     assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
 
