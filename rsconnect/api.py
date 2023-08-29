@@ -52,7 +52,6 @@ class AbstractRemoteServer:
                         response.full_uri,
                         response.json_data["error"],
                     )
-                    raise Exception(error)
                     raise RSConnectException(error)
                 if response.status < 200 or response.status > 299:
                     raise RSConnectException(
