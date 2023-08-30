@@ -9,21 +9,42 @@ env:
   SNYK_ORG: rstudio-connect
 
 jobs:
-  snyk-monitor:
+  snyk-update:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Run Snyk (setup.py)
+      - name: Run Snyk Open Source (setup.py)
         uses: snyk/actions/python@master
         with:
           command: monitor
           args: --file=setup.py --package-manager=pip --project-name=setup.py --org=${{ env.SNYK_ORG }}
 
-      - name: Run Snyk (requirements.txt)
+      - name: Run Snyk Open Source (requirements.txt)
         uses: snyk/actions/python@master
         with:
           command: monitor
           args: --file=requirements.txt --package-manager=pip --project-name=requirements.txt --org=${{ env.SNYK_ORG }}
+
+      # - name: Run Snyk Code
+      #   uses: snyk/actions/python@master
+      #   continue-on-error: true # If vulnerabilities are found, exit code is 1; this shouldn't cancel the job
+      #   with:
+      #     command: code test
+      #     args: --debug --report --project-name="rsconnect-python" --target-name="rstudio/rsconnect-python" --org=${{ env.SNYK_ORG }}
+
+  snyk-code:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: snyk/actions/setup@master
+
+      - name: Run Snyk Code
+        continue-on-error: true # If vulnerabilities are found, exit code is 1---this shouldn't cancel the job
+        run: snyk code test --debug --report --project-name="rsconnect-python" --target-name="rstudio/rsconnect-python" --org=${{ env.SNYK_ORG }}
+
