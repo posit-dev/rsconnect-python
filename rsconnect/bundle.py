@@ -815,8 +815,13 @@ def create_glob_set(directory, excludes):
 
 
 def is_environment_dir(directory):
+    """Detect whether `directory` is a virtualenv"""
+
+    # A virtualenv will have Python at ./bin/python
     python_path = join(directory, "bin", "python")
-    return exists(python_path)
+    # But on Windows, it's at Scripts\Python.exe
+    win_path = join(directory, "Scripts", "Python.exe")
+    return exists(python_path) or exists(win_path)
 
 
 def list_environment_dirs(directory):
