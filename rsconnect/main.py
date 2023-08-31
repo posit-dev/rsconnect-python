@@ -243,6 +243,65 @@ def content_args(func):
 
     return wrapper
 
+# This callback handles the "shorthand" --disable-env-management option.
+# If the shorthand flag is provided, then it takes precendence over the R and Python flags.
+# This callback also inverts the --disable-env-management-r and
+# --disable-env-management-py boolean flags if they are provided,
+# otherwise returns None. This is so that we can pass the
+# non-negative (env_management_r, env_management_py) args to our API functions,
+# which is more consistent when writing these values to the manifest.
+def env_management_callback(ctx, param, value) -> typing.Optional[bool]:
+    # eval the shorthand flag if it was provided
+    disable_env_management = ctx.params.get('disable_env_management')
+    if disable_env_management is not None:
+        value = disable_env_management
+
+    # invert value if it is defined.
+    if value is not None:
+        return not value
+    return value
+
+
+def runtime_environment_args(func):
+    @click.option(
+        "--image",
+        "-I",
+        help="Target image to be used during content build and execution. "
+        "This option is only applicable if the Connect server is configured to use off-host execution.",
+    )
+    @click.option(
+        "--disable-env-management",
+        is_flag=True,
+        is_eager=True,
+        default=None,
+        help="Shorthand to disable environment management for both Python and R.",
+    )
+    @click.option(
+        "--disable-env-management-py",
+        "env_management_py",
+        is_flag=True,
+        default=None,
+        help="Disable Python environment management for this bundle. "
+        "Connect will not create an environment or install packages. An administrator must install the "
+        "required packages in the correct Python environment on the Connect server.",
+        callback=env_management_callback,
+    )
+    @click.option(
+        "--disable-env-management-r",
+        "env_management_r",
+        is_flag=True,
+        default=None,
+        help="Disable R environment management for this bundle. "
+        "Connect will not create an environment or install packages. An administrator must install the "
+        "required packages in the correct R environment on the Connect server.",
+        callback=env_management_callback,
+    )
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
 
 @click.group(no_args_is_help=True)
 @click.option("--future", "-u", is_flag=True, hidden=True, help="Enables future functionality.")
@@ -750,6 +809,7 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
 )
 @server_args
 @content_args
+@runtime_environment_args
 @click.option(
     "--static",
     "-S",
@@ -786,12 +846,6 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
 @click.option(
     "--hide-tagged-input", is_flag=True, default=False, help="Hide input code cells with the 'hide_input' tag"
 )
-@click.option(
-    "--image",
-    "-I",
-    help="Target image to be used during content execution (only applicable if the Posit Connect "
-    "server is configured to use off-host execution)",
-)
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
     "extra_files",
@@ -819,6 +873,9 @@ def deploy_notebook(
     hide_tagged_input: bool,
     env_vars: typing.Dict[str, str],
     image: str,
+    disable_env_management: bool,
+    env_management_py: bool,
+    env_management_r: bool,
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -845,6 +902,8 @@ def deploy_notebook(
             hide_all_input,
             hide_tagged_input,
             image=image,
+            env_management_py=env_management_py,
+            env_management_r=env_management_r,
         )
     else:
         ce.make_bundle(
@@ -855,6 +914,8 @@ def deploy_notebook(
             hide_all_input,
             hide_tagged_input,
             image=image,
+            env_management_py=env_management_py,
+            env_management_r=env_management_r,
         )
     ce.deploy_bundle().save_deployed_info().emit_task_log()
 
@@ -868,6 +929,7 @@ def deploy_notebook(
 )
 @server_args
 @content_args
+@runtime_environment_args
 @click.option(
     "--entrypoint",
     "-e",
@@ -904,12 +966,6 @@ def deploy_notebook(
     is_flag=True,
     help='Force generating "requirements.txt", even if it already exists.',
 )
-@click.option(
-    "--image",
-    "-I",
-    help="Target image to be used during content execution (only applicable if the RStudio Connect "
-    "server is configured to use off-host execution)",
-)
 @click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
     "extra_files",
@@ -925,6 +981,9 @@ def deploy_voila(
     extra_files=None,
     exclude=None,
     image: str = "",
+    disable_env_management: bool = None,
+    env_management_py: bool = None,
+    env_management_r: bool = None,
     title: str = None,
     env_vars: typing.Dict[str, str] = None,
     verbose: bool = False,
@@ -956,6 +1015,8 @@ def deploy_voila(
         force_generate,
         environment,
         image=image,
+        env_management_py=env_management_py,
+        env_management_r=env_management_r,
         multi_notebook=multi_notebook,
     ).deploy_bundle().save_deployed_info().emit_task_log()
 
@@ -1030,6 +1091,7 @@ def deploy_manifest(
 )
 @server_args
 @content_args
+@runtime_environment_args
 @click.option(
     "--exclude",
     "-x",
@@ -1061,12 +1123,6 @@ def deploy_manifest(
     is_flag=True,
     help='Force generating "requirements.txt", even if it already exists.',
 )
-@click.option(
-    "--image",
-    "-I",
-    help="Target image to be used during content execution (only applicable if the Posit Connect "
-    "server is configured to use off-host execution)",
-)
 @click.argument("file_or_directory", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
     "extra_files",
@@ -1092,6 +1148,9 @@ def deploy_quarto(
     extra_files,
     env_vars: typing.Dict[str, str],
     image: str,
+    disable_env_management: bool,
+    env_management_py: bool,
+    env_management_r: bool,
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -1137,6 +1196,8 @@ def deploy_quarto(
             inspect,
             environment,
             image=image,
+            env_management_py=env_management_py,
+            env_management_r=env_management_r,
         )
         .deploy_bundle()
         .save_deployed_info()
@@ -1237,6 +1298,7 @@ def generate_deploy_python(app_mode, alias, min_version):
     @server_args
     @content_args
     @cloud_shinyapps_args
+    @runtime_environment_args
     @click.option(
         "--entrypoint",
         "-e",
@@ -1276,12 +1338,6 @@ def generate_deploy_python(app_mode, alias, min_version):
         is_flag=True,
         help='Force generating "requirements.txt", even if it already exists.',
     )
-    @click.option(
-        "--image",
-        "-I",
-        help="Target image to be used during content execution (only applicable if the Posit Connect "
-        "server is configured to use off-host execution)",
-    )
     @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
     @click.argument(
         "extra_files",
@@ -1310,6 +1366,9 @@ def generate_deploy_python(app_mode, alias, min_version):
         visibility: typing.Optional[str],
         env_vars: typing.Dict[str, str],
         image: str,
+        disable_env_management: bool,
+        env_management_py: bool,
+        env_management_r: bool,
         account: str = None,
         token: str = None,
         secret: str = None,
@@ -1337,6 +1396,8 @@ def generate_deploy_python(app_mode, alias, min_version):
                 extra_files,
                 exclude,
                 image=image,
+                env_management_py=env_management_py,
+                env_management_r=env_management_r,
             )
             .deploy_bundle()
             .save_deployed_info()
@@ -1422,18 +1483,13 @@ def write_manifest():
 @click.option("--hide-all-input", is_flag=True, default=None, help="Hide all input cells when rendering output")
 @click.option("--hide-tagged-input", is_flag=True, default=None, help="Hide input code cells with the 'hide_input' tag")
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
-@click.option(
-    "--image",
-    "-I",
-    help="Target image to be used during content execution (only applicable if the Posit Connect "
-    "server is configured to use off-host execution)",
-)
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @click.argument(
     "extra_files",
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@runtime_environment_args
 def write_manifest_notebook(
     overwrite,
     python,
@@ -1443,6 +1499,9 @@ def write_manifest_notebook(
     file,
     extra_files,
     image,
+    disable_env_management,
+    env_management_py,
+    env_management_r,
     hide_all_input=None,
     hide_tagged_input=None,
 ):
@@ -1470,6 +1529,8 @@ def write_manifest_notebook(
             hide_all_input,
             hide_tagged_input,
             image,
+            env_management_py,
+            env_management_r,
         )
 
     if environment_file_exists and not force_generate:
@@ -1506,12 +1567,6 @@ def write_manifest_notebook(
     help='Force generating "requirements.txt", even if it already exists.',
 )
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
-@click.option(
-    "--image",
-    "-I",
-    help="Target image to be used during content execution (only applicable if the RStudio Connect "
-    "server is configured to use off-host execution)",
-)
 @click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
     "extra_files",
@@ -1535,6 +1590,7 @@ def write_manifest_notebook(
     is_flag=True,
     help=("Set the manifest for multi-notebook mode."),
 )
+@runtime_environment_args
 def write_manifest_voila(
     path: str,
     entrypoint: str,
@@ -1545,6 +1601,9 @@ def write_manifest_voila(
     extra_files,
     exclude,
     image,
+    disable_env_management,
+    env_management_py,
+    env_management_r,
     multi_notebook,
 ):
     set_verbosity(verbose)
@@ -1581,6 +1640,8 @@ def write_manifest_voila(
             exclude,
             force_generate,
             image,
+            env_management_py,
+            env_management_r,
             multi_notebook,
         )
 
@@ -1629,18 +1690,13 @@ def write_manifest_voila(
     help='Force generating "requirements.txt", even if it already exists.',
 )
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
-@click.option(
-    "--image",
-    "-I",
-    help="Target image to be used during content execution (only applicable if the Posit Connect "
-    "server is configured to use off-host execution)",
-)
 @click.argument("file_or_directory", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
     "extra_files",
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@runtime_environment_args
 def write_manifest_quarto(
     overwrite,
     exclude,
@@ -1651,6 +1707,9 @@ def write_manifest_quarto(
     file_or_directory,
     extra_files,
     image,
+    disable_env_management,
+    env_management_py,
+    env_management_r,
 ):
     set_verbosity(verbose)
 
@@ -1695,6 +1754,8 @@ def write_manifest_quarto(
             extra_files,
             exclude,
             image,
+            env_management_py,
+            env_management_r,
         )
 
 
@@ -1748,18 +1809,13 @@ def generate_write_manifest_python(app_mode, alias):
         help='Force generating "requirements.txt", even if it already exists.',
     )
     @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
-    @click.option(
-        "--image",
-        "-I",
-        help="Target image to be used during content execution (only applicable if the Posit Connect "
-        "server is configured to use off-host execution)",
-    )
     @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
     @click.argument(
         "extra_files",
         nargs=-1,
         type=click.Path(exists=True, dir_okay=False, file_okay=True),
     )
+    @runtime_environment_args
     def manifest_writer(
         overwrite,
         entrypoint,
@@ -1771,6 +1827,9 @@ def generate_write_manifest_python(app_mode, alias):
         directory,
         extra_files,
         image,
+        disable_env_management,
+        env_management_py,
+        env_management_r,
     ):
         _write_framework_manifest(
             overwrite,
@@ -1784,6 +1843,8 @@ def generate_write_manifest_python(app_mode, alias):
             extra_files,
             app_mode,
             image,
+            env_management_py,
+            env_management_r,
         )
 
     return manifest_writer
@@ -1810,6 +1871,8 @@ def _write_framework_manifest(
     extra_files,
     app_mode,
     image,
+    env_management_py,
+    env_management_r,
 ):
     """
     A common function for writing manifests for APIs as well as Dash, Streamlit, and Bokeh apps.
@@ -1827,6 +1890,10 @@ def _write_framework_manifest(
     :param extra_files: any extra files that should be included.
     :param app_mode: the app mode to use.
     :param image: an optional docker image for off-host execution.
+    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
     """
     set_verbosity(verbose)
 
@@ -1851,6 +1918,8 @@ def _write_framework_manifest(
             extra_files,
             exclude,
             image,
+            env_management_py,
+            env_management_r,
         )
 
     if environment_file_exists and not force_generate:

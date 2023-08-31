@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 ### Added
+
+- Add `--disable-env-management`, `--disable-env-management-py` and `--disable-env-management-r` flags for all content types
+  that support environment restores. These flags indicate to Connect that the user is responsible for Python/R package
+  installation, and Connect should not install packages during the build. The Python/R packages must still be available in the runtime
+  environment in order to run the content. This is especially useful if off-host execution is enabled when the execution environment
+  (specified by `--image`) already contains the required packages. Requires Posit Connect `>=2023.07.0`.
+
+## [1.19.1] - 2023-08-01
+
+### Added
 - Failed deploys to shinyapps.io will now output build logs. Posit Cloud application deploys will also output build logs once supported server-side.
 - Redeploy to Posit Cloud from a project now correctly associates the content with that project.
 

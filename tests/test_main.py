@@ -7,6 +7,7 @@ from unittest import TestCase
 
 import httpretty
 import pytest
+import click
 from click.testing import CliRunner
 
 from rsconnect.json_web_token import SECRET_KEY_ENV
@@ -22,7 +23,7 @@ from .utils import (
     require_connect,
     has_jwt_structure,
 )
-from rsconnect.main import cli
+from rsconnect.main import cli, env_management_callback
 from rsconnect import VERSION
 
 
@@ -744,6 +745,22 @@ class TestMain:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
+
+
+    def test_env_management_callback(self):
+        ctx = click.Context(cli)
+
+        # env_management is always False when --disable-env-management is True
+        ctx.params = {'disable_env_management': True}
+        assert env_management_callback(ctx, None, None) is False
+        assert env_management_callback(ctx, None, True) is False
+        assert env_management_callback(ctx, None, False) is False
+
+        # (env_management == not value) when --disable-env-management is None
+        ctx.params = {'disable_env_management': None}
+        assert env_management_callback(ctx, None, None) is None
+        assert env_management_callback(ctx, None, True) is False
+        assert env_management_callback(ctx, None, False) is True
 
 
 class TestBootstrap(TestCase):
