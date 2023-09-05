@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+- Python virtualenvs are now detected in Windows environments, and are automatically
+  excluded from the uploaded bundle.
+
 ### Added
 
 - Add `--disable-env-management`, `--disable-env-management-py` and `--disable-env-management-r` flags for all content types
