@@ -140,7 +140,7 @@ class TestMain:
             return [
                 201,
                 {"Content-Type": "application/json"},
-                open("tests/testdata/rstudio-responses/create-application.json", "r").read(),
+                open("tests/testdata/rstudio-responses/application.json", "r").read(),
             ]
 
         httpretty.register_uri(
@@ -277,6 +277,172 @@ class TestMain:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_manifest_shinyapps(self):
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "https://api.shinyapps.io/v1/users/me",
+            body=open("tests/testdata/rstudio-responses/get-user.json", "r").read(),
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "https://api.shinyapps.io/v1/applications"
+            "?filter=name:like:shinyapp&offset=0&count=100&use_advanced_filters=true",
+            body=open("tests/testdata/rstudio-responses/get-applications.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "https://api.shinyapps.io/v1/accounts/",
+            body=open("tests/testdata/rstudio-responses/get-accounts.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "https://api.shinyapps.io/v1/applications/8442",
+            body=open("tests/testdata/rstudio-responses/application.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        def post_application_property_callback(request, uri, response_headers):
+            parsed_request = _load_json(request.body)
+            try:
+                assert parsed_request == {"value": "private"}
+            except AssertionError as e:
+                return _error_to_response(e)
+            return [
+                201,
+                {},
+                b"",
+            ]
+
+        httpretty.register_uri(
+            httpretty.PUT,
+            "https://api.shinyapps.io/v1/applications/8442/properties/application.visibility",
+            body=post_application_property_callback,
+            status=200,
+        )
+
+        def post_bundle_callback(request, uri, response_headers):
+            parsed_request = _load_json(request.body)
+            del parsed_request["checksum"]
+            del parsed_request["content_length"]
+            try:
+                assert parsed_request == {
+                    "application": 8442,
+                    "content_type": "application/x-tar",
+                }
+            except AssertionError as e:
+                return _error_to_response(e)
+            return [
+                201,
+                {"Content-Type": "application/json"},
+                open("tests/testdata/rstudio-responses/create-bundle.json", "r").read(),
+            ]
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "https://api.shinyapps.io/v1/bundles",
+            body=post_bundle_callback,
+        )
+
+        httpretty.register_uri(
+            httpretty.PUT,
+            "https://lucid-uploads-staging.s3.amazonaws.com/bundles/application-8442/"
+            "6c9ed0d91ee9426687d9ac231d47dc83.tar.gz"
+            "?AWSAccessKeyId=theAccessKeyId"
+            "&Signature=dGhlU2lnbmF0dXJlCg%3D%3D"
+            "&content-md5=D1blMI4qTiI3tgeUOYXwkg%3D%3D"
+            "&content-type=application%2Fx-tar"
+            "&x-amz-security-token=dGhlVG9rZW4K"
+            "&Expires=1656715153",
+            body="",
+        )
+
+        def post_bundle_status_callback(request, uri, response_headers):
+            parsed_request = _load_json(request.body)
+            try:
+                assert parsed_request == {"status": "ready"}
+            except AssertionError as e:
+                return _error_to_response(e)
+            return [303, {"Location": "https://api.shinyapps.io/v1/bundles/12640"}, ""]
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "https://api.shinyapps.io/v1/bundles/12640/status",
+            body=post_bundle_status_callback,
+        )
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "https://api.shinyapps.io/v1/bundles/12640",
+            body=open("tests/testdata/rstudio-responses/get-accounts.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        def post_deploy_callback(request, uri, response_headers):
+            parsed_request = _load_json(request.body)
+            try:
+                assert parsed_request == {"bundle": 12640, "rebuild": False}
+            except AssertionError as e:
+                return _error_to_response(e)
+            return [
+                303,
+                {"Location": "https://api.shinyapps.io/v1/tasks/333"},
+                open("tests/testdata/rstudio-responses/post-deploy.json", "r").read(),
+            ]
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "https://api.shinyapps.io/v1/applications/8442/deploy",
+            body=post_deploy_callback,
+        )
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "https://api.shinyapps.io/v1/tasks/333",
+            body=open("tests/testdata/rstudio-responses/get-task.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        runner = CliRunner()
+        args = [
+            "deploy",
+            "manifest",
+            get_manifest_path("shinyapp"),
+            "--account",
+            "some-account",
+            "--token",
+            "someToken",
+            "--secret",
+            "c29tZVNlY3JldAo=",
+            "--title",
+            "myApp",
+            "--visibility",
+            "private",
+            "--app-id",
+            "8442",
+        ]
+        try:
+            result = runner.invoke(cli, args)
+            assert result.exit_code == 0, result.output
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     @pytest.mark.parametrize(
