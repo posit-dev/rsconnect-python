@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+- Error deploying to shinyapps.io when `--app-id` is provided [#464](https://github.com/rstudio/rsconnect-python/issues/464).
+
 ### Added
 
 - Add `--disable-env-management`, `--disable-env-management-py` and `--disable-env-management-r` flags for all content types
