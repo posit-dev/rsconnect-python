@@ -864,7 +864,7 @@ def make_api_manifest(
     :return: the manifest and a list of the files involved.
     """
     if is_environment_dir(directory):
-        excludes = list(excludes or []) + ["bin/", "lib/"]
+        excludes = list(excludes or []) + ["bin/", "lib/", "Lib/", "Scripts/", "Include/"]
 
     extra_files = extra_files or []
     skip = [environment.filename, "manifest.json"]
@@ -1488,7 +1488,7 @@ def _warn_if_environment_directory(directory):
     if is_environment_dir(directory):
         click.secho(
             "    Warning: The deployment directory appears to be a python virtual environment.\n"
-            "             Excluding the 'bin' and 'lib' directories.",
+            "             Python libraries and binaries will be excluded from the deployment.",
             fg="yellow",
         )
 
