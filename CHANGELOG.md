@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 ### Fixed
+- Python virtualenvs are now detected in Windows environments, and are automatically
+  excluded from the uploaded bundle.
 - Error deploying to shinyapps.io when `--app-id` is provided [#464](https://github.com/rstudio/rsconnect-python/issues/464).
 
 ### Added
