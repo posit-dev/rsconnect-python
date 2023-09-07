@@ -79,6 +79,7 @@ class AppModes(object):
     STATIC_QUARTO = AppMode(14, "quarto-static", "Quarto Document", ".qmd")
     PYTHON_SHINY = AppMode(15, "python-shiny", "Python Shiny Application")
     JUPYTER_VOILA = AppMode(16, "jupyter-voila", "Jupyter Voila Application")
+    GRADIO_APP = AppMode(17, "python-gradio", "Gradio Application")
 
     _modes = [
         UNKNOWN,
@@ -98,6 +99,7 @@ class AppModes(object):
         STATIC_QUARTO,
         PYTHON_SHINY,
         JUPYTER_VOILA,
+        GRADIO_APP,
     ]
 
     _cloud_to_connect_modes = {
@@ -110,6 +112,7 @@ class AppModes(object):
         "streamlit": STREAMLIT_APP,
         "fastapi": PYTHON_FASTAPI,
         "bokeh": BOKEH_APP,
+        "gradio": GRADIO_APP,
     }
 
     @classmethod

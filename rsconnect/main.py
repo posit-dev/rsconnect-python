@@ -243,6 +243,7 @@ def content_args(func):
 
     return wrapper
 
+
 # This callback handles the "shorthand" --disable-env-management option.
 # If the shorthand flag is provided, then it takes precendence over the R and Python flags.
 # This callback also inverts the --disable-env-management-r and
@@ -252,7 +253,7 @@ def content_args(func):
 # which is more consistent when writing these values to the manifest.
 def env_management_callback(ctx, param, value) -> typing.Optional[bool]:
     # eval the shorthand flag if it was provided
-    disable_env_management = ctx.params.get('disable_env_management')
+    disable_env_management = ctx.params.get("disable_env_management")
     if disable_env_management is not None:
         value = disable_env_management
 
@@ -486,7 +487,6 @@ def bootstrap(
 @cloud_shinyapps_args
 @click.pass_context
 def add(ctx, name, server, api_key, insecure, cacert, account, token, secret, verbose):
-
     set_verbosity(verbose)
     if click.__version__ >= "8.0.0" and sys.version_info >= (3, 7):
         click.echo("Detected the following inputs:")
@@ -1081,11 +1081,11 @@ def deploy_manifest(
     name="quarto",
     short_help="Deploy Quarto content to Posit Connect [v2021.08.0+] or Posit Cloud.",
     help=(
-        'Deploy a Quarto document or project to Posit Connect or Posit Cloud. Should the content use the Quarto '
+        "Deploy a Quarto document or project to Posit Connect or Posit Cloud. Should the content use the Quarto "
         'Jupyter engine, an environment file ("requirements.txt") is created and included in the deployment if one '
-        'does not already exist. Requires Posit Connect 2021.08.0 or later.'
-        '\n\n'
-        'FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project.'
+        "does not already exist. Requires Posit Connect 2021.08.0 or later."
+        "\n\n"
+        "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
     ),
     no_args_is_help=True,
 )
@@ -1408,13 +1408,12 @@ def generate_deploy_python(app_mode, alias, min_version):
 
 
 deploy_api = generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="api", min_version="1.8.2")
-# TODO: set fastapi min_version correctly
-# deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0")
 deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0")
 deploy_dash_app = generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
 deploy_streamlit_app = generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
 deploy_bokeh_app = generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
 deploy_shiny = generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0")
+deploy_gradio = generate_deploy_python(app_mode=AppModes.GRADIO_APP, alias="gradio", min_version="2023.10.0")
 
 
 @deploy.command(
