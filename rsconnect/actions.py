@@ -14,6 +14,8 @@ import traceback
 from typing import IO
 from warnings import warn
 from os.path import abspath, basename, dirname, exists, isdir, join, relpath, splitext
+
+from .bundle import Manifest
 from .exception import RSConnectException
 from . import api
 from .bundle import (
@@ -32,9 +34,6 @@ from .bundle import (
     make_notebook_source_bundle,
     make_quarto_source_bundle,
     make_quarto_manifest,
-    make_source_manifest,
-    manifest_add_buffer,
-    manifest_add_file,
     read_manifest_app_mode,
     read_manifest_file,
 )
@@ -1295,8 +1294,9 @@ def create_api_deployment_bundle(
     if app_mode is None:
         app_mode = AppModes.PYTHON_API
 
-    return make_api_bundle(directory, entry_point, app_mode, environment, extra_files, excludes,
-                           image, env_management_py, env_management_r)
+    return make_api_bundle(
+        directory, entry_point, app_mode, environment, extra_files, excludes, image, env_management_py, env_management_r
+    )
 
 
 def create_quarto_deployment_bundle(
@@ -1333,8 +1333,17 @@ def create_quarto_deployment_bundle(
     if app_mode is None:
         app_mode = AppModes.STATIC_QUARTO
 
-    return make_quarto_source_bundle(file_or_directory, inspect, app_mode, environment, extra_files, excludes,
-                                     image, env_management_py, env_management_r)
+    return make_quarto_source_bundle(
+        file_or_directory,
+        inspect,
+        app_mode,
+        environment,
+        extra_files,
+        excludes,
+        image,
+        env_management_py,
+        env_management_r,
+    )
 
 
 def deploy_bundle(
@@ -1442,8 +1451,15 @@ def create_notebook_manifest_and_environment_file(
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     if (
         not write_notebook_manifest_json(
-            entry_point_file, environment, app_mode, extra_files, hide_all_input, hide_tagged_input,
-            image, env_management_py, env_management_r,
+            entry_point_file,
+            environment,
+            app_mode,
+            extra_files,
+            hide_all_input,
+            hide_tagged_input,
+            image,
+            env_management_py,
+            env_management_r,
         )
         or force
     ):
@@ -1496,15 +1512,22 @@ def write_notebook_manifest_json(
         if app_mode == AppModes.UNKNOWN:
             raise RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
 
-    manifest_data = make_source_manifest(app_mode, environment, file_name, None,
-                                         image, env_management_py, env_management_r)
-    manifest_add_file(manifest_data, file_name, directory)
-    manifest_add_buffer(manifest_data, environment.filename, environment.contents)
+    manifest = Manifest(
+        app_mode=app_mode,
+        environment=environment,
+        entrypoint=file_name,
+        quarto_inspection=None,
+        image=image,
+        env_management_py=env_management_py,
+        env_management_r=env_management_r,
+    )
+    manifest.add_file_relative(file_name, directory)
+    manifest.add_buffer(environment.filename, environment.contents)
 
     for rel_path in extra_files:
-        manifest_add_file(manifest_data, rel_path, directory)
+        manifest.add_file_relative(rel_path, directory)
 
-    write_manifest_json(manifest_path, manifest_data)
+    write_manifest_json(manifest_path, manifest.data)
 
     return exists(join(directory, environment.filename))
 
@@ -1544,8 +1567,17 @@ def create_api_manifest_and_environment_file(
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     if (
-        not write_api_manifest_json(directory, entry_point, environment, app_mode, extra_files, excludes,
-                                    image, env_management_py, env_management_r)
+        not write_api_manifest_json(
+            directory,
+            entry_point,
+            environment,
+            app_mode,
+            extra_files,
+            excludes,
+            image,
+            env_management_py,
+            env_management_r,
+        )
         or force
     ):
         write_environment_file(environment, directory)
@@ -1584,8 +1616,9 @@ def write_api_manifest_json(
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     extra_files = validate_extra_files(directory, extra_files)
-    manifest, _ = make_api_manifest(directory, entry_point, app_mode, environment, extra_files, excludes,
-                                    image, env_management_py, env_management_r)
+    manifest, _ = make_api_manifest(
+        directory, entry_point, app_mode, environment, extra_files, excludes, image, env_management_py, env_management_r
+    )
     manifest_path = join(directory, "manifest.json")
 
     write_manifest_json(manifest_path, manifest)

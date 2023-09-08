@@ -243,6 +243,7 @@ def content_args(func):
 
     return wrapper
 
+
 # This callback handles the "shorthand" --disable-env-management option.
 # If the shorthand flag is provided, then it takes precendence over the R and Python flags.
 # This callback also inverts the --disable-env-management-r and
@@ -252,7 +253,7 @@ def content_args(func):
 # which is more consistent when writing these values to the manifest.
 def env_management_callback(ctx, param, value) -> typing.Optional[bool]:
     # eval the shorthand flag if it was provided
-    disable_env_management = ctx.params.get('disable_env_management')
+    disable_env_management = ctx.params.get("disable_env_management")
     if disable_env_management is not None:
         value = disable_env_management
 
@@ -1081,11 +1082,11 @@ def deploy_manifest(
     name="quarto",
     short_help="Deploy Quarto content to Posit Connect [v2021.08.0+] or Posit Cloud.",
     help=(
-        'Deploy a Quarto document or project to Posit Connect or Posit Cloud. Should the content use the Quarto '
+        "Deploy a Quarto document or project to Posit Connect or Posit Cloud. Should the content use the Quarto "
         'Jupyter engine, an environment file ("requirements.txt") is created and included in the deployment if one '
-        'does not already exist. Requires Posit Connect 2021.08.0 or later.'
-        '\n\n'
-        'FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project.'
+        "does not already exist. Requires Posit Connect 2021.08.0 or later."
+        "\n\n"
+        "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
     ),
     no_args_is_help=True,
 )

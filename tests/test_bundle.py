@@ -31,7 +31,6 @@ from rsconnect.bundle import (
     keep_manifest_specified_file,
     make_voila_bundle,
     to_bytes,
-    make_source_manifest,
     make_quarto_manifest,
     make_html_manifest,
     validate_entry_point,
@@ -555,7 +554,7 @@ class TestBundle(TestCase):
             manifest_names = sorted(filter(keep_manifest_specified_file, manifest["files"].keys()))
             self.assertEqual(tar_names, manifest_names)
 
-    def test_make_source_manifest(self):
+    def test_make_manifest(self):
         # Verify the optional parameters
         # image=None,  # type: str
         # environment=None,  # type: typing.Optional[Environment]
@@ -563,17 +562,17 @@ class TestBundle(TestCase):
         # quarto_inspection=None,  # type: typing.Optional[typing.Dict[str, typing.Any]]
 
         # No optional parameters
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None)
+        manifest = Manifest(app_mode=AppModes.PYTHON_API, environment=None, entrypoint=None, quarto_inspection=None)
         self.assertEqual(
-            manifest,
+            manifest.data,
             {"version": 1, "metadata": {"appmode": "python-api"}, "files": {}},
         )
 
         # include image parameter
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
+        manifest = Manifest(app_mode=AppModes.PYTHON_API, environment=None, entrypoint=None, quarto_inspection=None,
                                         image="rstudio/connect:bionic")
         self.assertEqual(
-            manifest,
+            manifest.data,
             {
                 "version": 1,
                 "metadata": {"appmode": "python-api"},
@@ -585,10 +584,10 @@ class TestBundle(TestCase):
         )
 
         # include env_management_py parameter
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
+        manifest = Manifest(app_mode=AppModes.PYTHON_API, environment=None, entrypoint=None, quarto_inspection=None,
                                         env_management_py=False)
         self.assertEqual(
-            manifest,
+            manifest.data,
             {
                 "version": 1,
                 "metadata": {"appmode": "python-api"},
@@ -602,10 +601,10 @@ class TestBundle(TestCase):
         )
 
         # include env_management_r parameter
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
+        manifest = Manifest(app_mode=AppModes.PYTHON_API, environment=None, entrypoint=None, quarto_inspection=None,
                                         env_management_r=False)
         self.assertEqual(
-            manifest,
+            manifest.data,
             {
                 "version": 1,
                 "metadata": {"appmode": "python-api"},
@@ -619,10 +618,10 @@ class TestBundle(TestCase):
         )
 
         # include all runtime environment parameters
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
+        manifest = Manifest(app_mode=AppModes.PYTHON_API, environment=None, entrypoint=None, quarto_inspection=None,
                                         image="rstudio/connect:bionic", env_management_py=False, env_management_r=False)
         self.assertEqual(
-            manifest,
+            manifest.data,
             {
                 "version": 1,
                 "metadata": {"appmode": "python-api"},
@@ -638,9 +637,9 @@ class TestBundle(TestCase):
         )
 
         # include environment parameter
-        manifest = make_source_manifest(
-            AppModes.PYTHON_API,
-            Environment(
+        manifest = Manifest(
+            app_mode=AppModes.PYTHON_API,
+            environment=Environment(
                 conda=None,
                 contents="",
                 error=None,
@@ -651,12 +650,12 @@ class TestBundle(TestCase):
                 python="3.9.12",
                 source="file",
             ),
-            None,
-            None,
-            None,
+            entrypoint=None,
+            quarto_inspection=None,
+            image=None,
         )
         self.assertEqual(
-            manifest,
+            manifest.data,
             {
                 "version": 1,
                 "locale": "en_US.UTF-8",
@@ -670,34 +669,34 @@ class TestBundle(TestCase):
         )
 
         # include entrypoint parameter
-        manifest = make_source_manifest(
-            AppModes.PYTHON_API,
-            None,
-            "main.py",
-            None,
-            None,
+        manifest = Manifest(
+            app_mode=AppModes.PYTHON_API,
+            environment=None,
+            entrypoint="main.py",
+            quarto_inspection=None,
+            image=None,
         )
         # print(manifest)
         self.assertEqual(
-            manifest,
+            manifest.data,
             {"version": 1, "metadata": {"appmode": "python-api", "entrypoint": "main.py"}, "files": {}},
         )
 
         # include quarto_inspection parameter
-        manifest = make_source_manifest(
-            AppModes.PYTHON_API,
-            None,
-            None,
-            {
+        manifest = Manifest(
+            app_mode=AppModes.PYTHON_API,
+            environment=None,
+            entrypoint=None,
+            quarto_inspection={
                 "quarto": {"version": "0.9.16"},
                 "engines": ["jupyter"],
                 "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
             },
-            None,
+            image=None,
         )
         # print(manifest)
         self.assertEqual(
-            manifest,
+            manifest.data,
             {
                 "version": 1,
                 "metadata": {
