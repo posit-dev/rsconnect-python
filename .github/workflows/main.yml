@@ -22,7 +22,7 @@ jobs:
         - os: macos-latest
           python-version: '3.9'
         - os: windows-latest
-          python-version: '3.9'          
+          python-version: '3.9'
     runs-on: ${{ matrix.os }}
     name: test (py${{ matrix.python-version }} ${{ matrix.os }})
     steps:
@@ -108,7 +108,7 @@ jobs:
     - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
       run: make sync-to-s3
     - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-      uses: pypa/gh-action-pypi-publish@master
+      uses: pypa/gh-action-pypi-publish@release/v1
       with:
         user: __token__
         password: ${{ secrets.PYPI_TOKEN }}
@@ -190,10 +190,10 @@ jobs:
         run: |
           pytest tests/test_main_system_caches.py
           pytest -m 'vetiver'
-  
+
   test-jupyter:
     runs-on: ubuntu-latest
-    env: 
+    env:
       CONNECT_LICENSE: ${{ secrets.RSC_LICENSE }}
       ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
     steps:
@@ -209,7 +209,7 @@ jobs:
       - name: Start Connect + rsconnect-jupyter
         run: |
             just integration-testing/up
-        
+
       - name: Run Cypress Tests
         run: |
             export ADMIN_API_KEY="${{ secrets.ADMIN_API_KEY }}"
@@ -219,7 +219,7 @@ jobs:
       - name: Save videos
         uses: actions/upload-artifact@v3
         if: success() || failure()
-        with: 
+        with:
           name: cypress-videos
           path: integration-testing/cypress/videos
           if-no-files-found: ignore
