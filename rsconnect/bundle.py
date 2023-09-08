@@ -1685,7 +1685,7 @@ def write_notebook_manifest_json(
     manifest.add_buffer(environment.filename, environment.contents)
 
     for rel_path in extra_files:
-        manifest_add_file(manifest_data, rel_path, directory)
+        manifest.add_file_relative(rel_path, directory)
 
     write_manifest_json(manifest_path, manifest_data)
 
