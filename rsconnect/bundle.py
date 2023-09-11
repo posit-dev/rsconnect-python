@@ -1219,7 +1219,7 @@ def _create_quarto_file_list(
 @dataclasses.dataclass
 class QuartoManifestInfo:
     manifest: Manifest
-    relevant_files: list[str]
+    relevant_files: typing.List[str]
 
 
 def make_quarto_manifest(

@@ -255,12 +255,9 @@ class TestBundle(TestCase):
             },
         }
 
-        with (
-            make_quarto_source_bundle(
-                temp_proj, inspect, AppModes.STATIC_QUARTO, environment, [], [], None
-            ).bundle as bundle,
-            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
-        ):
+        with make_quarto_source_bundle(
+            temp_proj, inspect, AppModes.STATIC_QUARTO, environment, [], [], None
+        ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
@@ -341,12 +338,9 @@ class TestBundle(TestCase):
             },
         }
 
-        with (
-            make_quarto_source_bundle(
-                temp_proj, inspect, AppModes.STATIC_QUARTO, environment, [], [], None
-            ).bundle as bundle,
-            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
-        ):
+        with make_quarto_source_bundle(
+            temp_proj, inspect, AppModes.STATIC_QUARTO, environment, [], [], None
+        ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
@@ -405,10 +399,9 @@ class TestBundle(TestCase):
             "engines": ["markdown"],
         }
 
-        with (
-            make_quarto_source_bundle(temp_proj, inspect, AppModes.STATIC_QUARTO, None, [], [], None).bundle as bundle,
-            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
-        ):
+        with make_quarto_source_bundle(
+            temp_proj, inspect, AppModes.STATIC_QUARTO, None, [], [], None
+        ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
