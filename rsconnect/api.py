@@ -249,7 +249,7 @@ class RSConnectClient(HTTPServer):
             try:
                 self._server.handle_bad_response(app)
             except RSConnectException as e:
-                raise RSConnectException(f"{e} Try setting the --new flag to overwrite the previous deployment.")
+                raise RSConnectException(f"{e} Try setting the --new flag to overwrite the previous deployment.") from e
 
         app_guid = app["guid"]
         if env_vars:
@@ -847,7 +847,7 @@ class RSConnectExecutor:
                     except RSConnectException as e:
                         raise RSConnectException(
                             f"{e} Try setting the --new flag to overwrite the previous deployment."
-                        )
+                        ) from e
                 elif isinstance(self.remote_server, PositServer):
                     try:
                         app = get_rstudio_app_info(self.remote_server, app_id)
@@ -855,7 +855,7 @@ class RSConnectExecutor:
                     except RSConnectException as e:
                         raise RSConnectException(
                             f"{e} Try setting the --new flag to overwrite the previous deployment."
-                        )
+                        ) from e
                 else:
                     raise RSConnectException("Unable to infer Connect client.")
             if existing_app_mode and existing_app_mode not in (None, AppModes.UNKNOWN, app_mode):
@@ -1485,8 +1485,11 @@ def get_app_info(connect_server, app_id):
 
 def get_rstudio_app_info(server, app_id):
     with PositClient(server) as client:
-        response = client.get_content(app_id)
-        return response["source"]
+        if isinstance(server, ShinyappsServer):
+            return client.get_application(app_id)
+        else:
+            response = client.get_content(app_id)
+            return response["source"]
 
 
 def get_app_config(connect_server, app_id):
