@@ -1,7 +1,7 @@
 """
 Manifest generation and bundling utilities
 """
-
+import dataclasses
 import hashlib
 import io
 import json
@@ -311,6 +311,13 @@ class Bundle:
             del self.buffer[key]
         return self
 
+
+@dataclasses.dataclass
+class ManifestBundle:
+    manifest: Manifest
+    bundle: typing.IO[bytes]
+
+
 def make_hasher():
     try:
         return hashlib.md5()
@@ -471,7 +478,7 @@ def make_notebook_source_bundle(
     image: str = None,
     env_management_py: bool = None,
     env_management_r: bool = None,
-) -> typing.IO[bytes]:
+) -> ManifestBundle:
     """Create a bundle containing the specified notebook and python environment.
 
     Returns a file-like object containing the bundle tarball.
@@ -522,7 +529,7 @@ def make_notebook_source_bundle(
             bundle_add_file(bundle, rel_path, base_dir)
 
     bundle_file.seek(0)
-    return bundle_file
+    return ManifestBundle(manifest, bundle_file)
 
 
 def make_quarto_source_bundle(
@@ -535,14 +542,14 @@ def make_quarto_source_bundle(
     image: str = None,
     env_management_py: bool = None,
     env_management_r: bool = None,
-) -> typing.IO[bytes]:
+) -> ManifestBundle:
     """
     Create a bundle containing the specified Quarto content and (optional)
     python environment.
 
     Returns a file-like object containing the bundle tarball.
     """
-    manifest, relevant_files = make_quarto_manifest(
+    quarto_manifest_info = make_quarto_manifest(
         file_or_directory,
         inspect,
         app_mode,
@@ -560,17 +567,17 @@ def make_quarto_source_bundle(
         base_dir = dirname(file_or_directory)
 
     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
-        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
+        bundle_add_buffer(bundle, "manifest.json", json.dumps(quarto_manifest_info.manifest.data, indent=2))
         if environment:
             bundle_add_buffer(bundle, environment.filename, environment.contents)
 
-        for rel_path in relevant_files:
+        for rel_path in quarto_manifest_info.relevant_files:
             bundle_add_file(bundle, rel_path, base_dir)
 
     # rewind file pointer
     bundle_file.seek(0)
 
-    return bundle_file
+    return ManifestBundle(manifest=quarto_manifest_info.manifest, bundle=bundle_file)
 
 
 def make_html_manifest(
@@ -578,27 +585,15 @@ def make_html_manifest(
     image: str = None,
     env_management_py: bool = None,
     env_management_r: bool = None,
-) -> typing.Dict[str, typing.Any]:
+) -> Manifest:
     # noinspection SpellCheckingInspection
-    manifest = {
-        "version": 1,
-        "metadata": {
-            "appmode": "static",
-            "primary_html": filename,
-        },
-    }  # type: typing.Dict[str, typing.Any]
-
-    if image or env_management_py is not None or env_management_r is not None:
-        manifest["environment"] = {}
-        if image:
-            manifest["environment"]["image"] = image
-        if env_management_py is not None or env_management_r is not None:
-            manifest["environment"]["environment_management"] = {}
-            if env_management_py is not None:
-                manifest["environment"]["environment_management"]["python"] = env_management_py
-            if env_management_r is not None:
-                manifest["environment"]["environment_management"]["r"] = env_management_r
-    return manifest
+    return Manifest(
+        app_mode=AppModes.STATIC,
+        primary_html=filename,
+        image=image,
+        env_management_r=env_management_r,
+        env_management_py=env_management_py,
+    )
 
 
 def make_notebook_html_bundle(
@@ -610,7 +605,7 @@ def make_notebook_html_bundle(
     env_management_py: bool = None,
     env_management_r: bool = None,
     check_output: typing.Callable = subprocess.check_output,
-) -> typing.IO[bytes]:
+) -> ManifestBundle:
     # noinspection SpellCheckingInspection
     cmd = [
         python,
@@ -645,11 +640,11 @@ def make_notebook_html_bundle(
 
         # manifest
         manifest = make_html_manifest(filename, image, env_management_py, env_management_r)
-        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
+        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest.data, indent=2))
 
     # rewind file pointer
     bundle_file.seek(0)
-    return bundle_file
+    return ManifestBundle(manifest=manifest, bundle=bundle_file)
 
 
 def keep_manifest_specified_file(relative_path, ignore_path_set=directories_to_ignore):
@@ -698,7 +693,7 @@ def default_title_from_manifest(file):
     return title
 
 
-def read_manifest_file(manifest_path):
+def read_manifest_file(manifest_path: str) -> typing.Tuple[dict, str]:
     """
     Read a manifest's content from its file.  The content is provided as both a
     raw string and a parsed dictionary.
@@ -713,7 +708,7 @@ def read_manifest_file(manifest_path):
     return manifest, raw_manifest
 
 
-def make_manifest_bundle(manifest_path):
+def make_manifest_bundle(manifest_path: str) -> ManifestBundle:
     """Create a bundle, given a manifest.
 
     :return: a file-like object containing the bundle tarball.
@@ -738,7 +733,10 @@ def make_manifest_bundle(manifest_path):
     # rewind file pointer
     bundle_file.seek(0)
 
-    return bundle_file
+    manifest_obj = Manifest()
+    manifest_obj.data = manifest
+
+    return ManifestBundle(manifest=manifest_obj, bundle=bundle_file)
 
 
 def create_glob_set(directory, excludes):
@@ -797,7 +795,7 @@ def make_api_manifest(
     image: str = None,
     env_management_py: bool = None,
     env_management_r: bool = None,
-) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]:
+) -> typing.Tuple[Manifest, typing.List[str]]:
     """
     Makes a manifest for an API.
 
@@ -843,7 +841,7 @@ def make_api_manifest(
     for rel_path in relevant_files:
         manifest.add_file_relative(rel_path, directory)
 
-    return manifest.data, relevant_files
+    return manifest, relevant_files
 
 
 def create_html_manifest(
@@ -925,7 +923,7 @@ def make_html_bundle(
     image: str = None,
     env_management_py: bool = None,
     env_management_r: bool = None,
-) -> typing.IO[bytes]:
+) -> ManifestBundle:
     """
     Create an html bundle, given a path and/or entrypoint.
 
@@ -959,7 +957,7 @@ def make_html_bundle(
     bundle.add_to_buffer("manifest.json", json.dumps(manifest_flattened_copy_data, indent=2))
     bundle.deploy_dir = manifest.deploy_dir
 
-    return bundle.to_file()
+    return ManifestBundle(manifest, bundle.to_file())
 
 
 def create_file_list(
@@ -1094,7 +1092,7 @@ def make_voila_bundle(
     env_management_py: bool = None,
     env_management_r: bool = None,
     multi_notebook: bool = False,
-) -> typing.IO[bytes]:
+) -> ManifestBundle:
     """
     Create an voila bundle, given a path and/or entrypoint.
 
@@ -1133,7 +1131,7 @@ def make_voila_bundle(
     bundle.add_to_buffer("manifest.json", json.dumps(manifest_flattened_copy_data, indent=2))
     bundle.deploy_dir = manifest.deploy_dir
 
-    return bundle.to_file()
+    return ManifestBundle(manifest=manifest, bundle=bundle.to_file())
 
 
 def make_api_bundle(
@@ -1146,7 +1144,7 @@ def make_api_bundle(
     image: str = None,
     env_management_py: bool = None,
     env_management_r: bool = None,
-) -> typing.IO[bytes]:
+) -> ManifestBundle:
     """
     Create an API bundle, given a directory path and a manifest.
 
@@ -1177,7 +1175,7 @@ def make_api_bundle(
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
 
     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
-        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
+        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest.data, indent=2))
         bundle_add_buffer(bundle, environment.filename, environment.contents)
 
         for rel_path in relevant_files:
@@ -1186,7 +1184,7 @@ def make_api_bundle(
     # rewind file pointer
     bundle_file.seek(0)
 
-    return bundle_file
+    return ManifestBundle(manifest=manifest, bundle=bundle_file)
 
 
 def _create_quarto_file_list(
@@ -1218,6 +1216,12 @@ def _create_quarto_file_list(
     return file_list
 
 
+@dataclasses.dataclass
+class QuartoManifestInfo:
+    manifest: Manifest
+    relevant_files: list[str]
+
+
 def make_quarto_manifest(
     file_or_directory: str,
     quarto_inspection: typing.Dict[str, typing.Any],
@@ -1228,7 +1232,7 @@ def make_quarto_manifest(
     image: str = None,
     env_management_py: bool = None,
     env_management_r: bool = None,
-) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]:
+) -> QuartoManifestInfo:
     """
     Makes a manifest for a Quarto project.
 
@@ -1293,7 +1297,7 @@ def make_quarto_manifest(
     for rel_path in relevant_files:
         manifest.add_file_relative(rel_path, base_dir)
 
-    return manifest.data, relevant_files
+    return QuartoManifestInfo(manifest=manifest, relevant_files=relevant_files)
 
 
 def _validate_title(title):
@@ -1919,7 +1923,7 @@ def write_api_manifest_json(
     )
     manifest_path = join(directory, "manifest.json")
 
-    write_manifest_json(manifest_path, manifest)
+    write_manifest_json(manifest_path, manifest.data)
 
     return exists(join(directory, environment.filename))
 
@@ -1993,12 +1997,12 @@ def write_quarto_manifest_json(
     """
 
     extra_files = validate_extra_files(directory, extra_files)
-    manifest, _ = make_quarto_manifest(
+    quarto_manifest_info = make_quarto_manifest(
         directory, inspect, app_mode, environment, extra_files, excludes, image, env_management_py, env_management_r
     )
     manifest_path = join(directory, "manifest.json")
 
-    write_manifest_json(manifest_path, manifest)
+    write_manifest_json(manifest_path, quarto_manifest_info.manifest.data)
 
 
 def write_manifest_json(manifest_path, manifest):

@@ -73,9 +73,15 @@ class TestBundle(TestCase):
         # the kernel environment and not the notebook server environment.
         environment = detect_environment(directory)
         with make_notebook_source_bundle(
-            nb_path, environment, None, hide_all_input=False, hide_tagged_input=False,
-            image=None, env_management_py=None, env_management_r=None,
-        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            nb_path,
+            environment,
+            None,
+            hide_all_input=False,
+            hide_tagged_input=False,
+            image=None,
+            env_management_py=None,
+            env_management_r=None,
+        ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
@@ -147,7 +153,7 @@ class TestBundle(TestCase):
             image="rstudio/connect:bionic",
             env_management_py=False,
             env_management_r=False,
-        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
@@ -203,7 +209,7 @@ class TestBundle(TestCase):
                         "environment_management": {
                             "python": False,
                             "r": False,
-                        }
+                        },
                     },
                     "files": {
                         "dummy.ipynb": {
@@ -231,35 +237,30 @@ class TestBundle(TestCase):
         fp = open(join(temp_proj, "_quarto.yml"), "w")
         fp.write("project:\n")
         fp.write('  title: "myquarto"\n')
-        fp.write('editor: visual\n')
+        fp.write("editor: visual\n")
 
         environment = detect_environment(temp_proj)
 
         # mock the result of running of `quarto inspect <project_dir>`
         inspect = {
-            'quarto': {'version': '1.3.433'},
-            'dir': temp_proj,
-            'engines': ['jupyter'],
-            'config': {
-                'project': {'title': 'myquarto'},
-                'editor': 'visual',
-                'language': {}
+            "quarto": {"version": "1.3.433"},
+            "dir": temp_proj,
+            "engines": ["jupyter"],
+            "config": {"project": {"title": "myquarto"}, "editor": "visual", "language": {}},
+            "files": {
+                "input": [temp_proj + "/myquarto.qmd"],
+                "resources": [],
+                "config": [temp_proj + "/_quarto.yml"],
+                "configResources": [],
             },
-            'files': {
-                'input': [temp_proj + '/myquarto.qmd'],
-                'resources': [],
-                'config': [temp_proj + '/_quarto.yml'],
-                'configResources': []
-            }
         }
 
-        with make_quarto_source_bundle(temp_proj,
-                                       inspect,
-                                       AppModes.STATIC_QUARTO,
-                                       environment,
-                                       [],
-                                       [],
-                                       None) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with (
+            make_quarto_source_bundle(
+                temp_proj, inspect, AppModes.STATIC_QUARTO, environment, [], [], None
+            ).bundle as bundle,
+            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+        ):
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
@@ -282,9 +283,7 @@ class TestBundle(TestCase):
                 {
                     "version": 1,
                     "locale": mock.ANY,
-                    "metadata": {
-                        "appmode": "quarto-static"
-                    },
+                    "metadata": {"appmode": "quarto-static"},
                     "python": {
                         "version": self.python_version(),
                         "package_manager": {
@@ -293,7 +292,7 @@ class TestBundle(TestCase):
                             "version": mock.ANY,
                         },
                     },
-                    "quarto": {'engines': ['jupyter'], 'version': mock.ANY},
+                    "quarto": {"engines": ["jupyter"], "version": mock.ANY},
                     "files": {
                         "_quarto.yml": {"checksum": mock.ANY},
                         "myquarto.qmd": {"checksum": mock.ANY},
@@ -319,7 +318,7 @@ class TestBundle(TestCase):
         fp = open(join(temp_proj, "_quarto.yml"), "w")
         fp.write("project:\n")
         fp.write('  title: "myquarto"\n')
-        fp.write('editor: visual\n')
+        fp.write("editor: visual\n")
 
         fp = open(join(temp_proj, "requirements.txt"), "w")
         fp.write("dash\n")
@@ -330,29 +329,24 @@ class TestBundle(TestCase):
 
         # mock the result of running of `quarto inspect <project_dir>`
         inspect = {
-            'quarto': {'version': '1.3.433'},
-            'dir': temp_proj,
-            'engines': ['jupyter'],
-            'config': {
-                'project': {'title': 'myquarto'},
-                'editor': 'visual',
-                'language': {}
+            "quarto": {"version": "1.3.433"},
+            "dir": temp_proj,
+            "engines": ["jupyter"],
+            "config": {"project": {"title": "myquarto"}, "editor": "visual", "language": {}},
+            "files": {
+                "input": [temp_proj + "/myquarto.qmd"],
+                "resources": [],
+                "config": [temp_proj + "/_quarto.yml"],
+                "configResources": [],
             },
-            'files': {
-                'input': [temp_proj + '/myquarto.qmd'],
-                'resources': [],
-                'config': [temp_proj + '/_quarto.yml'],
-                'configResources': []
-            }
         }
 
-        with make_quarto_source_bundle(temp_proj,
-                                       inspect,
-                                       AppModes.STATIC_QUARTO,
-                                       environment,
-                                       [],
-                                       [],
-                                       None) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with (
+            make_quarto_source_bundle(
+                temp_proj, inspect, AppModes.STATIC_QUARTO, environment, [], [], None
+            ).bundle as bundle,
+            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+        ):
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
@@ -375,9 +369,7 @@ class TestBundle(TestCase):
                 {
                     "version": 1,
                     "locale": mock.ANY,
-                    "metadata": {
-                        "appmode": "quarto-static"
-                    },
+                    "metadata": {"appmode": "quarto-static"},
                     "python": {
                         "version": self.python_version(),
                         "package_manager": {
@@ -386,7 +378,7 @@ class TestBundle(TestCase):
                             "version": mock.ANY,
                         },
                     },
-                    "quarto": {'engines': ['jupyter'], 'version': mock.ANY},
+                    "quarto": {"engines": ["jupyter"], "version": mock.ANY},
                     "files": {
                         "_quarto.yml": {"checksum": mock.ANY},
                         "myquarto.qmd": {"checksum": mock.ANY},
@@ -409,17 +401,14 @@ class TestBundle(TestCase):
 
         # mock the result of running of `quarto inspect <qmd_file>`
         inspect = {
-            'quarto': {'version': '1.3.433'},
-            'engines': ['markdown'],
+            "quarto": {"version": "1.3.433"},
+            "engines": ["markdown"],
         }
 
-        with make_quarto_source_bundle(temp_proj,
-                                       inspect,
-                                       AppModes.STATIC_QUARTO,
-                                       None,
-                                       [],
-                                       [],
-                                       None) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with (
+            make_quarto_source_bundle(temp_proj, inspect, AppModes.STATIC_QUARTO, None, [], [], None).bundle as bundle,
+            tarfile.open(mode="r:gz", fileobj=bundle) as tar,
+        ):
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
@@ -436,10 +425,8 @@ class TestBundle(TestCase):
                 manifest,
                 {
                     "version": 1,
-                    "metadata": {
-                        "appmode": "quarto-static"
-                    },
-                    "quarto": {'engines': ['markdown'], 'version': mock.ANY},
+                    "metadata": {"appmode": "quarto-static"},
+                    "quarto": {"engines": ["markdown"], "version": mock.ANY},
                     "files": {
                         "myquarto.qmd": {"checksum": mock.ANY},
                     },
@@ -491,13 +478,14 @@ class TestBundle(TestCase):
         self.maxDiff = 5000
         nb_path = join(directory, "dummy.ipynb")
 
-        bundle = make_notebook_html_bundle(
+        manifest_bundle = make_notebook_html_bundle(
             nb_path,
             sys.executable,
             hide_all_input=False,
             hide_tagged_input=False,
             image=None,
         )
+        bundle = manifest_bundle.bundle
 
         tar = tarfile.open(mode="r:gz", fileobj=bundle)
 
@@ -522,6 +510,7 @@ class TestBundle(TestCase):
                         "appmode": "static",
                         "primary_html": "dummy.html",
                     },
+                    "files": {},
                 },
             )
         finally:
@@ -548,7 +537,7 @@ class TestBundle(TestCase):
         # noinspection SpellCheckingInspection
         manifest_path = join(dirname(__file__), "testdata", "R", "shinyapp", "manifest.json")
 
-        with make_manifest_bundle(manifest_path) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with make_manifest_bundle(manifest_path).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             tar_names = sorted(tar.getnames())
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
             manifest_names = sorted(filter(keep_manifest_specified_file, manifest["files"].keys()))
@@ -569,8 +558,13 @@ class TestBundle(TestCase):
         )
 
         # include image parameter
-        manifest = Manifest(app_mode=AppModes.PYTHON_API, environment=None, entrypoint=None, quarto_inspection=None,
-                                        image="rstudio/connect:bionic")
+        manifest = Manifest(
+            app_mode=AppModes.PYTHON_API,
+            environment=None,
+            entrypoint=None,
+            quarto_inspection=None,
+            image="rstudio/connect:bionic",
+        )
         self.assertEqual(
             manifest.data,
             {
@@ -584,53 +578,59 @@ class TestBundle(TestCase):
         )
 
         # include env_management_py parameter
-        manifest = Manifest(app_mode=AppModes.PYTHON_API, environment=None, entrypoint=None, quarto_inspection=None,
-                                        env_management_py=False)
+        manifest = Manifest(
+            app_mode=AppModes.PYTHON_API,
+            environment=None,
+            entrypoint=None,
+            quarto_inspection=None,
+            env_management_py=False,
+        )
         self.assertEqual(
             manifest.data,
             {
                 "version": 1,
                 "metadata": {"appmode": "python-api"},
-                 "environment": {
-                    "environment_management": {
-                        "python": False
-                    }
-                },
+                "environment": {"environment_management": {"python": False}},
                 "files": {},
             },
         )
 
         # include env_management_r parameter
-        manifest = Manifest(app_mode=AppModes.PYTHON_API, environment=None, entrypoint=None, quarto_inspection=None,
-                                        env_management_r=False)
+        manifest = Manifest(
+            app_mode=AppModes.PYTHON_API,
+            environment=None,
+            entrypoint=None,
+            quarto_inspection=None,
+            env_management_r=False,
+        )
         self.assertEqual(
             manifest.data,
             {
                 "version": 1,
                 "metadata": {"appmode": "python-api"},
-                 "environment": {
-                    "environment_management": {
-                        "r": False
-                    }
-                },
+                "environment": {"environment_management": {"r": False}},
                 "files": {},
             },
         )
 
         # include all runtime environment parameters
-        manifest = Manifest(app_mode=AppModes.PYTHON_API, environment=None, entrypoint=None, quarto_inspection=None,
-                                        image="rstudio/connect:bionic", env_management_py=False, env_management_r=False)
+        manifest = Manifest(
+            app_mode=AppModes.PYTHON_API,
+            environment=None,
+            entrypoint=None,
+            quarto_inspection=None,
+            image="rstudio/connect:bionic",
+            env_management_py=False,
+            env_management_r=False,
+        )
         self.assertEqual(
             manifest.data,
             {
                 "version": 1,
                 "metadata": {"appmode": "python-api"},
-                 "environment": {
+                "environment": {
                     "image": "rstudio/connect:bionic",
-                    "environment_management": {
-                        "r": False,
-                        "python": False
-                    }
+                    "environment_management": {"r": False, "python": False},
                 },
                 "files": {},
             },
@@ -717,7 +717,7 @@ class TestBundle(TestCase):
         # excludes=None,  # type: typing.Optional[typing.List[str]]
 
         # No optional parameters
-        manifest, _ = make_quarto_manifest(
+        quarto_manifest_info = make_quarto_manifest(
             temp_proj,
             {
                 "quarto": {"version": "0.9.16"},
@@ -731,7 +731,7 @@ class TestBundle(TestCase):
             None,
         )
         self.assertEqual(
-            manifest,
+            quarto_manifest_info.manifest.data,
             {
                 "version": 1,
                 "metadata": {"appmode": "quarto-shiny"},
@@ -750,7 +750,7 @@ class TestBundle(TestCase):
         # excludes=None,  # type: typing.Optional[typing.List[str]]
 
         # No optional parameters
-        manifest, _ = make_quarto_manifest(
+        quarto_manifest_info = make_quarto_manifest(
             temp_doc,
             {
                 "quarto": {"version": "0.9.16"},
@@ -764,14 +764,12 @@ class TestBundle(TestCase):
             None,
         )
         self.assertEqual(
-            manifest,
+            quarto_manifest_info.manifest.data,
             {
                 "version": 1,
                 "metadata": {"appmode": "quarto-static"},
                 "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
-                "files": {
-                    basename(temp_doc): {'checksum': mock.ANY}
-                },
+                "files": {basename(temp_doc): {"checksum": mock.ANY}},
             },
         )
 
@@ -779,7 +777,7 @@ class TestBundle(TestCase):
         temp_proj = tempfile.mkdtemp()
 
         # include image parameter
-        manifest, _ = make_quarto_manifest(
+        quarto_manifest_info = make_quarto_manifest(
             temp_proj,
             {
                 "quarto": {"version": "0.9.16"},
@@ -793,7 +791,7 @@ class TestBundle(TestCase):
             "rstudio/connect:bionic",
         )
         self.assertEqual(
-            manifest,
+            quarto_manifest_info.manifest.data,
             {
                 "version": 1,
                 "metadata": {"appmode": "quarto-shiny"},
@@ -813,7 +811,7 @@ class TestBundle(TestCase):
         fp.close()
 
         # include environment parameter
-        manifest, _ = make_quarto_manifest(
+        quarto_manifest_info = make_quarto_manifest(
             temp_proj,
             {
                 "quarto": {"version": "0.9.16"},
@@ -838,7 +836,7 @@ class TestBundle(TestCase):
         )
 
         self.assertEqual(
-            manifest,
+            quarto_manifest_info.manifest.data,
             {
                 "version": 1,
                 "locale": "en_US.UTF-8",
@@ -866,7 +864,7 @@ class TestBundle(TestCase):
         fp.write("This is file c\n")
         fp.close()
 
-        manifest, _ = make_quarto_manifest(
+        quarto_manifest_info = make_quarto_manifest(
             temp_proj,
             {
                 "quarto": {"version": "0.9.16"},
@@ -890,7 +888,7 @@ class TestBundle(TestCase):
             c_hash = "53b36f1d5b6f7fb2cfaf0c15af7ffb2d"
 
         self.assertEqual(
-            manifest,
+            quarto_manifest_info.manifest.data,
             {
                 "version": 1,
                 "metadata": {"appmode": "quarto-shiny"},
@@ -924,7 +922,7 @@ class TestBundle(TestCase):
         fp.close()
 
         # exclude the requirements.txt file, but not the other files
-        manifest, _ = make_quarto_manifest(
+        quarto_manifest_info = make_quarto_manifest(
             temp_proj,
             {
                 "quarto": {"version": "0.9.16"},
@@ -939,7 +937,7 @@ class TestBundle(TestCase):
         )
 
         self.assertEqual(
-            manifest,
+            quarto_manifest_info.manifest.data,
             {
                 "version": 1,
                 "metadata": {"appmode": "quarto-shiny"},
@@ -960,22 +958,22 @@ class TestBundle(TestCase):
         manifest = make_html_manifest("abc.html")
         # print(manifest)
         self.assertEqual(
-            manifest,
+            manifest.data,
             {
                 "version": 1,
                 "metadata": {
                     "appmode": "static",
                     "primary_html": "abc.html",
                 },
+                "files": {},
             },
         )
 
         # include image parameter
-        manifest = make_html_manifest("abc.html",
-                                      image="rstudio/connect:bionic")
+        manifest = make_html_manifest("abc.html", image="rstudio/connect:bionic")
         # print(manifest)
         self.assertEqual(
-            manifest,
+            manifest.data,
             {
                 "version": 1,
                 "metadata": {
@@ -985,15 +983,15 @@ class TestBundle(TestCase):
                 "environment": {
                     "image": "rstudio/connect:bionic",
                 },
+                "files": {},
             },
         )
 
         # include env_management_py parameter
-        manifest = make_html_manifest("abc.html",
-                                      env_management_py=False)
+        manifest = make_html_manifest("abc.html", env_management_py=False)
         # print(manifest)
         self.assertEqual(
-            manifest,
+            manifest.data,
             {
                 "version": 1,
                 "metadata": {
@@ -1005,15 +1003,15 @@ class TestBundle(TestCase):
                         "python": False,
                     }
                 },
+                "files": {},
             },
         )
 
         # include env_management_r parameter
-        manifest = make_html_manifest("abc.html",
-                                      env_management_r=False)
+        manifest = make_html_manifest("abc.html", env_management_r=False)
         # print(manifest)
         self.assertEqual(
-            manifest,
+            manifest.data,
             {
                 "version": 1,
                 "metadata": {
@@ -1025,17 +1023,17 @@ class TestBundle(TestCase):
                         "r": False,
                     }
                 },
+                "files": {},
             },
         )
 
         # include all runtime environment parameters
-        manifest = make_html_manifest("abc.html",
-                                      image="rstudio/connect:bionic",
-                                      env_management_py=False,
-                                      env_management_r=False)
+        manifest = make_html_manifest(
+            "abc.html", image="rstudio/connect:bionic", env_management_py=False, env_management_r=False
+        )
         # print(manifest)
         self.assertEqual(
-            manifest,
+            manifest.data,
             {
                 "version": 1,
                 "metadata": {
@@ -1047,8 +1045,9 @@ class TestBundle(TestCase):
                     "environment_management": {
                         "python": False,
                         "r": False,
-                    }
+                    },
                 },
+                "files": {},
             },
         )
 
@@ -1689,7 +1688,7 @@ def test_make_voila_bundle(
                 environment=environment,
                 image=None,
                 multi_notebook=False,
-            )
+            ).bundle
     else:
         with make_voila_bundle(
             path,
@@ -1700,7 +1699,7 @@ def test_make_voila_bundle(
             environment=environment,
             image=None,
             multi_notebook=False,
-        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             names = sorted(tar.getnames())
             assert names == [
                 "bqplot.ipynb",
@@ -1802,7 +1801,7 @@ def test_make_voila_bundle_multi_notebook(
                 environment=environment,
                 image=None,
                 multi_notebook=True,
-            )
+            ).bundle
     else:
         with make_voila_bundle(
             path,
@@ -1813,7 +1812,7 @@ def test_make_voila_bundle_multi_notebook(
             environment=environment,
             image=None,
             multi_notebook=True,
-        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             names = sorted(tar.getnames())
             assert names == [
                 "bqplot/bqplot.ipynb",
@@ -1884,7 +1883,7 @@ def test_make_voila_bundle_2(
         environment=environment,
         image=None,
         multi_notebook=False,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "bqplot.ipynb",
@@ -1941,7 +1940,7 @@ def test_make_voila_bundle_extra():
         environment=environment,
         image=None,
         multi_notebook=False,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "bqplot.ipynb",
@@ -2021,7 +2020,7 @@ def test_create_html_manifest():
             "environment_management": {
                 "python": False,
                 "r": False,
-            }
+            },
         },
     }
     manifest = create_html_manifest(
@@ -2221,7 +2220,7 @@ def test_make_html_bundle():
         None,
         None,
         None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "index.html",
@@ -2243,7 +2242,7 @@ def test_make_html_bundle():
         None,
         None,
         None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "index.html",
@@ -2258,7 +2257,7 @@ def test_make_html_bundle():
         single_file_index_file,
         None,
         None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "index.html",
@@ -2284,7 +2283,7 @@ def test_make_html_bundle():
         None,
         None,
         None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "index.html",
@@ -2305,7 +2304,7 @@ def test_make_html_bundle():
         None,
         None,
         None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "index.html",
@@ -2319,7 +2318,7 @@ def test_make_html_bundle():
         multi_file_index_file,
         None,
         None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "index.html",
@@ -2338,7 +2337,7 @@ def test_make_html_bundle():
         None,
         None,
         None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "b.html",
@@ -2359,7 +2358,7 @@ def test_make_html_bundle():
         multi_file_nonindex_fileb,
         None,
         None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "a.html",
@@ -2383,7 +2382,7 @@ def test_make_html_bundle():
         None,
         [multi_file_nonindex_filea],
         None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "a.html",
@@ -2408,7 +2407,7 @@ def test_make_html_bundle():
         None,
         [multi_file_index_file2],
         None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "index.html",
@@ -2454,8 +2453,8 @@ def test_make_api_manifest_fastapi():
         None,
     )
 
-    assert fastapi_dir_ans["metadata"] == manifest["metadata"]
-    assert fastapi_dir_ans["files"].keys() == manifest["files"].keys()
+    assert fastapi_dir_ans["metadata"] == manifest.data["metadata"]
+    assert fastapi_dir_ans["files"].keys() == manifest.data["files"].keys()
 
 
 def test_make_api_bundle_fastapi():
@@ -2484,7 +2483,7 @@ def test_make_api_bundle_fastapi():
         environment,
         None,
         None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "README.md",
@@ -2530,8 +2529,8 @@ def test_make_api_manifest_flask():
         None,
     )
 
-    assert flask_dir_ans["metadata"] == manifest["metadata"]
-    assert flask_dir_ans["files"].keys() == manifest["files"].keys()
+    assert flask_dir_ans["metadata"] == manifest.data["metadata"]
+    assert flask_dir_ans["files"].keys() == manifest.data["files"].keys()
 
 
 def test_make_api_bundle_flask():
@@ -2560,7 +2559,7 @@ def test_make_api_bundle_flask():
         environment,
         None,
         None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "README.md",
@@ -2605,8 +2604,8 @@ def test_make_api_manifest_streamlit():
         None,
         None,
     )
-    assert streamlit_dir_ans["metadata"] == manifest["metadata"]
-    assert streamlit_dir_ans["files"].keys() == manifest["files"].keys()
+    assert streamlit_dir_ans["metadata"] == manifest.data["metadata"]
+    assert streamlit_dir_ans["files"].keys() == manifest.data["files"].keys()
 
 
 def test_make_api_bundle_streamlit():
@@ -2635,7 +2634,7 @@ def test_make_api_bundle_streamlit():
         environment,
         None,
         None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "README.md",
@@ -2682,8 +2681,8 @@ def test_make_api_manifest_dash():
         None,
     )
 
-    assert dash_dir_ans["metadata"] == manifest["metadata"]
-    assert dash_dir_ans["files"].keys() == manifest["files"].keys()
+    assert dash_dir_ans["metadata"] == manifest.data["metadata"]
+    assert dash_dir_ans["files"].keys() == manifest.data["files"].keys()
 
 
 def test_make_api_bundle_dash():
@@ -2712,7 +2711,7 @@ def test_make_api_bundle_dash():
         environment,
         None,
         None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "README.md",
@@ -2758,8 +2757,8 @@ def test_make_api_manifest_bokeh():
         None,
     )
 
-    assert bokeh_dir_ans["metadata"] == manifest["metadata"]
-    assert bokeh_dir_ans["files"].keys() == manifest["files"].keys()
+    assert bokeh_dir_ans["metadata"] == manifest.data["metadata"]
+    assert bokeh_dir_ans["files"].keys() == manifest.data["files"].keys()
 
 
 def test_make_api_bundle_bokeh():
@@ -2789,7 +2788,7 @@ def test_make_api_bundle_bokeh():
         environment,
         None,
         None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "README.md",
@@ -2835,8 +2834,8 @@ def test_make_api_manifest_shiny():
         None,
     )
 
-    assert shiny_dir_ans["metadata"] == manifest["metadata"]
-    assert shiny_dir_ans["files"].keys() == manifest["files"].keys()
+    assert shiny_dir_ans["metadata"] == manifest.data["metadata"]
+    assert shiny_dir_ans["files"].keys() == manifest.data["files"].keys()
 
 
 def test_make_api_bundle_shiny():
@@ -2865,7 +2864,7 @@ def test_make_api_bundle_shiny():
         environment,
         None,
         None,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "README.md",
@@ -2901,7 +2900,7 @@ def test_make_manifest_bundle():
     }
     with make_manifest_bundle(
         pyshiny_manifest_file,
-    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+    ).bundle as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
             "README.md",

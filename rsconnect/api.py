@@ -1,6 +1,8 @@
 """
 Posit Connect API client and utility functions
 """
+from __future__ import annotations
+
 import binascii
 import os
 from os.path import abspath
@@ -29,6 +31,10 @@ from .metadata import ServerStore, AppStore
 from .exception import RSConnectException, DeploymentFailedException
 from .bundle import _default_title, fake_module_file_from_directory
 from .timeouts import get_task_timeout, get_task_timeout_help_message
+
+if typing.TYPE_CHECKING:
+    from .bundle import ManifestBundle
+    from .bundle import Manifest
 
 
 class AbstractRemoteServer:
@@ -626,7 +632,7 @@ class RSConnectExecutor:
                 raise RSConnectException("Failed to verify with {} ({}).".format(server.remote_name, exc))
 
     @cls_logged("Making bundle ...")
-    def make_bundle(self, func: Callable, *args, **kwargs):
+    def make_bundle(self, func: Callable[..., ManifestBundle], *args, **kwargs):
         path = (
             self.get("path", **kwargs)
             or self.get("file", **kwargs)
@@ -656,7 +662,8 @@ class RSConnectExecutor:
             )
             raise RSConnectException(msg)
 
-        d["bundle"] = bundle
+        d["bundle"] = bundle.bundle
+        d["manifest"] = bundle.manifest
 
         return self
 
@@ -680,6 +687,7 @@ class RSConnectExecutor:
         title: str = None,
         title_is_default: bool = False,
         bundle: IO = None,
+        manifest: Manifest = None,
         env_vars=None,
         app_mode=None,
         visibility=None,
@@ -689,6 +697,7 @@ class RSConnectExecutor:
         title = title or self.get("title")
         title_is_default = title_is_default or self.get("title_is_default")
         bundle = bundle or self.get("bundle")
+        manifest = manifest or self.get("manifest")
         env_vars = env_vars or self.get("env_vars")
         app_mode = app_mode or self.get("app_mode")
         visibility = visibility or self.get("visibility")
@@ -725,7 +734,7 @@ class RSConnectExecutor:
                 cloud_service = CloudService(self.client, self.remote_server, os.getenv("LUCID_APPLICATION_ID"))
                 app_store_version = self.get("app_store_version")
                 prepare_deploy_result = cloud_service.prepare_deploy(
-                    app_id, deployment_name, bundle_size, bundle_hash, app_mode, app_store_version
+                    app_id, deployment_name, bundle_size, bundle_hash, app_mode, manifest, app_store_version
                 )
                 self.upload_rstudio_bundle(prepare_deploy_result, bundle_size, contents)
                 cloud_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.application_id)
@@ -1120,16 +1129,29 @@ class PositClient(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
-    def create_output(self, name: str, application_type: str, project_id=None, space_id=None, render_by=None):
+    def create_output(
+        self,
+        name: str,
+        application_type: str,
+        project_id: typing.Optional[int],
+        space_id: typing.Optional[int],
+        render_by: typing.Optional[str],
+        content_category: typing.Optional[str],
+    ):
         data = {"name": name, "space": space_id, "project": project_id, "application_type": application_type}
         if render_by:
             data["render_by"] = render_by
+        if content_category:
+            data["content_category"] = content_category
         response = self.post("/v1/outputs/", body=data)
         self._server.handle_bad_response(response)
         return response
 
-    def create_revision(self, content_id):
-        response = self.post("/v1/outputs/{}/revisions".format(content_id), body={})
+    def create_revision(self, content_id: int, content_category: typing.Optional[str]):
+        body = {}
+        if content_category:
+            body["content_category"] = content_category
+        response = self.post("/v1/outputs/{}/revisions".format(content_id), body=body)
         self._server.handle_bad_response(response)
         return response
 
@@ -1334,6 +1356,7 @@ class CloudService:
         bundle_size: int,
         bundle_hash: str,
         app_mode: AppMode,
+        manifest: Manifest,
         app_store_version: typing.Optional[int],
     ) -> PrepareDeployOutputResult:
 
@@ -1344,6 +1367,8 @@ class CloudService:
         logger.debug(f"render_by: {render_by}")
 
         project_id = self._get_current_project_id()
+
+        content_category = manifest.data["metadata"].get("content_category")
 
         if app_id is None:
             # this is a deployment of a new output
@@ -1361,6 +1386,7 @@ class CloudService:
                 project_id=project_id,
                 space_id=space_id,
                 render_by=render_by,
+                content_category=content_category,
             )
             app_id_int = output["source_id"]
         else:
@@ -1379,7 +1405,7 @@ class CloudService:
                 output = self._rstudio_client.get_content(content_id)
 
             if application_type == "static":
-                revision = self._rstudio_client.create_revision(content_id)
+                revision = self._rstudio_client.create_revision(content_id, content_category)
                 app_id_int = revision["application_id"]
 
             # associate the output with the current Posit Cloud project (if any)

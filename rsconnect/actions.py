@@ -546,7 +546,7 @@ def write_quarto_manifest_json(
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
 
-    manifest, _ = make_quarto_manifest(
+    quarto_manifest_info = make_quarto_manifest(
         file_or_directory,
         inspect,
         app_mode,
@@ -562,7 +562,7 @@ def write_quarto_manifest_json(
     if not isdir(file_or_directory):
         base_dir = dirname(file_or_directory)
     manifest_path = join(base_dir, "manifest.json")
-    write_manifest_json(manifest_path, manifest)
+    write_manifest_json(manifest_path, quarto_manifest_info.manifest.data)
 
 
 def write_manifest_json(manifest_path, manifest):
@@ -1236,7 +1236,7 @@ def create_notebook_deployment_bundle(
                 image=image,
                 env_management_py=env_management_py,
                 env_management_r=env_management_r,
-            )
+            ).bundle
         except subprocess.CalledProcessError as exc:
             # Jupyter rendering failures are often due to
             # user code failing, vs. an internal failure of rsconnect-python.
@@ -1251,7 +1251,7 @@ def create_notebook_deployment_bundle(
             image=image,
             env_management_py=env_management_py,
             env_management_r=env_management_r,
-        )
+        ).bundle
 
 
 def create_api_deployment_bundle(
@@ -1296,7 +1296,7 @@ def create_api_deployment_bundle(
 
     return make_api_bundle(
         directory, entry_point, app_mode, environment, extra_files, excludes, image, env_management_py, env_management_r
-    )
+    ).bundle
 
 
 def create_quarto_deployment_bundle(
@@ -1343,7 +1343,7 @@ def create_quarto_deployment_bundle(
         image,
         env_management_py,
         env_management_r,
-    )
+    ).bundle
 
 
 def deploy_bundle(
@@ -1621,7 +1621,7 @@ def write_api_manifest_json(
     )
     manifest_path = join(directory, "manifest.json")
 
-    write_manifest_json(manifest_path, manifest)
+    write_manifest_json(manifest_path, manifest.data)
 
     return exists(join(directory, environment.filename))
 
