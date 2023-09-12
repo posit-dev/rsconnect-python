@@ -75,7 +75,10 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data):
     """
     if ca_data is not None and disable_tls_check:
         raise ValueError("Cannot both disable TLS checking and provide a custom certificate")
-    _, _, proxyHost, proxyPort = _get_proxy()
+    if any([host_name.endswith(host) for host in os.environ.get('NO_PROXY', '#').split(',')]):
+        proxyHost, proxyPort = None, None
+    else:
+        _, _, proxyHost, proxyPort = _get_proxy()
     headers = _get_proxy_headers()
     timeout = get_request_timeout()
     logger.debug(f"The HTTPSConnection timeout is set to '{timeout}' seconds")
