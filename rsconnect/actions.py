@@ -47,6 +47,9 @@ from six.moves.urllib_parse import urlparse
 
 try:
     import typing
+    if typing.TYPE_CHECKING:
+        from rsconnect import bundle
+
 except ImportError:
     typing = None
 
@@ -1309,7 +1312,7 @@ def create_quarto_deployment_bundle(
     image: str = None,
     env_management_py: bool = None,
     env_management_r: bool = None,
-) -> typing.IO[bytes]:
+) -> bundle.ManifestBundle:
     """
     Create an in-memory bundle, ready to deploy.
 
@@ -1343,7 +1346,7 @@ def create_quarto_deployment_bundle(
         image,
         env_management_py,
         env_management_r,
-    ).bundle
+    )
 
 
 def deploy_bundle(
