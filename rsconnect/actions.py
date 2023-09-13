@@ -1312,7 +1312,7 @@ def create_quarto_deployment_bundle(
     image: str = None,
     env_management_py: bool = None,
     env_management_r: bool = None,
-) -> bundle.ManifestBundle:
+) -> 'bundle.ManifestBundle':
     """
     Create an in-memory bundle, ready to deploy.
 
