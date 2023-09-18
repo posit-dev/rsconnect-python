@@ -31,11 +31,16 @@ class AppMode(object):
     Connect
     """
 
-    def __init__(self, ordinal, name, text, ext=None):
+    DEPLOY_TARGET_CONNECT = 1
+    DEPLOY_TARGET_CLOUD = 2
+    DEPLOY_TARGET_SHINYAPPSIO = 4
+
+    def __init__(self, ordinal, name, text, ext=None, deploy_targets=DEPLOY_TARGET_CONNECT):
         self._ordinal = ordinal
         self._name = name
         self._text = text
         self._ext = ext
+        self._deploy_targets = deploy_targets
 
     def ordinal(self):
         return self._ordinal
@@ -45,6 +50,23 @@ class AppMode(object):
 
     def desc(self):
         return self._text
+
+    def deploy_targets(self, min_connect_version):
+        targets = []
+        if self._deploy_targets & self.DEPLOY_TARGET_CONNECT:
+            targets.append(f"Posit Connect [v{min_connect_version}+]")
+        if self._deploy_targets & self.DEPLOY_TARGET_CLOUD:
+            targets.append("Posit Cloud")
+        if self._deploy_targets & self.DEPLOY_TARGET_SHINYAPPSIO:
+            targets.append("shinyapps.io")
+
+        if len(targets) > 1:
+            targets[-1] = "or " + targets[-1]
+
+        separator = " "
+        if len(targets) > 2:
+            separator = ", "
+        return separator.join(targets)
 
     def extension(self):
         return self._ext
@@ -63,21 +85,21 @@ class AppModes(object):
     """
 
     UNKNOWN = AppMode(0, "unknown", "<unknown>")
-    SHINY = AppMode(1, "shiny", "Shiny App", ".R")
-    RMD = AppMode(3, "rmd-static", "R Markdown", ".Rmd")
-    SHINY_RMD = AppMode(2, "rmd-shiny", "Shiny App (Rmd)")
-    STATIC = AppMode(4, "static", "Static HTML", ".html")
-    PLUMBER = AppMode(5, "api", "API")
+    SHINY = AppMode(1, "shiny", "Shiny App", ".R", AppMode.DEPLOY_TARGET_CLOUD | AppMode.DEPLOY_TARGET_SHINYAPPSIO | AppMode.DEPLOY_TARGET_CONNECT)
+    RMD = AppMode(3, "rmd-static", "R Markdown", ".Rmd", AppMode.DEPLOY_TARGET_CLOUD | AppMode.DEPLOY_TARGET_CONNECT)
+    SHINY_RMD = AppMode(2, "rmd-shiny", "Shiny App (Rmd)", AppMode.DEPLOY_TARGET_CLOUD | AppMode.DEPLOY_TARGET_SHINYAPPSIO | AppMode.DEPLOY_TARGET_CONNECT)
+    STATIC = AppMode(4, "static", "Static HTML", ".html", AppMode.DEPLOY_TARGET_CLOUD | AppMode.DEPLOY_TARGET_CONNECT)
+    PLUMBER = AppMode(5, "api", "API", ".R", AppMode.DEPLOY_TARGET_CLOUD | AppMode.DEPLOY_TARGET_CONNECT)
     TENSORFLOW = AppMode(6, "tensorflow-saved-model", "TensorFlow Model")
     JUPYTER_NOTEBOOK = AppMode(7, "jupyter-static", "Jupyter Notebook", ".ipynb")
-    PYTHON_API = AppMode(8, "python-api", "Python API")
-    DASH_APP = AppMode(9, "python-dash", "Dash Application")
+    PYTHON_API = AppMode(8, "python-api", "Python API", None, AppMode.DEPLOY_TARGET_CLOUD | AppMode.DEPLOY_TARGET_CONNECT)
+    DASH_APP = AppMode(9, "python-dash", "Dash Application", None, AppMode.DEPLOY_TARGET_CLOUD | AppMode.DEPLOY_TARGET_CONNECT)
     STREAMLIT_APP = AppMode(10, "python-streamlit", "Streamlit Application")
-    BOKEH_APP = AppMode(11, "python-bokeh", "Bokeh Application")
-    PYTHON_FASTAPI = AppMode(12, "python-fastapi", "Python FastAPI")
-    SHINY_QUARTO = AppMode(13, "quarto-shiny", "Shiny Quarto Document")
-    STATIC_QUARTO = AppMode(14, "quarto-static", "Quarto Document", ".qmd")
-    PYTHON_SHINY = AppMode(15, "python-shiny", "Python Shiny Application")
+    BOKEH_APP = AppMode(11, "python-bokeh", "Bokeh Application", None, AppMode.DEPLOY_TARGET_CLOUD | AppMode.DEPLOY_TARGET_CONNECT)
+    PYTHON_FASTAPI = AppMode(12, "python-fastapi", "Python FastAPI", None, AppMode.DEPLOY_TARGET_CLOUD | AppMode.DEPLOY_TARGET_CONNECT)
+    SHINY_QUARTO = AppMode(13, "quarto-shiny", "Shiny Quarto Document", None, AppMode.DEPLOY_TARGET_CLOUD | AppMode.DEPLOY_TARGET_CONNECT | AppMode.DEPLOY_TARGET_SHINYAPPSIO)
+    STATIC_QUARTO = AppMode(14, "quarto-static", "Quarto Document", ".qmd", AppMode.DEPLOY_TARGET_CLOUD | AppMode.DEPLOY_TARGET_CONNECT)
+    PYTHON_SHINY = AppMode(15, "python-shiny", "Python Shiny Application", None, AppMode.DEPLOY_TARGET_CLOUD | AppMode.DEPLOY_TARGET_CONNECT | AppMode.DEPLOY_TARGET_SHINYAPPSIO)
     JUPYTER_VOILA = AppMode(16, "jupyter-voila", "Jupyter Voila Application")
 
     _modes = [
