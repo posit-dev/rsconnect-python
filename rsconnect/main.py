@@ -1288,7 +1288,6 @@ def generate_deploy_python(app_mode, alias, min_version):
         short_help="Deploy a {desc} to {deploy_targets}.".format(
             desc=app_mode.desc(),
             deploy_targets=app_mode.deploy_targets(min_version),
-            version=min_version,
         ),
         help=(
             "Deploy a {desc} to {deploy_targets}. "
