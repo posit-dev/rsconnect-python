@@ -87,7 +87,7 @@ class AppModes(object):
     UNKNOWN = AppMode(0, "unknown", "<unknown>")
     SHINY = AppMode(1, "shiny", "Shiny App", ".R", AppMode.DEPLOY_TARGET_CLOUD | AppMode.DEPLOY_TARGET_SHINYAPPSIO | AppMode.DEPLOY_TARGET_CONNECT)
     RMD = AppMode(3, "rmd-static", "R Markdown", ".Rmd", AppMode.DEPLOY_TARGET_CLOUD | AppMode.DEPLOY_TARGET_CONNECT)
-    SHINY_RMD = AppMode(2, "rmd-shiny", "Shiny App (Rmd)", AppMode.DEPLOY_TARGET_CLOUD | AppMode.DEPLOY_TARGET_SHINYAPPSIO | AppMode.DEPLOY_TARGET_CONNECT)
+    SHINY_RMD = AppMode(2, "rmd-shiny", "Shiny App (Rmd)", None, AppMode.DEPLOY_TARGET_CLOUD | AppMode.DEPLOY_TARGET_SHINYAPPSIO | AppMode.DEPLOY_TARGET_CONNECT)
     STATIC = AppMode(4, "static", "Static HTML", ".html", AppMode.DEPLOY_TARGET_CLOUD | AppMode.DEPLOY_TARGET_CONNECT)
     PLUMBER = AppMode(5, "api", "API", ".R", AppMode.DEPLOY_TARGET_CLOUD | AppMode.DEPLOY_TARGET_CONNECT)
     TENSORFLOW = AppMode(6, "tensorflow-saved-model", "TensorFlow Model")
