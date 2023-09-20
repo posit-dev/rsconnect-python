@@ -1,4 +1,4 @@
-black
+black==22.3.0
 click>=7.0.0
 coverage
 flake8
@@ -15,7 +15,7 @@ pytest
 pytest-cov
 pytest-mypy
 semver>=2.0.0,<3.0.0
-setuptools
+setuptools>=61
 setuptools_scm
 six>=1.14.0
 toml
