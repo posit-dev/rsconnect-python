@@ -3,6 +3,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## Unreleased
+
+### Fixed
+- The `https_proxy` environment variable is recognized as a synonym for
+  `HTTPS_PROXY`.
+
+### Added
+- Added support for the `no_proxy` or `NO_PROXY` environment variables to specify
+  hosts that should not be accessed via proxy server. It's a comma-separated list
+  of host or domain suffixes. For example, specifying `example.com` will
+  bypass the proxy for example.com, host.example.com, etc.
 
 ## [1.20.0] - 2023-09-11
 
