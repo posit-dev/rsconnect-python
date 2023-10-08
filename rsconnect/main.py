@@ -1285,14 +1285,14 @@ def generate_deploy_python(app_mode, alias, min_version):
     # noinspection SpellCheckingInspection
     @deploy.command(
         name=alias,
-        short_help="Deploy a {desc} to Posit Connect [v{version}+], Posit Cloud, or shinyapps.io.".format(
+        short_help="Deploy a {desc} to {deploy_targets}.".format(
             desc=app_mode.desc(),
-            version=min_version,
+            deploy_targets=app_mode.deploy_targets(min_version),
         ),
         help=(
-            "Deploy a {desc} module to Posit Connect, Posit Cloud, or shinyapps.io (if supported by the platform). "
+            "Deploy a {desc} to {deploy_targets}. "
             'The "directory" argument must refer to an existing directory that contains the application code.'
-        ).format(desc=app_mode.desc()),
+        ).format(desc=app_mode.desc(), deploy_targets=app_mode.deploy_targets(min_version)),
         no_args_is_help=True,
     )
     @server_args
