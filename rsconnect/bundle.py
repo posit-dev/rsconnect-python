@@ -1428,8 +1428,7 @@ def get_default_entrypoint(directory):
         # In these cases, the app should be in the "app" attribute
         return app_files[0][:-3] + ":app"
 
-    logger.warning("Can't determine entrypoint; defaulting to 'app'")
-    return "app"
+    raise RSConnectException(f"Could not determine default entrypoint file in directory '{directory}'")
 
 
 def validate_entry_point(entry_point, directory):
