@@ -1404,6 +1404,10 @@ def validate_manifest_file(file_or_directory):
     return file_or_directory
 
 
+re_app_prefix = re.compile(r"^app[-_].+\.py$")
+re_app_suffix = re.compile(r".+[-_]app\.py$")
+
+
 def get_default_entrypoint(directory):
     candidates = ["app", "application", "main", "api"]
     files = set(os.listdir(directory))
@@ -1417,6 +1421,12 @@ def get_default_entrypoint(directory):
     python_files = list(filter(lambda s: s.endswith(".py"), files))
     if len(python_files) == 1:
         return python_files[0][:-3]
+
+    # try app-*.py, app_*.py, *-app.py, *_app.py
+    app_files = list(filter(lambda s: re_app_prefix.match(s) or re_app_suffix.match(s), python_files))
+    if len(app_files) == 1:
+        # In these cases, the app should be in the "app" attribute
+        return app_files[0][:-3] + ":app"
 
     logger.warning("Can't determine entrypoint; defaulting to 'app'")
     return "app"
