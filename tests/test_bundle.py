@@ -1082,12 +1082,8 @@ class TestBundle(TestCase):
 
     def test_validate_entry_point(self):
         # Simple cases
-        for case in ["app", "application", "main", "api"]:
+        for case in ["app", "application", "main", "api", "app-example", "app_example", "example-app", "example_app"]:
             self._entry_point_case(["helper.py", f"{case}.py"], None, case)
-
-        # app patterns; these differ because they come back with ":app"
-        for case in ["app-example", "app_example", "example-app", "example_app"]:
-            self._entry_point_case(["helper.py", f"{case}.py"], None, f"{case}:app")
 
         # only one Python file means we assume it's the entrypoint
         self._entry_point_case(["onlysource.py"], None, "onlysource")

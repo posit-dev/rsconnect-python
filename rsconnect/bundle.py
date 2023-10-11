@@ -1426,7 +1426,7 @@ def get_default_entrypoint(directory):
     app_files = list(filter(lambda s: re_app_prefix.match(s) or re_app_suffix.match(s), python_files))
     if len(app_files) == 1:
         # In these cases, the app should be in the "app" attribute
-        return app_files[0][:-3] + ":app"
+        return app_files[0][:-3]
 
     raise RSConnectException(f"Could not determine default entrypoint file in directory '{directory}'")
 
@@ -1435,10 +1435,11 @@ def validate_entry_point(entry_point, directory):
     """
     Validates the entry point specified by the user, expanding as necessary.  If the
     user specifies nothing, a module of "app" is assumed.  If the user specifies a
-    module only, the object is assumed to be the same name as the module.
+    module only, at runtime the following object names will be tried in order: `app`,
+    `application`, `create_app`, and `make_app`.
 
     :param entry_point: the entry point as specified by the user.
-    :return: the fully expanded and validated entry point and the module file name..
+    :return: An entry point, in the form of "module" or "module:app".
     """
     if not entry_point:
         entry_point = get_default_entrypoint(directory)
