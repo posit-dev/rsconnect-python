@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hosts that should not be accessed via proxy server. It's a comma-separated list
   of host or domain suffixes. For example, specifying `example.com` will
   bypass the proxy for example.com, host.example.com, etc.
+- If an entrypoint is not specified with `--entrypoint`, rsconnect-python will try
+  harder than before to choose an entrypoint file. In addition to the previously
+  recognized filename patterns, the file patterns `app-*.py`, `app_*.py`, `*-app.py`,
+  and `*_app.py` are now considered. However, if the directory contains more than
+  one file matching these new patterns, you must provide rsconnect-python with an
+  explicit `--entrypoint` argument.
 
 ## [1.20.0] - 2023-09-11
 
