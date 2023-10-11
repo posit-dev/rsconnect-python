@@ -2,11 +2,11 @@
 import json
 import os
 import pytest
-import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
+from pathlib import Path
 
 from os.path import dirname, join, basename, abspath
 from unittest import mock, TestCase
@@ -1081,25 +1081,38 @@ class TestBundle(TestCase):
         _validate_title("1" * 1024)
 
     def test_validate_entry_point(self):
-        directory = tempfile.mkdtemp()
+        # Simple cases
+        for case in ["app", "application", "main", "api", "app-example", "app_example", "example-app", "example_app"]:
+            self._entry_point_case(["helper.py", f"{case}.py"], None, case)
 
-        try:
-            self.assertEqual(validate_entry_point(None, directory), "app")
-            self.assertEqual(validate_entry_point("app", directory), "app")
-            self.assertEqual(validate_entry_point("app:app", directory), "app:app")
+        # only one Python file means we assume it's the entrypoint
+        self._entry_point_case(["onlysource.py"], None, "onlysource")
 
-            with self.assertRaises(RSConnectException):
-                validate_entry_point("x:y:z", directory)
+        # Explicit entrypoint specifiers, no need to infer
+        self._entry_point_case(["helper.py", "app.py"], "app", "app")
+        self._entry_point_case(["helper.py", "app.py"], "app:app", "app:app")
+        self._entry_point_case(["helper.py", "app.py"], "foo:bar", "foo:bar")
 
-                with open(join(directory, "onlysource.py"), "w") as f:
-                    f.close()
-                    self.assertEqual(validate_entry_point(None, directory), "onlysource")
+    def test_validate_entry_point_failure(self):
+        # Invalid entrypoint specifier
+        self._entry_point_case(["app.py"], "x:y:z", False)
+        # Nothing relevant found
+        self._entry_point_case(["one.py", "two.py"], "x:y:z", False)
+        # Too many app-*.py files
+        self._entry_point_case(["app-one.py", "app-two.py"], "x:y:z", False)
 
-                    with open(join(directory, "main.py"), "w") as f:
-                        f.close()
-                        self.assertEqual(validate_entry_point(None, directory), "main")
-        finally:
-            shutil.rmtree(directory)
+    def _entry_point_case(self, files, entry_point, expected):
+        with tempfile.TemporaryDirectory() as directory:
+            dir = Path(directory)
+
+            for file in files:
+                (dir / file).touch()
+
+            if expected is False:
+                with self.assertRaises(RSConnectException):
+                    validate_entry_point(entry_point, directory)
+            else:
+                self.assertEqual(validate_entry_point(entry_point, directory), expected)
 
     def test_default_title(self):
         self.assertEqual(_default_title("testing.txt"), "testing")

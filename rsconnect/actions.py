@@ -16,6 +16,7 @@ from warnings import warn
 from os.path import abspath, basename, dirname, exists, isdir, join, relpath, splitext
 from .exception import RSConnectException
 from . import api
+from . import bundle
 from .bundle import (
     _warn_if_environment_directory,
     _warn_if_no_requirements_file,
@@ -415,21 +416,7 @@ def validate_manifest_file(file_or_directory):
 
 def get_default_entrypoint(directory):
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-    candidates = ["app", "application", "main", "api"]
-    files = set(os.listdir(directory))
-
-    for candidate in candidates:
-        filename = candidate + ".py"
-        if filename in files:
-            return candidate
-
-    # if only one python source file, use it
-    python_files = list(filter(lambda s: s.endswith(".py"), files))
-    if len(python_files) == 1:
-        return python_files[0][:-3]
-
-    logger.warning("Can't determine entrypoint; defaulting to 'app'")
-    return "app"
+    return bundle.get_default_entrypoint(directory)
 
 
 def validate_entry_point(entry_point, directory):
