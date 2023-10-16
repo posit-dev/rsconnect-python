@@ -39,17 +39,13 @@ _module_pattern = re.compile(r"^[A-Za-z0-9_]+:[A-Za-z0-9_]+$")
 # noinspection SpellCheckingInspection
 directories_ignore_list = [
     ".Rproj.user/",
-    ".env/",
     ".git/",
     ".svn/",
-    ".venv/",
     "__pycache__/",
-    "env/",
     "packrat/",
     "renv/",
     "rsconnect-python/",
     "rsconnect/",
-    "venv/",
 ]
 directories_to_ignore = {Path(d) for d in directories_ignore_list}
 
