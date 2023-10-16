@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - The `https_proxy` environment variable is recognized as a synonym for
   `HTTPS_PROXY`.
+- Common environment directories (`env, venv, .env, .venv`) are no longer
+  excluded by name. Environments are detected by the presence of a python
+  executable in `bin` or `Scripts` and excluded.
 
 ### Added
 - Added support for the `no_proxy` or `NO_PROXY` environment variables to specify
