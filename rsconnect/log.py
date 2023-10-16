@@ -9,6 +9,8 @@ import six
 
 _DATE_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
 
+VERBOSE = int((logging.INFO + logging.DEBUG) / 2)
+
 
 class LogOutputFormat(object):
     TEXT = "text"
