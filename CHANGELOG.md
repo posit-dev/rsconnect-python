@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - The `https_proxy` environment variable is recognized as a synonym for
   `HTTPS_PROXY`.
+- When adding a new server, the initial request now includes an
+  Authorization header containing the API key. This is needed
+  for Connect installations behind a proxy that only passes
+  authenticated requests.
 
 ### Added
 - Added support for the `no_proxy` or `NO_PROXY` environment variables to specify
