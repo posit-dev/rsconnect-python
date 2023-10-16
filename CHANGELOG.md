@@ -3,6 +3,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## Unreleased
 
 ### Fixed
@@ -20,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `*_app.py` are now considered. However, if the directory contains more than
   one file matching these new patterns, you must provide rsconnect-python with an
   explicit `--entrypoint` argument.
+- Added the `deploy flask` command.
+- Added the `write-manifest flask` command.
+
+### Removed
+- Deprecated the `deploy api` command in favor of the `deploy flask` command.
+- Deprecated the `write-manifest api` command in favor of the `write-manifest flask` command.
 
 ## [1.20.0] - 2023-09-11
 

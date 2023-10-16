@@ -65,6 +65,7 @@ from .bundle import (
 from .log import logger, LogOutputFormat
 from .metadata import ServerStore, AppStore
 from .models import (
+    AppMode,
     AppModes,
     BuildStatus,
     ContentGuidWithBundleParamType,
@@ -1281,7 +1282,7 @@ def deploy_html(
     )
 
 
-def generate_deploy_python(app_mode, alias, min_version):
+def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, deprecated: bool = False):
     # noinspection SpellCheckingInspection
     @deploy.command(
         name=alias,
@@ -1294,6 +1295,7 @@ def generate_deploy_python(app_mode, alias, min_version):
             'The "directory" argument must refer to an existing directory that contains the application code.'
         ).format(desc=app_mode.desc()),
         no_args_is_help=True,
+        deprecated=deprecated
     )
     @server_args
     @content_args
@@ -1407,7 +1409,8 @@ def generate_deploy_python(app_mode, alias, min_version):
     return deploy_app
 
 
-deploy_api = generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="api", min_version="1.8.2")
+deploy_api = generate_deploy_python(app_mode=AppModes.PYTHON_FLASK, alias="api", min_version="1.8.2", deprecated=True)
+deploy_flask = generate_deploy_python(app_mode=AppModes.PYTHON_FLASK, alias="flask", min_version="1.8.2")
 # TODO: set fastapi min_version correctly
 # deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0")
 deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0")
@@ -1759,7 +1762,7 @@ def write_manifest_quarto(
         )
 
 
-def generate_write_manifest_python(app_mode, alias):
+def generate_write_manifest_python(app_mode, alias, deprecated=False):
     # noinspection SpellCheckingInspection
     @write_manifest.command(
         name=alias,
@@ -1769,6 +1772,7 @@ def generate_write_manifest_python(app_mode, alias):
             'environment file ("requirements.txt") if one does not exist. All files '
             "are created in the same directory as the API code."
         ).format(desc=app_mode.desc()),
+        deprecated=deprecated,
     )
     @click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
     @click.option(
@@ -1850,7 +1854,8 @@ def generate_write_manifest_python(app_mode, alias):
     return manifest_writer
 
 
-write_manifest_api = generate_write_manifest_python(AppModes.PYTHON_API, alias="api")
+write_manifest_api = generate_write_manifest_python(AppModes.PYTHON_FLASK, alias="api", deprecated=True)
+write_manifest_flask = generate_write_manifest_python(AppModes.PYTHON_FLASK, alias="flask")
 write_manifest_fastapi = generate_write_manifest_python(AppModes.PYTHON_FASTAPI, alias="fastapi")
 write_manifest_dash = generate_write_manifest_python(AppModes.DASH_APP, alias="dash")
 write_manifest_streamlit = generate_write_manifest_python(AppModes.STREAMLIT_APP, alias="streamlit")

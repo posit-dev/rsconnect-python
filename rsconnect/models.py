@@ -70,7 +70,7 @@ class AppModes(object):
     PLUMBER = AppMode(5, "api", "API")
     TENSORFLOW = AppMode(6, "tensorflow-saved-model", "TensorFlow Model")
     JUPYTER_NOTEBOOK = AppMode(7, "jupyter-static", "Jupyter Notebook", ".ipynb")
-    PYTHON_API = AppMode(8, "python-api", "Python API")
+    PYTHON_FLASK = AppMode(8, "python-api", "Flask Application")
     DASH_APP = AppMode(9, "python-dash", "Dash Application")
     STREAMLIT_APP = AppMode(10, "python-streamlit", "Streamlit Application")
     BOKEH_APP = AppMode(11, "python-bokeh", "Bokeh Application")
@@ -89,7 +89,7 @@ class AppModes(object):
         PLUMBER,
         TENSORFLOW,
         JUPYTER_NOTEBOOK,
-        PYTHON_API,
+        PYTHON_FLASK,
         DASH_APP,
         STREAMLIT_APP,
         BOKEH_APP,
@@ -105,7 +105,7 @@ class AppModes(object):
         "rmarkdown_static": RMD,
         "rmarkdown": SHINY_RMD,
         "plumber": PLUMBER,
-        "flask": PYTHON_API,
+        "flask": PYTHON_FLASK,
         "dash": DASH_APP,
         "streamlit": STREAMLIT_APP,
         "fastapi": PYTHON_FASTAPI,

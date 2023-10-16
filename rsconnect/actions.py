@@ -861,7 +861,7 @@ def deploy_python_api(
     :return: the ultimate URL where the deployed app may be accessed and the sequence
     of log lines.  The log lines value will be None if a log callback was provided.
     """
-    return deploy_app(app_mode=AppModes.PYTHON_API, **locals())
+    return deploy_app(app_mode=AppModes.PYTHON_FLASK, **locals())
 
 
 def deploy_python_fastapi(
@@ -1280,7 +1280,7 @@ def create_api_deployment_bundle(
         extra_files = validate_extra_files(directory, extra_files)
 
     if app_mode is None:
-        app_mode = AppModes.PYTHON_API
+        app_mode = AppModes.PYTHON_FLASK
 
     return make_api_bundle(directory, entry_point, app_mode, environment, extra_files, excludes,
                            image, env_management_py, env_management_r)

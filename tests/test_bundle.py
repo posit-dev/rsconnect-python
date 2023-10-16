@@ -563,14 +563,14 @@ class TestBundle(TestCase):
         # quarto_inspection=None,  # type: typing.Optional[typing.Dict[str, typing.Any]]
 
         # No optional parameters
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None)
+        manifest = make_source_manifest(AppModes.PYTHON_FLASK, None, None, None)
         self.assertEqual(
             manifest,
             {"version": 1, "metadata": {"appmode": "python-api"}, "files": {}},
         )
 
         # include image parameter
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
+        manifest = make_source_manifest(AppModes.PYTHON_FLASK, None, None, None,
                                         image="rstudio/connect:bionic")
         self.assertEqual(
             manifest,
@@ -585,7 +585,7 @@ class TestBundle(TestCase):
         )
 
         # include env_management_py parameter
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
+        manifest = make_source_manifest(AppModes.PYTHON_FLASK, None, None, None,
                                         env_management_py=False)
         self.assertEqual(
             manifest,
@@ -602,7 +602,7 @@ class TestBundle(TestCase):
         )
 
         # include env_management_r parameter
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
+        manifest = make_source_manifest(AppModes.PYTHON_FLASK, None, None, None,
                                         env_management_r=False)
         self.assertEqual(
             manifest,
@@ -619,7 +619,7 @@ class TestBundle(TestCase):
         )
 
         # include all runtime environment parameters
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
+        manifest = make_source_manifest(AppModes.PYTHON_FLASK, None, None, None,
                                         image="rstudio/connect:bionic", env_management_py=False, env_management_r=False)
         self.assertEqual(
             manifest,
@@ -639,7 +639,7 @@ class TestBundle(TestCase):
 
         # include environment parameter
         manifest = make_source_manifest(
-            AppModes.PYTHON_API,
+            AppModes.PYTHON_FLASK,
             Environment(
                 conda=None,
                 contents="",
@@ -671,7 +671,7 @@ class TestBundle(TestCase):
 
         # include entrypoint parameter
         manifest = make_source_manifest(
-            AppModes.PYTHON_API,
+            AppModes.PYTHON_FLASK,
             None,
             "main.py",
             None,
@@ -685,7 +685,7 @@ class TestBundle(TestCase):
 
         # include quarto_inspection parameter
         manifest = make_source_manifest(
-            AppModes.PYTHON_API,
+            AppModes.PYTHON_FLASK,
             None,
             None,
             {
@@ -2538,7 +2538,7 @@ def test_make_api_manifest_flask():
     manifest, _ = make_api_manifest(
         flask_dir,
         None,
-        AppModes.PYTHON_API,
+        AppModes.PYTHON_FLASK,
         environment,
         None,
         None,
@@ -2570,7 +2570,7 @@ def test_make_api_bundle_flask():
     with make_api_bundle(
         flask_dir,
         None,
-        AppModes.PYTHON_API,
+        AppModes.PYTHON_FLASK,
         environment,
         None,
         None,

@@ -84,6 +84,6 @@ def get_task_timeout_help_message(timeout=get_task_timeout()) -> str:
 
         Example:
 
-            CONNECT_TASK_TIMEOUT={_CONNECT_TASK_TIMEOUT_DEFAULT_VALUE} rsconnect deploy api --server <your-server> --api-key <your-api-key> ./
+            CONNECT_TASK_TIMEOUT={_CONNECT_TASK_TIMEOUT_DEFAULT_VALUE} rsconnect deploy flask --server <your-server> --api-key <your-api-key> ./
         """  # noqa: E501
     )
