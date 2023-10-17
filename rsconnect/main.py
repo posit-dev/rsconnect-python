@@ -352,7 +352,7 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
     me = None
 
     with cli_feedback("Checking %s" % server):
-        real_server, _ = test_server(api.RSConnectServer(server, None, insecure, ca_data))
+        real_server, _ = test_server(api.RSConnectServer(server, api_key, insecure, ca_data))
 
     real_server.api_key = api_key
 
