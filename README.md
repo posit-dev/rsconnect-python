@@ -117,7 +117,7 @@ you will need to include the `--cacert` option that points to your certificate
 authority (CA) trusted certificates file. Both of these options can be saved along
 with the URL and API Key for a server.
 
-> **Note** 
+> **Note**
 > When certificate information is saved for the server, the specified file
 > is read and its _contents_ are saved under the server's nickname. If the CA file's
 > contents are ever changed, you will need to add the server information again.
@@ -135,7 +135,7 @@ rsconnect add \
     --name myserver
 ```
 
-> **Note** 
+> **Note**
 > The `rsconnect` CLI will verify that the serve URL and API key
 > are valid. If either is found not to be, no information will be saved.
 
@@ -407,6 +407,35 @@ library(rsconnect)
 ?rsconnect::writeManifest
 ```
 
+### Deploying from Git Repositories
+You can deploy content directly from from hosted Git repositories to Posit Connect.
+The content must have an existing `manifest.json` file to identify the content
+type. For Python content, a `requirements.txt` file must also be present.
+
+See the [Connect user guide](https://docs.posit.co/connect/user/git-backed/)
+for details on how to prepare your content for Git publishing.
+
+Once your git repository contains the prepared content, use the `deploy git` command:
+```
+rsconnect deploy git -r https://my.repository.server/repository
+```
+
+To deploy from a branch other than `main`, use the `--branch/-b` option.
+
+To deploy content from a subdirectory, provide the subdirectory
+using the `--subdirectory/-d` option. The specified directory
+must contain the `manifest.json` file.
+
+```
+rsconnect deploy git -r https://my.repository.server/repository -b my-branch -d path/within/repo
+```
+
+These commands create a new git-backed deployment within Posit Connect,
+which will periodically check for new commits to your repository/branch
+and deploy updates automatically. Do not run the
+`deploy git` command again for the same source
+unless you want to create a second, separate deployment for it.
+
 ### Options for All Types of Deployments
 
 These options apply to any type of content deployment.
@@ -430,7 +459,7 @@ filename referenced in the manifest.
 
 ### Environment variables
 You can set environment variables during deployment. Their names and values will be
-passed to Posit Connect during deployment so you can use them in your code. Note that 
+passed to Posit Connect during deployment so you can use them in your code. Note that
 if you are using `rsconnect` to deploy to shinyapps.io, environment variable management
 is not supported on that platform.
 
@@ -985,9 +1014,9 @@ xargs printf -- '-g %s\n' < guids.txt | xargs rsconnect content build add
 ```
 ## Programmatic Provisioning
 
-Posit Connect supports the programmatic bootstrapping of an administrator API key 
+Posit Connect supports the programmatic bootstrapping of an administrator API key
 for scripted provisioning tasks. This process is supported by the `rsconnect bootstrap` command,
-which uses a JSON Web Token to request an initial API key from a fresh Connect instance. 
+which uses a JSON Web Token to request an initial API key from a fresh Connect instance.
 
 > **Warning**
 > This feature **requires Python version 3.6 or higher**.
@@ -998,7 +1027,7 @@ rsconnect bootstrap \
     --jwt-keypath /path/to/secret.key
 ```
 
-A full description on how to use `rsconnect bootstrap` in a provisioning workflow is provided in the Connect administrator guide's 
+A full description on how to use `rsconnect bootstrap` in a provisioning workflow is provided in the Connect administrator guide's
 [programmatic provisioning](https://docs.posit.co/connect/admin/programmatic-provisioning) documentation.
 
 ## Server Administration Tasks
