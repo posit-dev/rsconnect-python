@@ -27,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `*_app.py` are now considered. However, if the directory contains more than
   one file matching these new patterns, you must provide rsconnect-python with an
   explicit `--entrypoint` argument.
+- Added support for deploying directly from remote git repositories. Only
+  Connect server targets are supported, and the Connect server must have git
+  configured with access to your git repositories. See the
+  [Connect administrator guide](https://docs.posit.co/connect/admin/content-management/git-backed/)
+  and
+  [Connect user guide](https://docs.posit.co/connect/user/git-backed/) for details.
 
 ### Changed
 - Removing experimental support for Conda. Connect does not support restoring Conda environments.
