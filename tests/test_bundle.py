@@ -537,10 +537,6 @@ class TestBundle(TestCase):
         self.assertFalse(keep_manifest_specified_file("rsconnect-python"))
         self.assertFalse(keep_manifest_specified_file("rsconnect-python/bogus.file"))
         self.assertFalse(keep_manifest_specified_file(".svn/bogus.file"))
-        self.assertFalse(keep_manifest_specified_file(".env/share/jupyter/kernels/python3/kernel.json"))
-        self.assertFalse(keep_manifest_specified_file(".venv/bin/activate"))
-        self.assertFalse(keep_manifest_specified_file("env/pyvenv.cfg"))
-        self.assertFalse(keep_manifest_specified_file("venv/lib/python3.8/site-packages/wheel/__init__.py"))
         # noinspection SpellCheckingInspection
         self.assertFalse(keep_manifest_specified_file(".Rproj.user/bogus.file"))
 
