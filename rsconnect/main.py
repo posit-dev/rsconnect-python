@@ -1446,6 +1446,17 @@ def deploy_help():
 @click.option("--repository", "-r", required=True)
 @click.option("--branch", "-b", default="main")
 @click.option("--subdirectory", "-d", default="/")
+@click.option("--title", "-t", help="Title of the content (default is the same as the filename).")
+@click.option(
+    "--environment",
+    "-E",
+    "env_vars",
+    multiple=True,
+    callback=validate_env_vars,
+    help="Set an environment variable. Specify a value with NAME=VALUE, "
+    "or just NAME to use the value from the local environment. "
+    "May be specified multiple times. [v1.8.6+]",
+)
 @cli_exception_handler
 def deploy_git(
     name: str,
@@ -1458,6 +1469,8 @@ def deploy_git(
     repository: str,
     branch: str,
     subdirectory: str,
+    title: str,
+    env_vars: typing.Dict[str, str],
 ):
     subdirectory = subdirectory.strip("/")
     kwargs = locals()

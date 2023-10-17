@@ -233,7 +233,7 @@ class RSConnectClient(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
-    def deploy_git(self, app_name, repository, branch, subdirectory):
+    def deploy_git(self, app_name, repository, branch, subdirectory, app_title, env_vars):
         app = self.app_create(app_name)
         self._server.handle_bad_response(app)
 
@@ -242,6 +242,15 @@ class RSConnectClient(HTTPServer):
             body={"repository": repository, "branch": branch, "subdirectory": subdirectory},
         )
         self._server.handle_bad_response(resp)
+
+        if app_title:
+            resp = self.app_update(app["guid"], {"title": app_title})
+            self._server.handle_bad_response(resp)
+            app["title"] = app_title
+
+        if env_vars:
+            result = self.app_add_environment_vars(app["guid"], list(env_vars.items()))
+            self._server.handle_bad_response(result)
 
         task = self.app_deploy(app["guid"])
         self._server.handle_bad_response(task)
@@ -762,13 +771,23 @@ class RSConnectExecutor:
             return self
 
     @cls_logged("Deploying git repository ...")
-    def deploy_git(self, app_name: str = None, repository: str = None, branch: str = None, subdirectory: str = None):
+    def deploy_git(
+        self,
+        app_name: str = None,
+        title: str = None,
+        repository: str = None,
+        branch: str = None,
+        subdirectory: str = None,
+        env_vars: typing.Dict[str, str] = None,
+    ):
         app_name = app_name or self.get("app_name")
         repository = repository or self.get("repository")
         branch = branch or self.get("branch")
         subdirectory = subdirectory or self.get("subdirectory")
+        title = title or self.get("title")
+        env_vars = env_vars or self.get("env_vars")
 
-        result = self.client.deploy_git(app_name, repository, branch, subdirectory)
+        result = self.client.deploy_git(app_name, repository, branch, subdirectory, title, env_vars)
         self.remote_server.handle_bad_response(result)
         self.state["deployed_info"] = result
         return self
