@@ -849,6 +849,7 @@ def deploy_python_fastapi(
     app_id: int,
     title: str,
     python: str,
+    conda_mode: bool,
     force_generate: bool,
     log_callback: typing.Callable,
     image: str = None,
@@ -869,6 +870,7 @@ def deploy_python_fastapi(
         :param title: an optional title for the deploy.  If this is not provided, one will
         be generated. Previous default = None.
         :param python: the optional name of a Python executable. Previous default = None.
+        :param conda_mode: depricated parameter, included for compatibility. Ignored.
         :param force_generate: force generating "requirements.txt" or "environment.yml",
         even if it already exists. Previous default = False.
         :param log_callback: the callback to use to write the log to.  If this is None
