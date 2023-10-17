@@ -16,6 +16,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: snyk/actions/setup@master
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+
       - name: Run Snyk (setup.py)
         uses: snyk/actions/python@master
         with:
