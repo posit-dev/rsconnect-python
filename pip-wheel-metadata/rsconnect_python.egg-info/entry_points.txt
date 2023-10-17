@@ -1,2 +1,0 @@
-[console_scripts]
-rsconnect = rsconnect.main:cli
