@@ -224,7 +224,6 @@ class RSConnectClientTestCase(TestCase):
 
 
 class ShinyappsServiceTestCase(TestCase):
-
     def setUp(self) -> None:
         super().setUp()
         self.cloud_client = Mock(spec=PositClient)
@@ -236,11 +235,11 @@ class ShinyappsServiceTestCase(TestCase):
         app_id = 2
         task_id = 3
 
-        self.cloud_client.deploy_application.return_value = {'id': task_id}
+        self.cloud_client.deploy_application.return_value = {"id": task_id}
 
         self.service.do_deploy(bundle_id, app_id)
 
-        self.cloud_client.set_bundle_status.assert_called_with(bundle_id, 'ready')
+        self.cloud_client.set_bundle_status.assert_called_with(bundle_id, "ready")
         self.cloud_client.deploy_application.assert_called_with(bundle_id, app_id)
         self.cloud_client.wait_until_task_is_successful.assert_called_with(task_id)
 
@@ -250,9 +249,9 @@ class ShinyappsServiceTestCase(TestCase):
         task_id = 3
         build_task_id = 4
 
-        self.cloud_client.deploy_application.return_value = {'id': task_id}
-        self.cloud_client.wait_until_task_is_successful.side_effect = DeploymentFailedException('uh oh')
-        self.cloud_client.get_shinyapps_build_task.return_value = {'tasks': [{'id': build_task_id}]}
+        self.cloud_client.deploy_application.return_value = {"id": task_id}
+        self.cloud_client.wait_until_task_is_successful.side_effect = DeploymentFailedException("uh oh")
+        self.cloud_client.get_shinyapps_build_task.return_value = {"tasks": [{"id": build_task_id}]}
         task_logs_response = Mock()
         task_logs_response.response_body = "here's why it failed"
         self.cloud_client.get_task_logs.return_value = task_logs_response
@@ -260,7 +259,7 @@ class ShinyappsServiceTestCase(TestCase):
         with pytest.raises(DeploymentFailedException):
             self.service.do_deploy(bundle_id, app_id)
 
-        self.cloud_client.set_bundle_status.assert_called_with(bundle_id, 'ready')
+        self.cloud_client.set_bundle_status.assert_called_with(bundle_id, "ready")
         self.cloud_client.deploy_application.assert_called_with(bundle_id, app_id)
         self.cloud_client.wait_until_task_is_successful.assert_called_with(task_id)
         self.cloud_client.get_shinyapps_build_task.assert_called_with(task_id)
@@ -366,7 +365,7 @@ class CloudServiceTestCase(TestCase):
         cloud_client.get_application.assert_called_with(project_application_id)
         cloud_client.get_content.assert_called_with(2)
         cloud_client.create_output.assert_called_with(
-            name=app_name, application_type="static", project_id=2, space_id=1000, render_by='server'
+            name=app_name, application_type="static", project_id=2, space_id=1000, render_by="server"
         )
 
     def test_prepare_redeploy(self):
@@ -485,11 +484,11 @@ class CloudServiceTestCase(TestCase):
         app_id = 2
         task_id = 3
 
-        self.cloud_client.deploy_application.return_value = {'id': task_id}
+        self.cloud_client.deploy_application.return_value = {"id": task_id}
 
         self.cloud_service.do_deploy(bundle_id, app_id)
 
-        self.cloud_client.set_bundle_status.assert_called_with(bundle_id, 'ready')
+        self.cloud_client.set_bundle_status.assert_called_with(bundle_id, "ready")
         self.cloud_client.deploy_application.assert_called_with(bundle_id, app_id)
         self.cloud_client.wait_until_task_is_successful.assert_called_with(task_id)
 
@@ -498,8 +497,8 @@ class CloudServiceTestCase(TestCase):
         app_id = 2
         task_id = 3
 
-        self.cloud_client.deploy_application.return_value = {'id': task_id}
-        self.cloud_client.wait_until_task_is_successful.side_effect = DeploymentFailedException('uh oh')
+        self.cloud_client.deploy_application.return_value = {"id": task_id}
+        self.cloud_client.wait_until_task_is_successful.side_effect = DeploymentFailedException("uh oh")
         task_logs_response = Mock()
         task_logs_response.response_body = "here's why it failed"
         self.cloud_client.get_task_logs.return_value = task_logs_response
@@ -507,7 +506,7 @@ class CloudServiceTestCase(TestCase):
         with pytest.raises(DeploymentFailedException):
             self.cloud_service.do_deploy(bundle_id, app_id)
 
-        self.cloud_client.set_bundle_status.assert_called_with(bundle_id, 'ready')
+        self.cloud_client.set_bundle_status.assert_called_with(bundle_id, "ready")
         self.cloud_client.deploy_application.assert_called_with(bundle_id, app_id)
         self.cloud_client.wait_until_task_is_successful.assert_called_with(task_id)
         self.cloud_client.get_task_logs.assert_called_with(task_id)

@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one file matching these new patterns, you must provide rsconnect-python with an
   explicit `--entrypoint` argument.
 
+### Changed
+- Removing experimental support for Conda. Connect does not support restoring Conda environments.
+
 ## [1.20.0] - 2023-09-11
 
 ### Fixed

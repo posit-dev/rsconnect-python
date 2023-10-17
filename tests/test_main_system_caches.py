@@ -16,6 +16,7 @@ RM_CACHE_COMMAND = "docker-compose exec -u rstudio-connect -T rsconnect rm -Rf /
 CACHE_EXISTS_COMMAND = "docker-compose exec -u rstudio-connect -T rsconnect [ -d /data/python-environments/pip/1.2.3 ]"
 SERVICE_RUNNING_COMMAND = "docker-compose ps --services --filter 'status=running' | grep rsconnect"
 
+
 def rsconnect_service_running():
     exit_code = system(SERVICE_RUNNING_COMMAND)
     if exit_code == 0:

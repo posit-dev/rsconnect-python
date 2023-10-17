@@ -5,10 +5,12 @@ app_ui = ui.page_fluid(
     ui.output_text_verbatim("txt", placeholder=True),
 )
 
+
 def server(input, output, session):
     @output()
     @render_text()
     def txt():
         return f"n*2 is {input.n() * 2}"
+
 
 app = App(app_ui, server)

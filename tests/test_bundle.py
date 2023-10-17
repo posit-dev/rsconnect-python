@@ -74,8 +74,14 @@ class TestBundle(TestCase):
         # the kernel environment and not the notebook server environment.
         environment = detect_environment(directory)
         with make_notebook_source_bundle(
-            nb_path, environment, None, hide_all_input=False, hide_tagged_input=False,
-            image=None, env_management_py=None, env_management_r=None,
+            nb_path,
+            environment,
+            None,
+            hide_all_input=False,
+            hide_tagged_input=False,
+            image=None,
+            env_management_py=None,
+            env_management_r=None,
         ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             names = sorted(tar.getnames())
             self.assertEqual(
@@ -204,7 +210,7 @@ class TestBundle(TestCase):
                         "environment_management": {
                             "python": False,
                             "r": False,
-                        }
+                        },
                     },
                     "files": {
                         "dummy.ipynb": {
@@ -232,35 +238,27 @@ class TestBundle(TestCase):
         fp = open(join(temp_proj, "_quarto.yml"), "w")
         fp.write("project:\n")
         fp.write('  title: "myquarto"\n')
-        fp.write('editor: visual\n')
+        fp.write("editor: visual\n")
 
         environment = detect_environment(temp_proj)
 
         # mock the result of running of `quarto inspect <project_dir>`
         inspect = {
-            'quarto': {'version': '1.3.433'},
-            'dir': temp_proj,
-            'engines': ['jupyter'],
-            'config': {
-                'project': {'title': 'myquarto'},
-                'editor': 'visual',
-                'language': {}
+            "quarto": {"version": "1.3.433"},
+            "dir": temp_proj,
+            "engines": ["jupyter"],
+            "config": {"project": {"title": "myquarto"}, "editor": "visual", "language": {}},
+            "files": {
+                "input": [temp_proj + "/myquarto.qmd"],
+                "resources": [],
+                "config": [temp_proj + "/_quarto.yml"],
+                "configResources": [],
             },
-            'files': {
-                'input': [temp_proj + '/myquarto.qmd'],
-                'resources': [],
-                'config': [temp_proj + '/_quarto.yml'],
-                'configResources': []
-            }
         }
 
-        with make_quarto_source_bundle(temp_proj,
-                                       inspect,
-                                       AppModes.STATIC_QUARTO,
-                                       environment,
-                                       [],
-                                       [],
-                                       None) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with make_quarto_source_bundle(
+            temp_proj, inspect, AppModes.STATIC_QUARTO, environment, [], [], None
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
@@ -283,9 +281,7 @@ class TestBundle(TestCase):
                 {
                     "version": 1,
                     "locale": mock.ANY,
-                    "metadata": {
-                        "appmode": "quarto-static"
-                    },
+                    "metadata": {"appmode": "quarto-static"},
                     "python": {
                         "version": self.python_version(),
                         "package_manager": {
@@ -294,7 +290,7 @@ class TestBundle(TestCase):
                             "version": mock.ANY,
                         },
                     },
-                    "quarto": {'engines': ['jupyter'], 'version': mock.ANY},
+                    "quarto": {"engines": ["jupyter"], "version": mock.ANY},
                     "files": {
                         "_quarto.yml": {"checksum": mock.ANY},
                         "myquarto.qmd": {"checksum": mock.ANY},
@@ -320,7 +316,7 @@ class TestBundle(TestCase):
         fp = open(join(temp_proj, "_quarto.yml"), "w")
         fp.write("project:\n")
         fp.write('  title: "myquarto"\n')
-        fp.write('editor: visual\n')
+        fp.write("editor: visual\n")
 
         fp = open(join(temp_proj, "requirements.txt"), "w")
         fp.write("dash\n")
@@ -331,29 +327,21 @@ class TestBundle(TestCase):
 
         # mock the result of running of `quarto inspect <project_dir>`
         inspect = {
-            'quarto': {'version': '1.3.433'},
-            'dir': temp_proj,
-            'engines': ['jupyter'],
-            'config': {
-                'project': {'title': 'myquarto'},
-                'editor': 'visual',
-                'language': {}
+            "quarto": {"version": "1.3.433"},
+            "dir": temp_proj,
+            "engines": ["jupyter"],
+            "config": {"project": {"title": "myquarto"}, "editor": "visual", "language": {}},
+            "files": {
+                "input": [temp_proj + "/myquarto.qmd"],
+                "resources": [],
+                "config": [temp_proj + "/_quarto.yml"],
+                "configResources": [],
             },
-            'files': {
-                'input': [temp_proj + '/myquarto.qmd'],
-                'resources': [],
-                'config': [temp_proj + '/_quarto.yml'],
-                'configResources': []
-            }
         }
 
-        with make_quarto_source_bundle(temp_proj,
-                                       inspect,
-                                       AppModes.STATIC_QUARTO,
-                                       environment,
-                                       [],
-                                       [],
-                                       None) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with make_quarto_source_bundle(
+            temp_proj, inspect, AppModes.STATIC_QUARTO, environment, [], [], None
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
@@ -376,9 +364,7 @@ class TestBundle(TestCase):
                 {
                     "version": 1,
                     "locale": mock.ANY,
-                    "metadata": {
-                        "appmode": "quarto-static"
-                    },
+                    "metadata": {"appmode": "quarto-static"},
                     "python": {
                         "version": self.python_version(),
                         "package_manager": {
@@ -387,7 +373,7 @@ class TestBundle(TestCase):
                             "version": mock.ANY,
                         },
                     },
-                    "quarto": {'engines': ['jupyter'], 'version': mock.ANY},
+                    "quarto": {"engines": ["jupyter"], "version": mock.ANY},
                     "files": {
                         "_quarto.yml": {"checksum": mock.ANY},
                         "myquarto.qmd": {"checksum": mock.ANY},
@@ -410,17 +396,13 @@ class TestBundle(TestCase):
 
         # mock the result of running of `quarto inspect <qmd_file>`
         inspect = {
-            'quarto': {'version': '1.3.433'},
-            'engines': ['markdown'],
+            "quarto": {"version": "1.3.433"},
+            "engines": ["markdown"],
         }
 
-        with make_quarto_source_bundle(temp_proj,
-                                       inspect,
-                                       AppModes.STATIC_QUARTO,
-                                       None,
-                                       [],
-                                       [],
-                                       None) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        with make_quarto_source_bundle(
+            temp_proj, inspect, AppModes.STATIC_QUARTO, None, [], [], None
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             names = sorted(tar.getnames())
             self.assertEqual(
                 names,
@@ -437,10 +419,8 @@ class TestBundle(TestCase):
                 manifest,
                 {
                     "version": 1,
-                    "metadata": {
-                        "appmode": "quarto-static"
-                    },
-                    "quarto": {'engines': ['markdown'], 'version': mock.ANY},
+                    "metadata": {"appmode": "quarto-static"},
+                    "quarto": {"engines": ["markdown"], "version": mock.ANY},
                     "files": {
                         "myquarto.qmd": {"checksum": mock.ANY},
                     },
@@ -566,8 +546,7 @@ class TestBundle(TestCase):
         )
 
         # include image parameter
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
-                                        image="rstudio/connect:bionic")
+        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None, image="rstudio/connect:bionic")
         self.assertEqual(
             manifest,
             {
@@ -581,53 +560,47 @@ class TestBundle(TestCase):
         )
 
         # include env_management_py parameter
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
-                                        env_management_py=False)
+        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None, env_management_py=False)
         self.assertEqual(
             manifest,
             {
                 "version": 1,
                 "metadata": {"appmode": "python-api"},
-                 "environment": {
-                    "environment_management": {
-                        "python": False
-                    }
-                },
+                "environment": {"environment_management": {"python": False}},
                 "files": {},
             },
         )
 
         # include env_management_r parameter
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
-                                        env_management_r=False)
+        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None, env_management_r=False)
         self.assertEqual(
             manifest,
             {
                 "version": 1,
                 "metadata": {"appmode": "python-api"},
-                 "environment": {
-                    "environment_management": {
-                        "r": False
-                    }
-                },
+                "environment": {"environment_management": {"r": False}},
                 "files": {},
             },
         )
 
         # include all runtime environment parameters
-        manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None,
-                                        image="rstudio/connect:bionic", env_management_py=False, env_management_r=False)
+        manifest = make_source_manifest(
+            AppModes.PYTHON_API,
+            None,
+            None,
+            None,
+            image="rstudio/connect:bionic",
+            env_management_py=False,
+            env_management_r=False,
+        )
         self.assertEqual(
             manifest,
             {
                 "version": 1,
                 "metadata": {"appmode": "python-api"},
-                 "environment": {
+                "environment": {
                     "image": "rstudio/connect:bionic",
-                    "environment_management": {
-                        "r": False,
-                        "python": False
-                    }
+                    "environment_management": {"r": False, "python": False},
                 },
                 "files": {},
             },
@@ -637,7 +610,6 @@ class TestBundle(TestCase):
         manifest = make_source_manifest(
             AppModes.PYTHON_API,
             Environment(
-                conda=None,
                 contents="",
                 error=None,
                 filename="requirements.txt",
@@ -766,9 +738,7 @@ class TestBundle(TestCase):
                 "version": 1,
                 "metadata": {"appmode": "quarto-static"},
                 "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
-                "files": {
-                    basename(temp_doc): {'checksum': mock.ANY}
-                },
+                "files": {basename(temp_doc): {"checksum": mock.ANY}},
             },
         )
 
@@ -819,7 +789,6 @@ class TestBundle(TestCase):
             },
             AppModes.SHINY_QUARTO,
             Environment(
-                conda=None,
                 contents="",
                 error=None,
                 filename="requirements.txt",
@@ -968,8 +937,7 @@ class TestBundle(TestCase):
         )
 
         # include image parameter
-        manifest = make_html_manifest("abc.html",
-                                      image="rstudio/connect:bionic")
+        manifest = make_html_manifest("abc.html", image="rstudio/connect:bionic")
         # print(manifest)
         self.assertEqual(
             manifest,
@@ -986,8 +954,7 @@ class TestBundle(TestCase):
         )
 
         # include env_management_py parameter
-        manifest = make_html_manifest("abc.html",
-                                      env_management_py=False)
+        manifest = make_html_manifest("abc.html", env_management_py=False)
         # print(manifest)
         self.assertEqual(
             manifest,
@@ -1006,8 +973,7 @@ class TestBundle(TestCase):
         )
 
         # include env_management_r parameter
-        manifest = make_html_manifest("abc.html",
-                                      env_management_r=False)
+        manifest = make_html_manifest("abc.html", env_management_r=False)
         # print(manifest)
         self.assertEqual(
             manifest,
@@ -1026,10 +992,9 @@ class TestBundle(TestCase):
         )
 
         # include all runtime environment parameters
-        manifest = make_html_manifest("abc.html",
-                                      image="rstudio/connect:bionic",
-                                      env_management_py=False,
-                                      env_management_r=False)
+        manifest = make_html_manifest(
+            "abc.html", image="rstudio/connect:bionic", env_management_py=False, env_management_r=False
+        )
         # print(manifest)
         self.assertEqual(
             manifest,
@@ -1044,7 +1009,7 @@ class TestBundle(TestCase):
                     "environment_management": {
                         "python": False,
                         "r": False,
-                    }
+                    },
                 },
             },
         )
@@ -1141,7 +1106,6 @@ class TestBundle(TestCase):
     (
         "file_name",
         "python",
-        "conda_mode",
         "force_generate",
         "expected_python",
         "expected_environment",
@@ -1151,10 +1115,8 @@ class TestBundle(TestCase):
             "path/to/file.py",
             sys.executable,
             False,
-            False,
             sys.executable,
             MakeEnvironment(
-                conda=None,
                 filename="requirements.txt",
                 locale="en_US.UTF-8",
                 package_manager="pip",
@@ -1166,10 +1128,8 @@ class TestBundle(TestCase):
             "another/file.py",
             basename(sys.executable),
             False,
-            False,
             sys.executable,
             MakeEnvironment(
-                conda=None,
                 filename="requirements.txt",
                 locale="en_US.UTF-8",
                 package_manager="pip",
@@ -1178,25 +1138,9 @@ class TestBundle(TestCase):
             id="which_python",
         ),
         pytest.param(
-            "even/moar/file.py",
-            "whython",
-            True,
-            True,
-            "/very/serious/whython",
-            MakeEnvironment(
-                conda="/opt/Conda/bin/conda",
-                filename="requirements.txt",
-                locale="en_US.UTF-8",
-                package_manager="pip",
-                source="pip_freeze",
-            ),
-            id="conda_ish",
-        ),
-        pytest.param(
             "will/the/files/never/stop.py",
             "argh.py",
             False,
-            True,
             "unused",
             MakeEnvironment(error="Could not even do things"),
             id="exploding",
@@ -1207,7 +1151,6 @@ def test_get_python_env_info(
     monkeypatch,
     file_name,
     python,
-    conda_mode,
     force_generate,
     expected_python,
     expected_environment,
@@ -1218,7 +1161,6 @@ def test_get_python_env_info(
     def fake_inspect_environment(
         python,
         directory,
-        conda_mode=False,
         force_generate=False,
         check_output=subprocess.check_output,
     ):
@@ -1230,11 +1172,9 @@ def test_get_python_env_info(
 
     if expected_environment.error is not None:
         with pytest.raises(RSConnectException):
-            _, _ = get_python_env_info(file_name, python, conda_mode=conda_mode, force_generate=force_generate)
+            _, _ = get_python_env_info(file_name, python, force_generate=force_generate)
     else:
-        python, environment = get_python_env_info(
-            file_name, python, conda_mode=conda_mode, force_generate=force_generate
-        )
+        python, environment = get_python_env_info(file_name, python, force_generate=force_generate)
 
         assert python == expected_python
         assert environment == expected_environment
@@ -1337,7 +1277,6 @@ class Test_guess_deploy_dir(TestCase):
 )
 def test_create_voila_manifest_1(path, entrypoint):
     environment = Environment(
-        conda=None,
         contents="bqplot\n",
         error=None,
         filename="requirements.txt",
@@ -1413,7 +1352,6 @@ def test_create_voila_manifest_1(path, entrypoint):
 )
 def test_create_voila_manifest_2(path, entrypoint):
     environment = Environment(
-        conda=None,
         contents="numpy\nipywidgets\nbqplot\n",
         error=None,
         filename="requirements.txt",
@@ -1461,7 +1399,6 @@ def test_create_voila_manifest_2(path, entrypoint):
 
 def test_create_voila_manifest_extra():
     environment = Environment(
-        conda=None,
         contents="numpy\nipywidgets\nbqplot\n",
         error=None,
         filename="requirements.txt",
@@ -1547,7 +1484,6 @@ def test_create_voila_manifest_extra():
 )
 def test_create_voila_manifest_multi_notebook(path, entrypoint):
     environment = Environment(
-        conda=None,
         contents="bqplot\n",
         error=None,
         filename="requirements.txt",
@@ -1655,7 +1591,6 @@ def test_make_voila_bundle(
     entrypoint,
 ):
     environment = Environment(
-        conda=None,
         contents="bqplot",
         error=None,
         filename="requirements.txt",
@@ -1763,7 +1698,6 @@ def test_make_voila_bundle_multi_notebook(
     entrypoint,
 ):
     environment = Environment(
-        conda=None,
         contents="bqplot",
         error=None,
         filename="requirements.txt",
@@ -1853,7 +1787,6 @@ def test_make_voila_bundle_2(
     entrypoint,
 ):
     environment = Environment(
-        conda=None,
         contents="numpy\nipywidgets\nbqplot\n",
         error=None,
         filename="requirements.txt",
@@ -1918,7 +1851,6 @@ def test_make_voila_bundle_extra():
     requirements_hash = "d51994456975ff487749acc247ae6d63"
 
     environment = Environment(
-        conda=None,
         contents="numpy\nipywidgets\nbqplot\n",
         error=None,
         filename="requirements.txt",
@@ -2031,7 +1963,7 @@ def test_create_html_manifest():
             "environment_management": {
                 "python": False,
                 "r": False,
-            }
+            },
         },
     }
     manifest = create_html_manifest(
