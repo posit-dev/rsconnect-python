@@ -243,6 +243,7 @@ def content_args(func):
 
     return wrapper
 
+
 # This callback handles the "shorthand" --disable-env-management option.
 # If the shorthand flag is provided, then it takes precendence over the R and Python flags.
 # This callback also inverts the --disable-env-management-r and
@@ -252,7 +253,7 @@ def content_args(func):
 # which is more consistent when writing these values to the manifest.
 def env_management_callback(ctx, param, value) -> typing.Optional[bool]:
     # eval the shorthand flag if it was provided
-    disable_env_management = ctx.params.get('disable_env_management')
+    disable_env_management = ctx.params.get("disable_env_management")
     if disable_env_management is not None:
         value = disable_env_management
 
@@ -486,7 +487,6 @@ def bootstrap(
 @cloud_shinyapps_args
 @click.pass_context
 def add(ctx, name, server, api_key, insecure, cacert, account, token, secret, verbose):
-
     set_verbosity(verbose)
     if click.__version__ >= "8.0.0" and sys.version_info >= (3, 7):
         click.echo("Detected the following inputs:")
@@ -1081,11 +1081,11 @@ def deploy_manifest(
     name="quarto",
     short_help="Deploy Quarto content to Posit Connect [v2021.08.0+] or Posit Cloud.",
     help=(
-        'Deploy a Quarto document or project to Posit Connect or Posit Cloud. Should the content use the Quarto '
+        "Deploy a Quarto document or project to Posit Connect or Posit Cloud. Should the content use the Quarto "
         'Jupyter engine, an environment file ("requirements.txt") is created and included in the deployment if one '
-        'does not already exist. Requires Posit Connect 2021.08.0 or later.'
-        '\n\n'
-        'FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project.'
+        "does not already exist. Requires Posit Connect 2021.08.0 or later."
+        "\n\n"
+        "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
     ),
     no_args_is_help=True,
 )
@@ -1439,51 +1439,31 @@ def deploy_help():
 @deploy.command(
     name="git",
     short_help="Deploy git repository with exisiting manifest file",
-    help="Deploy git repository with exisiting manifest file"
+    help="Deploy git repository with exisiting manifest file",
 )
-@click.option("--name", "-n", help="The nickname of the RStudio Connect server to deploy to.")
-@click.option(
-    "--server", "-s", envvar="CONNECT_SERVER", help="The URL for the RStudio Connect server to deploy to.",
-)
-@click.option(
-    "--api-key", "-k", envvar="CONNECT_API_KEY", help="The API key to use to authenticate with RStudio Connect.",
-)
-@click.option(
-    "--insecure", "-i", envvar="CONNECT_INSECURE", is_flag=True, help="Disable TLS certification/host validation.",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.File(),
-    help="The path to trusted TLS CA certificates.",
-)
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
-@click.option('--app_name', '-a')
-@click.option('--repository', "-r")
-@click.option('--branch', "-b")
-@click.option('--subdirectory', "-d")
-def deploy_git(name, server, api_key, insecure, cacert, verbose, app_name, repository, branch, subdirectory):
+@server_args
+@click.option("--app_name", "-a")
+@click.option("--repository", "-r", required=True)
+@click.option("--branch", "-b", default="main")
+@click.option("--subdirectory", "-d", default="/")
+@cli_exception_handler
+def deploy_git(
+    name: str,
+    server: str,
+    api_key: str,
+    insecure: bool,
+    cacert: typing.IO,
+    verbose,
+    app_name: str,
+    repository: str,
+    branch: str,
+    subdirectory: str,
+):
+    subdirectory = subdirectory.strip("/")
+    kwargs = locals()
     set_verbosity(verbose)
-
-    with cli_feedback("Checking arguments"):
-        connect_server = _validate_deploy_to_args(name, server, api_key, insecure, cacert)
-
-    connect_client = api.RSConnect(connect_server)
-
-    with cli_feedback("Deploying git repository"):
-        app = connect_client.deploy_git(app_name, repository, branch, subdirectory)
-
-    with cli_feedback(""):
-        click.secho("\nDeployment log:", fg="bright_white")
-        app_url, _ = spool_deployment_log(connect_server, app, click.echo)
-        click.secho("Deployment completed successfully.", fg="bright_white")
-        click.secho("    Dashboard content URL: %s" % app_url, fg="bright_white")
-        click.secho("    Direct content URL: %s" % app["app_url"], fg="bright_white")
-
-
-    click.secho("Git deployment completed successfully.", fg="bright_white")
-    click.secho("App available as %s" % app_name, fg="bright_white")
+    ce = RSConnectExecutor(**kwargs)
+    ce.validate_server().deploy_git().emit_task_log()
 
 
 @cli.group(
@@ -1498,6 +1478,7 @@ def deploy_git(name, server, api_key, insecure, cacert, verbose, app_name, repos
 )
 def write_manifest():
     pass
+
 
 @write_manifest.command(
     name="notebook",
