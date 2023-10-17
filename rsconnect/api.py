@@ -233,19 +233,17 @@ class RSConnectClient(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
-
     def deploy_git(self, app_name, repository, branch, subdirectory):
         app = self.app_create(app_name)
         self._server.handle_bad_response(app)
 
-        self.post(
+        resp = self.post(
             "applications/%s/repo" % app["guid"],
-            body={
-                "repository": repository, "branch": branch , "subdirectory": subdirectory
-            }
+            body={"repository": repository, "branch": branch, "subdirectory": subdirectory},
         )
+        self._server.handle_bad_response(resp)
 
-        task = self.post("applications/%s/deploy" % app["guid"], body=dict())
+        task = self.app_deploy(app["guid"])
         self._server.handle_bad_response(task)
 
         return {
@@ -323,7 +321,6 @@ class RSConnectClient(HTTPServer):
         poll_wait=0.5,
         raise_on_error=True,
     ):
-
         if log_callback is None:
             log_lines = []
             log_callback = log_lines.append
@@ -763,6 +760,18 @@ class RSConnectExecutor:
                 "title": title,
             }
             return self
+
+    @cls_logged("Deploying git repository ...")
+    def deploy_git(self, app_name: str = None, repository: str = None, branch: str = None, subdirectory: str = None):
+        app_name = app_name or self.get("app_name")
+        repository = repository or self.get("repository")
+        branch = branch or self.get("branch")
+        subdirectory = subdirectory or self.get("subdirectory")
+
+        result = self.client.deploy_git(app_name, repository, branch, subdirectory)
+        self.remote_server.handle_bad_response(result)
+        self.state["deployed_info"] = result
+        return self
 
     def emit_task_log(
         self,
@@ -1354,7 +1363,6 @@ class CloudService:
         app_mode: AppMode,
         app_store_version: typing.Optional[int],
     ) -> PrepareDeployOutputResult:
-
         application_type = "static" if app_mode in [AppModes.STATIC, AppModes.STATIC_QUARTO] else "connect"
         logger.debug(f"application_type: {application_type}")
 
