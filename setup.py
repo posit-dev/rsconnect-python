@@ -11,7 +11,7 @@ setup(
         "pyjwt>=2.4.0",
     ],
     setup_requires=[
-        "setuptools",
+        "setuptools>=61",
         "setuptools_scm>=3.4",
         "toml",
         "wheel",
