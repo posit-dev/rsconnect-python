@@ -1312,7 +1312,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         "-e",
         help=(
             "The module and executable object which serves as the entry point for the {desc} (defaults to app)"
-        ).format(desc=app_mode.desc()),
+        ).format(desc=desc),
     )
     @click.option(
         "--exclude",
