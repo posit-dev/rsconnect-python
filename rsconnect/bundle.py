@@ -28,7 +28,7 @@ except ImportError:
 
 from os.path import basename, dirname, exists, isdir, join, relpath, splitext, isfile, abspath
 
-from .log import logger
+from .log import logger, VERBOSE
 from .models import AppMode, AppModes, GlobSet
 from .environment import Environment, MakeEnvironment
 from .exception import RSConnectException
@@ -276,11 +276,13 @@ class Bundle:
                 if Path(fp).name in self.buffer:
                     continue
                 rel_path = Path(fp).relative_to(self.deploy_dir) if flatten_to_deploy_dir else None
+                logger.log(VERBOSE, "Adding file: %s", fp)
                 bundle.add(fp, arcname=rel_path)
             for k, v in self.buffer.items():
                 buf = io.BytesIO(to_bytes(v))
                 file_info = tarfile.TarInfo(k)
                 file_info.size = len(buf.getvalue())
+                logger.log(VERBOSE, "Adding file: %s", k)
                 bundle.addfile(file_info, buf)
         bundle_file.seek(0)
         return bundle_file
@@ -423,7 +425,7 @@ def bundle_add_file(bundle, rel_path, base_dir):
     The file path is relative to the notebook directory.
     """
     path = join(base_dir, rel_path) if os.path.isdir(base_dir) else rel_path
-    logger.debug("adding file: %s", path)
+    logger.log(VERBOSE, "Adding file: %s", path)
     bundle.add(path, arcname=rel_path)
 
 
@@ -432,7 +434,7 @@ def bundle_add_buffer(bundle, filename, contents):
 
     `contents` may be a string or bytes object
     """
-    logger.debug("adding file: %s", filename)
+    logger.log(VERBOSE, "Adding file: %s", filename)
     buf = io.BytesIO(to_bytes(contents))
     file_info = tarfile.TarInfo(filename)
     file_info.size = len(buf.getvalue())

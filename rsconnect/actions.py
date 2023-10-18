@@ -40,7 +40,7 @@ from .bundle import (
     read_manifest_file,
 )
 from .environment import Environment, MakeEnvironment, EnvironmentException
-from .log import logger
+from .log import logger, VERBOSE
 from .models import AppModes, AppMode
 from .api import RSConnectExecutor, filter_out_server_info
 
@@ -98,15 +98,17 @@ def cli_feedback(label, stderr=False):
         logger.set_in_feedback(False)
 
 
-def set_verbosity(verbose):
+def set_verbosity(verbose: int):
     """Set the verbosity level based on a passed flag
 
     :param verbose: boolean specifying verbose or not
     """
-    if verbose:
-        logger.setLevel(logging.DEBUG)
-    else:
+    if verbose == 0:
         logger.setLevel(logging.INFO)
+    elif verbose == 1:
+        logger.setLevel(VERBOSE)
+    else:
+        logger.setLevel(logging.DEBUG)
 
 
 def which_python(python, env=os.environ):

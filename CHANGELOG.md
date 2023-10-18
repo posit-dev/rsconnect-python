@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `*_app.py` are now considered. However, if the directory contains more than
   one file matching these new patterns, you must provide rsconnect-python with an
   explicit `--entrypoint` argument.
+- Added a new verbose logging level. Specifying `-v` on the command line uses this
+  new level. Currently this will cause filenames to be logged as they are added to
+  a bundle. To enable maximum verbosity (debug level), use `-vv`.
 
 ### Changed
 - Removing experimental support for Conda. Connect does not support restoring Conda environments.
