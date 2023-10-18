@@ -270,9 +270,9 @@ rsconnect write-manifest notebook my-notebook.ipynb
 You can deploy a variety of APIs and applications using sub-commands of the
 `rsconnect deploy` command.
 
-* `api`: WSGI-compliant APIs (e.g., `gunicorn`, `werkzeug`, `uwsgi`, `pyramid`, and `bottle`)
-* `flask`: Flask APIs
-* `fastapi`: ASGI-compliant APIs (e.g, `fastapi`, `quart`, `sanic`, and `falcon`)
+* `api`: WSGI-compliant APIs (e.g., `bottle`, `falcon`, `flask`, `flask-restx`, `flasgger`, `pycnic`).
+* `flask`: Flask APIs (_Note: `flask` is an alias of `api`._).
+* `fastapi`: ASGI-compliant APIs (e.g, `fastapi`, `quart`, `sanic`, `starlette`)
 * `dash`: Python Dash apps
 * `streamlit`: Streamlit apps
 * `bokeh`: Bokeh server apps
