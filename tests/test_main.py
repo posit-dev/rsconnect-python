@@ -944,7 +944,6 @@ class TestBootstrap(TestCase):
 
     def create_bootstrap_mock_callback(self, status, json_data):
         def request_callback(request, uri, response_headers):
-
             # verify auth header is sent correctly
             authorization = request.headers.get("Authorization")
             auth_split = authorization.split(" ")
