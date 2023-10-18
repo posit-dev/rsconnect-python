@@ -103,6 +103,13 @@ class TestMain:
         result = runner.invoke(cli, args)
         assert result.exit_code == 0, result.output
 
+    def test_deploy_git(self):
+        runner = CliRunner()
+        args = self.create_deploy_args("git", "--repository")
+        args.extend(["https://github.com/rstudio/rsc-hello-world-content", "-d", "square-plot"])
+        result = runner.invoke(cli, args)
+        assert result.exit_code == 0, result.output
+
     # noinspection SpellCheckingInspection
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_deploy_manifest_shinyapps(self):
