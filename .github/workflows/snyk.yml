@@ -16,14 +16,34 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Run Snyk (setup.py)
-        uses: snyk/actions/python@master
+      # - name: Run Snyk (setup.py)
+      #   uses: snyk/actions/python@master
+      #   with:
+      #     command: monitor
+      #     args: --file=setup.py --package-manager=pip --project-name=setup.py --org=${{ env.SNYK_ORG }}
+
+      # - name: Run Snyk (requirements.txt)
+      #   uses: snyk/actions/python@master
+      #   with:
+      #     command: monitor
+      #     args: --file=requirements.txt --package-manager=pip --project-name=requirements.txt --org=${{ env.SNYK_ORG }}
+
+      # On Oct 2 2023, the steps using snyk/actions/python@master started failing with "undefined".
+      # Nothing obvious changed in our code or in the Snyk action or Docker image.
+      # Setting up and running snyk generically seems to work, so we'll go with that.
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          command: monitor
-          args: --file=setup.py --package-manager=pip --project-name=setup.py --org=${{ env.SNYK_ORG }}
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - uses: snyk/actions/setup@master
+
+      - name: Run Snyk (setup.py)
+        run: snyk monitor --file="setup.py" --package-manager=pip --project-name="setup.py" --org=${{ env.SNYK_ORG }}
 
       - name: Run Snyk (requirements.txt)
-        uses: snyk/actions/python@master
-        with:
-          command: monitor
-          args: --file=requirements.txt --package-manager=pip --project-name=requirements.txt --org=${{ env.SNYK_ORG }}
+        run: snyk monitor --file="requirements.txt" --package-manager=pip --project-name="requirements.txt" --org=${{ env.SNYK_ORG }}
