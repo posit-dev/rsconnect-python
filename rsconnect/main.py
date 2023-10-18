@@ -137,7 +137,7 @@ def server_args(func):
         type=click.Path(exists=True, file_okay=True, dir_okay=False),
         help="The path to trusted TLS CA certificates.",
     )
-    @click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+    @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         return func(*args, **kwargs)
@@ -244,6 +244,7 @@ def content_args(func):
         return func(*args, **kwargs)
 
     return wrapper
+
 
 # This callback handles the "shorthand" --disable-env-management option.
 # If the shorthand flag is provided, then it takes precendence over the R and Python flags.
@@ -353,7 +354,7 @@ def _test_server_and_api(server, api_key, insecure, ca_cert):
     me = None
 
     with cli_feedback("Checking %s" % server):
-        real_server, _ = test_server(api.RSConnectServer(server, None, insecure, ca_data))
+        real_server, _ = test_server(api.RSConnectServer(server, api_key, insecure, ca_data))
 
     real_server.api_key = api_key
 
@@ -401,7 +402,7 @@ def _test_rstudio_creds(server: api.PositServer):
     help="The path to the file containing the private key used to sign the JWT.",
 )
 @click.option("--raw", "-r", is_flag=True, help="Return the API key as raw output rather than a JSON object")
-@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
+@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 @cli_exception_handler
 def bootstrap(
     server,
@@ -484,11 +485,10 @@ def bootstrap(
     type=click.Path(exists=True, file_okay=True, dir_okay=False),
     help="The path to trusted TLS CA certificates.",
 )
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 @cloud_shinyapps_args
 @click.pass_context
 def add(ctx, name, server, api_key, insecure, cacert, account, token, secret, verbose):
-
     set_verbosity(verbose)
     if click.__version__ >= "8.0.0" and sys.version_info >= (3, 7):
         click.echo("Detected the following inputs:")
@@ -552,7 +552,7 @@ def add(ctx, name, server, api_key, insecure, cacert, account, token, secret, ve
     short_help="List the known Posit Connect servers.",
     help="Show the stored information about each known server nickname.",
 )
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 def list_servers(verbose):
     set_verbosity(verbose)
     with cli_feedback(""):
@@ -632,7 +632,7 @@ def details(name, server, api_key, insecure, cacert, verbose):
 )
 @click.option("--name", "-n", help="The nickname of the Posit Connect server to remove.")
 @click.option("--server", "-s", help="The URL of the Posit Connect server to remove.")
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 def remove(name, server, verbose):
     set_verbosity(verbose)
 
@@ -868,7 +868,7 @@ def deploy_notebook(
     python,
     conda,
     force_generate,
-    verbose: bool,
+    verbose: int,
     file: str,
     extra_files,
     hide_all_input: bool,
@@ -988,7 +988,7 @@ def deploy_voila(
     env_management_r: bool = None,
     title: str = None,
     env_vars: typing.Dict[str, str] = None,
-    verbose: bool = False,
+    verbose: int = 0,
     new: bool = False,
     app_id: str = None,
     name: str = None,
@@ -1052,7 +1052,7 @@ def deploy_manifest(
     new: bool,
     app_id: str,
     title: str,
-    verbose: bool,
+    verbose: int,
     file: str,
     env_vars: typing.Dict[str, str],
     visibility: typing.Optional[str],
@@ -1145,7 +1145,7 @@ def deploy_quarto(
     quarto,
     python,
     force_generate: bool,
-    verbose: bool,
+    verbose: int,
     file_or_directory,
     extra_files,
     env_vars: typing.Dict[str, str],
@@ -1247,7 +1247,7 @@ def deploy_html(
     exclude=None,
     title: str = None,
     env_vars: typing.Dict[str, str] = None,
-    verbose: bool = False,
+    verbose: int = 0,
     new: bool = False,
     app_id: str = None,
     name: str = None,
@@ -1260,6 +1260,8 @@ def deploy_html(
     secret: str = None,
 ):
     kwargs = locals()
+    set_verbosity(verbose)
+
     ce = None
     if connect_server:
         kwargs = filter_out_server_info(**kwargs)
@@ -1366,7 +1368,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         python,
         conda,
         force_generate: bool,
-        verbose: bool,
+        verbose: int,
         directory,
         extra_files,
         visibility: typing.Optional[str],
@@ -1379,6 +1381,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         token: str = None,
         secret: str = None,
     ):
+        set_verbosity(verbose)
         kwargs = locals()
         kwargs["entrypoint"] = entrypoint = validate_entry_point(entrypoint, directory)
         kwargs["extra_files"] = extra_files = validate_extra_files(directory, extra_files)
@@ -2164,7 +2167,7 @@ def remove_content_build(name, server, api_key, insecure, cacert, guid, all, pur
     metavar="TEXT",
     help="Check the local build state of a specific content item. This flag can be passed multiple times.",
 )
-@click.option("--verbose", "-v", is_flag=True, help="Print detailed messages.")
+@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 # todo: --format option (json, text)
 def list_content_build(name, server, api_key, insecure, cacert, status, guid, verbose):
     set_verbosity(verbose)
