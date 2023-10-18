@@ -31,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   new level. Currently this will cause filenames to be logged as they are added to
   a bundle. To enable maximum verbosity (debug level), use `-vv`.
 
+### Changed
+- Removing experimental support for Conda. Connect does not support restoring Conda environments.
+
 ## [1.20.0] - 2023-09-11
 
 ### Fixed

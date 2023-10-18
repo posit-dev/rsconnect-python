@@ -155,7 +155,6 @@ def python_settings():
     return {
         "installations": [{"version": v}],
         "api_enabled": True,
-        "conda_enabled": False,
     }
 
 
