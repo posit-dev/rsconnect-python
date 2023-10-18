@@ -83,5 +83,12 @@ class TestEnvironment(TestCase):
 
         raw_stdout = "numpy\npandas"
         filtered = filter_pip_freeze_output(raw_stdout)
+        expected = "numpy\npandas"
+
+        self.assertEqual(filtered, expected)
+
+        raw_stdout = "numpy\npandas\nnot at beginning [notice]\n[notice] To update, run: pip install --upgrade pip"
+        filtered = filter_pip_freeze_output(raw_stdout)
+        expected = "numpy\npandas\nnot at beginning [notice]"
 
         self.assertEqual(filtered, expected)
