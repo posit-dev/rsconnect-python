@@ -20,7 +20,8 @@ RUN pip install rsconnect-jupyter --pre && \
 
 CMD cd ../ && \
     rm -rf ~/.jupyter/ && \
-    make deps version dist-install && \
+    make deps && \
+    pip install . && \
     jupyter-nbextension enable --sys-prefix --py rsconnect_jupyter && \
     jupyter-serverextension enable --sys-prefix --py rsconnect_jupyter && \
     jupyter-notebook \
