@@ -203,11 +203,8 @@ class RSConnectClient(HTTPServer):
         base = dirname(self._url.path)  # remove __api__
         path = f"{base}/content/{app_guid}/"
         response = self._do_request(method, path, None, None, 3, {}, False)
-        print(response.status, end=None)
 
-        # response = self.get("/content/%s/" % app_guid)
         if self.is_app_failed_response(response):
-            print(response.status, end=None)
             raise RSConnectException(
                 "Could not access the deployed content. "
                 + "The app might not have started successfully. "
