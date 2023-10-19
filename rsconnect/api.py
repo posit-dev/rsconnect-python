@@ -3,7 +3,7 @@ Posit Connect API client and utility functions
 """
 import binascii
 import os
-from os.path import abspath
+from os.path import abspath, dirname
 import time
 from typing import IO, Callable
 import base64
@@ -200,8 +200,10 @@ class RSConnectClient(HTTPServer):
 
     def app_access(self, app_guid):
         method = "GET"
-        path = f"/content/{app_guid}/"
+        base = dirname(self._url.path)  # remove __api__
+        path = f"{base}/content/{app_guid}/"
         response = self._do_request(method, path, None, None, 3, {}, False)
+        print(response.status, end=None)
 
         # response = self.get("/content/%s/" % app_guid)
         if self.is_app_failed_response(response):
