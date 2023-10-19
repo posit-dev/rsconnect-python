@@ -49,7 +49,7 @@ def MakeEnvironment(
     pip: Optional[str] = None,
     python: Optional[str] = None,
     source: Optional[str] = None,
-    conda: Optional[str] = None,  # Deprecated, but included for compatibility with past environments
+    **kwargs,  # provides compatibility where we no longer support some older properties
 ):
     return Environment(contents, error, filename, locale, package_manager, pip, python, source)
 
