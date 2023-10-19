@@ -814,7 +814,7 @@ class TestMain:
         target = optional_target(get_api_path("flask-bad"))
         runner = CliRunner()
         args = self.create_deploy_args("api", target)
-        args.extend(["-e", "app2"])
+        args.extend(["-e", "badapp"])
         result = runner.invoke(cli, args)
         assert result.exit_code == 1, result.output
 
@@ -822,7 +822,7 @@ class TestMain:
         target = optional_target(get_api_path("flask-bad"))
         runner = CliRunner()
         args = self.create_deploy_args("api", target)
-        args.extend(["--no-verify", "-e", "app2"])
+        args.extend(["--no-verify", "-e", "badapp"])
         result = runner.invoke(cli, args)
         assert result.exit_code == 0, result.output
 
