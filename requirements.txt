@@ -6,6 +6,7 @@ mypy
 pytest
 pytest-cov
 pytest-mypy
+setuptools_scm[toml]
 twine
 types-six
 types-click

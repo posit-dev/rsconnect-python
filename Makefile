@@ -1,4 +1,4 @@
-VERSION := $(shell rsconnect version)
+VERSION := $(shell python -c 'from setuptools_scm import get_version; print(get_version())')
 HOSTNAME := $(shell hostname)
 S3_PREFIX := s3://rstudio-connect-downloads/connect/rsconnect-python
 
