@@ -823,9 +823,10 @@ class RSConnectExecutor:
 
     @cls_logged("Verifying deployed content...")
     def verify_deployment(self, *args, **kwargs):
-        deployed_info = self.get("deployed_info", *args, **kwargs)
-        app_guid = deployed_info["app_guid"]
-        self.client.app_access(app_guid)
+        if isinstance(self.remote_server, RSConnectServer):
+            deployed_info = self.get("deployed_info", *args, **kwargs)
+            app_guid = deployed_info["app_guid"]
+            self.client.app_access(app_guid)
 
     @cls_logged("Validating app mode...")
     def validate_app_mode(self, *args, **kwargs):
