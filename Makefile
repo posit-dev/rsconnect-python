@@ -134,10 +134,14 @@ version:
 .PHONY: dist
 dist:
 	pip wheel --no-deps -w dist .
-	twine check $(BDIST_WHEEL)
+	twine check dist/rsconnect_python*.whl
 	rm -vf dist/*.egg
 	@echo "::set-output name=whl::$(BDIST_WHEEL)"
 	@echo "::set-output name=whl_basename::$(notdir $(BDIST_WHEEL))"
+
+.PHONY: dist-install
+dist-install: dist
+	pip install $(BDIST_WHEEL)
 
 .PHONY: sync-to-s3
 sync-to-s3:

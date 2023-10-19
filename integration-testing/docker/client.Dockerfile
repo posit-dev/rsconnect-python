@@ -18,18 +18,9 @@ RUN pip install rsconnect-jupyter --pre && \
     pip install pipenv && \
     jupyter-nbextension install --sys-prefix --py rsconnect_jupyter
 
-# RUN git clone https://github.com/rstudio/rsconnect-jupyter.git && \
-#     pip install twine && \
-#     cd rsconnect-jupyter && \
-#     make dist && \
-#     pip install ./dist/rsconnect_jupyter-0.0.0-py2.py3-none-any.whl && \
-#     pip install pipenv && \
-#     jupyter-nbextension install --sys-prefix --py rsconnect_jupyter
-
 CMD cd ../ && \
     rm -rf ~/.jupyter/ && \
-    make deps dist && \
-    pip install ./dist/rsconnect_python-*.whl && \
+    make deps dist-install && \
     jupyter-nbextension enable --sys-prefix --py rsconnect_jupyter && \
     jupyter-serverextension enable --sys-prefix --py rsconnect_jupyter && \
     jupyter-notebook \
