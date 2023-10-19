@@ -1312,6 +1312,11 @@ def generate_deploy_python(app_mode, alias, min_version):
     )
     @shinyapps_deploy_args
     @cli_exception_handler
+    @click.option(
+        "--no-verify",
+        is_flag=True,
+        help="Don't access the deployed app to verify that it started correctly.",
+    )
     def deploy_app(
         name: str,
         server: str,
@@ -1337,6 +1342,7 @@ def generate_deploy_python(app_mode, alias, min_version):
         account: str = None,
         token: str = None,
         secret: str = None,
+        no_verify: bool = False,
     ):
         set_verbosity(verbose)
         kwargs = locals()
@@ -1368,6 +1374,8 @@ def generate_deploy_python(app_mode, alias, min_version):
             .save_deployed_info()
             .emit_task_log()
         )
+        if not no_verify:
+            ce.verify_deployment()
 
     return deploy_app
 

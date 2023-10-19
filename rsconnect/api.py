@@ -195,6 +195,23 @@ class RSConnectClient(HTTPServer):
     def app_config(self, app_id):
         return self.get("applications/%s/config" % app_id)
 
+    def is_app_failed_response(self, response):
+        return isinstance(response, HTTPResponse) and response.status >= 500
+
+    def app_access(self, app_guid):
+        method = "GET"
+        path = f"/content/{app_guid}/"
+        response = self._do_request(method, path, None, None, 3, {}, False)
+
+        # response = self.get("/content/%s/" % app_guid)
+        if self.is_app_failed_response(response):
+            print(response.status, end=None)
+            raise RSConnectException(
+                "Could not access the deployed content. "
+                + "The app might not have started successfully. "
+                + "Visit it in Connect to view the logs."
+            )
+
     def bundle_download(self, content_guid, bundle_id):
         response = self.get("v1/content/%s/bundles/%s/download" % (content_guid, bundle_id), decode_response=False)
         self._server.handle_bad_response(response)
@@ -300,7 +317,6 @@ class RSConnectClient(HTTPServer):
         poll_wait=0.5,
         raise_on_error=True,
     ):
-
         if log_callback is None:
             log_lines = []
             log_callback = log_lines.append
@@ -804,6 +820,12 @@ class RSConnectExecutor:
         )
 
         return self
+
+    @cls_logged("Verifying deployed content...")
+    def verify_deployment(self, *args, **kwargs):
+        deployed_info = self.get("deployed_info", *args, **kwargs)
+        app_guid = deployed_info["app_guid"]
+        self.client.app_access(app_guid)
 
     @cls_logged("Validating app mode...")
     def validate_app_mode(self, *args, **kwargs):
@@ -1331,7 +1353,6 @@ class CloudService:
         app_mode: AppMode,
         app_store_version: typing.Optional[int],
     ) -> PrepareDeployOutputResult:
-
         application_type = "static" if app_mode in [AppModes.STATIC, AppModes.STATIC_QUARTO] else "connect"
         logger.debug(f"application_type: {application_type}")
 
