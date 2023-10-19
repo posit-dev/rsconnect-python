@@ -26,8 +26,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: test (py${{ matrix.python-version }} ${{ matrix.os }})
     steps:
-    - uses: actions/checkout@v2
-    - run: git fetch --prune --unshallow
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
@@ -48,8 +51,11 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-    - uses: actions/checkout@v2
-    - run: git fetch --prune --unshallow
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - uses: actions/setup-python@v2
       with:
         python-version: 3.8.x
@@ -65,8 +71,11 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - run: git fetch --prune --unshallow
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - uses: actions/setup-python@v2
       with:
         python-version: 3.8.x
@@ -119,8 +128,11 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - run: git fetch --prune --unshallow
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - uses: actions/setup-python@v2
       with:
         python-version: 3.8.x
@@ -165,7 +177,7 @@ jobs:
     name: "Integration tests against latest Connect"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v2
         with:
           python-version: 3.8
@@ -200,10 +212,11 @@ jobs:
       CONNECT_LICENSE: ${{ secrets.RSC_LICENSE }}
       ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - run: git fetch --prune --unshallow
       - uses: extractions/setup-just@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
