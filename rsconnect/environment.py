@@ -144,7 +144,7 @@ def output_file(dirname, filename, package_manager):
 
 
 def pip_freeze():
-    """Inspect the environment using `pip freeze`.
+    """Inspect the environment using `pip freeze --disable-pip-version-check version`.
 
     Returns a dictionary containing the filename
     (always 'requirements.txt') and contents if successful,
@@ -152,7 +152,7 @@ def pip_freeze():
     """
     try:
         proc = subprocess.Popen(
-            [sys.executable, "-m", "pip", "freeze"],
+            [sys.executable, "-m", "pip", "freeze", "--disable-pip-version-check"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,
@@ -182,8 +182,10 @@ def pip_freeze():
 
 
 def filter_pip_freeze_output(pip_stdout):
-    # Filter out dependency on `rsconnect` and ignore output lines from pip which start with `[notice]` 
-    return "\n".join([line for line in pip_stdout.split("\n") if (("rsconnect" not in line) and (line.find("[notice]") != 0))])
+    # Filter out dependency on `rsconnect` and ignore output lines from pip which start with `[notice]`
+    return "\n".join(
+        [line for line in pip_stdout.split("\n") if (("rsconnect" not in line) and (line.find("[notice]") != 0))]
+    )
 
 
 def strip_ref(line):
