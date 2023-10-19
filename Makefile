@@ -134,7 +134,7 @@ version:
 .PHONY: dist
 dist:
 	pip wheel --no-deps -w dist .
-	twine check dist/rsconnect_python*.whl
+	twine check $(BDIST_WHEEL)
 	rm -vf dist/*.egg
 	@echo "::set-output name=whl::$(BDIST_WHEEL)"
 	@echo "::set-output name=whl_basename::$(notdir $(BDIST_WHEEL))"
