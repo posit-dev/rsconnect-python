@@ -1590,6 +1590,7 @@ def inspect_environment(
     if len(flags) > 0:
         args.append("-" + "".join(flags))
     args.append(directory)
+
     try:
         environment_json = check_output(args, universal_newlines=True)
     except subprocess.CalledProcessError as e:
