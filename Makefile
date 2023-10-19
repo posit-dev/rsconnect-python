@@ -1,4 +1,4 @@
-VERSION := $(shell python setup.py --version)
+VERSION := $(shell rsconnect version)
 HOSTNAME := $(shell hostname)
 S3_PREFIX := s3://rstudio-connect-downloads/connect/rsconnect-python
 
@@ -133,7 +133,7 @@ version:
 # exported as a point of reference instead.
 .PHONY: dist
 dist:
-	python setup.py bdist_wheel
+	pip wheel --no-deps -w dist .
 	twine check $(BDIST_WHEEL)
 	rm -vf dist/*.egg
 	@echo "::set-output name=whl::$(BDIST_WHEEL)"

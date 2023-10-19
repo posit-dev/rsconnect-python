@@ -24,9 +24,10 @@ python3 -m venv .venv
 source .venv/bin/activate
 # install our requirements into the virtual environment
 pip install -r requirements.txt
-# install rsconnect-python with a symbolic link to the locations repository, 
+# install rsconnect-python with a symbolic link to the locations repository,
 # meaning any changes to code in there will automatically be reflected
-pip install -e ./
+# also install test dependencies
+pip install -e '.[test]'
 ```
 
 ## Workflow
@@ -46,8 +47,8 @@ make test
 make all-tests
 ```
 
-As another example, the [`test` job in the default GitHub Actions workflow](.github/workflows/main.yml) 
-uses some of these targets during the CI for building and testing. 
+As another example, the [`test` job in the default GitHub Actions workflow](.github/workflows/main.yml)
+uses some of these targets during the CI for building and testing.
 
 ## Proposing Change
 
@@ -82,7 +83,7 @@ a release will be created and published to the repository
 
 rsconnect-python exists on conda-forge as its own [feedstock](https://github.com/conda-forge/rsconnect-python-feedstock)
 
-Updating the package requires a fork of the repository and a [push request](https://github.com/conda-forge/rsconnect-python-feedstock#updating-rsconnect-python-feedstock). 
+Updating the package requires a fork of the repository and a [push request](https://github.com/conda-forge/rsconnect-python-feedstock#updating-rsconnect-python-feedstock).
 
 - For new version/release, update the [meta.yaml](https://github.com/conda-forge/rsconnect-python-feedstock/blob/master/recipe/meta.yaml) file with the new version number, source url, and corresponding checksum.
 
