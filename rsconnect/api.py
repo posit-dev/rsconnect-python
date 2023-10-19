@@ -972,10 +972,9 @@ class RSConnectExecutor:
         Builds a dictionary containing the version of Posit Connect that is running
         and the versions of Python installed there.
 
-        :return: a three-entry dictionary.  The key 'connect' will refer to the version
+        :return: a two-entry dictionary.  The key 'connect' will refer to the version
         of Connect that was found.  The key `python` will refer to a sequence of version
-        strings for all the versions of Python that are installed.  The key `conda` will
-        refer to data about whether Connect is configured to support Conda environments.
+        strings for all the versions of Python that are installed.
         """
 
         def _to_sort_key(text):
@@ -985,16 +984,12 @@ class RSConnectExecutor:
         server_settings = self.server_settings
         python_settings = self.python_info
         python_versions = sorted([item["version"] for item in python_settings["installations"]], key=_to_sort_key)
-        conda_settings = {
-            "supported": python_settings["conda_enabled"] if "conda_enabled" in python_settings else False
-        }
         return {
             "connect": server_settings["version"],
             "python": {
                 "api_enabled": python_settings["api_enabled"] if "api_enabled" in python_settings else False,
                 "versions": python_versions,
             },
-            "conda": conda_settings,
         }
 
     def make_deployment_name(self, title, force_unique):

@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - The `https_proxy` environment variable is recognized as a synonym for
   `HTTPS_PROXY`.
+- When adding a new server, the initial request now includes an
+  Authorization header containing the API key. This is needed
+  for Connect installations behind a proxy that only passes
+  authenticated requests.
 - Common environment directories (`env, venv, .env, .venv`) are no longer
   excluded by name. Environments are detected by the presence of a python
   executable in `bin` or `Scripts` and excluded.
@@ -29,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [Connect administrator guide](https://docs.posit.co/connect/admin/content-management/git-backed/)
   and
   [Connect user guide](https://docs.posit.co/connect/user/git-backed/) for details.
+- Added a new verbose logging level. Specifying `-v` on the command line uses this
+  new level. Currently this will cause filenames to be logged as they are added to
+  a bundle. To enable maximum verbosity (debug level), use `-vv`.
+
+### Changed
+- Removing experimental support for Conda. Connect does not support restoring Conda environments.
 
 ## [1.20.0] - 2023-09-11
 

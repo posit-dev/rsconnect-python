@@ -95,9 +95,7 @@ class Stock(Resource):
 
         ticker_prices = prices[prices["ticker"] == ticker]
         current_price = ticker_prices["close"].last("1d").round(2)
-        current_volatility = np.log(
-            ticker_prices["adjusted"] / ticker_prices["adjusted"].shift(1)
-        ).var()
+        current_volatility = np.log(ticker_prices["adjusted"] / ticker_prices["adjusted"].shift(1)).var()
 
         return {
             "ticker": ticker,

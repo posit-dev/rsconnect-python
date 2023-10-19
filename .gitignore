@@ -29,3 +29,4 @@ coverage.xml
 
 # Temporary dev files
 vetiver-testing/rsconnect_api_keys.json
+/pip-wheel-metadata/

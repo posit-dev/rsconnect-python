@@ -36,12 +36,8 @@ prices["date"] = pd.to_datetime(prices["date"], format="%Y-%m-%d")
 tickers = prices["ticker"].unique()
 
 # Dataframe with top 5 volumes for each ticker
-max_vol = (
-    prices.set_index(["date"]).groupby("ticker")["volume"].nlargest(1).reset_index()
-)
-min_vol = (
-    prices.set_index(["date"]).groupby("ticker")["volume"].nsmallest(1).reset_index()
-)
+max_vol = prices.set_index(["date"]).groupby("ticker")["volume"].nlargest(1).reset_index()
+min_vol = prices.set_index(["date"]).groupby("ticker")["volume"].nsmallest(1).reset_index()
 extreme_vol = pd.concat([max_vol, min_vol])
 extreme_vol.columns = ["Stock", "Date", "Top and Lowest Volumes"]
 
@@ -144,8 +140,7 @@ sidebar = html.Div(
 # price and volume graphs
 graphs = [
     dbc.Alert(
-        "📊 Hover over the charts to highlight data points and show graph utilities. "
-        "All data is historical.",
+        "📊 Hover over the charts to highlight data points and show graph utilities. " "All data is historical.",
         color="info",
     ),
     dcc.Graph(id="stock-price-graph", animate=True),
@@ -246,9 +241,7 @@ def filter_data_by_date(df, ticker, start_date, end_date):
     if end_date is None:
         end_date = MAX_DATE
 
-    filtered = df[
-        (df["ticker"] == ticker) & (df["date"] >= start_date) & (df["date"] <= end_date)
-    ]
+    filtered = df[(df["ticker"] == ticker) & (df["date"] >= start_date) & (df["date"] <= end_date)]
     return filtered
 
 
@@ -406,9 +399,7 @@ def update_scatter_plot(all_tickers, price):
 
         for stock in ["AAPL", "AMZN", "FB", "GOOG", "INTC", "MSFT"]:
             col_name = stock
-            date_final[col_name] = final.loc[final["ticker"] == stock][
-                "daily ret"
-            ].values
+            date_final[col_name] = final.loc[final["ticker"] == stock]["daily ret"].values
         ret_list = date_final.columns[1:]
         fig = px.scatter_matrix(date_final, dimensions=ret_list)
         fig.update_traces(diagonal_visible=False)
@@ -429,9 +420,7 @@ def update_scatter_plot(all_tickers, price):
 
         for stock in all_tickers:
             col_name = stock
-            date_final[col_name] = final.loc[final["ticker"] == stock][
-                "daily ret"
-            ].values
+            date_final[col_name] = final.loc[final["ticker"] == stock]["daily ret"].values
 
         ret_list = date_final.columns[1:]
         fig = px.scatter_matrix(date_final, dimensions=ret_list)

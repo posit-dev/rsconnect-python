@@ -26,6 +26,7 @@
 
 import sys
 
+
 def rewrite(gh_admonition, mkdocs_admonition, lines):
     for i in range(len(lines)):
         line = lines[i]
@@ -35,7 +36,7 @@ def rewrite(gh_admonition, mkdocs_admonition, lines):
         # The start of the GitHub admonition MUST be on its own line.
         if gh_admonition == line.rstrip():
             lines[i] = f"!!! { mkdocs_admonition }\n"
-            for j in range(i+1, len(lines)):
+            for j in range(i + 1, len(lines)):
                 if lines[j].startswith("> "):
                     text = lines[j][2:]
                     lines[j] = f"    { text }"
@@ -43,6 +44,7 @@ def rewrite(gh_admonition, mkdocs_admonition, lines):
                     # Left the blockquote; stop rewriting.
                     break
     return lines
+
 
 lines = sys.stdin.readlines()
 

@@ -28,7 +28,7 @@ except ImportError:
 
 from os.path import basename, dirname, exists, isdir, join, relpath, splitext, isfile, abspath
 
-from .log import logger
+from .log import logger, VERBOSE
 from .models import AppMode, AppModes, GlobSet
 from .environment import Environment, MakeEnvironment
 from .exception import RSConnectException
@@ -115,7 +115,6 @@ class Manifest:
                     "package_file": environment.filename,
                 },
             }
-
 
         if image or env_management_py is not None or env_management_r is not None:
             self.data["environment"] = {}
@@ -277,11 +276,13 @@ class Bundle:
                 if Path(fp).name in self.buffer:
                     continue
                 rel_path = Path(fp).relative_to(self.deploy_dir) if flatten_to_deploy_dir else None
+                logger.log(VERBOSE, "Adding file: %s", fp)
                 bundle.add(fp, arcname=rel_path)
             for k, v in self.buffer.items():
                 buf = io.BytesIO(to_bytes(v))
                 file_info = tarfile.TarInfo(k)
                 file_info.size = len(buf.getvalue())
+                logger.log(VERBOSE, "Adding file: %s", k)
                 bundle.addfile(file_info, buf)
         bundle_file.seek(0)
         return bundle_file
@@ -424,7 +425,7 @@ def bundle_add_file(bundle, rel_path, base_dir):
     The file path is relative to the notebook directory.
     """
     path = join(base_dir, rel_path) if os.path.isdir(base_dir) else rel_path
-    logger.debug("adding file: %s", path)
+    logger.log(VERBOSE, "Adding file: %s", path)
     bundle.add(path, arcname=rel_path)
 
 
@@ -433,7 +434,7 @@ def bundle_add_buffer(bundle, filename, contents):
 
     `contents` may be a string or bytes object
     """
-    logger.debug("adding file: %s", filename)
+    logger.log(VERBOSE, "Adding file: %s", filename)
     buf = io.BytesIO(to_bytes(contents))
     file_info = tarfile.TarInfo(filename)
     file_info.size = len(buf.getvalue())
@@ -459,8 +460,9 @@ def write_manifest(
     Returns the list of filenames written.
     """
     manifest_filename = "manifest.json"
-    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, environment, nb_name, None,
-                                    image, env_management_py, env_management_r)
+    manifest = make_source_manifest(
+        AppModes.JUPYTER_NOTEBOOK, environment, nb_name, None, image, env_management_py, env_management_r
+    )
     if hide_all_input:
         if "jupyter" not in manifest:
             manifest["jupyter"] = {}
@@ -541,8 +543,9 @@ def make_notebook_source_bundle(
     base_dir = dirname(file)
     nb_name = basename(file)
 
-    manifest = make_source_manifest(AppModes.JUPYTER_NOTEBOOK, environment, nb_name, None,
-                                    image, env_management_py, env_management_r)
+    manifest = make_source_manifest(
+        AppModes.JUPYTER_NOTEBOOK, environment, nb_name, None, image, env_management_py, env_management_r
+    )
     if hide_all_input:
         if "jupyter" not in manifest:
             manifest["jupyter"] = {}
@@ -595,8 +598,15 @@ def make_quarto_source_bundle(
     Returns a file-like object containing the bundle tarball.
     """
     manifest, relevant_files = make_quarto_manifest(
-        file_or_directory, inspect, app_mode, environment, extra_files, excludes,
-        image, env_management_py, env_management_r,
+        file_or_directory,
+        inspect,
+        app_mode,
+        environment,
+        extra_files,
+        excludes,
+        image,
+        env_management_py,
+        env_management_r,
     )
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
 
@@ -873,8 +883,9 @@ def make_api_manifest(
     excludes.extend(list_environment_dirs(directory))
 
     relevant_files = create_file_list(directory, extra_files, excludes)
-    manifest = make_source_manifest(app_mode, environment, entry_point, None,
-                                    image, env_management_py, env_management_r)
+    manifest = make_source_manifest(
+        app_mode, environment, entry_point, None, image, env_management_py, env_management_r
+    )
 
     manifest_add_buffer(manifest, environment.filename, environment.contents)
 
@@ -938,8 +949,14 @@ def create_html_manifest(
     excludes.extend(["manifest.json"])
     excludes.extend(list_environment_dirs(deploy_dir))
 
-    manifest = Manifest(app_mode=AppModes.STATIC, entrypoint=entrypoint, primary_html=entrypoint,
-                        image=image, env_management_py=env_management_py, env_management_r=env_management_r)
+    manifest = Manifest(
+        app_mode=AppModes.STATIC,
+        entrypoint=entrypoint,
+        primary_html=entrypoint,
+        image=image,
+        env_management_py=env_management_py,
+        env_management_r=env_management_r,
+    )
     manifest.deploy_dir = deploy_dir
 
     file_list = create_file_list(path, extra_files, excludes, use_abspath=True)
@@ -1196,8 +1213,15 @@ def make_api_bundle(
     :return: a file-like object containing the bundle tarball.
     """
     manifest, relevant_files = make_api_manifest(
-        directory, entry_point, app_mode, environment, extra_files, excludes,
-        image, env_management_py, env_management_r,
+        directory,
+        entry_point,
+        app_mode,
+        environment,
+        extra_files,
+        excludes,
+        image,
+        env_management_py,
+        env_management_r,
     )
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
 
@@ -1550,7 +1574,6 @@ def which_python(python: typing.Optional[str] = None):
 def inspect_environment(
     python,  # type: str
     directory,  # type: str
-    conda_mode=False,  # type: bool
     force_generate=False,  # type: bool
     check_output=subprocess.check_output,  # type: typing.Callable
 ):
@@ -1561,8 +1584,6 @@ def inspect_environment(
     or containing an "error" field if an error occurred.
     """
     flags = []
-    if conda_mode:
-        flags.append("c")
     if force_generate:
         flags.append("f")
     args = [python, "-m", "rsconnect.environment"]
@@ -1576,14 +1597,13 @@ def inspect_environment(
     return MakeEnvironment(**json.loads(environment_json))  # type: ignore
 
 
-def get_python_env_info(file_name, python, conda_mode=False, force_generate=False):
+def get_python_env_info(file_name, python, force_generate=False):
     """
     Gathers the python and environment information relating to the specified file
     with an eye to deploy it.
 
     :param file_name: the primary file being deployed.
     :param python: the optional name of a Python executable.
-    :param conda_mode: inspect the environment assuming Conda
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists.
     :return: information about the version of Python in use plus some environmental
@@ -1591,7 +1611,7 @@ def get_python_env_info(file_name, python, conda_mode=False, force_generate=Fals
     """
     python = which_python(python)
     logger.debug("Python: %s" % python)
-    environment = inspect_environment(python, dirname(file_name), conda_mode=conda_mode, force_generate=force_generate)
+    environment = inspect_environment(python, dirname(file_name), force_generate=force_generate)
     if environment.error:
         raise RSConnectException(environment.error)
     logger.debug("Python: %s" % python)
@@ -1638,8 +1658,15 @@ def create_notebook_manifest_and_environment_file(
     """
     if (
         not write_notebook_manifest_json(
-            entry_point_file, environment, app_mode, extra_files, hide_all_input, hide_tagged_input,
-            image, env_management_py, env_management_r,
+            entry_point_file,
+            environment,
+            app_mode,
+            extra_files,
+            hide_all_input,
+            hide_tagged_input,
+            image,
+            env_management_py,
+            env_management_r,
         )
         or force
     ):
@@ -1691,8 +1718,9 @@ def write_notebook_manifest_json(
         if app_mode == AppModes.UNKNOWN:
             raise RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
 
-    manifest_data = make_source_manifest(app_mode, environment, file_name, None,
-                                         image, env_management_py, env_management_r)
+    manifest_data = make_source_manifest(
+        app_mode, environment, file_name, None, image, env_management_py, env_management_r
+    )
     if hide_all_input or hide_tagged_input:
         if "jupyter" not in manifest_data:
             manifest_data["jupyter"] = dict()
@@ -1789,8 +1817,14 @@ def create_voila_manifest(
     if isfile(voila_json_path):
         extra_files.append(voila_json_path)
 
-    manifest = Manifest(app_mode=AppModes.JUPYTER_VOILA, environment=environment, entrypoint=entrypoint,
-                        image=image, env_management_py=env_management_py, env_management_r=env_management_r)
+    manifest = Manifest(
+        app_mode=AppModes.JUPYTER_VOILA,
+        environment=environment,
+        entrypoint=entrypoint,
+        image=image,
+        env_management_py=env_management_py,
+        env_management_r=env_management_r,
+    )
     manifest.deploy_dir = deploy_dir
     if entrypoint and isfile(entrypoint):
         validate_file_is_notebook(entrypoint)
@@ -1880,8 +1914,17 @@ def create_api_manifest_and_environment_file(
     :return:
     """
     if (
-        not write_api_manifest_json(directory, entry_point, environment, app_mode, extra_files, excludes,
-                                    image, env_management_py, env_management_r)
+        not write_api_manifest_json(
+            directory,
+            entry_point,
+            environment,
+            app_mode,
+            extra_files,
+            excludes,
+            image,
+            env_management_py,
+            env_management_r,
+        )
         or force
     ):
         write_environment_file(environment, directory)
@@ -1919,8 +1962,9 @@ def write_api_manifest_json(
     etc.) that goes along with the manifest exists.
     """
     extra_files = validate_extra_files(directory, extra_files)
-    manifest, _ = make_api_manifest(directory, entry_point, app_mode, environment, extra_files, excludes,
-                                    image, env_management_py, env_management_r)
+    manifest, _ = make_api_manifest(
+        directory, entry_point, app_mode, environment, extra_files, excludes, image, env_management_py, env_management_r
+    )
     manifest_path = join(directory, "manifest.json")
 
     write_manifest_json(manifest_path, manifest)
@@ -1997,8 +2041,9 @@ def write_quarto_manifest_json(
     """
 
     extra_files = validate_extra_files(directory, extra_files)
-    manifest, _ = make_quarto_manifest(directory, inspect, app_mode, environment, extra_files, excludes,
-                                       image, env_management_py, env_management_r)
+    manifest, _ = make_quarto_manifest(
+        directory, inspect, app_mode, environment, extra_files, excludes, image, env_management_py, env_management_r
+    )
     manifest_path = join(directory, "manifest.json")
 
     write_manifest_json(manifest_path, manifest)
@@ -2017,7 +2062,6 @@ def create_python_environment(
     directory: str = None,
     force_generate: bool = False,
     python: str = None,
-    conda: bool = False,
 ):
     module_file = fake_module_file_from_directory(directory)
 
@@ -2028,7 +2072,7 @@ def create_python_environment(
     _warn_if_environment_directory(directory)
 
     # with cli_feedback("Inspecting Python environment"):
-    _, environment = get_python_env_info(module_file, python, conda, force_generate)
+    _, environment = get_python_env_info(module_file, python, force_generate)
 
     if force_generate:
         _warn_on_ignored_requirements(directory, environment.filename)

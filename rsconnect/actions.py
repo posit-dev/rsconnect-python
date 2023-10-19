@@ -40,7 +40,7 @@ from .bundle import (
     read_manifest_file,
 )
 from .environment import Environment, MakeEnvironment, EnvironmentException
-from .log import logger
+from .log import logger, VERBOSE
 from .models import AppModes, AppMode
 from .api import RSConnectExecutor, filter_out_server_info
 
@@ -98,15 +98,17 @@ def cli_feedback(label, stderr=False):
         logger.set_in_feedback(False)
 
 
-def set_verbosity(verbose):
+def set_verbosity(verbose: int):
     """Set the verbosity level based on a passed flag
 
     :param verbose: boolean specifying verbose or not
     """
-    if verbose:
-        logger.setLevel(logging.DEBUG)
-    else:
+    if verbose == 0:
         logger.setLevel(logging.INFO)
+    elif verbose == 1:
+        logger.setLevel(VERBOSE)
+    else:
+        logger.setLevel(logging.DEBUG)
 
 
 def which_python(python, env=os.environ):
@@ -128,7 +130,6 @@ def which_python(python, env=os.environ):
 def inspect_environment(
     python,  # type: str
     directory,  # type: str
-    conda_mode=False,  # type: bool
     force_generate=False,  # type: bool
     check_output=subprocess.check_output,  # type: typing.Callable
 ):
@@ -140,8 +141,6 @@ def inspect_environment(
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     flags = []
-    if conda_mode:
-        flags.append("c")
     if force_generate:
         flags.append("f")
     args = [python, "-m", "rsconnect.environment"]
@@ -248,10 +247,9 @@ def gather_server_details(connect_server):
     and the versions of Python installed there.
 
     :param connect_server: the Connect server information.
-    :return: a three-entry dictionary.  The key 'connect' will refer to the version
+    :return: a two-entry dictionary.  The key 'connect' will refer to the version
     of Connect that was found.  The key `python` will refer to a sequence of version
-    strings for all the versions of Python that are installed.  The key `conda` will
-    refer to data about whether Connect is configured to support Conda environments.
+    strings for all the versions of Python that are installed.
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
 
@@ -262,26 +260,13 @@ def gather_server_details(connect_server):
     server_settings = api.verify_server(connect_server)
     python_settings = api.get_python_info(connect_server)
     python_versions = sorted([item["version"] for item in python_settings["installations"]], key=_to_sort_key)
-    conda_settings = {"supported": python_settings["conda_enabled"] if "conda_enabled" in python_settings else False}
     return {
         "connect": server_settings["version"],
         "python": {
             "api_enabled": python_settings["api_enabled"] if "api_enabled" in python_settings else False,
             "versions": python_versions,
         },
-        "conda": conda_settings,
     }
-
-
-def is_conda_supported_on_server(connect_details):
-    """
-    Returns whether or not conda is supported on a Connect server.
-
-    :param connect_details: details about a Connect server as returned by gather_server_details()
-    :return: boolean True if supported, False otherwise
-    :error: Conda is not supported on the target server.  Try deploying without requesting Conda.
-    """
-    return connect_details.get("conda", {}).get("supported", False)
 
 
 def _make_deployment_name(remote_server: api.TargetableServer, title: str, force_unique: bool) -> str:
@@ -613,7 +598,6 @@ def deploy_jupyter_notebook(
     title: str,
     static: bool,
     python: str,
-    conda_mode: bool,
     force_generate: bool,
     log_callback: typing.Callable,
     hide_all_input: bool,
@@ -636,8 +620,6 @@ def deploy_jupyter_notebook(
     :param static: a flag noting whether the notebook should be deployed as a static
     HTML page or as a render-able document with sources. Previous default = False.
     :param python: the optional name of a Python executable, previous default = None.
-    :param conda_mode: use conda to build an environment.yml instead of conda, when
-    conda is not supported on Posit Connect (version<=1.8.0). Previous default = False.
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists. Previous default = False.
     :param log_callback: the callback to use to write the log to.  If this is None
@@ -685,7 +667,7 @@ def deploy_jupyter_notebook(
     _warn_on_ignored_manifest(base_dir)
     _warn_if_no_requirements_file(base_dir)
     _warn_if_environment_directory(base_dir)
-    python, environment = get_python_env_info(file_name, python, conda_mode, force_generate)
+    python, environment = get_python_env_info(file_name, python, force_generate)
 
     if force_generate:
         _warn_on_ignored_requirements(base_dir, environment.filename)
@@ -745,7 +727,6 @@ def deploy_app(
     app_id: str = None,
     title: str = None,
     python: str = None,
-    conda_mode: bool = False,
     force_generate: bool = False,
     verbose: bool = None,
     directory: str = None,
@@ -789,7 +770,6 @@ def deploy_app(
         directory,
         force_generate,
         python,
-        conda_mode,
     )
 
     ce = RSConnectExecutor(**kwargs)
@@ -824,7 +804,6 @@ def deploy_python_api(
     app_id: int,
     title: str,
     python: str,
-    conda_mode: bool,
     force_generate: bool,
     log_callback: typing.Callable,
     image: str = None,
@@ -845,8 +824,6 @@ def deploy_python_api(
     :param title: an optional title for the deploy.  If this is not provided, one will
     be generated. Previous default = None.
     :param python: the optional name of a Python executable. Previous default = None.
-    :param conda_mode: use conda to build an environment.yml instead of conda, when
-    conda is not supported on Posit Connect (version<=1.8.0). Previous default = False.
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists. Previous default = False.
     :param log_callback: the callback to use to write the log to.  If this is None
@@ -895,8 +872,7 @@ def deploy_python_fastapi(
         :param title: an optional title for the deploy.  If this is not provided, one will
         be generated. Previous default = None.
         :param python: the optional name of a Python executable. Previous default = None.
-        :param conda_mode: use conda to build an environment.yml instead of conda, when
-        conda is not supported on Posit Connect (version<=1.8.0). Previous default = False.
+        :param conda_mode: depricated parameter, included for compatibility. Ignored.
         :param force_generate: force generating "requirements.txt" or "environment.yml",
         even if it already exists. Previous default = False.
         :param log_callback: the callback to use to write the log to.  If this is None
@@ -924,7 +900,6 @@ def deploy_python_shiny(
     app_id=None,
     title=None,
     python=None,
-    conda_mode=False,
     force_generate=False,
     log_callback=None,
 ):
@@ -942,8 +917,6 @@ def deploy_python_shiny(
         :param title: an optional title for the deploy.  If this is not provided, ne will
         be generated.
         :param python: the optional name of a Python executable.
-        :param conda_mode: use conda to build an environment.yml
-        instead of conda, when conda is not supported on Posit Connect (version<=1.8.0).
         :param force_generate: force generating "requirements.txt" or "environment.yml",
         even if it already exists.
         :param log_callback: the callback to use to write the log to.  If this is None
@@ -966,7 +939,6 @@ def deploy_dash_app(
     app_id: int,
     title: str,
     python: str,
-    conda_mode: bool,
     force_generate: bool,
     log_callback: typing.Callable,
     image: str = None,
@@ -987,8 +959,6 @@ def deploy_dash_app(
     :param title: an optional title for the deploy.  If this is not provided, one will
     be generated. Previous default = None.
     :param python: the optional name of a Python executable. Previous default = None.
-    :param conda_mode: use conda to build an environment.yml instead of conda, when
-    conda is not supported on Posit Connect (version<=1.8.0). Previous default = False.
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists. Previous default = False.
     :param log_callback: the callback to use to write the log to.  If this is None
@@ -1016,7 +986,6 @@ def deploy_streamlit_app(
     app_id: int,
     title: str,
     python: str,
-    conda_mode: bool,
     force_generate: bool,
     log_callback: typing.Callable,
     image: str = None,
@@ -1037,8 +1006,6 @@ def deploy_streamlit_app(
     :param title: an optional title for the deploy.  If this is not provided, one will
     be generated. Previous default = None.
     :param python: the optional name of a Python executable. Previous default = None.
-    :param conda_mode: use conda to build an environment.yml instead of conda, when
-    conda is not supported on Posit Connect (version<=1.8.0). Previous default = False.
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists. Previous default = False.
     :param log_callback: the callback to use to write the log to.  If this is None
@@ -1066,7 +1033,6 @@ def deploy_bokeh_app(
     app_id: int,
     title: str,
     python: str,
-    conda_mode: bool,
     force_generate: bool,
     log_callback: typing.Callable,
     image: str = None,
@@ -1087,8 +1053,6 @@ def deploy_bokeh_app(
     :param title: an optional title for the deploy.  If this is not provided, one will
     be generated. Previous default = None.
     :param python: the optional name of a Python executable. Previous default = None.
-    :param conda_mode: use conda to build an environment.yml instead of conda, when
-    conda is not supported on Posit Connect (version<=1.8.0). Previous default = False.
     :param force_generate: force generating "requirements.txt" or "environment.yml",
     even if it already exists. Previous default = False.
     :param log_callback: the callback to use to write the log to.  If this is None
@@ -1282,8 +1246,9 @@ def create_api_deployment_bundle(
     if app_mode is None:
         app_mode = AppModes.PYTHON_API
 
-    return make_api_bundle(directory, entry_point, app_mode, environment, extra_files, excludes,
-                           image, env_management_py, env_management_r)
+    return make_api_bundle(
+        directory, entry_point, app_mode, environment, extra_files, excludes, image, env_management_py, env_management_r
+    )
 
 
 def create_quarto_deployment_bundle(
@@ -1320,8 +1285,17 @@ def create_quarto_deployment_bundle(
     if app_mode is None:
         app_mode = AppModes.STATIC_QUARTO
 
-    return make_quarto_source_bundle(file_or_directory, inspect, app_mode, environment, extra_files, excludes,
-                                     image, env_management_py, env_management_r)
+    return make_quarto_source_bundle(
+        file_or_directory,
+        inspect,
+        app_mode,
+        environment,
+        extra_files,
+        excludes,
+        image,
+        env_management_py,
+        env_management_r,
+    )
 
 
 def deploy_bundle(
@@ -1429,8 +1403,15 @@ def create_notebook_manifest_and_environment_file(
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     if (
         not write_notebook_manifest_json(
-            entry_point_file, environment, app_mode, extra_files, hide_all_input, hide_tagged_input,
-            image, env_management_py, env_management_r,
+            entry_point_file,
+            environment,
+            app_mode,
+            extra_files,
+            hide_all_input,
+            hide_tagged_input,
+            image,
+            env_management_py,
+            env_management_r,
         )
         or force
     ):
@@ -1483,8 +1464,9 @@ def write_notebook_manifest_json(
         if app_mode == AppModes.UNKNOWN:
             raise RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
 
-    manifest_data = make_source_manifest(app_mode, environment, file_name, None,
-                                         image, env_management_py, env_management_r)
+    manifest_data = make_source_manifest(
+        app_mode, environment, file_name, None, image, env_management_py, env_management_r
+    )
     manifest_add_file(manifest_data, file_name, directory)
     manifest_add_buffer(manifest_data, environment.filename, environment.contents)
 
@@ -1531,8 +1513,17 @@ def create_api_manifest_and_environment_file(
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     if (
-        not write_api_manifest_json(directory, entry_point, environment, app_mode, extra_files, excludes,
-                                    image, env_management_py, env_management_r)
+        not write_api_manifest_json(
+            directory,
+            entry_point,
+            environment,
+            app_mode,
+            extra_files,
+            excludes,
+            image,
+            env_management_py,
+            env_management_r,
+        )
         or force
     ):
         write_environment_file(environment, directory)
@@ -1571,8 +1562,9 @@ def write_api_manifest_json(
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     extra_files = validate_extra_files(directory, extra_files)
-    manifest, _ = make_api_manifest(directory, entry_point, app_mode, environment, extra_files, excludes,
-                                    image, env_management_py, env_management_r)
+    manifest, _ = make_api_manifest(
+        directory, entry_point, app_mode, environment, extra_files, excludes, image, env_management_py, env_management_r
+    )
     manifest_path = join(directory, "manifest.json")
 
     write_manifest_json(manifest_path, manifest)

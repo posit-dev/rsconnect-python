@@ -267,7 +267,7 @@ class TestMain:
             "--title",
             "myApp",
             "--visibility",
-            "private"
+            "private",
         ]
         try:
             result = runner.invoke(cli, args)
@@ -442,7 +442,6 @@ class TestMain:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
-
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     @pytest.mark.parametrize(
@@ -624,7 +623,7 @@ class TestMain:
             "--title",
             "myApp",
             "--visibility",
-            "public"
+            "public",
         ]
         try:
             result = runner.invoke(cli, args)
@@ -640,7 +639,6 @@ class TestMain:
     @httpretty.activate(verbose=True, allow_net_connect=False)
     @pytest.mark.parametrize(
         "command,arg",
-
         [
             [
                 "manifest",
@@ -657,7 +655,7 @@ class TestMain:
         """
         Verify that an app with app_mode as static can deploy to cloud.
         """
-        shutil.rmtree(os.path.join(arg, 'rsconnect-python'), ignore_errors=True)
+        shutil.rmtree(os.path.join(arg, "rsconnect-python"), ignore_errors=True)
 
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
@@ -912,18 +910,17 @@ class TestMain:
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
-
     def test_env_management_callback(self):
         ctx = click.Context(cli)
 
         # env_management is always False when --disable-env-management is True
-        ctx.params = {'disable_env_management': True}
+        ctx.params = {"disable_env_management": True}
         assert env_management_callback(ctx, None, None) is False
         assert env_management_callback(ctx, None, True) is False
         assert env_management_callback(ctx, None, False) is False
 
         # (env_management == not value) when --disable-env-management is None
-        ctx.params = {'disable_env_management': None}
+        ctx.params = {"disable_env_management": None}
         assert env_management_callback(ctx, None, None) is None
         assert env_management_callback(ctx, None, True) is False
         assert env_management_callback(ctx, None, False) is True
