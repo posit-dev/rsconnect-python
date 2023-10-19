@@ -36,7 +36,7 @@ jobs:
     - run: pip freeze
     - run: make fmt
     - run: make lint
-    - run: python setup.py --version
+    - run: rsconnect version
     - run: make test-${{ matrix.python-version }}
     - if: github.event_name == 'pull_request' && matrix.python-version == '3.8'
       uses: orgoro/coverage@v3
@@ -58,7 +58,7 @@ jobs:
     - run: pip freeze
     - run: make fmt
     - run: make lint
-    - run: python setup.py --version
+    - run: rsconnect version
     - run: make mock-test-3.8
 
   distributions:
