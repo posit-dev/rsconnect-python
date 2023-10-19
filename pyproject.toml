@@ -20,6 +20,9 @@ dynamic = ["version"]
 [project.scripts]
 rsconnect = "rsconnect.main:cli"
 
+[project.optional-dependencies]
+test = ["httpretty", "nbconvert", "ipykernel"]
+
 [project.urls]
 Repository = "http://github.com/rstudio/rsconnect-python"
 Documentation = "https://docs.posit.co/rsconnect-python"

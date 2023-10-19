@@ -32,6 +32,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - run: pip install -r requirements.txt
+    - run: pip install '.[test]'
     - run: pip freeze
     - run: make fmt
     - run: make lint
@@ -53,6 +54,7 @@ jobs:
       with:
         python-version: 3.8.x
     - run: pip install --pre -r requirements.txt
+    - run: pip install '.[test]'
     - run: pip freeze
     - run: make fmt
     - run: make lint
@@ -172,6 +174,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip install -r vetiver-testing/vetiver-requirements.txt
+          python -m pip install '.[test]'
       - name: Run RStudio Connect
         run: |
           docker-compose up --build -d
