@@ -21,7 +21,24 @@ dynamic = ["version"]
 rsconnect = "rsconnect.main:cli"
 
 [project.optional-dependencies]
-test = ["httpretty", "nbconvert", "ipykernel"]
+test = [
+    "black==22.3.0",
+    "coverage",
+    "flake8-pyproject",
+    "flake8",
+    "httpretty",
+    "ipykernel",
+    "mypy",
+    "nbconvert",
+    "pytest-cov",
+    "pytest-mypy",
+    "pytest",
+    "setuptools_scm[toml]",
+    "twine",
+    "types-click",
+    "types-Flask",
+    "types-six",
+]
 
 [project.urls]
 Repository = "http://github.com/rstudio/rsconnect-python"
