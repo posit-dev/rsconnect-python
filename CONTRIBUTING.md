@@ -22,11 +22,9 @@ cd rsconnect-python
 python3 -m venv .venv
 # Activate the virtual environment
 source .venv/bin/activate
-# install our requirements into the virtual environment
-pip install -r requirements.txt
-# install rsconnect-python with a symbolic link to the locations repository,
-# meaning any changes to code in there will automatically be reflected
-# also install test dependencies
+# Install rsconnect-python with a symbolic link to the locations repository,
+# meaning any changes to code in there will automatically be reflected.
+# Also install dev/test dependencies.
 pip install -e '.[test]'
 ```
 

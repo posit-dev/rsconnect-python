@@ -67,13 +67,6 @@ fmt-%:
 	@echo ERROR: This python version cannot run the fmting tools
 	@exit 1
 
-.PHONY: deps-prerelease
-deps-prerelease:
-	pip install --pre -r requirements.txt
-
-deps-%:
-	$(RUNNER) 'pip install --pre -r requirements.txt'
-
 lint-%:
 	$(RUNNER) 'black --check --diff rsconnect/'
 	$(RUNNER) 'flake8 rsconnect/'
@@ -111,10 +104,6 @@ test: test-3.8
 .PHONY: lint
 lint: RUNNER = bash -c
 lint: lint-3.8
-
-.PHONY: deps
-deps: RUNNER = bash -c
-deps: deps-3.8
 
 .PHONY: fmt
 fmt: RUNNER = bash -c
