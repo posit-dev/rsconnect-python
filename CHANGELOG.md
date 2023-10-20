@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the `deploy flask` command.
 - Added the `write-manifest flask` command.
 
+### Changed
+- Removing experimental support for Conda. Connect does not support restoring Conda environments.
+
 ## [1.20.0] - 2023-09-11
 
 ### Fixed

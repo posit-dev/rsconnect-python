@@ -255,7 +255,7 @@ def content_args(func):
 # which is more consistent when writing these values to the manifest.
 def env_management_callback(ctx, param, value) -> typing.Optional[bool]:
     # eval the shorthand flag if it was provided
-    disable_env_management = ctx.params.get('disable_env_management')
+    disable_env_management = ctx.params.get("disable_env_management")
     if disable_env_management is not None:
         value = disable_env_management
 
@@ -605,7 +605,6 @@ def details(name, server, api_key, insecure, cacert, verbose):
     connect_version = server_details["connect"]
     apis_allowed = server_details["python"]["api_enabled"]
     python_versions = server_details["python"]["versions"]
-    conda_details = server_details["conda"]
 
     click.echo("    Posit Connect version: %s" % ("<redacted>" if len(connect_version) == 0 else connect_version))
 
@@ -617,9 +616,6 @@ def details(name, server, api_key, insecure, cacert, verbose):
             click.echo("        %s" % python_version)
 
     click.echo("    APIs: %sallowed" % ("" if apis_allowed else "not "))
-
-    if future_enabled:
-        click.echo("    Conda: %ssupported" % ("" if conda_details["supported"] else "not "))
 
 
 @cli.command(
@@ -768,21 +764,6 @@ def _warn_if_environment_directory(directory):
         )
 
 
-def _warn_on_ignored_conda_env(environment):
-    """
-    Checks for a discovered Conda environment and produces a warning that it will be ignored when
-    Conda was not requested.  The warning is only shown if we're in "future" mode since we don't
-    yet want to advertise Conda support.
-
-    :param environment: The Python environment that was discovered.
-    """
-    if future_enabled and environment.package_manager != "conda" and environment.conda is not None:
-        click.echo(
-            "    Using %s for package management; the current Conda environment will be ignored."
-            % environment.package_manager
-        )
-
-
 def _warn_on_ignored_requirements(directory, requirements_file_name):
     """
     Checks for the existence of a file called manifest.json in the given directory.
@@ -832,13 +813,6 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
     ),
 )
 @click.option(
-    "--conda",
-    "-C",
-    is_flag=True,
-    hidden=True,
-    help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
-)
-@click.option(
     "--force-generate",
     "-g",
     is_flag=True,
@@ -866,7 +840,6 @@ def deploy_notebook(
     app_id: str,
     title: str,
     python,
-    conda,
     force_generate,
     verbose: int,
     file: str,
@@ -889,7 +862,7 @@ def deploy_notebook(
     _warn_on_ignored_manifest(base_dir)
     _warn_if_no_requirements_file(base_dir)
     _warn_if_environment_directory(base_dir)
-    python, environment = get_python_env_info(file, python, conda, force_generate)
+    python, environment = get_python_env_info(file, python, force_generate)
 
     if force_generate:
         _warn_on_ignored_requirements(base_dir, environment.filename)
@@ -1083,11 +1056,11 @@ def deploy_manifest(
     name="quarto",
     short_help="Deploy Quarto content to Posit Connect [v2021.08.0+] or Posit Cloud.",
     help=(
-        'Deploy a Quarto document or project to Posit Connect or Posit Cloud. Should the content use the Quarto '
+        "Deploy a Quarto document or project to Posit Connect or Posit Cloud. Should the content use the Quarto "
         'Jupyter engine, an environment file ("requirements.txt") is created and included in the deployment if one '
-        'does not already exist. Requires Posit Connect 2021.08.0 or later.'
-        '\n\n'
-        'FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project.'
+        "does not already exist. Requires Posit Connect 2021.08.0 or later."
+        "\n\n"
+        "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
     ),
     no_args_is_help=True,
 )
@@ -1178,9 +1151,7 @@ def deploy_quarto(
         _warn_if_environment_directory(base_dir)
 
         with cli_feedback("Inspecting Python environment"):
-            python, environment = get_python_env_info(module_file, python, False, force_generate)
-
-            _warn_on_ignored_conda_env(environment)
+            python, environment = get_python_env_info(module_file, python, force_generate)
 
             if force_generate:
                 _warn_on_ignored_requirements(base_dir, environment.filename)
@@ -1334,13 +1305,6 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         ),
     )
     @click.option(
-        "--conda",
-        "-C",
-        is_flag=True,
-        hidden=True,
-        help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
-    )
-    @click.option(
         "--force-generate",
         "-g",
         is_flag=True,
@@ -1366,7 +1330,6 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         app_id: str,
         title: str,
         python,
-        conda,
         force_generate: bool,
         verbose: int,
         directory,
@@ -1389,7 +1352,6 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             directory,
             force_generate,
             python,
-            conda,
         )
 
         ce = RSConnectExecutor(**kwargs)
@@ -1476,13 +1438,6 @@ def write_manifest():
     + "The Python environment must have the rsconnect package installed.",
 )
 @click.option(
-    "--conda",
-    "-C",
-    is_flag=True,
-    hidden=True,
-    help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
-)
-@click.option(
     "--force-generate",
     "-g",
     is_flag=True,
@@ -1501,7 +1456,6 @@ def write_manifest():
 def write_manifest_notebook(
     overwrite,
     python,
-    conda,
     force_generate,
     verbose,
     file,
@@ -1524,9 +1478,7 @@ def write_manifest_notebook(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
-        python, environment = get_python_env_info(file, python, conda, force_generate)
-
-    _warn_on_ignored_conda_env(environment)
+        python, environment = get_python_env_info(file, python, force_generate)
 
     with cli_feedback("Creating manifest.json"):
         environment_file_exists = write_notebook_manifest_json(
@@ -1623,9 +1575,7 @@ def write_manifest_voila(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
-        python, environment = get_python_env_info(path, python, False, force_generate)
-
-    _warn_on_ignored_conda_env(environment)
+        python, environment = get_python_env_info(path, python, force_generate)
 
     environment_file_exists = exists(join(base_dir, environment.filename))
 
@@ -1742,7 +1692,6 @@ def write_manifest_quarto(
         with cli_feedback("Inspecting Python environment"):
             python, environment = get_python_env_info(base_dir, python, False, force_generate)
 
-        _warn_on_ignored_conda_env(environment)
         environment_file_exists = exists(join(base_dir, environment.filename))
         if environment_file_exists and not force_generate:
             click.secho(
@@ -1807,13 +1756,6 @@ def generate_write_manifest_python(app_mode, alias, desc: Optional[str] = None):
         + "The Python environment must have the rsconnect-python package installed.",
     )
     @click.option(
-        "--conda",
-        "-C",
-        is_flag=True,
-        hidden=True,
-        help="Use Conda to deploy (requires Connect version 1.8.2 or later)",
-    )
-    @click.option(
         "--force-generate",
         "-g",
         is_flag=True,
@@ -1832,7 +1774,6 @@ def generate_write_manifest_python(app_mode, alias, desc: Optional[str] = None):
         entrypoint,
         exclude,
         python,
-        conda,
         force_generate,
         verbose,
         directory,
@@ -1847,7 +1788,6 @@ def generate_write_manifest_python(app_mode, alias, desc: Optional[str] = None):
             entrypoint,
             exclude,
             python,
-            conda,
             force_generate,
             verbose,
             directory,
@@ -1876,7 +1816,6 @@ def _write_framework_manifest(
     entrypoint,
     exclude,
     python,
-    conda,
     force_generate,
     verbose,
     directory,
@@ -1894,7 +1833,6 @@ def _write_framework_manifest(
     :param exclude: a sequence of exclude glob patterns to exclude files from
                     the deploy.
     :param python: a path to the Python executable to use.
-    :param conda: a flag to note whether Conda should be used/assumed..
     :param force_generate: a flag to force the generation of manifest and
                            requirements file.
     :param verbose: a flag to produce more (debugging) output.
@@ -1917,9 +1855,7 @@ def _write_framework_manifest(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
-        _, environment = get_python_env_info(directory, python, conda, force_generate)
-
-    _warn_on_ignored_conda_env(environment)
+        _, environment = get_python_env_info(directory, python, force_generate)
 
     with cli_feedback("Creating manifest.json"):
         environment_file_exists = write_api_manifest_json(
