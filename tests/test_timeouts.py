@@ -32,6 +32,7 @@ class GetRequestTimeoutTestCase(TestCase):
             with self.assertRaises(RSConnectException):
                 get_request_timeout()
 
+
 class GetTaskTimeoutTestCase(TestCase):
     def test_get_default_timeout(self):
         timeout = get_task_timeout()
@@ -57,10 +58,13 @@ class GetTaskTimeoutTestCase(TestCase):
             with self.assertRaises(RSConnectException):
                 get_task_timeout()
 
+
 class GetTaskTimeoutHelpMessageTestCase(TestCase):
     def test_get_task_timeout_help_message(self):
         res = get_task_timeout_help_message(1)
         self.assertTrue("The task timed out after 1 seconds." in res)
-        self.assertTrue("You may try increasing the task timeout value using the CONNECT_TASK_TIMEOUT environment variable." in res)  # noqa: E501
+        self.assertTrue(
+            "You may try increasing the task timeout value using the CONNECT_TASK_TIMEOUT environment variable." in res
+        )  # noqa: E501
         self.assertTrue("The default value is 86400 seconds." in res)
         self.assertTrue("The current value is 86400 seconds." in res)

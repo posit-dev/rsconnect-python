@@ -9,14 +9,14 @@ build:
 	ADMIN_API_KEY=${ADMIN_API_KEY} \
 	docker compose build
 
-up: 
+up:
 	docker compose pull connect && \
 	docker compose up -d client && docker compose up -d connect
 
 up-cypress:
 	docker compose up --exit-code-from cypress
 
-# use this target if you want to run Cypress 
+# use this target if you want to run Cypress
 # without shutting down all containers after each run
 up-cypress-local:
 	docker compose up cypress
@@ -27,11 +27,11 @@ run-client:
 			just setup-client
 
 setup-client:
+	#!/bin/bash
 	python -m venv ./client-python/ && \
 	. ./client-python/bin/activate && \
 	cd ../ && \
-	make deps dist && \
-	pip install ./dist/rsconnect_python-*.whl && \
+	pip install . && \
 	jupyter-nbextension enable --sys-prefix --py rsconnect_jupyter && \
 	jupyter-serverextension enable --sys-prefix --py rsconnect_jupyter && \
 	jupyter-notebook \

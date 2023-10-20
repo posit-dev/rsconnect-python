@@ -80,14 +80,8 @@ def update():
     selected_countries = countries_selector.value
     countries = [name for name, _ in grouped if name in selected_countries]
     years = [list(df["Year"]) for name, df in grouped if name in selected_countries]
-    percents = [
-        list(df["Percent"]) for name, df in grouped if name in selected_countries
-    ]
-    span = [
-        "%s - %s" % (df["Year"].min(), df["Year"].max())
-        for name, df in grouped
-        if name in selected_countries
-    ]
+    percents = [list(df["Percent"]) for name, df in grouped if name in selected_countries]
+    span = ["%s - %s" % (df["Year"].min(), df["Year"].max()) for name, df in grouped if name in selected_countries]
     mean = [df["Percent"].mean() for name, df in grouped if name in selected_countries]
     color = [colors[name] for name, df in grouped if name in selected_countries]
     source.data = dict(

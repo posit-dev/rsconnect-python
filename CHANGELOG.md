@@ -3,6 +3,36 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## Unreleased
+
+### Fixed
+- The `https_proxy` environment variable is recognized as a synonym for
+  `HTTPS_PROXY`.
+- When adding a new server, the initial request now includes an
+  Authorization header containing the API key. This is needed
+  for Connect installations behind a proxy that only passes
+  authenticated requests.
+- Common environment directories (`env, venv, .env, .venv`) are no longer
+  excluded by name. Environments are detected by the presence of a python
+  executable in `bin` or `Scripts` and excluded.
+
+### Added
+- Added support for the `no_proxy` or `NO_PROXY` environment variables to specify
+  hosts that should not be accessed via proxy server. It's a comma-separated list
+  of host or domain suffixes. For example, specifying `example.com` will
+  bypass the proxy for example.com, host.example.com, etc.
+- If an entrypoint is not specified with `--entrypoint`, rsconnect-python will try
+  harder than before to choose an entrypoint file. In addition to the previously
+  recognized filename patterns, the file patterns `app-*.py`, `app_*.py`, `*-app.py`,
+  and `*_app.py` are now considered. However, if the directory contains more than
+  one file matching these new patterns, you must provide rsconnect-python with an
+  explicit `--entrypoint` argument.
+- Added a new verbose logging level. Specifying `-v` on the command line uses this
+  new level. Currently this will cause filenames to be logged as they are added to
+  a bundle. To enable maximum verbosity (debug level), use `-vv`.
+
+### Changed
+- Removing experimental support for Conda. Connect does not support restoring Conda environments.
 
 ## [1.20.0] - 2023-09-11
 
