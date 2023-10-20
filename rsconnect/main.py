@@ -1418,7 +1418,8 @@ def deploy_help():
     "--branch",
     "-b",
     default="main",
-    help="Name of the branch to deploy. Connect will automatically deploy updates when commits are pushed to the branch.",
+    help=("Name of the branch to deploy. Connect will automatically " +
+          "deploy updates when commits are pushed to the branch."),
 )
 @click.option(
     "--subdirectory",
