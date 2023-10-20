@@ -30,7 +30,7 @@
 }
 
 .md-tabs__item {
-  height: 1.75rem !important;
+  height: unset;
 }
 
 /* Search bar
@@ -226,6 +226,7 @@
     margin: 1em 0;
     padding: 0;
 }
+
 
 h2.divider {
     text-align: center;
