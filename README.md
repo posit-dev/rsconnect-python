@@ -42,7 +42,7 @@ You may also build and install a wheel directly from a repository clone:
 git clone https://github.com/rstudio/rsconnect-python.git
 cd rsconnect-python
 pip install pipenv
-make deps dist
+make dist
 pip install ./dist/rsconnect_python-*.whl
 ```
 
@@ -117,7 +117,7 @@ you will need to include the `--cacert` option that points to your certificate
 authority (CA) trusted certificates file. Both of these options can be saved along
 with the URL and API Key for a server.
 
-> **Note** 
+> **Note**
 > When certificate information is saved for the server, the specified file
 > is read and its _contents_ are saved under the server's nickname. If the CA file's
 > contents are ever changed, you will need to add the server information again.
@@ -135,7 +135,7 @@ rsconnect add \
     --name myserver
 ```
 
-> **Note** 
+> **Note**
 > The `rsconnect` CLI will verify that the serve URL and API key
 > are valid. If either is found not to be, no information will be saved.
 
@@ -430,7 +430,7 @@ filename referenced in the manifest.
 
 ### Environment variables
 You can set environment variables during deployment. Their names and values will be
-passed to Posit Connect during deployment so you can use them in your code. Note that 
+passed to Posit Connect during deployment so you can use them in your code. Note that
 if you are using `rsconnect` to deploy to shinyapps.io, environment variable management
 is not supported on that platform.
 
@@ -985,9 +985,9 @@ xargs printf -- '-g %s\n' < guids.txt | xargs rsconnect content build add
 ```
 ## Programmatic Provisioning
 
-Posit Connect supports the programmatic bootstrapping of an administrator API key 
+Posit Connect supports the programmatic bootstrapping of an administrator API key
 for scripted provisioning tasks. This process is supported by the `rsconnect bootstrap` command,
-which uses a JSON Web Token to request an initial API key from a fresh Connect instance. 
+which uses a JSON Web Token to request an initial API key from a fresh Connect instance.
 
 > **Warning**
 > This feature **requires Python version 3.6 or higher**.
@@ -998,7 +998,7 @@ rsconnect bootstrap \
     --jwt-keypath /path/to/secret.key
 ```
 
-A full description on how to use `rsconnect bootstrap` in a provisioning workflow is provided in the Connect administrator guide's 
+A full description on how to use `rsconnect bootstrap` in a provisioning workflow is provided in the Connect administrator guide's
 [programmatic provisioning](https://docs.posit.co/connect/admin/programmatic-provisioning) documentation.
 
 ## Server Administration Tasks
