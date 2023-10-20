@@ -1408,9 +1408,24 @@ def deploy_help():
 )
 @server_args
 @click.option("--app_name", "-a")
-@click.option("--repository", "-r", required=True)
-@click.option("--branch", "-b", default="main")
-@click.option("--subdirectory", "-d", default="/")
+@click.option(
+    "--repository",
+    "-r",
+    required=True,
+    help="Repository URL to deploy, e.g. https://github.com/username/repository. Only https URLs are supported.",
+)
+@click.option(
+    "--branch",
+    "-b",
+    default="main",
+    help="Name of the branch to deploy. Connect will automatically deploy updates when commits are pushed to the branch.",
+)
+@click.option(
+    "--subdirectory",
+    "-d",
+    default="/",
+    help="Directory within the repository to deploy. The directory must contain a manifest.json file.",
+)
 @click.option("--title", "-t", help="Title of the content (default is the same as the filename).")
 @click.option(
     "--environment",
