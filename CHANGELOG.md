@@ -3,6 +3,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## Unreleased
 
 ### Fixed
@@ -26,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   recognized filename patterns, the file patterns `app-*.py`, `app_*.py`, `*-app.py`,
   and `*_app.py` are now considered. However, if the directory contains more than
   one file matching these new patterns, you must provide rsconnect-python with an
-  explicit `--entrypoint` argument.
+  explicit `--entrypoint` argument.\
 - Added a new verbose logging level. Specifying `-v` on the command line uses this
   new level. Currently this will cause filenames to be logged as they are added to
   a bundle. To enable maximum verbosity (debug level), use `-vv`.
@@ -35,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   considered successful if there isn't a 5xx code returned (errors like
   400 Bad Request or 405 Method Not Allowed because not all apps support `GET /`).
   For cases where this is not desired, use the `--no-verify` flag on the command line.
+- Added the `deploy flask` command.
+- Added the `write-manifest flask` command.
 
 ### Changed
 - Removing experimental support for Conda. Connect does not support restoring Conda environments.

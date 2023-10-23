@@ -38,12 +38,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e '.[test]'
+          pip install -r requirements.txt
 
       - uses: snyk/actions/setup@master
-
-      - name: Run Snyk (setup.py)
-        run: snyk monitor --file="setup.py" --package-manager=pip --project-name="setup.py" --org=${{ env.SNYK_ORG }}
 
       - name: Run Snyk (requirements.txt)
         run: snyk monitor --file="requirements.txt" --package-manager=pip --project-name="requirements.txt" --org=${{ env.SNYK_ORG }}
