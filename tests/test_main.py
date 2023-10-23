@@ -810,6 +810,22 @@ class TestMain:
         result = runner.invoke(cli, args)
         assert result.exit_code == 0, result.output
 
+    def test_deploy_api_fail_verify(self):
+        target = optional_target(get_api_path("flask-bad"))
+        runner = CliRunner()
+        args = self.create_deploy_args("api", target)
+        args.extend(["-e", "badapp"])
+        result = runner.invoke(cli, args)
+        assert result.exit_code == 1, result.output
+
+    def test_deploy_api_fail_no_verify(self):
+        target = optional_target(get_api_path("flask-bad"))
+        runner = CliRunner()
+        args = self.create_deploy_args("api", target)
+        args.extend(["--no-verify", "-e", "badapp"])
+        result = runner.invoke(cli, args)
+        assert result.exit_code == 0, result.output
+
     def test_add_connect(self):
         connect_server = require_connect()
         api_key = require_api_key()
@@ -944,7 +960,6 @@ class TestBootstrap(TestCase):
 
     def create_bootstrap_mock_callback(self, status, json_data):
         def request_callback(request, uri, response_headers):
-
             # verify auth header is sent correctly
             authorization = request.headers.get("Authorization")
             auth_split = authorization.split(" ")

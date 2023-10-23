@@ -429,6 +429,14 @@ containing the API or application.
 When using `rsconnect deploy manifest`, the title is derived from the primary
 filename referenced in the manifest.
 
+#### Verification After Deployment
+After deploying your content, rsconnect accesses the deployed content
+to verify that the deployment is live. This is done with a `GET` request
+to the content, without parameters. The request is
+considered successful if there isn't a 5xx code returned. Errors like
+400 Bad Request or 405 Method Not Allowed because not all apps support `GET /`.
+For cases where this is not desired, use the `--no-verify` flag on the command line.
+
 ### Environment variables
 You can set environment variables during deployment. Their names and values will be
 passed to Posit Connect during deployment so you can use them in your code. Note that

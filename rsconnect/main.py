@@ -239,6 +239,11 @@ def content_args(func):
         "or just NAME to use the value from the local environment. "
         "May be specified multiple times. [v1.8.6+]",
     )
+    @click.option(
+        "--no-verify",
+        is_flag=True,
+        help="Don't access the deployed content to verify that it started correctly.",
+    )
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         return func(*args, **kwargs)
@@ -851,6 +856,7 @@ def deploy_notebook(
     disable_env_management: bool,
     env_management_py: bool,
     env_management_r: bool,
+    no_verify: bool = False,
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -893,6 +899,8 @@ def deploy_notebook(
             env_management_r=env_management_r,
         )
     ce.deploy_bundle().save_deployed_info().emit_task_log()
+    if not no_verify:
+        ce.verify_deployment()
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -971,6 +979,7 @@ def deploy_voila(
     cacert: typing.IO = None,
     connect_server: api.RSConnectServer = None,
     multi_notebook: bool = False,
+    no_verify: bool = False,
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -994,6 +1003,8 @@ def deploy_voila(
         env_management_r=env_management_r,
         multi_notebook=multi_notebook,
     ).deploy_bundle().save_deployed_info().emit_task_log()
+    if not no_verify:
+        ce.verify_deployment()
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -1029,6 +1040,7 @@ def deploy_manifest(
     file: str,
     env_vars: typing.Dict[str, str],
     visibility: typing.Optional[str],
+    no_verify: bool = False,
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -1049,6 +1061,8 @@ def deploy_manifest(
         .save_deployed_info()
         .emit_task_log()
     )
+    if not no_verify:
+        ce.verify_deployment()
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -1126,6 +1140,7 @@ def deploy_quarto(
     disable_env_management: bool,
     env_management_py: bool,
     env_management_r: bool,
+    no_verify: bool = False,
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -1176,6 +1191,8 @@ def deploy_quarto(
         .save_deployed_info()
         .emit_task_log()
     )
+    if not no_verify:
+        ce.verify_deployment()
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -1229,6 +1246,7 @@ def deploy_html(
     account: str = None,
     token: str = None,
     secret: str = None,
+    no_verify: bool = False,
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -1254,6 +1272,8 @@ def deploy_html(
         .save_deployed_info()
         .emit_task_log()
     )
+    if not no_verify:
+        ce.verify_deployment()
 
 
 def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc: Optional[str] = None):
@@ -1343,6 +1363,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         account: str = None,
         token: str = None,
         secret: str = None,
+        no_verify: bool = False,
     ):
         set_verbosity(verbose)
         kwargs = locals()
@@ -1374,6 +1395,8 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             .save_deployed_info()
             .emit_task_log()
         )
+        if not no_verify:
+            ce.verify_deployment()
 
     return deploy_app
 

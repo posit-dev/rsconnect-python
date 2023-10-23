@@ -32,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a new verbose logging level. Specifying `-v` on the command line uses this
   new level. Currently this will cause filenames to be logged as they are added to
   a bundle. To enable maximum verbosity (debug level), use `-vv`.
+- Added a verification step to the deployment process that accesses the deployed content.
+  This is a `GET` request to the content without parameters. The request is
+  considered successful if there isn't a 5xx code returned (errors like
+  400 Bad Request or 405 Method Not Allowed because not all apps support `GET /`).
+  For cases where this is not desired, use the `--no-verify` flag on the command line.
 - Added the `deploy flask` command.
 - Added the `write-manifest flask` command.
 
