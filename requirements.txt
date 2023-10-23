@@ -1,26 +1,34 @@
-black==22.3.0
+# This file is just for Snyk scanning,
+# because it doesn't understand pyproject.toml
+# unless it uses Poetry.
+# https://github.com/snyk/snyk-python-plugin/issues/147
+
+# build-system.requires
+setuptools>=61
+setuptools_scm[toml]>=3.4
+wheel
+
+# project.dependencies
+six>=1.14.0
 click>=7.0.0
+pip>=10.0.0
+semver>=2.0.0,<3.0.0
+pyjwt>=2.4.0
+black==22.3.0
+
+# project.optional-dependencies.test
 coverage
+flake8-pyproject
 flake8
-funcsigs
-httpretty==1.1.4
-importlib-metadata
+httpretty
 ipykernel
-ipython
-jupyter_client
 mypy
 nbconvert
-pyjwt>=2.4.0
-pytest
 pytest-cov
 pytest-mypy
-semver>=2.0.0,<3.0.0
-setuptools>=61
-setuptools_scm
-six>=1.14.0
-toml
+pytest
+setuptools_scm[toml]
 twine
-wheel
-types-six
 types-click
 types-Flask
+types-six

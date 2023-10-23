@@ -8,6 +8,7 @@ import textwrap
 import click
 from os.path import abspath, dirname, exists, isdir, join
 from functools import wraps
+from typing import Optional
 
 from rsconnect.certificates import read_certificate_file
 
@@ -65,6 +66,7 @@ from .bundle import (
 from .log import logger, LogOutputFormat
 from .metadata import ServerStore, AppStore
 from .models import (
+    AppMode,
     AppModes,
     BuildStatus,
     ContentGuidWithBundleParamType,
@@ -1254,18 +1256,22 @@ def deploy_html(
     )
 
 
-def generate_deploy_python(app_mode, alias, min_version):
+def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc: Optional[str] = None):
+
+    if desc is None:
+        desc = app_mode.desc()
+
     # noinspection SpellCheckingInspection
     @deploy.command(
         name=alias,
         short_help="Deploy a {desc} to Posit Connect [v{version}+], Posit Cloud, or shinyapps.io.".format(
-            desc=app_mode.desc(),
+            desc=desc,
             version=min_version,
         ),
         help=(
             "Deploy a {desc} module to Posit Connect, Posit Cloud, or shinyapps.io (if supported by the platform). "
             'The "directory" argument must refer to an existing directory that contains the application code.'
-        ).format(desc=app_mode.desc()),
+        ).format(desc=desc),
         no_args_is_help=True,
     )
     @server_args
@@ -1277,7 +1283,7 @@ def generate_deploy_python(app_mode, alias, min_version):
         "-e",
         help=(
             "The module and executable object which serves as the entry point for the {desc} (defaults to app)"
-        ).format(desc=app_mode.desc()),
+        ).format(desc=desc),
     )
     @click.option(
         "--exclude",
@@ -1372,14 +1378,13 @@ def generate_deploy_python(app_mode, alias, min_version):
     return deploy_app
 
 
-deploy_api = generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="api", min_version="1.8.2")
-# TODO: set fastapi min_version correctly
-# deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0")
-deploy_fastapi = generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0")
-deploy_dash_app = generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
-deploy_streamlit_app = generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
-deploy_bokeh_app = generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
-deploy_shiny = generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0")
+generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="api", min_version="1.8.2")
+generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="flask", min_version="1.8.2", desc="Flask API")
+generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0")
+generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
+generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
+generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
+generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0")
 
 
 @deploy.command(
@@ -1711,16 +1716,19 @@ def write_manifest_quarto(
         )
 
 
-def generate_write_manifest_python(app_mode, alias):
+def generate_write_manifest_python(app_mode, alias, desc: Optional[str] = None):
+    if desc is None:
+        desc = app_mode.desc()
+
     # noinspection SpellCheckingInspection
     @write_manifest.command(
         name=alias,
-        short_help="Create a manifest.json file for a {desc}.".format(desc=app_mode.desc()),
+        short_help="Create a manifest.json file for a {desc}.".format(desc=desc),
         help=(
             "Create a manifest.json file for a {desc} for later deployment. This will create an "
             'environment file ("requirements.txt") if one does not exist. All files '
             "are created in the same directory as the API code."
-        ).format(desc=app_mode.desc()),
+        ).format(desc=desc),
     )
     @click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
     @click.option(
@@ -1728,7 +1736,7 @@ def generate_write_manifest_python(app_mode, alias):
         "-e",
         help=(
             "The module and executable object which serves as the entry point for the {desc} (defaults to app)"
-        ).format(desc=app_mode.desc()),
+        ).format(desc=desc),
     )
     @click.option(
         "--exclude",
@@ -1793,12 +1801,13 @@ def generate_write_manifest_python(app_mode, alias):
     return manifest_writer
 
 
-write_manifest_api = generate_write_manifest_python(AppModes.PYTHON_API, alias="api")
-write_manifest_fastapi = generate_write_manifest_python(AppModes.PYTHON_FASTAPI, alias="fastapi")
-write_manifest_dash = generate_write_manifest_python(AppModes.DASH_APP, alias="dash")
-write_manifest_streamlit = generate_write_manifest_python(AppModes.STREAMLIT_APP, alias="streamlit")
-write_manifest_bokeh = generate_write_manifest_python(AppModes.BOKEH_APP, alias="bokeh")
-write_manifest_shiny = generate_write_manifest_python(AppModes.PYTHON_SHINY, alias="shiny")
+generate_write_manifest_python(AppModes.BOKEH_APP, alias="bokeh")
+generate_write_manifest_python(AppModes.DASH_APP, alias="dash")
+generate_write_manifest_python(AppModes.PYTHON_API, alias="api")
+generate_write_manifest_python(AppModes.PYTHON_API, alias="flask", desc="Flask API")
+generate_write_manifest_python(AppModes.PYTHON_FASTAPI, alias="fastapi")
+generate_write_manifest_python(AppModes.PYTHON_SHINY, alias="shiny")
+generate_write_manifest_python(AppModes.STREAMLIT_APP, alias="streamlit")
 
 
 # noinspection SpellCheckingInspection

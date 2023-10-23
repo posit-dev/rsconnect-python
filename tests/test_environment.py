@@ -54,7 +54,7 @@ class TestEnvironment(TestCase):
     def test_pip_freeze(self):
         result = detect_environment(get_dir("pip2"))
 
-        # these are the dependencies declared in our setup.py
+        # these are the dependencies declared in our pyproject.toml
         self.assertIn("six", result.contents)
         self.assertIn("click", result.contents.lower())
 
