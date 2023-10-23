@@ -42,7 +42,7 @@ You may also build and install a wheel directly from a repository clone:
 git clone https://github.com/rstudio/rsconnect-python.git
 cd rsconnect-python
 pip install pipenv
-make deps dist
+make dist
 pip install ./dist/rsconnect_python-*.whl
 ```
 

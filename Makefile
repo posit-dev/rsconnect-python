@@ -1,4 +1,4 @@
-VERSION := $(shell python setup.py --version)
+VERSION := $(shell python -m setuptools_scm)
 HOSTNAME := $(shell hostname)
 S3_PREFIX := s3://rstudio-connect-downloads/connect/rsconnect-python
 
@@ -67,13 +67,6 @@ fmt-%:
 	@echo ERROR: This python version cannot run the fmting tools
 	@exit 1
 
-.PHONY: deps-prerelease
-deps-prerelease:
-	pip install --pre -r requirements.txt
-
-deps-%:
-	$(RUNNER) 'pip install --pre -r requirements.txt'
-
 lint-%:
 	$(RUNNER) 'black --check --diff rsconnect/'
 	$(RUNNER) 'flake8 rsconnect/'
@@ -112,10 +105,6 @@ test: test-3.8
 lint: RUNNER = bash -c
 lint: lint-3.8
 
-.PHONY: deps
-deps: RUNNER = bash -c
-deps: deps-3.8
-
 .PHONY: fmt
 fmt: RUNNER = bash -c
 fmt: fmt-3.8
@@ -133,11 +122,15 @@ version:
 # exported as a point of reference instead.
 .PHONY: dist
 dist:
-	python setup.py bdist_wheel
+	pip wheel --no-deps -w dist .
 	twine check $(BDIST_WHEEL)
 	rm -vf dist/*.egg
 	@echo "::set-output name=whl::$(BDIST_WHEEL)"
 	@echo "::set-output name=whl_basename::$(notdir $(BDIST_WHEEL))"
+
+.PHONY: dist-install
+dist-install: dist
+	pip install $(BDIST_WHEEL)
 
 .PHONY: sync-to-s3
 sync-to-s3:
