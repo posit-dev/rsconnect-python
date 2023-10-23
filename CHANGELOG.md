@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Common environment directories (`env, venv, .env, .venv`) are no longer
   excluded by name. Environments are detected by the presence of a python
   executable in `bin` or `Scripts` and excluded.
+- Lines output from `pip freeze` which start with [notice] are filtered out from the generated `requirements.txt`.
 
 ### Added
 - Added support for the `no_proxy` or `NO_PROXY` environment variables to specify

@@ -8,6 +8,7 @@ from rsconnect.environment import (
     detect_environment,
     get_default_locale,
     get_python_version,
+    filter_pip_freeze_output,
 )
 from .utils import get_dir
 
@@ -72,3 +73,24 @@ class TestEnvironment(TestCase):
             source="pip_freeze",
         )
         self.assertEqual(expected, result)
+
+    def test_filter_pip_freeze_output(self):
+        raw_stdout = "numpy\npandas\n[notice] A new release of pip is available: 23.1.2 -> 23.3\n\
+[notice] To update, run: pip install --upgrade pip"
+        filtered = filter_pip_freeze_output(raw_stdout)
+        expected = "numpy\npandas"
+
+        self.assertEqual(filtered, expected)
+
+        raw_stdout = "numpy\npandas"
+        filtered = filter_pip_freeze_output(raw_stdout)
+        expected = "numpy\npandas"
+
+        self.assertEqual(filtered, expected)
+
+        raw_stdout = "numpy\npandas\nnot at beginning [notice]\n\
+[notice] To update, run: pip install --upgrade pip"
+        filtered = filter_pip_freeze_output(raw_stdout)
+        expected = "numpy\npandas\nnot at beginning [notice]"
+
+        self.assertEqual(filtered, expected)
