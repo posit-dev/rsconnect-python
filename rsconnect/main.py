@@ -749,7 +749,7 @@ def _warn_if_no_requirements_file(directory):
     """
     if not exists(join(directory, "requirements.txt")):
         click.secho(
-            "    Warning: Capturing the environment using 'pip freeze'.\n"
+            "    Warning: Capturing the environment using 'pip freeze --disable-pip-version-check'.\n"
             "             Consider creating a requirements.txt file instead.",
             fg="yellow",
         )
