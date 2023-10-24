@@ -39,6 +39,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   For cases where this is not desired, use the `--no-verify` flag on the command line.
 - Added the `deploy flask` command.
 - Added the `write-manifest flask` command.
+- Added the name of the environment variables to the help output for those options that
+  use environment variables as a default value.
+- Added the source of where the option was set within the error messages displayed for
+  when options conflict with each other.
 
 ### Changed
 - Removing experimental support for Conda. Connect does not support restoring Conda environments.
