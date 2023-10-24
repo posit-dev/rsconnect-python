@@ -115,27 +115,30 @@ def server_args(func):
         "--server",
         "-s",
         envvar="CONNECT_SERVER",
-        help="The URL for the Posit Connect server to deploy to.",
+        help="The URL for the Posit Connect server to deploy to. \
+(Also settable via CONNECT_SERVER environment variable.)",
     )
     @click.option(
         "--api-key",
         "-k",
         envvar="CONNECT_API_KEY",
-        help="The API key to use to authenticate with Posit Connect.",
+        help="The API key to use to authenticate with Posit Connect. \
+(Also settable via CONNECT_API_KEY environment variable.)",
     )
     @click.option(
         "--insecure",
         "-i",
         envvar="CONNECT_INSECURE",
         is_flag=True,
-        help="Disable TLS certification/host validation.",
+        help="Disable TLS certification/host validation. (Also settable via CONNECT_INSECURE environment variable.)",
     )
     @click.option(
         "--cacert",
         "-c",
         envvar="CONNECT_CA_CERTIFICATE",
         type=click.Path(exists=True, file_okay=True, dir_okay=False),
-        help="The path to trusted TLS CA certificates.",
+        help="The path to trusted TLS CA certificates. (Also settable via \
+CONNECT_CA_CERTIFICATE environment variable.)",
     )
     @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
     @functools.wraps(func)
@@ -150,19 +153,22 @@ def cloud_shinyapps_args(func):
         "--account",
         "-A",
         envvar=["SHINYAPPS_ACCOUNT"],
-        help="The shinyapps.io/Posit Cloud account name.",
+        help="The shinyapps.io/Posit Cloud account name. (Also settable via \
+SHINYAPPS_ACCOUNT environment variable.)",
     )
     @click.option(
         "--token",
         "-T",
         envvar=["SHINYAPPS_TOKEN", "RSCLOUD_TOKEN"],
-        help="The shinyapps.io/Posit Cloud token.",
+        help="The shinyapps.io/Posit Cloud token. (Also settable via \
+SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment variables.)",
     )
     @click.option(
         "--secret",
         "-S",
         envvar=["SHINYAPPS_SECRET", "RSCLOUD_SECRET"],
-        help="The shinyapps.io/Posit Cloud token secret.",
+        help="The shinyapps.io/Posit Cloud token secret. \
+(Also settable via SHINYAPPS_SECRET or RSCLOUD_SECRET environment variables.)",
     )
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -385,21 +391,21 @@ def _test_rstudio_creds(server: api.PositServer):
     "-s",
     envvar="CONNECT_SERVER",
     required=True,
-    help="The URL for the RStudio Connect server.",
+    help="The URL for the RStudio Connect server. (Also settable via CONNECT_SERVER environment variable.)",
 )
 @click.option(
     "--insecure",
     "-i",
     envvar="CONNECT_INSECURE",
     is_flag=True,
-    help="Disable TLS certification/host validation.",
+    help="Disable TLS certification/host validation. (Also settable via CONNECT_INSECURE environment variable.)",
 )
 @click.option(
     "--cacert",
     "-c",
     envvar="CONNECT_CA_CERTIFICATE",
     type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    help="The path to trusted TLS CA certificates.",
+    help="The path to trusted TLS CA certificates. (Also settable via CONNECT_CA_CERTIFICATE environment variable.)",
 )
 @click.option(
     "--jwt-keypath",
@@ -468,27 +474,30 @@ def bootstrap(
     "--server",
     "-s",
     envvar="CONNECT_SERVER",
-    help="The URL for the Posit Connect server to deploy to, OR rstudio.cloud OR shinyapps.io.",
+    help="The URL for the Posit Connect server to deploy to, OR \
+rstudio.cloud OR shinyapps.io. (Also settable via CONNECT_SERVER \
+environment variable.)",
 )
 @click.option(
     "--api-key",
     "-k",
     envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with Posit Connect.",
+    help="The API key to use to authenticate with Posit Connect. \
+(Also settable via CONNECT_API_KEY environment variable.)",
 )
 @click.option(
     "--insecure",
     "-i",
     envvar="CONNECT_INSECURE",
     is_flag=True,
-    help="Disable TLS certification/host validation.",
+    help="Disable TLS certification/host validation. (Also settable via CONNECT_INSECURE environment variable.)",
 )
 @click.option(
     "--cacert",
     "-c",
     envvar="CONNECT_CA_CERTIFICATE",
     type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    help="The path to trusted TLS CA certificates.",
+    help="The path to trusted TLS CA certificates. (Also settable via CONNECT_CA_CERTIFICATE environment variable.)",
 )
 @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 @cloud_shinyapps_args
@@ -504,6 +513,7 @@ def add(ctx, name, server, api_key, insecure, cacert, account, token, secret, ve
                 click.echo("    {}: {}".format(k, ctx.get_parameter_source(k).name))
 
     validation.validate_connection_options(
+        ctx=ctx,
         url=server,
         api_key=api_key,
         insecure=insecure,
@@ -594,10 +604,19 @@ def list_servers(verbose):
 )
 @server_args
 @cli_exception_handler
-def details(name, server, api_key, insecure, cacert, verbose):
+@click.pass_context
+def details(
+    cli_ctx: click.Context,
+    name: str,
+    server: str,
+    api_key: str,
+    insecure: bool,
+    cacert: str,
+    verbose: int,
+):
     set_verbosity(verbose)
 
-    ce = RSConnectExecutor(name, server, api_key, insecure, cacert).validate_server()
+    ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert).validate_server()
 
     click.echo("    Posit Connect URL: %s" % ce.remote_server.url)
 
@@ -834,12 +853,14 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
 @cli_exception_handler
+@click.pass_context
 def deploy_notebook(
+    cli_ctx: click.Context,
     name: str,
     server: str,
     api_key: str,
     insecure: bool,
-    cacert: typing.IO,
+    cacert: str,
     static: bool,
     new: bool,
     app_id: str,
@@ -956,7 +977,9 @@ def deploy_notebook(
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
 @cli_exception_handler
+@click.pass_context
 def deploy_voila(
+    cli_ctx: click.Context,
     path: str = None,
     entrypoint: str = None,
     python=None,
@@ -1024,12 +1047,14 @@ def deploy_voila(
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @shinyapps_deploy_args
 @cli_exception_handler
+@click.pass_context
 def deploy_manifest(
+    cli_ctx: click.Context,
     name: str,
     server: str,
     api_key: str,
     insecure: bool,
-    cacert: typing.IO,
+    cacert: str,
     account: str,
     token: str,
     secret: str,
@@ -1124,7 +1149,7 @@ def deploy_quarto(
     server: str,
     api_key: str,
     insecure: bool,
-    cacert: typing.IO,
+    cacert: str,
     new: bool,
     app_id: str,
     title: str,
@@ -1227,7 +1252,9 @@ def deploy_quarto(
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
 @cli_exception_handler
+@click.pass_context
 def deploy_html(
+    cli_ctx: click.Context,
     connect_server: api.RSConnectServer = None,
     path: str = None,
     entrypoint: str = None,
@@ -1338,12 +1365,14 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
     )
     @shinyapps_deploy_args
     @cli_exception_handler
+    @click.pass_context
     def deploy_app(
+        cli_ctx: click.Context,
         name: str,
         server: str,
         api_key: str,
         insecure: bool,
-        cacert: typing.IO,
+        cacert: str,
         entrypoint,
         exclude,
         new: bool,
@@ -1958,7 +1987,9 @@ def content():
 )
 # todo: --format option (json, text)
 @cli_exception_handler
+@click.pass_context
 def content_search(
+    cli_ctx: click.Context,
     name,
     server,
     api_key,
@@ -1975,7 +2006,7 @@ def content_search(
 ):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         result = search_content(
             ce.remote_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
         )
@@ -1998,10 +2029,20 @@ def content_search(
     help="The GUID of a content item to describe. This flag can be passed multiple times.",
 )
 # todo: --format option (json, text)
-def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
+@click.pass_context
+def content_describe(
+    cli_ctx: click.Context,
+    name: str,
+    server: str,
+    api_key: str,
+    insecure: bool,
+    cacert: str,
+    guid: str,
+    verbose: int,
+):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         result = get_content(ce.remote_server, guid)
         json.dump(result, sys.stdout, indent=2)
 
@@ -2032,10 +2073,22 @@ def content_describe(name, server, api_key, insecure, cacert, guid, verbose):
     is_flag=True,
     help="Overwrite the output file if it already exists.",
 )
-def content_bundle_download(name, server, api_key, insecure, cacert, guid, output, overwrite, verbose):
+@click.pass_context
+def content_bundle_download(
+    cli_ctx: click.Context,
+    name: str,
+    server: str,
+    api_key: str,
+    insecure: bool,
+    cacert: str,
+    guid: str,
+    output: str,
+    overwrite: bool,
+    verbose: int,
+):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         if exists(output) and not overwrite:
             raise RSConnectException("The output file already exists: %s" % output)
 
@@ -2063,10 +2116,20 @@ def build():
     metavar="GUID[,BUNDLE_ID]",
     help="Add a content item by its guid. This flag can be passed multiple times.",
 )
-def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
+@click.pass_context
+def add_content_build(
+    cli_ctx: click.Context,
+    name: str,
+    server: str,
+    api_key: str,
+    insecure: bool,
+    cacert: str,
+    guid: str,
+    verbose: int,
+):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         build_add_content(ce.remote_server, guid)
         if len(guid) == 1:
             logger.info('Added "%s".' % guid[0])
@@ -2100,10 +2163,22 @@ def add_content_build(name, server, api_key, insecure, cacert, guid, verbose):
     is_flag=True,
     help="Remove build history and log files from the local filesystem.",
 )
-def remove_content_build(name, server, api_key, insecure, cacert, guid, all, purge, verbose):
+@click.pass_context
+def remove_content_build(
+    cli_ctx: click.Context,
+    name: str,
+    server: str,
+    api_key: str,
+    insecure: bool,
+    cacert: str,
+    guid: str,
+    all: bool,
+    purge: bool,
+    verbose: int,
+):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         _validate_build_rm_args(guid, all, purge)
         guids = build_remove_content(ce.remote_server, guid, all, purge)
         if len(guids) == 1:
@@ -2117,7 +2192,11 @@ def remove_content_build(name, server, api_key, insecure, cacert, guid, all, pur
     name="ls", short_help="List the content items that are being tracked for build on a given Connect server."
 )
 @server_args
-@click.option("--status", type=click.Choice(BuildStatus._all), help="Filter results by status of the build operation.")
+@click.option(
+    "--status",
+    type=click.Choice(BuildStatus._all),
+    help="Filter results by status of the build operation.",
+)
 @click.option(
     "--guid",
     "-g",
@@ -2128,10 +2207,21 @@ def remove_content_build(name, server, api_key, insecure, cacert, guid, all, pur
 )
 @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 # todo: --format option (json, text)
-def list_content_build(name, server, api_key, insecure, cacert, status, guid, verbose):
+@click.pass_context
+def list_content_build(
+    cli_ctx: click.Context,
+    name: str,
+    server: str,
+    api_key: str,
+    insecure: bool,
+    cacert: str,
+    status: str,
+    guid: str,
+    verbose: int,
+):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         result = build_list_content(ce.remote_server, guid, status)
         json.dump(result, sys.stdout, indent=2)
 
@@ -2148,10 +2238,20 @@ def list_content_build(name, server, api_key, insecure, cacert, status, guid, ve
     help="The guid of the content item.",
 )
 # todo: --format option (json, text)
-def get_build_history(name, server, api_key, insecure, cacert, guid, verbose):
+@click.pass_context
+def get_build_history(
+    cli_ctx: click.Context,
+    name: str,
+    server: str,
+    api_key: str,
+    insecure: bool,
+    cacert: str,
+    guid: str,
+    verbose: int,
+):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert)
+        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert)
         ce.validate_server()
         result = build_history(ce.remote_server, guid)
         json.dump(result, sys.stdout, indent=2)
@@ -2185,10 +2285,22 @@ def get_build_history(name, server, api_key, insecure, cacert, guid, verbose):
     default=LogOutputFormat.DEFAULT,
     help="The output format of the logs. Defaults to text.",
 )
-def get_build_logs(name, server, api_key, insecure, cacert, guid, task_id, format, verbose):
+@click.pass_context
+def get_build_logs(
+    cli_ctx: click.Context,
+    name: str,
+    server: str,
+    api_key: str,
+    insecure: bool,
+    cacert: str,
+    guid: str,
+    task_id: str,
+    format: str,
+    verbose: int,
+):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         for line in emit_build_log(ce.remote_server, guid, format, task_id):
             sys.stdout.write(line)
 
@@ -2221,14 +2333,32 @@ def get_build_logs(name, server, api_key, insecure, cacert, guid, task_id, forma
     default=LogOutputFormat.DEFAULT,
     help="The output format of the logs. Defaults to text.",
 )
-@click.option("--debug", is_flag=True, help="Log stacktraces from exceptions during background operations.")
+@click.option(
+    "--debug",
+    is_flag=True,
+    help="Log stacktraces from exceptions during background operations.",
+)
+@click.pass_context
 def start_content_build(
-    name, server, api_key, insecure, cacert, parallelism, aborted, error, all, poll_wait, format, debug, verbose
+    cli_ctx: click.Context,
+    name: str,
+    server: str,
+    api_key: str,
+    insecure: bool,
+    cacert: str,
+    parallelism: int,
+    aborted: bool,
+    error: bool,
+    all: bool,
+    poll_wait: float,
+    format: str,
+    debug: bool,
+    verbose: int,
 ):
     set_verbosity(verbose)
     logger.set_log_output_format(format)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         build_start(ce.remote_server, parallelism, aborted, error, all, poll_wait, debug)
 
 
@@ -2251,7 +2381,7 @@ def caches():
 def system_caches_list(name, server, api_key, insecure, cacert, verbose):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(None, name, server, api_key, insecure, cacert, logger=None).validate_server()
         result = ce.runtime_caches
         json.dump(result, sys.stdout, indent=2)
 
@@ -2284,10 +2414,23 @@ def system_caches_list(name, server, api_key, insecure, cacert, verbose):
     is_flag=True,
     help="If true, verify that deletion would occur, but do not delete.",
 )
-def system_caches_delete(name, server, api_key, insecure, cacert, verbose, language, version, image_name, dry_run):
+@click.pass_context
+def system_caches_delete(
+    cli_ctx: click.Context,
+    name: str,
+    server: str,
+    api_key: str,
+    insecure: bool,
+    cacert: str,
+    verbose: int,
+    language: str,
+    version: str,
+    image_name: str,
+    dry_run: bool,
+):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         ce.delete_runtime_cache(language, version, image_name, dry_run)
 
 
