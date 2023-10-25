@@ -14,8 +14,10 @@ def _get_present_options(
         if v:
             parts = k.split("--")
             if ctx and len(parts) == 2:
-                source = ctx.get_parameter_source(parts[1]).name  # type: ignore
-                result.append(f"{k} (from {source})")
+                varName = parts[1].replace("-", "_")
+                source = ctx.get_parameter_source(varName)
+                sourceName = source.name  # type: ignore
+                result.append(f"{k} (from {sourceName})")
             else:
                 result.append(f"{k}")
     return result
