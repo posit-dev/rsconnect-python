@@ -7,7 +7,7 @@ from rsconnect.exception import RSConnectException
 
 def _get_present_options(
     options: typing.Dict[str, typing.Optional[typing.Any]],
-    ctx: click.Context = None,
+    ctx: click.Context,
 ) -> typing.List[str]:
     result: typing.List[str] = []
     for k, v in options.items():
@@ -15,8 +15,8 @@ def _get_present_options(
             parts = k.split("--")
             if ctx and len(parts) == 2:
                 varName = parts[1].replace("-", "_")
-                source = ctx.get_parameter_source(varName)
-                sourceName = source.name  # type: ignore
+                source = ctx.get_parameter_source(varName)  # type: ignore
+                sourceName = source.name
                 result.append(f"{k} (from {sourceName})")
             else:
                 result.append(f"{k}")

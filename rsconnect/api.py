@@ -390,7 +390,7 @@ RSConnect = RSConnectClient
 class RSConnectExecutor:
     def __init__(
         self,
-        cli_ctx: click.Context = None,
+        ctx: click.Context = None,
         name: str = None,
         url: str = None,
         api_key: str = None,
@@ -408,9 +408,9 @@ class RSConnectExecutor:
         self.reset()
         self._d = kwargs
         self.logger = logger
-        self.cli_ctx = cli_ctx
+        self.ctx = ctx
         self.setup_remote_server(
-            ctx=cli_ctx,
+            ctx=ctx,
             name=name,
             url=url or kwargs.get("server"),
             api_key=api_key,
@@ -464,8 +464,8 @@ class RSConnectExecutor:
 
     def output_overlap_details(self, cli_param, previous):
         new_previous = self.output_overlap_header(previous)
-        if self.cli_ctx:
-            source = self.cli_ctx.get_parameter_source(cli_param)
+        if self.ctx:
+            source = self.ctx.get_parameter_source(cli_param)
             self.logger.warning(f"stored {cli_param} value overrides the {cli_param} value from {source.name}")
         return new_previous
 

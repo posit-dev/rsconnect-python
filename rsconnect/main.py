@@ -109,6 +109,27 @@ def cli_exception_handler(func):
     return wrapper
 
 
+def output_params(
+    ctx: click.Context,
+    vars,
+):
+    if click.__version__ >= "8.0.0" and sys.version_info >= (3, 7):
+        click.echo("Detected the following inputs:")
+        for k, v in vars:
+            if k in {"ctx", "verbose"}:
+                continue
+            if v is not None:
+                val = v
+                varName = k.replace("-", "_")
+                if varName in {"api_key"}:
+                    val = "**********"
+                source = ctx.get_parameter_source(varName)
+                if source:
+                    click.echo("    {}:\t{} (from {})".format(k, val, source.name))  # type: ignore
+                else:
+                    click.echo("    {}:\t{}".format(k, val))
+
+
 def server_args(func):
     @click.option("--name", "-n", help="The nickname of the Posit Connect server to deploy to.")
     @click.option(
@@ -504,13 +525,7 @@ environment variable.)",
 @click.pass_context
 def add(ctx, name, server, api_key, insecure, cacert, account, token, secret, verbose):
     set_verbosity(verbose)
-    if click.__version__ >= "8.0.0" and sys.version_info >= (3, 7):
-        click.echo("Detected the following inputs:")
-        for k, v in locals().items():
-            if k in {"ctx", "verbose"}:
-                continue
-            if v is not None:
-                click.echo("    {}: {}".format(k, ctx.get_parameter_source(k).name))
+    output_params(ctx, locals().items())
 
     validation.validate_connection_options(
         ctx=ctx,
@@ -606,7 +621,7 @@ def list_servers(verbose):
 @cli_exception_handler
 @click.pass_context
 def details(
-    cli_ctx: click.Context,
+    ctx: click.Context,
     name: str,
     server: str,
     api_key: str,
@@ -616,7 +631,7 @@ def details(
 ):
     set_verbosity(verbose)
 
-    ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert).validate_server()
+    ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert).validate_server()
 
     click.echo("    Posit Connect URL: %s" % ce.remote_server.url)
 
@@ -653,8 +668,10 @@ def details(
 @click.option("--name", "-n", help="The nickname of the Posit Connect server to remove.")
 @click.option("--server", "-s", help="The URL of the Posit Connect server to remove.")
 @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
-def remove(name, server, verbose):
+@click.pass_context
+def remove(ctx, name, server, verbose):
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
 
     message = None
 
@@ -855,7 +872,7 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
 @cli_exception_handler
 @click.pass_context
 def deploy_notebook(
-    cli_ctx: click.Context,
+    ctx: click.Context,
     name: str,
     server: str,
     api_key: str,
@@ -881,6 +898,7 @@ def deploy_notebook(
 ):
     kwargs = locals()
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
 
     kwargs["extra_files"] = extra_files = validate_extra_files(dirname(file), extra_files)
     app_mode = AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC
@@ -979,7 +997,7 @@ def deploy_notebook(
 @cli_exception_handler
 @click.pass_context
 def deploy_voila(
-    cli_ctx: click.Context,
+    ctx: click.Context,
     path: str = None,
     entrypoint: str = None,
     python=None,
@@ -1006,6 +1024,7 @@ def deploy_voila(
 ):
     kwargs = locals()
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
     app_mode = AppModes.JUPYTER_VOILA
     environment = create_python_environment(
         path if isdir(path) else dirname(path),
@@ -1049,7 +1068,7 @@ def deploy_voila(
 @cli_exception_handler
 @click.pass_context
 def deploy_manifest(
-    cli_ctx: click.Context,
+    ctx: click.Context,
     name: str,
     server: str,
     api_key: str,
@@ -1069,6 +1088,7 @@ def deploy_manifest(
 ):
     kwargs = locals()
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
 
     file_name = kwargs["file"] = validate_manifest_file(file)
     app_mode = read_manifest_app_mode(file_name)
@@ -1144,7 +1164,9 @@ def deploy_manifest(
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
 @cli_exception_handler
+@click.pass_context
 def deploy_quarto(
+    ctx: click.Context,
     name: str,
     server: str,
     api_key: str,
@@ -1169,6 +1191,7 @@ def deploy_quarto(
 ):
     kwargs = locals()
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
 
     base_dir = file_or_directory
     if not isdir(file_or_directory):
@@ -1254,7 +1277,7 @@ def deploy_quarto(
 @cli_exception_handler
 @click.pass_context
 def deploy_html(
-    cli_ctx: click.Context,
+    ctx: click.Context,
     connect_server: api.RSConnectServer = None,
     path: str = None,
     entrypoint: str = None,
@@ -1277,6 +1300,7 @@ def deploy_html(
 ):
     kwargs = locals()
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
 
     ce = None
     if connect_server:
@@ -1367,7 +1391,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
     @cli_exception_handler
     @click.pass_context
     def deploy_app(
-        cli_ctx: click.Context,
+        ctx: click.Context,
         name: str,
         server: str,
         api_key: str,
@@ -1395,6 +1419,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         no_verify: bool = False,
     ):
         set_verbosity(verbose)
+        output_params(ctx, locals().items())
         kwargs = locals()
         kwargs["entrypoint"] = entrypoint = validate_entry_point(entrypoint, directory)
         kwargs["extra_files"] = extra_files = validate_extra_files(directory, extra_files)
@@ -1505,7 +1530,9 @@ def write_manifest():
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
 @runtime_environment_args
+@click.pass_context
 def write_manifest_notebook(
+    ctx,
     overwrite,
     python,
     force_generate,
@@ -1520,6 +1547,7 @@ def write_manifest_notebook(
     hide_tagged_input=None,
 ):
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
     with cli_feedback("Checking arguments"):
         validate_file_is_notebook(file)
 
@@ -1603,7 +1631,9 @@ def write_manifest_notebook(
     help=("Set the manifest for multi-notebook mode."),
 )
 @runtime_environment_args
+@click.pass_context
 def write_manifest_voila(
+    ctx: click.Context,
     path: str,
     entrypoint: str,
     overwrite,
@@ -1619,6 +1649,7 @@ def write_manifest_voila(
     multi_notebook,
 ):
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
     with cli_feedback("Checking arguments"):
         base_dir = dirname(path)
         manifest_path = join(base_dir, "manifest.json")
@@ -1707,7 +1738,9 @@ def write_manifest_voila(
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
 @runtime_environment_args
+@click.pass_context
 def write_manifest_quarto(
+    ctx,
     overwrite,
     exclude,
     quarto,
@@ -1722,6 +1755,7 @@ def write_manifest_quarto(
     env_management_r,
 ):
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
 
     base_dir = file_or_directory
     if not isdir(file_or_directory):
@@ -1821,7 +1855,9 @@ def generate_write_manifest_python(app_mode, alias, desc: Optional[str] = None):
         type=click.Path(exists=True, dir_okay=False, file_okay=True),
     )
     @runtime_environment_args
+    @click.pass_context
     def manifest_writer(
+        ctx,
         overwrite,
         entrypoint,
         exclude,
@@ -1836,6 +1872,7 @@ def generate_write_manifest_python(app_mode, alias, desc: Optional[str] = None):
         env_management_r,
     ):
         _write_framework_manifest(
+            ctx,
             overwrite,
             entrypoint,
             exclude,
@@ -1864,6 +1901,7 @@ generate_write_manifest_python(AppModes.STREAMLIT_APP, alias="streamlit")
 
 # noinspection SpellCheckingInspection
 def _write_framework_manifest(
+    ctx,
     overwrite,
     entrypoint,
     exclude,
@@ -1898,6 +1936,7 @@ def _write_framework_manifest(
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
     """
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
 
     with cli_feedback("Checking arguments"):
         entrypoint = validate_entry_point(entrypoint, directory)
@@ -1989,7 +2028,7 @@ def content():
 @cli_exception_handler
 @click.pass_context
 def content_search(
-    cli_ctx: click.Context,
+    ctx: click.Context,
     name,
     server,
     api_key,
@@ -2005,8 +2044,9 @@ def content_search(
     verbose,
 ):
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         result = search_content(
             ce.remote_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
         )
@@ -2031,7 +2071,7 @@ def content_search(
 # todo: --format option (json, text)
 @click.pass_context
 def content_describe(
-    cli_ctx: click.Context,
+    ctx: click.Context,
     name: str,
     server: str,
     api_key: str,
@@ -2041,8 +2081,9 @@ def content_describe(
     verbose: int,
 ):
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         result = get_content(ce.remote_server, guid)
         json.dump(result, sys.stdout, indent=2)
 
@@ -2075,7 +2116,7 @@ def content_describe(
 )
 @click.pass_context
 def content_bundle_download(
-    cli_ctx: click.Context,
+    ctx: click.Context,
     name: str,
     server: str,
     api_key: str,
@@ -2087,8 +2128,9 @@ def content_bundle_download(
     verbose: int,
 ):
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         if exists(output) and not overwrite:
             raise RSConnectException("The output file already exists: %s" % output)
 
@@ -2118,7 +2160,7 @@ def build():
 )
 @click.pass_context
 def add_content_build(
-    cli_ctx: click.Context,
+    ctx: click.Context,
     name: str,
     server: str,
     api_key: str,
@@ -2128,8 +2170,9 @@ def add_content_build(
     verbose: int,
 ):
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         build_add_content(ce.remote_server, guid)
         if len(guid) == 1:
             logger.info('Added "%s".' % guid[0])
@@ -2165,7 +2208,7 @@ def add_content_build(
 )
 @click.pass_context
 def remove_content_build(
-    cli_ctx: click.Context,
+    ctx: click.Context,
     name: str,
     server: str,
     api_key: str,
@@ -2177,8 +2220,9 @@ def remove_content_build(
     verbose: int,
 ):
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         _validate_build_rm_args(guid, all, purge)
         guids = build_remove_content(ce.remote_server, guid, all, purge)
         if len(guids) == 1:
@@ -2209,7 +2253,7 @@ def remove_content_build(
 # todo: --format option (json, text)
 @click.pass_context
 def list_content_build(
-    cli_ctx: click.Context,
+    ctx: click.Context,
     name: str,
     server: str,
     api_key: str,
@@ -2220,8 +2264,9 @@ def list_content_build(
     verbose: int,
 ):
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         result = build_list_content(ce.remote_server, guid, status)
         json.dump(result, sys.stdout, indent=2)
 
@@ -2240,7 +2285,7 @@ def list_content_build(
 # todo: --format option (json, text)
 @click.pass_context
 def get_build_history(
-    cli_ctx: click.Context,
+    ctx: click.Context,
     name: str,
     server: str,
     api_key: str,
@@ -2250,8 +2295,9 @@ def get_build_history(
     verbose: int,
 ):
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert)
+        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert)
         ce.validate_server()
         result = build_history(ce.remote_server, guid)
         json.dump(result, sys.stdout, indent=2)
@@ -2287,7 +2333,7 @@ def get_build_history(
 )
 @click.pass_context
 def get_build_logs(
-    cli_ctx: click.Context,
+    ctx: click.Context,
     name: str,
     server: str,
     api_key: str,
@@ -2299,8 +2345,9 @@ def get_build_logs(
     verbose: int,
 ):
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         for line in emit_build_log(ce.remote_server, guid, format, task_id):
             sys.stdout.write(line)
 
@@ -2340,7 +2387,7 @@ def get_build_logs(
 )
 @click.pass_context
 def start_content_build(
-    cli_ctx: click.Context,
+    ctx: click.Context,
     name: str,
     server: str,
     api_key: str,
@@ -2356,9 +2403,10 @@ def start_content_build(
     verbose: int,
 ):
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
     logger.set_log_output_format(format)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         build_start(ce.remote_server, parallelism, aborted, error, all, poll_wait, debug)
 
 
@@ -2416,7 +2464,7 @@ def system_caches_list(name, server, api_key, insecure, cacert, verbose):
 )
 @click.pass_context
 def system_caches_delete(
-    cli_ctx: click.Context,
+    ctx: click.Context,
     name: str,
     server: str,
     api_key: str,
@@ -2429,8 +2477,9 @@ def system_caches_delete(
     dry_run: bool,
 ):
     set_verbosity(verbose)
+    output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(cli_ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         ce.delete_runtime_cache(language, version, image_name, dry_run)
 
 
