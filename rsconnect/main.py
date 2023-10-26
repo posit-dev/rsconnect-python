@@ -123,7 +123,7 @@ def output_params(
                 varName = k.replace("-", "_")
                 if varName in {"api_key"}:
                     val = "**********"
-                source = ctx.get_parameter_source(varName)
+                source = ctx.get_parameter_source(varName)  # type: ignore
                 if source:
                     click.echo("    {}:\t{} (from {})".format(k, val, source.name))  # type: ignore
                 else:

@@ -1152,10 +1152,8 @@ class TestBootstrap(TestCase):
         result = runner.invoke(cli, ["bootstrap", "--server", "123.some.ip.address", "--jwt-keypath", self.jwt_keypath])
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertGreater(
-            result.output.find("Error: Server URL expected to begin with transfer protocol (ex. http/https).\n"), 
-            -1
+            result.output.find("Error: Server URL expected to begin with transfer protocol (ex. http/https).\n"), -1
         )
-
 
     def test_boostrap_missing_jwt_option(self):
         """
@@ -1165,8 +1163,7 @@ class TestBootstrap(TestCase):
         result = runner.invoke(cli, ["bootstrap", "--server", "http://a_server"])
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertGreater(
-            result.output.find("Error: Must specify secret key using either a keyfile or environment variable.\n"), 
-            -1
+            result.output.find("Error: Must specify secret key using either a keyfile or environment variable.\n"), -1
         )
 
     def test_bootstrap_conflicting_jwt_option(self):
@@ -1179,8 +1176,7 @@ class TestBootstrap(TestCase):
         result = runner.invoke(cli, self.default_cli_args)
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertGreater(
-            result.output.find("Error: Cannot specify secret key using both a keyfile and environment variable."), 
-            -1
+            result.output.find("Error: Cannot specify secret key using both a keyfile and environment variable."), -1
         )
 
         del os.environ[SECRET_KEY_ENV]
@@ -1195,8 +1191,10 @@ class TestBootstrap(TestCase):
         result = runner.invoke(cli, ["bootstrap", "--server", "http://a_server"])
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertGreater(
-            result.output.find("Error: Unable to decode base64 data from environment variable: CONNECT_BOOTSTRAP_SECRETKEY\n"), 
-            -1
+            result.output.find(
+                "Error: Unable to decode base64 data from environment variable: CONNECT_BOOTSTRAP_SECRETKEY\n"
+            ),
+            -1,
         )
 
         del os.environ[SECRET_KEY_ENV]
@@ -1238,7 +1236,4 @@ class TestBootstrap(TestCase):
 
         self.assertEqual(result.exit_code, 0, result.output)
 
-        self.assertEqual(
-            result.output.find("Error:"), 
-            -1
-        )
+        self.assertEqual(result.output.find("Error:"), -1)

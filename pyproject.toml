@@ -13,6 +13,7 @@ dependencies = [
     "pip>=10.0.0",
     "semver>=2.0.0,<3.0.0",
     "pyjwt>=2.4.0",
+    "click>=8.0.0",
 ]
 
 dynamic = ["version"]
@@ -33,9 +34,9 @@ test = [
     "pytest-cov",
     "pytest-mypy",
     "pytest",
-    "setuptools_scm[toml]",
+    "setuptools>=61",
+    "setuptools_scm[toml]>=3.4",
     "twine",
-    "types-click",
     "types-Flask",
     "types-six",
 ]
