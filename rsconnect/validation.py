@@ -4,6 +4,7 @@ import click
 
 from rsconnect.exception import RSConnectException
 
+
 def get_parameter_source_name_from_ctx(
     var_or_param_name: str,
     ctx: click.Context,
@@ -14,6 +15,7 @@ def get_parameter_source_name_from_ctx(
         if source and source.name:
             return source.name
     return "<source unknown>"
+
 
 def _get_present_options(
     options: typing.Dict[str, typing.Optional[typing.Any]],
