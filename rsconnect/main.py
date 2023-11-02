@@ -120,14 +120,10 @@ def output_params(
                 continue
             if v is not None:
                 val = v
-                varName = k.replace("-", "_")
-                if varName in {"api_key"}:
+                if k in {"api_key", "api-key"}:
                     val = "**********"
-                source = ctx.get_parameter_source(varName)  # type: ignore
-                if source:
-                    click.echo("    {}:\t{} (from {})".format(k, val, source.name))  # type: ignore
-                else:
-                    click.echo("    {}:\t{}".format(k, val))
+                sourceName = validation.get_parameter_source_name_from_ctx(k, ctx)
+                click.echo("    {}:\t{} (from {})".format(k, val, sourceName))
 
 
 def server_args(func):

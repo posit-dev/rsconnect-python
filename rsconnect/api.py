@@ -449,7 +449,7 @@ class RSConnectExecutor:
     def output_overlap_header(self, previous):
         if self.logger and not previous:
             self.logger.warning(
-                "Connect detected CLI commands and/or environment variables that overlap with stored credential.\n"
+                "\nConnect detected CLI commands and/or environment variables that overlap with stored credential.\n"
             )
             self.logger.warning(
                 "Check your environment variables (e.g. CONNECT_API_KEY) to make sure you want them to be used.\n"
@@ -458,15 +458,14 @@ class RSConnectExecutor:
                 "Credential parameters are taken with the following precedence: stored > CLI > environment.\n"
             )
             self.logger.warning(
-                "To ignore an environment variable, override it in the CLI with an empty string (e.g. -k '').\n"
+                "To ignore an environment variable, override it in the CLI with an empty string (e.g. -k '').\n\n"
             )
             return True
 
     def output_overlap_details(self, cli_param, previous):
         new_previous = self.output_overlap_header(previous)
-        if self.ctx:
-            source = self.ctx.get_parameter_source(cli_param)
-            self.logger.warning(f"stored {cli_param} value overrides the {cli_param} value from {source.name}")
+        sourceName = validation.get_parameter_source_name_from_ctx(cli_param, self.ctx)
+        self.logger.warning(f"- stored {cli_param} value overrides the {cli_param} value from {sourceName}\n")
         return new_previous
 
     def setup_remote_server(
@@ -514,6 +513,8 @@ class RSConnectExecutor:
                     header_output = self.output_overlap_details("token", header_output)
                 if server_data.secret and secret:
                     header_output = self.output_overlap_details("secret", header_output)
+                if header_output:
+                    self.logger.warning("\n")
 
         self.is_server_from_store = server_data.from_store
 

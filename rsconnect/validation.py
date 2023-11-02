@@ -4,6 +4,16 @@ import click
 
 from rsconnect.exception import RSConnectException
 
+def get_parameter_source_name_from_ctx(
+    var_or_param_name: str,
+    ctx: click.Context,
+) -> str:
+    if ctx:
+        varName = var_or_param_name.replace("-", "_")
+        source = ctx.get_parameter_source(varName)  # type: ignore
+        if source and source.name:
+            return source.name
+    return "<source unknown>"
 
 def _get_present_options(
     options: typing.Dict[str, typing.Optional[typing.Any]],
@@ -14,9 +24,7 @@ def _get_present_options(
         if v:
             parts = k.split("--")
             if ctx and len(parts) == 2:
-                varName = parts[1].replace("-", "_")
-                source = ctx.get_parameter_source(varName)  # type: ignore
-                sourceName = source.name
+                sourceName = get_parameter_source_name_from_ctx(parts[1], ctx)
                 result.append(f"{k} (from {sourceName})")
             else:
                 result.append(f"{k}")
@@ -78,17 +86,11 @@ def validate_connection_options(
     present_options_mutually_exclusive_with_name = _get_present_options(options_mutually_exclusive_with_name, ctx)
 
     if name and present_options_mutually_exclusive_with_name:
-        if ctx:
-            name_source = ctx.get_parameter_source("name").name  # type: ignore
-            raise RSConnectException(
-                f"-n/--name (from {name_source}) cannot be specified in conjunction with options \
+        name_source = get_parameter_source_name_from_ctx("name", ctx)
+        raise RSConnectException(
+            f"-n/--name (from {name_source}) cannot be specified in conjunction with options \
 {', '.join(present_options_mutually_exclusive_with_name)}. See command help for further details."
-            )
-        else:
-            raise RSConnectException(
-                f"-n/--name cannot be specified in conjunction with options \
-{', '.join(present_options_mutually_exclusive_with_name)}. See command help for further details."
-            )
+        )
 
     if not name and not url and not shinyapps_options:
         raise RSConnectException(
