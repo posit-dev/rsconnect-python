@@ -515,6 +515,13 @@ class RSConnectExecutor:
                     header_output = self.output_overlap_details("secret", header_output)
                 if header_output:
                     self.logger.warning("\n")
+            
+            api_key = server_data.api_key or api_key
+            insecure = server_data.insecure or insecure
+            ca_data = server_data.ca_data or ca_data
+            account_name = server_data.account_name or account_name
+            token = server_data.token or token
+            secret = server_data.secret or secret
 
         self.is_server_from_store = server_data.from_store
 
