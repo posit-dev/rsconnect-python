@@ -465,7 +465,7 @@ class RSConnectExecutor:
     def output_overlap_details(self, cli_param, previous):
         new_previous = self.output_overlap_header(previous)
         sourceName = validation.get_parameter_source_name_from_ctx(cli_param, self.ctx)
-        self.logger.warning(f"- stored {cli_param} value overrides the {cli_param} value from {sourceName}\n")
+        self.logger.warning(f">> stored {cli_param} value overrides the {cli_param} value from {sourceName}\n")
         return new_previous
 
     def setup_remote_server(
@@ -515,7 +515,7 @@ class RSConnectExecutor:
                     header_output = self.output_overlap_details("secret", header_output)
                 if header_output:
                     self.logger.warning("\n")
-            
+
             api_key = server_data.api_key or api_key
             insecure = server_data.insecure or insecure
             ca_data = server_data.ca_data or ca_data

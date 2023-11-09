@@ -115,7 +115,7 @@ See command help for further details."
         if len(present_cloud_options) != len(cloud_options):
             raise RSConnectException(
                 "-T/--token and -S/--secret must be provided for Posit Cloud. \
- See command help for further details."
+See command help for further details."
             )
     elif present_shinyapps_options:
         if len(present_shinyapps_options) != len(shinyapps_options):

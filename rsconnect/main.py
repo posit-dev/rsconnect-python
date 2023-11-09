@@ -63,7 +63,7 @@ from .bundle import (
     fake_module_file_from_directory,
     get_python_env_info,
 )
-from .log import logger, LogOutputFormat
+from .log import logger, LogOutputFormat, VERBOSE
 from .metadata import ServerStore, AppStore
 from .models import (
     AppMode,
@@ -114,16 +114,16 @@ def output_params(
     vars,
 ):
     if click.__version__ >= "8.0.0" and sys.version_info >= (3, 7):
-        click.echo("Detected the following inputs:")
+        logger.log(VERBOSE, "Detected the following inputs:")
         for k, v in vars:
-            if k in {"ctx", "verbose"}:
+            if k in {"ctx", "verbose", "kwargs"}:
                 continue
             if v is not None:
                 val = v
                 if k in {"api_key", "api-key"}:
                     val = "**********"
                 sourceName = validation.get_parameter_source_name_from_ctx(k, ctx)
-                click.echo("    {}:\t{} (from {})".format(k, val, sourceName))
+                logger.log(VERBOSE, "    %-18s%s (from %s)", (k+":"), val, sourceName)
 
 
 def server_args(func):
