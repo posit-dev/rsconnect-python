@@ -4,13 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [1.21.0] - 2023-10-26
 
 ### Fixed
 - The `https_proxy` environment variable is recognized as a synonym for
   `HTTPS_PROXY`.
 - When adding a new server, the initial request now includes an
-  Authorization header containing the API key. This is needed
+  authorization header containing the API key. This is needed
   for Connect installations behind a proxy that only passes
   authenticated requests.
 - Common environment directories (`env, venv, .env, .venv`) are no longer
@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   recognized filename patterns, the file patterns `app-*.py`, `app_*.py`, `*-app.py`,
   and `*_app.py` are now considered. However, if the directory contains more than
   one file matching these new patterns, you must provide rsconnect-python with an
-  explicit `--entrypoint` argument.\
+  explicit `--entrypoint` argument.
 - Added a new verbose logging level. Specifying `-v` on the command line uses this
   new level. Currently this will cause filenames to be logged as they are added to
   a bundle. To enable maximum verbosity (debug level), use `-vv`.
