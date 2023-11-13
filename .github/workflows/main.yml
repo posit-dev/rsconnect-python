@@ -203,7 +203,7 @@ jobs:
           pytest -m 'vetiver'
 
   test-jupyter:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     env:
       CONNECT_LICENSE: ${{ secrets.RSC_LICENSE }}
       ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
@@ -225,6 +225,7 @@ jobs:
 
       - name: Run Cypress Tests
         run: |
+            sudo apt install curl 
             export ADMIN_API_KEY="${{ secrets.ADMIN_API_KEY }}"
             just integration-testing/up-cypress
 
