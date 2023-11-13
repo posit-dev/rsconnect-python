@@ -80,6 +80,7 @@ from .json_web_token import (
     produce_bootstrap_output,
     parse_client_response,
 )
+from .shiny_express import is_express_app
 
 server_store = ServerStore()
 future_enabled = False
@@ -1366,16 +1367,41 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         no_verify: bool = False,
     ):
         set_verbosity(verbose)
-        kwargs = locals()
-        kwargs["entrypoint"] = entrypoint = validate_entry_point(entrypoint, directory)
-        kwargs["extra_files"] = extra_files = validate_extra_files(directory, extra_files)
+        entrypoint = validate_entry_point(entrypoint, directory)
+        extra_files = validate_extra_files(directory, extra_files)
         environment = create_python_environment(
             directory,
             force_generate,
             python,
         )
 
-        ce = RSConnectExecutor(**kwargs)
+        if is_express_app(entrypoint + ".py", directory):
+            env_vars["SHINY_EXPRESS_APP_FILE"] = entrypoint + ".py"
+            entrypoint = "shiny.express.app"
+
+        extra_args = dict(
+            directory=directory,
+            server=server,
+            exclude=exclude,
+            new=new,
+            app_id=app_id,
+            title=title,
+            visibility=visibility,
+            disable_env_management=disable_env_management,
+            env_vars=env_vars,
+        )
+
+        ce = RSConnectExecutor(
+            name=name,
+            api_key=api_key,
+            insecure=insecure,
+            cacert=cacert,
+            account=account,
+            token=token,
+            secret=secret,
+            **extra_args,
+        )
+
         (
             ce.validate_server()
             .validate_app_mode(app_mode=app_mode)
