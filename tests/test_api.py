@@ -31,7 +31,7 @@ class TestAPI(TestCase):
     def test_executor_init(self):
         connect_server = require_connect()
         api_key = require_api_key()
-        ce = RSConnectExecutor(None, connect_server, api_key, True, None)
+        ce = RSConnectExecutor(None, None, connect_server, api_key, True, None)
         self.assertEqual(ce.remote_server.url, connect_server)
 
     def test_output_task_log(self):
@@ -70,7 +70,7 @@ class TestAPI(TestCase):
     def test_make_deployment_name(self):
         connect_server = require_connect()
         api_key = require_api_key()
-        ce = RSConnectExecutor(None, connect_server, api_key, True, None)
+        ce = RSConnectExecutor(None, None, connect_server, api_key, True, None)
         self.assertEqual(ce.make_deployment_name("title", False), "title")
         self.assertEqual(ce.make_deployment_name("Title", False), "title")
         self.assertEqual(ce.make_deployment_name("My Title", False), "my_title")
@@ -100,7 +100,7 @@ class TestSystemRuntimeCachesAPI(TestCase):
     # RSConnectExecutor.runtime_caches returns the resulting JSON from the server.
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_client_system_caches_runtime_list(self):
-        ce = RSConnectExecutor(None, "http://test-server/", "api_key")
+        ce = RSConnectExecutor(None, None, "http://test-server/", "api_key")
         mocked_response = {
             "caches": [
                 {"language": "R", "version": "3.6.3", "image_name": "Local"},
@@ -121,7 +121,7 @@ class TestSystemRuntimeCachesAPI(TestCase):
     # RSConnectExecutor.delete_runtime_cache() dry run prints expected messages
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_executor_delete_runtime_cache_dry_run(self):
-        ce = RSConnectExecutor(None, "http://test-server/", "api_key")
+        ce = RSConnectExecutor(None, None, "http://test-server/", "api_key")
         mocked_output = {"language": "Python", "version": "1.2.3", "image_name": "teapot", "task_id": None}
 
         httpretty.register_uri(
@@ -148,7 +148,7 @@ class TestSystemRuntimeCachesAPI(TestCase):
     # RSConnectExecutor.delete_runtime_cache() wet run prints expected messages
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_executor_delete_runtime_cache_wet_run(self):
-        ce = RSConnectExecutor(None, "http://test-server/", "api_key")
+        ce = RSConnectExecutor(None, None, "http://test-server/", "api_key")
         mocked_delete_output = {
             "language": "Python",
             "version": "1.2.3",
@@ -197,7 +197,7 @@ class TestSystemRuntimeCachesAPI(TestCase):
     # RSConnectExecutor.delete_runtime_cache() raises the correct error
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_executor_delete_runtime_cache_error(self):
-        ce = RSConnectExecutor(None, "http://test-server/", "api_key")
+        ce = RSConnectExecutor(None, None, "http://test-server/", "api_key")
         mocked_delete_output = {"code": 4, "error": "Cache does not exist", "payload": None}
         httpretty.register_uri(
             httpretty.DELETE,

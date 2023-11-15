@@ -21,12 +21,12 @@ def read_certificate_file(location: str):
     suffix = path.suffix
 
     if suffix in BINARY_ENCODED_FILETYPES:
-        with open(path, "rb") as file:
-            return file.read()
+        with open(path, "rb") as bFile:
+            return bFile.read()
 
     if suffix in TEXT_ENCODED_FILETYPES:
-        with open(path, "r") as file:
-            return file.read()
+        with open(path, "r") as tFile:
+            return tFile.read()
 
     types = BINARY_ENCODED_FILETYPES + TEXT_ENCODED_FILETYPES
     types = sorted(types)
