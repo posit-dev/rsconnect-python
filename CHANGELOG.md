@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Pending Next Release
+
+### Added
+- Added the name of the environment variables to the help output for those options that
+  use environment variables as a default value.
+
+### Changed
+- Improved the error and warning outputs when options conflict by providing the source 
+  from which the values have been determined. This allows for faster resolution of issues
+  when combinations of stored credentials, environment variables and command line options
+  are used.
+- Updated verbose mode to output the source of all options being used when processing the
+  CLI command.
+
 ## [1.21.0] - 2023-10-26
 
 ### Fixed
@@ -39,10 +53,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   For cases where this is not desired, use the `--no-verify` flag on the command line.
 - Added the `deploy flask` command.
 - Added the `write-manifest flask` command.
-- Added the name of the environment variables to the help output for those options that
-  use environment variables as a default value.
-- Added the source of where the option was set within the error messages displayed for
-  when options conflict with each other.
 
 ### Changed
 - Removing experimental support for Conda. Connect does not support restoring Conda environments.
