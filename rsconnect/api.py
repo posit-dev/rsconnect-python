@@ -19,6 +19,7 @@ from urllib.parse import urlparse
 import re
 from warnings import warn
 import gc
+import click
 
 from . import validation
 from .certificates import read_certificate_file
@@ -389,6 +390,7 @@ RSConnect = RSConnectClient
 class RSConnectExecutor:
     def __init__(
         self,
+        ctx: click.Context = None,
         name: str = None,
         url: str = None,
         api_key: str = None,
@@ -406,7 +408,9 @@ class RSConnectExecutor:
         self.reset()
         self._d = kwargs
         self.logger = logger
+        self.ctx = ctx
         self.setup_remote_server(
+            ctx=ctx,
             name=name,
             url=url or kwargs.get("server"),
             api_key=api_key,
@@ -442,8 +446,31 @@ class RSConnectExecutor:
         gc.collect()
         return self
 
+    def output_overlap_header(self, previous):
+        if self.logger and not previous:
+            self.logger.warning(
+                "\nConnect detected CLI commands and/or environment variables that overlap with stored credential.\n"
+            )
+            self.logger.warning(
+                "Check your environment variables (e.g. CONNECT_API_KEY) to make sure you want them to be used.\n"
+            )
+            self.logger.warning(
+                "Credential parameters are taken with the following precedence: stored > CLI > environment.\n"
+            )
+            self.logger.warning(
+                "To ignore an environment variable, override it in the CLI with an empty string (e.g. -k '').\n\n"
+            )
+            return True
+
+    def output_overlap_details(self, cli_param, previous):
+        new_previous = self.output_overlap_header(previous)
+        sourceName = validation.get_parameter_source_name_from_ctx(cli_param, self.ctx)
+        self.logger.warning(f">> stored {cli_param} value overrides the {cli_param} value from {sourceName}\n")
+        return new_previous
+
     def setup_remote_server(
         self,
+        ctx: click.Context,
         name: str = None,
         url: str = None,
         api_key: str = None,
@@ -455,6 +482,7 @@ class RSConnectExecutor:
         secret: str = None,
     ):
         validation.validate_connection_options(
+            ctx=ctx,
             url=url,
             api_key=api_key,
             insecure=insecure,
@@ -464,6 +492,7 @@ class RSConnectExecutor:
             secret=secret,
             name=name,
         )
+        header_output = False
 
         if cacert and not ca_data:
             ca_data = read_certificate_file(cacert)
@@ -471,38 +500,29 @@ class RSConnectExecutor:
         server_data = ServerStore().resolve(name, url)
         if server_data.from_store:
             url = server_data.url
-            if (
-                server_data.api_key
-                and api_key
-                or server_data.insecure
-                and insecure
-                or server_data.ca_data
-                and ca_data
-                or server_data.account_name
-                and account_name
-                or server_data.token
-                and token
-                or server_data.secret
-                and secret
-            ) and self.logger:
-                self.logger.warning(
-                    "Connect detected CLI commands and/or environment variables that overlap with stored credential.\n"
-                )
-                self.logger.warning(
-                    "Check your environment variables (e.g. CONNECT_API_KEY) to make sure you want them to be used.\n"
-                )
-                self.logger.warning(
-                    "Credential paremeters are taken with the following precedence: stored > CLI > environment.\n"
-                )
-                self.logger.warning(
-                    "To ignore an environment variable, override it in the CLI with an empty string (e.g. -k '').\n"
-                )
+            if self.logger:
+                if server_data.api_key and api_key:
+                    header_output = self.output_overlap_details("api-key", header_output)
+                if server_data.insecure and insecure:
+                    header_output = self.output_overlap_details("insecure", header_output)
+                if server_data.ca_data and ca_data:
+                    header_output = self.output_overlap_details("cacert", header_output)
+                if server_data.account_name and account_name:
+                    header_output = self.output_overlap_details("account", header_output)
+                if server_data.token and token:
+                    header_output = self.output_overlap_details("token", header_output)
+                if server_data.secret and secret:
+                    header_output = self.output_overlap_details("secret", header_output)
+                if header_output:
+                    self.logger.warning("\n")
+
             api_key = server_data.api_key or api_key
             insecure = server_data.insecure or insecure
             ca_data = server_data.ca_data or ca_data
             account_name = server_data.account_name or account_name
             token = server_data.token or token
             secret = server_data.secret or secret
+
         self.is_server_from_store = server_data.from_store
 
         if api_key:
@@ -571,7 +591,7 @@ class RSConnectExecutor:
         :param url: the URL, if any, specified by the user.
         :param api_key: the API key, if any, specified by the user.
         :param insecure: a flag noting whether TLS host/validation should be skipped.
-        :param cacert: the file object of a CA certs file containing certificates to use.
+        :param cacert: the file path of a CA certs file containing certificates to use.
         :param api_key_is_required: a flag that notes whether the API key is required or may
         be omitted.
         :param token: The shinyapps.io authentication token.

@@ -10,7 +10,7 @@ wheel
 
 # project.dependencies
 six>=1.14.0
-click>=7.0.0
+click>=8.0.0
 pip>=10.0.0
 semver>=2.0.0,<3.0.0
 pyjwt>=2.4.0
@@ -29,6 +29,5 @@ pytest-mypy
 pytest
 setuptools_scm[toml]
 twine
-types-click
 types-Flask
 types-six
