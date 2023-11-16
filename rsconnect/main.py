@@ -840,7 +840,7 @@ def deploy_notebook(
     server: str,
     api_key: str,
     insecure: bool,
-    cacert: typing.IO,
+    cacert: str,
     static: bool,
     new: bool,
     app_id: str,
@@ -977,7 +977,7 @@ def deploy_voila(
     server: str = None,
     api_key: str = None,
     insecure: bool = False,
-    cacert: typing.IO = None,
+    cacert: str = None,
     connect_server: api.RSConnectServer = None,
     multi_notebook: bool = False,
     no_verify: bool = False,
@@ -1030,7 +1030,7 @@ def deploy_manifest(
     server: str,
     api_key: str,
     insecure: bool,
-    cacert: typing.IO,
+    cacert: str,
     account: str,
     token: str,
     secret: str,
@@ -1125,7 +1125,7 @@ def deploy_quarto(
     server: str,
     api_key: str,
     insecure: bool,
-    cacert: typing.IO,
+    cacert: str,
     new: bool,
     app_id: str,
     title: str,
@@ -1243,7 +1243,7 @@ def deploy_html(
     server: str = None,
     api_key: str = None,
     insecure: bool = False,
-    cacert: typing.IO = None,
+    cacert: str = None,
     account: str = None,
     token: str = None,
     secret: str = None,
@@ -1278,7 +1278,6 @@ def deploy_html(
 
 
 def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc: Optional[str] = None):
-
     if desc is None:
         desc = app_mode.desc()
 
@@ -1344,7 +1343,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         server: str,
         api_key: str,
         insecure: bool,
-        cacert: typing.IO,
+        cacert: str,
         entrypoint,
         exclude,
         new: bool,
