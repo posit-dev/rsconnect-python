@@ -62,9 +62,7 @@ class DetectShinyExpressVisitor(ast.NodeVisitor):
     def visit_ImportFrom(self, node: ast.ImportFrom):
         if node.module == "shiny.express":
             self.found_shiny_express_import = True
-        elif node.module == "shiny" and any(
-            alias.name == "express" for alias in node.names
-        ):
+        elif node.module == "shiny" and any(alias.name == "express" for alias in node.names):
             self.found_shiny_express_import = True
 
     # Visit top-level nodes.
