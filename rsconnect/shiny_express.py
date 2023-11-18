@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+import re
 
 __all__ = ("is_express_app",)
 
@@ -72,3 +73,27 @@ class DetectShinyExpressVisitor(ast.NodeVisitor):
     # Don't recurse into any nodes, so the we'll only ever look at top-level nodes.
     def generic_visit(self, node: ast.AST):
         pass
+
+
+def escape_to_var_name(x: str) -> str:
+    """
+    Given a string, escape it to a valid Python variable name which contains
+    [a-zA-Z0-9_]. All other characters will be escaped to _<hex>_. Also, if the first
+    character is a digit, it will be escaped to _<hex>_, because Python variable names
+    can't begin with a digit.
+    """
+    encoded = ""
+    is_first = True
+
+    for char in x:
+        if is_first and re.match("[0-9]", char):
+            encoded += f"_{ord(char):x}_"
+        elif re.match("[a-zA-Z0-9]", char):
+            encoded += char
+        else:
+            encoded += f"_{ord(char):x}_"
+
+        if is_first:
+            is_first = False
+
+    return encoded

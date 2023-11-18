@@ -80,7 +80,7 @@ from .json_web_token import (
     produce_bootstrap_output,
     parse_client_response,
 )
-from .shiny_express import is_express_app
+from .shiny_express import escape_to_var_name, is_express_app
 
 server_store = ServerStore()
 future_enabled = False
@@ -1424,8 +1424,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         )
 
         if is_express_app(entrypoint + ".py", directory):
-            env_vars["SHINY_EXPRESS_APP_FILE"] = entrypoint + ".py"
-            entrypoint = "shiny.express.app"
+            entrypoint = "shiny.express.app:" + escape_to_var_name(entrypoint + ".py")
 
         extra_args = dict(
             directory=directory,
