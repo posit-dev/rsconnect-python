@@ -9,9 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added the name of the environment variables to the help output for those options that
   use environment variables as a default value.
+- Added support for deploying Shiny Express applications.
 
 ### Changed
-- Improved the error and warning outputs when options conflict by providing the source 
+- Improved the error and warning outputs when options conflict by providing the source
   from which the values have been determined. This allows for faster resolution of issues
   when combinations of stored credentials, environment variables and command line options
   are used.
