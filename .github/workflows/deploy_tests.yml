@@ -29,8 +29,8 @@ jobs:
             repository: rstudio/connect
             path: 'test/connect-rsconnect-python'
             sparse-checkout: |
-                'test/rsconnect-python'
-                'scripts'
+                test/rsconnect-python
+                scripts
             sparse-checkout-cone-mode: false
             token: ${{ secrets.CONNECT_PAT }}
 
