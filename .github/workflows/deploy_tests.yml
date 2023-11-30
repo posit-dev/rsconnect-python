@@ -1,0 +1,82 @@
+name: rsconnect-python-tests-at-night
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/rsconnect-python.yml'
+      - 'examples/**'
+  schedule:
+    - cron: "0 09 * * *" # Runs 11 AM UTC == 2 AM PDT
+  workflow_dispatch:
+
+jobs:
+  connect-native:
+      runs-on: ubuntu-latest
+      strategy:
+        fail-fast: false
+        matrix:
+          PY_VERSION:
+            - 3.8.18
+            - 3.9.18
+            - 3.10.13
+            - 3.11.6
+          PYTHON_BUILD: [binary, conda]
+      steps:
+        - uses: actions/checkout@v4
+          with:
+            fetch-depth: 0
+
+        
+        - uses: actions/checkout@v4
+          with:
+            repository: rstudio/connect
+            path: 'test/connect-rsconnect-python'
+            sparse-checkout: 'test/rsconnect-python'
+            sparse-checkout-cone-mode: false
+            token: ${{ secrets.CONNECT_PAT }}
+
+        - uses: extractions/setup-just@v1
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        - name: Delete packages to save space
+          run: |
+            sudo rm -rf /usr/local/lib/android  # will release about 10 GB
+            sudo rm -rf /usr/share/dotnet # will release about 20GB
+
+        - name: Build docker container-image
+          run: |
+            just test/rsconnect-python/docker-build
+        - name: Run rsconnect-python Tests
+          env:
+            CONNECT_LICENSE: "${{ secrets.RSC_LICENSE }}"
+            PY_VERSION: ${{ matrix.PY_VERSION }}
+            CONNECT_CONFIG: "test-rsconnect-python.gcfg"
+            TEST_SUBSET: "ALL"
+            RSC_AUTOMATION_PAT: "${{ secrets.CONNECT_PAT }}"
+            ADMIN_API_KEY: "${{ secrets.ADMIN_API_KEY }}"
+            PYTHON_BUILD: "${{ matrix.PYTHON_BUILD }}"
+            # This allows us to start Connect separately in our own docker container
+            CONNECT_SERVER: "http://localhost:3939"
+            remote: "yes"
+          run: |
+            docker compose pull connect
+            docker compose up -d connect            
+            just test/connect-rsconnect-python/test-${PYTHON_BUILD}
+        # Videos are captured whether the suite fails or passes
+        - name: Save videos
+          uses: actions/upload-artifact@v3
+          if: failure()
+          with:
+            name: cypress-videos_${{ matrix.PY_VERSION }}_native
+            path: test/connect-rsconnect-python/cypress/videos
+            if-no-files-found: ignore
+
+        # Screenshots are only captured on failure
+        - name: Save screenshots
+          uses: actions/upload-artifact@v3
+          if: failure()
+          with:
+            name: cypress-screenshots_${{ matrix.PY_VERSION }}_native
+            path: test/connect-rsconnect-python/cypress/screenshots
+            if-no-files-found: ignore
+
