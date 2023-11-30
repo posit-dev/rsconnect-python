@@ -50,6 +50,7 @@ jobs:
             docker-compose --profile rsconnect build
 
     connect:
+        needs: distributions
         runs-on: ubuntu-latest
         strategy:
           fail-fast: false
@@ -61,6 +62,10 @@ jobs:
               - 3.11.6
             PYTHON_BUILD: [binary, conda]
         steps:
+        - name: Restore dist
+          uses: actions/download-artifact@v3
+          with:
+            name: distributions
         - name: Run rsconnect-python Tests
           env:
             CONNECT_LICENSE: "${{ secrets.RSC_LICENSE }}"
