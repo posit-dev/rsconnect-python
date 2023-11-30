@@ -43,7 +43,7 @@ jobs:
 
         - name: Build docker container-image
           run: |
-            just test/connect-rsconnect-python/docker-build
+            just test/connect-rsconnect-python/rsconnect-python/docker-build
         - name: Run rsconnect-python Tests
           env:
             CONNECT_LICENSE: "${{ secrets.RSC_LICENSE }}"
