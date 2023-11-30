@@ -27,10 +27,12 @@ jobs:
         - uses: actions/checkout@v4
           with:
             repository: rstudio/connect
+            ref: kg-rsconnect-repo
             path: 'test/connect-rsconnect-python'
             sparse-checkout: |
                 test/rsconnect-python
                 scripts
+                examples
             sparse-checkout-cone-mode: false
             token: ${{ secrets.CONNECT_PAT }}
 
@@ -45,7 +47,8 @@ jobs:
 
         - name: Build docker container-image
           run: |
-            just test/connect-rsconnect-python/test/rsconnect-python/docker-build
+            cd test/connect-rsconnect-python/test/rsconnect-python/
+            docker-compose --profile rsconnect build
         - name: Run rsconnect-python Tests
           env:
             CONNECT_LICENSE: "${{ secrets.RSC_LICENSE }}"
@@ -55,13 +58,16 @@ jobs:
             RSC_AUTOMATION_PAT: "${{ secrets.CONNECT_PAT }}"
             ADMIN_API_KEY: "${{ secrets.ADMIN_API_KEY }}"
             PYTHON_BUILD: "${{ matrix.PYTHON_BUILD }}"
+            REPO: "rsconnect-python"
             # This allows us to start Connect separately in our own docker container
             CONNECT_SERVER: "http://localhost:3939"
             remote: "yes"
           run: |
+            make dist
+            cd integration-testing
             docker compose pull connect
-            docker compose up -d connect            
-            just test/connect-rsconnect-python/test/rsconnect-python/test-${PYTHON_BUILD}
+            docker compose up -d connect
+            just ../test/connect-rsconnect-python/test/rsconnect-python/test-rsconnect-python-repo-${PYTHON_BUILD}
 
         - name: Setup tmate session
           if: ${{ failure() }}
