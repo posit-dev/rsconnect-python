@@ -16,18 +16,6 @@ jobs:
             fetch-depth: 0
           env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-        - uses: actions/checkout@v4
-          with:
-            repository: rstudio/connect
-            path: 'test/connect-rsconnect-python'
-            ref: kg-rsconnect-repo
-            sparse-checkout: |
-                test/rsconnect-python
-                scripts
-                examples
-            sparse-checkout-cone-mode: false
-            token: ${{ secrets.CONNECT_PAT }}
             
         - uses: actions/setup-python@v2
           with:
@@ -44,11 +32,6 @@ jobs:
           env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-        - name: Build docker container-image
-          run: |
-            cd test/connect-rsconnect-python/test/rsconnect-python/
-            docker-compose --profile rsconnect build
-
     connect:
         needs: distributions
         runs-on: ubuntu-latest
@@ -62,10 +45,34 @@ jobs:
               - 3.11.6
             PYTHON_BUILD: [binary, conda]
         steps:
+        - uses: actions/checkout@v4
+          with:
+            fetch-depth: 0
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        - uses: actions/checkout@v4
+          with:
+            repository: rstudio/connect
+            path: 'test/connect-rsconnect-python'
+            ref: kg-rsconnect-repo
+            sparse-checkout: |
+                test/rsconnect-python
+                scripts
+                examples
+            sparse-checkout-cone-mode: false
+            token: ${{ secrets.CONNECT_PAT }}
+    
+        - name: Build docker container-image
+          run: |
+            cd test/connect-rsconnect-python/test/rsconnect-python/
+            docker-compose --profile rsconnect build
+    
         - name: Restore dist
           uses: actions/download-artifact@v3
           with:
             name: distributions
+        
         - name: Run rsconnect-python Tests
           env:
             CONNECT_LICENSE: "${{ secrets.RSC_LICENSE }}"
@@ -80,7 +87,7 @@ jobs:
             CONNECT_SERVER: "http://localhost:3939"
             remote: "yes"
           run: |
-            cd ../../../../integration-testing
+            cd integration-testing
             docker compose pull connect
             docker compose up -d connect
             just ../test/connect-rsconnect-python/test/rsconnect-python/test-rsconnect-python-repo-${PYTHON_BUILD}
