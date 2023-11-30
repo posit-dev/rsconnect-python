@@ -63,7 +63,9 @@ jobs:
             CONNECT_SERVER: "http://localhost:3939"
             remote: "yes"
           run: |
-            make dist
+            run: pip install -e '.[test]'
+            run: pip freeze
+            run: make dist
             cd integration-testing
             docker compose pull connect
             docker compose up -d connect
