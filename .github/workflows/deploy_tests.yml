@@ -40,11 +40,27 @@ jobs:
           with:
             name: distributions
             path: dist/
+        - uses: extractions/setup-just@v1
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
         - name: Build docker container-image
           run: |
             cd test/connect-rsconnect-python/test/rsconnect-python/
             docker-compose --profile rsconnect build
+
+    connect:
+        runs-on: ubuntu-latest
+        strategy:
+          fail-fast: false
+          matrix:
+            PY_VERSION:
+              - 3.8.18
+              - 3.9.18
+              - 3.10.13
+              - 3.11.6
+            PYTHON_BUILD: [binary, conda]
+        steps:
         - name: Run rsconnect-python Tests
           env:
             CONNECT_LICENSE: "${{ secrets.RSC_LICENSE }}"
