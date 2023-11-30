@@ -7,43 +7,26 @@ on:
   workflow_dispatch:
 
 jobs:
-  connect-native:
-      runs-on: ubuntu-latest
-      strategy:
-        fail-fast: false
-        matrix:
-          PY_VERSION:
-            - 3.8.18
-            - 3.9.18
-            - 3.10.13
-            - 3.11.6
-          PYTHON_BUILD: [binary, conda]
-      steps:
+ 
+    distributions:
+        runs-on: ubuntu-latest
+        steps:
         - uses: actions/checkout@v4
           with:
             fetch-depth: 0
-
-        
-        - uses: actions/checkout@v4
-          with:
-            repository: rstudio/connect
-            ref: kg-rsconnect-repo
-            path: 'test/connect-rsconnect-python'
-            sparse-checkout: |
-                test/rsconnect-python
-                scripts
-                examples
-            sparse-checkout-cone-mode: false
-            token: ${{ secrets.CONNECT_PAT }}
-
-        - uses: extractions/setup-just@v1
           env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-        - name: Delete packages to save space
-          run: |
-            sudo rm -rf /usr/local/lib/android  # will release about 10 GB
-            sudo rm -rf /usr/share/dotnet # will release about 20GB
+        - uses: actions/setup-python@v2
+          with:
+            python-version: 3.8.x
+        - run: pip install -e '.[test]'
+        - run: pip freeze
+        - run: make dist
+          id: create_dist
+        - uses: actions/upload-artifact@v2
+          with:
+            name: distributions
+            path: dist/
 
         - name: Build docker container-image
           run: |
@@ -63,9 +46,6 @@ jobs:
             CONNECT_SERVER: "http://localhost:3939"
             remote: "yes"
           run: |
-            run: pip install -e '.[test]'
-            run: pip freeze
-            run: make dist
             cd integration-testing
             docker compose pull connect
             docker compose up -d connect
