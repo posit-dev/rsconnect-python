@@ -1439,6 +1439,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         )
 
         ce = RSConnectExecutor(
+            ctx=ctx,
             name=name,
             api_key=api_key,
             insecure=insecure,
