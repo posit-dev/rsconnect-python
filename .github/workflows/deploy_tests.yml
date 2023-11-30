@@ -43,7 +43,7 @@ jobs:
 
         - name: Build docker container-image
           run: |
-            just test/connect-rsconnect-python/rsconnect-python/docker-build
+            just test/connect-rsconnect-python/docker-build
         - name: Run rsconnect-python Tests
           env:
             CONNECT_LICENSE: "${{ secrets.RSC_LICENSE }}"
@@ -60,6 +60,12 @@ jobs:
             docker compose pull connect
             docker compose up -d connect            
             just test/connect-rsconnect-python/test-${PYTHON_BUILD}
+
+        - name: Setup tmate session
+          if: ${{ failure() }}
+          uses: mxschmitt/action-tmate@v3
+          with:
+              limit-access-to-actor: true
         # Videos are captured whether the suite fails or passes
         - name: Save videos
           uses: actions/upload-artifact@v3
