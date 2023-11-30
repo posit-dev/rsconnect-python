@@ -43,7 +43,7 @@ jobs:
 
         - name: Build docker container-image
           run: |
-            just test/connect-rsconnect-python/docker-build
+            just test/connect-rsconnect-python/test/rsconnect-python/docker-build
         - name: Run rsconnect-python Tests
           env:
             CONNECT_LICENSE: "${{ secrets.RSC_LICENSE }}"
@@ -59,7 +59,7 @@ jobs:
           run: |
             docker compose pull connect
             docker compose up -d connect            
-            just test/connect-rsconnect-python/test-${PYTHON_BUILD}
+            just test/connect-rsconnect-python/test/rsconnect-python/test-${PYTHON_BUILD}
 
         - name: Setup tmate session
           if: ${{ failure() }}
