@@ -16,6 +16,18 @@ jobs:
             fetch-depth: 0
           env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        - uses: actions/checkout@v4
+          with:
+            repository: rstudio/connect
+            path: 'test/connect-rsconnect-python'
+            sparse-checkout: |
+                test/rsconnect-python
+                scripts
+                examples
+            sparse-checkout-cone-mode: false
+            token: ${{ secrets.CONNECT_PAT }}
+            
         - uses: actions/setup-python@v2
           with:
             python-version: 3.8.x
