@@ -31,7 +31,7 @@ jobs:
         fetch-depth: 0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - uses: actions/setup-python@v2
+    - uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
     - run: pip install '.[test]'
@@ -55,7 +55,7 @@ jobs:
         fetch-depth: 0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - uses: actions/setup-python@v2
+    - uses: actions/setup-python@v4
       with:
         python-version: 3.8.x
     - run: pip install --pre '.[test]'
@@ -74,7 +74,7 @@ jobs:
         fetch-depth: 0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - uses: actions/setup-python@v2
+    - uses: actions/setup-python@v4
       with:
         python-version: 3.8.x
     - run: pip install -e '.[test]'
@@ -131,12 +131,12 @@ jobs:
         fetch-depth: 0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - uses: actions/setup-python@v2
+    - uses: actions/setup-python@v4
       with:
         python-version: 3.8.x
     - run: pip freeze
     - run: make docs
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
         name: docs
         path: docs/site/
@@ -175,7 +175,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: 3.8
       - name: Install dependencies
@@ -272,7 +272,6 @@ jobs:
             with:
               repository: rstudio/connect
               path: 'test/connect-rsconnect-python'
-              ref: kg-rsconnect-repo
               sparse-checkout: |
                   test/rsconnect-python
                   scripts
@@ -299,6 +298,7 @@ jobs:
               RSC_AUTOMATION_PAT: "${{ secrets.CONNECT_PAT }}"
               ADMIN_API_KEY: "${{ secrets.ADMIN_API_KEY }}"
               PYTHON_BUILD: "${{ matrix.PYTHON_BUILD }}"
+              QUARTO_VERSION: "1.3.340"
 
               # This allows us to start Connect separately in our own docker container
               CONNECT_SERVER: "http://localhost:3939"
