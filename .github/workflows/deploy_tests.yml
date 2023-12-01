@@ -52,6 +52,7 @@ jobs:
           with:
             repository: rstudio/connect
             path: 'test/connect-rsconnect-python'
+            ref: kg-rsconnect-repo
             sparse-checkout: |
                 test/rsconnect-python
                 scripts
