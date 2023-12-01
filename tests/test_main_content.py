@@ -7,8 +7,9 @@ from click.testing import CliRunner
 
 from rsconnect.main import cli
 from rsconnect import VERSION
+from rsconnect.api import RSConnectServer
 from rsconnect.models import BuildStatus
-from rsconnect.metadata import _normalize_server_url
+from rsconnect.metadata import ContentBuildStore, _normalize_server_url
 
 from .utils import apply_common_args, require_api_key, require_connect
 
@@ -103,6 +104,51 @@ class TestContentSubcommand(unittest.TestCase):
 
         # run the build
         args = ["content", "build", "run", "--debug"]
+        apply_common_args(args, server=connect_server, key=api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+
+        # check that the build succeeded
+        args = ["content", "build", "ls", "-g", _content_guids[0]]
+        apply_common_args(args, server=connect_server, key=api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        listing = json.loads(result.output)
+        self.assertTrue(len(listing) == 1)
+        self.assertEqual(listing[0]["rsconnect_build_status"], BuildStatus.COMPLETE)
+
+    def test_build_retry(self):
+        connect_server = require_connect()
+        api_key = require_api_key()
+        runner = CliRunner()
+
+        # add a content item
+        args = ["content", "build", "add", "-g", _content_guids[0]]
+        apply_common_args(args, server=connect_server, key=api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertTrue(
+            os.path.exists("%s/%s.json" % (_test_build_dir, _normalize_server_url(os.environ.get("CONNECT_SERVER"))))
+        )
+
+        # list the "tracked" content
+        args = ["content", "build", "ls", "-g", _content_guids[0]]
+        apply_common_args(args, server=connect_server, key=api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        listing = json.loads(result.output)
+        self.assertTrue(len(listing) == 1)
+        self.assertEqual(listing[0]["guid"], _content_guids[0])
+        self.assertEqual(listing[0]["bundle_id"], "176")
+        self.assertEqual(listing[0]["rsconnect_build_status"], BuildStatus.NEEDS_BUILD)
+
+        # set the content build status to RUNNING so it looks like it was interrupted
+        # and the cleanup did not have time to finish, otherwise it would be marked as ABORTED
+        store = ContentBuildStore(RSConnectServer(connect_server, api_key))
+        store.set_content_item_build_status(_content_guids[0], BuildStatus.RUNNING)
+
+        # run the build
+        args = ["content", "build", "run", "--retry"]
         apply_common_args(args, server=connect_server, key=api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)

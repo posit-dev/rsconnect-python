@@ -55,7 +55,7 @@ mock-test-%: clean-stores
 	trap "$(MAKE) -C mock_connect down" EXIT; \
 	CONNECT_CONTENT_BUILD_DIR="rsconnect-build-test" \
 	CONNECT_SERVER="http://$(HOSTNAME):3939" \
-	CONNECT_API_KEY="0123456789abcdef0123456789abcdef" \
+	CONNECT_API_KEY="21232f297a57a5a743894a0e4a801fc3" \
 	$(MAKE) test-$*
 	@$(MAKE) -C mock_connect down
 

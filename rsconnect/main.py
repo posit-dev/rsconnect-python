@@ -2386,6 +2386,13 @@ def get_build_logs(
 )
 @click.option("--aborted", is_flag=True, help="Build content that is in the ABORTED state.")
 @click.option("--error", is_flag=True, help="Build content that is in the ERROR state.")
+@click.option("--running", is_flag=True, help="Build content that is in the RUNNING state.")
+@click.option(
+    "--retry",
+    is_flag=True,
+    help="Build all content that is in the NEEDS_BUILD, ABORTED, ERROR, or RUNNING state. "
+    + "Shorthand for `--aborted --error --running`.",
+)
 @click.option("--all", is_flag=True, help="Build all content, even if it is already marked as COMPLETE.")
 @click.option(
     "--poll-wait",
@@ -2416,6 +2423,8 @@ def start_content_build(
     parallelism: int,
     aborted: bool,
     error: bool,
+    running: bool,
+    retry: bool,
     all: bool,
     poll_wait: float,
     format: str,
@@ -2427,7 +2436,7 @@ def start_content_build(
     logger.set_log_output_format(format)
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
-        build_start(ce.remote_server, parallelism, aborted, error, all, poll_wait, debug)
+        build_start(ce.remote_server, parallelism, aborted, error, running, retry, all, poll_wait, debug)
 
 
 @cli.group(no_args_is_help=True, help="Interact with Posit Connect's system API.")
