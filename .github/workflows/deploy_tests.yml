@@ -7,7 +7,6 @@ on:
   workflow_dispatch:
 
 jobs:
- 
     distributions:
         runs-on: ubuntu-latest
         steps:
@@ -36,8 +35,8 @@ jobs:
           fail-fast: false
           matrix:
             PY_VERSION:
-              - 3.8.18
-              - 3.9.18
+              - 3.8.10
+              - 3.9.5
             PYTHON_BUILD: [binary]
         steps:
         - uses: extractions/setup-just@v1
@@ -81,7 +80,7 @@ jobs:
             RSC_AUTOMATION_PAT: "${{ secrets.CONNECT_PAT }}"
             ADMIN_API_KEY: "${{ secrets.ADMIN_API_KEY }}"
             PYTHON_BUILD: "${{ matrix.PYTHON_BUILD }}"
-            REPO: "rsconnect-python"
+
             # This allows us to start Connect separately in our own docker container
             CONNECT_SERVER: "http://localhost:3939"
             remote: "yes"
@@ -91,11 +90,6 @@ jobs:
             docker compose up -d connect
             just ../test/connect-rsconnect-python/test/rsconnect-python/test-rsconnect-python-repo-${PYTHON_BUILD}
 
-        - name: Setup tmate session
-          if: ${{ failure() }}
-          uses: mxschmitt/action-tmate@v3
-          with:
-              limit-access-to-actor: true
         # Videos are captured whether the suite fails or passes
         - name: Save videos
           uses: actions/upload-artifact@v3

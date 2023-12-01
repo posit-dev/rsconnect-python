@@ -247,3 +247,89 @@ jobs:
           path: integration-testing/cypress/screenshots
           if-no-files-found: ignore
           retention-days: 1
+    
+  test-connect:
+    needs: distributions
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        PY_VERSION:
+          - 3.8.10
+          - 3.9.5
+        PYTHON_BUILD: [binary]
+    steps:
+          - uses: extractions/setup-just@v1
+            env:
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          - uses: actions/checkout@v4
+            with:
+              fetch-depth: 0
+            env:
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Checkout the rsconnect-python tests from Connect
+          - uses: actions/checkout@v4
+            with:
+              repository: rstudio/connect
+              path: 'test/connect-rsconnect-python'
+              ref: kg-rsconnect-repo
+              sparse-checkout: |
+                  test/rsconnect-python
+                  scripts
+                  examples
+              sparse-checkout-cone-mode: false
+              token: ${{ secrets.CONNECT_PAT }}
+      
+          - name: Build docker container-image
+            run: |
+              cd test/connect-rsconnect-python/test/rsconnect-python/
+              docker-compose --profile rsconnect build
+      
+          - name: Restore dist
+            uses: actions/download-artifact@v3
+            with:
+              name: distributions
+              path: dist/
+          
+          - name: Run rsconnect-python Tests
+            env:
+              CONNECT_LICENSE: "${{ secrets.RSC_LICENSE }}"
+              PY_VERSION: ${{ matrix.PY_VERSION }}
+              TEST_SUBSET: "CI"
+              RSC_AUTOMATION_PAT: "${{ secrets.CONNECT_PAT }}"
+              ADMIN_API_KEY: "${{ secrets.ADMIN_API_KEY }}"
+              PYTHON_BUILD: "${{ matrix.PYTHON_BUILD }}"
+
+              # This allows us to start Connect separately in our own docker container
+              CONNECT_SERVER: "http://localhost:3939"
+              remote: "yes"
+            run: |
+              cd integration-testing
+              docker compose pull connect
+              docker compose up -d connect
+              just ../test/connect-rsconnect-python/test/rsconnect-python/test-rsconnect-python-repo-${PYTHON_BUILD}
+  
+          - name: Setup tmate session
+            if: ${{ failure() }}
+            uses: mxschmitt/action-tmate@v3
+            with:
+                limit-access-to-actor: true
+          # Videos are captured whether the suite fails or passes
+          - name: Save videos
+            uses: actions/upload-artifact@v3
+            if: failure()
+            with:
+              name: cypress-videos_${{ matrix.PY_VERSION }}_native
+              path: test/connect-rsconnect-python/cypress/videos
+              if-no-files-found: ignore
+  
+          # Screenshots are only captured on failure
+          - name: Save screenshots
+            uses: actions/upload-artifact@v3
+            if: failure()
+            with:
+              name: cypress-screenshots_${{ matrix.PY_VERSION }}_native
+              path: test/connect-rsconnect-python/cypress/screenshots
+              if-no-files-found: ignore
+  
+  
