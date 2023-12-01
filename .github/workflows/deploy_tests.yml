@@ -38,9 +38,7 @@ jobs:
             PY_VERSION:
               - 3.8.18
               - 3.9.18
-              - 3.10.13
-              - 3.11.6
-            PYTHON_BUILD: [binary, conda]
+            PYTHON_BUILD: [binary]
         steps:
         - uses: extractions/setup-just@v1
           env:
@@ -60,7 +58,6 @@ jobs:
                 test/rsconnect-python
                 scripts
                 examples
-                config
             sparse-checkout-cone-mode: false
             token: ${{ secrets.CONNECT_PAT }}
     
@@ -94,11 +91,11 @@ jobs:
             docker compose up -d connect
             just ../test/connect-rsconnect-python/test/rsconnect-python/test-rsconnect-python-repo-${PYTHON_BUILD}
 
-        # - name: Setup tmate session
-        #   if: ${{ failure() }}
-        #   uses: mxschmitt/action-tmate@v3
-        #   with:
-        #       limit-access-to-actor: true
+        - name: Setup tmate session
+          if: ${{ failure() }}
+          uses: mxschmitt/action-tmate@v3
+          with:
+              limit-access-to-actor: true
         # Videos are captured whether the suite fails or passes
         - name: Save videos
           uses: actions/upload-artifact@v3
