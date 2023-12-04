@@ -2384,14 +2384,13 @@ def get_build_logs(
     default=1,
     help="Defines the number of builds that can run concurrently. Defaults to 1.",
 )
-@click.option("--aborted", is_flag=True, help="Build content that is in the ABORTED state.")
-@click.option("--error", is_flag=True, help="Build content that is in the ERROR state.")
-@click.option("--running", is_flag=True, help="Build content that is in the RUNNING state.")
+@click.option("--aborted", is_flag=True, hidden=True, help="Build content that is in the ABORTED state.")
+@click.option("--error", is_flag=True, hidden=True, help="Build content that is in the ERROR state.")
+@click.option("--running", is_flag=True, hidden=True, help="Build content that is in the RUNNING state.")
 @click.option(
     "--retry",
     is_flag=True,
-    help="Build all content that is in the NEEDS_BUILD, ABORTED, ERROR, or RUNNING state. "
-    + "Shorthand for `--aborted --error --running`.",
+    help="Build all content that is in the NEEDS_BUILD, ABORTED, ERROR, or RUNNING state.",
 )
 @click.option("--all", is_flag=True, help="Build all content, even if it is already marked as COMPLETE.")
 @click.option(
