@@ -15,55 +15,63 @@ from rsconnect.metadata import ContentBuildStore, _normalize_server_url
 
 from .utils import apply_common_args
 
-_bundle_download_dest = "download.tar.gz"
-_test_build_dir = "rsconnect-build-test"
+# These tests need to run in order because they share the same tempdir
+# For some reason setup and teardown aren't enough to fully reset the state
+# between tests. Overriding the env var CONNECT_CONTENT_BUILD_DIR to be a tempdir
+# would be preferable but this is fine for now.
+TEMP_DIR="rsconnect-build-test"
 
 def register_uris(connect_server: str):
+    def register_content_endpoints(i: int, guid: str):
+        httpretty.register_uri(
+            httpretty.GET,
+            f"{connect_server}/__api__/v1/content/{guid}",
+            body=open(f"tests/testdata/connect-responses/describe-content-{i}.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            f"{connect_server}/__api__/v1/content/{guid}/build",
+            body='{"task_id": "1234"}',
+            adding_headers={"Content-Type": "application/json"},
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            f"{connect_server}/__api__/applications/{guid}/config",
+            body='{' +
+                f'"config_url": "{connect_server}/connect/#/apps/{guid}",' +
+                f'"logs_url": "{connect_server}/connect/#/apps/{guid}"' +
+            '}',
+            adding_headers={"Content-Type": "application/json"},
+        )
+
     httpretty.register_uri(
         httpretty.GET,
-        f"%s/__api__/server_settings" % (connect_server),
+        f"{connect_server}/__api__/server_settings",
         body=open("tests/testdata/connect-responses/server_settings.json", "r").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
         httpretty.GET,
-        f"%s/__api__/me" % (connect_server),
+        f"{connect_server}/__api__/me",
         body=open("tests/testdata/connect-responses/me.json", "r").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
         httpretty.GET,
-        f"%s/__api__/v1/content" % (connect_server),
+        f"{connect_server}/__api__/v1/content",
         body=open("tests/testdata/connect-responses/list-content.json", "r").read(),
         adding_headers={"Content-Type": "application/json"},
     )
     httpretty.register_uri(
         httpretty.GET,
-        f"%s/__api__/v1/content/7d59c5c7-c4a7-4950-acc3-3943b7192bc4" % (connect_server),
-        body=open("tests/testdata/connect-responses/describe-content-1.json", "r").read(),
-        adding_headers={"Content-Type": "application/json"},
-    )
-    httpretty.register_uri(
-        httpretty.GET,
-        f"%s/__api__/v1/content/ab497e4b-b706-4ae7-be49-228979a95eb4" % (connect_server),
-        body=open("tests/testdata/connect-responses/describe-content-2.json", "r").read(),
-        adding_headers={"Content-Type": "application/json"},
-    )
-    httpretty.register_uri(
-        httpretty.GET,
-        f"%s/__api__/v1/content/7d59c5c7-c4a7-4950-acc3-3943b7192bc4/bundles/92/download" % (connect_server),
+        f"{connect_server}/__api__/v1/content/7d59c5c7-c4a7-4950-acc3-3943b7192bc4/bundles/92/download",
         body=open("tests/testdata/bundle.tar.gz", "rb").read(),
         adding_headers={"Content-Type": "application/tar+gzip"},
     )
     httpretty.register_uri(
-        httpretty.POST,
-        f"%s/__api__/v1/content/7d59c5c7-c4a7-4950-acc3-3943b7192bc4/build" % (connect_server),
-        body='{"task_id": "1234"}',
-        adding_headers={"Content-Type": "application/json"},
-    )
-    httpretty.register_uri(
         httpretty.GET,
-        f"%s/__api__/tasks/1234" % (connect_server),
+        f"{connect_server}/__api__/tasks/1234",
         body="""{
             "id": "1234",
             "user_id": 0,
@@ -76,23 +84,15 @@ def register_uris(connect_server: str):
         }""",
         adding_headers={"Content-Type": "application/json"},
     )
-    httpretty.register_uri(
-        httpretty.GET,
-        f"%s/__api__/applications/7d59c5c7-c4a7-4950-acc3-3943b7192bc4/config" % (connect_server),
-        body="""{
-            "config_url": "http://localhost:3939/connect/#/apps/7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
-            "logs_url": "http://localhost:3939/connect/#/apps/7d59c5c7-c4a7-4950-acc3-3943b7192bc4/logs"
-        }""",
-        adding_headers={"Content-Type": "application/json"},
-    )
+    register_content_endpoints(1, "7d59c5c7-c4a7-4950-acc3-3943b7192bc4")
+    register_content_endpoints(2, "ab497e4b-b706-4ae7-be49-228979a95eb4")
+    register_content_endpoints(3, "cdfed1f7-0e09-40eb-996d-0ef77ea2d797")
 
 class TestContentSubcommand(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
-        if os.path.exists(_bundle_download_dest):
-            os.remove(_bundle_download_dest)
-        if os.path.exists(_test_build_dir):
-            shutil.rmtree(_test_build_dir, ignore_errors=True)
+        if os.path.exists(TEMP_DIR):
+            shutil.rmtree(TEMP_DIR, ignore_errors=True)
 
     def setUp(self):
         self.connect_server = "http://localhost:3939"
@@ -138,11 +138,11 @@ class TestContentSubcommand(unittest.TestCase):
         runner = CliRunner()
         args = ["content", "download-bundle",
                 "-g", "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
-                "-o", _bundle_download_dest]
+                "-o", f"{TEMP_DIR}/bundle.tar.gz"]
         apply_common_args(args, server=self.connect_server, key=self.api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
-        with tarfile.open(_bundle_download_dest, mode="r:gz") as tgz:
+        with tarfile.open(f"{TEMP_DIR}/bundle.tar.gz", mode="r:gz") as tgz:
             manifest = json.loads(tgz.extractfile("manifest.json").read())
             self.assertIn("metadata", manifest)
 
@@ -157,7 +157,7 @@ class TestContentSubcommand(unittest.TestCase):
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertTrue(
-            os.path.exists("%s/%s.json" % (_test_build_dir, _normalize_server_url(self.connect_server)))
+            os.path.exists("%s/%s.json" % (TEMP_DIR, _normalize_server_url(self.connect_server)))
         )
 
         # list the "tracked" content
@@ -186,34 +186,28 @@ class TestContentSubcommand(unittest.TestCase):
         self.assertTrue(len(listing) == 1)
         self.assertEqual(listing[0]["rsconnect_build_status"], BuildStatus.COMPLETE)
 
+    @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_build_retry(self):
         register_uris(self.connect_server)
         runner = CliRunner()
 
-        # add a content item
-        args = ["content", "build", "add", "-g", "7d59c5c7-c4a7-4950-acc3-3943b7192bc4"]
+        # add 3 content items
+        args = ["content", "build", "add",
+                "-g", "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+                "-g", "ab497e4b-b706-4ae7-be49-228979a95eb4",
+                "-g", "cdfed1f7-0e09-40eb-996d-0ef77ea2d797"]
         apply_common_args(args, server=self.connect_server, key=self.api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertTrue(
-            os.path.exists("%s/%s.json" % (_test_build_dir, _normalize_server_url(self.connect_server)))
+            os.path.exists("%s/%s.json" % (TEMP_DIR, _normalize_server_url(self.connect_server)))
         )
 
-        # list the "tracked" content
-        args = ["content", "build", "ls", "-g", "7d59c5c7-c4a7-4950-acc3-3943b7192bc4"]
-        apply_common_args(args, server=self.connect_server, key=self.api_key)
-        result = runner.invoke(cli, args)
-        self.assertEqual(result.exit_code, 0, result.output)
-        listing = json.loads(result.output)
-        self.assertTrue(len(listing) == 1)
-        self.assertEqual(listing[0]["guid"], "7d59c5c7-c4a7-4950-acc3-3943b7192bc4")
-        self.assertEqual(listing[0]["bundle_id"], "92")
-        self.assertEqual(listing[0]["rsconnect_build_status"], BuildStatus.NEEDS_BUILD)
-
-        # set the content build status to RUNNING so it looks like it was interrupted
-        # and the cleanup did not have time to finish, otherwise it would be marked as ABORTED
+        # change the content build status so it looks like it was interrupted/failed
         store = ContentBuildStore(RSConnectServer(self.connect_server, self.api_key))
         store.set_content_item_build_status("7d59c5c7-c4a7-4950-acc3-3943b7192bc4", BuildStatus.RUNNING)
+        store.set_content_item_build_status("ab497e4b-b706-4ae7-be49-228979a95eb4", BuildStatus.ABORTED)
+        store.set_content_item_build_status("cdfed1f7-0e09-40eb-996d-0ef77ea2d797", BuildStatus.ERROR)
 
         # run the build
         args = ["content", "build", "run", "--retry"]
@@ -222,25 +216,39 @@ class TestContentSubcommand(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
 
         # check that the build succeeded
-        args = ["content", "build", "ls", "-g", "7d59c5c7-c4a7-4950-acc3-3943b7192bc4"]
+        args = ["content", "build", "ls",
+                "-g", "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+                "-g", "ab497e4b-b706-4ae7-be49-228979a95eb4",
+                "-g", "cdfed1f7-0e09-40eb-996d-0ef77ea2d797"]
         apply_common_args(args, server=self.connect_server, key=self.api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
         listing = json.loads(result.output)
-        self.assertTrue(len(listing) == 1)
+        self.assertTrue(len(listing) == 3)
         self.assertEqual(listing[0]["rsconnect_build_status"], BuildStatus.COMPLETE)
+        self.assertEqual(listing[1]["rsconnect_build_status"], BuildStatus.COMPLETE)
+        self.assertEqual(listing[2]["rsconnect_build_status"], BuildStatus.COMPLETE)
 
+    @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_build_rm(self):
         register_uris(self.connect_server)
         runner = CliRunner()
 
-        # remove a content item
+        # remove all the content items
         args = ["content", "build", "rm", "-g", "7d59c5c7-c4a7-4950-acc3-3943b7192bc4"]
         apply_common_args(args, server=self.connect_server, key=self.api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
+        args = ["content", "build", "rm", "-g", "ab497e4b-b706-4ae7-be49-228979a95eb4"]
+        apply_common_args(args, server=self.connect_server, key=self.api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        args = ["content", "build", "rm", "-g", "cdfed1f7-0e09-40eb-996d-0ef77ea2d797"]
+        apply_common_args(args, server=self.connect_server, key=self.api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
 
-        # check that it was removed
+        # check that they were removed
         args = ["content", "build", "ls"]
         apply_common_args(args, server=self.connect_server, key=self.api_key)
         result = runner.invoke(cli, args)
