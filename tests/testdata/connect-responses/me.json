@@ -1,0 +1,42 @@
+{
+  "email": "rsc@example.com",
+  "username": "admin",
+  "first_name": "admin1",
+  "last_name": "",
+  "password": "",
+  "user_role": "administrator",
+  "created_time": "2023-07-24T18:49:28.584906476Z",
+  "updated_time": "2023-10-17T19:24:03.386371574Z",
+  "active_time": "2023-12-01T20:27:06.22605874Z",
+  "confirmed": true,
+  "locked": false,
+  "guid": "820f092f-d564-4ab5-819a-0f4d2f03d11e",
+  "preferences": {
+    "hide_jump_start": true,
+    "jump_start_language": "python",
+    "hide_auth_origin_help": false
+  },
+  "privileges": [
+    "add_users",
+    "add_vanities",
+    "build_bundles",
+    "change_app_permissions",
+    "change_apps",
+    "change_groups",
+    "change_usernames",
+    "change_users",
+    "change_variant_schedule",
+    "create_groups",
+    "edit_run_as",
+    "edit_runtime",
+    "lock_users",
+    "manage_repository",
+    "publish_apps",
+    "remove_apps",
+    "remove_groups",
+    "remove_users",
+    "remove_vanities",
+    "view_app_settings",
+    "view_apps"
+  ]
+}
