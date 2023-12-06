@@ -93,7 +93,17 @@ def build_history(connect_server, guid):
     return _content_build_store.get_build_history(guid)
 
 
-def build_start(connect_server, parallelism, aborted=False, error=False, all=False, poll_wait=2, debug=False):
+def build_start(
+    connect_server,
+    parallelism,
+    aborted=False,
+    error=False,
+    running=False,
+    retry=False,
+    all=False,
+    poll_wait=2,
+    debug=False,
+):
     init_content_build_store(connect_server)
     if _content_build_store.get_build_running():
         raise RSConnectException("There is already a build running on this server: %s" % connect_server.url)
@@ -105,6 +115,12 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
         all_content = list(map(lambda x: ContentGuidWithBundle(x["guid"], x["bundle_id"]), all_content))
         build_add_content(connect_server, all_content)
     else:
+        # --retry is shorthand for --aborted --error --running
+        if retry:
+            aborted = True
+            error = True
+            running = True
+
         aborted_content = []
         if aborted:
             logger.info("Adding ABORTED content to build...")
@@ -115,8 +131,14 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
             logger.info("Adding ERROR content to build...")
             error_content = _content_build_store.get_content_items(status=BuildStatus.ERROR)
             error_content = list(map(lambda x: ContentGuidWithBundle(x["guid"], x["bundle_id"]), error_content))
-        if len(aborted_content + error_content) > 0:
-            build_add_content(connect_server, aborted_content + error_content)
+        running_content = []
+        if running:
+            logger.info("Adding RUNNING content to build...")
+            running_content = _content_build_store.get_content_items(status=BuildStatus.RUNNING)
+            running_content = list(map(lambda x: ContentGuidWithBundle(x["guid"], x["bundle_id"]), running_content))
+
+        if len(aborted_content + error_content + running_content) > 0:
+            build_add_content(connect_server, aborted_content + error_content + running_content)
 
     content_items = _content_build_store.get_content_items(status=BuildStatus.NEEDS_BUILD)
     if len(content_items) == 0:
@@ -172,13 +194,28 @@ def build_start(connect_server, parallelism, aborted=False, error=False, all=Fal
             exit(1)
     except KeyboardInterrupt:
         ContentBuildStore._BUILD_ABORTED = True
+        logger.info("Content build interrupted...")
+        logger.info(
+            "Content that was in the RUNNING state may still be building on the "
+            + "Connect server. Server builds will not be interrupted."
+        )
+        logger.info(
+            "To find content items that _may_ still be running on the server, "
+            + "use: rsconnect content build ls --status RUNNING"
+        )
+        logger.info(
+            "To retry the content build, including items that were interrupted "
+            + "or failed, use: rsconnect content build run --retry"
+        )
     finally:
+        # make sure that we always mark the build as complete but note
+        # there's no guarantee that the content_executor or build_monitor
+        # were allowed to shut down gracefully, they may have been interrupted.
+        _content_build_store.set_build_running(False)
         if content_executor:
             content_executor.shutdown(wait=False)
         if build_monitor:
             build_monitor.shutdown()
-        # make sure that we always mark the build as complete once we finish our cleanup
-        _content_build_store.set_build_running(False)
 
 
 def _monitor_build(connect_server, content_items):

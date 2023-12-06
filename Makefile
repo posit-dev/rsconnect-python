@@ -19,15 +19,13 @@ ifneq ($(GITHUB_RUN_ID),)
 endif
 
 TEST_ENV =
+TEST_ENV += CONNECT_CONTENT_BUILD_DIR="rsconnect-build-test"
 
 ifneq ($(CONNECT_SERVER),)
   TEST_ENV += CONNECT_SERVER=$(CONNECT_SERVER)
 endif
 ifneq ($(CONNECT_API_KEY),)
   TEST_ENV += CONNECT_API_KEY=$(CONNECT_API_KEY)
-endif
-ifneq ($(CONNECT_CONTENT_BUILD_DIR),)
-	TEST_ENV += CONNECT_CONTENT_BUILD_DIR=$(CONNECT_CONTENT_BUILD_DIR)
 endif
 
 # NOTE: See the `dist` target for why this exists.
@@ -48,16 +46,6 @@ shell-%:
 
 test-%:
 	PYTHON_VERSION=$* $(RUNNER) '$(TEST_ENV) $(TEST_COMMAND)'
-
-mock-test-%: clean-stores
-	@$(MAKE) -C mock_connect image up
-	@sleep 1
-	trap "$(MAKE) -C mock_connect down" EXIT; \
-	CONNECT_CONTENT_BUILD_DIR="rsconnect-build-test" \
-	CONNECT_SERVER="http://$(HOSTNAME):3939" \
-	CONNECT_API_KEY="0123456789abcdef0123456789abcdef" \
-	$(MAKE) test-$*
-	@$(MAKE) -C mock_connect down
 
 fmt-%:
 	$(RUNNER) 'black .'

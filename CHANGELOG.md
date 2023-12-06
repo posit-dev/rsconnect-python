@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the name of the environment variables to the help output for those options that
   use environment variables as a default value.
 - Added support for deploying Shiny Express applications.
+- Added a `--retry` flag to the `rsconnect content build run` command to re-run
+  builds for all content in the NEEDS_BUILD, ABORTED, ERROR, or RUNNING state.
 
 ### Changed
 - Improved the error and warning outputs when options conflict by providing the source
@@ -18,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are used.
 - Updated verbose mode to output the source of all options being used when processing the
   CLI command.
+
+### Fixed
+- Interrupting a long-running `rsconnect content build run` command with `^C`
+  will now update the local state file before attempting graceful cleanup. This
+  should help prevent users from getting stuck a "build already running" state.
+  See [#467](https://github.com/rstudio/rsconnect-python/issues/467) for details.
 
 ## [1.21.0] - 2023-10-26
 
