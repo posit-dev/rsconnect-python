@@ -1,7 +1,5 @@
 name: rsconnect-python-tests-at-night
 on:
-  pull_request:
-    branches: [master]
   schedule:
     - cron: "0 09 * * *" # Runs 11 AM UTC == 2 AM PDT
   workflow_dispatch:
