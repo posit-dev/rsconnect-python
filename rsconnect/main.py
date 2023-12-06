@@ -1796,7 +1796,7 @@ def write_manifest_quarto(
     environment = None
     if "jupyter" in engines:
         with cli_feedback("Inspecting Python environment"):
-            python, environment = get_python_env_info(base_dir, python, False, force_generate)
+            python, environment = get_python_env_info(base_dir, python, force_generate)
 
         environment_file_exists = exists(join(base_dir, environment.filename))
         if environment_file_exists and not force_generate:
