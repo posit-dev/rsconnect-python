@@ -17,7 +17,10 @@ Executable = /opt/python/3.8.17/bin/python
 Executable = /opt/python/3.9.17/bin/python
 
 [RPackageRepository "CRAN"]
-URL = https://packagemanager.rstudio.com/cran/__linux__/jammy/latest
+URL = https://p3m.dev/cran/latest
 
 [RPackageRepository "RSPM"]
-URL = https://packagemanager.rstudio.com/cran/__linux__/jammy/latest
+URL = https://p3m.dev/cran/latest
+
+[R]
+PositPackageManagerURLRewriting = force-binary
