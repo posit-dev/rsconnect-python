@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   should help prevent users from getting stuck a "build already running" state.
   See [#467](https://github.com/rstudio/rsconnect-python/issues/467) for details.
 
+- Addressed an error which occurred when attempting to create manifests for
+  Quarto documents. (#534)
+
 ## [1.21.0] - 2023-10-26
 
 ### Fixed

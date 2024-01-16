@@ -32,7 +32,6 @@ from .bundle import (
     make_notebook_html_bundle,
     make_notebook_source_bundle,
     make_quarto_source_bundle,
-    make_quarto_manifest,
     make_source_manifest,
     manifest_add_buffer,
     manifest_add_file,
@@ -518,8 +517,7 @@ def write_quarto_manifest_json(
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-
-    manifest, _ = make_quarto_manifest(
+    bundle.write_quarto_manifest_json(
         file_or_directory,
         inspect,
         app_mode,
@@ -531,21 +529,13 @@ def write_quarto_manifest_json(
         env_management_r,
     )
 
-    base_dir = file_or_directory
-    if not isdir(file_or_directory):
-        base_dir = dirname(file_or_directory)
-    manifest_path = join(base_dir, "manifest.json")
-    write_manifest_json(manifest_path, manifest)
-
 
 def write_manifest_json(manifest_path, manifest):
     """
     Write the manifest data as JSON to the named manifest.json with a trailing newline.
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-    with open(manifest_path, "w") as f:
-        json.dump(manifest, f, indent=2)
-        f.write("\n")
+    bundle.write_manifest_json(manifest_path, manifest)
 
 
 def deploy_html(
