@@ -19,7 +19,7 @@ from .utils import apply_common_args
 # For some reason setup and teardown aren't enough to fully reset the state
 # between tests. Overriding the env var CONNECT_CONTENT_BUILD_DIR to be a tempdir
 # would be preferable but this is fine for now.
-TEMP_DIR="rsconnect-build-test"
+TEMP_DIR = "rsconnect-build-test"
 
 def register_uris(connect_server: str):
     def register_content_endpoints(i: int, guid: str):
@@ -39,8 +39,8 @@ def register_uris(connect_server: str):
             httpretty.GET,
             f"{connect_server}/__api__/applications/{guid}/config",
             body='{' +
-                f'"config_url": "{connect_server}/connect/#/apps/{guid}",' +
-                f'"logs_url": "{connect_server}/connect/#/apps/{guid}"' +
+            f'"config_url": "{connect_server}/connect/#/apps/{guid}",' +
+            f'"logs_url": "{connect_server}/connect/#/apps/{guid}"' +
             '}',
             adding_headers={"Content-Type": "application/json"},
         )
