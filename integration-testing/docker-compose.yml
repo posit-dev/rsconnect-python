@@ -21,7 +21,7 @@ services:
 
   connect:
     hostname: connect
-    image: rstudio/rstudio-connect:bionic
+    image: rstudio/rstudio-connect:jammy
     restart: always
     ports:
       - 3939:3939
