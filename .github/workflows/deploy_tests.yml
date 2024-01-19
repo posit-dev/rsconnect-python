@@ -49,6 +49,7 @@ jobs:
         - uses: actions/checkout@v4
           with:
             repository: rstudio/connect
+            ref: 'kg-min-quarto'
             path: 'test/connect-rsconnect-python'
             sparse-checkout: |
                 test/rsconnect-python
