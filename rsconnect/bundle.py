@@ -1324,7 +1324,7 @@ def make_quarto_manifest(
         # Standalone Quarto document
         base_dir = dirname(file_or_directory)
         file_name = basename(file_or_directory)
-        relevant_files = [file_name] + extra_files
+        relevant_files = [file_name] + list(extra_files or [])
 
     manifest = make_source_manifest(
         app_mode,
@@ -2015,7 +2015,7 @@ def describe_manifest(
 
 
 def write_quarto_manifest_json(
-    directory: str,
+    file_or_directory: str,
     inspect: typing.Any,
     app_mode: AppMode,
     environment: Environment,
@@ -2028,7 +2028,7 @@ def write_quarto_manifest_json(
     """
     Creates and writes a manifest.json file for the given Quarto project.
 
-    :param directory: The directory containing the Quarto project.
+    :param file_or_directory: The Quarto document or the directory containing the Quarto project.
     :param inspect: The parsed JSON from a 'quarto inspect' against the project.
     :param app_mode: The application mode to assume (such as AppModes.STATIC_QUARTO)
     :param environment: The (optional) Python environment to use.
@@ -2041,12 +2041,20 @@ def write_quarto_manifest_json(
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
     """
 
-    extra_files = validate_extra_files(directory, extra_files)
     manifest, _ = make_quarto_manifest(
-        directory, inspect, app_mode, environment, extra_files, excludes, image, env_management_py, env_management_r
+        file_or_directory,
+        inspect,
+        app_mode,
+        environment,
+        extra_files,
+        excludes,
+        image,
     )
-    manifest_path = join(directory, "manifest.json")
 
+    base_dir = file_or_directory
+    if not isdir(file_or_directory):
+        base_dir = dirname(file_or_directory)
+    manifest_path = join(base_dir, "manifest.json")
     write_manifest_json(manifest_path, manifest)
 
 
