@@ -8,8 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added support for deploying Shiny express apps.
-- Added the name of the environment variables to the help output for those options that
-  use environment variables as a default value.
 - Added support for deploying Shiny Express applications.
 - Added a `--retry` flag to the `rsconnect content build run` command to re-run
   builds for all content in the NEEDS_BUILD, ABORTED, ERROR, or RUNNING state.
