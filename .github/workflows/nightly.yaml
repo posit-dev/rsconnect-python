@@ -44,17 +44,20 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-    - uses: actions/checkout@v2
-    - run: git fetch --prune --unshallow
-    - uses: actions/setup-python@v2
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - uses: actions/setup-python@v4
       with:
         python-version: 3.8.x
-    - run: pip install --pre -r requirements.txt
+    - run: pip install --pre '.[test]'
     - run: pip freeze
     - run: make fmt
     - run: make lint
-    - run: python setup.py --version
-    - run: make mock-test-3.8
+    - run: rsconnect version
+    - run: make test-3.8
 
   distributions:
     needs: test
