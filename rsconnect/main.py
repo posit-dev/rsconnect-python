@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import functools
 import json
 import os
@@ -1403,15 +1405,15 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         verbose: int,
         directory,
         extra_files,
-        visibility: typing.Optional[str],
-        env_vars: typing.Dict[str, str],
+        visibility: Optional[str],
+        env_vars: dict[str, str],
         image: str,
         disable_env_management: bool,
         env_management_py: bool,
         env_management_r: bool,
-        account: str = None,
-        token: str = None,
-        secret: str = None,
+        account: Optional[str] = None,
+        token: Optional[str] = None,
+        secret: Optional[str] = None,
         no_verify: bool = False,
     ):
         set_verbosity(verbose)

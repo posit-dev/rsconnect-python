@@ -2,6 +2,8 @@
 Manifest generation and bundling utilities
 """
 
+from __future__ import annotations
+
 import hashlib
 import io
 import json
@@ -11,20 +13,15 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import typing
 import re
 from pprint import pformat
 from collections import defaultdict
 from mimetypes import guess_type
 from pathlib import Path
 from copy import deepcopy
-from typing import List
+from typing import Optional, Any
 import click
-
-
-try:
-    import typing
-except ImportError:
-    typing = None
 
 from os.path import basename, dirname, exists, isdir, join, relpath, splitext, isfile, abspath
 
@@ -302,14 +299,14 @@ def make_source_manifest(
     app_mode: AppMode,
     environment: Environment,
     entrypoint: str,
-    quarto_inspection: typing.Dict[str, typing.Any],
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
-) -> typing.Dict[str, typing.Any]:
-    manifest = {
+    quarto_inspection: Optional[dict[str, Any]],
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
+) -> dict[str, Any]:
+    manifest: dict[str, Any] = {
         "version": 1,
-    }  # type: typing.Dict[str, typing.Any]
+    }
 
     # When adding locale, add it early so it is ordered immediately after
     # version.
@@ -847,11 +844,11 @@ def make_api_manifest(
     entry_point: str,
     app_mode: AppMode,
     environment: Environment,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    extra_files: list[str],
+    excludes: list[str],
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]:
     """
     Makes a manifest for an API.
@@ -1572,12 +1569,11 @@ def which_python(python: typing.Optional[str] = None):
 
 
 def inspect_environment(
-    python,  # type: str
-    directory,  # type: str
-    force_generate=False,  # type: bool
-    check_output=subprocess.check_output,  # type: typing.Callable
-):
-    # type: (...) -> Environment
+    python: str,
+    directory: str,
+    force_generate: bool = False,
+    check_output: typing.Callable = subprocess.check_output,
+) -> Environment:
     """Run the environment inspector using the specified python binary.
 
     Returns a dictionary of information about the environment,
@@ -1595,7 +1591,7 @@ def inspect_environment(
         environment_json = check_output(args, universal_newlines=True)
     except subprocess.CalledProcessError as e:
         raise RSConnectException("Error inspecting environment: %s" % e.output)
-    return MakeEnvironment(**json.loads(environment_json))  # type: ignore
+    return MakeEnvironment(**json.loads(environment_json))
 
 
 def get_python_env_info(file_name, python, force_generate=False):

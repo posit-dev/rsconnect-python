@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import typing
+from typing import Optional
 
 import click
 
@@ -35,14 +38,14 @@ def _get_present_options(
 
 def validate_connection_options(
     ctx: click.Context,
-    url: str,
-    api_key: str,
+    url: Optional[str],
+    api_key: Optional[str],
     insecure: bool,
-    cacert: str,
-    account_name: str,
-    token: str,
-    secret: str,
-    name: str = None,
+    cacert: Optional[str],
+    account_name: Optional[str],
+    token: Optional[str],
+    secret: Optional[str],
+    name: Optional[str] = None,
 ):
     """
     Validates provided Connect or shinyapps.io connection options and returns which target to use given the provided

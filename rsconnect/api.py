@@ -1,11 +1,14 @@
 """
 Posit Connect API client and utility functions
 """
+
+from __future__ import annotations
+
 import binascii
 import os
 from os.path import abspath, dirname
 import time
-from typing import IO, Callable
+from typing import IO, Callable, Optional
 import base64
 import datetime
 import hashlib
@@ -390,17 +393,17 @@ RSConnect = RSConnectClient
 class RSConnectExecutor:
     def __init__(
         self,
-        ctx: click.Context = None,
-        name: str = None,
-        url: str = None,
-        api_key: str = None,
+        ctx: Optional[click.Context] = None,
+        name: Optional[str] = None,
+        url: Optional[str] = None,
+        api_key: Optional[str] = None,
         insecure: bool = False,
-        cacert: str = None,
-        ca_data: str = None,
+        cacert: Optional[str] = None,
+        ca_data: Optional[str] = None,
         cookies=None,
         account=None,
-        token: str = None,
-        secret: str = None,
+        token: Optional[str] = None,
+        secret: Optional[str] = None,
         timeout: int = 30,
         logger=console_logger,
         **kwargs
@@ -471,15 +474,15 @@ class RSConnectExecutor:
     def setup_remote_server(
         self,
         ctx: click.Context,
-        name: str = None,
-        url: str = None,
-        api_key: str = None,
+        name: Optional[str] = None,
+        url: Optional[str] = None,
+        api_key: Optional[str] = None,
         insecure: bool = False,
-        cacert: str = None,
-        ca_data: str = None,
-        account_name: str = None,
-        token: str = None,
-        secret: str = None,
+        cacert: Optional[str] = None,
+        ca_data: Optional[str] = None,
+        account_name: Optional[str] = None,
+        token: Optional[str] = None,
+        secret: Optional[str] = None,
     ):
         validation.validate_connection_options(
             ctx=ctx,

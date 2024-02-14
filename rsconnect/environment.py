@@ -6,6 +6,8 @@ Environment data class abstraction that is usable as an executable module
 python -m rsconnect.environment
 ```
 """
+from __future__ import annotations
+
 import collections
 import datetime
 import json
@@ -14,12 +16,7 @@ import os
 import re
 import subprocess
 import sys
-
-try:
-    import typing
-    from typing import Optional
-except ImportError:
-    typing = None
+from typing import Optional
 
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
 exec_dir = os.path.dirname(sys.executable)
@@ -50,7 +47,7 @@ def MakeEnvironment(
     python: Optional[str] = None,
     source: Optional[str] = None,
     **kwargs,  # provides compatibility where we no longer support some older properties
-):
+) -> Environment:
     return Environment(contents, error, filename, locale, package_manager, pip, python, source)
 
 
