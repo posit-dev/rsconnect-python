@@ -667,7 +667,7 @@ class RSConnectExecutor:
                 raise RSConnectException("Failed to verify with {} ({}).".format(server.remote_name, exc))
 
     @cls_logged("Making bundle ...")
-    def make_bundle(self, func: Callable, *args, **kwargs):
+    def make_bundle(self, func: Callable[..., object], *args: object, **kwargs: object):
         path = (
             self.get("path", **kwargs)
             or self.get("file", **kwargs)
@@ -716,14 +716,14 @@ class RSConnectExecutor:
     @cls_logged("Deploying bundle ...")
     def deploy_bundle(
         self,
-        app_id: typing.Union[str, int] = None,
-        deployment_name: str = None,
-        title: str = None,
+        app_id: Optional[str | int] = None,
+        deployment_name: Optional[str] = None,
+        title: Optional[str] = None,
         title_is_default: bool = False,
-        bundle: IO = None,
-        env_vars=None,
-        app_mode=None,
-        visibility=None,
+        bundle: Optional[IO[str] | IO[bytes]] = None,
+        env_vars: Optional[dict[str, str]]=None,
+        app_mode: Optional[AppMode]=None,
+        visibility: Optional[str]=None,
     ):
         app_id = app_id or self.get("app_id")
         deployment_name = deployment_name or self.get("deployment_name")
@@ -823,7 +823,7 @@ class RSConnectExecutor:
         return self
 
     @cls_logged("Saving deployed information...")
-    def save_deployed_info(self, *args, **kwargs):
+    def save_deployed_info(self, *args: object, **kwargs: object):
         app_store = self.get("app_store", *args, **kwargs)
         path = (
             self.get("path", **kwargs)
@@ -847,14 +847,14 @@ class RSConnectExecutor:
         return self
 
     @cls_logged("Verifying deployed content...")
-    def verify_deployment(self, *args, **kwargs):
+    def verify_deployment(self, *args: object, **kwargs: object):
         if isinstance(self.remote_server, RSConnectServer):
             deployed_info = self.get("deployed_info", *args, **kwargs)
             app_guid = deployed_info["app_guid"]
             self.client.app_access(app_guid)
 
     @cls_logged("Validating app mode...")
-    def validate_app_mode(self, *args, **kwargs):
+    def validate_app_mode(self, *args: object, **kwargs: object):
         path = (
             self.get("path", **kwargs)
             or self.get("file", **kwargs)

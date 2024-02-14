@@ -1452,25 +1452,24 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             **extra_args,
         )
 
-        (
-            ce.validate_server()
-            .validate_app_mode(app_mode=app_mode)
-            .make_bundle(
-                make_api_bundle,
-                directory,
-                entrypoint,
-                app_mode,
-                environment,
-                extra_files,
-                exclude,
-                image=image,
-                env_management_py=env_management_py,
-                env_management_r=env_management_r,
-            )
-            .deploy_bundle()
-            .save_deployed_info()
-            .emit_task_log()
+        ce.validate_server()
+        ce.validate_app_mode(app_mode=app_mode)
+        ce.make_bundle(
+            make_api_bundle,
+            directory,
+            entrypoint,
+            app_mode,
+            environment,
+            extra_files,
+            exclude,
+            image=image,
+            env_management_py=env_management_py,
+            env_management_r=env_management_r,
         )
+        ce.deploy_bundle()
+        ce.save_deployed_info()
+        ce.emit_task_log()
+
         if not no_verify:
             ce.verify_deployment()
 
