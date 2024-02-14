@@ -1381,7 +1381,7 @@ def validate_file_is_notebook(file_name):
         raise RSConnectException("A Jupyter notebook (.ipynb) file is required here.")
 
 
-def validate_extra_files(directory, extra_files, use_abspath=False):
+def validate_extra_files(directory: str, extra_files: typing.Sequence[str], use_abspath: bool = False) -> list[str]:
     """
     If the user specified a list of extra files, validate that they all exist and are
     beneath the given directory and, if so, return a list of them made relative to that
@@ -1391,7 +1391,7 @@ def validate_extra_files(directory, extra_files, use_abspath=False):
     :param extra_files: the list of extra files to qualify and validate.
     :return: the extra files qualified by the directory.
     """
-    result = []
+    result: list[str] = []
     if extra_files:
         for extra in extra_files:
             extra_file = relpath(extra, directory)
@@ -1425,7 +1425,7 @@ re_app_prefix = re.compile(r"^app[-_].+\.py$")
 re_app_suffix = re.compile(r".+[-_]app\.py$")
 
 
-def get_default_entrypoint(directory):
+def get_default_entrypoint(directory: str):
     candidates = ["app", "application", "main", "api"]
     files = set(os.listdir(directory))
 
@@ -1448,7 +1448,7 @@ def get_default_entrypoint(directory):
     raise RSConnectException(f"Could not determine default entrypoint file in directory '{directory}'")
 
 
-def validate_entry_point(entry_point, directory):
+def validate_entry_point(entry_point: str | None, directory: str):
     """
     Validates the entry point specified by the user, expanding as necessary.  If the
     user specifies nothing, a module of "app" is assumed.  If the user specifies a
@@ -1477,7 +1477,7 @@ def _warn_on_ignored_entrypoint(entrypoint):
         )
 
 
-def _warn_on_ignored_manifest(directory):
+def _warn_on_ignored_manifest(directory: str):
     """
     Checks for the existence of a file called manifest.json in the given directory.
     If it's there, a warning noting that it will be ignored will be printed.
@@ -1491,7 +1491,7 @@ def _warn_on_ignored_manifest(directory):
         )
 
 
-def _warn_if_no_requirements_file(directory):
+def _warn_if_no_requirements_file(directory: str):
     """
     Checks for the existence of a file called requirements.txt in the given directory.
     If it's not there, a warning will be printed.
@@ -1506,7 +1506,7 @@ def _warn_if_no_requirements_file(directory):
         )
 
 
-def _warn_if_environment_directory(directory):
+def _warn_if_environment_directory(directory: str):
     """
     Issue a warning if the deployment directory is itself a virtualenv (yikes!).
 
@@ -1520,7 +1520,7 @@ def _warn_if_environment_directory(directory):
         )
 
 
-def _warn_on_ignored_requirements(directory, requirements_file_name):
+def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     """
     Checks for the existence of a file called manifest.json in the given directory.
     If it's there, a warning noting that it will be ignored will be printed.
@@ -1548,7 +1548,7 @@ def fake_module_file_from_directory(directory: str):
     return join(directory, app_name + ".py")
 
 
-def which_python(python: typing.Optional[str] = None):
+def which_python(python: Optional[str] = None):
     """Determines which Python executable to use.
 
     If the :param python: is provided, then validation is performed to check if the path is an executable file. If
@@ -1594,7 +1594,7 @@ def inspect_environment(
     return MakeEnvironment(**json.loads(environment_json))
 
 
-def get_python_env_info(file_name, python, force_generate=False):
+def get_python_env_info(file_name: str, python: str | None, force_generate=False):
     """
     Gathers the python and environment information relating to the specified file
     with an eye to deploy it.
@@ -2064,10 +2064,10 @@ def write_manifest_json(manifest_path, manifest):
 
 
 def create_python_environment(
-    directory: str = None,
+    directory: str,
     force_generate: bool = False,
-    python: str = None,
-):
+    python: Optional[str] = None,
+) -> Environment:
     module_file = fake_module_file_from_directory(directory)
 
     # click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))

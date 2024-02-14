@@ -10,7 +10,7 @@ from rsconnect.exception import RSConnectException
 
 def get_parameter_source_name_from_ctx(
     var_or_param_name: str,
-    ctx: click.Context,
+    ctx: Optional[click.Context],
 ) -> str:
     if ctx:
         varName = var_or_param_name.replace("-", "_")
@@ -22,7 +22,7 @@ def get_parameter_source_name_from_ctx(
 
 def _get_present_options(
     options: typing.Dict[str, typing.Optional[typing.Any]],
-    ctx: click.Context,
+    ctx: Optional[click.Context],
 ) -> typing.List[str]:
     result: typing.List[str] = []
     for k, v in options.items():
@@ -37,7 +37,7 @@ def _get_present_options(
 
 
 def validate_connection_options(
-    ctx: click.Context,
+    ctx: Optional[click.Context],
     url: Optional[str],
     api_key: Optional[str],
     insecure: bool,

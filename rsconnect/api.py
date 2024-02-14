@@ -34,6 +34,9 @@ from .exception import RSConnectException, DeploymentFailedException
 from .bundle import _default_title, fake_module_file_from_directory
 from .timeouts import get_task_timeout, get_task_timeout_help_message
 
+if typing.TYPE_CHECKING:
+    import logging
+
 
 class AbstractRemoteServer:
     def __init__(self, url: str, remote_name: str):
@@ -400,13 +403,13 @@ class RSConnectExecutor:
         insecure: bool = False,
         cacert: Optional[str] = None,
         ca_data: Optional[str] = None,
-        cookies=None,
-        account=None,
+        cookies: Optional[CookieJar] = None,
+        account: Optional[str] = None,
         token: Optional[str] = None,
         secret: Optional[str] = None,
         timeout: int = 30,
-        logger=console_logger,
-        **kwargs
+        logger: logging.Logger = console_logger,
+        **kwargs: typing.Any,
     ) -> None:
         self.reset()
         self._d = kwargs
@@ -473,13 +476,13 @@ class RSConnectExecutor:
 
     def setup_remote_server(
         self,
-        ctx: click.Context,
+        ctx: Optional[click.Context],
         name: Optional[str] = None,
         url: Optional[str] = None,
         api_key: Optional[str] = None,
         insecure: bool = False,
         cacert: Optional[str] = None,
-        ca_data: Optional[str] = None,
+        ca_data: Optional[str | bytes] = None,
         account_name: Optional[str] = None,
         token: Optional[str] = None,
         secret: Optional[str] = None,
