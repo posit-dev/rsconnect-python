@@ -4,6 +4,7 @@ from rsconnect.utils_package import (
     compare_package_versions,
     compare_semvers,
     parse_requirements_txt,
+    replace_requirement,
 )
 
 
@@ -102,3 +103,30 @@ def test_parse_requirements():
     ]
 
     print(res)
+
+
+def test_replace_requirement():
+    x = replace_requirement(
+        "starlette",
+        "REPLACED",
+        dedent(
+            """
+            abcd
+            starlette
+            starlette==1.0
+            starlette-foo
+            starlette0
+            starlette
+            """
+        ),
+    )
+    assert x == dedent(
+        """
+        abcd
+        REPLACED
+        REPLACED
+        starlette-foo
+        starlette0
+        REPLACED
+        """
+    )

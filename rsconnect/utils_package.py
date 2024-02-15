@@ -162,3 +162,22 @@ def find_package_info(package: str, requirements: list[PackageInfo]) -> PackageI
         if pkg_info.name == package:
             return pkg_info
     return None
+
+
+def replace_requirement(package_name: str, replacement: str, requirements_txt: str) -> str:
+    """
+    Given a requirements.txt file and a package name, replace the line of
+    requirements.txt for that package, with the replacement string, and return the
+    modified requirements.txt.
+
+    Note that package_name is a regular expression, so if the target package name
+    contains a ".", it should be escaped, as in "foo\\.bar".
+    """
+    lines = requirements_txt.split("\n")
+    new_lines: list[str] = []
+
+    for line in lines:
+        new_line = re.sub(f"^{package_name}([^a-zA-Z0-9._-].*?)?$", replacement, line)
+        new_lines.append(new_line)
+
+    return "\n".join(new_lines)
