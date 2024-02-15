@@ -86,14 +86,10 @@ def parse_requirements_txt(requirements_txt: str) -> list[PackageInfo]:
     the version of the package that is installed. This is done by finding the line that
     starts with the package name, and then extracting the version from that line.
 
-    Note that this function does not handle cases where there are multipler version
-    requirements for a package, as in "pkg>=1.0,<=2.0". It only handles simple cases,
-    like "pkg==1.0" or "pkg>=1.0".
-
     :param requirements_txt: The contents of a requirements.txt file.
     :param package: The name of the package to find.
 
-    :return: The version of the package, or None if the package is not found.
+    :return: A list of PackageInfo objects.
     """
     # Note that this parser is not perfect. If we want to perfectly parse a
     # requirements.txt file, we could use the requirements-parser package, but that
