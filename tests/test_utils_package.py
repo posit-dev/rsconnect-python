@@ -102,8 +102,6 @@ def test_parse_requirements():
         ("pkgc", [(">", "2.0")]),
     ]
 
-    print(res)
-
 
 def test_replace_requirement():
     x = replace_requirement(
