@@ -3,6 +3,7 @@ from __future__ import annotations
 import functools
 import json
 import os
+import re
 import sys
 import traceback
 import typing
@@ -10,7 +11,7 @@ import textwrap
 import click
 from os.path import abspath, dirname, exists, isdir, join
 from functools import wraps
-from typing import Optional
+from typing import Literal, Optional, cast
 
 from rsconnect.certificates import read_certificate_file
 
@@ -83,6 +84,7 @@ from .json_web_token import (
     parse_client_response,
 )
 from .shiny_express import escape_to_var_name, is_express_app
+from .utils_package import compare_semvers, parse_requirements_txt, find_package_info
 
 server_store = ServerStore()
 future_enabled = False
@@ -1453,6 +1455,44 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         )
 
         ce.validate_server()
+
+        # TODO: Extract to a function
+        connect_version_string = cast(str, ce.server_details["connect"])  # type: ignore
+        if app_mode == AppModes.PYTHON_SHINY and compare_semvers(connect_version_string, "2024.01.0") == -1:
+            print(f"Connect server version: {connect_version_string}")
+
+            requirements_txt = cast(str, environment.contents)
+
+            reqs = parse_requirements_txt(requirements_txt)
+            starlette_req = find_package_info("starlette", reqs)
+
+            if starlette_req is None:
+                print("Adding starlette<0.35.0 to requirements")
+                environment = environment._replace(contents=requirements_txt.rstrip("\n") + "\nstarlette<0.35.0\n")
+
+            elif len(starlette_req.specs) == 0:
+                print("Adding starlette<0.35.0 to requirements")
+                # TODO: Need safer modification of requirements.txt
+                environment = environment._replace(
+                    contents=re.sub(r"\nstarlette.*?\n", "\nstarlette<0.35.0\n", requirements_txt)
+                )
+
+            elif len(starlette_req.specs) == 1 and starlette_req.specs[0].operator == "==":
+                if compare_semvers(starlette_req.specs[0].version, "0.35.0") >= 0:
+                    print("Starlette version is 0.35.0 or greater. Setting to <0.35.0.")
+
+                    environment = environment._replace(
+                        contents=re.sub(r"\nstarlette.*?\n", "\nstarlette<0.35.0\n", requirements_txt)
+                    )
+            else:
+                # If more complex version spec (that doesn't use ==), do nothing.
+                pass
+
+            # If didn't ask for specific version of starlette, add starlette<0.35.0.
+            # If pinned version is <0.35.0, do nothing.
+            # If pinned version is >=0.35.0, change the version and emit warning
+            # If more complex version spec (that doesn't use ==), do nothing.
+
         ce.validate_app_mode(app_mode=app_mode)
         ce.make_bundle(
             make_api_bundle,
