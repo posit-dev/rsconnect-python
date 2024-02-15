@@ -3,7 +3,6 @@ from __future__ import annotations
 import functools
 import json
 import os
-import re
 import sys
 import traceback
 import typing
@@ -11,7 +10,7 @@ import textwrap
 import click
 from os.path import abspath, dirname, exists, isdir, join
 from functools import wraps
-from typing import Literal, Optional, cast
+from typing import Optional, cast
 
 from rsconnect.certificates import read_certificate_file
 
@@ -84,13 +83,7 @@ from .json_web_token import (
     parse_client_response,
 )
 from .shiny_express import escape_to_var_name, is_express_app
-from .utils_package import (
-    compare_semvers,
-    find_package_info,
-    fix_starlette_requirements,
-    parse_requirements_txt,
-    replace_requirement,
-)
+from .utils_package import fix_starlette_requirements
 
 server_store = ServerStore()
 future_enabled = False
@@ -1457,7 +1450,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             account=account,
             token=token,
             secret=secret,
-            **extra_args, # type: ignore
+            **extra_args,  # type: ignore
         )
 
         # Update the starlette version if needed. After all users are on Connect

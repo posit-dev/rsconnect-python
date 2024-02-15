@@ -721,9 +721,9 @@ class RSConnectExecutor:
         title: Optional[str] = None,
         title_is_default: bool = False,
         bundle: Optional[IO[str] | IO[bytes]] = None,
-        env_vars: Optional[dict[str, str]]=None,
-        app_mode: Optional[AppMode]=None,
-        visibility: Optional[str]=None,
+        env_vars: Optional[dict[str, str]] = None,
+        app_mode: Optional[AppMode] = None,
+        visibility: Optional[str] = None,
     ):
         app_id = app_id or self.get("app_id")
         deployment_name = deployment_name or self.get("deployment_name")

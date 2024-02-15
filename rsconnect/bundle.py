@@ -1060,7 +1060,7 @@ def infer_entrypoint(path, mimetype):
     return candidates.pop() if len(candidates) == 1 else None
 
 
-def infer_entrypoint_candidates(path, mimetype) -> List:
+def infer_entrypoint_candidates(path, mimetype) -> list[str]:
     if not path:
         return []
     if isfile(path):
