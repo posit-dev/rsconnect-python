@@ -8,7 +8,7 @@ import binascii
 import os
 from os.path import abspath, dirname
 import time
-from typing import IO, Callable, Optional
+from typing import BinaryIO, Callable, Optional
 import base64
 import datetime
 import hashlib
@@ -720,7 +720,7 @@ class RSConnectExecutor:
         deployment_name: Optional[str] = None,
         title: Optional[str] = None,
         title_is_default: bool = False,
-        bundle: Optional[IO[str] | IO[bytes]] = None,
+        bundle: Optional[BinaryIO] = None,
         env_vars: Optional[dict[str, str]] = None,
         app_mode: Optional[AppMode] = None,
         visibility: Optional[str] = None,
@@ -729,7 +729,7 @@ class RSConnectExecutor:
         deployment_name = deployment_name or self.get("deployment_name")
         title = title or self.get("title")
         title_is_default = title_is_default or self.get("title_is_default")
-        bundle = bundle or self.get("bundle")
+        bundle = bundle or typing.cast(BinaryIO, self.get("bundle"))
         env_vars = env_vars or self.get("env_vars")
         app_mode = app_mode or self.get("app_mode")
         visibility = visibility or self.get("visibility")
