@@ -160,6 +160,10 @@ def _parse_version_spec(version_spec: str) -> VersionInfo | None:
     """
     Parse a version spec string like ">=1.0" into a tuple like (">=", "1.0"). If it is
     unable to parse the string, return None.
+
+    For the purposes for which this function is used, it makes sense to return None if
+    the spec can't be parsed, instead of raising an exception. For our use cases, we do
+    not want to interrupt the flow of the program if we encounter malformed input.
     """
     for op in (">=", "<=", ">", "<", "==", "!="):
         if version_spec.startswith(op):
