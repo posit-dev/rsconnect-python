@@ -1457,7 +1457,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             account=account,
             token=token,
             secret=secret,
-            **extra_args,
+            **extra_args, # type: ignore
         )
 
         # Update the starlette version if needed. After all users are on Connect
