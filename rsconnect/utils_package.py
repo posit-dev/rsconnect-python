@@ -156,7 +156,7 @@ def _parse_version_spec(version_spec: str) -> VersionInfo | None:
     """
     for op in (">=", "<=", ">", "<", "==", "!="):
         if version_spec.startswith(op):
-            return VersionInfo(op, version_spec[len(op) :].strip())
+            return VersionInfo(op, version_spec[len(op) :].strip())  # type: ignore
     return None
 
 
