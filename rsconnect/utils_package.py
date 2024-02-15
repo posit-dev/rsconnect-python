@@ -9,6 +9,9 @@ from typing import Literal, NamedTuple, cast
 
 import semver
 
+from .environment import Environment
+from .models import AppMode, AppModes
+
 ComparisonOperator = Literal[">=", "<=", ">", "<", "==", "!="]
 
 
@@ -24,14 +27,18 @@ class PackageInfo(NamedTuple):
 
 def compare_semvers(version1: str, version2: str) -> Literal[-1, 0, 1]:
     """
+    Compare semver-like version numbers. This should be used for comparing Connect
+    versions, but not Python package versions.
+
     This is a wrapper for semver.VersionInfo.compare(), but it can handle some version
-    strings that are not valid semver strings. Specifically, it can handle strings like
-    "2024.01.0", which have a leading '0' in a version part. The leading zero in "01"
-    makes it an invalid semver string.
+    strings that are not strictly valid semver strings. Specifically, it can handle
+    strings like "2024.01.0", which have a leading '0' in a version part. The leading
+    zero in "01" makes it an invalid semver string.
 
     Note that semvers always have three parts, so "0.12" is not a valid semver. This
     function can be safely used for comparing Connect version numbers, but not for
-    comparing Python package numbers, because they may not have exactly three parts.
+    comparing Python package numbers, because the latter may not have exactly three
+    parts.
 
     This function is better for comparing Connect version numbers than
     compare_package_versions(), because the latter doesn't handle the prerelease and
@@ -181,3 +188,68 @@ def replace_requirement(package_name: str, replacement: str, requirements_txt: s
         new_lines.append(new_line)
 
     return "\n".join(new_lines)
+
+
+def fix_starlette_requirements(
+    environment: Environment,
+    app_mode: AppMode,
+    connect_version_string: str,
+) -> Environment:
+    """
+    Ensure that the starlette version in an Environment is compatible with the Connect
+    server.
+
+    If the app mode is PYTHON_SHINY and the Connect server version is less than
+    2024.01.0, then make sure the starlette version is less than 0.35.0, due to an
+    incompatibility with between older Connect<2024.01.0 and starlette>=0.35.0.
+
+    After all users are on Connect 2024.01.0 or later, this function can be removed.
+
+    For more information, see https://github.com/posit-dev/py-shiny/issues/1114
+
+    :return: Either a modified environment (if changes were needed), or the original
+    environment.
+    """
+    if not (app_mode == AppModes.PYTHON_SHINY and compare_semvers(connect_version_string, "2024.01.0") == -1):
+        return environment
+
+    print(f"Connect server version: {connect_version_string}")
+
+    requirements_txt = cast(str, environment.contents)
+
+    reqs = parse_requirements_txt(requirements_txt)
+    starlette_req = find_package_info("starlette", reqs)
+
+    # If didn't ask for specific version of starlette, add starlette<0.35.0.
+    # If pinned version is <0.35.0, do nothing.
+    # If pinned version is >=0.35.0, change the version and emit warning
+    # If more complex version spec (that doesn't use ==), do nothing.
+
+    if starlette_req is None:
+        # starlette is not listed in requirements.
+        # Add starlette<0.35.0 to requirements.
+        requirements_txt = requirements_txt.rstrip("\n") + "\nstarlette<0.35.0\n"
+        environment = environment._replace(contents=requirements_txt)
+
+    elif len(starlette_req.specs) == 0:
+        # starlette is in requirements, but without a version specification.
+        # Replace it with starlette<0.35.0.
+        requirements_txt = replace_requirement("starlette", "starlette<0.35.0", requirements_txt)
+        environment = environment._replace(contents=requirements_txt)
+
+    elif len(starlette_req.specs) == 1 and starlette_req.specs[0].operator == "==":
+        if compare_semvers(starlette_req.specs[0].version, "0.35.0") >= 0:
+            # starlette is in requirements.txt, but with a version spec that is
+            # not compatible with this version of Connect.
+            print(
+                "Starlette version is 0.35.0 or greater, but this version of Connect requires starlette<0.35.0. Setting to <0.35.0."
+            )
+            requirements_txt = replace_requirement("starlette", "starlette<0.35.0", requirements_txt)
+            environment = environment._replace(contents=requirements_txt)
+    else:
+        # If more complex version spec (e.g., it uses something other than == or
+        # has multiple specs), do nothing, because this is an advanced user that
+        # is doing something complicated.
+        pass
+
+    return environment
