@@ -1405,7 +1405,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         force_generate: bool,
         verbose: int,
         directory: str,
-        extra_files: tuple[str, ...] | list[str],
+        extra_files: tuple[str, ...],
         visibility: Optional[str],
         env_vars: dict[str, str],
         image: str,
@@ -1419,7 +1419,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
     ):
         set_verbosity(verbose)
         entrypoint = validate_entry_point(entrypoint, directory)
-        extra_files = validate_extra_files(directory, extra_files)
+        extra_files_list = validate_extra_files(directory, extra_files)
         environment = create_python_environment(
             directory,
             force_generate,
@@ -1469,7 +1469,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             entrypoint,
             app_mode,
             environment,
-            extra_files,
+            extra_files_list,
             exclude,
             image=image,
             env_management_py=env_management_py,
