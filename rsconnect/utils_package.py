@@ -17,6 +17,7 @@ else:
 import semver
 
 from .environment import Environment
+from .log import logger
 from .models import AppMode, AppModes
 
 ComparisonOperator = Literal[">=", "<=", ">", "<", "==", "!="]
@@ -250,7 +251,7 @@ def fix_starlette_requirements(
         if compare_semvers(starlette_req.specs[0].version, "0.35.0") >= 0:
             # starlette is in requirements.txt, but with a version spec that is
             # not compatible with this version of Connect.
-            print(
+            logger.warn(
                 "Starlette version is 0.35.0 or greater, but this version of Connect "
                 "requires starlette<0.35.0. Setting to <0.35.0."
             )
