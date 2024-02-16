@@ -817,7 +817,7 @@ def create_glob_set(directory, excludes):
     return GlobSet(work)
 
 
-def is_environment_dir(directory):
+def is_environment_dir(directory: str | Path):
     """Detect whether `directory` is a virtualenv"""
 
     # A virtualenv will have Python at ./bin/python
@@ -1506,7 +1506,7 @@ def _warn_if_no_requirements_file(directory: str):
         )
 
 
-def _warn_if_environment_directory(directory: str):
+def _warn_if_environment_directory(directory: str | Path):
     """
     Issue a warning if the deployment directory is itself a virtualenv (yikes!).
 
