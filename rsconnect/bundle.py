@@ -498,7 +498,7 @@ def write_manifest(
     return created, skipped
 
 
-def list_files(base_dir, include_sub_dirs, walk=os.walk):
+def list_files(base_dir, include_sub_dirs, walk=os.walk, followlinks=True):
     """List the files in the directory at path.
 
     If include_sub_dirs is True, recursively list
@@ -1038,7 +1038,7 @@ def create_file_list(
         file_set.add(path_to_add)
         return sorted(file_set)
 
-    for cur_dir, sub_dirs, files in os.walk(path):
+    for cur_dir, sub_dirs, files in os.walk(path, followlinks=True):
         if Path(cur_dir) in exclude_paths:
             continue
         if any(parent in exclude_paths for parent in Path(cur_dir).parents):
