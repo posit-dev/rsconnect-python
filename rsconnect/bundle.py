@@ -578,6 +578,7 @@ def list_files(
     base_dir: str,
     include_sub_dirs: bool,
     walk: Callable[[str], Iterator[tuple[str, list[str], list[str]]]] = os.walk,
+    followlinks: bool = True,
 ) -> list[str]:
     """List the files in the directory at path.
 
@@ -1259,7 +1260,7 @@ def create_file_list(
         file_set.add(path_to_add)
         return sorted(file_set)
 
-    for cur_dir, _, files in os.walk(path):
+    for cur_dir, _, files in os.walk(path, followlinks=True):
         if Path(cur_dir) in exclude_paths:
             continue
         if any(parent in exclude_paths for parent in Path(cur_dir).parents):
