@@ -1453,13 +1453,14 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             **extra_args,  # type: ignore
         )
 
-        # Update the starlette version if needed. After all users are on Connect
-        # 2024.01.1 or later, this can be removed.
-        environment = fix_starlette_requirements(
-            environment=environment,
-            app_mode=app_mode,
-            connect_version_string=cast(str, ce.server_details["connect"]),  # type: ignore
-        )
+        if isinstance(ce.client, RSConnectClient):
+            # Update the starlette version if needed. After all users are on Connect
+            # 2024.01.1 or later, this can be removed.
+            environment = fix_starlette_requirements(
+                environment=environment,
+                app_mode=app_mode,
+                connect_version_string=cast(str, ce.client.server_settings()["version"]),
+            )
 
         ce.validate_server()
         ce.validate_app_mode(app_mode=app_mode)
