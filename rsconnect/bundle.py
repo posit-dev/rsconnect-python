@@ -2,6 +2,8 @@
 Manifest generation and bundling utilities
 """
 
+from __future__ import annotations
+
 import hashlib
 import io
 import json
@@ -11,20 +13,15 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import typing
 import re
 from pprint import pformat
 from collections import defaultdict
 from mimetypes import guess_type
 from pathlib import Path
 from copy import deepcopy
-from typing import List
+from typing import Optional, Any
 import click
-
-
-try:
-    import typing
-except ImportError:
-    typing = None
 
 from os.path import basename, dirname, exists, isdir, join, relpath, splitext, isfile, abspath
 
@@ -302,14 +299,14 @@ def make_source_manifest(
     app_mode: AppMode,
     environment: Environment,
     entrypoint: str,
-    quarto_inspection: typing.Dict[str, typing.Any],
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
-) -> typing.Dict[str, typing.Any]:
-    manifest = {
+    quarto_inspection: Optional[dict[str, Any]],
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
+) -> dict[str, Any]:
+    manifest: dict[str, Any] = {
         "version": 1,
-    }  # type: typing.Dict[str, typing.Any]
+    }
 
     # When adding locale, add it early so it is ordered immediately after
     # version.
@@ -820,7 +817,7 @@ def create_glob_set(directory, excludes):
     return GlobSet(work)
 
 
-def is_environment_dir(directory):
+def is_environment_dir(directory: str | Path):
     """Detect whether `directory` is a virtualenv"""
 
     # A virtualenv will have Python at ./bin/python
@@ -847,11 +844,11 @@ def make_api_manifest(
     entry_point: str,
     app_mode: AppMode,
     environment: Environment,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    extra_files: list[str],
+    excludes: list[str],
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]:
     """
     Makes a manifest for an API.
@@ -1063,7 +1060,7 @@ def infer_entrypoint(path, mimetype):
     return candidates.pop() if len(candidates) == 1 else None
 
 
-def infer_entrypoint_candidates(path, mimetype) -> List:
+def infer_entrypoint_candidates(path, mimetype) -> list[str]:
     if not path:
         return []
     if isfile(path):
@@ -1384,7 +1381,7 @@ def validate_file_is_notebook(file_name):
         raise RSConnectException("A Jupyter notebook (.ipynb) file is required here.")
 
 
-def validate_extra_files(directory, extra_files, use_abspath=False):
+def validate_extra_files(directory: str, extra_files: typing.Sequence[str], use_abspath: bool = False) -> list[str]:
     """
     If the user specified a list of extra files, validate that they all exist and are
     beneath the given directory and, if so, return a list of them made relative to that
@@ -1394,7 +1391,7 @@ def validate_extra_files(directory, extra_files, use_abspath=False):
     :param extra_files: the list of extra files to qualify and validate.
     :return: the extra files qualified by the directory.
     """
-    result = []
+    result: list[str] = []
     if extra_files:
         for extra in extra_files:
             extra_file = relpath(extra, directory)
@@ -1428,7 +1425,7 @@ re_app_prefix = re.compile(r"^app[-_].+\.py$")
 re_app_suffix = re.compile(r".+[-_]app\.py$")
 
 
-def get_default_entrypoint(directory):
+def get_default_entrypoint(directory: str):
     candidates = ["app", "application", "main", "api"]
     files = set(os.listdir(directory))
 
@@ -1451,7 +1448,7 @@ def get_default_entrypoint(directory):
     raise RSConnectException(f"Could not determine default entrypoint file in directory '{directory}'")
 
 
-def validate_entry_point(entry_point, directory):
+def validate_entry_point(entry_point: str | None, directory: str):
     """
     Validates the entry point specified by the user, expanding as necessary.  If the
     user specifies nothing, a module of "app" is assumed.  If the user specifies a
@@ -1480,7 +1477,7 @@ def _warn_on_ignored_entrypoint(entrypoint):
         )
 
 
-def _warn_on_ignored_manifest(directory):
+def _warn_on_ignored_manifest(directory: str):
     """
     Checks for the existence of a file called manifest.json in the given directory.
     If it's there, a warning noting that it will be ignored will be printed.
@@ -1494,7 +1491,7 @@ def _warn_on_ignored_manifest(directory):
         )
 
 
-def _warn_if_no_requirements_file(directory):
+def _warn_if_no_requirements_file(directory: str):
     """
     Checks for the existence of a file called requirements.txt in the given directory.
     If it's not there, a warning will be printed.
@@ -1509,7 +1506,7 @@ def _warn_if_no_requirements_file(directory):
         )
 
 
-def _warn_if_environment_directory(directory):
+def _warn_if_environment_directory(directory: str | Path):
     """
     Issue a warning if the deployment directory is itself a virtualenv (yikes!).
 
@@ -1523,7 +1520,7 @@ def _warn_if_environment_directory(directory):
         )
 
 
-def _warn_on_ignored_requirements(directory, requirements_file_name):
+def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     """
     Checks for the existence of a file called manifest.json in the given directory.
     If it's there, a warning noting that it will be ignored will be printed.
@@ -1551,7 +1548,7 @@ def fake_module_file_from_directory(directory: str):
     return join(directory, app_name + ".py")
 
 
-def which_python(python: typing.Optional[str] = None):
+def which_python(python: Optional[str] = None):
     """Determines which Python executable to use.
 
     If the :param python: is provided, then validation is performed to check if the path is an executable file. If
@@ -1572,12 +1569,11 @@ def which_python(python: typing.Optional[str] = None):
 
 
 def inspect_environment(
-    python,  # type: str
-    directory,  # type: str
-    force_generate=False,  # type: bool
-    check_output=subprocess.check_output,  # type: typing.Callable
-):
-    # type: (...) -> Environment
+    python: str,
+    directory: str,
+    force_generate: bool = False,
+    check_output: typing.Callable = subprocess.check_output,
+) -> Environment:
     """Run the environment inspector using the specified python binary.
 
     Returns a dictionary of information about the environment,
@@ -1595,10 +1591,10 @@ def inspect_environment(
         environment_json = check_output(args, universal_newlines=True)
     except subprocess.CalledProcessError as e:
         raise RSConnectException("Error inspecting environment: %s" % e.output)
-    return MakeEnvironment(**json.loads(environment_json))  # type: ignore
+    return MakeEnvironment(**json.loads(environment_json))
 
 
-def get_python_env_info(file_name, python, force_generate=False):
+def get_python_env_info(file_name: str, python: str | None, force_generate=False):
     """
     Gathers the python and environment information relating to the specified file
     with an eye to deploy it.
@@ -2068,10 +2064,10 @@ def write_manifest_json(manifest_path, manifest):
 
 
 def create_python_environment(
-    directory: str = None,
+    directory: str,
     force_generate: bool = False,
-    python: str = None,
-):
+    python: Optional[str] = None,
+) -> Environment:
     module_file = fake_module_file_from_directory(directory)
 
     # click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))

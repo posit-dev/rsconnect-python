@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 from pathlib import Path
 
 BINARY_ENCODED_FILETYPES = [".cer", ".der"]
 TEXT_ENCODED_FILETYPES = [".ca-bundle", ".crt", ".key", ".pem"]
 
 
-def read_certificate_file(location: str):
+def read_certificate_file(location: str) -> str | bytes:
     """Reads a certificate file from disk.
 
     The file type (suffix) is used to determine the file encoding.

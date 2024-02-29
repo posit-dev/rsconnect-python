@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import typing
+from typing import Optional
 
 import click
 
@@ -7,7 +10,7 @@ from rsconnect.exception import RSConnectException
 
 def get_parameter_source_name_from_ctx(
     var_or_param_name: str,
-    ctx: click.Context,
+    ctx: Optional[click.Context],
 ) -> str:
     if ctx:
         varName = var_or_param_name.replace("-", "_")
@@ -19,7 +22,7 @@ def get_parameter_source_name_from_ctx(
 
 def _get_present_options(
     options: typing.Dict[str, typing.Optional[typing.Any]],
-    ctx: click.Context,
+    ctx: Optional[click.Context],
 ) -> typing.List[str]:
     result: typing.List[str] = []
     for k, v in options.items():
@@ -34,15 +37,15 @@ def _get_present_options(
 
 
 def validate_connection_options(
-    ctx: click.Context,
-    url: str,
-    api_key: str,
+    ctx: Optional[click.Context],
+    url: Optional[str],
+    api_key: Optional[str],
     insecure: bool,
-    cacert: str,
-    account_name: str,
-    token: str,
-    secret: str,
-    name: str = None,
+    cacert: Optional[str],
+    account_name: Optional[str],
+    token: Optional[str],
+    secret: Optional[str],
+    name: Optional[str] = None,
 ):
     """
     Validates provided Connect or shinyapps.io connection options and returns which target to use given the provided

@@ -6,7 +6,8 @@ Environment data class abstraction that is usable as an executable module
 python -m rsconnect.environment
 ```
 """
-import collections
+from __future__ import annotations
+
 import datetime
 import json
 import locale
@@ -14,30 +15,21 @@ import os
 import re
 import subprocess
 import sys
-
-try:
-    import typing
-    from typing import Optional
-except ImportError:
-    typing = None
+from typing import NamedTuple, Optional
 
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
 exec_dir = os.path.dirname(sys.executable)
 
 
-Environment = collections.namedtuple(
-    "Environment",
-    (
-        "contents",
-        "error",
-        "filename",
-        "locale",
-        "package_manager",
-        "pip",
-        "python",
-        "source",
-    ),
-)
+class Environment(NamedTuple):
+    contents: Optional[str]
+    error: Optional[str]
+    filename: Optional[str]
+    locale: Optional[str]
+    package_manager: Optional[str]
+    pip: Optional[str]
+    python: Optional[str]
+    source: Optional[str]
 
 
 def MakeEnvironment(
@@ -49,8 +41,8 @@ def MakeEnvironment(
     pip: Optional[str] = None,
     python: Optional[str] = None,
     source: Optional[str] = None,
-    **kwargs,  # provides compatibility where we no longer support some older properties
-):
+    **kwargs: object,  # provides compatibility where we no longer support some older properties
+) -> Environment:
     return Environment(contents, error, filename, locale, package_manager, pip, python, source)
 
 
@@ -58,8 +50,7 @@ class EnvironmentException(Exception):
     pass
 
 
-def detect_environment(dirname, force_generate=False):
-    # type: (str, bool) -> Environment
+def detect_environment(dirname: str, force_generate: bool = False) -> Environment:
     """Determine the python dependencies in the environment.
 
     `pip freeze` will be used to introspect the environment.
@@ -83,8 +74,7 @@ def detect_environment(dirname, force_generate=False):
     return MakeEnvironment(**result)
 
 
-def get_python_version(environment):
-    # type: (Environment) -> str
+def get_python_version(environment: Environment) -> str:
     v = sys.version_info
     return "%d.%d.%d" % (v[0], v[1], v[2])
 

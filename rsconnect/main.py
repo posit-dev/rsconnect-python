@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import functools
 import json
 import os
@@ -8,7 +10,7 @@ import textwrap
 import click
 from os.path import abspath, dirname, exists, isdir, join
 from functools import wraps
-from typing import Optional
+from typing import Optional, cast
 
 from rsconnect.certificates import read_certificate_file
 
@@ -81,6 +83,7 @@ from .json_web_token import (
     parse_client_response,
 )
 from .shiny_express import escape_to_var_name, is_express_app
+from .utils_package import fix_starlette_requirements
 
 server_store = ServerStore()
 future_enabled = False
@@ -1393,30 +1396,30 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         api_key: str,
         insecure: bool,
         cacert: str,
-        entrypoint,
-        exclude,
+        entrypoint: Optional[str],
+        exclude: Optional[list[str]],
         new: bool,
         app_id: str,
         title: str,
-        python,
+        python: Optional[str],
         force_generate: bool,
         verbose: int,
-        directory,
-        extra_files,
-        visibility: typing.Optional[str],
-        env_vars: typing.Dict[str, str],
+        directory: str,
+        extra_files: tuple[str, ...],
+        visibility: Optional[str],
+        env_vars: dict[str, str],
         image: str,
         disable_env_management: bool,
         env_management_py: bool,
         env_management_r: bool,
-        account: str = None,
-        token: str = None,
-        secret: str = None,
+        account: Optional[str] = None,
+        token: Optional[str] = None,
+        secret: Optional[str] = None,
         no_verify: bool = False,
     ):
         set_verbosity(verbose)
         entrypoint = validate_entry_point(entrypoint, directory)
-        extra_files = validate_extra_files(directory, extra_files)
+        extra_files_list = validate_extra_files(directory, extra_files)
         environment = create_python_environment(
             directory,
             force_generate,
@@ -1447,28 +1450,36 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             account=account,
             token=token,
             secret=secret,
-            **extra_args,
+            **extra_args,  # type: ignore
         )
 
-        (
-            ce.validate_server()
-            .validate_app_mode(app_mode=app_mode)
-            .make_bundle(
-                make_api_bundle,
-                directory,
-                entrypoint,
-                app_mode,
-                environment,
-                extra_files,
-                exclude,
-                image=image,
-                env_management_py=env_management_py,
-                env_management_r=env_management_r,
+        if isinstance(ce.client, RSConnectClient):
+            # Update the starlette version if needed. After all users are on Connect
+            # 2024.01.1 or later, this can be removed.
+            environment = fix_starlette_requirements(
+                environment=environment,
+                app_mode=app_mode,
+                connect_version_string=cast(str, ce.client.server_settings()["version"]),
             )
-            .deploy_bundle()
-            .save_deployed_info()
-            .emit_task_log()
+
+        ce.validate_server()
+        ce.validate_app_mode(app_mode=app_mode)
+        ce.make_bundle(
+            make_api_bundle,
+            directory,
+            entrypoint,
+            app_mode,
+            environment,
+            extra_files_list,
+            exclude,
+            image=image,
+            env_management_py=env_management_py,
+            env_management_r=env_management_r,
         )
+        ce.deploy_bundle()
+        ce.save_deployed_info()
+        ce.emit_task_log()
+
         if not no_verify:
             ce.verify_deployment()
 

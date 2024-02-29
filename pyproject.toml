@@ -87,3 +87,6 @@ write_to = "rsconnect/version.py"
 
 [tool.pytest.ini_options]
 markers = ["vetiver: tests for vetiver"]
+
+[tool.pyright]
+typeCheckingMode = "strict"

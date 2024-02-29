@@ -1,11 +1,14 @@
 """
 Posit Connect API client and utility functions
 """
+
+from __future__ import annotations
+
 import binascii
 import os
 from os.path import abspath, dirname
 import time
-from typing import IO, Callable
+from typing import BinaryIO, Callable, Optional
 import base64
 import datetime
 import hashlib
@@ -30,6 +33,9 @@ from .metadata import ServerStore, AppStore
 from .exception import RSConnectException, DeploymentFailedException
 from .bundle import _default_title, fake_module_file_from_directory
 from .timeouts import get_task_timeout, get_task_timeout_help_message
+
+if typing.TYPE_CHECKING:
+    import logging
 
 
 class AbstractRemoteServer:
@@ -390,20 +396,20 @@ RSConnect = RSConnectClient
 class RSConnectExecutor:
     def __init__(
         self,
-        ctx: click.Context = None,
-        name: str = None,
-        url: str = None,
-        api_key: str = None,
+        ctx: Optional[click.Context] = None,
+        name: Optional[str] = None,
+        url: Optional[str] = None,
+        api_key: Optional[str] = None,
         insecure: bool = False,
-        cacert: str = None,
-        ca_data: str = None,
-        cookies=None,
-        account=None,
-        token: str = None,
-        secret: str = None,
+        cacert: Optional[str] = None,
+        ca_data: Optional[str] = None,
+        cookies: Optional[CookieJar] = None,
+        account: Optional[str] = None,
+        token: Optional[str] = None,
+        secret: Optional[str] = None,
         timeout: int = 30,
-        logger=console_logger,
-        **kwargs
+        logger: logging.Logger = console_logger,
+        **kwargs: typing.Any,
     ) -> None:
         self.reset()
         self._d = kwargs
@@ -470,16 +476,16 @@ class RSConnectExecutor:
 
     def setup_remote_server(
         self,
-        ctx: click.Context,
-        name: str = None,
-        url: str = None,
-        api_key: str = None,
+        ctx: Optional[click.Context],
+        name: Optional[str] = None,
+        url: Optional[str] = None,
+        api_key: Optional[str] = None,
         insecure: bool = False,
-        cacert: str = None,
-        ca_data: str = None,
-        account_name: str = None,
-        token: str = None,
-        secret: str = None,
+        cacert: Optional[str] = None,
+        ca_data: Optional[str | bytes] = None,
+        account_name: Optional[str] = None,
+        token: Optional[str] = None,
+        secret: Optional[str] = None,
     ):
         validation.validate_connection_options(
             ctx=ctx,
@@ -661,7 +667,7 @@ class RSConnectExecutor:
                 raise RSConnectException("Failed to verify with {} ({}).".format(server.remote_name, exc))
 
     @cls_logged("Making bundle ...")
-    def make_bundle(self, func: Callable, *args, **kwargs):
+    def make_bundle(self, func: Callable[..., object], *args: object, **kwargs: object):
         path = (
             self.get("path", **kwargs)
             or self.get("file", **kwargs)
@@ -710,20 +716,20 @@ class RSConnectExecutor:
     @cls_logged("Deploying bundle ...")
     def deploy_bundle(
         self,
-        app_id: typing.Union[str, int] = None,
-        deployment_name: str = None,
-        title: str = None,
+        app_id: Optional[str | int] = None,
+        deployment_name: Optional[str] = None,
+        title: Optional[str] = None,
         title_is_default: bool = False,
-        bundle: IO = None,
-        env_vars=None,
-        app_mode=None,
-        visibility=None,
+        bundle: Optional[BinaryIO] = None,
+        env_vars: Optional[dict[str, str]] = None,
+        app_mode: Optional[AppMode] = None,
+        visibility: Optional[str] = None,
     ):
         app_id = app_id or self.get("app_id")
         deployment_name = deployment_name or self.get("deployment_name")
         title = title or self.get("title")
         title_is_default = title_is_default or self.get("title_is_default")
-        bundle = bundle or self.get("bundle")
+        bundle = bundle or typing.cast(BinaryIO, self.get("bundle"))
         env_vars = env_vars or self.get("env_vars")
         app_mode = app_mode or self.get("app_mode")
         visibility = visibility or self.get("visibility")
@@ -817,7 +823,7 @@ class RSConnectExecutor:
         return self
 
     @cls_logged("Saving deployed information...")
-    def save_deployed_info(self, *args, **kwargs):
+    def save_deployed_info(self, *args: object, **kwargs: object):
         app_store = self.get("app_store", *args, **kwargs)
         path = (
             self.get("path", **kwargs)
@@ -841,14 +847,14 @@ class RSConnectExecutor:
         return self
 
     @cls_logged("Verifying deployed content...")
-    def verify_deployment(self, *args, **kwargs):
+    def verify_deployment(self, *args: object, **kwargs: object):
         if isinstance(self.remote_server, RSConnectServer):
             deployed_info = self.get("deployed_info", *args, **kwargs)
             app_guid = deployed_info["app_guid"]
             self.client.app_access(app_guid)
 
     @cls_logged("Validating app mode...")
-    def validate_app_mode(self, *args, **kwargs):
+    def validate_app_mode(self, *args: object, **kwargs: object):
         path = (
             self.get("path", **kwargs)
             or self.get("file", **kwargs)

@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Pending Next Release
+
+### Changed
+- When deploying Shiny for Python applications on servers using a version of
+  Connect prior to 2024.01.0, there is an incompatibility with
+  `starlette>=0.35.0`. When deploying to these servers, the starlette version
+  is now automatically set to `starlette<0.35.0`.
+
 ## [1.22.0] - 2024-01-23
 
 ### Added
