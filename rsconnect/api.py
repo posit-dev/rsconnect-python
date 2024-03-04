@@ -256,6 +256,36 @@ class RSConnectClient(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
+    def deploy_git(self, app_name, repository, branch, subdirectory, app_title, env_vars):
+        app = self.app_create(app_name)
+        self._server.handle_bad_response(app)
+
+        resp = self.post(
+            "applications/%s/repo" % app["guid"],
+            body={"repository": repository, "branch": branch, "subdirectory": subdirectory},
+        )
+        self._server.handle_bad_response(resp)
+
+        if app_title:
+            resp = self.app_update(app["guid"], {"title": app_title})
+            self._server.handle_bad_response(resp)
+            app["title"] = app_title
+
+        if env_vars:
+            result = self.app_add_environment_vars(app["guid"], list(env_vars.items()))
+            self._server.handle_bad_response(result)
+
+        task = self.app_deploy(app["guid"])
+        self._server.handle_bad_response(task)
+
+        return {
+            "task_id": task["id"],
+            "app_id": app["id"],
+            "app_guid": app["guid"],
+            "app_url": app["url"],
+            "title": app["title"],
+        }
+
     def deploy(self, app_id, app_name, app_title, title_is_default, tarball, env_vars=None):
         if app_id is None:
             # create an app if id is not provided
@@ -781,6 +811,28 @@ class RSConnectExecutor:
                 "title": title,
             }
             return self
+
+    @cls_logged("Deploying git repository ...")
+    def deploy_git(
+        self,
+        app_name: str = None,
+        title: str = None,
+        repository: str = None,
+        branch: str = None,
+        subdirectory: str = None,
+        env_vars: typing.Dict[str, str] = None,
+    ):
+        app_name = app_name or self.get("app_name")
+        repository = repository or self.get("repository")
+        branch = branch or self.get("branch")
+        subdirectory = subdirectory or self.get("subdirectory")
+        title = title or self.get("title")
+        env_vars = env_vars or self.get("env_vars")
+
+        result = self.client.deploy_git(app_name, repository, branch, subdirectory, title, env_vars)
+        self.remote_server.handle_bad_response(result)
+        self.state["deployed_info"] = result
+        return self
 
     def emit_task_log(
         self,

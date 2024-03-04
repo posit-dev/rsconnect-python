@@ -408,6 +408,35 @@ library(rsconnect)
 ?rsconnect::writeManifest
 ```
 
+### Deploying from Git Repositories
+You can deploy content directly from from hosted Git repositories to Posit Connect.
+The content must have an existing `manifest.json` file to identify the content
+type. For Python content, a `requirements.txt` file must also be present.
+
+See the [Connect user guide](https://docs.posit.co/connect/user/git-backed/)
+for details on how to prepare your content for Git publishing.
+
+Once your git repository contains the prepared content, use the `deploy git` command:
+```
+rsconnect deploy git -r https://my.repository.server/repository
+```
+
+To deploy from a branch other than `main`, use the `--branch/-b` option.
+
+To deploy content from a subdirectory, provide the subdirectory
+using the `--subdirectory/-d` option. The specified directory
+must contain the `manifest.json` file.
+
+```
+rsconnect deploy git -r https://my.repository.server/repository -b my-branch -d path/within/repo
+```
+
+These commands create a new git-backed deployment within Posit Connect,
+which will periodically check for new commits to your repository/branch
+and deploy updates automatically. Do not run the
+`deploy git` command again for the same source
+unless you want to create a second, separate deployment for it.
+
 ### Options for All Types of Deployments
 
 These options apply to any type of content deployment.

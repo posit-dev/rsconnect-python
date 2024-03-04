@@ -1514,6 +1514,65 @@ def deploy_help():
     click.echo()
 
 
+@deploy.command(
+    name="git",
+    short_help="Deploy git repository with exisiting manifest file",
+    help="Deploy git repository with exisiting manifest file",
+)
+@server_args
+@click.option("--app_name", "-a")
+@click.option(
+    "--repository",
+    "-r",
+    required=True,
+    help="Repository URL to deploy, e.g. https://github.com/username/repository. Only https URLs are supported.",
+)
+@click.option(
+    "--branch",
+    "-b",
+    default="main",
+    help=("Name of the branch to deploy. Connect will automatically " +
+          "deploy updates when commits are pushed to the branch."),
+)
+@click.option(
+    "--subdirectory",
+    "-d",
+    default="/",
+    help="Directory within the repository to deploy. The directory must contain a manifest.json file.",
+)
+@click.option("--title", "-t", help="Title of the content (default is the same as the filename).")
+@click.option(
+    "--environment",
+    "-E",
+    "env_vars",
+    multiple=True,
+    callback=validate_env_vars,
+    help="Set an environment variable. Specify a value with NAME=VALUE, "
+    "or just NAME to use the value from the local environment. "
+    "May be specified multiple times. [v1.8.6+]",
+)
+@cli_exception_handler
+def deploy_git(
+    name: str,
+    server: str,
+    api_key: str,
+    insecure: bool,
+    cacert: typing.IO,
+    verbose,
+    app_name: str,
+    repository: str,
+    branch: str,
+    subdirectory: str,
+    title: str,
+    env_vars: typing.Dict[str, str],
+):
+    subdirectory = subdirectory.strip("/")
+    kwargs = locals()
+    set_verbosity(verbose)
+    ce = RSConnectExecutor(**kwargs)
+    ce.validate_server().deploy_git().emit_task_log()
+
+
 @cli.group(
     name="write-manifest",
     no_args_is_help=True,
