@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Pending Next Release
 
+### Added
+- Added support for deploying interactive Quarto dashboards that use Shiny Express syntax.
+
 ### Changed
 - When deploying Shiny for Python applications on servers using a version of
   Connect prior to 2024.01.0, there is an incompatibility with
