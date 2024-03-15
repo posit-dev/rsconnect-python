@@ -96,14 +96,14 @@ def find_magic_comment_mode(content: str) -> Literal["core", "express"] | None:
     Returns
     -------
     :
-        `True` if Shiny Express comment is found, `False` if Shiny Core comment is
+        `"express"` if Shiny Express comment is found, `"core"` if Shiny Core comment is
         found, and `None` if no magic comment is found.
     """
     m = re.search(r"^#[ \t]*shiny_mode:[ \t]*(\S*)[ \t]*$", content, re.MULTILINE)
     if m is not None:
         shiny_mode = cast(str, m.group(1))
         if shiny_mode in ("express", "core"):
-            return shiny_mode
+            return shiny_mode # type: ignore
         else:
             print(f'Invalid shiny_mode: "{shiny_mode}"', file=sys.stderr)
 
