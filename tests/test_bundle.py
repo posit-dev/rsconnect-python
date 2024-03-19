@@ -47,10 +47,22 @@ from rsconnect.models import AppModes
 from .utils import get_dir, get_manifest_path
 
 
+def create_fake_quarto_rendered_output(target_dir, name):
+    with open(join(target_dir, f"{name}.html"), "w") as fp:
+        fp.write(f"<html><body>fake rendering: {name}</body></html>\n")
+    files_dir = join(target_dir, f"{name}_files")
+    os.mkdir(files_dir)
+    with open(join(files_dir, "resource.js"), "w") as fp:
+        fp.write("// fake resource.js\n")
+
+
 class TestBundle(TestCase):
     @staticmethod
     def python_version():
         return ".".join(map(str, sys.version_info[:3]))
+
+    def setUp(self):
+        self.maxDiff = None
 
     def test_to_bytes(self):
         self.assertEqual(to_bytes(b"abc123"), b"abc123")
@@ -64,7 +76,6 @@ class TestBundle(TestCase):
         self.assertEqual(to_bytes("åbc123"), b"\xc3\xa5bc123")
 
     def test_make_notebook_source_bundle1(self):
-        self.maxDiff = 5000
         directory = get_dir("pip1")
         nb_path = join(directory, "dummy.ipynb")
 
@@ -135,7 +146,6 @@ class TestBundle(TestCase):
             )
 
     def test_make_notebook_source_bundle2(self):
-        self.maxDiff = 5000
         directory = get_dir("pip2")
         nb_path = join(directory, "dummy.ipynb")
 
@@ -221,24 +231,27 @@ class TestBundle(TestCase):
                 },
             )
 
-    def test_make_quarto_source_bundle_from_project(self):
+    def test_make_quarto_source_bundle_from_simple_project(self):
         temp_proj = tempfile.mkdtemp()
 
-        # add project files
-        fp = open(join(temp_proj, "myquarto.qmd"), "w")
-        fp.write("---\n")
-        fp.write("title: myquarto\n")
-        fp.write("jupyter: python3\n")
-        fp.write("---\n\n")
-        fp.write("```{python}\n")
-        fp.write("1 + 1\n")
-        fp.write("```\n")
-        fp.close()
+        # This is a simple project; it has a _quarto.yml and one Markdown file.
+        with open(join(temp_proj, "_quarto.yml"), "w") as fp:
+            fp.write("project:\n")
+            fp.write('  title: "project with one rendered file"\n')
 
-        fp = open(join(temp_proj, "_quarto.yml"), "w")
-        fp.write("project:\n")
-        fp.write('  title: "myquarto"\n')
-        fp.write("editor: visual\n")
+        with open(join(temp_proj, "myquarto.qmd"), "w") as fp:
+            fp.write("---\n")
+            fp.write("title: myquarto\n")
+            fp.write("jupyter: python3\n")
+            fp.write("---\n\n")
+            fp.write("```{python}\n")
+            fp.write("1 + 1\n")
+            fp.write("```\n")
+
+        # Create some files that should not make it into the manifest; they
+        # should be automatically ignored because myquarto.qmd is a project
+        # input file.
+        create_fake_quarto_rendered_output(temp_proj, "myquarto")
 
         environment = detect_environment(temp_proj)
 
@@ -294,6 +307,122 @@ class TestBundle(TestCase):
                     "files": {
                         "_quarto.yml": {"checksum": mock.ANY},
                         "myquarto.qmd": {"checksum": mock.ANY},
+                        "requirements.txt": {"checksum": mock.ANY},
+                    },
+                },
+            )
+
+    def test_make_quarto_source_bundle_from_complex_project(self):
+        temp_proj = tempfile.mkdtemp()
+
+        # This is a complex project; it has a _quarto.yml and multiple
+        # Markdown files.
+        with open(join(temp_proj, "_quarto.yml"), "w") as fp:
+            fp.write("project:\n")
+            fp.write("  type: website\n")
+            fp.write('  title: "myquarto"\n')
+
+        with open(join(temp_proj, "index.qmd"), "w") as fp:
+            fp.write("---\n")
+            fp.write("title: home\n")
+            fp.write("jupyter: python3\n")
+            fp.write("---\n\n")
+            fp.write("```{python}\n")
+            fp.write("1 + 1\n")
+            fp.write("```\n")
+
+        with open(join(temp_proj, "about.qmd"), "w") as fp:
+            fp.write("---\n")
+            fp.write("title: about\n")
+            fp.write("---\n\n")
+            fp.write("math, math, math.\n")
+
+        # Create some files that should not make it into the manifest; they
+        # should be automatically ignored because myquarto.qmd is a project
+        # input file.
+        #
+        # Create files both in the current directory and beneath _site (the
+        # implicit output-dir for websites).
+        create_fake_quarto_rendered_output(temp_proj, "index")
+        create_fake_quarto_rendered_output(temp_proj, "about")
+        site_dir = join(temp_proj, "_site")
+        os.mkdir(site_dir)
+        create_fake_quarto_rendered_output(site_dir, "index")
+        create_fake_quarto_rendered_output(site_dir, "about")
+
+        environment = detect_environment(temp_proj)
+
+        # mock the result of running of `quarto inspect <project_dir>`
+        inspect = {
+            "quarto": {"version": "1.3.433"},
+            "dir": temp_proj,
+            "engines": [
+                "markdown",
+                "jupyter",
+            ],
+            "config": {
+                "project": {
+                    "type": "website",
+                    "output-dir": "_site",
+                },
+            },
+            "files": {
+                "input": [
+                    temp_proj + "/index.qmd",
+                    temp_proj + "/about.qmd",
+                ],
+                "resources": [],
+                "config": [temp_proj + "/_quarto.yml"],
+                "configResources": [],
+            },
+        }
+
+        with make_quarto_source_bundle(
+            temp_proj, inspect, AppModes.STATIC_QUARTO, environment, [], [], None
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            names = sorted(tar.getnames())
+            self.assertEqual(
+                names,
+                [
+                    "_quarto.yml",
+                    "about.qmd",
+                    "index.qmd",
+                    "manifest.json",
+                    "requirements.txt",
+                ],
+            )
+
+            reqs = tar.extractfile("requirements.txt").read()
+            self.assertIsNotNone(reqs)
+
+            manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+
+            # noinspection SpellCheckingInspection
+            self.assertEqual(
+                manifest,
+                {
+                    "version": 1,
+                    "locale": mock.ANY,
+                    "metadata": {
+                        "appmode": "quarto-static",
+                        "content_category": "site",
+                    },
+                    "python": {
+                        "version": self.python_version(),
+                        "package_manager": {
+                            "name": "pip",
+                            "package_file": "requirements.txt",
+                            "version": mock.ANY,
+                        },
+                    },
+                    "quarto": {
+                        "engines": ["markdown", "jupyter"],
+                        "version": mock.ANY,
+                    },
+                    "files": {
+                        "_quarto.yml": {"checksum": mock.ANY},
+                        "index.qmd": {"checksum": mock.ANY},
+                        "about.qmd": {"checksum": mock.ANY},
                         "requirements.txt": {"checksum": mock.ANY},
                     },
                 },
@@ -385,14 +514,19 @@ class TestBundle(TestCase):
     def test_make_quarto_source_bundle_from_file(self):
         temp_proj = tempfile.mkdtemp()
 
+        filename = join(temp_proj, "myquarto.qmd")
         # add single qmd file with markdown engine
-        fp = open(join(temp_proj, "myquarto.qmd"), "w")
-        fp.write("---\n")
-        fp.write("title: myquarto\n")
-        fp.write("engine: markdown\n")
-        fp.write("---\n\n")
-        fp.write("### This is a test\n")
-        fp.close()
+        with open(filename, "w") as fp:
+            fp.write("---\n")
+            fp.write("title: myquarto\n")
+            fp.write("engine: markdown\n")
+            fp.write("---\n\n")
+            fp.write("### This is a test\n")
+
+        # Create some files that should not make it into the manifest; they
+        # should be automatically ignored because myquarto.qmd is the input
+        # file.
+        create_fake_quarto_rendered_output(temp_proj, "myquarto")
 
         # mock the result of running of `quarto inspect <qmd_file>`
         inspect = {
@@ -401,7 +535,7 @@ class TestBundle(TestCase):
         }
 
         with make_quarto_source_bundle(
-            temp_proj, inspect, AppModes.STATIC_QUARTO, None, [], [], None
+            filename, inspect, AppModes.STATIC_QUARTO, None, [], [], None
         ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
             names = sorted(tar.getnames())
             self.assertEqual(
@@ -469,7 +603,6 @@ class TestBundle(TestCase):
         self.do_test_html_bundle(get_dir("pip2"))
 
     def do_test_html_bundle(self, directory):
-        self.maxDiff = 5000
         nb_path = join(directory, "dummy.ipynb")
 
         bundle = make_notebook_html_bundle(
@@ -521,7 +654,6 @@ class TestBundle(TestCase):
         self.assertFalse(keep_manifest_specified_file(".Rproj.user/bogus.file"))
 
     def test_manifest_bundle(self):
-        self.maxDiff = 5000
         # noinspection SpellCheckingInspection
         manifest_path = join(dirname(__file__), "testdata", "R", "shinyapp", "manifest.json")
 

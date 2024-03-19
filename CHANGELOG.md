@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `starlette>=0.35.0`. When deploying to these servers, the starlette version
   is now automatically set to `starlette<0.35.0`.
 
+### Fixed
+
+- Quarto content is marked as a "site" only when there are multiple input
+  files. (#552)
+
+- Quarto content automatically ignores `name.html` and `name_files` when
+  `name.md`, `name.ipynb`, `name.Rmd`, or `name.qmd` is an input. (#553)
+
 ### Removed
 
 - Python 3.7 support.
