@@ -21,6 +21,7 @@ from .utils import apply_common_args
 # would be preferable but this is fine for now.
 TEMP_DIR = "rsconnect-build-test"
 
+
 def register_uris(connect_server: str):
     def register_content_endpoints(i: int, guid: str):
         httpretty.register_uri(
@@ -38,10 +39,10 @@ def register_uris(connect_server: str):
         httpretty.register_uri(
             httpretty.GET,
             f"{connect_server}/__api__/applications/{guid}/config",
-            body='{' +
-            f'"config_url": "{connect_server}/connect/#/apps/{guid}",' +
-            f'"logs_url": "{connect_server}/connect/#/apps/{guid}"' +
-            '}',
+            body="{"
+            + f'"config_url": "{connect_server}/connect/#/apps/{guid}",'
+            + f'"logs_url": "{connect_server}/connect/#/apps/{guid}"'
+            + "}",
             adding_headers={"Content-Type": "application/json"},
         )
 
@@ -88,6 +89,7 @@ def register_uris(connect_server: str):
     register_content_endpoints(2, "ab497e4b-b706-4ae7-be49-228979a95eb4")
     register_content_endpoints(3, "cdfed1f7-0e09-40eb-996d-0ef77ea2d797")
 
+
 class TestContentSubcommand(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
@@ -120,9 +122,14 @@ class TestContentSubcommand(unittest.TestCase):
     def test_content_describe(self):
         register_uris(self.connect_server)
         runner = CliRunner()
-        args = ["content", "describe",
-                "-g", "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
-                "-g", "ab497e4b-b706-4ae7-be49-228979a95eb4"]
+        args = [
+            "content",
+            "describe",
+            "-g",
+            "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+            "-g",
+            "ab497e4b-b706-4ae7-be49-228979a95eb4",
+        ]
         apply_common_args(args, server=self.connect_server, key=self.api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
@@ -136,9 +143,14 @@ class TestContentSubcommand(unittest.TestCase):
     def test_content_download_bundle(self):
         register_uris(self.connect_server)
         runner = CliRunner()
-        args = ["content", "download-bundle",
-                "-g", "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
-                "-o", f"{TEMP_DIR}/bundle.tar.gz"]
+        args = [
+            "content",
+            "download-bundle",
+            "-g",
+            "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+            "-o",
+            f"{TEMP_DIR}/bundle.tar.gz",
+        ]
         apply_common_args(args, server=self.connect_server, key=self.api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
@@ -156,9 +168,7 @@ class TestContentSubcommand(unittest.TestCase):
         apply_common_args(args, server=self.connect_server, key=self.api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertTrue(
-            os.path.exists("%s/%s.json" % (TEMP_DIR, _normalize_server_url(self.connect_server)))
-        )
+        self.assertTrue(os.path.exists("%s/%s.json" % (TEMP_DIR, _normalize_server_url(self.connect_server))))
 
         # list the "tracked" content
         args = ["content", "build", "ls", "-g", "7d59c5c7-c4a7-4950-acc3-3943b7192bc4"]
@@ -192,16 +202,21 @@ class TestContentSubcommand(unittest.TestCase):
         runner = CliRunner()
 
         # add 3 content items
-        args = ["content", "build", "add",
-                "-g", "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
-                "-g", "ab497e4b-b706-4ae7-be49-228979a95eb4",
-                "-g", "cdfed1f7-0e09-40eb-996d-0ef77ea2d797"]
+        args = [
+            "content",
+            "build",
+            "add",
+            "-g",
+            "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+            "-g",
+            "ab497e4b-b706-4ae7-be49-228979a95eb4",
+            "-g",
+            "cdfed1f7-0e09-40eb-996d-0ef77ea2d797",
+        ]
         apply_common_args(args, server=self.connect_server, key=self.api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertTrue(
-            os.path.exists("%s/%s.json" % (TEMP_DIR, _normalize_server_url(self.connect_server)))
-        )
+        self.assertTrue(os.path.exists("%s/%s.json" % (TEMP_DIR, _normalize_server_url(self.connect_server))))
 
         # change the content build status so it looks like it was interrupted/failed
         store = ContentBuildStore(RSConnectServer(self.connect_server, self.api_key))
@@ -216,10 +231,17 @@ class TestContentSubcommand(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
 
         # check that the build succeeded
-        args = ["content", "build", "ls",
-                "-g", "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
-                "-g", "ab497e4b-b706-4ae7-be49-228979a95eb4",
-                "-g", "cdfed1f7-0e09-40eb-996d-0ef77ea2d797"]
+        args = [
+            "content",
+            "build",
+            "ls",
+            "-g",
+            "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+            "-g",
+            "ab497e4b-b706-4ae7-be49-228979a95eb4",
+            "-g",
+            "cdfed1f7-0e09-40eb-996d-0ef77ea2d797",
+        ]
         apply_common_args(args, server=self.connect_server, key=self.api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
