@@ -1,6 +1,6 @@
 from textwrap import dedent
 from rsconnect.utils_package import (
-    _remove_leading_zeros, # pyright: ignore[reportPrivateUsage]
+    _remove_leading_zeros,  # pyright: ignore[reportPrivateUsage]
     compare_package_versions,
     compare_semvers,
     parse_requirements_txt,

@@ -1,6 +1,7 @@
 """
 Logging wrapper and shared instance
 """
+
 import json
 import logging
 from functools import partial, wraps
