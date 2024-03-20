@@ -1999,6 +1999,11 @@ def _write_framework_manifest(
     with cli_feedback("Inspecting Python environment"):
         _, environment = get_python_env_info(directory, python, force_generate)
 
+    if app_mode == AppModes.PYTHON_SHINY:
+        with cli_feedback("Inspecting Shiny for Python app"):
+            if is_express_app(entrypoint + ".py", directory):
+                entrypoint = "shiny.express.app:" + escape_to_var_name(entrypoint + ".py")
+
     with cli_feedback("Creating manifest.json"):
         environment_file_exists = write_api_manifest_json(
             directory,
