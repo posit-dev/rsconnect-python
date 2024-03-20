@@ -257,7 +257,6 @@ jobs:
         PY_VERSION:
           - 3.8.10
           - 3.9.5
-        PYTHON_BUILD: [binary]
     steps:
           - uses: extractions/setup-just@v1
             env:
@@ -297,7 +296,6 @@ jobs:
               TEST_SUBSET: "CI"
               RSC_AUTOMATION_PAT: "${{ secrets.CONNECT_PAT }}"
               ADMIN_API_KEY: "${{ secrets.ADMIN_API_KEY }}"
-              PYTHON_BUILD: "${{ matrix.PYTHON_BUILD }}"
               QUARTO_VERSION: "1.4.546"
 
               # This allows us to start Connect separately in our own docker container
@@ -307,7 +305,7 @@ jobs:
               cd integration-testing
               docker compose pull connect
               docker compose up -d connect
-              just ../test/connect-rsconnect-python/test/rsconnect-python/test-rsconnect-python-repo-${PYTHON_BUILD}
+              just ../test/connect-rsconnect-python/test/rsconnect-python/test-rsconnect-python-repo
   
           # Videos are captured whether the suite fails or passes
           - name: Save videos
