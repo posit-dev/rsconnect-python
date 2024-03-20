@@ -10,7 +10,7 @@ import textwrap
 import click
 from os.path import abspath, dirname, exists, isdir, join
 from functools import wraps
-from typing import Optional, cast
+from typing import Callable, ItemsView, Literal, Optional, ParamSpec, TypeVar, cast
 
 from rsconnect.certificates import read_certificate_file
 
@@ -85,14 +85,17 @@ from .json_web_token import (
 from .shiny_express import escape_to_var_name, is_express_app
 from .utils_package import fix_starlette_requirements
 
+T = TypeVar("T")
+P = ParamSpec("P")
+
 server_store = ServerStore()
 future_enabled = False
 
 
-def cli_exception_handler(func):
+def cli_exception_handler(func: Callable[P, T]) -> Callable[P, T]:
     @wraps(func)
-    def wrapper(*args, **kwargs):
-        def failed(err):
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
+        def failed(err: str):
             click.secho(str(err), fg="bright_red", err=False)
             sys.exit(1)
 
@@ -115,7 +118,7 @@ def cli_exception_handler(func):
 
 def output_params(
     ctx: click.Context,
-    vars,
+    vars: ItemsView[str, object],
 ):
     if click.__version__ >= "8.0.0" and sys.version_info >= (3, 7):
         logger.log(VERBOSE, "Detected the following inputs:")
@@ -130,7 +133,7 @@ def output_params(
                 logger.log(VERBOSE, "    %-18s%s (from %s)", (k + ":"), val, sourceName)
 
 
-def server_args(func):
+def server_args(func: Callable[P, T]) -> Callable[P, T]:
     @click.option("--name", "-n", help="The nickname of the Posit Connect server to deploy to.")
     @click.option(
         "--server",
@@ -163,13 +166,13 @@ CONNECT_CA_CERTIFICATE environment variable.)",
     )
     @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
         return func(*args, **kwargs)
 
     return wrapper
 
 
-def cloud_shinyapps_args(func):
+def cloud_shinyapps_args(func: Callable[P, T]) -> Callable[P, T]:
     @click.option(
         "--account",
         "-A",
@@ -192,13 +195,13 @@ SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment variables.)",
 (Also settable via SHINYAPPS_SECRET or RSCLOUD_SECRET environment variables.)",
     )
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
         return func(*args, **kwargs)
 
     return wrapper
 
 
-def shinyapps_deploy_args(func):
+def shinyapps_deploy_args(func: Callable[P, T]) -> Callable[P, T]:
     @click.option(
         "--visibility",
         "-V",
@@ -206,22 +209,22 @@ def shinyapps_deploy_args(func):
         help="The visibility of the resource being deployed. (shinyapps.io only; must be public (default) or private)",
     )
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
         return func(*args, **kwargs)
 
     return wrapper
 
 
-def _passthrough(func):
+def _passthrough(func: Callable[P, T]) -> Callable[P, T]:
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
         return func(*args, **kwargs)
 
     return wrapper
 
 
-def validate_env_vars(ctx, param, all_values):
-    vars = {}
+def validate_env_vars(ctx: click.Context, param: click.Parameter, all_values: tuple[str, ...]) -> dict[str, str]:
+    vars: dict[str, str] = {}
 
     for s in all_values:
         if not isinstance(s, str):
@@ -240,7 +243,7 @@ def validate_env_vars(ctx, param, all_values):
     return vars
 
 
-def content_args(func):
+def content_args(func: Callable[P, T]) -> Callable[P, T]:
     @click.option(
         "--new",
         "-N",
@@ -272,7 +275,7 @@ def content_args(func):
         help="Don't access the deployed content to verify that it started correctly.",
     )
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
         return func(*args, **kwargs)
 
     return wrapper
@@ -285,7 +288,7 @@ def content_args(func):
 # otherwise returns None. This is so that we can pass the
 # non-negative (env_management_r, env_management_py) args to our API functions,
 # which is more consistent when writing these values to the manifest.
-def env_management_callback(ctx, param, value) -> typing.Optional[bool]:
+def env_management_callback(ctx: click.Context, param: click.Parameter, value: Optional[bool]) -> bool | None:
     # eval the shorthand flag if it was provided
     disable_env_management = ctx.params.get("disable_env_management")
     if disable_env_management is not None:
@@ -297,7 +300,7 @@ def env_management_callback(ctx, param, value) -> typing.Optional[bool]:
     return value
 
 
-def runtime_environment_args(func):
+def runtime_environment_args(func: Callable[P, T]) -> Callable[P, T]:
     @click.option(
         "--image",
         "-I",
@@ -332,7 +335,7 @@ def runtime_environment_args(func):
         callback=env_management_callback,
     )
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
         return func(*args, **kwargs)
 
     return wrapper
@@ -340,7 +343,7 @@ def runtime_environment_args(func):
 
 @click.group(no_args_is_help=True)
 @click.option("--future", "-u", is_flag=True, hidden=True, help="Enables future functionality.")
-def cli(future):
+def cli(future: bool):
     """
     This command line tool may be used to deploy various types of content to Posit
     Connect, Posit Cloud, and shinyapps.io.
@@ -368,7 +371,7 @@ def version():
     click.echo(VERSION)
 
 
-def _test_server_and_api(server, api_key, insecure, ca_cert):
+def _test_server_and_api(server: str, api_key: str, insecure: bool, ca_cert: str | None):
     """
     Test the specified server information to make sure it works.  If so, a
     ConnectServer object is returned with the potentially expanded URL.
@@ -437,12 +440,12 @@ def _test_rstudio_creds(server: api.PositServer):
 @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 @cli_exception_handler
 def bootstrap(
-    server,
-    insecure,
-    cacert,
-    jwt_keypath,
-    raw,
-    verbose,
+    server: str,
+    insecure: bool,
+    cacert: Optional[str],
+    jwt_keypath: Optional[str],
+    raw: bool,
+    verbose: int,
 ):
     set_verbosity(verbose)
     if not server.startswith("http"):
@@ -523,7 +526,18 @@ environment variable.)",
 @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 @cloud_shinyapps_args
 @click.pass_context
-def add(ctx, name, server, api_key, insecure, cacert, account, token, secret, verbose):
+def add(
+    ctx: click.Context,
+    name: str,
+    server: Optional[str],
+    api_key: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    account: Optional[str],
+    token: Optional[str],
+    secret: Optional[str],
+    verbose: int,
+):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
 
@@ -583,10 +597,10 @@ def add(ctx, name, server, api_key, insecure, cacert, account, token, secret, ve
     help="Show the stored information about each known server nickname.",
 )
 @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
-def list_servers(verbose):
+def list_servers(verbose: int):
     set_verbosity(verbose)
     with cli_feedback(""):
-        servers = server_store.get_all_servers()
+        servers: dict[str, RSConnectServer] = server_store.get_all_servers()
 
         click.echo("Server information from %s" % server_store.get_path())
 
@@ -622,11 +636,11 @@ def list_servers(verbose):
 @click.pass_context
 def details(
     ctx: click.Context,
-    name: str,
-    server: str,
-    api_key: str,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
     insecure: bool,
-    cacert: str,
+    cacert: Optional[str],
     verbose: int,
 ):
     set_verbosity(verbose)
@@ -669,7 +683,12 @@ def details(
 @click.option("--server", "-s", help="The URL of the Posit Connect server to remove.")
 @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 @click.pass_context
-def remove(ctx, name, server, verbose):
+def remove(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    verbose: int,
+):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
 
@@ -697,7 +716,7 @@ def remove(ctx, name, server, verbose):
         click.echo(message)
 
 
-def _get_names_to_check(file_or_directory):
+def _get_names_to_check(file_or_directory: str) -> list[str]:
     """
     A function to determine a set files to look for in getting information about a
     deployment.
@@ -724,7 +743,7 @@ def _get_names_to_check(file_or_directory):
     no_args_is_help=True,
 )
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
-def info(file):
+def info(file: str):
     with cli_feedback(""):
         for file_name in _get_names_to_check(file):
             app_store = AppStore(file_name)
@@ -762,7 +781,7 @@ def deploy():
     pass
 
 
-def _warn_on_ignored_manifest(directory):
+def _warn_on_ignored_manifest(directory: str):
     """
     Checks for the existence of a file called manifest.json in the given directory.
     If it's there, a warning noting that it will be ignored will be printed.
@@ -776,7 +795,7 @@ def _warn_on_ignored_manifest(directory):
         )
 
 
-def _warn_if_no_requirements_file(directory):
+def _warn_if_no_requirements_file(directory: str):
     """
     Checks for the existence of a file called requirements.txt in the given directory.
     If it's not there, a warning will be printed.
@@ -791,7 +810,7 @@ def _warn_if_no_requirements_file(directory):
         )
 
 
-def _warn_if_environment_directory(directory):
+def _warn_if_environment_directory(directory: str):
     """
     Issue a warning if the deployment directory is itself a virtualenv (yikes!).
 
@@ -805,7 +824,7 @@ def _warn_if_environment_directory(directory):
         )
 
 
-def _warn_on_ignored_requirements(directory, requirements_file_name):
+def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     """
     Checks for the existence of a file called manifest.json in the given directory.
     If it's there, a warning noting that it will be ignored will be printed.
@@ -873,27 +892,27 @@ def _warn_on_ignored_requirements(directory, requirements_file_name):
 @click.pass_context
 def deploy_notebook(
     ctx: click.Context,
-    name: str,
-    server: str,
-    api_key: str,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
     insecure: bool,
-    cacert: str,
+    cacert: Optional[str],
     static: bool,
     new: bool,
-    app_id: str,
-    title: str,
-    python,
-    force_generate,
+    app_id: Optional[str],
+    title: Optional[str],
+    python: Optional[str],
+    force_generate: bool,
     verbose: int,
     file: str,
-    extra_files,
+    extra_files: tuple[str, ...],
     hide_all_input: bool,
     hide_tagged_input: bool,
-    env_vars: typing.Dict[str, str],
-    image: str,
-    disable_env_management: bool,
-    env_management_py: bool,
-    env_management_r: bool,
+    env_vars: dict[str, str],
+    image: Optional[str],
+    disable_env_management: Optional[bool],
+    env_management_py: Optional[bool],
+    env_management_r: Optional[bool],
     no_verify: bool = False,
 ):
     kwargs = locals()
@@ -998,29 +1017,29 @@ def deploy_notebook(
 @click.pass_context
 def deploy_voila(
     ctx: click.Context,
-    path: str = None,
-    entrypoint: str = None,
-    python=None,
-    force_generate=False,
-    extra_files=None,
-    exclude=None,
-    image: str = "",
-    disable_env_management: bool = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
-    title: str = None,
-    env_vars: typing.Dict[str, str] = None,
-    verbose: int = 0,
-    new: bool = False,
-    app_id: str = None,
-    name: str = None,
-    server: str = None,
-    api_key: str = None,
-    insecure: bool = False,
-    cacert: str = None,
-    connect_server: api.RSConnectServer = None,
-    multi_notebook: bool = False,
-    no_verify: bool = False,
+    path: str,
+    entrypoint: Optional[str],
+    python: Optional[str],
+    force_generate: bool,
+    extra_files: tuple[str, ...],
+    exclude: tuple[str, ...],
+    image: Optional[str],
+    disable_env_management: Optional[bool],
+    env_management_py: Optional[bool],
+    env_management_r: Optional[bool],
+    title: Optional[str],
+    env_vars: dict[str, str],
+    verbose: int,
+    new: bool,
+    app_id: Optional[str],
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    multi_notebook: bool,
+    no_verify: bool,
+    connect_server: Optional[api.RSConnectServer] = None,
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -1069,22 +1088,22 @@ def deploy_voila(
 @click.pass_context
 def deploy_manifest(
     ctx: click.Context,
-    name: str,
-    server: str,
-    api_key: str,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
     insecure: bool,
-    cacert: str,
-    account: str,
-    token: str,
-    secret: str,
+    cacert: Optional[str],
+    account: Optional[str],
+    token: Optional[str],
+    secret: Optional[str],
     new: bool,
-    app_id: str,
-    title: str,
+    app_id: Optional[str],
+    title: Optional[str],
     verbose: int,
     file: str,
-    env_vars: typing.Dict[str, str],
-    visibility: typing.Optional[str],
-    no_verify: bool = False,
+    env_vars: dict[str, str],
+    visibility: Optional[str],
+    no_verify: bool,
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -1167,27 +1186,27 @@ def deploy_manifest(
 @click.pass_context
 def deploy_quarto(
     ctx: click.Context,
-    name: str,
-    server: str,
-    api_key: str,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
     insecure: bool,
-    cacert: str,
+    cacert: Optional[str],
     new: bool,
-    app_id: str,
-    title: str,
-    exclude,
-    quarto,
-    python,
+    app_id: Optional[str],
+    title: Optional[str],
+    exclude: tuple[str, ...],
+    quarto: Optional[str],
+    python: Optional[str],
     force_generate: bool,
     verbose: int,
-    file_or_directory,
-    extra_files,
-    env_vars: typing.Dict[str, str],
-    image: str,
+    file_or_directory: Optional[str],
+    extra_files: tuple[str, ...],
+    env_vars: dict[str, str],
+    image: Optional[str],
     disable_env_management: bool,
     env_management_py: bool,
     env_management_r: bool,
-    no_verify: bool = False,
+    no_verify: bool,
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -1278,25 +1297,25 @@ def deploy_quarto(
 @click.pass_context
 def deploy_html(
     ctx: click.Context,
-    connect_server: api.RSConnectServer = None,
-    path: str = None,
-    entrypoint: str = None,
-    extra_files=None,
-    exclude=None,
-    title: str = None,
-    env_vars: typing.Dict[str, str] = None,
-    verbose: int = 0,
-    new: bool = False,
-    app_id: str = None,
-    name: str = None,
-    server: str = None,
-    api_key: str = None,
-    insecure: bool = False,
-    cacert: str = None,
-    account: str = None,
-    token: str = None,
-    secret: str = None,
-    no_verify: bool = False,
+    path: str,
+    entrypoint: Optional[str],
+    extra_files: tuple[str, ...],
+    exclude: tuple[str, ...],
+    title: Optional[str],
+    env_vars: dict[str, str],
+    verbose: int,
+    new: bool,
+    app_id: Optional[str],
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    account: Optional[str],
+    token: Optional[str],
+    secret: Optional[str],
+    no_verify: bool,
+    connect_server: Optional[api.RSConnectServer] = None,
 ):
     kwargs = locals()
     set_verbosity(verbose)
@@ -1391,16 +1410,16 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
     @click.pass_context
     def deploy_app(
         ctx: click.Context,
-        name: str,
-        server: str,
-        api_key: str,
+        name: Optional[str],
+        server: Optional[str],
+        api_key: Optional[str],
         insecure: bool,
-        cacert: str,
+        cacert: Optional[str],
         entrypoint: Optional[str],
-        exclude: Optional[list[str]],
+        exclude: tuple[str, ...],
         new: bool,
-        app_id: str,
-        title: str,
+        app_id: Optional[str],
+        title: Optional[str],
         python: Optional[str],
         force_generate: bool,
         verbose: int,
@@ -1408,14 +1427,14 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         extra_files: tuple[str, ...],
         visibility: Optional[str],
         env_vars: dict[str, str],
-        image: str,
-        disable_env_management: bool,
-        env_management_py: bool,
-        env_management_r: bool,
-        account: Optional[str] = None,
-        token: Optional[str] = None,
-        secret: Optional[str] = None,
-        no_verify: bool = False,
+        image: Optional[str],
+        disable_env_management: Optional[bool],
+        env_management_py: Optional[bool],
+        env_management_r: Optional[bool],
+        account: Optional[str],
+        token: Optional[str],
+        secret: Optional[str],
+        no_verify: bool,
     ):
         set_verbosity(verbose)
         entrypoint = validate_entry_point(entrypoint, directory)
@@ -1563,19 +1582,19 @@ def write_manifest():
 @runtime_environment_args
 @click.pass_context
 def write_manifest_notebook(
-    ctx,
-    overwrite,
-    python,
-    force_generate,
-    verbose,
-    file,
-    extra_files,
-    image,
-    disable_env_management,
-    env_management_py,
-    env_management_r,
-    hide_all_input=None,
-    hide_tagged_input=None,
+    ctx: click.Context,
+    overwrite: bool,
+    python: Optional[str],
+    force_generate: bool,
+    verbose: int,
+    file: str,
+    extra_files: tuple[str, ...],
+    image: Optional[str],
+    disable_env_management: Optional[bool],
+    env_management_py: Optional[bool],
+    env_management_r: Optional[bool],
+    hide_all_input: Optional[bool] = None,
+    hide_tagged_input: Optional[bool] = None,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1666,18 +1685,18 @@ def write_manifest_notebook(
 def write_manifest_voila(
     ctx: click.Context,
     path: str,
-    entrypoint: str,
-    overwrite,
-    python,
-    force_generate,
-    verbose,
-    extra_files,
-    exclude,
-    image,
-    disable_env_management,
-    env_management_py,
-    env_management_r,
-    multi_notebook,
+    entrypoint: Optional[str],
+    overwrite: bool,
+    python: Optional[str],
+    force_generate: bool,
+    verbose: int,
+    extra_files: tuple[str, ...],
+    exclude: tuple[str, ...],
+    image: Optional[str],
+    disable_env_management: Optional[bool],
+    env_management_py: Optional[bool],
+    env_management_r: Optional[bool],
+    multi_notebook: bool,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1771,19 +1790,19 @@ def write_manifest_voila(
 @runtime_environment_args
 @click.pass_context
 def write_manifest_quarto(
-    ctx,
-    overwrite,
-    exclude,
-    quarto,
-    python,
-    force_generate,
-    verbose,
-    file_or_directory,
-    extra_files,
-    image,
-    disable_env_management,
-    env_management_py,
-    env_management_r,
+    ctx: click.Context,
+    overwrite: bool,
+    exclude: tuple[str, ...],
+    quarto: Optional[str],
+    python: Optional[str],
+    force_generate: bool,
+    verbose: int,
+    file_or_directory: str,
+    extra_files: tuple[str, ...],
+    image: Optional[str],
+    disable_env_management: Optional[bool],
+    env_management_py: Optional[bool],
+    env_management_r: Optional[bool],
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1833,7 +1852,7 @@ def write_manifest_quarto(
         )
 
 
-def generate_write_manifest_python(app_mode, alias, desc: Optional[str] = None):
+def generate_write_manifest_python(app_mode: AppMode, alias, desc: Optional[str] = None):
     if desc is None:
         desc = app_mode.desc()
 
@@ -1888,19 +1907,19 @@ def generate_write_manifest_python(app_mode, alias, desc: Optional[str] = None):
     @runtime_environment_args
     @click.pass_context
     def manifest_writer(
-        ctx,
-        overwrite,
-        entrypoint,
-        exclude,
-        python,
-        force_generate,
-        verbose,
-        directory,
-        extra_files,
-        image,
-        disable_env_management,
-        env_management_py,
-        env_management_r,
+        ctx: click.Context,
+        overwrite: bool,
+        entrypoint: Optional[str],
+        exclude: tuple[str, ...],
+        python: Optional[str],
+        force_generate: bool,
+        verbose: int,
+        directory: str,
+        extra_files: tuple[str, ...],
+        image: Optional[str],
+        disable_env_management: Optional[bool],
+        env_management_py: Optional[bool],
+        env_management_r: Optional[bool],
     ):
         _write_framework_manifest(
             ctx,
@@ -1932,19 +1951,19 @@ generate_write_manifest_python(AppModes.STREAMLIT_APP, alias="streamlit")
 
 # noinspection SpellCheckingInspection
 def _write_framework_manifest(
-    ctx,
-    overwrite,
-    entrypoint,
-    exclude,
-    python,
-    force_generate,
-    verbose,
-    directory,
-    extra_files,
-    app_mode,
-    image,
-    env_management_py,
-    env_management_r,
+    ctx: click.Context,
+    overwrite: bool,
+    entrypoint: Optional[str],
+    exclude: tuple[str, ...],
+    python: Optional[str],
+    force_generate: bool,
+    verbose: int,
+    directory: str,
+    extra_files: tuple[str, ...],
+    app_mode: AppMode,
+    image: Optional[str],
+    env_management_py: Optional[bool],
+    env_management_r: Optional[bool],
 ):
     """
     A common function for writing manifests for APIs as well as Dash, Streamlit, and Bokeh apps.
@@ -2002,7 +2021,7 @@ def _write_framework_manifest(
             write_environment_file(environment, directory)
 
 
-def _validate_build_rm_args(guid, all, purge):
+def _validate_build_rm_args(guid: str, all: bool, purge: bool):
     if guid and all:
         raise RSConnectException("You must specify only one of -g/--guid or --all, not both.")
     if not guid and not all:
@@ -2060,19 +2079,19 @@ def content():
 @click.pass_context
 def content_search(
     ctx: click.Context,
-    name,
-    server,
-    api_key,
-    insecure,
-    cacert,
-    published,
-    unpublished,
-    content_type,
-    r_version,
-    py_version,
-    title_contains,
-    order_by,
-    verbose,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    published: bool,
+    unpublished: bool,
+    content_type: tuple[str, ...],
+    r_version: Optional[str],
+    py_version: Optional[str],
+    title_contains: Optional[str],
+    order_by: Optional[Literal["created", "last_deployed"]],
+    verbose: int,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -2103,11 +2122,11 @@ def content_search(
 @click.pass_context
 def content_describe(
     ctx: click.Context,
-    name: str,
-    server: str,
-    api_key: str,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
     insecure: bool,
-    cacert: str,
+    cacert: Optional[str],
     guid: str,
     verbose: int,
 ):
@@ -2148,11 +2167,11 @@ def content_describe(
 @click.pass_context
 def content_bundle_download(
     ctx: click.Context,
-    name: str,
-    server: str,
-    api_key: str,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
     insecure: bool,
-    cacert: str,
+    cacert: Optional[str],
     guid: str,
     output: str,
     overwrite: bool,
@@ -2192,12 +2211,12 @@ def build():
 @click.pass_context
 def add_content_build(
     ctx: click.Context,
-    name: str,
-    server: str,
-    api_key: str,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
     insecure: bool,
-    cacert: str,
-    guid: str,
+    cacert: Optional[str],
+    guid: tuple[str, ...],
     verbose: int,
 ):
     set_verbosity(verbose)
@@ -2240,12 +2259,12 @@ def add_content_build(
 @click.pass_context
 def remove_content_build(
     ctx: click.Context,
-    name: str,
-    server: str,
-    api_key: str,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
     insecure: bool,
-    cacert: str,
-    guid: str,
+    cacert: Optional[str],
+    guid: Optional[str],
     all: bool,
     purge: bool,
     verbose: int,
@@ -2285,12 +2304,12 @@ def remove_content_build(
 @click.pass_context
 def list_content_build(
     ctx: click.Context,
-    name: str,
-    server: str,
-    api_key: str,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
     insecure: bool,
-    cacert: str,
-    status: str,
+    cacert: Optional[str],
+    status: Optional[str],
     guid: str,
     verbose: int,
 ):
@@ -2317,11 +2336,11 @@ def list_content_build(
 @click.pass_context
 def get_build_history(
     ctx: click.Context,
-    name: str,
-    server: str,
-    api_key: str,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
     insecure: bool,
-    cacert: str,
+    cacert: Optional[str],
     guid: str,
     verbose: int,
 ):
@@ -2365,13 +2384,13 @@ def get_build_history(
 @click.pass_context
 def get_build_logs(
     ctx: click.Context,
-    name: str,
-    server: str,
-    api_key: str,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
     insecure: bool,
-    cacert: str,
+    cacert: Optional[str],
     guid: str,
-    task_id: str,
+    task_id: Optional[str],
     format: str,
     verbose: int,
 ):
@@ -2425,11 +2444,11 @@ def get_build_logs(
 @click.pass_context
 def start_content_build(
     ctx: click.Context,
-    name: str,
-    server: str,
-    api_key: str,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
     insecure: bool,
-    cacert: str,
+    cacert: Optional[str],
     parallelism: int,
     aborted: bool,
     error: bool,
@@ -2504,14 +2523,14 @@ def system_caches_list(name, server, api_key, insecure, cacert, verbose):
 @click.pass_context
 def system_caches_delete(
     ctx: click.Context,
-    name: str,
-    server: str,
-    api_key: str,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
     insecure: bool,
-    cacert: str,
+    cacert: Optional[str],
     verbose: int,
-    language: str,
-    version: str,
+    language: Optional[str],
+    version: Optional[str],
     image_name: str,
     dry_run: bool,
 ):
