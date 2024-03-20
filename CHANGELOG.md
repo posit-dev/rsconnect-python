@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quarto content automatically ignores `name.html` and `name_files` when
   `name.md`, `name.ipynb`, `name.Rmd`, or `name.qmd` is an input. (#553)
 
+- Patterns provided to `--exclude` allow NT-style paths on Windows. (#320)
+
 ### Removed
 
 - Python 3.7 support.

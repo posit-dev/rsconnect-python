@@ -2,7 +2,7 @@
 Data models
 """
 
-import os
+import pathlib
 import re
 
 import fnmatch
@@ -163,6 +163,7 @@ class GlobMatcher(object):
     """
 
     def __init__(self, pattern):
+        pattern = pathlib.PurePath(pattern).as_posix()
         if pattern.endswith("/**/*"):
             # Note: the index used here makes sure the pattern has a trailing
             # slash.  We want that.
@@ -185,7 +186,8 @@ class GlobMatcher(object):
         :return: a list of pattern pieces and the index of the special '**' pattern.
         The index will be None if `**` is never found.
         """
-        parts = pattern.split(os.path.sep)
+        # Incoming pattern is ALWAYS a Posix-style path.
+        parts = pattern.split("/")
         depth_wildcard_index = None
         for index, name in enumerate(parts):
             if name == "**":
@@ -197,10 +199,12 @@ class GlobMatcher(object):
         return parts, depth_wildcard_index
 
     def _match_with_starts_with(self, path):
+        path = pathlib.PurePath(path).as_posix()
         return path.startswith(self._pattern)
 
     def _match_with_list_parts(self, path):
-        parts = path.split(os.path.sep)
+        path = pathlib.PurePath(path).as_posix()
+        parts = path.split("/")
 
         def items_match(i1, i2):
             if i2 >= len(parts):
