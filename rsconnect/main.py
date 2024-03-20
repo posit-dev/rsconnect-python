@@ -1445,8 +1445,9 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             python,
         )
 
-        if is_express_app(entrypoint + ".py", directory):
-            entrypoint = "shiny.express.app:" + escape_to_var_name(entrypoint + ".py")
+        if app_mode == AppModes.PYTHON_SHINY:
+            if is_express_app(entrypoint + ".py", directory):
+                entrypoint = "shiny.express.app:" + escape_to_var_name(entrypoint + ".py")
 
         extra_args = dict(
             directory=directory,
