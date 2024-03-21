@@ -560,7 +560,7 @@ def add(
     old_server = server_store.get_by_name(name)
 
     if token:
-        real_server: api.CloudServer | api.ShinyappsServer
+        real_server: api.PositServer  # This annotation seems to be necessary for mypy
         if server and ("rstudio.cloud" in server or "posit.cloud" in server):
             real_server = api.CloudServer(server, account, token, secret)
         else:
@@ -581,7 +581,6 @@ def add(
             click.echo('Added {} credential "{}".'.format(real_server.remote_name, name))
     else:
         # Server must be pingable and the API key must work to be added.
-        real_server_rsc: RSConnectServer
         real_server_rsc, _ = _test_server_and_api(server, api_key, insecure, cacert)
 
         server_store.set(
