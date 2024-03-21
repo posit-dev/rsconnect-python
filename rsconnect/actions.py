@@ -186,7 +186,7 @@ def _to_server_check_list(url):
     return [item % url for item in items]
 
 
-def test_server(connect_server: api.RSConnectServer) -> tuple[api.RSConnectServer, Unknown]:
+def test_server(connect_server: api.RSConnectServer) -> tuple[api.RSConnectServer, object]:
     """
     Test whether the given server can be reached and is running Connect.  The server
     may be provided with or without a scheme.  If a scheme is omitted, the server will
