@@ -9,7 +9,7 @@ import textwrap
 import click
 from os.path import abspath, dirname, exists, isdir, join
 from functools import wraps
-from typing import Callable, ItemsView, Literal, Optional, ParamSpec, TypeVar, cast
+from typing import Callable, ItemsView, Literal, Optional, ParamSpec, Sequence, TypeVar, cast
 
 from rsconnect.certificates import read_certificate_file
 
@@ -599,7 +599,7 @@ def add(
 def list_servers(verbose: int):
     set_verbosity(verbose)
     with cli_feedback(""):
-        servers: dict[str, RSConnectServer] = server_store.get_all_servers()
+        servers = server_store.get_all_servers()
 
         click.echo("Server information from %s" % server_store.get_path())
 
@@ -904,7 +904,7 @@ def deploy_notebook(
     force_generate: bool,
     verbose: int,
     file: str,
-    extra_files: tuple[str, ...],
+    extra_files: Sequence[str],
     hide_all_input: bool,
     hide_tagged_input: bool,
     env_vars: dict[str, str],
@@ -1199,7 +1199,7 @@ def deploy_quarto(
     force_generate: bool,
     verbose: int,
     file_or_directory: Optional[str],
-    extra_files: tuple[str, ...],
+    extra_files: Sequence[str],
     env_vars: dict[str, str],
     image: Optional[str],
     disable_env_management: bool,
