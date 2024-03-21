@@ -111,8 +111,7 @@ def cli_exception_handler(func: Callable[P, T]) -> Callable[P, T]:
         except EnvironmentException as exc:
             failed("Error: " + str(exc))
         except Exception as exc:
-            if click.get_current_context(True):
-                traceback.print_exc()
+            traceback.print_exc()
             failed("Internal error: " + str(exc))
         finally:
             logger.set_in_feedback(False)
