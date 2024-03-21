@@ -554,6 +554,7 @@ def add(
     old_server = server_store.get_by_name(name)
 
     if token:
+        real_server: api.CloudServer | api.ShinyappsServer
         if server and ("rstudio.cloud" in server or "posit.cloud" in server):
             real_server = api.CloudServer(server, account, token, secret)
         else:
@@ -574,20 +575,21 @@ def add(
             click.echo('Added {} credential "{}".'.format(real_server.remote_name, name))
     else:
         # Server must be pingable and the API key must work to be added.
-        real_server, _ = _test_server_and_api(server, api_key, insecure, cacert)
+        real_server_rsc: RSConnectServer
+        real_server_rsc, _ = _test_server_and_api(server, api_key, insecure, cacert)
 
         server_store.set(
             name,
-            real_server.url,
-            real_server.api_key,
-            real_server.insecure,
-            real_server.ca_data,
+            real_server_rsc.url,
+            real_server_rsc.api_key,
+            real_server_rsc.insecure,
+            real_server_rsc.ca_data,
         )
 
         if old_server:
-            click.echo('Updated Connect server "%s" with URL %s' % (name, real_server.url))
+            click.echo('Updated Connect server "%s" with URL %s' % (name, real_server_rsc.url))
         else:
-            click.echo('Added Connect server "%s" with URL %s' % (name, real_server.url))
+            click.echo('Added Connect server "%s" with URL %s' % (name, real_server_rsc.url))
 
 
 @cli.command(
