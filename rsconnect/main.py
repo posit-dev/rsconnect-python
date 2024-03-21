@@ -5,7 +5,6 @@ import json
 import os
 import sys
 import traceback
-import typing
 import textwrap
 import click
 from os.path import abspath, dirname, exists, isdir, join
