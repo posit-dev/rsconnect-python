@@ -9,7 +9,13 @@ import textwrap
 import click
 from os.path import abspath, dirname, exists, isdir, join
 from functools import wraps
-from typing import Callable, ItemsView, Literal, Optional, ParamSpec, Sequence, TypeVar, cast
+from typing import Callable, ItemsView, Literal, Optional, Sequence, TypeVar, cast
+
+if sys.version_info >= (3, 10):
+    from typing import ParamSpec
+else:
+    from typing_extensions import ParamSpec
+
 
 from rsconnect.certificates import read_certificate_file
 
