@@ -1,6 +1,7 @@
 """
 Public API for managing settings and deploying content.
 """
+from __future__ import annotations
 
 import contextlib
 import json
@@ -11,7 +12,8 @@ import shutil
 import subprocess
 import sys
 import traceback
-from typing import IO
+import typing
+from typing import IO, Optional
 from warnings import warn
 from os.path import abspath, basename, dirname, exists, isdir, join, relpath, splitext
 from .exception import RSConnectException
@@ -46,10 +48,6 @@ from .api import RSConnectExecutor, filter_out_server_info
 import click
 from six.moves.urllib_parse import urlparse
 
-try:
-    import typing
-except ImportError:
-    typing = None
 
 line_width = 45
 _module_pattern = re.compile(r"^[A-Za-z0-9_]+:[A-Za-z0-9_]+$")
@@ -153,7 +151,7 @@ def inspect_environment(
     return MakeEnvironment(**json.loads(environment_json))  # type: ignore
 
 
-def _verify_server(connect_server):
+def _verify_server(connect_server: api.RSConnectServer):
     """
     Test whether the server identified by the given full URL can be reached and is
     running Connect.
@@ -188,7 +186,7 @@ def _to_server_check_list(url):
     return [item % url for item in items]
 
 
-def test_server(connect_server):
+def test_server(connect_server: api.RSConnectServer) -> tuple[api.RSConnectServer, object]:
     """
     Test whether the given server can be reached and is running Connect.  The server
     may be provided with or without a scheme.  If a scheme is omitted, the server will
@@ -228,7 +226,7 @@ def test_rstudio_server(server: api.PositServer):
             raise RSConnectException("Failed to verify with {} ({}).".format(server.remote_name, exc))
 
 
-def test_api_key(connect_server):
+def test_api_key(connect_server: api.RSConnectServer) -> str:
     """
     Test that an API Key may be used to authenticate with the given Posit Connect server.
     If the API key verifies, we return the username of the associated user.
@@ -424,7 +422,7 @@ def validate_entry_point(entry_point, directory):
     return entry_point
 
 
-def which_quarto(quarto=None):
+def which_quarto(quarto: Optional[str] = None) -> str:
     """
     Identify a valid Quarto executable. When a Quarto location is not provided
     as input, an attempt is made to discover Quarto from the PATH and other

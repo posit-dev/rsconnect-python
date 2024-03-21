@@ -1454,7 +1454,7 @@ class CloudService:
             raise e
 
 
-def verify_server(connect_server):
+def verify_server(connect_server: RSConnectServer):
     """
     Verify that the given server information represents a Connect instance that is
     reachable, active and appears to be actually running Posit Connect.  If the
@@ -1473,7 +1473,7 @@ def verify_server(connect_server):
         raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
 
 
-def verify_api_key(connect_server):
+def verify_api_key(connect_server: RSConnectServer) -> str:
     """
     Verify that an API Key may be used to authenticate with the given Posit Connect server.
     If the API key verifies, we return the username of the associated user.
