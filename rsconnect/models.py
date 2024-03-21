@@ -2,15 +2,27 @@
 Data models
 """
 
-import pathlib
-import re
+from __future__ import annotations
 
 import fnmatch
+import pathlib
+import re
+import sys
+from typing import Callable, Literal, Optional, Sequence, cast
+
+import click
 import semver
 import six
-
 from click import ParamType
 from click.types import StringParamType
+
+# Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
+# they should both come from the same typing module.
+# https://peps.python.org/pep-0655/#usage-in-python-3-11
+if sys.version_info >= (3, 11):
+    from typing import TypedDict
+else:
+    from typing_extensions import TypedDict
 
 _version_search_pattern = r"(^[=><]{0,2})(.*)"
 _content_guid_pattern = r"([^,]*),?(.*)"
@@ -32,7 +44,13 @@ class AppMode(object):
     Connect
     """
 
-    def __init__(self, ordinal, name, text, ext=None):
+    def __init__(
+        self,
+        ordinal: int,
+        name: AppModes.Modes,
+        text: str,
+        ext: Optional[str] = None,
+    ):
         self._ordinal = ordinal
         self._name = name
         self._text = text
@@ -101,6 +119,26 @@ class AppModes(object):
         JUPYTER_VOILA,
     ]
 
+    Modes = Literal[
+        "unknown",
+        "shiny",
+        "rmd-static",
+        "rmd-shiny",
+        "static",
+        "api",
+        "tensorflow-saved-model",
+        "jupyter-static",
+        "python-api",
+        "python-dash",
+        "python-streamlit",
+        "python-bokeh",
+        "python-fastapi",
+        "quarto-shiny",
+        "quarto-static",
+        "python-shiny",
+        "jupyter-voila",
+    ]
+
     _cloud_to_connect_modes = {
         "shiny": SHINY,
         "rmarkdown_static": RMD,
@@ -114,7 +152,7 @@ class AppModes(object):
     }
 
     @classmethod
-    def get_by_ordinal(cls, ordinal, return_unknown=False):
+    def get_by_ordinal(cls, ordinal: int, return_unknown: bool = False):
         """Get an AppMode by its associated ordinal (integer)"""
         return cls._find_by(
             lambda mode: mode.ordinal() == ordinal,
@@ -123,12 +161,12 @@ class AppModes(object):
         )
 
     @classmethod
-    def get_by_name(cls, name, return_unknown=False):
+    def get_by_name(cls, name: str, return_unknown: bool = False):
         """Get an AppMode by name"""
         return cls._find_by(lambda mode: mode.name() == name, "named %s" % name, return_unknown)
 
     @classmethod
-    def get_by_extension(cls, extension, return_unknown=False):
+    def get_by_extension(cls, extension: Optional[str], return_unknown: bool = False):
         """Get an app mode by its associated extension"""
         # We can't allow a lookup by None since some modes have that for an extension.
         if extension is None:
@@ -143,11 +181,11 @@ class AppModes(object):
         )
 
     @classmethod
-    def get_by_cloud_name(cls, name):
+    def get_by_cloud_name(cls, name: str):
         return cls._cloud_to_connect_modes.get(name, cls.UNKNOWN)
 
     @classmethod
-    def _find_by(cls, predicate, message, return_unknown):
+    def _find_by(cls, predicate: Callable[[AppMode], bool], message: str, return_unknown: bool):
         for mode in cls._modes:
             if predicate(mode):
                 return mode
@@ -162,7 +200,7 @@ class GlobMatcher(object):
     limitation is that we support at most one occurrence of the `**` pattern.
     """
 
-    def __init__(self, pattern):
+    def __init__(self, pattern: str):
         pattern = pathlib.PurePath(pattern).as_posix()
         if pattern.endswith("/**/*"):
             # Note: the index used here makes sure the pattern has a trailing
@@ -174,7 +212,7 @@ class GlobMatcher(object):
             self.matches = self._match_with_list_parts
 
     @staticmethod
-    def _to_parts_list(pattern):
+    def _to_parts_list(pattern: str):
         """
         Converts a glob expression into a list, with an entry for each directory
         level.  Each entry will be either a string, in which case an equality
@@ -187,7 +225,7 @@ class GlobMatcher(object):
         The index will be None if `**` is never found.
         """
         # Incoming pattern is ALWAYS a Posix-style path.
-        parts = pattern.split("/")
+        parts: Sequence[str | re.Pattern[str]] = pattern.split("/")
         depth_wildcard_index = None
         for index, name in enumerate(parts):
             if name == "**":
@@ -198,15 +236,15 @@ class GlobMatcher(object):
                 parts[index] = re.compile(r"\A" + fnmatch.translate(name))
         return parts, depth_wildcard_index
 
-    def _match_with_starts_with(self, path):
+    def _match_with_starts_with(self, path: str | pathlib.PurePath):
         path = pathlib.PurePath(path).as_posix()
         return path.startswith(self._pattern)
 
-    def _match_with_list_parts(self, path):
+    def _match_with_list_parts(self, path: str | pathlib.PurePath):
         path = pathlib.PurePath(path).as_posix()
         parts = path.split("/")
 
-        def items_match(i1, i2):
+        def items_match(i1: int, i2: int):
             if i2 >= len(parts):
                 return False
             if isinstance(self._pattern_parts[i1], six.string_types):
@@ -241,10 +279,10 @@ class GlobSet(object):
     Matches against a set of `GlobMatcher` patterns
     """
 
-    def __init__(self, patterns):
+    def __init__(self, patterns: list[str]):
         self._matchers = [GlobMatcher(pattern) for pattern in patterns]
 
-    def matches(self, path):
+    def matches(self, path: str):
         """
         Determines whether the given path is matched by any of our glob
         expressions.
@@ -260,13 +298,13 @@ class GlobSet(object):
 class StrippedStringParamType(StringParamType):
     name = "StrippedString"
 
-    def convert(self, value, param, ctx):
+    def convert(self, value: str, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> str:
         value = super(StrippedStringParamType, self).convert(value, param, ctx)
         return value.strip("\"'")
 
 
 class ContentGuidWithBundle(object):
-    def __init__(self, guid: str = None, bundle_id: str = None):
+    def __init__(self, guid: Optional[str] = None, bundle_id: Optional[str] = None):
         self.guid = guid
         self.bundle_id = bundle_id
 
@@ -279,7 +317,12 @@ class ContentGuidWithBundle(object):
 class ContentGuidWithBundleParamType(StrippedStringParamType):
     name = "ContentGuidWithBundle"
 
-    def convert(self, value, param, ctx):
+    def convert(
+        self,
+        value: str | ContentGuidWithBundle,
+        param: Optional[click.Parameter],
+        ctx: Optional[click.Context],
+    ):
         if isinstance(value, ContentGuidWithBundle):
             return value
         if isinstance(value, str):
@@ -298,11 +341,70 @@ class ContentGuidWithBundleParamType(StrippedStringParamType):
         self.fail("Failed to parse content guid arg %s" % value)
 
 
+AppRole = Literal["owner", "editor", "viewer", "none"]
+
+
+# From https://docs.posit.co/connect/api/#get-/v1/experimental/content/-guid-
+class ContentItem(TypedDict):
+    guid: str
+    name: str
+    title: str | None
+    description: str
+    access_type: Literal["all", "logged_in", "acl"]
+    connection_timeout: int | None
+    read_timeout: int | None
+    init_timeout: int | None
+    idle_timeout: int | None
+    max_processes: int | None
+    min_processes: int | None
+    max_conns_per_process: int | None
+    load_factor: float | None
+    cpu_request: float | None
+    cpu_limit: int | None
+    memory_request: float | None
+    memory_limit: int | None
+    amd_gpu_limit: float | None
+    nvidia_gpu_limit: float | None
+    created_time: str
+    last_deployed_time: str
+    bundle_id: str
+    app_mode: AppModes.Modes
+    content_category: str
+    parameterized: bool
+    cluster_name: str | None
+    image_name: str | None
+    default_image_name: str | None
+    default_r_environment_management: bool | None
+    default_py_environment_management: bool | None
+    service_account_name: str | None
+    r_version: str | None
+    r_environment_management: bool | None
+    py_version: str | None
+    py_environment_management: bool | None
+    quarto_version: str | None
+    run_as: str | None
+    run_as_current_user: bool
+    owner_guid: str
+    content_url: str
+    dashboard_url: str
+    app_role: AppRole
+    id: str
+
+
+VersionProgramName = Literal["r_version", "py_version", "quarto_version"]
+ComparisonOperator = Literal[">", "<", ">=", "<=", "=", "=="]
+
+
 class VersionSearchFilter(object):
-    def __init__(self, name: str = None, comp: str = None, vers: str = None):
-        self.name = name
-        self.comp = comp
-        self.vers = vers
+    def __init__(
+        self,
+        name: VersionProgramName | None = None,
+        comp: ComparisonOperator | None = None,
+        vers: str | None = None,
+    ):
+        self.name: VersionProgramName = name
+        self.comp: ComparisonOperator = comp
+        self.vers: str = vers
 
     def __repr__(self):
         return "%s %s %s" % (self.name, self.comp, self.vers)
@@ -311,14 +413,19 @@ class VersionSearchFilter(object):
 class VersionSearchFilterParamType(ParamType):
     name = "VersionSearchFilter"
 
-    def __init__(self, key):
+    def __init__(self, key: VersionProgramName):
         """
         :param key: key refers to the left side of the version comparison.
         In this case any interpreter in a content result, one of [py_version, r_version, quarto_version]
         """
-        self.key = key
+        self.key: VersionProgramName = key
 
-    def convert(self, value, param, ctx):
+    def convert(
+        self,
+        value: str | VersionSearchFilter,
+        param: Optional[click.Parameter],
+        ctx: Optional[click.Context],
+    ):
         if isinstance(value, VersionSearchFilter):
             return value
 
@@ -326,7 +433,7 @@ class VersionSearchFilterParamType(ParamType):
             m = re.match(_version_search_pattern, value)
             if m is not None and len(m.groups()) == 2:
                 version_search = VersionSearchFilter(name=self.key)
-                version_search.comp = m.group(1)
+                version_search.comp = cast(ComparisonOperator, m.group(1))
                 version_search.vers = m.group(2)
 
                 # default to == if no comparator was provided
@@ -343,3 +450,23 @@ class VersionSearchFilterParamType(ParamType):
                 return version_search
 
         self.fail("Failed to parse version filter %s" % value)
+
+
+class TaskStatusResult(TypedDict):
+    type: str
+    data: object  # Don't know the structure of this type yet
+
+
+class TaskStatus(TypedDict):
+    id: str
+    # NOTE: The API docs say this should be "output" instead of "status".
+    status: list[str]
+    finished: bool
+    code: int
+    error: str
+    # Note: The API docs say this should be "last" instead of "last_status"
+    last_status: int
+    user_id: int
+    # NOTE: The API docs say this should always be a dict, but the actual response can
+    # be None.
+    result: TaskStatusResult | None

@@ -2,25 +2,47 @@
 HTTP support wrappers and utility functions
 """
 
+from __future__ import annotations
+
+import base64
 import json
+import os
 import socket
 import ssl
-import os
+from typing import Any, BinaryIO, Dict, List, Mapping, Optional, Tuple, Union
 from warnings import warn
-from . import VERSION
-from .log import logger
+
 from six.moves import http_client as http
 from six.moves.http_cookies import SimpleCookie
-from six.moves.urllib_parse import urlparse, urlencode, urljoin
-import base64
+from six.moves.urllib_parse import urlencode, urljoin, urlparse
 
+
+from . import VERSION
+from .log import logger
 from .timeouts import get_request_timeout
+
+# A union type that describes types that can be converted to and from JSON.
+JsonData = Union[
+    str,
+    int,
+    float,
+    bool,
+    None,
+    List["JsonData"],
+    Tuple["JsonData"],
+    Dict[str, "JsonData"],
+]
 
 _user_agent = "rsconnect-python/%s" % VERSION
 
 
 # noinspection PyUnusedLocal,PyUnresolvedReferences
-def _create_plain_connection(host_name, port, disable_tls_check, ca_data):
+def _create_plain_connection(
+    host_name: str,
+    port: Optional[int],
+    disable_tls_check: bool,
+    ca_data: Optional[str],
+):
     """
     This function is used to create a plain HTTP connection.  Note that the 3rd and 4th
     parameters are ignored; they are present to make the signature match the companion
@@ -52,7 +74,7 @@ def _get_proxy():
     return parsed.username, parsed.password, parsed.hostname, parsed.port or 8080
 
 
-def _get_proxy_headers(*args, **kwargs):
+def _get_proxy_headers(*args: object, **kwargs: object):
     proxyHeaders = None
     proxyUsername, proxyPassword, _, _ = _get_proxy()
     if proxyUsername and proxyPassword:
@@ -63,7 +85,12 @@ def _get_proxy_headers(*args, **kwargs):
 
 
 # noinspection PyUnresolvedReferences
-def _create_ssl_connection(host_name, port, disable_tls_check, ca_data):
+def _create_ssl_connection(
+    host_name: str,
+    port: Optional[int],
+    disable_tls_check: bool,
+    ca_data: Optional[str | bytes],
+):
     """
     This function is used to create a TLS encrypted HTTP connection (SSL).
 
@@ -118,7 +145,7 @@ def _create_ssl_connection(host_name, port, disable_tls_check, ca_data):
         return tmp
 
 
-def append_to_path(uri, path):
+def append_to_path(uri: str, path: str):
     """
     This is a helper function for appending a path to a URI (i.e, just the path portion
     of a full URL).  The main purpose is to make sure one and only one slash ends up between them.
@@ -141,7 +168,13 @@ class HTTPResponse(object):
     This class represents the result of executing an HTTP request.
     """
 
-    def __init__(self, full_uri, response=None, body=None, exception=None):
+    def __init__(
+        self,
+        full_uri: str,
+        response: Optional[http.HTTPResponse] = None,
+        body: Optional[str | bytes] = None,
+        exception: Optional[Exception] = None,
+    ):
         """
         This constructs an HTTPResponse object.  One and only one of the arguments will
         be None.
@@ -154,8 +187,8 @@ class HTTPResponse(object):
         self._response = response
         self.full_uri = full_uri
         self.exception = exception
-        self.content_type = None
-        self.json_data = None
+        self.content_type: str | None = None
+        self.json_data: JsonData = None
         self.response_body = body
 
         if response is not None:
@@ -172,7 +205,13 @@ class HTTPServer(object):
     server.
     """
 
-    def __init__(self, url, disable_tls_check=False, ca_data=None, cookies=None):
+    def __init__(
+        self,
+        url: str,
+        disable_tls_check: bool = False,
+        ca_data: Optional[str | bytes] = None,
+        cookies: Optional[CookieJar] = None,
+    ):
         """
         Constructs an HTTPServer object.
 
@@ -199,7 +238,7 @@ class HTTPServer(object):
 
         self._inject_cookies()
 
-    def authorization(self, auth_text):
+    def authorization(self, auth_text: str):
         self._headers["Authorization"] = auth_text
 
     def get_authorization(self):
@@ -208,13 +247,13 @@ class HTTPServer(object):
 
         return self._headers["Authorization"]
 
-    def key_authorization(self, key):
+    def key_authorization(self, key: str):
         self.authorization("Key %s" % key)
 
-    def bootstrap_authorization(self, key):
+    def bootstrap_authorization(self, key: str):
         self.authorization("Connect-Bootstrap %s" % key)
 
-    def _get_full_path(self, path):
+    def _get_full_path(self, path: str):
         return append_to_path(self._url.path, path)
 
     def __enter__(self):
@@ -232,35 +271,63 @@ class HTTPServer(object):
             self._conn.close()
             self._conn = None
 
-    def get(self, path, query_params=None, decode_response=True):
+    def get(
+        self,
+        path: str,
+        query_params: Optional[Mapping[str, JsonData]] = None,
+        decode_response: bool = True,
+    ):
         return self.request("GET", path, query_params, decode_response=decode_response)
 
-    def post(self, path, query_params=None, body=None):
+    def post(
+        self,
+        path: str,
+        query_params: Optional[Mapping[str, JsonData]] = None,
+        body: str | bytes | BinaryIO | dict[str, Any] | list[Any] | None = None,
+    ):
         return self.request("POST", path, query_params, body)
 
-    def patch(self, path, query_params=None, body=None):
+    def patch(
+        self,
+        path: str,
+        query_params: Optional[Mapping[str, JsonData]] = None,
+        body: str | bytes | BinaryIO | dict[str, Any] | list[Any] | None = None,
+    ):
         return self.request("PATCH", path, query_params, body)
 
-    def put(self, path, query_params=None, body=None, headers=None, decode_response=True):
+    def put(
+        self,
+        path: str,
+        query_params: Optional[Mapping[str, JsonData]] = None,
+        body: str | bytes | BinaryIO | dict[str, Any] | list[Any] | None = None,
+        headers: Optional[dict[str, str]] = None,
+        decode_response: bool = True,
+    ):
         if headers is None:
             headers = {}
         return self.request(
             "PUT", path, query_params=query_params, body=body, headers=headers, decode_response=decode_response
         )
 
-    def delete(self, path, query_params=None, body=None, decode_response=True):
+    def delete(
+        self,
+        path: str,
+        query_params: Optional[Mapping[str, JsonData]] = None,
+        body: str | bytes | BinaryIO | dict[str, Any] | list[Any] | None = None,
+        decode_response: bool = True,
+    ):
         return self.request("DELETE", path, query_params, body, decode_response=decode_response)
 
     def request(
         self,
-        method,
-        path,
-        query_params=None,
-        body=None,
-        maximum_redirects=5,
-        decode_response=True,
-        headers=None,
-    ):
+        method: str,
+        path: str,
+        query_params: Optional[Mapping[str, JsonData]] = None,
+        body: str | bytes | BinaryIO | dict[str, Any] | list[Any] | None = None,
+        maximum_redirects: int = 5,
+        decode_response: bool = True,
+        headers: Optional[dict[str, str]] = None,
+    ) -> JsonData | HTTPResponse:
         path = self._get_full_path(path)
         extra_headers = headers or {}
         if isinstance(body, (dict, list)):
@@ -269,12 +336,19 @@ class HTTPServer(object):
         extra_headers = {**extra_headers, **self.get_extra_headers(path, method, body)}
         return self._do_request(method, path, query_params, body, maximum_redirects, extra_headers, decode_response)
 
-    def get_extra_headers(self, url, method, body):
+    def get_extra_headers(self, url: str, method: str, body: str | bytes | BinaryIO | None) -> dict[str, str]:
         return {}
 
     def _do_request(
-        self, method, path, query_params, body, maximum_redirects, extra_headers=None, decode_response=True
-    ):
+        self,
+        method: str,
+        path: str,
+        query_params: Optional[Mapping[str, JsonData]],
+        body: str | bytes | BinaryIO | None,
+        maximum_redirects: int,
+        extra_headers: Optional[dict[str, str]] = None,
+        decode_response: bool = True,
+    ) -> JsonData | HTTPResponse:
         full_uri = path
         if query_params is not None:
             full_uri = "%s?%s" % (path, urlencode(query_params, doseq=True))
@@ -299,9 +373,9 @@ class HTTPServer(object):
                 local_connection = True
 
             try:
-                self._conn.request(method, full_uri, body, headers)
+                self._conn.request(method, full_uri, body, headers)  # type: ignore
 
-                response = self._conn.getresponse()
+                response = self._conn.getresponse()  # type: ignore
                 response_body = response.read()
                 if decode_response:
                     response_body = response_body.decode("utf-8").strip()
@@ -362,10 +436,10 @@ class HTTPServer(object):
             return HTTPResponse(full_uri, exception=exception)
 
     # noinspection PyMethodMayBeStatic
-    def _tweak_response(self, response):
+    def _tweak_response(self, response: HTTPResponse) -> JsonData | HTTPResponse:
         return response
 
-    def _handle_set_cookie(self, response):
+    def _handle_set_cookie(self, response: http.HTTPResponse):
         self._cookies.store_cookies(response)
         self._inject_cookies()
 
@@ -378,7 +452,7 @@ class HTTPServer(object):
 
 class CookieJar(object):
     @staticmethod
-    def from_dict(source):
+    def from_dict(source: dict[str, Any]):
         if not isinstance(source, dict):
             raise ValueError("Input must be a dictionary.")
         keys = source.get("keys", [])
@@ -393,12 +467,12 @@ class CookieJar(object):
         result._content = content
         return result
 
-    def __init__(self):
-        self._keys = []
-        self._content = {}
+    def __init__(self) -> None:
+        self._keys: list[str] = []
+        self._content: dict[str, str] = {}
         self._reference = SimpleCookie()
 
-    def store_cookies(self, response):
+    def store_cookies(self, response: http.HTTPResponse):
         headers = filter(lambda h: h[0].lower() == "set-cookie", response.getheaders())
 
         for header in headers:

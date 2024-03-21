@@ -9,15 +9,17 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
+from typing import Iterator, Literal, Optional, Sequence
+
 import semver
 
 from .api import RSConnectClient, RSConnectServer, emit_task_log
-from .log import logger
-from .models import BuildStatus, ContentGuidWithBundle
-from .metadata import ContentBuildStore
 from .exception import RSConnectException
+from .log import logger
+from .metadata import ContentBuildStore, ContentItemWithBuildState
+from .models import BuildStatus, ContentItem, ContentGuidWithBundle, VersionSearchFilter
 
-_content_build_store = None  # type: ContentBuildStore
+_content_build_store: ContentBuildStore = None
 
 
 def init_content_build_store(connect_server: RSConnectServer):
@@ -27,7 +29,10 @@ def init_content_build_store(connect_server: RSConnectServer):
         _content_build_store = ContentBuildStore(connect_server)
 
 
-def build_add_content(connect_server, content_guids_with_bundle):
+def build_add_content(
+    connect_server: RSConnectServer,
+    content_guids_with_bundle: Sequence[ContentGuidWithBundle],
+):
     """
     :param content_guids_with_bundle: Union[tuple[models.ContentGuidWithBundle], list[models.ContentGuidWithBundle]]
     """
@@ -88,7 +93,7 @@ def build_remove_content(
     return guids
 
 
-def build_list_content(connect_server, guid, status):
+def build_list_content(connect_server: RSConnectServer, guid: str, status: Optional[str]):
     init_content_build_store(connect_server)
     if guid:
         return [_content_build_store.get_content_item(g) for g in guid]
@@ -96,21 +101,21 @@ def build_list_content(connect_server, guid, status):
         return _content_build_store.get_content_items(status=status)
 
 
-def build_history(connect_server, guid):
+def build_history(connect_server: RSConnectServer, guid: str):
     init_content_build_store(connect_server)
     return _content_build_store.get_build_history(guid)
 
 
 def build_start(
-    connect_server,
-    parallelism,
-    aborted=False,
-    error=False,
-    running=False,
-    retry=False,
-    all=False,
-    poll_wait=2,
-    debug=False,
+    connect_server: RSConnectServer,
+    parallelism: int,
+    aborted: bool = False,
+    error: bool = False,
+    running: bool = False,
+    retry: bool = False,
+    all: bool = False,
+    poll_wait: int = 2,
+    debug: bool = False,
 ):
     init_content_build_store(connect_server)
     if _content_build_store.get_build_running():
@@ -226,7 +231,7 @@ def build_start(
             build_monitor.shutdown()
 
 
-def _monitor_build(connect_server, content_items):
+def _monitor_build(connect_server: RSConnectServer, content_items: list[ContentItemWithBuildState]):
     """
     :return bool: True if the build completed without errors, False otherwise
     """
@@ -269,7 +274,7 @@ def _monitor_build(connect_server, content_items):
     return True
 
 
-def _build_content_item(connect_server, content, poll_wait):
+def _build_content_item(connect_server: RSConnectServer, content: ContentItemWithBuildState, poll_wait: str):
     init_content_build_store(connect_server)
     with RSConnectClient(connect_server) as client:
         # Pending futures will still try to execute when ThreadPoolExecutor.shutdown() is called
@@ -317,7 +322,12 @@ def _build_content_item(connect_server, content, poll_wait):
             _content_build_store.set_content_item_build_status(guid, BuildStatus.COMPLETE)
 
 
-def emit_build_log(connect_server, guid, format, task_id=None):
+def emit_build_log(
+    connect_server: RSConnectServer,
+    guid: str,
+    format: str,
+    task_id: Optional[str] = None,
+):
     init_content_build_store(connect_server)
     log_file = _content_build_store.get_build_log(guid, task_id)
     if log_file:
@@ -331,7 +341,7 @@ def emit_build_log(connect_server, guid, format, task_id=None):
         raise RSConnectException("Log file not found for content: %s" % guid)
 
 
-def download_bundle(connect_server, guid_with_bundle):
+def download_bundle(connect_server: RSConnectServer, guid_with_bundle: ContentGuidWithBundle):
     """
     :param guid_with_bundle: models.ContentGuidWithBundle
     """
@@ -349,7 +359,7 @@ def download_bundle(connect_server, guid_with_bundle):
         return client.download_bundle(guid_with_bundle.guid, guid_with_bundle.bundle_id)
 
 
-def get_content(connect_server, guid):
+def get_content(connect_server: RSConnectServer, guid: str | list[str]):
     """
     :param guid: a single guid as a string or list of guids.
     :return: a list of content items.
@@ -363,7 +373,14 @@ def get_content(connect_server, guid):
 
 
 def search_content(
-    connect_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
+    connect_server: RSConnectServer,
+    published: bool,
+    unpublished: bool,
+    content_type: Sequence[str],
+    r_version: Optional[VersionSearchFilter],
+    py_version: Optional[VersionSearchFilter],
+    title_contains: Optional[str],
+    order_by: Optional[Literal["created", "last_deployed"]],
 ):
     with RSConnectClient(connect_server) as client:
         result = client.search_content()
@@ -374,21 +391,29 @@ def search_content(
         return list(result)
 
 
-def _apply_content_filters(content_list, published, unpublished, content_type, r_version, py_version, title_search):
-    def content_is_published(item):
+def _apply_content_filters(
+    content_list: list[ContentItem],
+    published: bool,
+    unpublished: bool,
+    content_type: Sequence[str],
+    r_version: Optional[VersionSearchFilter],
+    py_version: Optional[VersionSearchFilter],
+    title_search: Optional[str],
+) -> Iterator[ContentItem]:
+    def content_is_published(item: ContentItem):
         return item.get("bundle_id") is not None
 
-    def content_is_unpublished(item):
+    def content_is_unpublished(item: ContentItem):
         return item.get("bundle_id") is None
 
-    def title_contains(item):
+    def title_contains(item: ContentItem):
         return item["title"] is not None and title_search in item["title"]
 
-    def apply_content_type_filter(item):
+    def apply_content_type_filter(item: ContentItem):
         return item["app_mode"] is not None and item["app_mode"] in content_type
 
-    def apply_version_filter(items, version_filter):
-        def do_filter(item):
+    def apply_version_filter(items: Iterator[ContentItem], version_filter: VersionSearchFilter):
+        def do_filter(item: ContentItem) -> bool:
             vers = None
             if version_filter.name not in item:
                 return False
@@ -429,7 +454,10 @@ def _apply_content_filters(content_list, published, unpublished, content_type, r
     return result
 
 
-def _order_content_results(content_list, order_by):
+def _order_content_results(
+    content_list: Iterator[ContentItem],
+    order_by: Optional[Literal["created", "last_deployed"]],
+) -> Iterator[ContentItem] | list[ContentItem]:
     result = iter(content_list)
     if order_by == "last_deployed":
         pass  # do nothing, content is ordered by last_deployed by default

@@ -1,6 +1,7 @@
 """
 Public API for managing settings and deploying content.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -13,13 +14,26 @@ import subprocess
 import sys
 import traceback
 import typing
-from typing import IO, Optional
-from warnings import warn
 from os.path import abspath, basename, dirname, exists, isdir, join, relpath, splitext
-from .exception import RSConnectException
-from . import api
-from . import bundle
+from pathlib import Path
+from typing import BinaryIO, Callable, Mapping, Optional, Sequence, TextIO, cast
+from warnings import warn
+
+# Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
+# they should both come from the same typing module.
+# https://peps.python.org/pep-0655/#usage-in-python-3-11
+if sys.version_info >= (3, 11):
+    from typing import NotRequired, TypedDict
+else:
+    from typing_extensions import NotRequired, TypedDict
+
+import click
+from six.moves.urllib_parse import urlparse
+
+from . import api, bundle
+from .api import RSConnectExecutor, filter_out_server_info
 from .bundle import (
+    ManifestData,
     _warn_if_environment_directory,
     _warn_if_no_requirements_file,
     _warn_on_ignored_manifest,
@@ -40,14 +54,10 @@ from .bundle import (
     read_manifest_app_mode,
     read_manifest_file,
 )
-from .environment import Environment, MakeEnvironment, EnvironmentException
-from .log import logger, VERBOSE
-from .models import AppModes, AppMode
-from .api import RSConnectExecutor, filter_out_server_info
-
-import click
-from six.moves.urllib_parse import urlparse
-
+from .environment import Environment, EnvironmentException, MakeEnvironment
+from .exception import RSConnectException
+from .log import VERBOSE, logger
+from .models import AppMode, AppModes
 
 line_width = 45
 _module_pattern = re.compile(r"^[A-Za-z0-9_]+:[A-Za-z0-9_]+$")
@@ -56,7 +66,7 @@ _repeating_sub_pattern = re.compile(r"_+")
 
 
 @contextlib.contextmanager
-def cli_feedback(label, stderr=False):
+def cli_feedback(label: str, stderr: bool = False):
     """Context manager for OK/ERROR feedback from the CLI.
 
     If the enclosed block succeeds, OK will be emitted.
@@ -74,7 +84,7 @@ def cli_feedback(label, stderr=False):
         if label:
             click.secho("[OK]", fg="green", err=stderr)
 
-    def failed(err):
+    def failed(err: str):
         if label:
             click.secho("[ERROR]", fg="red", err=stderr)
         click.secho(str(err), fg="bright_red", err=stderr)
@@ -108,7 +118,7 @@ def set_verbosity(verbose: int):
         logger.setLevel(logging.DEBUG)
 
 
-def which_python(python, env=os.environ):
+def which_python(python: Optional[str], env: Mapping[str, str] = os.environ):
     """Determine which python binary should be used.
 
     In priority order:
@@ -125,19 +135,18 @@ def which_python(python, env=os.environ):
 
 
 def inspect_environment(
-    python,  # type: str
-    directory,  # type: str
-    force_generate=False,  # type: bool
-    check_output=subprocess.check_output,  # type: typing.Callable
-):
-    # type: (...) -> Environment
+    python: str,
+    directory: str,
+    force_generate: bool = False,
+    check_output: Callable[..., bytes] = subprocess.check_output,
+) -> Environment:
     """Run the environment inspector using the specified python binary.
 
     Returns a dictionary of information about the environment,
     or containing an "error" field if an error occurred.
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-    flags = []
+    flags: list[str] = []
     if force_generate:
         flags.append("f")
     args = [python, "-m", "rsconnect.environment"]
@@ -165,7 +174,7 @@ def _verify_server(connect_server: api.RSConnectServer):
     return api.verify_server(connect_server)
 
 
-def _to_server_check_list(url):
+def _to_server_check_list(url: str) -> list[str]:
     """
     Build a list of servers to check from the given one.  If the specified server
     appears not to have a scheme, then we'll provide https and http variants to test.
@@ -201,7 +210,7 @@ def test_server(connect_server: api.RSConnectServer) -> tuple[api.RSConnectServe
     key = connect_server.api_key
     insecure = connect_server.insecure
     ca_data = connect_server.ca_data
-    failures = []
+    failures: list[str] = []
     for test in _to_server_check_list(url):
         try:
             connect_server = api.RSConnectServer(test, key, insecure, ca_data)
@@ -238,7 +247,7 @@ def test_api_key(connect_server: api.RSConnectServer) -> str:
     return api.verify_api_key(connect_server)
 
 
-def gather_server_details(connect_server):
+def gather_server_details(connect_server: api.RSConnectServer):
     """
     Builds a dictionary containing the version of Posit Connect that is running
     and the versions of Python installed there.
@@ -250,7 +259,7 @@ def gather_server_details(connect_server):
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
 
-    def _to_sort_key(text):
+    def _to_sort_key(text: str):
         parts = [part.zfill(5) for part in text.split(".")]
         return "".join(parts)
 
@@ -296,7 +305,7 @@ def _make_deployment_name(remote_server: api.TargetableServer, title: str, force
     return name
 
 
-def _validate_title(title):
+def _validate_title(title: str) -> None:
     """
     If the user specified a title, validate that it meets Connect's length requirements.
     If the validation fails, an exception is raised.  Otherwise,
@@ -309,7 +318,7 @@ def _validate_title(title):
             raise RSConnectException("A title must be between 3-1024 characters long.")
 
 
-def _default_title(file_name):
+def _default_title(file_name: str) -> str:
     """
     Produce a default content title from the given file path.  The result is
     guaranteed to be between 3 and 1024 characters long, as required by Posit
@@ -325,7 +334,7 @@ def _default_title(file_name):
     return basename(file_name).rsplit(".", 1)[0][:1024].rjust(3, "0")
 
 
-def _default_title_from_manifest(the_manifest, manifest_file):
+def _default_title_from_manifest(the_manifest: ManifestData, manifest_file: str) -> str:
     """
     Produce a default content title from the contents of a manifest.
     """
@@ -342,7 +351,7 @@ def _default_title_from_manifest(the_manifest, manifest_file):
     return _default_title(filename or dirname(manifest_file))
 
 
-def validate_file_is_notebook(file_name):
+def validate_file_is_notebook(file_name: str) -> None:
     """
     Validate that the given file is a Jupyter Notebook. If it isn't, an exception is
     thrown.  A file must exist and have the '.ipynb' extension.
@@ -355,7 +364,7 @@ def validate_file_is_notebook(file_name):
         raise RSConnectException("A Jupyter notebook (.ipynb) file is required here.")
 
 
-def validate_extra_files(directory, extra_files):
+def validate_extra_files(directory: str | Path, extra_files: Sequence[str] | None) -> list[str]:
     """
     If the user specified a list of extra files, validate that they all exist and are
     beneath the given directory and, if so, return a list of them made relative to that
@@ -366,7 +375,7 @@ def validate_extra_files(directory, extra_files):
     :return: the extra files qualified by the directory.
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-    result = []
+    result: list[str] = []
     if extra_files:
         for extra in extra_files:
             extra_file = relpath(extra, directory)
@@ -380,7 +389,7 @@ def validate_extra_files(directory, extra_files):
     return result
 
 
-def validate_manifest_file(file_or_directory):
+def validate_manifest_file(file_or_directory: str | Path) -> str:
     """
     Validates that the name given represents either an existing manifest.json file or
     a directory that contains one.  If not, an exception is raised.
@@ -393,15 +402,15 @@ def validate_manifest_file(file_or_directory):
         file_or_directory = join(file_or_directory, "manifest.json")
     if basename(file_or_directory) != "manifest.json" or not exists(file_or_directory):
         raise RSConnectException("A manifest.json file or a directory containing one is required here.")
-    return file_or_directory
+    return str(file_or_directory)
 
 
-def get_default_entrypoint(directory):
+def get_default_entrypoint(directory: str | Path) -> str:
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     return bundle.get_default_entrypoint(directory)
 
 
-def validate_entry_point(entry_point, directory):
+def validate_entry_point(entry_point: str | None, directory: str | Path) -> str:
     """
     Validates the entry point specified by the user, expanding as necessary.  If the
     user specifies nothing, a module of "app" is assumed.  If the user specifies a
@@ -455,11 +464,29 @@ def which_quarto(quarto: Optional[str] = None) -> str:
     raise RSConnectException("Unable to locate a Quarto installation.")
 
 
+class QuartoInspectResultQuarto(TypedDict):
+    version: str
+
+
+class QuartoInspectResultConfigProject(TypedDict):
+    render: list[str]
+
+
+class QuartoInspectResultConfig(TypedDict):
+    project: QuartoInspectResultConfigProject
+
+
+class QuartoInspectResult(TypedDict):
+    quarto: QuartoInspectResultQuarto
+    engines: list[str]
+    config: NotRequired[QuartoInspectResultConfig]
+
+
 def quarto_inspect(
-    quarto,
-    target,
-    check_output=subprocess.check_output,
-):
+    quarto: str,
+    target: str,
+    check_output: typing.Callable[..., bytes] = subprocess.check_output,
+) -> QuartoInspectResult:
     """
     Runs 'quarto inspect' against the target and returns its output as a
     parsed JSON object.
@@ -473,10 +500,10 @@ def quarto_inspect(
         inspect_json = check_output(args, universal_newlines=True, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         raise RSConnectException("Error inspecting target: %s" % e.output)
-    return json.loads(inspect_json)
+    return cast(QuartoInspectResult, json.loads(inspect_json))
 
 
-def validate_quarto_engines(inspect):
+def validate_quarto_engines(inspect: QuartoInspectResult):
     """
     The markdown and jupyter engines are supported. Not knitr.
     """
@@ -490,14 +517,14 @@ def validate_quarto_engines(inspect):
 
 def write_quarto_manifest_json(
     file_or_directory: str,
-    inspect: typing.Any,
+    inspect: QuartoInspectResult,
     app_mode: AppMode,
     environment: Environment,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given Quarto project.
@@ -528,7 +555,7 @@ def write_quarto_manifest_json(
     )
 
 
-def write_manifest_json(manifest_path, manifest):
+def write_manifest_json(manifest_path: str | Path, manifest: ManifestData) -> None:
     """
     Write the manifest data as JSON to the named manifest.json with a trailing newline.
     """
@@ -537,21 +564,21 @@ def write_manifest_json(manifest_path, manifest):
 
 
 def deploy_html(
-    connect_server: api.RSConnectServer = None,
-    path: str = None,
-    entrypoint: str = None,
-    extra_files=None,
-    excludes=None,
-    title: str = None,
-    env_vars=None,
+    connect_server: Optional[api.RSConnectServer] = None,
+    path: Optional[str] = None,
+    entrypoint: Optional[str] = None,
+    extra_files: Optional[Sequence[str]] = None,
+    excludes: Optional[Sequence[str]] = None,
+    title: Optional[str] = None,
+    env_vars: Optional[dict[str, str]] = None,
     verbose: bool = False,
     new: bool = False,
-    app_id: str = None,
-    name: str = None,
-    server: str = None,
-    api_key: str = None,
+    app_id: Optional[str] = None,
+    name: Optional[str] = None,
+    server: Optional[str] = None,
+    api_key: Optional[str] = None,
     insecure: bool = False,
-    cacert: IO = None,
+    cacert: Optional[TextIO | BinaryIO] = None,
 ) -> None:
     kwargs = locals()
     ce = None
@@ -580,19 +607,19 @@ def deploy_html(
 def deploy_jupyter_notebook(
     connect_server: api.TargetableServer,
     file_name: str,
-    extra_files: typing.List[str],
+    extra_files: Sequence[str],
     new: bool,
     app_id: int,
     title: str,
     static: bool,
     python: str,
     force_generate: bool,
-    log_callback: typing.Callable,
+    log_callback: Callable[[str], None],
     hide_all_input: bool,
     hide_tagged_input: bool,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> None:
     """
     A function to deploy a Jupyter notebook to Connect.  Depending on the files involved
@@ -703,33 +730,33 @@ def fake_module_file_from_directory(directory: str):
 
 
 def deploy_app(
-    name: str = None,
-    server: str = None,
-    api_key: str = None,
-    insecure: bool = None,
-    cacert: typing.IO = None,
-    ca_data: str = None,
-    entry_point: str = None,
-    excludes: typing.List[str] = None,
+    name: Optional[str] = None,
+    server: Optional[str] = None,
+    api_key: Optional[str] = None,
+    insecure: Optional[bool] = None,
+    cacert: Optional[TextIO | BinaryIO] = None,
+    ca_data: Optional[str] = None,
+    entry_point: Optional[str] = None,
+    excludes: Optional[Sequence[str]] = None,
     new: bool = False,
-    app_id: str = None,
-    title: str = None,
-    python: str = None,
+    app_id: Optional[str] = None,
+    title: Optional[str] = None,
+    python: Optional[str] = None,
     force_generate: bool = False,
-    verbose: bool = None,
-    directory: str = None,
-    extra_files: typing.List[str] = None,
-    env_vars: typing.Dict[str, str] = None,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
-    account: str = None,
-    token: str = None,
-    secret: str = None,
+    verbose: Optional[bool] = None,
+    directory: Optional[str] = None,
+    extra_files: Optional[Sequence[str]] = None,
+    env_vars: Optional[dict[str, str]] = None,
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
+    account: Optional[str] = None,
+    token: Optional[str] = None,
+    secret: Optional[str] = None,
     app_mode: typing.Optional[AppMode] = None,
-    connect_server: api.TargetableServer = None,
-    **kws
-):
+    connect_server: Optional[api.TargetableServer] = None,
+    **kws: object
+) -> None:
     kwargs = locals()
     kwargs["entry_point"] = entry_point = validate_entry_point(entry_point, directory)
     kwargs["extra_files"] = extra_files = validate_extra_files(directory, extra_files)
@@ -785,18 +812,18 @@ def deploy_app(
 def deploy_python_api(
     connect_server: api.TargetableServer,
     directory: str,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
+    extra_files: list[str],
+    excludes: list[str],
     entry_point: str,
     new: bool,
     app_id: int,
     title: str,
     python: str,
     force_generate: bool,
-    log_callback: typing.Callable,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    log_callback: Callable[[str], None],
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> typing.Tuple[str, typing.Union[list, None]]:
     """
     A function to deploy a Python WSGi API module to Connect.  Depending on the files involved
@@ -832,8 +859,8 @@ def deploy_python_api(
 def deploy_python_fastapi(
     connect_server: api.TargetableServer,
     directory: str,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
+    extra_files: list[str],
+    excludes: list[str],
     entry_point: str,
     new: bool,
     app_id: int,
@@ -841,10 +868,10 @@ def deploy_python_fastapi(
     python: str,
     conda_mode: bool,
     force_generate: bool,
-    log_callback: typing.Callable,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    log_callback: Callable[[str], None],
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> typing.Tuple[str, typing.Union[list, None]]:
     """
     A function to deploy a Python ASGI API module to Posit Connect.  Depending on the files involved
@@ -879,17 +906,17 @@ def deploy_python_fastapi(
 
 
 def deploy_python_shiny(
-    connect_server,
-    directory,
-    extra_files,
-    excludes,
-    entry_point,
-    new=False,
-    app_id=None,
-    title=None,
-    python=None,
-    force_generate=False,
-    log_callback=None,
+    connect_server: api.TargetableServer,
+    directory: str,
+    extra_files: list[str],
+    excludes: list[str],
+    entry_point: str,
+    new: bool = False,
+    app_id: Optional[int] = None,
+    title: Optional[str] = None,
+    python: Optional[str] = None,
+    force_generate: bool = False,
+    log_callback: Optional[Callable[[str], None]] = None,
 ):
     """
     A function to deploy a Python Shiny module to Posit Connect.  Depending on the files involved
@@ -920,18 +947,18 @@ def deploy_python_shiny(
 def deploy_dash_app(
     connect_server: api.TargetableServer,
     directory: str,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
+    extra_files: list[str],
+    excludes: list[str],
     entry_point: str,
     new: bool,
     app_id: int,
     title: str,
     python: str,
     force_generate: bool,
-    log_callback: typing.Callable,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    log_callback: Callable[[str], None],
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> typing.Tuple[str, typing.Union[list, None]]:
     """
     A function to deploy a Python Dash app module to Connect.  Depending on the files involved
@@ -967,18 +994,18 @@ def deploy_dash_app(
 def deploy_streamlit_app(
     connect_server: api.TargetableServer,
     directory: str,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
+    extra_files: list[str],
+    excludes: list[str],
     entry_point: str,
     new: bool,
     app_id: int,
     title: str,
     python: str,
     force_generate: bool,
-    log_callback: typing.Callable,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    log_callback: Callable[[str], None],
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> typing.Tuple[str, typing.Union[list, None]]:
     """
     A function to deploy a Python Streamlit app module to Connect.  Depending on the files involved
@@ -1014,18 +1041,18 @@ def deploy_streamlit_app(
 def deploy_bokeh_app(
     connect_server: api.TargetableServer,
     directory: str,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
+    extra_files: list[str],
+    excludes: list[str],
     entry_point: str,
     new: bool,
     app_id: int,
     title: str,
     python: str,
     force_generate: bool,
-    log_callback: typing.Callable,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    log_callback: Callable[[str], None],
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> typing.Tuple[str, typing.Union[list, None]]:
     """
     A function to deploy a Python Bokeh app module to Connect.  Depending on the files involved
@@ -1065,7 +1092,7 @@ def deploy_by_manifest(
     new: bool,
     app_id: int,
     title: str,
-    log_callback: typing.Callable,
+    log_callback: Callable[[str], None],
 ) -> None:
     """
     A function to deploy a Jupyter notebook to Connect.  Depending on the files involved
@@ -1127,16 +1154,16 @@ def deploy_by_manifest(
 
 def create_notebook_deployment_bundle(
     file_name: str,
-    extra_files: typing.List[str],
+    extra_files: list[str],
     app_mode: AppMode,
     python: str,
     environment: Environment,
     extra_files_need_validating: bool,
     hide_all_input: bool,
     hide_tagged_input: bool,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> typing.IO[bytes]:
     """
     Create an in-memory bundle, ready to deploy.
@@ -1196,15 +1223,15 @@ def create_notebook_deployment_bundle(
 
 def create_api_deployment_bundle(
     directory: str,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
+    extra_files: list[str],
+    excludes: list[str],
     entry_point: str,
     app_mode: AppMode,
     environment: Environment,
     extra_files_need_validating: bool,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> typing.IO[bytes]:
     """
     Create an in-memory bundle, ready to deploy.
@@ -1241,14 +1268,14 @@ def create_api_deployment_bundle(
 
 def create_quarto_deployment_bundle(
     file_or_directory: str,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
+    extra_files: list[str],
+    excludes: list[str],
     app_mode: AppMode,
-    inspect: typing.Dict[str, typing.Any],
+    inspect: QuartoInspectResult,
     environment: Environment,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> typing.IO[bytes]:
     """
     Create an in-memory bundle, ready to deploy.
@@ -1293,8 +1320,8 @@ def deploy_bundle(
     title: str,
     title_is_default: bool,
     bundle: typing.IO[bytes],
-    env_vars: typing.List[typing.Tuple[str, str]],
-) -> typing.Dict[str, typing.Any]:
+    env_vars: list[tuple[str, str]],
+) -> dict[str, typing.Any]:
     """
     Deploys the specified bundle.
 
@@ -1336,7 +1363,11 @@ def deploy_bundle(
     return ce.state["deployed_info"]
 
 
-def spool_deployment_log(connect_server, app, log_callback):
+def spool_deployment_log(
+    connect_server: api.RSConnectServer,
+    app,
+    log_callback: Optional[Callable[[str], None]],
+):
     """
     Helper for spooling the deployment log for an app.
 
@@ -1356,13 +1387,13 @@ def create_notebook_manifest_and_environment_file(
     entry_point_file: str,
     environment: Environment,
     app_mode: AppMode,
-    extra_files: typing.List[str],
+    extra_files: list[str],
     force: bool,
     hide_all_input: bool,
     hide_tagged_input: bool,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given notebook entry point file.
@@ -1410,12 +1441,12 @@ def write_notebook_manifest_json(
     entry_point_file: str,
     environment: Environment,
     app_mode: AppMode,
-    extra_files: typing.List[str],
+    extra_files: list[str],
     hide_all_input: bool,
     hide_tagged_input: bool,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> bool:
     """
     Creates and writes a manifest.json file for the given entry point file.  If
@@ -1471,12 +1502,12 @@ def create_api_manifest_and_environment_file(
     entry_point: str,
     environment: Environment,
     app_mode: AppMode,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
+    extra_files: list[str],
+    excludes: list[str],
     force: bool,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given Python API entry point.  If
@@ -1522,11 +1553,11 @@ def write_api_manifest_json(
     entry_point: str,
     environment: Environment,
     app_mode: AppMode,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    extra_files: list[str],
+    excludes: list[str],
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> bool:
     """
     Creates and writes a manifest.json file for the given entry point file.  If
@@ -1578,9 +1609,7 @@ def write_environment_file(
         f.write(environment.contents)
 
 
-def describe_manifest(
-    file_name: str,
-) -> typing.Tuple[str, str]:
+def describe_manifest(file_name: str) -> tuple[str | None, str | None]:
     """
     Determine the entry point and/or primary file from the given manifest file.
     If no entry point is recorded in the manifest, then None will be returned for

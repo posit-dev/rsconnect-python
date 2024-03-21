@@ -105,7 +105,7 @@ def find_magic_comment_mode(content: str) -> Literal["core", "express"] | None:
         if shiny_mode in ("express", "core"):
             # The "type: ignore" is needed for mypy, which is used on some projects that
             # use duplicates of this code.
-            return shiny_mode # type: ignore
+            return shiny_mode  # type: ignore
         else:
             print(f'Invalid shiny_mode: "{shiny_mode}"', file=sys.stderr)
 

@@ -2,16 +2,18 @@
 Json Web Token (JWT) utilities
 """
 
-import base64
-from datetime import datetime, timedelta, timezone
-import os
+from __future__ import annotations
 
+import base64
 import binascii
+import os
+from datetime import datetime, timedelta, timezone
+from typing import Any, Optional
+
 import jwt
 
-from rsconnect.http_support import HTTPResponse
-
 from .exception import RSConnectException
+from .http_support import HTTPResponse, JsonData
 
 DEFAULT_ISSUER = "rsconnect-python"
 DEFAULT_AUDIENCE = "rsconnect"
@@ -22,7 +24,7 @@ BOOTSTRAP_EXP = timedelta(minutes=15)
 SECRET_KEY_ENV = "CONNECT_BOOTSTRAP_SECRETKEY"
 
 
-def read_secret_key(keypath) -> bytes:
+def read_secret_key(keypath: Optional[str]) -> bytes:
     """
     Reads a secret key as bytes given a path to a file containing a base64-encoded key.
 
@@ -63,7 +65,7 @@ def validate_hs256_secret_key(key: bytes):
         raise RSConnectException("Secret key expected to be at least 32 bytes in length")
 
 
-def parse_client_response(response):
+def parse_client_response(response: JsonData | HTTPResponse):
     """
     Helper to handle the response type from RSConnectClient, because
     it can have different types depending on the response
@@ -80,7 +82,7 @@ def parse_client_response(response):
         if hasattr(response, "status"):
             status = response.status
 
-        json_data = {}
+        json_data: JsonData = {}
         if hasattr(response, "json_data"):
             json_data = response.json_data
 
@@ -89,7 +91,7 @@ def parse_client_response(response):
     raise RSConnectException("Unrecognized response type: " + str(type(response)))
 
 
-def produce_bootstrap_output(status: int, json_data) -> dict:
+def produce_bootstrap_output(status: int, json_data: JsonData) -> dict[str, int | str]:
     """
     Produces the expected programmatic output format from a request to the initial_admin endpoint
     """
@@ -128,7 +130,7 @@ def produce_bootstrap_output(status: int, json_data) -> dict:
 
 
 class JWTEncoder:
-    def __init__(self, issuer: str, audience: str, secret):
+    def __init__(self, issuer: str, audience: str, secret: str | bytes):
         self.issuer = issuer
         self.audience = audience
         self.secret = secret
@@ -145,11 +147,11 @@ class JWTEncoder:
             "iat": int(current_datetime.timestamp()),
         }
 
-    def new_token(self, custom_claims: dict, exp: timedelta):
+    def new_token(self, custom_claims: dict[str, Any], exp: timedelta) -> str:
 
         standard_claims = self.generate_standard_claims(datetime.now(tz=timezone.utc), exp)
 
-        claims = {}
+        claims: dict[str, Any] = {}
         for c in [standard_claims, custom_claims]:
             claims.update(c)
 
@@ -162,7 +164,7 @@ class TokenGenerator:
     Generates 'typed' JWTs with specific custom scopes / expiration times to serve a specific purpose.
     """
 
-    def __init__(self, secret):
+    def __init__(self, secret: str | bytes):
         self.encoder = JWTEncoder(DEFAULT_ISSUER, DEFAULT_AUDIENCE, secret)
 
     def bootstrap(self):

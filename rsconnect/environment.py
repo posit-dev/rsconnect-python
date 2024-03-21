@@ -15,7 +15,7 @@ import os
 import re
 import subprocess
 import sys
-from typing import NamedTuple, Optional
+from typing import Callable, NamedTuple, Optional
 
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
 exec_dir = os.path.dirname(sys.executable)
@@ -79,12 +79,12 @@ def get_python_version(environment: Environment) -> str:
     return "%d.%d.%d" % (v[0], v[1], v[2])
 
 
-def get_default_locale(locale_source=locale.getlocale):
+def get_default_locale(locale_source: Callable[..., tuple[str | None, str | None]] = locale.getlocale):
     result = ".".join([item or "" for item in locale_source()])
     return "" if result == "." else result
 
 
-def get_version(module):
+def get_version(module: str):
     try:
         args = [sys.executable, "-m", module, "--version"]
         proc = subprocess.Popen(
@@ -93,7 +93,7 @@ def get_version(module):
             stderr=subprocess.PIPE,
             universal_newlines=True,
         )
-        stdout, stderr = proc.communicate()
+        stdout, _stderr = proc.communicate()
         match = version_re.search(stdout)
         if match:
             return match.group()
@@ -107,7 +107,7 @@ def get_version(module):
         raise EnvironmentException("Error getting '%s' version: %s" % (module, str(exception)))
 
 
-def output_file(dirname, filename, package_manager):
+def output_file(dirname: str, filename: str, package_manager: str):
     """Read an existing package spec file.
 
     Returns a dictionary containing the filename and contents
@@ -172,19 +172,19 @@ def pip_freeze():
     }
 
 
-def filter_pip_freeze_output(pip_stdout):
+def filter_pip_freeze_output(pip_stdout: str):
     # Filter out dependency on `rsconnect` and ignore output lines from pip which start with `[notice]`
     return "\n".join(
         [line for line in pip_stdout.split("\n") if (("rsconnect" not in line) and (line.find("[notice]") != 0))]
     )
 
 
-def strip_ref(line):
+def strip_ref(line: str):
     # remove erroneous conda build paths that will break pip install
     return line.split(" @ file:", 1)[0].strip()
 
 
-def exclude(line):
+def exclude(line: str):
     return line and line.startswith("setuptools") and "post" in line
 
 

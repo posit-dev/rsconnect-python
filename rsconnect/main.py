@@ -4,23 +4,22 @@ import functools
 import json
 import os
 import sys
-import traceback
 import textwrap
-import click
-from os.path import abspath, dirname, exists, isdir, join
+import traceback
 from functools import wraps
+from os.path import abspath, dirname, exists, isdir, join
 from typing import Callable, ItemsView, Literal, Optional, Sequence, TypeVar, cast
+
+import click
 
 if sys.version_info >= (3, 10):
     from typing import ParamSpec
 else:
     from typing_extensions import ParamSpec
 
-
 from rsconnect.certificates import read_certificate_file
 
-from .environment import EnvironmentException
-from .exception import RSConnectException
+from . import VERSION, api, validation
 from .actions import (
     cli_feedback,
     create_quarto_deployment_bundle,
@@ -28,64 +27,66 @@ from .actions import (
     quarto_inspect,
     set_verbosity,
     test_api_key,
+    test_rstudio_server,
     test_server,
     validate_quarto_engines,
     which_quarto,
-    test_rstudio_server,
 )
 from .actions_content import (
-    download_bundle,
     build_add_content,
-    build_remove_content,
-    build_list_content,
     build_history,
+    build_list_content,
+    build_remove_content,
     build_start,
-    search_content,
-    get_content,
+    download_bundle,
     emit_build_log,
+    get_content,
+    search_content,
 )
-
-from . import api, VERSION, validation
-from .api import RSConnectExecutor, RSConnectServer, RSConnectClient, filter_out_server_info
+from .api import RSConnectClient, RSConnectExecutor, RSConnectServer, filter_out_server_info
 from .bundle import (
     create_python_environment,
     default_title_from_manifest,
+    fake_module_file_from_directory,
+    get_python_env_info,
     is_environment_dir,
-    make_manifest_bundle,
-    make_html_bundle,
     make_api_bundle,
+    make_html_bundle,
+    make_manifest_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
     make_voila_bundle,
     read_manifest_app_mode,
-    write_notebook_manifest_json,
-    write_api_manifest_json,
-    write_environment_file,
-    write_quarto_manifest_json,
-    write_voila_manifest_json,
     validate_entry_point,
     validate_extra_files,
     validate_file_is_notebook,
     validate_manifest_file,
-    fake_module_file_from_directory,
-    get_python_env_info,
+    write_api_manifest_json,
+    write_environment_file,
+    write_notebook_manifest_json,
+    write_quarto_manifest_json,
+    write_voila_manifest_json,
 )
-from .log import logger, LogOutputFormat, VERBOSE
-from .metadata import ServerStore, AppStore
+from .environment import EnvironmentException
+from .exception import RSConnectException
+from .json_web_token import (
+    TokenGenerator,
+    parse_client_response,
+    produce_bootstrap_output,
+    read_secret_key,
+    validate_hs256_secret_key,
+)
+from .log import VERBOSE, LogOutputFormat, logger
+from .metadata import AppStore, ServerStore
 from .models import (
     AppMode,
     AppModes,
     BuildStatus,
+    ContentGuidWithBundle,
     ContentGuidWithBundleParamType,
     StrippedStringParamType,
+    VersionSearchFilter,
     VersionSearchFilterParamType,
-)
-from .json_web_token import (
-    read_secret_key,
-    validate_hs256_secret_key,
-    TokenGenerator,
-    produce_bootstrap_output,
-    parse_client_response,
 )
 from .shiny_express import escape_to_var_name, is_express_app
 from .utils_package import fix_starlette_requirements
@@ -1204,7 +1205,7 @@ def deploy_quarto(
     python: Optional[str],
     force_generate: bool,
     verbose: int,
-    file_or_directory: Optional[str],
+    file_or_directory: str,
     extra_files: Sequence[str],
     env_vars: dict[str, str],
     image: Optional[str],
@@ -1858,7 +1859,7 @@ def write_manifest_quarto(
         )
 
 
-def generate_write_manifest_python(app_mode: AppMode, alias, desc: Optional[str] = None):
+def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional[str] = None):
     if desc is None:
         desc = app_mode.desc()
 
@@ -2098,8 +2099,8 @@ def content_search(
     published: bool,
     unpublished: bool,
     content_type: tuple[str, ...],
-    r_version: Optional[str],
-    py_version: Optional[str],
+    r_version: Optional[VersionSearchFilter],
+    py_version: Optional[VersionSearchFilter],
     title_contains: Optional[str],
     order_by: Optional[Literal["created", "last_deployed"]],
     verbose: int,
@@ -2183,7 +2184,7 @@ def content_bundle_download(
     api_key: Optional[str],
     insecure: bool,
     cacert: Optional[str],
-    guid: str,
+    guid: ContentGuidWithBundle,
     output: str,
     overwrite: bool,
     verbose: int,
@@ -2227,7 +2228,7 @@ def add_content_build(
     api_key: Optional[str],
     insecure: bool,
     cacert: Optional[str],
-    guid: tuple[str, ...],
+    guid: tuple[ContentGuidWithBundle, ...],
     verbose: int,
 ):
     set_verbosity(verbose)
@@ -2402,7 +2403,7 @@ def get_build_logs(
     cacert: Optional[str],
     guid: str,
     task_id: Optional[str],
-    format: str,
+    format: LogOutputFormat.All,
     verbose: int,
 ):
     set_verbosity(verbose)
@@ -2467,7 +2468,7 @@ def start_content_build(
     retry: bool,
     all: bool,
     poll_wait: float,
-    format: str,
+    format: LogOutputFormat.All,
     debug: bool,
     verbose: int,
 ):
@@ -2495,7 +2496,14 @@ def caches():
     short_help="List runtime caches present on a Posit Connect server.",
 )
 @server_args
-def system_caches_list(name, server, api_key, insecure, cacert, verbose):
+def system_caches_list(
+    name: str,
+    server: Optional[str],
+    api_key: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(None, name, server, api_key, insecure, cacert, logger=None).validate_server()

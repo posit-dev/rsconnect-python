@@ -5,14 +5,9 @@ Utility functions related to packages and versions.
 from __future__ import annotations
 
 import re
-import sys
 from typing import NamedTuple, cast
 
-# This conditional code can be removed when we drop support for Python 3.7.
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
+from typing import Literal
 
 import semver
 

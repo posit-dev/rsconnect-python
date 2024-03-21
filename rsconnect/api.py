@@ -4,38 +4,57 @@ Posit Connect API client and utility functions
 
 from __future__ import annotations
 
-import binascii
-import os
-from os.path import abspath, dirname
-import time
-from typing import BinaryIO, Callable, Optional
 import base64
+import binascii
 import datetime
+import gc
 import hashlib
 import hmac
+import os
+import re
+import sys
+import time
 import typing
 import webbrowser
-from _ssl import SSLError
+from os.path import abspath, dirname
+from typing import TYPE_CHECKING, Any, BinaryIO, Callable, Optional, TypeVar, cast
 from urllib import parse
 from urllib.parse import urlparse
-
-import re
 from warnings import warn
-import gc
+
 import click
+from _ssl import SSLError
+
+if sys.version_info >= (3, 10):
+    from typing import ParamSpec
+else:
+    from typing_extensions import ParamSpec
+
+# Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
+# they should both come from the same typing module.
+# https://peps.python.org/pep-0655/#usage-in-python-3-11
+if sys.version_info >= (3, 11):
+    from typing import NotRequired, TypedDict
+else:
+    from typing_extensions import NotRequired, TypedDict
 
 from . import validation
-from .certificates import read_certificate_file
-from .http_support import HTTPResponse, HTTPServer, append_to_path, CookieJar
-from .log import logger, connect_logger, cls_logged, console_logger
-from .models import AppMode, AppModes
-from .metadata import ServerStore, AppStore
-from .exception import RSConnectException, DeploymentFailedException
 from .bundle import _default_title, fake_module_file_from_directory
+from .certificates import read_certificate_file
+from .exception import DeploymentFailedException, RSConnectException
+from .http_support import CookieJar, HTTPResponse, HTTPServer, append_to_path
+from .log import cls_logged, connect_logger, console_logger, logger
+from .metadata import AppStore, ServerStore
+from .models import AppMode, AppModes, ContentItem, TaskStatus
 from .timeouts import get_task_timeout, get_task_timeout_help_message
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     import logging
+
+    from .http_support import JsonData
+
+T = TypeVar("T")
+P = ParamSpec("P")
 
 
 class AbstractRemoteServer:
@@ -43,7 +62,7 @@ class AbstractRemoteServer:
         self.url = url
         self.remote_name = remote_name
 
-    def handle_bad_response(self, response):
+    def handle_bad_response(self, response: HTTPResponse | object) -> None:
         if isinstance(response, HTTPResponse):
             if response.exception:
                 raise RSConnectException(
@@ -116,7 +135,14 @@ class RSConnectServer(AbstractRemoteServer):
     instance of the Connect server.
     """
 
-    def __init__(self, url, api_key, insecure=False, ca_data=None, bootstrap_jwt=None):
+    def __init__(
+        self,
+        url: str,
+        api_key: Optional[str],
+        insecure: bool = False,
+        ca_data: Optional[str | bytes] = None,
+        bootstrap_jwt: Optional[str] = None,
+    ):
         super().__init__(url, "Posit Connect")
         self.api_key = api_key
         self.bootstrap_jwt = bootstrap_jwt
@@ -134,8 +160,23 @@ class S3Server(AbstractRemoteServer):
         super().__init__(url, "S3")
 
 
+class ApiAppGet(TypedDict):
+    id: int
+    guid: str
+    url: str
+    title: str | None
+
+
+class DeployResult(TypedDict):
+    task_id: NotRequired[str]
+    app_id: str
+    app_guid: str
+    app_url: str
+    title: str | None
+
+
 class RSConnectClient(HTTPServer):
-    def __init__(self, server: RSConnectServer, cookies=None):
+    def __init__(self, server: RSConnectServer, cookies: Optional[CookieJar] = None):
         if cookies is None:
             cookies = server.cookie_jar
         super().__init__(
@@ -152,7 +193,7 @@ class RSConnectClient(HTTPServer):
         if server.bootstrap_jwt:
             self.bootstrap_authorization(server.bootstrap_jwt)
 
-    def _tweak_response(self, response):
+    def _tweak_response(self, response: HTTPResponse) -> JsonData | HTTPResponse:
         return (
             response.json_data
             if response.status and response.status == 200 and response.json_data is not None
@@ -174,38 +215,38 @@ class RSConnectClient(HTTPServer):
     def app_search(self, filters):
         return self.get("applications", query_params=filters)
 
-    def app_create(self, name):
+    def app_create(self, name: str) -> ApiAppGet:
         return self.post("applications", body={"name": name})
 
-    def app_get(self, app_id):
+    def app_get(self, app_id: str) -> ApiAppGet:
         return self.get("applications/%s" % app_id)
 
-    def app_upload(self, app_id, tarball):
+    def app_upload(self, app_id: str, tarball: BinaryIO):
         return self.post("applications/%s/upload" % app_id, body=tarball)
 
-    def app_update(self, app_id, updates):
+    def app_update(self, app_id: str, updates: dict[str, str | None]):
         return self.post("applications/%s" % app_id, body=updates)
 
-    def app_add_environment_vars(self, app_guid, env_vars):
+    def app_add_environment_vars(self, app_guid: str, env_vars: list[tuple[str, str]]):
         env_body = [dict(name=kv[0], value=kv[1]) for kv in env_vars]
         return self.patch("v1/content/%s/environment" % app_guid, body=env_body)
 
-    def app_deploy(self, app_id, bundle_id=None):
+    def app_deploy(self, app_id: str, bundle_id: Optional[str] = None) -> TaskStatus | HTTPResponse:
         return self.post("applications/%s/deploy" % app_id, body={"bundle": bundle_id})
 
-    def app_publish(self, app_id, access):
+    def app_publish(self, app_id: str, access: str):
         return self.post(
             "applications/%s" % app_id,
             body={"access_type": access, "id": app_id, "needs_config": False},
         )
 
-    def app_config(self, app_id):
+    def app_config(self, app_id: str):
         return self.get("applications/%s/config" % app_id)
 
-    def is_app_failed_response(self, response):
+    def is_app_failed_response(self, response: HTTPResponse | JsonData) -> bool:
         return isinstance(response, HTTPResponse) and response.status >= 500
 
-    def app_access(self, app_guid):
+    def app_access(self, app_guid: str) -> None:
         method = "GET"
         base = dirname(self._url.path)  # remove __api__
         path = f"{base}/content/{app_guid}/"
@@ -218,22 +259,22 @@ class RSConnectClient(HTTPServer):
                 + "Visit it in Connect to view the logs."
             )
 
-    def bundle_download(self, content_guid, bundle_id):
+    def bundle_download(self, content_guid: str, bundle_id: str):
         response = self.get("v1/content/%s/bundles/%s/download" % (content_guid, bundle_id), decode_response=False)
         self._server.handle_bad_response(response)
         return response
 
-    def content_search(self):
+    def content_search(self) -> list[ContentItem]:
         response = self.get("v1/content")
         self._server.handle_bad_response(response)
-        return response
+        return cast(list[ContentItem], response)
 
-    def content_get(self, content_guid):
+    def content_get(self, content_guid: str) -> ContentItem:
         response = self.get("v1/content/%s" % content_guid)
         self._server.handle_bad_response(response)
-        return response
+        return cast(ContentItem, response)
 
-    def content_build(self, content_guid, bundle_id=None):
+    def content_build(self, content_guid: str, bundle_id: Optional[str] = None):
         response = self.post("v1/content/%s/build" % content_guid, body={"bundle_id": bundle_id})
         self._server.handle_bad_response(response)
         return response
@@ -243,12 +284,12 @@ class RSConnectClient(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
-    def system_caches_runtime_delete(self, target):
+    def system_caches_runtime_delete(self, target: dict[str, str]):
         response = self.delete("v1/system/caches/runtime", body=target)
         self._server.handle_bad_response(response)
         return response
 
-    def task_get(self, task_id, first_status=None):
+    def task_get(self, task_id: str, first_status: Optional[int] = None) -> TaskStatus:
         params = None
         if first_status is not None:
             params = {"first_status": first_status}
@@ -256,7 +297,15 @@ class RSConnectClient(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
-    def deploy(self, app_id, app_name, app_title, title_is_default, tarball, env_vars=None):
+    def deploy(
+        self,
+        app_id: Optional[str],
+        app_name: Optional[str],
+        app_title: Optional[str],
+        title_is_default: bool,
+        tarball: BinaryIO,
+        env_vars: Optional[dict[str, str]] = None,
+    ) -> DeployResult:
         if app_id is None:
             # create an app if id is not provided
             app = self.app_create(app_name)
@@ -290,6 +339,7 @@ class RSConnectClient(HTTPServer):
         task = self.app_deploy(app_id, app_bundle["id"])
 
         self._server.handle_bad_response(task)
+        task = cast(TaskStatus, task)
 
         return {
             "task_id": task["id"],
@@ -299,37 +349,37 @@ class RSConnectClient(HTTPServer):
             "title": app["title"],
         }
 
-    def download_bundle(self, content_guid, bundle_id):
+    def download_bundle(self, content_guid: str, bundle_id: str):
         results = self.bundle_download(content_guid, bundle_id)
         self._server.handle_bad_response(results)
         return results
 
-    def search_content(self):
+    def search_content(self) -> list[ContentItem]:
         results = self.content_search()
         self._server.handle_bad_response(results)
         return results
 
-    def get_content(self, content_guid):
+    def get_content(self, content_guid: str) -> ContentItem:
         results = self.content_get(content_guid)
         self._server.handle_bad_response(results)
         return results
 
     def wait_for_task(
         self,
-        task_id,
-        log_callback,
-        abort_func=lambda: False,
-        timeout=get_task_timeout(),
-        poll_wait=0.5,
-        raise_on_error=True,
+        task_id: str,
+        log_callback: Optional[Callable[[str], None]],
+        abort_func: Callable[[], bool] = lambda: False,
+        timeout: int = get_task_timeout(),
+        poll_wait: float = 0.5,
+        raise_on_error: bool = True,
     ):
         if log_callback is None:
-            log_lines = []
+            log_lines: list[str] | None = []
             log_callback = log_lines.append
         else:
             log_lines = None
 
-        last_status = None
+        last_status: int | None = None
         start_time = time.time()
         sleep_duration = 0.5
         time_slept = 0
@@ -372,7 +422,11 @@ class RSConnectClient(HTTPServer):
                     return log_lines, task_status
 
     @staticmethod
-    def output_task_log(task_status, last_status, log_callback):
+    def output_task_log(
+        task_status: TaskStatus,
+        last_status: int | None,
+        log_callback: Callable[[str], None],
+    ):
         """Pipe any new output through the log_callback.
 
         Returns an updated last_status which should be passed into
@@ -393,6 +447,16 @@ class RSConnectClient(HTTPServer):
 RSConnect = RSConnectClient
 
 
+class ServerDetailsPython(TypedDict):
+    api_enabled: bool
+    versions: list[str]
+
+
+class ServerDetails(TypedDict):
+    connect: str
+    python: ServerDetailsPython
+
+
 class RSConnectExecutor:
     def __init__(
         self,
@@ -402,13 +466,13 @@ class RSConnectExecutor:
         api_key: Optional[str] = None,
         insecure: bool = False,
         cacert: Optional[str] = None,
-        ca_data: Optional[str] = None,
+        ca_data: Optional[str | bytes] = None,
         cookies: Optional[CookieJar] = None,
         account: Optional[str] = None,
         token: Optional[str] = None,
         secret: Optional[str] = None,
         timeout: int = 30,
-        logger: logging.Logger = console_logger,
+        logger: Optional[logging.Logger] = console_logger,
         **kwargs: typing.Any,
     ) -> None:
         self.reset()
@@ -430,7 +494,7 @@ class RSConnectExecutor:
         self.setup_client(cookies)
 
     @classmethod
-    def fromConnectServer(cls, connect_server, **kwargs):
+    def fromConnectServer(cls, connect_server: RSConnectServer, **kwargs: Any):
         return cls(
             url=connect_server.url,
             api_key=connect_server.api_key,
@@ -440,10 +504,10 @@ class RSConnectExecutor:
         )
 
     def reset(self):
-        self._d = None
-        self.remote_server = None
-        self.client = None
-        self.logger = None
+        self._d: dict[str, Any] | None = None
+        self.remote_server: TargetableServer | None = None
+        self.client: RSConnectClient | PositClient | None = None
+        self.logger: logging.Logger | None = None
         gc.collect()
         return self
 
@@ -452,7 +516,7 @@ class RSConnectExecutor:
         gc.collect()
         return self
 
-    def output_overlap_header(self, previous):
+    def output_overlap_header(self, previous: bool) -> bool:
         if self.logger and not previous:
             self.logger.warning(
                 "\nConnect detected CLI commands and/or environment variables that overlap with stored credential.\n"
@@ -467,8 +531,10 @@ class RSConnectExecutor:
                 "To ignore an environment variable, override it in the CLI with an empty string (e.g. -k '').\n\n"
             )
             return True
+        else:
+            return False
 
-    def output_overlap_details(self, cli_param, previous):
+    def output_overlap_details(self, cli_param: str, previous: bool):
         new_previous = self.output_overlap_header(previous)
         sourceName = validation.get_parameter_source_name_from_ctx(cli_param, self.ctx)
         self.logger.warning(f">> stored {cli_param} value overrides the {cli_param} value from {sourceName}\n")
@@ -541,7 +607,7 @@ class RSConnectExecutor:
         else:
             raise RSConnectException("Unable to infer Connect server type and setup server.")
 
-    def setup_client(self, cookies=None, **kwargs):
+    def setup_client(self, cookies: Optional[CookieJar] = None, **kwargs: object):
         if isinstance(self.remote_server, RSConnectServer):
             self.client = RSConnectClient(self.remote_server, cookies)
         elif isinstance(self.remote_server, PositServer):
@@ -553,24 +619,24 @@ class RSConnectExecutor:
     def state(self):
         return self._d
 
-    def get(self, key: str, *args, **kwargs):
+    def get(self, key: str, *args: Any, **kwargs: Any):
         return kwargs.get(key) or self.state.get(key)
 
-    def pipe(self, func, *args, **kwargs):
+    def pipe(self, func: Callable[P, T], *args: P.args, **kwargs: P.kwargs):
         return func(*args, **kwargs)
 
     @cls_logged("Validating server...")
     def validate_server(
         self,
-        name: str = None,
-        url: str = None,
-        api_key: str = None,
+        name: Optional[str] = None,
+        url: Optional[str] = None,
+        api_key: Optional[str] = None,
         insecure: bool = False,
-        cacert: str = None,
+        cacert: Optional[str] = None,
         api_key_is_required: bool = False,
-        account_name: str = None,
-        token: str = None,
-        secret: str = None,
+        account_name: Optional[str] = None,
+        token: Optional[str] = None,
+        secret: Optional[str] = None,
     ):
         if (url and api_key) or isinstance(self.remote_server, RSConnectServer):
             self.validate_connect_server(name, url, api_key, insecure, cacert, api_key_is_required)
@@ -583,13 +649,13 @@ class RSConnectExecutor:
 
     def validate_connect_server(
         self,
-        name: str = None,
-        url: str = None,
-        api_key: str = None,
+        name: Optional[str] = None,
+        url: Optional[str] = None,
+        api_key: Optional[str] = None,
         insecure: bool = False,
-        cacert: str = None,
+        cacert: Optional[str] = None,
         api_key_is_required: bool = False,
-        **kwargs
+        **kwargs: object
     ):
         """
         Validate that the user gave us enough information to talk to shinyapps.io or a Connect server.
@@ -641,18 +707,24 @@ class RSConnectExecutor:
         if not server_data.from_store:
             _ = self.verify_api_key(connect_server)
 
-        self.remote_server = connect_server
+        self.remote_server: RSConnectServer = connect_server
         self.client = RSConnectClient(self.remote_server)
 
         return self
 
     def validate_rstudio_server(
-        self, url: str = None, account_name: str = None, token: str = None, secret: str = None, **kwargs
+        self,
+        url: Optional[str] = None,
+        account_name: Optional[str] = None,
+        token: Optional[str] = None,
+        secret: Optional[str] = None,
+        **kwargs: object,
     ):
-        url = url or self.remote_server.url
-        account_name = account_name or self.remote_server.account_name
-        token = token or self.remote_server.token
-        secret = secret or self.remote_server.secret
+        remote_server: PositServer = self.remote_server
+        url = url or remote_server.url
+        account_name = account_name or remote_server.account_name
+        token = token or remote_server.token
+        secret = secret or remote_server.secret
         server = (
             CloudServer(url, account_name, token, secret)
             if "rstudio.cloud" in url or "posit.cloud" in url
@@ -701,7 +773,7 @@ class RSConnectExecutor:
 
         return self
 
-    def upload_rstudio_bundle(self, prepare_deploy_result, bundle_size: int, contents):
+    def upload_rstudio_bundle(self, prepare_deploy_result: PrepareDeployResult, bundle_size: int, contents: bytes):
         upload_url = prepare_deploy_result.presigned_url
         parsed_upload_url = urlparse(upload_url)
         with S3Client("{}://{}".format(parsed_upload_url.scheme, parsed_upload_url.netloc)) as s3_client:
@@ -716,7 +788,7 @@ class RSConnectExecutor:
     @cls_logged("Deploying bundle ...")
     def deploy_bundle(
         self,
-        app_id: Optional[str | int] = None,
+        app_id: Optional[str] = None,
         deployment_name: Optional[str] = None,
         title: Optional[str] = None,
         title_is_default: bool = False,
@@ -784,9 +856,9 @@ class RSConnectExecutor:
 
     def emit_task_log(
         self,
-        app_id: int = None,
-        task_id: int = None,
-        log_callback=connect_logger,
+        app_id: Optional[int] = None,
+        task_id: Optional[int] = None,
+        log_callback: logging.Logger = connect_logger,
         abort_func: Callable[[], bool] = lambda: False,
         timeout: int = get_task_timeout(),
         poll_wait: float = 0.5,
@@ -928,7 +1000,7 @@ class RSConnectExecutor:
             raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
         return result
 
-    def verify_api_key(self, server=None):
+    def verify_api_key(self, server: Optional[RSConnectServer] = None):
         """
         Verify that an API Key may be used to authenticate with the given Posit Connect server.
         If the API key verifies, we return the username of the associated user.
@@ -946,7 +1018,7 @@ class RSConnectExecutor:
         return self
 
     @property
-    def api_username(self):
+    def api_username(self) -> str:
         result = self.client.me()
         self.remote_server.handle_bad_response(result)
         return result["username"]
@@ -964,7 +1036,7 @@ class RSConnectExecutor:
         return result
 
     @property
-    def server_details(self):
+    def server_details(self) -> ServerDetails:
         """
         Builds a dictionary containing the version of Posit Connect that is running
         and the versions of Python installed there.
@@ -974,7 +1046,7 @@ class RSConnectExecutor:
         strings for all the versions of Python that are installed.
         """
 
-        def _to_sort_key(text):
+        def _to_sort_key(text: str):
             parts = [part.zfill(5) for part in text.split(".")]
             return "".join(parts)
 
@@ -989,7 +1061,7 @@ class RSConnectExecutor:
             },
         }
 
-    def make_deployment_name(self, title, force_unique):
+    def make_deployment_name(self, title: str, force_unique: bool) -> str:
         """
         Produce a name for a deployment based on its title.  It is assumed that the
         title is already defaulted and validated as appropriate (meaning the title
@@ -1022,7 +1094,7 @@ class RSConnectExecutor:
     def runtime_caches(self):
         return self.client.system_caches_runtime_list()
 
-    def delete_runtime_cache(self, language, version, image_name, dry_run):
+    def delete_runtime_cache(self, language: Optional[str], version: Optional[str], image_name: str, dry_run: bool):
         target = {"language": language, "version": version, "image_name": image_name, "dry_run": dry_run}
         result = self.client.system_caches_runtime_delete(target)
         self.state["result"] = result
@@ -1036,14 +1108,14 @@ class RSConnectExecutor:
         return self
 
 
-def filter_out_server_info(**kwargs):
+def filter_out_server_info(**kwargs: object):
     server_fields = {"connect_server", "name", "server", "api_key", "insecure", "cacert"}
     new_kwargs = {k: v for k, v in kwargs.items() if k not in server_fields}
     return new_kwargs
 
 
 class S3Client(HTTPServer):
-    def upload(self, path, presigned_checksum, bundle_size, contents):
+    def upload(self, path: str, presigned_checksum: str, bundle_size: int, contents: bytes):
         headers = {
             "content-type": "application/x-tar",
             "content-length": str(bundle_size),
@@ -1053,7 +1125,14 @@ class S3Client(HTTPServer):
 
 
 class PrepareDeployResult:
-    def __init__(self, app_id: str, app_url: str, bundle_id: int, presigned_url: str, presigned_checksum: str):
+    def __init__(
+        self,
+        app_id: int,
+        app_url: str,
+        bundle_id: int,
+        presigned_url: str,
+        presigned_checksum: str,
+    ):
         self.app_id = app_id
         self.app_url = app_url
         self.bundle_id = bundle_id
@@ -1064,7 +1143,7 @@ class PrepareDeployResult:
 class PrepareDeployOutputResult(PrepareDeployResult):
     def __init__(
         self,
-        app_id: str,
+        app_id: int,
         app_url: str,
         bundle_id: int,
         presigned_url: str,
@@ -1097,14 +1176,14 @@ class PositClient(HTTPServer):
         self._server = rstudio_server
         super().__init__(rstudio_server.url)
 
-    def _get_canonical_request(self, method, path, timestamp, content_hash):
+    def _get_canonical_request(self, method: str, path: str, timestamp: str, content_hash: str):
         return "\n".join([method, path, timestamp, content_hash])
 
-    def _get_canonical_request_signature(self, request):
+    def _get_canonical_request_signature(self, request: str):
         result = hmac.new(self._key, request.encode(), hashlib.sha256).hexdigest()
         return base64.b64encode(result.encode()).decode()
 
-    def _tweak_response(self, response):
+    def _tweak_response(self, response: HTTPResponse) -> JsonData | HTTPResponse:
         return (
             response.json_data
             if (
@@ -1113,7 +1192,7 @@ class PositClient(HTTPServer):
             else response
         )
 
-    def get_extra_headers(self, url, method, body):
+    def get_extra_headers(self, url: str, method: str, body: str | bytes):
         canonical_request_method = method.upper()
         canonical_request_path = parse.urlparse(url).path
         canonical_request_date = datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
@@ -1138,7 +1217,7 @@ class PositClient(HTTPServer):
             "X-Content-Checksum": canonical_request_checksum,
         }
 
-    def get_application(self, application_id):
+    def get_application(self, application_id: str):
         response = self.get("/v1/applications/{}".format(application_id))
         self._server.handle_bad_response(response)
         return response
@@ -1148,12 +1227,12 @@ class PositClient(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
-    def get_content(self, content_id):
+    def get_content(self, content_id: str):
         response = self.get("/v1/content/{}".format(content_id))
         self._server.handle_bad_response(response)
         return response
 
-    def create_application(self, account_id, application_name):
+    def create_application(self, account_id: int, application_name: str):
         application_data = {
             "account": account_id,
             "name": application_name,
@@ -1202,22 +1281,22 @@ class PositClient(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
-    def set_bundle_status(self, bundle_id, bundle_status):
+    def set_bundle_status(self, bundle_id: str, bundle_status):
         response = self.post("/v1/bundles/{}/status".format(bundle_id), body={"status": bundle_status})
         self._server.handle_bad_response(response)
         return response
 
-    def deploy_application(self, bundle_id, app_id):
+    def deploy_application(self, bundle_id: str, app_id: str):
         response = self.post("/v1/applications/{}/deploy".format(app_id), body={"bundle": bundle_id, "rebuild": False})
         self._server.handle_bad_response(response)
         return response
 
-    def get_task(self, task_id):
+    def get_task(self, task_id: str) -> TaskStatus:
         response = self.get("/v1/tasks/{}".format(task_id), query_params={"legacy": "true"})
         self._server.handle_bad_response(response)
         return response
 
-    def get_shinyapps_build_task(self, parent_task_id):
+    def get_shinyapps_build_task(self, parent_task_id: str):
         response = self.get(
             "/v1/tasks",
             query_params={
@@ -1230,7 +1309,7 @@ class PositClient(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
-    def get_task_logs(self, task_id):
+    def get_task_logs(self, task_id: str):
         response = self.get("/v1/tasks/{}/logs".format(task_id))
         self._server.handle_bad_response(response)
         return response
@@ -1240,7 +1319,7 @@ class PositClient(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
-    def wait_until_task_is_successful(self, task_id, timeout=get_task_timeout()):
+    def wait_until_task_is_successful(self, task_id: str, timeout: int = get_task_timeout()):
         print()
         print("Waiting for task: {}".format(task_id))
         start_time = time.time()
@@ -1265,7 +1344,7 @@ class PositClient(HTTPServer):
 
         print("Task done: {}".format(description))
 
-    def get_applications_like_name(self, name):
+    def get_applications_like_name(self, name: str):
         applications = []
 
         results = self._get_applications_like_name_page(name, 0)
@@ -1293,11 +1372,11 @@ class ShinyappsService:
 
     def prepare_deploy(
         self,
-        app_id: typing.Optional[int],
+        app_id: Optional[int],
         app_name: str,
         bundle_size: int,
         bundle_hash: str,
-        visibility: typing.Optional[str],
+        visibility: Optional[str],
     ):
         accounts = self._rstudio_client.get_accounts()
         self._server.handle_bad_response(accounts)
@@ -1364,7 +1443,7 @@ class CloudService:
         self._server = server
         self._project_application_id = project_application_id
 
-    def _get_current_project_id(self):
+    def _get_current_project_id(self) -> str | None:
         if self._project_application_id is not None:
             project_application = self._rstudio_client.get_application(self._project_application_id)
             return project_application["content_id"]
@@ -1491,7 +1570,7 @@ def verify_api_key(connect_server: RSConnectServer) -> str:
         return result["username"]
 
 
-def get_python_info(connect_server):
+def get_python_info(connect_server: RSConnectServer):
     """
     Return information about versions of Python that are installed on the indicated
     Connect server.
@@ -1506,7 +1585,7 @@ def get_python_info(connect_server):
         return result
 
 
-def get_app_info(connect_server, app_id):
+def get_app_info(connect_server: RSConnectServer, app_id: str):
     """
     Return information about an application that has been created in Connect.
 
@@ -1520,7 +1599,7 @@ def get_app_info(connect_server, app_id):
         return result
 
 
-def get_rstudio_app_info(server, app_id):
+def get_rstudio_app_info(server: PositServer, app_id: str):
     with PositClient(server) as client:
         if isinstance(server, ShinyappsServer):
             return client.get_application(app_id)
@@ -1529,7 +1608,7 @@ def get_rstudio_app_info(server, app_id):
             return response["source"]
 
 
-def get_app_config(connect_server, app_id):
+def get_app_config(connect_server: RSConnectServer, app_id: str):
     """
     Return the configuration information for an application that has been created
     in Connect.
@@ -1545,14 +1624,14 @@ def get_app_config(connect_server, app_id):
 
 
 def emit_task_log(
-    connect_server,
-    app_id,
-    task_id,
-    log_callback,
-    abort_func=lambda: False,
-    timeout=get_task_timeout(),
-    poll_wait=0.5,
-    raise_on_error=True,
+    connect_server: RSConnectServer,
+    app_id: str,
+    task_id: str,
+    log_callback: Optional[Callable[[str], None]],
+    abort_func: Callable[[], bool] = lambda: False,
+    timeout: int = get_task_timeout(),
+    poll_wait: float = 0.5,
+    raise_on_error: bool = True,
 ):
     """
     Helper for spooling the deployment log for an app.
@@ -1580,7 +1659,12 @@ def emit_task_log(
         return (app_url, *result)
 
 
-def retrieve_matching_apps(connect_server, filters=None, limit=None, mapping_function=None):
+def retrieve_matching_apps(
+    connect_server: RSConnectServer,
+    filters: Optional[dict[str, str | int]] = None,
+    limit: Optional[int] = None,
+    mapping_function=None,
+) -> list[str]:
     """
     Retrieves all the app names that start with the given default name.  The main
     point for this function is that it handles all the necessary paging logic.
@@ -1599,7 +1683,7 @@ def retrieve_matching_apps(connect_server, filters=None, limit=None, mapping_fun
     :return: the list of existing names that start with the proposed one.
     """
     page_size = 100
-    result = []
+    result: list[str] = []
     search_filters = filters.copy() if filters else {}
     search_filters["count"] = min(limit, page_size) if limit else page_size
     total_returned = 0
@@ -1644,7 +1728,7 @@ def retrieve_matching_apps(connect_server, filters=None, limit=None, mapping_fun
     return result
 
 
-def override_title_search(connect_server, app_id, app_title):
+def override_title_search(connect_server: RSConnectServer, app_id: str, app_title: str):
     """
     Returns a list of abbreviated app data that contains apps with a title
     that matches the given one and/or the specific app noted by its ID.
@@ -1656,7 +1740,7 @@ def override_title_search(connect_server, app_id, app_title):
     URL and dashboard URL.
     """
 
-    def map_app(app, config):
+    def map_app(app: ContentItem, config):
         """
         Creates the abbreviated data dictionary for the specified app and config
         information.
@@ -1674,7 +1758,7 @@ def override_title_search(connect_server, app_id, app_title):
             "config_url": config["config_url"],
         }
 
-    def mapping_filter(client, app):
+    def mapping_filter(client: RSConnectClient, app: ContentItem):
         """
         Mapping/filter function for retrieving apps.  We only keep apps
         that have an app mode of static or Jupyter notebook.  The data
@@ -1749,7 +1833,7 @@ def find_unique_name(remote_server: TargetableServer, name: str):
     return name
 
 
-def _to_server_check_list(url):
+def _to_server_check_list(url: str) -> list[str]:
     """
     Build a list of servers to check from the given one.  If the specified server
     appears not to have a scheme, then we'll provide https and http variants to test.

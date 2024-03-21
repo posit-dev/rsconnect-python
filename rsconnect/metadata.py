@@ -2,25 +2,42 @@
 Metadata management objects and utility functions
 """
 
+from __future__ import annotations
+
 import base64
+import glob
 import hashlib
 import json
 import os
-import glob
-import sys
-import typing
-from datetime import datetime, timezone
-from os.path import abspath, basename, dirname, exists, join
-from urllib.parse import urlparse
 import shutil
+import sys
+from datetime import datetime, timezone
+from io import BufferedWriter
+from os.path import abspath, basename, dirname, exists, join
 from threading import Lock
+from typing import TYPE_CHECKING, Callable, Generic, Mapping, Optional, TypeVar
+from urllib.parse import urlparse
+
+# Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
+# they should both come from the same typing module.
+# https://peps.python.org/pep-0655/#usage-in-python-3-11
+if sys.version_info >= (3, 11):
+    from typing import NotRequired, TypedDict
+else:
+    from typing_extensions import NotRequired, TypedDict
+
+
+if TYPE_CHECKING:
+    from .api import RSConnectServer
 
 from .exception import RSConnectException
 from .log import logger
-from .models import AppMode, AppModes
+from .models import AppMode, AppModes, ContentItem
+
+T = TypeVar("T", bound=Mapping[str, object])
 
 
-def config_dirname(platform=sys.platform, env=os.environ):
+def config_dirname(platform: str = sys.platform, env: Mapping[str, str] = os.environ):
     """Get the user's configuration directory path for this platform."""
     home = env.get("HOME", "~")
     base_dir = home
@@ -40,7 +57,7 @@ def config_dirname(platform=sys.platform, env=os.environ):
 
 
 # noinspection SpellCheckingInspection
-def makedirs(filepath):
+def makedirs(filepath: str):
     """Create the parent directories of filepath.
 
     `filepath` itself is not created.
@@ -52,23 +69,23 @@ def makedirs(filepath):
         pass
 
 
-def _normalize_server_url(server_url):
+def _normalize_server_url(server_url: str):
     url = urlparse(server_url)
     return url.netloc.replace(".", "_").replace(":", "_")
 
 
-class DataStore(object):
+class DataStore(Generic[T]):
     """
     Defines a base class for a persistent store.  The store supports a primary location and
     an optional secondary one.
     """
 
-    def __init__(self, primary_path, secondary_path=None, chmod=False):
+    def __init__(self, primary_path: str, secondary_path: Optional[str] = None, chmod: bool = False):
         self._primary_path = primary_path
         self._secondary_path = secondary_path
         self._chmod = chmod
-        self._data = {}
-        self._real_path = None
+        self._data: dict[str, T] = {}
+        self._real_path: str | None = None
         self._lock = Lock()
 
         self.load()
@@ -81,7 +98,7 @@ class DataStore(object):
         """
         return len(self._data)
 
-    def _load_from(self, path):
+    def _load_from(self, path: str):
         """
         Load the data for this store from the specified path, if it exists.
 
@@ -102,7 +119,7 @@ class DataStore(object):
         if not self._load_from(self._primary_path) and self._secondary_path:
             self._load_from(self._secondary_path)
 
-    def _get_by_key(self, key, default=None):
+    def _get_by_key(self, key: str, default: T | None = None) -> T | None:
         """
         Return a stored value by its key.
 
@@ -111,7 +128,7 @@ class DataStore(object):
         """
         return self._data.get(key, default)
 
-    def _get_by_value_attr(self, attr, value):
+    def _get_by_value_attr(self, attr: str, value: str) -> T | None:
         """
         Return a stored value by an attribute of its value.
 
@@ -125,7 +142,7 @@ class DataStore(object):
                 return item
         return None
 
-    def _get_first_value(self):
+    def _get_first_value(self) -> T:
         """
         A convenience function that returns the (arbitrary) first value in the
         store.  This is most useful when the store contains one, and only one,
@@ -135,7 +152,7 @@ class DataStore(object):
         """
         return list(self._data.values())[0]
 
-    def _get_sorted_values(self, sort_by):
+    def _get_sorted_values(self, sort_by: Callable[[T], str]):
         """
         Return all the values in the store sorted by the given lambda expression.
 
@@ -144,7 +161,7 @@ class DataStore(object):
         """
         return sorted(self._data.values(), key=sort_by)
 
-    def _set(self, key, value):
+    def _set(self, key: str, value: T):
         """
         Store a new (or updated) value in the store.  This will automatically rewrite
         the backing file.
@@ -155,7 +172,7 @@ class DataStore(object):
         self._data[key] = value
         self.save()
 
-    def _remove_by_key(self, key):
+    def _remove_by_key(self, key: str):
         """
         Remove the given key from our data store.
 
@@ -168,7 +185,7 @@ class DataStore(object):
             return True
         return False
 
-    def _remove_by_value_attr(self, key_attr, attr, value):
+    def _remove_by_value_attr(self, key_attr: str, attr: str, value: str):
         """
         Remove a stored value by an attribute of its value.
 
@@ -189,7 +206,7 @@ class DataStore(object):
         return self._real_path or self._primary_path
 
     # noinspection PyShadowingBuiltins
-    def save_to(self, path, data, open=open):
+    def save_to(self, path: str, data: bytes, open: Callable[..., BufferedWriter] = open):
         """
         Save our data to the specified file.
         """
@@ -198,7 +215,7 @@ class DataStore(object):
         self._real_path = path
 
     # noinspection PyShadowingBuiltins
-    def save(self, open=open):
+    def save(self, open: Callable[..., BufferedWriter] = open):
         """
         Save our data to a file.
 
@@ -219,18 +236,38 @@ class DataStore(object):
             os.chmod(self._real_path, 0o600)
 
 
+class ServerDataDict(TypedDict):
+    """
+    Server data representation used internally in the ServerStore class.
+    """
+
+    name: str
+    url: str
+    api_key: NotRequired[str]
+    insecure: NotRequired[bool]
+    ca_cert: NotRequired[str]
+    account_name: NotRequired[str]
+    token: NotRequired[str]
+    secret: NotRequired[str]
+
+
 class ServerData:
+    """
+    Server data representation which the ServerStore class provides to external
+    consumers.
+    """
+
     def __init__(
         self,
         name: str,
         url: str,
         from_store: bool,
-        api_key: typing.Optional[str] = None,
-        insecure: typing.Optional[bool] = None,
-        ca_data: typing.Optional[str] = None,
-        account_name: typing.Optional[str] = None,
-        token: typing.Optional[str] = None,
-        secret: typing.Optional[str] = None,
+        api_key: Optional[str] = None,
+        insecure: Optional[bool] = None,
+        ca_data: Optional[str] = None,
+        account_name: Optional[str] = None,
+        token: Optional[str] = None,
+        secret: Optional[str] = None,
     ):
         self.name = name
         self.url = url
@@ -243,7 +280,7 @@ class ServerData:
         self.secret = secret
 
 
-class ServerStore(DataStore):
+class ServerStore(DataStore[ServerDataDict]):
     """Defines a metadata store for server information.
 
     Servers consist of a user-supplied name, URL, and API key.
@@ -251,10 +288,10 @@ class ServerStore(DataStore):
     (typically a subdirectory of the user's home directory).
     """
 
-    def __init__(self, base_dir=config_dirname()):
+    def __init__(self, base_dir: str = config_dirname()):
         super(ServerStore, self).__init__(join(base_dir, "servers.json"), chmod=True)
 
-    def get_by_name(self, name):
+    def get_by_name(self, name: str):
         """
         Get the server information for the given nickname..
 
@@ -262,7 +299,7 @@ class ServerStore(DataStore):
         """
         return self._get_by_key(name)
 
-    def get_by_url(self, url):
+    def get_by_url(self, url: str):
         """
         Get the server information for the given URL..
 
@@ -278,7 +315,17 @@ class ServerStore(DataStore):
         """
         return self._get_sorted_values(lambda s: s["name"])
 
-    def set(self, name, url, api_key=None, insecure=False, ca_data=None, account_name=None, token=None, secret=None):
+    def set(
+        self,
+        name: str,
+        url: str,
+        api_key: Optional[str] = None,
+        insecure: Optional[bool] = False,
+        ca_data: Optional[str] = None,
+        account_name: Optional[str] = None,
+        token: Optional[str] = None,
+        secret: Optional[str] = None,
+    ):
         """
         Add (or update) information about a Connect server
 
@@ -291,19 +338,20 @@ class ServerStore(DataStore):
         :param token: shinyapps.io token.
         :param secret: shinyapps.io secret.
         """
-        common_data = dict(
-            name=name,
-            url=url,
-        )
+        common_data: ServerDataDict = {
+            "name": name,
+            "url": url,
+        }
         if api_key:
             target_data = dict(api_key=api_key, insecure=insecure, ca_cert=ca_data)
         elif account_name:
             target_data = dict(account_name=account_name, token=token, secret=secret)
         else:
             target_data = dict(token=token, secret=secret)
-        self._set(name, {**common_data, **target_data})
 
-    def remove_by_name(self, name):
+        self._set(name, {**common_data, **target_data})  # type: ignore
+
+    def remove_by_name(self, name: str):
         """
         Remove the server information for the given nickname.
 
@@ -311,7 +359,7 @@ class ServerStore(DataStore):
         """
         return self._remove_by_key(name)
 
-    def remove_by_url(self, url):
+    def remove_by_url(self, url: str):
         """
         Remove the server information for the given URL..
 
@@ -319,7 +367,7 @@ class ServerStore(DataStore):
         """
         return self._remove_by_value_attr("name", "url", url)
 
-    def resolve(self, name, url):
+    def resolve(self, name: Optional[str], url: Optional[str]) -> ServerData:
         """
         This function will resolve the given inputs into a set of server information.
         It assumes that either `name` or `url` is provided.
@@ -373,7 +421,7 @@ class ServerStore(DataStore):
             )
 
 
-def sha1(s):
+def sha1(s: str):
     m = hashlib.sha1()
     if hasattr(s, "encode"):
         s = s.encode("utf-8")
@@ -381,7 +429,18 @@ def sha1(s):
     return base64.urlsafe_b64encode(m.digest()).decode("utf-8").rstrip("=")
 
 
-class AppStore(DataStore):
+class AppMetadata(TypedDict):
+    server_url: str
+    filename: str
+    app_url: str
+    app_id: str
+    app_guid: str
+    title: str
+    app_mode: str
+    app_store_version: int
+
+
+class AppStore(DataStore[AppMetadata]):
     """
     Defines a metadata store for information about where the app has been
     deployed.  Each instance of this store represents one application as
@@ -407,7 +466,7 @@ class AppStore(DataStore):
     are made.
     """
 
-    def __init__(self, app_file, version=1):
+    def __init__(self, app_file: str, version: int = 1):
         base_name = str(basename(app_file).rsplit(".", 1)[0]) + ".json"
         super(AppStore, self).__init__(
             join(dirname(app_file), "rsconnect-python", base_name),
@@ -415,7 +474,7 @@ class AppStore(DataStore):
         )
         self.version = version
 
-    def get(self, server_url):
+    def get(self, server_url: str):
         """
         Get the metadata for the last app deployed to the given server.
 
@@ -429,7 +488,16 @@ class AppStore(DataStore):
         """
         return self._get_sorted_values(lambda entry: entry.get("server_url"))
 
-    def set(self, server_url, filename, app_url, app_id, app_guid, title, app_mode):
+    def set(
+        self,
+        server_url: str,
+        filename: str,
+        app_url: str,
+        app_id: str,
+        app_guid: str,
+        title: str,
+        app_mode: AppMode | str,
+    ):
         """
         Remember the metadata for the app last deployed to the specified server.
 
@@ -443,19 +511,19 @@ class AppStore(DataStore):
         ."""
         self._set(
             server_url,
-            dict(
-                server_url=server_url,
-                filename=filename,
-                app_url=app_url,
-                app_id=app_id,
-                app_guid=app_guid,
-                title=title,
-                app_mode=app_mode.name() if isinstance(app_mode, AppMode) else app_mode,
-                app_store_version=self.version,
-            ),
+            {
+                "server_url": server_url,
+                "filename": filename,
+                "app_url": app_url,
+                "app_id": app_id,
+                "app_guid": app_guid,
+                "title": title,
+                "app_mode": app_mode.name() if isinstance(app_mode, AppMode) else app_mode,
+                "app_store_version": self.version,
+            },
         )
 
-    def resolve(self, server, app_id, app_mode):
+    def resolve(self, server: str, app_id: Optional[str], app_mode: Optional[AppMode]):
         metadata = self.get(server)
         if metadata is None:
             logger.debug("No previous deployment to this server was found; this will be a new deployment.")
@@ -477,7 +545,19 @@ class AppStore(DataStore):
 DEFAULT_BUILD_DIR = join(os.getcwd(), "rsconnect-build")
 
 
-class ContentBuildStore(DataStore):
+class ContentItemWithBuildState(ContentItem, TypedDict):
+    rsconnect_build_status: str
+    rsconnect_last_build_time: NotRequired[str]
+    rsconnect_last_build_log: NotRequired[str | None]
+    rsconnect_build_task_result: NotRequired[dict[str, str]]
+
+
+class ContentBuildStoreData(TypedDict):
+    rsconnect_build_running: bool
+    rsconnect_content: dict[str, ContentItemWithBuildState]
+
+
+class ContentBuildStore(DataStore[dict[str, object]]):
     """
     Defines a metadata store for information about content builds.
 
@@ -501,28 +581,35 @@ class ContentBuildStore(DataStore):
     }
     """
 
-    _BUILD_ABORTED = False
+    _BUILD_ABORTED: bool = False
 
-    def __init__(self, server, base_dir=os.getenv("CONNECT_CONTENT_BUILD_DIR", DEFAULT_BUILD_DIR)):
+    def __init__(
+        self,
+        server: RSConnectServer,
+        base_dir: str = os.getenv("CONNECT_CONTENT_BUILD_DIR", DEFAULT_BUILD_DIR),
+    ):
+        # This type declaration is a bit of a hack. It is needed because data model used
+        # in this class doesn't quite match the one used in the superclass.
+        self._data: ContentBuildStoreData
         self._server = server
         self._base_dir = os.path.abspath(base_dir)
         self._build_logs_dir = join(self._base_dir, "logs", _normalize_server_url(server.url))
         self._build_state_file = join(self._base_dir, "%s.json" % _normalize_server_url(server.url))
         super(ContentBuildStore, self).__init__(self._build_state_file, chmod=True)
 
-    def aborted(self):
+    def aborted(self) -> bool:
         return ContentBuildStore._BUILD_ABORTED
 
-    def get_build_logs_dir(self, guid):
+    def get_build_logs_dir(self, guid: str) -> str:
         return join(self._build_logs_dir, guid)
 
-    def ensure_logs_dir(self, guid):
+    def ensure_logs_dir(self, guid: str) -> None:
         log_dir = self.get_build_logs_dir(guid)
         os.makedirs(log_dir, exist_ok=True)
         if self._chmod:
             os.chmod(log_dir, 0o700)
 
-    def get_build_log(self, guid, task_id=None):
+    def get_build_log(self, guid: str, task_id: Optional[str] = None) -> str | None:
         """
         Returns the path to the build log file. This method does not check
         whether the file exists if a task_id is provided.
@@ -537,13 +624,13 @@ class ContentBuildStore(DataStore):
             content = self.get_content_item(guid)
             return content.get("rsconnect_last_build_log")
 
-    def get_build_history(self, guid):
+    def get_build_history(self, guid: str) -> list[dict[str, str]]:
         """
         Returns the build history for a given content guid.
         """
         log_dir = self.get_build_logs_dir(guid)
         log_files = glob.glob(join(log_dir, "*.log"))
-        history = []
+        history: list[dict[str, str]] = []
         for f in log_files:
             task_id = basename(f).split(".log")[0]
             t = datetime.fromtimestamp(os.path.getctime(f), tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S%z")
@@ -551,22 +638,22 @@ class ContentBuildStore(DataStore):
         history.sort(key=lambda x: x["time"])
         return history
 
-    def get_build_running(self):
+    def get_build_running(self) -> bool:
         return self._data.get("rsconnect_build_running")
 
-    def set_build_running(self, is_running, defer_save=False):
+    def set_build_running(self, is_running: bool, defer_save: bool = False) -> None:
         with self._lock:
             self._data["rsconnect_build_running"] = is_running
             if not defer_save:
                 self.save()
 
-    def add_content_item(self, content, defer_save=False):
+    def add_content_item(self, content: dict[str, object], defer_save: bool = False) -> None:
         """
         Add an item to the tracked content store
         """
         with self._lock:
             if "rsconnect_content" not in self._data:
-                self._data["rsconnect_content"] = dict()
+                self._data["rsconnect_content"] = {}
 
             self._data["rsconnect_content"][content["guid"]] = dict(
                 guid=content["guid"],
@@ -583,13 +670,13 @@ class ContentBuildStore(DataStore):
             if not defer_save:
                 self.save()
 
-    def get_content_item(self, guid):
+    def get_content_item(self, guid: str) -> ContentItemWithBuildState | None:
         """
         Get a content item from the tracked content store by guid
         """
         return self._data.get("rsconnect_content", {}).get(guid)
 
-    def _cleanup_content_log_dir(self, guid):
+    def _cleanup_content_log_dir(self, guid: str) -> None:
         """
         Delete the local logs directory for a given content item.
         """
@@ -599,7 +686,7 @@ class ContentBuildStore(DataStore):
         except FileNotFoundError:
             pass
 
-    def remove_content_item(self, guid, purge=False, defer_save=False):
+    def remove_content_item(self, guid: str, purge: bool = False, defer_save: bool = False) -> None:
         """
         Remove a content item from the tracked content from the state-file.
         If purge is True, cleanup the log files on the local filesystem.
@@ -615,7 +702,7 @@ class ContentBuildStore(DataStore):
             if not defer_save:
                 self.save()
 
-    def set_content_item_build_status(self, guid, status, defer_save=False):
+    def set_content_item_build_status(self, guid: str, status: str, defer_save: bool = False) -> None:
         """
         Set the latest status for a content build
         """
@@ -625,7 +712,7 @@ class ContentBuildStore(DataStore):
             if not defer_save:
                 self.save()
 
-    def update_content_item_last_build_time(self, guid, defer_save=False):
+    def update_content_item_last_build_time(self, guid: str, defer_save: bool = False) -> None:
         """
         Set the last_build_time for a content build
         """
@@ -635,7 +722,7 @@ class ContentBuildStore(DataStore):
             if not defer_save:
                 self.save()
 
-    def update_content_item_last_build_log(self, guid, log_file, defer_save=False):
+    def update_content_item_last_build_log(self, guid: str, log_file: str, defer_save: bool = False) -> None:
         """
         Set the last_build_log filepath for a content build
         """
@@ -645,7 +732,9 @@ class ContentBuildStore(DataStore):
             if not defer_save:
                 self.save()
 
-    def set_content_item_last_build_task_result(self, guid, task, defer_save=False):
+    def set_content_item_last_build_task_result(
+        self, guid: str, task: dict[str, str], defer_save: bool = False
+    ) -> None:
         """
         Set the latest task_result for a content build
         """
@@ -662,7 +751,7 @@ class ContentBuildStore(DataStore):
             if not defer_save:
                 self.save()
 
-    def get_content_items(self, status=None):
+    def get_content_items(self, status: Optional[str] = None) -> list[ContentItemWithBuildState]:
         """
         Get all the content items that are tracked for build in the state-file.
         :param status: Filter results by build status
