@@ -7,10 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Pending Next Release
 
 ### Changed
+
 - When deploying Shiny for Python applications on servers using a version of
   Connect prior to 2024.01.0, there is an incompatibility with
   `starlette>=0.35.0`. When deploying to these servers, the starlette version
   is now automatically set to `starlette<0.35.0`.
+
+### Removed
+
+- Python 3.7 support.
 
 ## [1.22.0] - 2024-01-23
 
