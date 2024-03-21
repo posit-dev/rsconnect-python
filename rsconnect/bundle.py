@@ -20,7 +20,7 @@ from collections import defaultdict
 from mimetypes import guess_type
 from pathlib import Path
 from copy import deepcopy
-from typing import Optional, Any
+from typing import Optional, Any, Sequence
 import click
 
 from os.path import basename, dirname, exists, isdir, join, relpath, splitext, isfile, abspath
@@ -844,12 +844,12 @@ def make_api_manifest(
     entry_point: str,
     app_mode: AppMode,
     environment: Environment,
-    extra_files: list[str],
-    excludes: list[str],
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
-) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]:
+) -> tuple[dict[str, Any], list[str]]:
     """
     Makes a manifest for an API.
 
@@ -1237,8 +1237,8 @@ def make_api_bundle(
 
 def _create_quarto_file_list(
     directory: str,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
 ) -> typing.List[str]:
     """
     Builds a full list of files under the given directory that should be included
@@ -1269,8 +1269,8 @@ def make_quarto_manifest(
     quarto_inspection: typing.Dict[str, typing.Any],
     app_mode: AppMode,
     environment: Environment,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
     image: str = None,
     env_management_py: bool = None,
     env_management_r: bool = None,
@@ -1406,7 +1406,7 @@ def validate_extra_files(directory: str, extra_files: typing.Sequence[str], use_
     return result
 
 
-def validate_manifest_file(file_or_directory):
+def validate_manifest_file(file_or_directory: str) -> str:
     """
     Validates that the name given represents either an existing manifest.json file or
     a directory that contains one.  If not, an exception is raised.
@@ -1674,12 +1674,12 @@ def write_notebook_manifest_json(
     entry_point_file: str,
     environment: Environment,
     app_mode: AppMode,
-    extra_files: typing.List[str],
-    hide_all_input: bool,
-    hide_tagged_input: bool,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    extra_files: Sequence[str],
+    hide_all_input: Optional[bool],
+    hide_tagged_input: Optional[bool],
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> bool:
     """
     Creates and writes a manifest.json file for the given entry point file.  If
@@ -1840,8 +1840,8 @@ def write_voila_manifest_json(
     entrypoint: str,
     environment: Environment,
     app_mode: AppMode = AppModes.JUPYTER_VOILA,
-    extra_files: typing.List[str] = None,
-    excludes: typing.List[str] = None,
+    extra_files: Sequence[str] = None,
+    excludes: Sequence[str] = None,
     force_generate: bool = True,
     image: str = None,
     env_management_py: bool = None,
@@ -1932,11 +1932,11 @@ def write_api_manifest_json(
     entry_point: str,
     environment: Environment,
     app_mode: AppMode,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> bool:
     """
     Creates and writes a manifest.json file for the given entry point file.  If
@@ -2015,8 +2015,8 @@ def write_quarto_manifest_json(
     inspect: typing.Any,
     app_mode: AppMode,
     environment: Environment,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
     image: str = None,
     env_management_py: bool = None,
     env_management_r: bool = None,

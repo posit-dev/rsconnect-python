@@ -2,6 +2,8 @@
 Public API for administering content.
 """
 
+from __future__ import annotations
+
 import json
 import time
 import traceback
@@ -9,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 import semver
 
-from .api import RSConnectClient, emit_task_log
+from .api import RSConnectClient, RSConnectServer, emit_task_log
 from .log import logger
 from .models import BuildStatus, ContentGuidWithBundle
 from .metadata import ContentBuildStore
@@ -18,7 +20,7 @@ from .exception import RSConnectException
 _content_build_store = None  # type: ContentBuildStore
 
 
-def init_content_build_store(connect_server):
+def init_content_build_store(connect_server: RSConnectServer):
     global _content_build_store
     if not _content_build_store:
         logger.info("Initializing ContentBuildStore for %s" % connect_server.url)
@@ -64,7 +66,12 @@ def build_add_content(connect_server, content_guids_with_bundle):
             _content_build_store.set_content_item_build_status(content["guid"], BuildStatus.NEEDS_BUILD)
 
 
-def build_remove_content(connect_server, guid, all=False, purge=False):
+def build_remove_content(
+    connect_server: RSConnectServer,
+    guid: str,
+    all: bool = False,
+    purge: bool = False,
+) -> list[str]:
     """
     :return: A list of guids of the content items that were removed
     """
@@ -73,7 +80,7 @@ def build_remove_content(connect_server, guid, all=False, purge=False):
         raise RSConnectException(
             "There is a build running on this server, " + "please wait for it to finish before removing content."
         )
-    guids = [guid]
+    guids: list[str] = [guid]
     if all:
         guids = [c["guid"] for c in _content_build_store.get_content_items()]
     for guid in guids:
