@@ -2,6 +2,8 @@
 Public API for administering content.
 """
 
+from __future__ import annotations
+
 import json
 import time
 import traceback
