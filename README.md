@@ -21,8 +21,8 @@ content to Posit Connect, there are some caveats to understand when replicating 
 environment on the Posit Connect server:
 
 Posit Connect insists on matching `<MAJOR.MINOR>` versions of Python. For example,
-a server with only Python 3.8 installed will fail to match content deployed with
-Python 3.7. Your administrator may also enable exact Python version matching which
+a server with only Python 3.9 installed will fail to match content deployed with
+Python 3.8. Your administrator may also enable exact Python version matching which
 will be stricter and require matching major, minor, and patch versions. For more
 information see the [Posit Connect Admin Guide chapter titled Python Version
 Matching](https://docs.posit.co/connect/admin/python/#python-version-matching).
@@ -1000,9 +1000,6 @@ xargs printf -- '-g %s\n' < guids.txt | xargs rsconnect content build add
 Posit Connect supports the programmatic bootstrapping of an administrator API key
 for scripted provisioning tasks. This process is supported by the `rsconnect bootstrap` command,
 which uses a JSON Web Token to request an initial API key from a fresh Connect instance.
-
-> **Warning**
-> This feature **requires Python version 3.6 or higher**.
 
 ```bash
 rsconnect bootstrap \

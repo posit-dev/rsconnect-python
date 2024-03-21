@@ -5,7 +5,7 @@ description = "Python integration with Posit Connect"
 authors = [{ name = "Michael Marchetti", email = "mike@posit.co" }]
 license = { file = "LICENSE.md" }
 readme = { file = "README.md", content-type = "text/markdown" }
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 
 dependencies = [
     "six>=1.14.0",
@@ -23,7 +23,7 @@ rsconnect = "rsconnect.main:cli"
 
 [project.optional-dependencies]
 test = [
-    "black==22.3.0",
+    "black==24.3.0",
     "coverage",
     "flake8-pyproject",
     "flake8",
