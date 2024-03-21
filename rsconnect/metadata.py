@@ -195,9 +195,9 @@ class DataStore(Generic[T]):
         :param value: the value of the attribute to search for.
         :return: True if the associated value was removed.
         """
-        value = self._get_by_value_attr(attr, value)
-        if value:
-            del self._data[value[key_attr]]
+        val = self._get_by_value_attr(attr, value)
+        if val:
+            del self._data[val[key_attr]]
             self.save()
             return True
         return False

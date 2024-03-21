@@ -53,10 +53,10 @@ def build_add_content(
 
         # always filter just in case it's a bulk add
         guids_to_add = list(map(lambda x: x.guid, content_guids_with_bundle))
-        content_to_add = list(filter(lambda x: x["guid"] in guids_to_add, all_content))
+        content_to_add_list = list(filter(lambda x: x["guid"] in guids_to_add, all_content))
 
         # merge the provided bundle_ids if they were specified
-        content_to_add = {c["guid"]: c for c in content_to_add}
+        content_to_add = {c["guid"]: c for c in content_to_add_list}
         for c in content_guids_with_bundle:
             current_bundle_id = content_to_add[c.guid]["bundle_id"]
             content_to_add[c.guid]["bundle_id"] = c.bundle_id if c.bundle_id else current_bundle_id

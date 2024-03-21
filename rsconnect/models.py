@@ -8,11 +8,10 @@ import fnmatch
 import pathlib
 import re
 import sys
-from typing import Callable, Literal, Optional, Sequence, cast
+from typing import Callable, Literal, Optional, cast
 
 import click
 import semver
-import six
 from click import ParamType
 from click.types import StringParamType
 
@@ -208,6 +207,7 @@ class GlobMatcher(object):
             self._pattern = pattern[:-4]
             self.matches = self._match_with_starts_with
         else:
+            self._pattern_parts: list[str | re.Pattern[str]]
             self._pattern_parts, self._wildcard_index = self._to_parts_list(pattern)
             self.matches = self._match_with_list_parts
 
@@ -225,16 +225,20 @@ class GlobMatcher(object):
         The index will be None if `**` is never found.
         """
         # Incoming pattern is ALWAYS a Posix-style path.
-        parts: Sequence[str | re.Pattern[str]] = pattern.split("/")
+        parts_start = pattern.split("/")
+        parts_result: list[str | re.Pattern[str]] = []
         depth_wildcard_index = None
-        for index, name in enumerate(parts):
+        for index, name in enumerate(parts_start):
+            value = name
             if name == "**":
                 if depth_wildcard_index is not None:
                     raise ValueError('Only one occurrence of the "**" pattern is allowed.')
                 depth_wildcard_index = index
             elif any(ch in name for ch in "*?["):
-                parts[index] = re.compile(r"\A" + fnmatch.translate(name))
-        return parts, depth_wildcard_index
+                value = re.compile(r"\A" + fnmatch.translate(name))
+            parts_result.append(value)
+
+        return parts_result, depth_wildcard_index
 
     def _match_with_starts_with(self, path: str | pathlib.PurePath):
         path = pathlib.PurePath(path).as_posix()
@@ -247,9 +251,10 @@ class GlobMatcher(object):
         def items_match(i1: int, i2: int):
             if i2 >= len(parts):
                 return False
-            if isinstance(self._pattern_parts[i1], six.string_types):
+            part1 = self._pattern_parts[i1]
+            if isinstance(part1, str):
                 return self._pattern_parts[i1] == parts[i2]
-            return self._pattern_parts[i1].match(parts[i2]) is not None
+            return part1.match(parts[i2]) is not None
 
         wildcard_index = len(self._pattern_parts) if self._wildcard_index is None else self._wildcard_index
 
@@ -304,7 +309,7 @@ class StrippedStringParamType(StringParamType):
 
 
 class ContentGuidWithBundle(object):
-    def __init__(self, guid: Optional[str] = None, bundle_id: Optional[str] = None):
+    def __init__(self, guid: str, bundle_id: Optional[str] = None):
         self.guid = guid
         self.bundle_id = bundle_id
 
@@ -329,8 +334,7 @@ class ContentGuidWithBundleParamType(StrippedStringParamType):
             value = super(ContentGuidWithBundleParamType, self).convert(value, param, ctx)
             m = re.match(_content_guid_pattern, value)
             if m is not None:
-                guid_with_bundle = ContentGuidWithBundle()
-                guid_with_bundle.guid = m.group(1)
+                guid_with_bundle = ContentGuidWithBundle(m.group(1))
                 if len(m.groups()) == 2 and len(m.group(2)) > 0:
                     try:
                         int(m.group(2))

@@ -382,7 +382,7 @@ class RSConnectClient(HTTPServer):
         last_status: int | None = None
         start_time = time.time()
         sleep_duration = 0.5
-        time_slept = 0
+        time_slept = 0.0
         while True:
             if (time.time() - start_time) > timeout:
                 raise RSConnectException(get_task_timeout_help_message(timeout))
@@ -504,15 +504,15 @@ class RSConnectExecutor:
         )
 
     def reset(self):
-        self._d: dict[str, Any] | None = None
-        self.remote_server: TargetableServer | None = None
+        self._d: dict[str, Any] = {}
+        self.remote_server: TargetableServer = None
         self.client: RSConnectClient | PositClient | None = None
         self.logger: logging.Logger | None = None
         gc.collect()
         return self
 
     def drop_context(self):
-        self._d = None
+        self._d = {}
         gc.collect()
         return self
 

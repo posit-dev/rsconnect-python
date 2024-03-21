@@ -132,13 +132,13 @@ class Manifest:
         self._deploy_dir: str | None = None
 
         self.data["version"] = version if version else 1
-        if environment:
+        if environment and environment.locale is not None:
             self.data["locale"] = environment.locale
 
         if metadata is None:
             self.data["metadata"] = cast(ManifestDataMetadata, {})
             if app_mode is None:
-                self.data["metadata"]["appmode"] = AppModes.UNKNOWN
+                self.data["metadata"]["appmode"] = AppModes.UNKNOWN.name()
             else:
                 self.data["metadata"]["appmode"] = app_mode.name()
         else:
@@ -697,6 +697,7 @@ def make_html_manifest(
             "appmode": "static",
             "primary_html": filename,
         },
+        "files": {},
     }
 
     if image or env_management_py is not None or env_management_r is not None:
