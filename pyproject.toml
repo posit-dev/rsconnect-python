@@ -90,3 +90,6 @@ markers = ["vetiver: tests for vetiver"]
 
 [tool.pyright]
 typeCheckingMode = "strict"
+reportPrivateUsage = "none"
+reportUnnecessaryIsInstance = "none"
+reportUnnecessaryComparison = "none"
