@@ -28,7 +28,7 @@ else:
     from typing_extensions import NotRequired, TypedDict
 
 import click
-from six.moves.urllib_parse import urlparse
+from urllib.parse import urlparse
 
 from . import api, bundle
 from .api import RSConnectExecutor, filter_out_server_info

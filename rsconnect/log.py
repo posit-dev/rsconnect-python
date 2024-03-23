@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     from collections.abc import MutableMapping
 
 import click
-import six
 
 T = TypeVar("T")
 P = ParamSpec("P")
@@ -122,7 +121,7 @@ class RSLogger(logging.LoggerAdapter[logging.Logger]):
         msg, kwargs = super(RSLogger, self).process(msg, kwargs)
         if self._in_feedback and self.is_debugging():
             if not self._have_feedback_output:
-                six.print_()
+                print()
                 self._have_feedback_output = True
             msg = click.style(" %s" % msg, fg="green")
         return msg, kwargs

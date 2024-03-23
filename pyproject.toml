@@ -9,7 +9,6 @@ requires-python = ">=3.8"
 
 dependencies = [
     "typing-extensions>=4.10.0",
-    "six>=1.14.0",
     "pip>=10.0.0",
     "semver>=2.0.0,<3.0.0",
     "pyjwt>=2.4.0",
@@ -38,7 +37,6 @@ test = [
     "setuptools_scm[toml]>=3.4",
     "twine",
     "types-Flask",
-    "types-six",
 ]
 
 [project.urls]

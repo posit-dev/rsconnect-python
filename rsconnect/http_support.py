@@ -12,10 +12,9 @@ import ssl
 from typing import Any, BinaryIO, Dict, List, Mapping, Optional, Tuple, Union
 from warnings import warn
 
-from six.moves import http_client as http
-from six.moves.http_cookies import SimpleCookie
-from six.moves.urllib_parse import urlencode, urljoin, urlparse
-
+from http import client as http
+from http.cookies import SimpleCookie
+from urllib.parse import urlencode, urlparse, urljoin
 
 from . import VERSION
 from .log import logger
