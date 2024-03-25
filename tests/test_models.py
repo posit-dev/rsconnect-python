@@ -88,11 +88,30 @@ class TestModels(TestCase):
         cases = [
             ("dir", "dir", True),
             ("dir", "file", False),
+            ("*.txt", "file.txt", True),
+            ("*.txt", "file.csv", False),
+
             ("dir", "dir/file", False),
+            ("dir/*", "file", False),
+            ("dir/*", "dir/file", True),
+            ("dir/*", "dir/sub/file", False),
             ("dir/*.txt", "file", False),
             ("dir/*.txt", "dir/file", False),
             ("dir/*.txt", "dir/file.txt", True),
             ("dir/*.txt", "dir/.txt", True),
+
+            # recursive wildcard pattern using "/" (input paths using OS separator)
+            ("dir/**/*", "dirfile.txt", False),
+            ("dir/**/*", os.path.join("dirother", "a.txt"), False),
+            ("dir/**/*", os.path.join("dir", "a.txt"), True),
+            ("dir/**/*", os.path.join("dir", "sub", "a.txt"), True),
+            ("dir/**/*.txt", os.path.join("dirother", "a.txt"), False),
+            ("dir/**/*.txt", os.path.join("dir", "a.txt"), True),
+            ("dir/**/*.txt", os.path.join("dir", "a.csv"), False),
+            ("dir/**/*.txt", os.path.join("dir", "sub", "a.txt"), True),
+            ("dir/**/*.txt", os.path.join("dir", "sub", "a.csv"), False),
+
+            # recursive wildcards using OS path separator.
             (os.path.join("dir", "**", "*.txt"), os.path.join("dir", "a.txt"), True),
             (os.path.join("dir", "**", "*.txt"), os.path.join("dir", "sub", "a.txt"), True),
             (os.path.join("dir", "**", "*.txt"), os.path.join("dir", "sub", "sub", "a.txt"), True),
@@ -103,15 +122,13 @@ class TestModels(TestCase):
             (os.path.join("dir", "**", "*"), os.path.join("dir", "abc"), True),
         ]
 
-        for case in cases:
-            matcher = GlobMatcher(case[0])
-            msg = "Pattern: %s, Path: %s, expected: %s, got: %s" % (
-                case[0],
-                case[1],
-                case[2],
-                not case[2],
+        for pattern, path, expected in cases:
+            matcher = GlobMatcher(pattern)
+            self.assertEqual(
+                matcher.matches(path),
+                expected,
+                f"pattern: {pattern}; path: {path}; expected: {expected}",
             )
-            self.assertEqual(matcher.matches(case[1]), case[2], msg)
 
         with self.assertRaises(ValueError):
             GlobMatcher(os.path.join(".", "blah", "**", "blah", "**", "*.txt"))

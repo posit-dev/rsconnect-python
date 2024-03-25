@@ -94,12 +94,10 @@ class Manifest:
                 "version": quarto_inspection.get("quarto", {}).get("version", "99.9.9"),
                 "engines": quarto_inspection.get("engines", []),
             }
-            project_config = quarto_inspection.get("config", {}).get("project", {})
-            render_targets = project_config.get("render", [])
-            if len(render_targets):
-                self.data["metadata"]["primary_rmd"] = render_targets[0]
-            project_type = project_config.get("type", None)
-            if project_type or len(render_targets) > 1:
+
+            files_data = quarto_inspection.get("files", {})
+            files_input_data = files_data.get("input", [])
+            if len(files_input_data) > 1:
                 self.data["metadata"]["content_category"] = "site"
 
         if environment:
@@ -325,12 +323,10 @@ def make_source_manifest(
             "version": quarto_inspection.get("quarto", {}).get("version", "99.9.9"),
             "engines": quarto_inspection.get("engines", []),
         }
-        project_config = quarto_inspection.get("config", {}).get("project", {})
-        render_targets = project_config.get("render", [])
-        if len(render_targets):
-            manifest["metadata"]["primary_rmd"] = render_targets[0]
-        project_type = project_config.get("type", None)
-        if project_type or len(render_targets) > 1:
+
+        files_data = quarto_inspection.get("files", {})
+        files_input_data = files_data.get("input", [])
+        if len(files_input_data) > 1:
             manifest["metadata"]["content_category"] = "site"
 
     if environment:
@@ -1303,13 +1299,19 @@ def make_quarto_manifest(
         output_dir = project_config.get("output-dir", None)
         if output_dir:
             excludes = excludes + [output_dir]
-        else:
-            render_targets = project_config.get("render", [])
-            for target in render_targets:
-                t, _ = splitext(target)
-                # TODO: Single-file inspect would give inspect.formats.html.pandoc.output-file
-                # For foo.qmd, we would get an output-file=foo.html, but foo_files is not available.
-                excludes = excludes + [t + ".html", t + "_files"]
+
+        files_data = quarto_inspection.get("files", {})
+        files_input_data = files_data.get("input", [])
+        # files.input is a list of absolute paths to input (rendered)
+        # files. Automatically ignore the most common derived files for
+        # those inputs.
+        #
+        # These files are ignored even when the project has an output
+        # directory, as Quarto may create these files while a render is
+        # in-flight.
+        for each in files_input_data:
+            t, _ = splitext(os.path.relpath(each, file_or_directory))
+            excludes = excludes + [t + ".html", t + "_files/**/*"]
 
         # relevant files don't need to include requirements.txt file because it is
         # always added to the manifest (as a buffer) from the environment contents
