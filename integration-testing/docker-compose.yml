@@ -19,9 +19,33 @@ services:
     working_dir: /rsconnect-python/integration-testing
     entrypoint: ''
 
+  client-cli:
+    ports:
+      - 9999:9999
+    build: 
+      context: ./docker
+      dockerfile: cli.Dockerfile
+      args: 
+        QUARTO_VERSION: ${QUARTO_VERSION}
+        PY_VERSION: ${PY_VERSION}
+    volumes:
+      - ../:/rsconnect-python 
+    working_dir: /rsconnect-python/integration-testing
+    network_mode: host
+    entrypoint: ''
+    environment:
+      QUARTO_VERSION: ${QUARTO_VERSION}
+      PY_VERSION: ${PY_VERSION}
+
   connect:
     hostname: connect
-    image: rstudio/rstudio-connect:bionic
+    image: rstudio/rstudio-connect:jammy
+    build: 
+      context: ./docker
+      dockerfile: connect.Dockerfile
+      args: 
+        QUARTO_VERSION: ${QUARTO_VERSION}
+        PY_VERSION: ${PY_VERSION}
     restart: always
     ports:
       - 3939:3939
@@ -31,6 +55,8 @@ services:
     environment:
       RSTUDIO_CONNECT_HASTE: "enabled"
       RSC_LICENSE: ${CONNECT_LICENSE}
+      QUARTO_VERSION: ${QUARTO_VERSION}
+      PY_VERSION: ${PY_VERSION}
 
   cypress:
     image: cypress/included:12.7.0
