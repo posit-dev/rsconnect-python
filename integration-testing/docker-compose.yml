@@ -1,12 +1,32 @@
 version: '3'
 
 services:
-  client:
+  client-jupyter:
+    image: client
+    hostname: client
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9999/tree"]
+      test: ["CMD", "curl", "-f", "http://client:9999/tree"]
       interval: 40s
       timeout: 3s
       retries: 30
+    ports:
+      - 9999:9999
+    build: 
+      context: ./docker
+      dockerfile: client.Dockerfile
+      args: 
+        QUARTO_VERSION: ${QUARTO_VERSION}
+        PY_VERSION: ${PY_VERSION}
+    volumes:
+      - ../:/rsconnect-python 
+    working_dir: /rsconnect-python/integration-testing
+    network_mode: host
+    entrypoint: ''
+    environment:
+      QUARTO_VERSION: ${QUARTO_VERSION}
+      PY_VERSION: ${PY_VERSION}
+
+  client-deploy:
     ports:
       - 9999:9999
     build: 
