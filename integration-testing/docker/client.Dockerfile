@@ -16,6 +16,11 @@ RUN mkdir -p /libs-client && \
 
 ENV PATH=$PATH:/libs-client
 
+RUN curl -fsSL -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-py38_4.10.3-Linux-x86_64.sh \
+    && chmod 755 miniconda.sh \
+    && ./miniconda.sh -b -p /opt/miniconda \
+    && rm -rf miniconda.sh
+
 RUN pip install rsconnect-jupyter --pre && \
     pip install pipenv && \
     jupyter-nbextension install --sys-prefix --py rsconnect_jupyter
