@@ -45,7 +45,7 @@ from .exception import DeploymentFailedException, RSConnectException
 from .http_support import CookieJar, HTTPResponse, HTTPServer, append_to_path
 from .log import cls_logged, connect_logger, console_logger, logger
 from .metadata import AppStore, ServerStore
-from .models import AppMode, AppModes, ContentItem, TaskStatus
+from .models import AppMode, AppModes, ContentItem, TaskStatusV0
 from .timeouts import get_task_timeout, get_task_timeout_help_message
 
 if TYPE_CHECKING:
@@ -231,7 +231,7 @@ class RSConnectClient(HTTPServer):
         env_body = [dict(name=kv[0], value=kv[1]) for kv in env_vars]
         return self.patch("v1/content/%s/environment" % app_guid, body=env_body)
 
-    def app_deploy(self, app_id: str, bundle_id: Optional[str] = None) -> TaskStatus | HTTPResponse:
+    def app_deploy(self, app_id: str, bundle_id: Optional[str] = None) -> TaskStatusV0 | HTTPResponse:
         return self.post("applications/%s/deploy" % app_id, body={"bundle": bundle_id})
 
     def app_publish(self, app_id: str, access: str):
@@ -289,7 +289,7 @@ class RSConnectClient(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
-    def task_get(self, task_id: str, first_status: Optional[int] = None) -> TaskStatus:
+    def task_get(self, task_id: str, first_status: Optional[int] = None) -> TaskStatusV0:
         params = None
         if first_status is not None:
             params = {"first_status": first_status}
@@ -339,7 +339,7 @@ class RSConnectClient(HTTPServer):
         task = self.app_deploy(app_id, app_bundle["id"])
 
         self._server.handle_bad_response(task)
-        task = cast(TaskStatus, task)
+        task = cast(TaskStatusV0, task)
 
         return {
             "task_id": task["id"],
@@ -423,7 +423,7 @@ class RSConnectClient(HTTPServer):
 
     @staticmethod
     def output_task_log(
-        task_status: TaskStatus,
+        task_status: TaskStatusV0,
         last_status: int | None,
         log_callback: Callable[[str], None],
     ):
@@ -1291,7 +1291,7 @@ class PositClient(HTTPServer):
         self._server.handle_bad_response(response)
         return response
 
-    def get_task(self, task_id: str) -> TaskStatus:
+    def get_task(self, task_id: str) -> TaskStatusV0:
         response = self.get("/v1/tasks/{}".format(task_id), query_params={"legacy": "true"})
         self._server.handle_bad_response(response)
         return response

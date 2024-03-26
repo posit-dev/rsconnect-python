@@ -461,16 +461,12 @@ class TaskStatusResult(TypedDict):
     data: object  # Don't know the structure of this type yet
 
 
-class TaskStatus(TypedDict):
+class TaskStatusV0(TypedDict):
     id: str
-    # NOTE: The API docs say this should be "output" instead of "status".
     status: list[str]
     finished: bool
     code: int
     error: str
-    # Note: The API docs say this should be "last" instead of "last_status"
     last_status: int
     user_id: int
-    # NOTE: The API docs say this should always be a dict, but the actual response can
-    # be None.
     result: TaskStatusResult | None
