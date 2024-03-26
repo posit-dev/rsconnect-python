@@ -24,6 +24,8 @@ services:
     build: 
       context: ./docker
       dockerfile: connect.Dockerfile
+      args: 
+        QUARTO_VERSION: ${QUARTO_VERSION}
     restart: always
     ports:
       - 3939:3939
@@ -34,7 +36,7 @@ services:
       RSTUDIO_CONNECT_HASTE: "enabled"
       RSC_LICENSE: ${CONNECT_LICENSE}
       QUARTO_VERSION: ${QUARTO_VERSION}
-
+      
   cypress:
     image: cypress/included:12.7.0
     depends_on:
