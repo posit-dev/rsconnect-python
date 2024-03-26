@@ -98,8 +98,7 @@ def cli_feedback(label: str, stderr: bool = False):
     except EnvironmentException as exc:
         failed("Error: " + str(exc))
     except Exception as exc:
-        if click.get_current_context("verbose"):
-            traceback.print_exc()
+        traceback.print_exc()
         failed("Internal error: " + str(exc))
     finally:
         logger.set_in_feedback(False)
