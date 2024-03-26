@@ -322,7 +322,7 @@ class ContentGuidWithBundle(object):
 class ContentGuidWithBundleParamType(StrippedStringParamType):
     name = "ContentGuidWithBundle"
 
-    def convert(
+    def convert(  # pyright: ignore[reportIncompatibleMethodOverride]
         self,
         value: str | ContentGuidWithBundle,
         param: Optional[click.Parameter],
@@ -402,13 +402,13 @@ ComparisonOperator = Literal[">", "<", ">=", "<=", "=", "=="]
 class VersionSearchFilter(object):
     def __init__(
         self,
-        name: VersionProgramName | None = None,
-        comp: ComparisonOperator | None = None,
-        vers: str | None = None,
+        name: VersionProgramName,
+        comp: ComparisonOperator,
+        vers: str,
     ):
-        self.name: VersionProgramName = name
-        self.comp: ComparisonOperator = comp
-        self.vers: str = vers
+        self.name = name
+        self.comp = comp
+        self.vers = vers
 
     def __repr__(self):
         return "%s %s %s" % (self.name, self.comp, self.vers)
@@ -436,9 +436,11 @@ class VersionSearchFilterParamType(ParamType):
         if isinstance(value, str):
             m = re.match(_version_search_pattern, value)
             if m is not None and len(m.groups()) == 2:
-                version_search = VersionSearchFilter(name=self.key)
-                version_search.comp = cast(ComparisonOperator, m.group(1))
-                version_search.vers = m.group(2)
+                version_search = VersionSearchFilter(
+                    name=self.key,
+                    comp=cast(ComparisonOperator, m.group(1)),
+                    vers=m.group(2),
+                )
 
                 # default to == if no comparator was provided
                 if not version_search.comp:
