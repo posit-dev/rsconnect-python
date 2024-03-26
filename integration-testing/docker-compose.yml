@@ -33,6 +33,7 @@ services:
     environment:
       RSTUDIO_CONNECT_HASTE: "enabled"
       RSC_LICENSE: ${CONNECT_LICENSE}
+      QUARTO_VERSION: ${QUARTO_VERSION}
 
   cypress:
     image: cypress/included:12.7.0
