@@ -82,7 +82,6 @@ jobs:
             remote: "yes"
           run: |
             cd integration-testing
-            docker compose pull connect
             docker compose up -d connect
             just ../test/connect-rsconnect-python/test/rsconnect-python/test-rsconnect-python-repo
 

@@ -21,7 +21,9 @@ services:
 
   connect:
     hostname: connect
-    image: rstudio/rstudio-connect:bionic
+    build: 
+      context: ./docker
+      dockerfile: connect.Dockerfile
     restart: always
     ports:
       - 3939:3939
