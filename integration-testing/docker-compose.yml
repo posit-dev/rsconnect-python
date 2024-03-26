@@ -2,10 +2,8 @@ version: '3'
 
 services:
   client:
-    image: client
-    hostname: client
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://client:9999/tree"]
+      test: ["CMD", "curl", "-f", "http://localhost:9999/tree"]
       interval: 40s
       timeout: 3s
       retries: 30
