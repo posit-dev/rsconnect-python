@@ -76,7 +76,7 @@ jobs:
             RSC_AUTOMATION_PAT: "${{ secrets.CONNECT_PAT }}"
             ADMIN_API_KEY: "${{ secrets.ADMIN_API_KEY }}"
             QUARTO_VERSION: "1.4.546"
-
+            PATH: "$PATH:/connect/ext/quarto/bin/"
             # This allows us to start Connect separately in our own docker container
             CONNECT_SERVER: "http://localhost:3939"
             remote: "yes"
