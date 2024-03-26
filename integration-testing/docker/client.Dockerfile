@@ -1,9 +1,11 @@
-FROM python:3.9
+ARG PY_VERSION=${PY_VERSION}
+FROM python:${PY_VERSION}
 COPY ./requirements.txt .
 EXPOSE 9999
 VOLUME ../../:/rsconnect-python/
 
 WORKDIR /rsconnect-python/integration-testing
+ARG QUARTO_VERSION
 
 RUN apt-get update && \
       apt-get -y install sudo
@@ -19,7 +21,7 @@ RUN pip install rsconnect-jupyter --pre && \
     jupyter-nbextension install --sys-prefix --py rsconnect_jupyter
 
 RUN curl -fsSLO https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.tar.gz && \
-    mkdir /opt/quarto && tar xf quarto-${QUARTO_VERSION}-linux-amd64.tar.gz -C /opt/quarto --strip-components 1 && \
+    tar xf quarto-${QUARTO_VERSION}-linux-amd64.tar.gz -C /opt/quarto --strip-components 1 && \
     ( echo ""; echo 'export PATH=$PATH:/opt/quarto/bin' ; echo "" ) >> ~/.profile && \
     source ~/.profile
 

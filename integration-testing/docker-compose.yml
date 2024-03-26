@@ -14,11 +14,17 @@ services:
     build: 
       context: ./docker
       dockerfile: client.Dockerfile
+      args: 
+        QUARTO_VERSION: ${QUARTO_VERSION}
+        PY_VERSION: ${PY_VERSION}
     volumes:
       - ../:/rsconnect-python 
     working_dir: /rsconnect-python/integration-testing
     entrypoint: ''
-
+    environment:
+      QUARTO_VERSION: ${QUARTO_VERSION}
+      PY_VERSION: ${PY_VERSION}
+    
   connect:
     hostname: connect
     build: 
