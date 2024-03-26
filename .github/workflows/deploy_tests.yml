@@ -82,8 +82,8 @@ jobs:
           run: |
             cd integration-testing
             docker compose up -d connect
-            docker compose up -d client-deploy
-            docker-compose run --rm client-deploy just ../test/connect-rsconnect-python/test/rsconnect-python/_start-dev
+            docker compose up -d client-cli
+            docker-compose run --rm client-cli just ../test/connect-rsconnect-python/test/rsconnect-python/_start-dev
 
         # Videos are captured whether the suite fails or passes
         - name: Save videos
