@@ -46,6 +46,9 @@ def read_secret_key(keypath: Optional[str]) -> bytes:
         except binascii.Error:
             raise RSConnectException("Unable to decode base64 data from environment variable: " + SECRET_KEY_ENV)
 
+    if keypath is None:
+        raise RSConnectException("Keypath must not be None.")
+
     if not os.path.exists(keypath):
         raise RSConnectException("Keypath does not exist.")
 
@@ -98,8 +101,10 @@ def produce_bootstrap_output(status: int, json_data: JsonData) -> dict[str, int 
 
     # Parse the returned API key if one is provided
     api_key = ""
-    if json_data is not None and "api_key" in json_data:
+    if isinstance(json_data, dict) and "api_key" in json_data:
         api_key = json_data["api_key"]
+        if not isinstance(api_key, str):
+            raise RSConnectException("Connect returned a non-string value for api_key.")
 
     # Catch unexpected response states and error early
     if status == 200 and api_key == "":
