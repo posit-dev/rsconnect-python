@@ -72,7 +72,12 @@ class AbstractRemoteServer:
             # search page so trap that since we know we're expecting JSON from Connect.  This
             # also catches all error conditions which we will report as "not running Connect".
             else:
-                if response.json_data and "error" in response.json_data and response.json_data["error"] is not None:
+                if (
+                    response.json_data
+                    and isinstance(response.json_data, dict)
+                    and "error" in response.json_data
+                    and response.json_data["error"] is not None
+                ):
                     error = "%s reported an error (calling %s): %s" % (
                         self.remote_name,
                         response.full_uri,
@@ -307,6 +312,8 @@ class RSConnectClient(HTTPServer):
         env_vars: Optional[dict[str, str]] = None,
     ) -> DeployResult:
         if app_id is None:
+            if app_name is None:
+                raise RSConnectException("An app ID or name is required to deploy an app.")
             # create an app if id is not provided
             app = self.app_create(app_name)
             self._server.handle_bad_response(app)
