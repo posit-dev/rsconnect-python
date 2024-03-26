@@ -1,7 +1,7 @@
 version: '3'
 
 services:
-  client-jupyter:
+  client:
     image: client
     hostname: client
     healthcheck:
@@ -14,42 +14,14 @@ services:
     build: 
       context: ./docker
       dockerfile: client.Dockerfile
-      args: 
-        QUARTO_VERSION: ${QUARTO_VERSION}
-        PY_VERSION: ${PY_VERSION}
     volumes:
       - ../:/rsconnect-python 
     working_dir: /rsconnect-python/integration-testing
     entrypoint: ''
-    environment:
-      QUARTO_VERSION: ${QUARTO_VERSION}
-      PY_VERSION: ${PY_VERSION}
 
-  client-cli:
-    ports:
-      - 9999:9999
-    build: 
-      context: ./docker
-      dockerfile: cli.Dockerfile
-      args: 
-        QUARTO_VERSION: ${QUARTO_VERSION}
-        PY_VERSION: ${PY_VERSION}
-    volumes:
-      - ../:/rsconnect-python 
-    working_dir: /rsconnect-python/integration-testing
-    network_mode: host
-    entrypoint: ''
-    environment:
-      QUARTO_VERSION: ${QUARTO_VERSION}
-      PY_VERSION: ${PY_VERSION}
-    
   connect:
     hostname: connect
-    build: 
-      context: ./docker
-      dockerfile: connect.Dockerfile
-      args: 
-        QUARTO_VERSION: ${QUARTO_VERSION}
+    image: rstudio/rstudio-connect:bionic
     restart: always
     ports:
       - 3939:3939
@@ -59,12 +31,11 @@ services:
     environment:
       RSTUDIO_CONNECT_HASTE: "enabled"
       RSC_LICENSE: ${CONNECT_LICENSE}
-      QUARTO_VERSION: ${QUARTO_VERSION}
-      
+
   cypress:
     image: cypress/included:12.7.0
     depends_on:
-      client-jupyter:
+      client:
         condition: service_healthy
     build: 
       context: ./docker
