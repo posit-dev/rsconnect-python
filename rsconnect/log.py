@@ -60,7 +60,7 @@ class JsonLogFormatter(logging.Formatter):
         """
         return "asctime" in self.fmt_dict.values()
 
-    def formatMessage(self, record: logging.LogRecord):
+    def formatMessage(self, record: logging.LogRecord):  # pyright: ignore[reportIncompatibleMethodOverride]
         """
         Overwritten to return a dictionary of the relevant LogRecord attributes instead of a string.
         KeyError is raised if an unknown attribute is provided in the fmt_dict.
