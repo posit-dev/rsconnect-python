@@ -9,7 +9,7 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
-from typing import Iterator, Literal, Optional, Sequence
+from typing import Iterator, Literal, Optional, Sequence, cast
 
 import semver
 
@@ -201,6 +201,7 @@ def build_start(
             success = summary_future.result()
         except Exception as exc:
             logger.error(exc)
+            success = False
 
         logger.info("Content build complete.")
         if not success:
@@ -236,6 +237,8 @@ def _monitor_build(connect_server: RSConnectServer, content_items: list[ContentI
     :return bool: True if the build completed without errors, False otherwise
     """
     init_content_build_store(connect_server)
+    complete = []
+    error = []
     start = datetime.now()
     while _content_build_store.get_build_running() and not _content_build_store.aborted():
         time.sleep(5)
@@ -407,6 +410,8 @@ def _apply_content_filters(
         return item.get("bundle_id") is None
 
     def title_contains(item: ContentItem):
+        if title_search is None:
+            return True
         return item["title"] is not None and title_search in item["title"]
 
     def apply_content_type_filter(item: ContentItem):
@@ -415,12 +420,15 @@ def _apply_content_filters(
     def apply_version_filter(items: Iterator[ContentItem], version_filter: VersionSearchFilter):
         def do_filter(item: ContentItem) -> bool:
             vers = None
-            if version_filter.name not in item:
+            if version_filter.name in item:
                 return False
             else:
-                vers = item[version_filter.name]
+                vers = cast(str, item[version_filter.name])
             try:
-                compare = semver.compare(vers, version_filter.vers)
+                compare = cast(
+                    Literal[-1, 0, 1],
+                    semver.compare(vers, version_filter.vers),  # pyright: ignore[reportUnknownMemberType]
+                )
             except (ValueError, TypeError):
                 return False
 
