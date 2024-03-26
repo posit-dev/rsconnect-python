@@ -20,6 +20,7 @@ services:
     volumes:
       - ../:/rsconnect-python 
     working_dir: /rsconnect-python/integration-testing
+    network_mode: host
     entrypoint: ''
     environment:
       QUARTO_VERSION: ${QUARTO_VERSION}
