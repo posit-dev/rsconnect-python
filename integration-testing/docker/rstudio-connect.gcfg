@@ -20,7 +20,7 @@ Executable = /opt/python/3.9.5/bin/python
 
 [Quarto]
 Enabled = true
-Executable = /opt/quarto/bin/
+Executable = /opt/quarto/bin/quarto
 
 [Authentication]
 BasicAuth = true
