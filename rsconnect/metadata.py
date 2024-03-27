@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 from .exception import RSConnectException
 from .log import logger
-from .models import AppMode, AppModes, ContentItem
+from .models import AppMode, AppModes, ContentItemV1
 
 T = TypeVar("T", bound=Mapping[str, object])
 
@@ -545,7 +545,7 @@ class AppStore(DataStore[AppMetadata]):
 DEFAULT_BUILD_DIR = join(os.getcwd(), "rsconnect-build")
 
 
-class ContentItemWithBuildState(ContentItem, TypedDict):
+class ContentItemWithBuildState(ContentItemV1, TypedDict):
     rsconnect_build_status: str
     rsconnect_last_build_time: NotRequired[str]
     rsconnect_last_build_log: NotRequired[str | None]
@@ -647,7 +647,7 @@ class ContentBuildStore(DataStore[dict[str, object]]):
             if not defer_save:
                 self.save()
 
-    def add_content_item(self, content: dict[str, object], defer_save: bool = False) -> None:
+    def add_content_item(self, content: ContentItemV1, defer_save: bool = False) -> None:
         """
         Add an item to the tracked content store
         """

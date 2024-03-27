@@ -45,7 +45,7 @@ from .exception import DeploymentFailedException, RSConnectException
 from .http_support import CookieJar, HTTPResponse, HTTPServer, JsonData, append_to_path
 from .log import cls_logged, connect_logger, console_logger, logger
 from .metadata import AppStore, ServerStore
-from .models import AppMode, AppModes, ContentItem, TaskStatusV0
+from .models import AppMode, AppModes, ContentItemV0, ContentItemV1, TaskStatusV0
 from .timeouts import get_task_timeout, get_task_timeout_help_message
 
 if TYPE_CHECKING:
@@ -240,18 +240,18 @@ class RSConnectClient(HTTPServer):
     def python_settings(self):
         return self.get("v1/server_settings/python")
 
-    def app_search(self, filters: Optional[dict[str, JsonData]]) -> list[ContentItem]:
-        response = cast(list[ContentItem] | HTTPResponse, self.get("applications", query_params=filters))
+    def app_search(self, filters: Optional[dict[str, JsonData]]) -> list[ContentItemV0]:
+        response = cast(list[ContentItemV0] | HTTPResponse, self.get("applications", query_params=filters))
         response = self._server.handle_bad_response(response)
         return response
 
-    def app_create(self, name: str) -> ContentItem:
-        response = cast(ContentItem | HTTPResponse, self.post("applications", body={"name": name}))
+    def app_create(self, name: str) -> ContentItemV0:
+        response = cast(ContentItemV0 | HTTPResponse, self.post("applications", body={"name": name}))
         response = self._server.handle_bad_response(response)
         return response
 
-    def app_get(self, app_id: str) -> ContentItem:
-        response = cast(ContentItem | HTTPResponse, self.get("applications/%s" % app_id))
+    def app_get(self, app_id: str) -> ContentItemV0:
+        response = cast(ContentItemV0 | HTTPResponse, self.get("applications/%s" % app_id))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -303,13 +303,13 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def content_search(self) -> list[ContentItem]:
-        response = cast(list[ContentItem] | HTTPResponse, self.get("v1/content"))
+    def content_search(self) -> list[ContentItemV1]:
+        response = cast(list[ContentItemV1] | HTTPResponse, self.get("v1/content"))
         response = self._server.handle_bad_response(response)
         return response
 
-    def content_get(self, content_guid: str) -> ContentItem:
-        response = cast(ContentItem | HTTPResponse, self.get("v1/content/%s" % content_guid))
+    def content_get(self, content_guid: str) -> ContentItemV1:
+        response = cast(ContentItemV1 | HTTPResponse, self.get("v1/content/%s" % content_guid))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -390,11 +390,11 @@ class RSConnectClient(HTTPServer):
         results = self.bundle_download(content_guid, bundle_id)
         return results
 
-    def search_content(self) -> list[ContentItem]:
+    def search_content(self) -> list[ContentItemV1]:
         results = self.content_search()
         return results
 
-    def get_content(self, content_guid: str) -> ContentItem:
+    def get_content(self, content_guid: str) -> ContentItemV1:
         results = self.content_get(content_guid)
         return results
 
@@ -1800,7 +1800,7 @@ def override_title_search(connect_server: RSConnectServer, app_id: str, app_titl
     URL and dashboard URL.
     """
 
-    def map_app(app: ContentItem, config):
+    def map_app(app: ContentItemV0, config):
         """
         Creates the abbreviated data dictionary for the specified app and config
         information.
@@ -1818,7 +1818,7 @@ def override_title_search(connect_server: RSConnectServer, app_id: str, app_titl
             "config_url": config["config_url"],
         }
 
-    def mapping_filter(client: RSConnectClient, app: ContentItem):
+    def mapping_filter(client: RSConnectClient, app: ContentItemV0):
         """
         Mapping/filter function for retrieving apps.  We only keep apps
         that have an app mode of static or Jupyter notebook.  The data

@@ -17,7 +17,7 @@ from .api import RSConnectClient, RSConnectServer, emit_task_log
 from .exception import RSConnectException
 from .log import logger
 from .metadata import ContentBuildStore, ContentItemWithBuildState
-from .models import BuildStatus, ContentItem, ContentGuidWithBundle, VersionSearchFilter
+from .models import BuildStatus, ContentItemV0, ContentGuidWithBundle, VersionSearchFilter
 
 _content_build_store: ContentBuildStore = None
 
@@ -395,30 +395,30 @@ def search_content(
 
 
 def _apply_content_filters(
-    content_list: list[ContentItem],
+    content_list: list[ContentItemV0],
     published: bool,
     unpublished: bool,
     content_type: Sequence[str],
     r_version: Optional[VersionSearchFilter],
     py_version: Optional[VersionSearchFilter],
     title_search: Optional[str],
-) -> Iterator[ContentItem]:
-    def content_is_published(item: ContentItem):
+) -> Iterator[ContentItemV0]:
+    def content_is_published(item: ContentItemV0):
         return item.get("bundle_id") is not None
 
-    def content_is_unpublished(item: ContentItem):
+    def content_is_unpublished(item: ContentItemV0):
         return item.get("bundle_id") is None
 
-    def title_contains(item: ContentItem):
+    def title_contains(item: ContentItemV0):
         if title_search is None:
             return True
         return item["title"] is not None and title_search in item["title"]
 
-    def apply_content_type_filter(item: ContentItem):
+    def apply_content_type_filter(item: ContentItemV0):
         return item["app_mode"] is not None and item["app_mode"] in content_type
 
-    def apply_version_filter(items: Iterator[ContentItem], version_filter: VersionSearchFilter):
-        def do_filter(item: ContentItem) -> bool:
+    def apply_version_filter(items: Iterator[ContentItemV0], version_filter: VersionSearchFilter):
+        def do_filter(item: ContentItemV0) -> bool:
             vers = None
             if version_filter.name in item:
                 return False
@@ -463,9 +463,9 @@ def _apply_content_filters(
 
 
 def _order_content_results(
-    content_list: Iterator[ContentItem],
+    content_list: Iterator[ContentItemV0],
     order_by: Optional[Literal["created", "last_deployed"]],
-) -> Iterator[ContentItem] | list[ContentItem]:
+) -> Iterator[ContentItemV0] | list[ContentItemV0]:
     result = iter(content_list)
     if order_by == "last_deployed":
         pass  # do nothing, content is ordered by last_deployed by default

@@ -348,9 +348,54 @@ class ContentGuidWithBundleParamType(StrippedStringParamType):
 AppRole = Literal["owner", "editor", "viewer", "none"]
 
 
-# From https://docs.posit.co/connect/api/#get-/v1/experimental/content/-guid-
 # Also known as AppRecord in Connect.
-class ContentItem(TypedDict):
+class ContentItemV0(TypedDict):
+    guid: str
+    name: str
+    title: str | None
+    description: str
+    access_type: Literal["all", "logged_in", "acl"]
+    connection_timeout: int | None
+    read_timeout: int | None
+    init_timeout: int | None
+    idle_timeout: int | None
+    max_processes: int | None
+    min_processes: int | None
+    max_conns_per_process: int | None
+    load_factor: float | None
+    cpu_request: float | None
+    cpu_limit: int | None
+    memory_request: float | None
+    memory_limit: int | None
+    amd_gpu_limit: float | None
+    nvidia_gpu_limit: float | None
+    created_time: str
+    last_deployed_time: str
+    bundle_id: str
+    app_mode: AppModes.Modes
+    content_category: str
+    parameterized: bool
+    cluster_name: str | None
+    image_name: str | None
+    default_image_name: str | None
+    default_r_environment_management: bool | None
+    default_py_environment_management: bool | None
+    service_account_name: str | None
+    r_version: str | None
+    r_environment_management: bool | None
+    py_version: str | None
+    py_environment_management: bool | None
+    quarto_version: str | None
+    run_as: str | None
+    run_as_current_user: bool
+    owner_guid: str
+    content_url: str
+    dashboard_url: str
+    app_role: AppRole
+    id: int
+
+# From https://docs.posit.co/connect/api/#get-/v1/experimental/content/-guid-
+class ContentItemV1(TypedDict):
     guid: str
     name: str
     title: str | None
