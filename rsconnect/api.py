@@ -45,7 +45,7 @@ from .exception import DeploymentFailedException, RSConnectException
 from .http_support import CookieJar, HTTPResponse, HTTPServer, JsonData, append_to_path
 from .log import cls_logged, connect_logger, console_logger, logger
 from .metadata import AppStore, ServerStore
-from .models import AppMode, AppModes, ContentItemV0, ContentItemV1, TaskStatusV0, TaskStatusV1
+from .models import AppMode, AppModes, ContentItemV0, ContentItemV1, ServerSettings, TaskStatusV0, TaskStatusV1
 from .timeouts import get_task_timeout, get_task_timeout_help_message
 
 if TYPE_CHECKING:
@@ -234,8 +234,10 @@ class RSConnectClient(HTTPServer):
     def bootstrap(self):
         return self.post("v1/experimental/bootstrap")
 
-    def server_settings(self):
-        return self.get("server_settings")
+    def server_settings(self) -> ServerSettings:
+        response = cast(ServerSettings | HTTPResponse, self.get("server_settings"))
+        response = self._server.handle_bad_response(response)
+        return response
 
     def python_settings(self):
         return self.get("v1/server_settings/python")
@@ -734,7 +736,7 @@ class RSConnectExecutor:
 
         # If our info came from the command line, make sure the URL really works.
         if not server_data.from_store:
-            self.server_settings
+            self.server_settings()
 
         connect_server.api_key = api_key
 
@@ -1044,11 +1046,11 @@ class RSConnectExecutor:
         self.state["app_store_version"] = app_store_version
         return self
 
-    @property
     def server_settings(self):
         try:
+            if not isinstance(self.client, RSConnectClient):
+                raise RSConnectException("To get server settings, client must be a RSConnectClient.")
             result = self.client.server_settings()
-            result = self.remote_server.handle_bad_response(result)
         except SSLError as ssl_error:
             raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
         return result
@@ -1088,7 +1090,6 @@ class RSConnectExecutor:
         result = self.remote_server.handle_bad_response(result)
         return result
 
-    @property
     def server_details(self) -> ServerDetails:
         """
         Builds a dictionary containing the version of Posit Connect that is running
@@ -1103,7 +1104,7 @@ class RSConnectExecutor:
             parts = [part.zfill(5) for part in text.split(".")]
             return "".join(parts)
 
-        server_settings = self.server_settings
+        server_settings = self.server_settings()
         python_settings = self.python_info
         python_versions = sorted([item["version"] for item in python_settings["installations"]], key=_to_sort_key)
         return {

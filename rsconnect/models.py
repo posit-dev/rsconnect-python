@@ -530,3 +530,10 @@ class TaskStatusV1(TypedDict):
     error: str
     last: int
     result: TaskStatusResult | None
+
+
+# This not the complete specification of the server settings data structure, but it is
+# sufficient for the purposes of this package.
+class ServerSettings(TypedDict):
+    hostname: str
+    version: str
