@@ -290,7 +290,7 @@ class HTTPServer(object):
         self,
         path: str,
         query_params: Optional[Mapping[str, JsonData]] = None,
-        body: str | bytes | BinaryIO | dict[str, Any] | list[Any] | None = None,
+        body: str | bytes | BinaryIO | Mapping[str, Any] | list[Any] | None = None,
     ) -> JsonData | HTTPResponse:
         return self.request("POST", path, query_params, body)
 
@@ -298,7 +298,7 @@ class HTTPServer(object):
         self,
         path: str,
         query_params: Optional[Mapping[str, JsonData]] = None,
-        body: str | bytes | BinaryIO | dict[str, Any] | list[Any] | None = None,
+        body: str | bytes | BinaryIO | Mapping[str, Any] | list[Any] | None = None,
     ) -> JsonData | HTTPResponse:
         return self.request("PATCH", path, query_params, body)
 
@@ -306,8 +306,8 @@ class HTTPServer(object):
         self,
         path: str,
         query_params: Optional[Mapping[str, JsonData]] = None,
-        body: str | bytes | BinaryIO | dict[str, Any] | list[Any] | None = None,
-        headers: Optional[dict[str, str]] = None,
+        body: str | bytes | BinaryIO | Mapping[str, Any] | list[Any] | None = None,
+        headers: Optional[Mapping[str, str]] = None,
         decode_response: bool = True,
     ) -> JsonData | HTTPResponse:
         if headers is None:
@@ -320,7 +320,7 @@ class HTTPServer(object):
         self,
         path: str,
         query_params: Optional[Mapping[str, JsonData]] = None,
-        body: str | bytes | BinaryIO | dict[str, Any] | list[Any] | None = None,
+        body: str | bytes | BinaryIO | Mapping[str, Any] | list[Any] | None = None,
         decode_response: bool = True,
     ) -> JsonData | HTTPResponse:
         return self.request("DELETE", path, query_params, body, decode_response=decode_response)
@@ -330,14 +330,14 @@ class HTTPServer(object):
         method: str,
         path: str,
         query_params: Optional[Mapping[str, JsonData]] = None,
-        body: str | bytes | BinaryIO | dict[str, Any] | list[Any] | None = None,
+        body: str | bytes | BinaryIO | Mapping[str, Any] | list[Any] | None = None,
         maximum_redirects: int = 5,
         decode_response: bool = True,
-        headers: Optional[dict[str, str]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> JsonData | HTTPResponse:
         path = self._get_full_path(path)
         extra_headers = headers or {}
-        if isinstance(body, (dict, list)):
+        if isinstance(body, (Mapping, list)):
             body = json.dumps(body).encode("utf-8")
             extra_headers = {"Content-Type": "application/json; charset=utf-8"}
         extra_headers = {**extra_headers, **self.get_extra_headers(path, method, body)}
