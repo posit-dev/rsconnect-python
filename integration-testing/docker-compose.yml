@@ -26,7 +26,6 @@ services:
       args: 
         QUARTO_VERSION: ${QUARTO_VERSION}
         PY_VERSION: ${PY_VERSION}
-        ADMIN_API_KEY: ${ADMIN_API_KEY}
     volumes:
       - ../:/rsconnect-python 
     working_dir: /rsconnect-python/integration-testing
