@@ -15,32 +15,32 @@ import os
 import re
 import subprocess
 import sys
-from typing import Callable, NamedTuple, Optional
+from typing import Callable, NamedTuple
 
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
 exec_dir = os.path.dirname(sys.executable)
 
 
 class Environment(NamedTuple):
-    contents: Optional[str]
-    error: Optional[str]
-    filename: Optional[str]
-    locale: Optional[str]
-    package_manager: Optional[str]
-    pip: Optional[str]
-    python: Optional[str]
-    source: Optional[str]
+    contents: str
+    error: str
+    filename: str
+    locale: str
+    package_manager: str
+    pip: str
+    python: str
+    source: str
 
 
 def MakeEnvironment(
-    contents: Optional[str] = None,
-    error: Optional[str] = None,
-    filename: Optional[str] = None,
-    locale: Optional[str] = None,
-    package_manager: Optional[str] = None,
-    pip: Optional[str] = None,
-    python: Optional[str] = None,
-    source: Optional[str] = None,
+    contents: str,
+    error: str,
+    filename: str,
+    locale: str,
+    package_manager: str,
+    pip: str,
+    python: str,
+    source: str,
     **kwargs: object,  # provides compatibility where we no longer support some older properties
 ) -> Environment:
     return Environment(contents, error, filename, locale, package_manager, pip, python, source)
