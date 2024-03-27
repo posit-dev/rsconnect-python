@@ -518,3 +518,13 @@ class TaskStatusV0(TypedDict):
     last_status: int
     user_id: int
     result: TaskStatusResult | None
+
+# https://docs.posit.co/connect/api/#get-/v1/tasks/-id-
+class TaskStatusV1(TypedDict):
+    id: str
+    output: list[str]
+    finished: bool
+    code: int
+    error: str
+    last: int
+    result: TaskStatusResult | None

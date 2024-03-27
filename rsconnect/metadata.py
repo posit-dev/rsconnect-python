@@ -725,7 +725,7 @@ class ContentBuildStore(DataStore[dict[str, object]]):
             if not defer_save:
                 self.save()
 
-    def update_content_item_last_build_log(self, guid: str, log_file: str, defer_save: bool = False) -> None:
+    def update_content_item_last_build_log(self, guid: str, log_file: str | None, defer_save: bool = False) -> None:
         """
         Set the last_build_log filepath for a content build
         """

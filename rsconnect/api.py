@@ -45,7 +45,7 @@ from .exception import DeploymentFailedException, RSConnectException
 from .http_support import CookieJar, HTTPResponse, HTTPServer, JsonData, append_to_path
 from .log import cls_logged, connect_logger, console_logger, logger
 from .metadata import AppStore, ServerStore
-from .models import AppMode, AppModes, ContentItemV0, ContentItemV1, TaskStatusV0
+from .models import AppMode, AppModes, ContentItemV0, ContentItemV1, TaskStatusV0, TaskStatusV1
 from .timeouts import get_task_timeout, get_task_timeout_help_message
 
 if TYPE_CHECKING:
@@ -313,8 +313,11 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def content_build(self, content_guid: str, bundle_id: Optional[str] = None) -> JsonData:
-        response = self.post("v1/content/%s/build" % content_guid, body={"bundle_id": bundle_id})
+    def content_build(self, content_guid: str, bundle_id: Optional[str] = None) -> TaskStatusV1:
+        response = cast(
+            TaskStatusV1 | HTTPResponse,
+            self.post("v1/content/%s/build" % content_guid, body={"bundle_id": bundle_id}),
+        )
         response = self._server.handle_bad_response(response)
         return response
 
