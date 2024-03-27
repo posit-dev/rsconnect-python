@@ -48,6 +48,7 @@ from .metadata import AppStore, ServerStore
 from .models import (
     AppMode,
     AppModes,
+    BootstrapOutputDTO,
     ConfigureResult,
     ContentItemV0,
     ContentItemV1,
@@ -244,8 +245,10 @@ class RSConnectClient(HTTPServer):
     def me(self):
         return self.get("me")
 
-    def bootstrap(self):
-        return self.post("v1/experimental/bootstrap")
+    def bootstrap(self) -> BootstrapOutputDTO:
+        response = cast(BootstrapOutputDTO | HTTPResponse, self.post("v1/experimental/bootstrap"))
+        response = self._server.handle_bad_response(response)
+        return response
 
     def server_settings(self) -> ServerSettings:
         response = cast(ServerSettings | HTTPResponse, self.get("server_settings"))

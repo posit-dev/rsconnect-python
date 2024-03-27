@@ -14,6 +14,7 @@ import jwt
 
 from .exception import RSConnectException
 from .http_support import HTTPResponse, JsonData
+from .models import BootstrapOutputDTO
 
 DEFAULT_ISSUER = "rsconnect-python"
 DEFAULT_AUDIENCE = "rsconnect"
@@ -68,7 +69,7 @@ def validate_hs256_secret_key(key: bytes):
         raise RSConnectException("Secret key expected to be at least 32 bytes in length")
 
 
-def parse_client_response(response: JsonData | HTTPResponse):
+def parse_client_response(response: BootstrapOutputDTO | HTTPResponse) -> tuple[int, BootstrapOutputDTO | JsonData]:
     """
     Helper to handle the response type from RSConnectClient, because
     it can have different types depending on the response
@@ -94,7 +95,7 @@ def parse_client_response(response: JsonData | HTTPResponse):
     raise RSConnectException("Unrecognized response type: " + str(type(response)))
 
 
-def produce_bootstrap_output(status: int, json_data: JsonData) -> dict[str, int | str]:
+def produce_bootstrap_output(status: int, json_data: BootstrapOutputDTO | JsonData) -> dict[str, int | str]:
     """
     Produces the expected programmatic output format from a request to the initial_admin endpoint
     """

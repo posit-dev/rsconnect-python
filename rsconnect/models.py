@@ -532,6 +532,9 @@ class TaskStatusV1(TypedDict):
     result: TaskStatusResult | None
 
 
+class BootstrapOutputDTO(TypedDict):
+    api_key: str
+
 # This not the complete specification of the server settings data structure, but it is
 # sufficient for the purposes of this package.
 class ServerSettings(TypedDict):
