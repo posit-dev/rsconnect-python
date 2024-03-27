@@ -128,7 +128,7 @@ class DataStore(Generic[T]):
         """
         return self._data.get(key, default)
 
-    def _get_by_value_attr(self, attr: str, value: str) -> T | None:
+    def _get_by_value_attr(self, attr: str, value: T) -> T | None:
         """
         Return a stored value by an attribute of its value.
 
@@ -185,7 +185,7 @@ class DataStore(Generic[T]):
             return True
         return False
 
-    def _remove_by_value_attr(self, key_attr: str, attr: str, value: str):
+    def _remove_by_value_attr(self, key_attr: str, attr: str, value: T) -> bool:
         """
         Remove a stored value by an attribute of its value.
 
