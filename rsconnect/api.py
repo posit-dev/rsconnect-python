@@ -42,7 +42,7 @@ from . import validation
 from .bundle import _default_title, fake_module_file_from_directory
 from .certificates import read_certificate_file
 from .exception import DeploymentFailedException, RSConnectException
-from .http_support import CookieJar, HTTPResponse, HTTPServer, append_to_path
+from .http_support import CookieJar, HTTPResponse, HTTPServer, JsonData, append_to_path
 from .log import cls_logged, connect_logger, console_logger, logger
 from .metadata import AppStore, ServerStore
 from .models import AppMode, AppModes, ContentItem, TaskStatusV0
@@ -51,7 +51,6 @@ from .timeouts import get_task_timeout, get_task_timeout_help_message
 if TYPE_CHECKING:
     import logging
 
-    from .http_support import JsonData
 
 T = TypeVar("T")
 P = ParamSpec("P")
@@ -62,7 +61,23 @@ class AbstractRemoteServer:
         self.url = url
         self.remote_name = remote_name
 
-    def handle_bad_response(self, response: HTTPResponse | object) -> None:
+    def handle_bad_response(self, response: HTTPResponse | T) -> T:
+        """
+            Handle a bad response from the server.
+
+            By the time a response object reaches this function, it should have been
+            converted to the JSON data contained in the original HTTPResponse object. If the
+            response is still an HTTPResponse object at this point, that means that
+            something went wrong.
+
+        `   If the response is an HTTPResponse, raise an exception.
+
+            :param response: The response object to check.
+            :return: The response object, if it is not an HTTPResponse object. If it was an
+                    HTTPResponse object, this function will raise an exception and not
+                    return.
+        """
+
         if isinstance(response, HTTPResponse):
             if response.exception:
                 raise RSConnectException(
@@ -94,6 +109,21 @@ class AbstractRemoteServer:
                             response.reason,
                         )
                     )
+                # If we got here, it was a 2xx response that contained JSON and did not
+                # have an error field, but for some reason the object returned from the
+                # prior function call was not converted from a HTTPResponse to JSON. This
+                # should never happen, so raise an exception.
+                raise RSConnectException(
+                    "Received an unexpected response from %s (calling %s): %s %s"
+                    % (
+                        self.remote_name,
+                        response.full_uri,
+                        response.status,
+                        response.reason,
+                    )
+                )
+        else:
+            return response
 
 
 class PositServer(AbstractRemoteServer):
@@ -210,14 +240,20 @@ class RSConnectClient(HTTPServer):
     def python_settings(self):
         return self.get("v1/server_settings/python")
 
-    def app_search(self, filters):
-        return self.get("applications", query_params=filters)
+    def app_search(self, filters: Optional[dict[str, JsonData]]) -> list[ContentItem]:
+        response = cast(list[ContentItem] | HTTPResponse, self.get("applications", query_params=filters))
+        response = self._server.handle_bad_response(response)
+        return response
 
     def app_create(self, name: str) -> ContentItem:
-        return self.post("applications", body={"name": name})
+        response = cast(ContentItem | HTTPResponse, self.post("applications", body={"name": name}))
+        response = self._server.handle_bad_response(response)
+        return response
 
     def app_get(self, app_id: str) -> ContentItem:
-        return self.get("applications/%s" % app_id)
+        response = cast(ContentItem | HTTPResponse, self.get("applications/%s" % app_id))
+        response = self._server.handle_bad_response(response)
+        return response
 
     def app_upload(self, app_id: str, tarball: BinaryIO):
         return self.post("applications/%s/upload" % app_id, body=tarball)
@@ -229,8 +265,13 @@ class RSConnectClient(HTTPServer):
         env_body = [dict(name=kv[0], value=kv[1]) for kv in env_vars]
         return self.patch("v1/content/%s/environment" % app_guid, body=env_body)
 
-    def app_deploy(self, app_id: str, bundle_id: Optional[str] = None) -> TaskStatusV0 | HTTPResponse:
-        return self.post("applications/%s/deploy" % app_id, body={"bundle": bundle_id})
+    def app_deploy(self, app_id: str, bundle_id: Optional[str] = None) -> TaskStatusV0:
+        response = cast(
+            TaskStatusV0 | HTTPResponse,
+            self.post("applications/%s/deploy" % app_id, body={"bundle": bundle_id}),
+        )
+        response = self._server.handle_bad_response(response)
+        return response
 
     def app_publish(self, app_id: str, access: str):
         return self.post(
@@ -257,42 +298,42 @@ class RSConnectClient(HTTPServer):
                 + "Visit it in Connect to view the logs."
             )
 
-    def bundle_download(self, content_guid: str, bundle_id: str):
+    def bundle_download(self, content_guid: str, bundle_id: str) -> JsonData:
         response = self.get("v1/content/%s/bundles/%s/download" % (content_guid, bundle_id), decode_response=False)
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
     def content_search(self) -> list[ContentItem]:
-        response = self.get("v1/content")
-        self._server.handle_bad_response(response)
-        return cast(list[ContentItem], response)
+        response = cast(list[ContentItem] | HTTPResponse, self.get("v1/content"))
+        response = self._server.handle_bad_response(response)
+        return response
 
     def content_get(self, content_guid: str) -> ContentItem:
-        response = self.get("v1/content/%s" % content_guid)
-        self._server.handle_bad_response(response)
-        return cast(ContentItem, response)
+        response = cast(ContentItem | HTTPResponse, self.get("v1/content/%s" % content_guid))
+        response = self._server.handle_bad_response(response)
+        return response
 
-    def content_build(self, content_guid: str, bundle_id: Optional[str] = None):
+    def content_build(self, content_guid: str, bundle_id: Optional[str] = None) -> JsonData:
         response = self.post("v1/content/%s/build" % content_guid, body={"bundle_id": bundle_id})
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
-    def system_caches_runtime_list(self):
+    def system_caches_runtime_list(self) -> JsonData:
         response = self.get("v1/system/caches/runtime")
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
-    def system_caches_runtime_delete(self, target: dict[str, str]):
+    def system_caches_runtime_delete(self, target: dict[str, str]) -> JsonData:
         response = self.delete("v1/system/caches/runtime", body=target)
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
     def task_get(self, task_id: str, first_status: Optional[int] = None) -> TaskStatusV0:
         params = None
         if first_status is not None:
             params = {"first_status": first_status}
-        response = self.get("tasks/%s" % task_id, query_params=params)
-        self._server.handle_bad_response(response)
+        response = cast(TaskStatusV0 | HTTPResponse, self.get("tasks/%s" % task_id, query_params=params))
+        response = self._server.handle_bad_response(response)
         return response
 
     def deploy(
@@ -309,7 +350,6 @@ class RSConnectClient(HTTPServer):
                 raise RSConnectException("An app ID or name is required to deploy an app.")
             # create an app if id is not provided
             app = self.app_create(app_name)
-            self._server.handle_bad_response(app)
             app_id = str(app["id"])
 
             # Force the title to update.
@@ -317,29 +357,26 @@ class RSConnectClient(HTTPServer):
         else:
             # assume app exists. if it was deleted then Connect will
             # raise an error
-            app = self.app_get(app_id)
             try:
-                self._server.handle_bad_response(app)
+                app = self.app_get(app_id)
             except RSConnectException as e:
                 raise RSConnectException(f"{e} Try setting the --new flag to overwrite the previous deployment.") from e
 
         app_guid = app["guid"]
         if env_vars:
             result = self.app_add_environment_vars(app_guid, list(env_vars.items()))
-            self._server.handle_bad_response(result)
+            result = self._server.handle_bad_response(result)
 
         if app["title"] != app_title and not title_is_default:
-            self._server.handle_bad_response(self.app_update(app_id, {"title": app_title}))
+            result = self.app_update(app_id, {"title": app_title})
+            result = self._server.handle_bad_response(result)
             app["title"] = app_title
 
         app_bundle = self.app_upload(app_id, tarball)
 
-        self._server.handle_bad_response(app_bundle)
+        app_bundle = self._server.handle_bad_response(app_bundle)
 
         task = self.app_deploy(app_id, app_bundle["id"])
-
-        self._server.handle_bad_response(task)
-        task = cast(TaskStatusV0, task)
 
         return {
             "task_id": task["id"],
@@ -349,19 +386,16 @@ class RSConnectClient(HTTPServer):
             "title": app["title"],
         }
 
-    def download_bundle(self, content_guid: str, bundle_id: str):
+    def download_bundle(self, content_guid: str, bundle_id: str) -> JsonData:
         results = self.bundle_download(content_guid, bundle_id)
-        self._server.handle_bad_response(results)
         return results
 
     def search_content(self) -> list[ContentItem]:
         results = self.content_search()
-        self._server.handle_bad_response(results)
         return results
 
     def get_content(self, content_guid: str) -> ContentItem:
         results = self.content_get(content_guid)
-        self._server.handle_bad_response(results)
         return results
 
     def wait_for_task(
@@ -398,7 +432,6 @@ class RSConnectClient(HTTPServer):
             else:
                 time_slept = 0
                 task_status = self.task_get(task_id, last_status)
-                self._server.handle_bad_response(task_status)
                 last_status = self.output_task_log(task_status, last_status, log_callback)
                 if task_status["finished"]:
                     result = task_status.get("result")
@@ -741,7 +774,7 @@ class RSConnectExecutor:
         with PositClient(server) as client:
             try:
                 result = client.get_current_user()
-                server.handle_bad_response(result)
+                result = server.handle_bad_response(result)
             except RSConnectException as exc:
                 raise RSConnectException("Failed to verify with {} ({}).".format(server.remote_name, exc))
 
@@ -790,7 +823,7 @@ class RSConnectExecutor:
                 bundle_size,
                 contents,
             )
-            S3Server(upload_url).handle_bad_response(upload_result)
+            upload_result = S3Server(upload_url).handle_bad_response(upload_result)
 
     @cls_logged("Deploying bundle ...")
     def deploy_bundle(
@@ -824,7 +857,7 @@ class RSConnectExecutor:
                 bundle,
                 env_vars,
             )
-            self.remote_server.handle_bad_response(result)
+            result = self.remote_server.handle_bad_response(result)
             self.state["deployed_info"] = result
             return self
         else:
@@ -899,9 +932,9 @@ class RSConnectExecutor:
             log_lines, _ = client.wait_for_task(
                 task_id, log_callback.info, abort_func, timeout, poll_wait, raise_on_error
             )
-            self.remote_server.handle_bad_response(log_lines)
+            log_lines = self.remote_server.handle_bad_response(log_lines)
             app_config = client.app_config(app_id)
-            self.remote_server.handle_bad_response(app_config)
+            app_config = self.remote_server.handle_bad_response(app_config)
             app_dashboard_url = app_config.get("config_url")
             log_callback.info("Deployment completed successfully.")
             log_callback.info("\t Dashboard content URL: %s", app_dashboard_url)
@@ -1012,7 +1045,7 @@ class RSConnectExecutor:
     def server_settings(self):
         try:
             result = self.client.server_settings()
-            self.remote_server.handle_bad_response(result)
+            result = self.remote_server.handle_bad_response(result)
         except SSLError as ssl_error:
             raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
         return result
@@ -1037,7 +1070,7 @@ class RSConnectExecutor:
     @property
     def api_username(self) -> str:
         result = self.client.me()
-        self.remote_server.handle_bad_response(result)
+        result = self.remote_server.handle_bad_response(result)
         return result["username"]
 
     @property
@@ -1049,7 +1082,7 @@ class RSConnectExecutor:
         :return: the Python installation information from Connect.
         """
         result = self.client.python_settings()
-        self.remote_server.handle_bad_response(result)
+        result = self.remote_server.handle_bad_response(result)
         return result
 
     @property
@@ -1236,17 +1269,17 @@ class PositClient(HTTPServer):
 
     def get_application(self, application_id: str):
         response = self.get("/v1/applications/{}".format(application_id))
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
     def update_application_property(self, application_id: int, property: str, value: str):
         response = self.put("/v1/applications/{}/properties/{}".format(application_id, property), body={"value": value})
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
     def get_content(self, content_id: str):
         response = self.get("/v1/content/{}".format(content_id))
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
     def create_application(self, account_id: int, application_name: str):
@@ -1256,7 +1289,7 @@ class PositClient(HTTPServer):
             "template": "shiny",
         }
         response = self.post("/v1/applications/", body=application_data)
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
     def create_output(
@@ -1271,12 +1304,12 @@ class PositClient(HTTPServer):
         if render_by:
             data["render_by"] = render_by
         response = self.post("/v1/outputs/", body=data)
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
     def create_revision(self, content_id: str):
         response = self.post("/v1/outputs/{}/revisions".format(content_id), body={})
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
     def update_output(self, output_id: int, output_data: dict[str, str]):
@@ -1284,14 +1317,14 @@ class PositClient(HTTPServer):
 
     def get_accounts(self):
         response = self.get("/v1/accounts/")
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
     def _get_applications_like_name_page(self, name: str, offset: int):
         response = self.get(
             "/v1/applications?filter=name:like:{}&offset={}&count=100&use_advanced_filters=true".format(name, offset)
         )
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
     def create_bundle(self, application_id: int, content_type: str, content_length: int, checksum: str):
@@ -1302,22 +1335,22 @@ class PositClient(HTTPServer):
             "checksum": checksum,
         }
         response = self.post("/v1/bundles", body=bundle_data)
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
     def set_bundle_status(self, bundle_id: str, bundle_status: str):
         response = self.post("/v1/bundles/{}/status".format(bundle_id), body={"status": bundle_status})
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
     def deploy_application(self, bundle_id: str, app_id: str):
         response = self.post("/v1/applications/{}/deploy".format(app_id), body={"bundle": bundle_id, "rebuild": False})
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
     def get_task(self, task_id: str) -> TaskStatusV0:
         response = self.get("/v1/tasks/{}".format(task_id), query_params={"legacy": "true"})
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
     def get_shinyapps_build_task(self, parent_task_id: str):
@@ -1330,17 +1363,17 @@ class PositClient(HTTPServer):
                 ]
             },
         )
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
     def get_task_logs(self, task_id: str):
         response = self.get("/v1/tasks/{}/logs".format(task_id))
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
     def get_current_user(self):
         response = self.get("/v1/users/me")
-        self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
     def wait_until_task_is_successful(self, task_id: str, timeout: int = get_task_timeout()):
@@ -1372,12 +1405,12 @@ class PositClient(HTTPServer):
         applications = []
 
         results = self._get_applications_like_name_page(name, 0)
-        self._server.handle_bad_response(results)
+        results = self._server.handle_bad_response(results)
         offset = 0
 
         while len(applications) < int(results["total"]):
             results = self._get_applications_like_name_page(name, offset)
-            self._server.handle_bad_response(results)
+            results = self._server.handle_bad_response(results)
             applications = results["applications"]
             applications.extend(applications)
             offset += int(results["count"])
@@ -1403,7 +1436,7 @@ class ShinyappsService:
         visibility: Optional[str],
     ):
         accounts = self._posit_client.get_accounts()
-        self._server.handle_bad_response(accounts)
+        accounts = self._server.handle_bad_response(accounts)
         account = next(filter(lambda acct: acct["name"] == self._server.account_name, accounts["accounts"]), None)
         # TODO: also check this during `add` command
         if account is None:
@@ -1413,16 +1446,16 @@ class ShinyappsService:
 
         if app_id is None:
             application = self._posit_client.create_application(account["id"], app_name)
-            self._server.handle_bad_response(application)
+            application = self._server.handle_bad_response(application)
             if visibility is not None:
                 property_update = self._posit_client.update_application_property(
                     application["id"], "application.visibility", visibility
                 )
-                self._server.handle_bad_response(property_update)
+                property_update = self._server.handle_bad_response(property_update)
 
         else:
             application = self._posit_client.get_application(app_id)
-            self._server.handle_bad_response(application)
+            application = self._server.handle_bad_response(application)
 
             if visibility is not None:
                 if visibility != application["deployment"]["properties"]["application.visibility"]:
@@ -1434,7 +1467,7 @@ class ShinyappsService:
         app_url = application["url"]
 
         bundle = self._posit_client.create_bundle(app_id_int, "application/x-tar", bundle_size, bundle_hash)
-        self._server.handle_bad_response(bundle)
+        bundle = self._server.handle_bad_response(bundle)
 
         return PrepareDeployResult(
             app_id_int,
@@ -1570,7 +1603,7 @@ def verify_server(connect_server: RSConnectServer):
     try:
         with RSConnectClient(connect_server) as client:
             result = client.server_settings()
-            connect_server.handle_bad_response(result)
+            result = connect_server.handle_bad_response(result)
             return result
     except SSLError as ssl_error:
         raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
@@ -1610,7 +1643,7 @@ def get_python_info(connect_server: RSConnectServer):
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     with RSConnectClient(connect_server) as client:
         result = client.python_settings()
-        connect_server.handle_bad_response(result)
+        result = connect_server.handle_bad_response(result)
         return result
 
 
@@ -1623,9 +1656,7 @@ def get_app_info(connect_server: RSConnectServer, app_id: str):
     :return: the Python installation information from Connect.
     """
     with RSConnectClient(connect_server) as client:
-        result = client.app_get(app_id)
-        connect_server.handle_bad_response(result)
-        return result
+        return client.app_get(app_id)
 
 
 def get_posit_app_info(server: PositServer, app_id: str):
@@ -1648,7 +1679,7 @@ def get_app_config(connect_server: RSConnectServer, app_id: str):
     """
     with RSConnectClient(connect_server) as client:
         result = client.app_config(app_id)
-        connect_server.handle_bad_response(result)
+        result = connect_server.handle_bad_response(result)
         return result
 
 
@@ -1681,7 +1712,7 @@ def emit_task_log(
     """
     with RSConnectClient(connect_server) as client:
         result = client.wait_for_task(task_id, log_callback, abort_func, timeout, poll_wait, raise_on_error)
-        connect_server.handle_bad_response(result)
+        result = connect_server.handle_bad_response(result)
         app_config = client.app_config(app_id)
         connect_server.handle_bad_response(app_config)
         app_url = app_config.get("config_url")
@@ -1722,7 +1753,7 @@ def retrieve_matching_apps(
     with RSConnectClient(connect_server) as client:
         while not finished:
             response = client.app_search(search_filters)
-            connect_server.handle_bad_response(response)
+            response = connect_server.handle_bad_response(response)
 
             if not maximum:
                 maximum = response["total"]
@@ -1803,7 +1834,7 @@ def override_title_search(connect_server: RSConnectServer, app_id: str, app_titl
             return None
 
         config = client.app_config(app["id"])
-        connect_server.handle_bad_response(config)
+        config = connect_server.handle_bad_response(config)
 
         return map_app(app, config)
 

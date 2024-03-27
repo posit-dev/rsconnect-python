@@ -283,7 +283,7 @@ class HTTPServer(object):
         path: str,
         query_params: Optional[Mapping[str, JsonData]] = None,
         decode_response: bool = True,
-    ):
+    ) -> JsonData | HTTPResponse:
         return self.request("GET", path, query_params, decode_response=decode_response)
 
     def post(
@@ -291,7 +291,7 @@ class HTTPServer(object):
         path: str,
         query_params: Optional[Mapping[str, JsonData]] = None,
         body: str | bytes | BinaryIO | dict[str, Any] | list[Any] | None = None,
-    ):
+    ) -> JsonData | HTTPResponse:
         return self.request("POST", path, query_params, body)
 
     def patch(
@@ -299,7 +299,7 @@ class HTTPServer(object):
         path: str,
         query_params: Optional[Mapping[str, JsonData]] = None,
         body: str | bytes | BinaryIO | dict[str, Any] | list[Any] | None = None,
-    ):
+    ) -> JsonData | HTTPResponse:
         return self.request("PATCH", path, query_params, body)
 
     def put(
@@ -309,7 +309,7 @@ class HTTPServer(object):
         body: str | bytes | BinaryIO | dict[str, Any] | list[Any] | None = None,
         headers: Optional[dict[str, str]] = None,
         decode_response: bool = True,
-    ):
+    ) -> JsonData | HTTPResponse:
         if headers is None:
             headers = {}
         return self.request(
@@ -322,7 +322,7 @@ class HTTPServer(object):
         query_params: Optional[Mapping[str, JsonData]] = None,
         body: str | bytes | BinaryIO | dict[str, Any] | list[Any] | None = None,
         decode_response: bool = True,
-    ):
+    ) -> JsonData | HTTPResponse:
         return self.request("DELETE", path, query_params, body, decode_response=decode_response)
 
     def request(
