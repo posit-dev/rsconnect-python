@@ -280,8 +280,10 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def app_update(self, app_id: str, updates: dict[str, str | None]):
-        return self.post("applications/%s" % app_id, body=updates)
+    def app_update(self, app_id: str, updates: dict[str, str | None]) -> ContentItemV0:
+        response = cast(ContentItemV0 | HTTPResponse, self.post("applications/%s" % app_id, body=updates))
+        response = self._server.handle_bad_response(response)
+        return response
 
     def app_add_environment_vars(self, app_guid: str, env_vars: list[tuple[str, str]]):
         env_body = [dict(name=kv[0], value=kv[1]) for kv in env_vars]

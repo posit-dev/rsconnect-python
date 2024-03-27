@@ -350,10 +350,8 @@ AppRole = Literal["owner", "editor", "viewer", "none"]
 
 # Also known as AppRecord in Connect.
 class ContentItemV0(TypedDict):
+    id: int
     guid: str
-    name: str
-    title: str | None
-    description: str
     access_type: Literal["all", "logged_in", "acl"]
     connection_timeout: int | None
     read_timeout: int | None
@@ -363,39 +361,44 @@ class ContentItemV0(TypedDict):
     min_processes: int | None
     max_conns_per_process: int | None
     load_factor: float | None
-    cpu_request: float | None
-    cpu_limit: int | None
     memory_request: float | None
     memory_limit: int | None
-    amd_gpu_limit: float | None
-    nvidia_gpu_limit: float | None
-    created_time: str
-    last_deployed_time: str
-    bundle_id: str
+    cpu_request: float | None
+    cpu_limit: int | None
+    amd_gpu_limit: int | None
+    nvidia_gpu_limit: int | None
+    url: str
+    vanity_url: str
+    name: str
+    title: str | None
+    bundle_id: int | None
     app_mode: AppModes.Modes
     content_category: str
-    parameterized: bool
+    has_parameters: bool
+    created_time: str
+    last_deployed_time: str
+    build_status: int
     cluster_name: str | None
     image_name: str | None
     default_image_name: str | None
-    default_r_environment_management: bool | None
-    default_py_environment_management: bool | None
     service_account_name: str | None
     r_version: str | None
-    r_environment_management: bool | None
     py_version: str | None
-    py_environment_management: bool | None
     quarto_version: str | None
+    r_environment_management: bool | None
+    default_r_environment_management: bool | None
+    py_environment_management: bool | None
+    default_py_environment_management: bool | None
     run_as: str | None
     run_as_current_user: bool
-    owner_guid: str
-    content_url: str
-    dashboard_url: str
-    app_role: AppRole
-    id: int
+    description: str
+    # Note: the next one is listed as "environment_json" in the AppRecord type, but
+    # in practice it comes in as "EnvironmentJson" from the API, so it's commented out
+    # here.
+    # environment_json: object
 
 
-# From https://docs.posit.co/connect/api/#get-/v1/experimental/content/-guid-
+# Also known as V1 ContentOutputDTO in Connect (note: this is not V1 experimental).
 class ContentItemV1(TypedDict):
     guid: str
     name: str
@@ -410,29 +413,29 @@ class ContentItemV1(TypedDict):
     min_processes: int | None
     max_conns_per_process: int | None
     load_factor: float | None
-    cpu_request: float | None
-    cpu_limit: int | None
     memory_request: float | None
     memory_limit: int | None
-    amd_gpu_limit: float | None
-    nvidia_gpu_limit: float | None
+    cpu_request: float | None
+    cpu_limit: float | None
+    amd_gpu_limit: int | None
+    nvidia_gpu_limit: int | None
+    service_account_name: str | None
+    default_image_name: str | None
     created_time: str
     last_deployed_time: str
-    bundle_id: str
+    bundle_id: str | None
     app_mode: AppModes.Modes
     content_category: str
     parameterized: bool
     cluster_name: str | None
     image_name: str | None
-    default_image_name: str | None
-    default_r_environment_management: bool | None
-    default_py_environment_management: bool | None
-    service_account_name: str | None
     r_version: str | None
-    r_environment_management: bool | None
     py_version: str | None
-    py_environment_management: bool | None
     quarto_version: str | None
+    r_environment_management: bool | None
+    default_r_environment_management: bool | None
+    py_environment_management: bool | None
+    default_py_environment_management: bool | None
     run_as: str | None
     run_as_current_user: bool
     owner_guid: str
