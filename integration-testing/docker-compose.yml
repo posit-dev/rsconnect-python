@@ -36,8 +36,10 @@ services:
       PY_VERSION: ${PY_VERSION}
       API_KEY: ${ADMIN_API_KEY}
 
-  connect:
-    hostname: connect
+  # customized connect built with updated quarto version
+  # used for nightly deploy_tests.yml that include quarto projects
+  connect-cli:
+    hostname: connect-cli
     image: rstudio/rstudio-connect:jammy
     build: 
       context: ./docker
@@ -49,13 +51,29 @@ services:
     ports:
       - 3939:3939
     volumes:
-      - $PWD/docker/rstudio-connect.gcfg:/etc/rstudio-connect/rstudio-connect.gcfg
+      - $PWD/docker/rstudio-connect.gcfg:/etc/rstudio-connect/rstudio-connect-cli.gcfg
     privileged: true
     environment:
       RSTUDIO_CONNECT_HASTE: "enabled"
       RSC_LICENSE: ${CONNECT_LICENSE}
       QUARTO_VERSION: ${QUARTO_VERSION}
       PY_VERSION: ${PY_VERSION}
+
+  # connect from public docker hub 
+  # used jupyter-notebook and deploy tests in  CI, main.yml
+  connect:
+    hostname: connect
+    image: rstudio/rstudio-connect:bionic
+    restart: always
+    ports:
+      - 3939:3939
+    volumes:
+      - $PWD/docker/rstudio-connect.gcfg:/etc/rstudio-connect/rstudio-connect.gcfg
+    privileged: true
+    environment:
+      RSTUDIO_CONNECT_HASTE: "enabled"
+      RSC_LICENSE: ${CONNECT_LICENSE}
+
 
   cypress:
     image: cypress/included:12.7.0

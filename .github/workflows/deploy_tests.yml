@@ -81,9 +81,9 @@ jobs:
             remote: "yes"
           run: |
             cd integration-testing
-            docker compose build connect
+            docker compose build connect-cli
             docker compose build client-cli
-            docker compose up -d connect
+            docker compose up -d connect-cli
             docker compose up -d client-cli
             docker-compose run --rm client-cli just ../test/connect-rsconnect-python/test/rsconnect-python/_start-dev
         

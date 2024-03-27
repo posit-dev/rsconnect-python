@@ -14,7 +14,7 @@ up:
 	docker compose up -d client && docker compose up -d connect
 
 up-cypress:
-	docker compose up cypress --exit-code-from cypress
+	docker compose up --exit-code-from cypress
 
 # use this target if you want to run Cypress
 # without shutting down all containers after each run
