@@ -670,11 +670,14 @@ class ContentBuildStore(DataStore[dict[str, object]]):
             if not defer_save:
                 self.save()
 
-    def get_content_item(self, guid: str) -> ContentItemWithBuildState | None:
+    def get_content_item(self, guid: str) -> ContentItemWithBuildState:
         """
         Get a content item from the tracked content store by guid
         """
-        return self._data.get("rsconnect_content", {}).get(guid)
+        item = self._data.get("rsconnect_content", {}).get(guid)
+        if item is None:
+            raise RSConnectException(f"Content item with guid {guid} not found.")
+        return item
 
     def _cleanup_content_log_dir(self, guid: str) -> None:
         """
