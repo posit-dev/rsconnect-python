@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 from .exception import RSConnectException
 from .log import logger
-from .models import AppMode, AppModes, ContentItemV1
+from .models import AppMode, AppModes, ContentItemV1, TaskStatusV0
 
 T = TypeVar("T", bound=Mapping[str, object])
 
@@ -548,7 +548,7 @@ class ContentItemWithBuildState(ContentItemV1, TypedDict):
     rsconnect_build_status: str
     rsconnect_last_build_time: NotRequired[str]
     rsconnect_last_build_log: NotRequired[str | None]
-    rsconnect_build_task_result: NotRequired[dict[str, str]]
+    rsconnect_build_task_result: NotRequired[TaskStatusV0]
 
 
 class ContentBuildStoreData(TypedDict):
@@ -734,9 +734,7 @@ class ContentBuildStore(DataStore[dict[str, object]]):
             if not defer_save:
                 self.save()
 
-    def set_content_item_last_build_task_result(
-        self, guid: str, task: dict[str, str], defer_save: bool = False
-    ) -> None:
+    def set_content_item_last_build_task_result(self, guid: str, task: TaskStatusV0, defer_save: bool = False) -> None:
         """
         Set the latest task_result for a content build
         """

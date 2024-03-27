@@ -283,7 +283,7 @@ def _monitor_build(connect_server: RSConnectServer, content_items: list[ContentI
     return True
 
 
-def _build_content_item(connect_server: RSConnectServer, content: ContentItemWithBuildState, poll_wait: str):
+def _build_content_item(connect_server: RSConnectServer, content: ContentItemWithBuildState, poll_wait: int):
     init_content_build_store(connect_server)
     with RSConnectClient(connect_server) as client:
         # Pending futures will still try to execute when ThreadPoolExecutor.shutdown() is called

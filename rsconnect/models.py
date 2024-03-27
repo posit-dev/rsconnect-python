@@ -557,6 +557,10 @@ class PyInstallation(TypedDict):
     image_name: str
 
 
+class BuildOutputDTO(TypedDict):
+    task_id: str
+
+
 class ListEntryOutputDTO(TypedDict):
     language: str
     version: str

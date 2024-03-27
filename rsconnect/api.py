@@ -49,6 +49,7 @@ from .models import (
     AppMode,
     AppModes,
     BootstrapOutputDTO,
+    BuildOutputDTO,
     ConfigureResult,
     ContentItemV0,
     ContentItemV1,
@@ -339,9 +340,9 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def content_build(self, content_guid: str, bundle_id: Optional[str] = None) -> TaskStatusV1:
+    def content_build(self, content_guid: str, bundle_id: Optional[str] = None) -> BuildOutputDTO:
         response = cast(
-            TaskStatusV1 | HTTPResponse,
+            BuildOutputDTO | HTTPResponse,
             self.post("v1/content/%s/build" % content_guid, body={"bundle_id": bundle_id}),
         )
         response = self._server.handle_bad_response(response)
@@ -433,7 +434,7 @@ class RSConnectClient(HTTPServer):
         timeout: int = get_task_timeout(),
         poll_wait: float = 0.5,
         raise_on_error: bool = True,
-    ):
+    ) -> tuple[list[str] | None, TaskStatusV0]:
         if log_callback is None:
             log_lines: list[str] | None = []
             log_callback = log_lines.append
