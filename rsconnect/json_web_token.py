@@ -160,7 +160,7 @@ class JWTEncoder:
         for c in [standard_claims, custom_claims]:
             claims.update(c)
 
-        return jwt.encode(claims, self.secret, algorithm="HS256")
+        return jwt.encode(claims, self.secret, algorithm="HS256")  # pyright: ignore[reportUnknownMemberType]
 
 
 # Uses a generic encoder to create JWTs with specific custom scopes / expiration times

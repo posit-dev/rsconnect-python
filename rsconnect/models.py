@@ -394,6 +394,7 @@ class ContentItemV0(TypedDict):
     app_role: AppRole
     id: int
 
+
 # From https://docs.posit.co/connect/api/#get-/v1/experimental/content/-guid-
 class ContentItemV1(TypedDict):
     guid: str
@@ -496,7 +497,7 @@ class VersionSearchFilterParamType(ParamType):
                     self.fail("Failed to parse verison filter: %s is not a valid comparitor" % version_search.comp)
 
                 try:
-                    semver.parse(version_search.vers)
+                    semver.parse(version_search.vers)  # pyright: ignore[reportUnknownMemberType]
                 except ValueError:
                     self.fail("Failed to parse version info: %s" % version_search.vers)
                 return version_search
@@ -518,6 +519,7 @@ class TaskStatusV0(TypedDict):
     last_status: int
     user_id: int
     result: TaskStatusResult | None
+
 
 # https://docs.posit.co/connect/api/#get-/v1/tasks/-id-
 class TaskStatusV1(TypedDict):
