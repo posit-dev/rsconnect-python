@@ -349,6 +349,7 @@ AppRole = Literal["owner", "editor", "viewer", "none"]
 
 
 # From https://docs.posit.co/connect/api/#get-/v1/experimental/content/-guid-
+# Also known as AppRecord in Connect.
 class ContentItem(TypedDict):
     guid: str
     name: str

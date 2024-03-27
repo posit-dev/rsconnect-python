@@ -165,13 +165,6 @@ class S3Server(AbstractRemoteServer):
         super().__init__(url, "S3")
 
 
-class ApiAppGet(TypedDict):
-    id: int
-    guid: str
-    url: str
-    title: str | None
-
-
 class DeployResult(TypedDict):
     task_id: NotRequired[str]
     app_id: str
@@ -220,10 +213,10 @@ class RSConnectClient(HTTPServer):
     def app_search(self, filters):
         return self.get("applications", query_params=filters)
 
-    def app_create(self, name: str) -> ApiAppGet:
+    def app_create(self, name: str) -> ContentItem:
         return self.post("applications", body={"name": name})
 
-    def app_get(self, app_id: str) -> ApiAppGet:
+    def app_get(self, app_id: str) -> ContentItem:
         return self.get("applications/%s" % app_id)
 
     def app_upload(self, app_id: str, tarball: BinaryIO):
