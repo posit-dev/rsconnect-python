@@ -66,7 +66,7 @@ jobs:
           with:
             name: distributions
             path: dist/
-        
+       
         - name: Run rsconnect-python Tests
           env:
             CONNECT_LICENSE: "${{ secrets.RSC_LICENSE }}"
@@ -76,16 +76,17 @@ jobs:
             RSC_AUTOMATION_PAT: "${{ secrets.CONNECT_PAT }}"
             ADMIN_API_KEY: "${{ secrets.ADMIN_API_KEY }}"
             QUARTO_VERSION: "1.4.546"
-
             # This allows us to start Connect separately in our own docker container
             CONNECT_SERVER: "http://localhost:3939"
             remote: "yes"
           run: |
             cd integration-testing
-            docker compose pull connect
-            docker compose up -d connect
-            just ../test/connect-rsconnect-python/test/rsconnect-python/test-rsconnect-python-repo
-
+            docker compose build connect-cli
+            docker compose build client-cli
+            docker compose up -d connect-cli
+            docker compose up -d client-cli
+            docker-compose run --rm client-cli just ../test/connect-rsconnect-python/test/rsconnect-python/_start-dev
+        
         # Videos are captured whether the suite fails or passes
         - name: Save videos
           uses: actions/upload-artifact@v3
