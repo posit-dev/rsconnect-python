@@ -11,6 +11,7 @@ build:
 	docker compose build
 
 up:
+	docker compose pull connect && \
 	docker compose up -d client && docker compose up -d connect
 
 up-cypress:

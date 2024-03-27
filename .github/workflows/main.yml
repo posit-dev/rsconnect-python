@@ -207,7 +207,6 @@ jobs:
     env:
       CONNECT_LICENSE: ${{ secrets.RSC_LICENSE }}
       ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
-      QUARTO_VERSION: "1.4.546"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -217,13 +216,12 @@ jobs:
       - uses: extractions/setup-just@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and Run Containers
+      - name: Build Containers
         run: |
-            cd integration-testing
-            docker compose build connect
-            docker compose build client
-            docker compose up -d connect
-            docker compose up -d client
+            just integration-testing/build
+      - name: Start Connect + rsconnect-jupyter
+        run: |
+            just integration-testing/up
             
       - name: Run Cypress Tests
         run: |
@@ -304,9 +302,9 @@ jobs:
               remote: "yes"
             run: |
               cd integration-testing
-              docker compose build connect
+              docker compose pull connect
               docker compose up -d connect
-              docker-compose run --rm client-cli just ../test/connect-rsconnect-python/test/rsconnect-python/_start-dev
+              just ../test/connect-rsconnect-python/test/rsconnect-python/test-rsconnect-python-repo
   
           # Videos are captured whether the suite fails or passes
           - name: Save videos
