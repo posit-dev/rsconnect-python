@@ -219,6 +219,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build Containers
         run: |
+            cd integration-testing
             docker compose build connect
             docker compose build client
       - name: Start Connect + rsconnect-jupyter
