@@ -201,7 +201,23 @@ jobs:
         run: |
           pytest tests/test_main_system_caches.py
           pytest -m 'vetiver'
+          - name: Run rsconnect-python Tests
+          env:
+            CONNECT_LICENSE: "${{ secrets.RSC_LICENSE }}"
+            PY_VERSION: ${{ matrix.PY_VERSION }}
+            TEST_SUBSET: "CI"
+            RSC_AUTOMATION_PAT: "${{ secrets.CONNECT_PAT }}"
+            ADMIN_API_KEY: "${{ secrets.ADMIN_API_KEY }}"
+            QUARTO_VERSION: "1.4.546"
 
+            # This allows us to start Connect separately in our own docker container
+            CONNECT_SERVER: "http://localhost:3939"
+            remote: "yes"
+          run: |
+            cd integration-testing
+            docker compose pull connect
+            docker compose up -d connect
+            just ../test/connect-rsconnect-python/test/rsconnect-python/test-rsconnect-python-repo
   test-jupyter:
     runs-on: ubuntu-latest
     env:
@@ -218,7 +234,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build Containers
         run: |
-            just integration-testing/build
+            cd integration-testing
+            docker compose build client
+            docker compose build cypress
       - name: Start Connect + rsconnect-jupyter
         run: |
             just integration-testing/up
