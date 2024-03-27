@@ -255,8 +255,10 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def app_upload(self, app_id: str, tarball: BinaryIO):
-        return self.post("applications/%s/upload" % app_id, body=tarball)
+    def app_upload(self, app_id: str, tarball: BinaryIO) -> ContentItemV0:
+        response = cast(ContentItemV0 | HTTPResponse, self.post("applications/%s/upload" % app_id, body=tarball))
+        response = self._server.handle_bad_response(response)
+        return response
 
     def app_update(self, app_id: str, updates: dict[str, str | None]):
         return self.post("applications/%s" % app_id, body=updates)
@@ -376,8 +378,6 @@ class RSConnectClient(HTTPServer):
             app["title"] = app_title
 
         app_bundle = self.app_upload(app_id, tarball)
-
-        app_bundle = self._server.handle_bad_response(app_bundle)
 
         task = self.app_deploy(app_id, app_bundle["id"])
 
