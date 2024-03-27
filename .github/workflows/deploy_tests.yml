@@ -87,13 +87,7 @@ jobs:
             docker compose up -d client-cli
             docker-compose run --rm client-cli just ../test/connect-rsconnect-python/test/rsconnect-python/_start-dev
         
-        - name: Setup tmate session
-          if: ${{ failure() }}
-          uses: mxschmitt/action-tmate@v3
-          with:
-            limit-access-to-actor: true
-        
-              # Videos are captured whether the suite fails or passes
+        # Videos are captured whether the suite fails or passes
         - name: Save videos
           uses: actions/upload-artifact@v3
           if: failure()

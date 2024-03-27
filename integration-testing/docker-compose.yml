@@ -51,7 +51,7 @@ services:
     ports:
       - 3939:3939
     volumes:
-      - $PWD/docker/rstudio-connect.gcfg:/etc/rstudio-connect/rstudio-connect-cli.gcfg
+      - $PWD/docker/rstudio-connect-cli.gcfg:/etc/rstudio-connect/rstudio-connect.gcfg
     privileged: true
     environment:
       RSTUDIO_CONNECT_HASTE: "enabled"
@@ -63,7 +63,7 @@ services:
   # used jupyter-notebook and deploy tests in  CI, main.yml
   connect:
     hostname: connect
-    image: rstudio/rstudio-connect:bionic
+    image: rstudio/rstudio-connect:jammy
     restart: always
     ports:
       - 3939:3939
