@@ -546,3 +546,20 @@ class PyInstallation(TypedDict):
     version: str
     cluster_name: str
     image_name: str
+
+class ListEntryOutputDTO(TypedDict):
+    language: str
+    version: str
+    image_name: str
+
+class DeleteInputDTO(TypedDict):
+    language: str
+    version: str
+    image_name: str
+    dry_run: bool
+
+class DeleteOutputDTO(TypedDict):
+    language: str
+    version: str
+    iamge_name: str
+    task_id: str | None

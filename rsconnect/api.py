@@ -50,6 +50,9 @@ from .models import (
     AppModes,
     ContentItemV0,
     ContentItemV1,
+    DeleteInputDTO,
+    DeleteOutputDTO,
+    ListEntryOutputDTO,
     PyInfo,
     ServerSettings,
     TaskStatusV0,
@@ -336,13 +339,13 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def system_caches_runtime_list(self) -> JsonData:
-        response = self.get("v1/system/caches/runtime")
+    def system_caches_runtime_list(self) -> list[ListEntryOutputDTO]:
+        response = cast(list[ListEntryOutputDTO] | HTTPResponse, self.get("v1/system/caches/runtime"))
         response = self._server.handle_bad_response(response)
         return response
 
-    def system_caches_runtime_delete(self, target: dict[str, str]) -> JsonData:
-        response = self.delete("v1/system/caches/runtime", body=target)
+    def system_caches_runtime_delete(self, target: DeleteInputDTO) -> DeleteOutputDTO:
+        response = cast(DeleteOutputDTO | HTTPResponse, self.delete("v1/system/caches/runtime", body=target))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -1157,11 +1160,20 @@ class RSConnectExecutor:
         return name
 
     @property
-    def runtime_caches(self):
+    def runtime_caches(self) -> list[ListEntryOutputDTO]:
+        if not isinstance(self.client, RSConnectClient):
+            raise RSConnectException("To delete a runtime cache, client must be a RSConnectClient.")
         return self.client.system_caches_runtime_list()
 
     def delete_runtime_cache(self, language: Optional[str], version: Optional[str], image_name: str, dry_run: bool):
-        target = {"language": language, "version": version, "image_name": image_name, "dry_run": dry_run}
+        if not isinstance(self.client, RSConnectClient):
+            raise RSConnectException("To delete a runtime cache, client must be a RSConnectClient.")
+        target: DeleteInputDTO = {
+            "language": language,
+            "version": version,
+            "image_name": image_name,
+            "dry_run": dry_run,
+        }
         result = self.client.system_caches_runtime_delete(target)
         self.state["result"] = result
         if result["task_id"] is None:
