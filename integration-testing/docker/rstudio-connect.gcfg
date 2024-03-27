@@ -15,8 +15,8 @@ NoWarning = true
 
 [Python]
 Enabled = true
-Executable = /opt/python/3.8.10/bin/python
-Executable = /opt/python/3.9.5/bin/python
+Executable = /opt/python/3.8.17/bin/python
+Executable = /opt/python/3.9.17/bin/python
 
 [Quarto]
 Enabled = true
