@@ -287,7 +287,7 @@ class RSConnectClient(HTTPServer):
         env_body = [dict(name=kv[0], value=kv[1]) for kv in env_vars]
         return self.patch("v1/content/%s/environment" % app_guid, body=env_body)
 
-    def app_deploy(self, app_id: str, bundle_id: Optional[str] = None) -> TaskStatusV0:
+    def app_deploy(self, app_id: str, bundle_id: Optional[int] = None) -> TaskStatusV0:
         response = cast(
             TaskStatusV0 | HTTPResponse,
             self.post("applications/%s/deploy" % app_id, body={"bundle": bundle_id}),
