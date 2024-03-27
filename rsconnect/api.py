@@ -45,7 +45,16 @@ from .exception import DeploymentFailedException, RSConnectException
 from .http_support import CookieJar, HTTPResponse, HTTPServer, JsonData, append_to_path
 from .log import cls_logged, connect_logger, console_logger, logger
 from .metadata import AppStore, ServerStore
-from .models import AppMode, AppModes, ContentItemV0, ContentItemV1, ServerSettings, TaskStatusV0, TaskStatusV1
+from .models import (
+    AppMode,
+    AppModes,
+    ContentItemV0,
+    ContentItemV1,
+    PyInfo,
+    ServerSettings,
+    TaskStatusV0,
+    TaskStatusV1,
+)
 from .timeouts import get_task_timeout, get_task_timeout_help_message
 
 if TYPE_CHECKING:
@@ -239,8 +248,10 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def python_settings(self):
-        return self.get("v1/server_settings/python")
+    def python_settings(self) -> PyInfo:
+        response = cast(PyInfo | HTTPResponse, self.get("v1/server_settings/python"))
+        response = self._server.handle_bad_response(response)
+        return response
 
     def app_search(self, filters: Optional[dict[str, JsonData]]) -> list[ContentItemV0]:
         response = cast(list[ContentItemV0] | HTTPResponse, self.get("applications", query_params=filters))
@@ -1086,8 +1097,9 @@ class RSConnectExecutor:
 
         :return: the Python installation information from Connect.
         """
+        if not isinstance(self.client, RSConnectClient):
+            raise RSConnectException("To get Python info, client must be a RSConnectClient.")
         result = self.client.python_settings()
-        result = self.remote_server.handle_bad_response(result)
         return result
 
     def server_details(self) -> ServerDetails:
@@ -1647,7 +1659,6 @@ def get_python_info(connect_server: RSConnectServer):
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     with RSConnectClient(connect_server) as client:
         result = client.python_settings()
-        result = connect_server.handle_bad_response(result)
         return result
 
 

@@ -537,3 +537,12 @@ class TaskStatusV1(TypedDict):
 class ServerSettings(TypedDict):
     hostname: str
     version: str
+
+class PyInfo(TypedDict):
+    installations: list[PyInstallation]
+    api_enabled: bool
+
+class PyInstallation(TypedDict):
+    version: str
+    cluster_name: str
+    image_name: str
