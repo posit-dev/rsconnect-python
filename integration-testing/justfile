@@ -1,5 +1,6 @@
 export RSC_LICENSE := env_var_or_default("RSC_LICENSE", "$CONNECT_LICENSE")
 export ADMIN_API_KEY := env_var_or_default('ADMIN_API_KEY', "${ADMIN_API_KEY}")
+export QUARTO_VERSION := env_var_or_default('QUARTO_VERSION', '1.4.546')
 
 
 all:
@@ -10,11 +11,10 @@ build:
 	docker compose build
 
 up:
-	docker compose pull connect && \
 	docker compose up -d client && docker compose up -d connect
 
 up-cypress:
-	docker compose up --exit-code-from cypress
+	docker compose up cypress --exit-code-from cypress
 
 # use this target if you want to run Cypress
 # without shutting down all containers after each run

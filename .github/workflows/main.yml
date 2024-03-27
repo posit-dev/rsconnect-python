@@ -217,15 +217,14 @@ jobs:
       - uses: extractions/setup-just@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build Containers
+      - name: Build and Run Containers
         run: |
             cd integration-testing
             docker compose build connect
             docker compose build client
-      - name: Start Connect + rsconnect-jupyter
-        run: |
-            just integration-testing/up
-
+            docker compose up -d connect
+            docker compose up -d client
+            
       - name: Run Cypress Tests
         run: |
             export ADMIN_API_KEY="${{ secrets.ADMIN_API_KEY }}"
@@ -306,9 +305,9 @@ jobs:
               remote: "yes"
             run: |
               cd integration-testing
-              docker compose pull connect
+              docker compose build connect
               docker compose up -d connect
-              just ../test/connect-rsconnect-python/test/rsconnect-python/test-rsconnect-python-repo
+              docker-compose run --rm client-cli just ../test/connect-rsconnect-python/test/rsconnect-python/_start-dev
   
           # Videos are captured whether the suite fails or passes
           - name: Save videos
