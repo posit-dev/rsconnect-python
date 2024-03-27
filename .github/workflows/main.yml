@@ -207,6 +207,7 @@ jobs:
     env:
       CONNECT_LICENSE: ${{ secrets.RSC_LICENSE }}
       ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+      QUARTO_VERSION: "1.4.546"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -218,7 +219,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build Containers
         run: |
-            just integration-testing/build
+            docker compose build connect
+            docker compose build client
       - name: Start Connect + rsconnect-jupyter
         run: |
             just integration-testing/up
