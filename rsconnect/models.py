@@ -538,19 +538,23 @@ class ServerSettings(TypedDict):
     hostname: str
     version: str
 
+
 class PyInfo(TypedDict):
     installations: list[PyInstallation]
     api_enabled: bool
+
 
 class PyInstallation(TypedDict):
     version: str
     cluster_name: str
     image_name: str
 
+
 class ListEntryOutputDTO(TypedDict):
     language: str
     version: str
     image_name: str
+
 
 class DeleteInputDTO(TypedDict):
     language: str
@@ -558,8 +562,14 @@ class DeleteInputDTO(TypedDict):
     image_name: str
     dry_run: bool
 
+
 class DeleteOutputDTO(TypedDict):
     language: str
     version: str
     iamge_name: str
     task_id: str | None
+
+
+class ConfigureResult(TypedDict):
+    config_url: str
+    logs_url: str

@@ -48,6 +48,7 @@ from .metadata import AppStore, ServerStore
 from .models import (
     AppMode,
     AppModes,
+    ConfigureResult,
     ContentItemV0,
     ContentItemV1,
     DeleteInputDTO,
@@ -297,8 +298,10 @@ class RSConnectClient(HTTPServer):
             body={"access_type": access, "id": app_id, "needs_config": False},
         )
 
-    def app_config(self, app_id: str):
-        return self.get("applications/%s/config" % app_id)
+    def app_config(self, app_id: str) -> ConfigureResult:
+        response = cast(ConfigureResult | HTTPResponse, self.get("applications/%s/config" % app_id))
+        response = self._server.handle_bad_response(response)
+        return response
 
     def is_app_failed_response(self, response: HTTPResponse | JsonData) -> bool:
         return isinstance(response, HTTPResponse) and response.status >= 500
@@ -1376,7 +1379,7 @@ class PositClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def get_task(self, task_id: str) -> TaskStatusV0:
+    def get_task(self, task_id: str):
         response = self.get("/v1/tasks/{}".format(task_id), query_params={"legacy": "true"})
         response = self._server.handle_bad_response(response)
         return response
