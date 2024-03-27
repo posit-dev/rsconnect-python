@@ -423,9 +423,8 @@ class ServerStore(DataStore[ServerDataDict]):
 
 def sha1(s: str):
     m = hashlib.sha1()
-    if hasattr(s, "encode"):
-        s = s.encode("utf-8")
-    m.update(s)
+    b = s.encode("utf-8")
+    m.update(b)
     return base64.urlsafe_b64encode(m.digest()).decode("utf-8").rstrip("=")
 
 

@@ -465,7 +465,7 @@ def buffer_checksum(buf: str | bytes) -> str:
 def to_bytes(s: str | bytes) -> bytes:
     if isinstance(s, bytes):
         return s
-    elif hasattr(s, "encode"):
+    elif isinstance(s, str):
         return s.encode("utf-8")
     logger.warning("can't encode to bytes: %s" % type(s).__name__)
     return s
