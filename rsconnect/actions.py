@@ -7,16 +7,15 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
-import os
 import re
 import shutil
 import subprocess
 import sys
 import traceback
 import typing
-from os.path import abspath, basename, dirname, exists, isdir, join, relpath, splitext
+from os.path import basename, dirname, exists, isdir, join, relpath, splitext
 from pathlib import Path
-from typing import BinaryIO, Callable, Mapping, Optional, Sequence, TextIO, cast
+from typing import BinaryIO, Callable, Optional, Sequence, TextIO, cast
 from warnings import warn
 
 # Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
@@ -27,13 +26,13 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import NotRequired, TypedDict
 
-import click
 from urllib.parse import urlparse
+
+import click
 
 from . import api, bundle
 from .api import RSConnectExecutor, filter_out_server_info
 from .bundle import (
-    ManifestData,
     _warn_if_environment_directory,
     _warn_if_no_requirements_file,
     _warn_on_ignored_manifest,
@@ -42,19 +41,15 @@ from .bundle import (
     default_title_from_manifest,
     get_python_env_info,
     make_api_bundle,
-    make_api_manifest,
     make_html_bundle,
     make_manifest_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
     make_quarto_source_bundle,
-    make_source_manifest,
-    manifest_add_buffer,
-    manifest_add_file,
     read_manifest_app_mode,
     read_manifest_file,
 )
-from .environment import Environment, EnvironmentException, MakeEnvironment
+from .environment import Environment, EnvironmentException
 from .exception import RSConnectException
 from .log import VERBOSE, logger
 from .models import AppMode, AppModes
@@ -115,48 +110,6 @@ def set_verbosity(verbose: int):
         logger.setLevel(VERBOSE)
     else:
         logger.setLevel(logging.DEBUG)
-
-
-def which_python(python: Optional[str], env: Mapping[str, str] = os.environ):
-    """Determine which python binary should be used.
-
-    In priority order:
-    * --python specified on the command line
-    * the python binary running this script
-    """
-    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-    if python:
-        if not (exists(python) and os.access(python, os.X_OK)):
-            raise RSConnectException('The file, "%s", does not exist or is not executable.' % python)
-        return python
-
-    return sys.executable
-
-
-def inspect_environment(
-    python: str,
-    directory: str,
-    force_generate: bool = False,
-    check_output: Callable[..., bytes] = subprocess.check_output,
-) -> Environment:
-    """Run the environment inspector using the specified python binary.
-
-    Returns a dictionary of information about the environment,
-    or containing an "error" field if an error occurred.
-    """
-    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-    flags: list[str] = []
-    if force_generate:
-        flags.append("f")
-    args = [python, "-m", "rsconnect.environment"]
-    if len(flags) > 0:
-        args.append("-" + "".join(flags))
-    args.append(directory)
-    try:
-        environment_json = check_output(args, universal_newlines=True)
-    except subprocess.CalledProcessError as e:
-        raise RSConnectException("Error inspecting environment: %s" % e.output)
-    return MakeEnvironment(**json.loads(environment_json))  # type: ignore
 
 
 def _verify_server(connect_server: api.RSConnectServer):
@@ -244,110 +197,6 @@ def test_api_key(connect_server: api.RSConnectServer) -> str:
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     return api.verify_api_key(connect_server)
-
-
-def gather_server_details(connect_server: api.RSConnectServer):
-    """
-    Builds a dictionary containing the version of Posit Connect that is running
-    and the versions of Python installed there.
-
-    :param connect_server: the Connect server information.
-    :return: a two-entry dictionary.  The key 'connect' will refer to the version
-    of Connect that was found.  The key `python` will refer to a sequence of version
-    strings for all the versions of Python that are installed.
-    """
-    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-
-    def _to_sort_key(text: str):
-        parts = [part.zfill(5) for part in text.split(".")]
-        return "".join(parts)
-
-    server_settings = api.verify_server(connect_server)
-    python_settings = api.get_python_info(connect_server)
-    python_versions = sorted([item["version"] for item in python_settings["installations"]], key=_to_sort_key)
-    return {
-        "connect": server_settings["version"],
-        "python": {
-            "api_enabled": python_settings["api_enabled"] if "api_enabled" in python_settings else False,
-            "versions": python_versions,
-        },
-    }
-
-
-def _make_deployment_name(remote_server: api.TargetableServer, title: str, force_unique: bool) -> str:
-    """
-    Produce a name for a deployment based on its title.  It is assumed that the
-    title is already defaulted and validated as appropriate (meaning the title
-    isn't None or empty).
-
-    We follow the same rules for doing this as the R rsconnect package does.  See
-    the title.R code in https://github.com/rstudio/rsconnect/R with the exception
-    that we collapse repeating underscores and, if the name is too short, it is
-    padded to the left with underscores.
-
-    :param remote_server: the information needed to interact with the Connect server.
-    :param title: the title to start with.
-    :param force_unique: a flag noting whether the generated name must be forced to be
-    unique.
-    :return: a name for a deployment based on its title.
-    """
-    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-
-    # First, Generate a default name from the given title.
-    name = _name_sub_pattern.sub("", title.lower()).replace(" ", "_")
-    name = _repeating_sub_pattern.sub("_", name)[:64].rjust(3, "_")
-
-    # Now, make sure it's unique, if needed.
-    if force_unique:
-        name = api.find_unique_name(remote_server, name)
-
-    return name
-
-
-def _validate_title(title: str) -> None:
-    """
-    If the user specified a title, validate that it meets Connect's length requirements.
-    If the validation fails, an exception is raised.  Otherwise,
-
-    :param title: the title to validate.
-    """
-    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-    if title:
-        if not (3 <= len(title) <= 1024):
-            raise RSConnectException("A title must be between 3-1024 characters long.")
-
-
-def _default_title(file_name: str) -> str:
-    """
-    Produce a default content title from the given file path.  The result is
-    guaranteed to be between 3 and 1024 characters long, as required by Posit
-    Connect.
-
-    :param file_name: the name from which the title will be derived.
-    :return: the derived title.
-    """
-    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-    # Make sure we have enough of a path to derive text from.
-    file_name = abspath(file_name)
-    # noinspection PyTypeChecker
-    return basename(file_name).rsplit(".", 1)[0][:1024].rjust(3, "0")
-
-
-def _default_title_from_manifest(the_manifest: ManifestData, manifest_file: str) -> str:
-    """
-    Produce a default content title from the contents of a manifest.
-    """
-    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-    filename = None
-
-    metadata = the_manifest.get("metadata")
-    if metadata:
-        # noinspection SpellCheckingInspection
-        filename = metadata.get("entrypoint") or metadata.get("primary_rmd") or metadata.get("primary_html")
-        # If the manifest is for an API, revert to using the parent directory.
-        if filename and _module_pattern.match(filename):
-            filename = None
-    return _default_title(filename or dirname(manifest_file))
 
 
 def validate_file_is_notebook(file_name: str) -> None:
@@ -514,54 +363,6 @@ def validate_quarto_engines(inspect: QuartoInspectResult):
     return engines
 
 
-def write_quarto_manifest_json(
-    file_or_directory: str,
-    inspect: QuartoInspectResult,
-    app_mode: AppMode,
-    environment: Environment,
-    extra_files: Sequence[str],
-    excludes: Sequence[str],
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-) -> None:
-    """
-    Creates and writes a manifest.json file for the given Quarto project.
-
-    :param file_or_directory: The Quarto document or the directory containing the Quarto project.
-    :param inspect: The parsed JSON from a 'quarto inspect' against the project.
-    :param app_mode: The application mode to assume (such as AppModes.STATIC_QUARTO)
-    :param environment: The (optional) Python environment to use.
-    :param extra_files: Any extra files to include in the manifest.
-    :param excludes: A sequence of glob patterns to exclude when enumerating files to bundle.
-    :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
-        The server administrator is responsible for installing packages in the runtime environment. Default = None.
-    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
-        The server administrator is responsible for installing packages in the runtime environment. Default = None.
-    """
-    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-    bundle.write_quarto_manifest_json(
-        file_or_directory,
-        inspect,
-        app_mode,
-        environment,
-        extra_files,
-        excludes,
-        image,
-        env_management_py,
-        env_management_r,
-    )
-
-
-def write_manifest_json(manifest_path: str | Path, manifest: ManifestData) -> None:
-    """
-    Write the manifest data as JSON to the named manifest.json with a trailing newline.
-    """
-    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-    bundle.write_manifest_json(manifest_path, manifest)
-
-
 def deploy_html(
     connect_server: Optional[api.RSConnectServer] = None,
     path: Optional[str] = None,
@@ -712,20 +513,6 @@ def deploy_jupyter_notebook(
             env_management_r=env_management_r,
         )
     ce.deploy_bundle().save_deployed_info().emit_task_log()
-
-
-def fake_module_file_from_directory(directory: str):
-    """
-    Takes a directory and invents a properly named file that though possibly fake,
-    can be used for other name/title derivation.
-
-    :param directory: the directory to start with.
-    :return: the directory plus the (potentially) fake module file.
-    """
-    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-    app_name = abspath(directory)
-    app_name = dirname(app_name) if app_name.endswith(os.path.sep) else basename(app_name)
-    return join(directory, app_name + ".py")
 
 
 def deploy_app(
@@ -1310,302 +1097,6 @@ def create_quarto_deployment_bundle(
         env_management_py,
         env_management_r,
     )
-
-
-def deploy_bundle(
-    remote_server: api.TargetableServer,
-    app_id: int,
-    deployment_name: str,
-    title: str,
-    title_is_default: bool,
-    bundle: typing.IO[bytes],
-    env_vars: list[tuple[str, str]],
-) -> dict[str, typing.Any]:
-    """
-    Deploys the specified bundle.
-
-    :param remote_server: the server information.
-    :param app_id: the ID of the app to deploy, if this is a redeploy.
-    :param deployment_name: the name for the deploy.
-    :param title: the title for the deploy.
-    :param title_is_default: a flag noting whether the title carries a defaulted value.
-    :param bundle: the bundle to deploy.
-    :param env_vars: list of (name, value) pairs for the app environment
-    :return: application information about the deploy.  This includes the ID of the
-    task that may be queried for deployment progress.
-    """
-    if isinstance(remote_server, api.RSConnectServer):
-        ce = RSConnectExecutor(
-            url=remote_server.url,
-            api_key=remote_server.api_key,
-            insecure=remote_server.insecure,
-            ca_data=remote_server.ca_data,
-            cookies=remote_server.cookie_jar,
-        )
-    elif isinstance(remote_server, api.ShinyappsServer) or isinstance(remote_server, api.CloudServer):
-        ce = RSConnectExecutor(
-            url=remote_server.url,
-            account=remote_server.account_name,
-            token=remote_server.token,
-            secret=remote_server.secret,
-        )
-    else:
-        raise RSConnectException("Unable to infer Connect client.")
-    ce.deploy_bundle(
-        app_id=app_id,
-        deployment_name=deployment_name,
-        title=title,
-        title_is_default=title_is_default,
-        bundle=bundle,
-        env_vars=env_vars,
-    )
-    return ce.state["deployed_info"]
-
-
-def spool_deployment_log(
-    connect_server: api.RSConnectServer,
-    app,
-    log_callback: Optional[Callable[[str], None]],
-):
-    """
-    Helper for spooling the deployment log for an app.
-
-    :param connect_server: the Connect server information.
-    :param app: the app that was returned by the deploy_bundle function.
-    :param log_callback: the callback to use to write the log to.  If this is None
-    (the default) the lines from the deployment log will be returned as a sequence.
-    If a log callback is provided, then None will be returned for the log lines part
-    of the return tuple.
-    :return: the ultimate URL where the deployed app may be accessed and the sequence
-    of log lines.  The log lines value will be None if a log callback was provided.
-    """
-    return api.emit_task_log(connect_server, app["app_id"], app["task_id"], log_callback)
-
-
-def create_notebook_manifest_and_environment_file(
-    entry_point_file: str,
-    environment: Environment,
-    app_mode: AppMode,
-    extra_files: list[str],
-    force: bool,
-    hide_all_input: bool,
-    hide_tagged_input: bool,
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-) -> None:
-    """
-    Creates and writes a manifest.json file for the given notebook entry point file.
-    If the related environment file (requirements.txt, environment.yml, etc.) doesn't
-    exist (or force is set to True), the environment file will also be written.
-
-    :param entry_point_file: the entry point file (Jupyter notebook, etc.) to build
-    the manifest for.
-    :param environment: the Python environment to start with.  This should be what's
-    returned by the inspect_environment() function.
-    :param app_mode: the application mode to assume.  If this is None, the extension
-    portion of the entry point file name will be used to derive one. Previous default = None.
-    :param extra_files: any extra files that should be included in the manifest. Previous default = None.
-    :param force: if True, forces the environment file to be written. even if it
-    already exists. Previous default = True.
-    :param hide_all_input: if True, will hide all input cells when rendering output.  Previous default = False.
-    :param hide_tagged_input: If True, will hide input code cells with the 'hide_input' tag
-    when rendering output.   Previous default = False.
-    :param image: an optional docker image for off-host execution. Previous default = None.
-    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
-        The server administrator is responsible for installing packages in the runtime environment. Default = None.
-    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
-        The server administrator is responsible for installing packages in the runtime environment. Default = None.
-    :return:
-    """
-    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-    if (
-        not write_notebook_manifest_json(
-            entry_point_file,
-            environment,
-            app_mode,
-            extra_files,
-            hide_all_input,
-            hide_tagged_input,
-            image,
-            env_management_py,
-            env_management_r,
-        )
-        or force
-    ):
-        write_environment_file(environment, dirname(entry_point_file))
-
-
-def write_notebook_manifest_json(
-    entry_point_file: str,
-    environment: Environment,
-    app_mode: AppMode,
-    extra_files: list[str],
-    hide_all_input: bool,
-    hide_tagged_input: bool,
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-) -> bool:
-    """
-    Creates and writes a manifest.json file for the given entry point file.  If
-    the application mode is not provided, an attempt will be made to resolve one
-    based on the extension portion of the entry point file.
-
-    :param entry_point_file: the entry point file (Jupyter notebook, etc.) to build
-    the manifest for.
-    :param environment: the Python environment to start with.  This should be what's
-    returned by the inspect_environment() function.
-    :param app_mode: the application mode to assume.  If this is None, the extension
-    portion of the entry point file name will be used to derive one. Previous default = None.
-    :param extra_files: any extra files that should be included in the manifest. Previous default = None.
-    :param hide_all_input: if True, will hide all input cells when rendering output. Previous default = False.
-    :param hide_tagged_input: If True, will hide input code cells with the 'hide_input' tag
-    when rendering output.  Previous default = False.
-    :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
-        The server administrator is responsible for installing packages in the runtime environment. Default = None.
-    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
-        The server administrator is responsible for installing packages in the runtime environment. Default = None.
-    :return: whether or not the environment file (requirements.txt, environment.yml,
-    etc.) that goes along with the manifest exists.
-    """
-    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-    extra_files = validate_extra_files(dirname(entry_point_file), extra_files)
-    directory = dirname(entry_point_file)
-    file_name = basename(entry_point_file)
-    manifest_path = join(directory, "manifest.json")
-
-    if app_mode is None:
-        _, extension = splitext(file_name)
-        app_mode = AppModes.get_by_extension(extension, True)
-        if app_mode == AppModes.UNKNOWN:
-            raise RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
-
-    manifest_data = make_source_manifest(
-        app_mode, environment, file_name, None, image, env_management_py, env_management_r
-    )
-    manifest_add_file(manifest_data, file_name, directory)
-    manifest_add_buffer(manifest_data, environment.filename, environment.contents)
-
-    for rel_path in extra_files:
-        manifest_add_file(manifest_data, rel_path, directory)
-
-    write_manifest_json(manifest_path, manifest_data)
-
-    return exists(join(directory, environment.filename))
-
-
-def create_api_manifest_and_environment_file(
-    directory: str,
-    entry_point: str,
-    environment: Environment,
-    app_mode: AppMode,
-    extra_files: list[str],
-    excludes: list[str],
-    force: bool,
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-) -> None:
-    """
-    Creates and writes a manifest.json file for the given Python API entry point.  If
-    the related environment file (requirements.txt, environment.yml, etc.) doesn't
-    exist (or force is set to True), the environment file will also be written.
-
-    :param directory: the root directory of the Python API.
-    :param entry_point: the module/executable object for the WSGi framework.
-    :param environment: the Python environment to start with.  This should be what's
-    returned by the inspect_environment() function.
-    :param app_mode: the application mode to assume. Previous default = AppModes.PYTHON_API.
-    :param extra_files: any extra files that should be included in the manifest. Previous default = None.
-    :param excludes: a sequence of glob patterns that will exclude matched files. Previous default = None.
-    :param force: if True, forces the environment file to be written. even if it
-    already exists. Previous default = True.
-    :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
-        The server administrator is responsible for installing packages in the runtime environment. Default = None.
-    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
-        The server administrator is responsible for installing packages in the runtime environment. Default = None.
-    :return:
-    """
-    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-    if (
-        not write_api_manifest_json(
-            directory,
-            entry_point,
-            environment,
-            app_mode,
-            extra_files,
-            excludes,
-            image,
-            env_management_py,
-            env_management_r,
-        )
-        or force
-    ):
-        write_environment_file(environment, directory)
-
-
-def write_api_manifest_json(
-    directory: str,
-    entry_point: str,
-    environment: Environment,
-    app_mode: AppMode,
-    extra_files: list[str],
-    excludes: list[str],
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
-) -> bool:
-    """
-    Creates and writes a manifest.json file for the given entry point file.  If
-    the application mode is not provided, an attempt will be made to resolve one
-    based on the extension portion of the entry point file.
-
-    :param directory: the root directory of the Python API.
-    :param entry_point: the module/executable object for the WSGi framework.
-    :param environment: the Python environment to start with.  This should be what's
-    returned by the inspect_environment() function.
-    :param app_mode: the application mode to assume. Previous default = AppModes.PYTHON_API.
-    :param extra_files: any extra files that should be included in the manifest. Previous default = None.
-    :param excludes: a sequence of glob patterns that will exclude matched files. Previous default = None.
-    :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
-        The server administrator is responsible for installing packages in the runtime environment. Default = None.
-    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
-        The server administrator is responsible for installing packages in the runtime environment. Default = None.
-    :return: whether or not the environment file (requirements.txt, environment.yml,
-    etc.) that goes along with the manifest exists.
-    """
-    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-    extra_files = validate_extra_files(directory, extra_files)
-    manifest, _ = make_api_manifest(
-        directory, entry_point, app_mode, environment, extra_files, excludes, image, env_management_py, env_management_r
-    )
-    manifest_path = join(directory, "manifest.json")
-
-    write_manifest_json(manifest_path, manifest)
-
-    return exists(join(directory, environment.filename))
-
-
-def write_environment_file(
-    environment: Environment,
-    directory: str,
-) -> None:
-    """
-    Writes the environment file (requirements.txt, environment.yml, etc.) to the
-    specified directory.
-
-    :param environment: the Python environment to start with.  This should be what's
-    returned by the inspect_environment() function.
-    :param directory: the directory where the file should be written.
-    """
-    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
-    environment_file_path = join(directory, environment.filename)
-    with open(environment_file_path, "w") as f:
-        f.write(environment.contents)
 
 
 def describe_manifest(file_name: str) -> tuple[str | None, str | None]:
