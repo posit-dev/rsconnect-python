@@ -508,6 +508,13 @@ class VersionSearchFilterParamType(ParamType):
         self.fail("Failed to parse version filter %s" % value)
 
 
+class AppSearchResults(TypedDict):
+    total: int
+    applications: list[ContentItemV0]
+    count: int
+    continuation: int
+
+
 class TaskStatusResult(TypedDict):
     type: str
     data: object  # Don't know the structure of this type yet
@@ -584,3 +591,18 @@ class DeleteOutputDTO(TypedDict):
 class ConfigureResult(TypedDict):
     config_url: str
     logs_url: str
+
+
+class UserRecord(TypedDict):
+    email: str
+    username: str
+    first_name: str
+    last_name: str
+    password: str
+    created_time: str
+    updated_time: str
+    active_time: str | None
+    confirmed: bool
+    locked: bool
+    guid: str
+    preferences: dict[str, object]

@@ -48,6 +48,7 @@ from .metadata import AppStore, ServerStore
 from .models import (
     AppMode,
     AppModes,
+    AppSearchResults,
     BootstrapOutputDTO,
     BuildOutputDTO,
     ConfigureResult,
@@ -59,6 +60,7 @@ from .models import (
     PyInfo,
     ServerSettings,
     TaskStatusV0,
+    UserRecord,
 )
 from .timeouts import get_task_timeout, get_task_timeout_help_message
 
@@ -242,8 +244,10 @@ class RSConnectClient(HTTPServer):
             else response
         )
 
-    def me(self):
-        return self.get("me")
+    def me(self) -> UserRecord:
+        response = cast(UserRecord | HTTPResponse, self.get("me"))
+        response = self._server.handle_bad_response(response)
+        return response
 
     def bootstrap(self) -> BootstrapOutputDTO:
         response = cast(BootstrapOutputDTO | HTTPResponse, self.post("v1/experimental/bootstrap"))
@@ -260,8 +264,8 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def app_search(self, filters: Optional[dict[str, JsonData]]) -> list[ContentItemV0]:
-        response = cast(list[ContentItemV0] | HTTPResponse, self.get("applications", query_params=filters))
+    def app_search(self, filters: Optional[dict[str, JsonData]]) -> AppSearchResults:
+        response = cast(AppSearchResults | HTTPResponse, self.get("applications", query_params=filters))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -1096,8 +1100,9 @@ class RSConnectExecutor:
 
     @property
     def api_username(self) -> str:
+        if not isinstance(self.client, RSConnectClient):
+            raise RSConnectException("To get server settings, client must be a RSConnectClient.")
         result = self.client.me()
-        result = self.remote_server.handle_bad_response(result)
         return result["username"]
 
     @property
@@ -1843,8 +1848,8 @@ def retrieve_matching_apps(
     connect_server: RSConnectServer,
     filters: Optional[dict[str, str | int]] = None,
     limit: Optional[int] = None,
-    mapping_function=None,
-) -> list[str]:
+    mapping_function: Optional[Callable[[RSConnectClient, ContentItemV0], AbbreviatedAppItem | None]] = None,
+) -> list[ContentItemV0 | AbbreviatedAppItem]:
     """
     Retrieves all the app names that start with the given default name.  The main
     point for this function is that it handles all the necessary paging logic.
@@ -1863,7 +1868,7 @@ def retrieve_matching_apps(
     :return: the list of existing names that start with the proposed one.
     """
     page_size = 100
-    result: list[str] = []
+    result: list[ContentItemV0 | AbbreviatedAppItem] = []
     search_filters = filters.copy() if filters else {}
     search_filters["count"] = min(limit, page_size) if limit else page_size
     total_returned = 0
@@ -1873,7 +1878,6 @@ def retrieve_matching_apps(
     with RSConnectClient(connect_server) as client:
         while not finished:
             response = client.app_search(search_filters)
-            response = connect_server.handle_bad_response(response)
 
             if not maximum:
                 maximum = response["total"]
@@ -1908,6 +1912,15 @@ def retrieve_matching_apps(
     return result
 
 
+class AbbreviatedAppItem(TypedDict):
+    id: int
+    name: str
+    title: str | None
+    app_mode: AppModes.Modes
+    url: str
+    config_url: str
+
+
 def override_title_search(connect_server: RSConnectServer, app_id: str, app_title: str):
     """
     Returns a list of abbreviated app data that contains apps with a title
@@ -1920,7 +1933,7 @@ def override_title_search(connect_server: RSConnectServer, app_id: str, app_titl
     URL and dashboard URL.
     """
 
-    def map_app(app: ContentItemV0, config):
+    def map_app(app: ContentItemV0, config: ConfigureResult) -> AbbreviatedAppItem:
         """
         Creates the abbreviated data dictionary for the specified app and config
         information.
@@ -1938,7 +1951,7 @@ def override_title_search(connect_server: RSConnectServer, app_id: str, app_titl
             "config_url": config["config_url"],
         }
 
-    def mapping_filter(client: RSConnectClient, app: ContentItemV0):
+    def mapping_filter(client: RSConnectClient, app: ContentItemV0) -> AbbreviatedAppItem | None:
         """
         Mapping/filter function for retrieving apps.  We only keep apps
         that have an app mode of static or Jupyter notebook.  The data
