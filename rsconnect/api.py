@@ -537,11 +537,12 @@ class RSConnectExecutor:
         secret: Optional[str] = None,
         timeout: int = 30,
         logger: Optional[logging.Logger] = console_logger,
-        **kwargs: typing.Any,
+        **kwargs: Any,
     ) -> None:
-        self.reset()
-        self._d = kwargs
-        self.logger = logger
+        self.remote_server: TargetableServer
+        self.client: RSConnectClient | PositClient
+        self._d: dict[str, Any] = kwargs
+        self.logger: logging.Logger | None = logger
         self.ctx = ctx
         self.setup_remote_server(
             ctx=ctx,
@@ -566,22 +567,6 @@ class RSConnectExecutor:
             ca_data=connect_server.ca_data,
             **kwargs,
         )
-
-    def reset(self):
-        self._d: dict[str, Any] = {}
-        # The types for the following do not allow None, but the values are set to None.
-        # This is because after this function is called, they are immediately set to the
-        # specified type.
-        self.remote_server: TargetableServer = None  # pyright: ignore[reportAttributeAccessIssue]
-        self.client: RSConnectClient | PositClient = None  # pyright: ignore[reportAttributeAccessIssue]
-        self.logger: logging.Logger | None = None
-        gc.collect()
-        return self
-
-    def drop_context(self):
-        self._d = {}
-        gc.collect()
-        return self
 
     def output_overlap_header(self, previous: bool) -> bool:
         if self.logger and not previous:
@@ -737,6 +722,8 @@ class RSConnectExecutor:
         :param token: The shinyapps.io authentication token.
         :param secret: The shinyapps.io authentication secret.
         """
+        if not isinstance(self.remote_server, RSConnectServer):
+            raise RSConnectException("remote_server must be a Connect server.")
         url = url or self.remote_server.url
         api_key = api_key or self.remote_server.api_key
         insecure = insecure or self.remote_server.insecure
@@ -775,7 +762,7 @@ class RSConnectExecutor:
         if not server_data.from_store:
             _ = self.verify_api_key(connect_server)
 
-        self.remote_server: RSConnectServer = connect_server
+        self.remote_server = connect_server
         self.client = RSConnectClient(self.remote_server)
 
         return self
