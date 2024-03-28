@@ -59,7 +59,6 @@ from .models import (
     PyInfo,
     ServerSettings,
     TaskStatusV0,
-    TaskStatusV1,
 )
 from .timeouts import get_task_timeout, get_task_timeout_help_message
 
