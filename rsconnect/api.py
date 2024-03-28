@@ -898,7 +898,7 @@ class RSConnectExecutor:
             if isinstance(self.remote_server, ShinyappsServer):
                 shinyapps_service = ShinyappsService(client, self.remote_server)
                 prepare_deploy_result = shinyapps_service.prepare_deploy(
-                    cast(int, app_id),
+                    app_id,
                     deployment_name,
                     bundle_size,
                     bundle_hash,
@@ -1246,6 +1246,65 @@ class PrepareDeployOutputResult(PrepareDeployResult):
         self.application_id = application_id
 
 
+# Placeholder types
+# NOTE: These were inferred from the existing code, but they should be updated with
+# the actual types from the Posit API.
+class PositClientDeployTask(TypedDict):
+    id: str
+    finished: bool
+    status: str
+    description: str
+    error: str
+
+
+class PositClientApp(TypedDict):
+    id: int
+    name: str
+    url: str
+    deployment: dict[str, Any]
+    content_id: str
+
+
+class PositClientAppSearchResults(TypedDict):
+    applications: list[PositClientApp]
+    count: int
+    total: str
+
+
+class PositClientAccountSearchResults(TypedDict):
+    accounts: list[PositClientAccount]
+
+
+class PositClientAccount(TypedDict):
+    id: int
+    name: str
+
+
+class PositClientBundle(TypedDict):
+    id: str
+    presigned_url: str
+    presigned_checksum: str
+
+
+class PositClientShinyappsBuildTask(TypedDict):
+    id: str
+
+
+class PositClientShinyappsBuildTaskSearchResults(TypedDict):
+    tasks: list[PositClientShinyappsBuildTask]
+
+
+class PositClientCloudOutput(TypedDict):
+    id: int
+    space_id: str
+    source_id: int
+    url: str
+
+
+class PositClientCloudOutputRevision(TypedDict):
+    application_id: int
+
+
 class PositClient(HTTPServer):
     """
     An HTTP client to call the Posit Cloud and shinyapps.io APIs.
@@ -1304,7 +1363,7 @@ class PositClient(HTTPServer):
         }
 
     def get_application(self, application_id: str):
-        response = self.get("/v1/applications/{}".format(application_id))
+        response = cast(PositClientApp | HTTPResponse, self.get("/v1/applications/{}".format(application_id)))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -1313,18 +1372,18 @@ class PositClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def get_content(self, content_id: str):
-        response = self.get("/v1/content/{}".format(content_id))
+    def get_content(self, content_id: str) -> PositClientCloudOutput:
+        response = cast(PositClientCloudOutput | HTTPResponse, self.get("/v1/content/{}".format(content_id)))
         response = self._server.handle_bad_response(response)
         return response
 
-    def create_application(self, account_id: int, application_name: str):
+    def create_application(self, account_id: int, application_name: str) -> PositClientApp:
         application_data = {
             "account": account_id,
             "name": application_name,
             "template": "shiny",
         }
-        response = self.post("/v1/applications/", body=application_data)
+        response = cast(PositClientApp | HTTPResponse, self.post("/v1/applications/", body=application_data))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -1332,45 +1391,55 @@ class PositClient(HTTPServer):
         self,
         name: str,
         application_type: str,
-        project_id: Optional[int] = None,
-        space_id: Optional[int] = None,
+        project_id: Optional[str] = None,
+        space_id: Optional[str] = None,
         render_by: Optional[str] = None,
-    ):
+    ) -> PositClientCloudOutput:
         data = {"name": name, "space": space_id, "project": project_id, "application_type": application_type}
         if render_by:
             data["render_by"] = render_by
-        response = self.post("/v1/outputs/", body=data)
+        response = cast(PositClientCloudOutput | HTTPResponse, self.post("/v1/outputs/", body=data))
         response = self._server.handle_bad_response(response)
         return response
 
-    def create_revision(self, content_id: str):
-        response = self.post("/v1/outputs/{}/revisions".format(content_id), body={})
+    def create_revision(self, content_id: str) -> PositClientCloudOutputRevision:
+        response = cast(
+            PositClientCloudOutputRevision | HTTPResponse,
+            self.post("/v1/outputs/{}/revisions".format(content_id), body={}),
+        )
         response = self._server.handle_bad_response(response)
         return response
 
     def update_output(self, output_id: int, output_data: dict[str, str]):
         return self.patch("/v1/outputs/{}".format(output_id), body=output_data)
 
-    def get_accounts(self):
-        response = self.get("/v1/accounts/")
+    def get_accounts(self) -> PositClientAccountSearchResults:
+        response = cast(PositClientAccountSearchResults | HTTPResponse, self.get("/v1/accounts/"))
         response = self._server.handle_bad_response(response)
         return response
 
-    def _get_applications_like_name_page(self, name: str, offset: int):
-        response = self.get(
-            "/v1/applications?filter=name:like:{}&offset={}&count=100&use_advanced_filters=true".format(name, offset)
+    def _get_applications_like_name_page(self, name: str, offset: int) -> PositClientAppSearchResults:
+        response = cast(
+            PositClientAppSearchResults | HTTPResponse,
+            self.get(
+                "/v1/applications?filter=name:like:{}&offset={}&count=100&use_advanced_filters=true".format(
+                    name, offset
+                )
+            ),
         )
         response = self._server.handle_bad_response(response)
         return response
 
-    def create_bundle(self, application_id: int, content_type: str, content_length: int, checksum: str):
+    def create_bundle(
+        self, application_id: int, content_type: str, content_length: int, checksum: str
+    ) -> PositClientBundle:
         bundle_data = {
             "application": application_id,
             "content_type": content_type,
             "content_length": content_length,
             "checksum": checksum,
         }
-        response = self.post("/v1/bundles", body=bundle_data)
+        response = cast(PositClientBundle | HTTPResponse, self.post("/v1/bundles", body=bundle_data))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -1379,31 +1448,41 @@ class PositClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def deploy_application(self, bundle_id: str, app_id: str):
-        response = self.post("/v1/applications/{}/deploy".format(app_id), body={"bundle": bundle_id, "rebuild": False})
-        response = self._server.handle_bad_response(response)
-        return response
-
-    def get_task(self, task_id: str):
-        response = self.get("/v1/tasks/{}".format(task_id), query_params={"legacy": "true"})
-        response = self._server.handle_bad_response(response)
-        return response
-
-    def get_shinyapps_build_task(self, parent_task_id: str):
-        response = self.get(
-            "/v1/tasks",
-            query_params={
-                "filter": [
-                    "parent_id:eq:{}".format(parent_task_id),
-                    "action:eq:image-build",
-                ]
-            },
+    def deploy_application(self, bundle_id: str, app_id: str) -> PositClientDeployTask:
+        response = cast(
+            PositClientDeployTask | HTTPResponse,
+            self.post("/v1/applications/{}/deploy".format(app_id), body={"bundle": bundle_id, "rebuild": False}),
         )
         response = self._server.handle_bad_response(response)
         return response
 
-    def get_task_logs(self, task_id: str):
+    def get_task(self, task_id: str) -> PositClientDeployTask:
+        response = cast(
+            PositClientDeployTask | HTTPResponse,
+            self.get("/v1/tasks/{}".format(task_id), query_params={"legacy": "true"}),
+        )
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def get_shinyapps_build_task(self, parent_task_id: str) -> PositClientShinyappsBuildTaskSearchResults:
+        response = cast(
+            PositClientShinyappsBuildTaskSearchResults | HTTPResponse,
+            self.get(
+                "/v1/tasks",
+                query_params={
+                    "filter": [
+                        "parent_id:eq:{}".format(parent_task_id),
+                        "action:eq:image-build",
+                    ]
+                },
+            ),
+        )
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def get_task_logs(self, task_id: str) -> HTTPResponse:
         response = self.get("/v1/tasks/{}/logs".format(task_id))
+        # TODO: Accept a 200 response? !!!
         response = self._server.handle_bad_response(response)
         return response
 
@@ -1412,7 +1491,7 @@ class PositClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def wait_until_task_is_successful(self, task_id: str, timeout: int = get_task_timeout()):
+    def wait_until_task_is_successful(self, task_id: str, timeout: int = get_task_timeout()) -> None:
         print()
         print("Waiting for task: {}".format(task_id))
         start_time = time.time()
@@ -1437,8 +1516,8 @@ class PositClient(HTTPServer):
 
         print("Task done: {}".format(description))
 
-    def get_applications_like_name(self, name: str):
-        applications = []
+    def get_applications_like_name(self, name: str) -> list[str]:
+        applications: list[PositClientApp] = []
 
         results = self._get_applications_like_name_page(name, 0)
         results = self._server.handle_bad_response(results)
@@ -1446,7 +1525,6 @@ class PositClient(HTTPServer):
 
         while len(applications) < int(results["total"]):
             results = self._get_applications_like_name_page(name, offset)
-            results = self._server.handle_bad_response(results)
             applications = results["applications"]
             applications.extend(applications)
             offset += int(results["count"])
@@ -1465,7 +1543,7 @@ class ShinyappsService:
 
     def prepare_deploy(
         self,
-        app_id: Optional[int],
+        app_id: Optional[str],
         app_name: str,
         bundle_size: int,
         bundle_hash: str,
@@ -1473,7 +1551,9 @@ class ShinyappsService:
     ):
         accounts = self._posit_client.get_accounts()
         accounts = self._server.handle_bad_response(accounts)
-        account = next(filter(lambda acct: acct["name"] == self._server.account_name, accounts["accounts"]), None)
+        account: PositClientAccount = next(
+            filter(lambda acct: acct["name"] == self._server.account_name, accounts["accounts"]), None
+        )
         # TODO: also check this during `add` command
         if account is None:
             raise RSConnectException(
@@ -1531,7 +1611,12 @@ class CloudService:
     Encapsulates operations involving multiple API calls to Posit Cloud.
     """
 
-    def __init__(self, cloud_client: PositClient, server: CloudServer, project_application_id: typing.Optional[str]):
+    def __init__(
+        self,
+        cloud_client: PositClient,
+        server: CloudServer,
+        project_application_id: Optional[str],
+    ):
         self._posit_client = cloud_client
         self._server = server
         self._project_application_id = project_application_id
@@ -1544,12 +1629,12 @@ class CloudService:
 
     def prepare_deploy(
         self,
-        app_id: typing.Optional[typing.Union[str, int]],
+        app_id: Optional[str | int],
         app_name: str,
         bundle_size: int,
         bundle_hash: str,
         app_mode: AppMode,
-        app_store_version: typing.Optional[int],
+        app_store_version: Optional[int],
     ) -> PrepareDeployOutputResult:
         application_type = "static" if app_mode in [AppModes.STATIC, AppModes.STATIC_QUARTO] else "connect"
         logger.debug(f"application_type: {application_type}")
