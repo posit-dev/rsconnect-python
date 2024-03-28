@@ -865,9 +865,9 @@ class RSConnectExecutor:
         visibility = visibility or self.get("visibility")
 
         if isinstance(self.remote_server, RSConnectServer):
-            # If we got here, the client must have been a RSConnectClient.
-            client = cast(RSConnectClient, self.client)
-            result = client.deploy(
+            if not isinstance(self.client, RSConnectClient):
+                raise RSConnectException("client must be an RSConnectClient.")
+            result = self.client.deploy(
                 app_id,
                 deployment_name,
                 title,
@@ -883,11 +883,11 @@ class RSConnectExecutor:
             bundle_size = len(contents)
             bundle_hash = hashlib.md5(contents).hexdigest()
 
-            # If we got here, the client must have been a PositClient.
-            client = cast(PositClient, self.client)
+            if not isinstance(self.client, PositClient):
+                raise RSConnectException("client must be a PositClient.")
 
             if isinstance(self.remote_server, ShinyappsServer):
-                shinyapps_service = ShinyappsService(client, self.remote_server)
+                shinyapps_service = ShinyappsService(self.client, self.remote_server)
                 prepare_deploy_result = shinyapps_service.prepare_deploy(
                     app_id,
                     deployment_name,
@@ -898,7 +898,7 @@ class RSConnectExecutor:
                 self.upload_posit_bundle(prepare_deploy_result, bundle_size, contents)
                 shinyapps_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
             else:
-                cloud_service = CloudService(client, self.remote_server, os.getenv("LUCID_APPLICATION_ID"))
+                cloud_service = CloudService(self.client, self.remote_server, os.getenv("LUCID_APPLICATION_ID"))
                 app_store_version = self.get("app_store_version")
                 prepare_deploy_result = cloud_service.prepare_deploy(
                     app_id, deployment_name, bundle_size, bundle_hash, app_mode, app_store_version
@@ -987,11 +987,11 @@ class RSConnectExecutor:
     @cls_logged("Verifying deployed content...")
     def verify_deployment(self, *args: object, **kwargs: object):
         if isinstance(self.remote_server, RSConnectServer):
+            if not isinstance(self.client, RSConnectClient):
+                raise RSConnectException("To verify deployment, client must be a RSConnectClient.")
             deployed_info = self.get("deployed_info", *args, **kwargs)
             app_guid = deployed_info["app_guid"]
-            # If we got here, the client must have been a RSConnectClient.
-            client = cast(RSConnectClient, self.client)
-            client.app_access(app_guid)
+            self.client.app_access(app_guid)
 
     @cls_logged("Validating app mode...")
     def validate_app_mode(self, *args: object, **kwargs: object):
