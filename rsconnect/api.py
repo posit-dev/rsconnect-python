@@ -569,7 +569,7 @@ class RSConnectExecutor:
         # The types for the following do not allow None, but the values are set to None.
         # This is because after this function is called, they are immediately set to the
         # specified type.
-        self.remote_server: TargetableServer = None
+        self.remote_server: TargetableServer = None  # pyright: ignore[reportAttributeAccessIssue]
         self.client: RSConnectClient | PositClient = None  # pyright: ignore[reportAttributeAccessIssue]
         self.logger: logging.Logger | None = None
         gc.collect()

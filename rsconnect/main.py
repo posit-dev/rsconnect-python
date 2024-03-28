@@ -560,7 +560,6 @@ def add(
     old_server = server_store.get_by_name(name)
 
     if token:
-        real_server: api.PositServer  # This annotation seems to be necessary for mypy
         if server and ("rstudio.cloud" in server or "posit.cloud" in server):
             real_server = api.CloudServer(server, account, token, secret)
         else:
