@@ -147,7 +147,7 @@ class Manifest:
     ) -> None:
         self.data: ManifestData = cast(ManifestData, {})
         self.buffer: dict[str, str] = {}
-        self._deploy_dir: str | None = None
+        self.deploy_dir: str | None = None
 
         self.data["version"] = version if version else 1
         if environment and environment.locale is not None:
@@ -204,14 +204,6 @@ class Manifest:
         self.data["files"] = {}
         if files:
             self.data["files"] = files
-
-    @property
-    def deploy_dir(self):
-        return self._deploy_dir
-
-    @deploy_dir.setter
-    def deploy_dir(self, value: str):
-        self._deploy_dir = value
 
     @classmethod
     def from_json(cls, json_str: str):
@@ -327,15 +319,7 @@ class Bundle:
     def __init__(self) -> None:
         self.file_paths: set[str] = set()
         self.buffer: dict[str, str] = {}
-        self._deploy_dir: str | None = None
-
-    @property
-    def deploy_dir(self) -> str | None:
-        return self._deploy_dir
-
-    @deploy_dir.setter
-    def deploy_dir(self, value: str | None) -> None:
-        self._deploy_dir = value
+        self.deploy_dir: str | None = None
 
     def add_file(self, filepath: str) -> None:
         self.file_paths.add(filepath)
