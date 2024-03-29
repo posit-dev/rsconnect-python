@@ -132,7 +132,7 @@ class ManifestData(TypedDict):
 class Manifest:
     def __init__(
         self,
-        *args: object,
+        *,
         version: Optional[int] = None,
         environment: Optional[Environment] = None,
         app_mode: Optional[AppMode] = None,
@@ -324,7 +324,7 @@ class Manifest:
 
 
 class Bundle:
-    def __init__(self, *args: object, **kwargs: object) -> None:
+    def __init__(self) -> None:
         self.file_paths: set[str] = set()
         self.buffer: dict[str, str] = {}
         self._deploy_dir: str | None = None
@@ -1443,18 +1443,6 @@ def make_quarto_manifest(
         manifest_add_file(manifest, rel_path, base_dir)
 
     return manifest, relevant_files
-
-
-def _validate_title(title: str) -> None:
-    """
-    If the user specified a title, validate that it meets Connect's length requirements.
-    If the validation fails, an exception is raised.  Otherwise,
-
-    :param title: the title to validate.
-    """
-    if title:
-        if not (3 <= len(title) <= 1024):
-            raise RSConnectException("A title must be between 3-1024 characters long.")
 
 
 def _default_title(file_name: str | Path) -> str:
