@@ -18,10 +18,29 @@ import typing
 from collections import defaultdict
 from copy import deepcopy
 from mimetypes import guess_type
-from os.path import abspath, basename, dirname, exists, isdir, isfile, join, relpath, splitext
+from os.path import (
+    abspath,
+    basename,
+    dirname,
+    exists,
+    isdir,
+    isfile,
+    join,
+    relpath,
+    splitext,
+)
 from pathlib import Path
 from pprint import pformat
-from typing import TYPE_CHECKING, Callable, Iterator, Literal, Optional, Sequence, cast
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Callable,
+    Iterator,
+    Literal,
+    Optional,
+    Sequence,
+    cast,
+)
 
 # Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
 # they should both come from the same typing module.
@@ -589,7 +608,7 @@ def make_notebook_source_bundle(
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
-) -> typing.IO[bytes]:
+) -> IO[bytes]:
     """Create a bundle containing the specified notebook and python environment.
 
     Returns a file-like object containing the bundle tarball.

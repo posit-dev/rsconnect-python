@@ -9,12 +9,11 @@ import json
 import os
 import socket
 import ssl
-from typing import Any, BinaryIO, Dict, List, Mapping, Optional, Tuple, Union, cast
-from warnings import warn
-
 from http import client as http
 from http.cookies import SimpleCookie
-from urllib.parse import urlencode, urlparse, urljoin
+from typing import IO, Any, Dict, List, Mapping, Optional, Tuple, Union, cast
+from urllib.parse import urlencode, urljoin, urlparse
+from warnings import warn
 
 from . import VERSION
 from .log import logger
@@ -290,7 +289,7 @@ class HTTPServer(object):
         self,
         path: str,
         query_params: Optional[Mapping[str, JsonData]] = None,
-        body: str | bytes | BinaryIO | Mapping[str, Any] | list[Any] | None = None,
+        body: str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None = None,
     ) -> JsonData | HTTPResponse:
         return self.request("POST", path, query_params, body)
 
@@ -298,7 +297,7 @@ class HTTPServer(object):
         self,
         path: str,
         query_params: Optional[Mapping[str, JsonData]] = None,
-        body: str | bytes | BinaryIO | Mapping[str, Any] | list[Any] | None = None,
+        body: str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None = None,
     ) -> JsonData | HTTPResponse:
         return self.request("PATCH", path, query_params, body)
 
@@ -306,7 +305,7 @@ class HTTPServer(object):
         self,
         path: str,
         query_params: Optional[Mapping[str, JsonData]] = None,
-        body: str | bytes | BinaryIO | Mapping[str, Any] | list[Any] | None = None,
+        body: str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None = None,
         headers: Optional[Mapping[str, str]] = None,
         decode_response: bool = True,
     ) -> JsonData | HTTPResponse:
@@ -320,7 +319,7 @@ class HTTPServer(object):
         self,
         path: str,
         query_params: Optional[Mapping[str, JsonData]] = None,
-        body: str | bytes | BinaryIO | Mapping[str, Any] | list[Any] | None = None,
+        body: str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None = None,
         decode_response: bool = True,
     ) -> JsonData | HTTPResponse:
         return self.request("DELETE", path, query_params, body, decode_response=decode_response)
@@ -330,7 +329,7 @@ class HTTPServer(object):
         method: str,
         path: str,
         query_params: Optional[Mapping[str, JsonData]] = None,
-        body: str | bytes | BinaryIO | Mapping[str, Any] | list[Any] | None = None,
+        body: str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None = None,
         maximum_redirects: int = 5,
         decode_response: bool = True,
         headers: Optional[Mapping[str, str]] = None,
@@ -343,7 +342,7 @@ class HTTPServer(object):
         extra_headers = {**extra_headers, **self.get_extra_headers(path, method, body)}
         return self._do_request(method, path, query_params, body, maximum_redirects, extra_headers, decode_response)
 
-    def get_extra_headers(self, url: str, method: str, body: str | bytes | BinaryIO | None) -> dict[str, str]:
+    def get_extra_headers(self, url: str, method: str, body: str | bytes | IO[bytes] | None) -> dict[str, str]:
         return {}
 
     def _do_request(
@@ -351,7 +350,7 @@ class HTTPServer(object):
         method: str,
         path: str,
         query_params: Optional[Mapping[str, JsonData]],
-        body: str | bytes | BinaryIO | None,
+        body: str | bytes | IO[bytes] | None,
         maximum_redirects: int,
         extra_headers: dict[str, str],
         decode_response: bool = True,
