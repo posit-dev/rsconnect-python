@@ -43,7 +43,7 @@ from .actions_content import (
     get_content,
     search_content,
 )
-from .api import RSConnectClient, RSConnectExecutor, RSConnectServer, filter_out_server_info
+from .api import ExecutorKwargs, RSConnectClient, RSConnectExecutor, RSConnectServer
 from .bundle import (
     create_python_environment,
     default_title_from_manifest,
@@ -910,7 +910,7 @@ def deploy_notebook(
     force_generate: bool,
     verbose: int,
     file: str,
-    extra_files: Sequence[str],
+    extra_files: tuple[str, ...],
     hide_all_input: bool,
     hide_tagged_input: bool,
     env_vars: dict[str, str],
@@ -920,11 +920,12 @@ def deploy_notebook(
     env_management_r: Optional[bool],
     no_verify: bool = False,
 ):
-    kwargs = locals()
     set_verbosity(verbose)
     output_params(ctx, locals().items())
 
-    kwargs["extra_files"] = extra_files = validate_extra_files(dirname(file), extra_files)
+    # TODO: This used to save a value in kwargs["extra_files"] which would get passed to
+    # the executor and stored there, but it looks like that value was never read.
+    extra_files_list = validate_extra_files(dirname(file), extra_files)
     app_mode = AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC
 
     base_dir = dirname(file)
@@ -936,7 +937,24 @@ def deploy_notebook(
     if force_generate:
         _warn_on_ignored_requirements(base_dir, environment.filename)
 
-    ce = RSConnectExecutor(**kwargs)
+    extra_kwargs: ExecutorKwargs = {
+        "server": server,
+        "new": new,
+        "app_id": app_id,
+        "title": title,
+        "disable_env_management": disable_env_management,
+        "env_vars": env_vars,
+    }
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        insecure=insecure,
+        cacert=cacert,
+        extra_kwargs=extra_kwargs,
+    )
+
     ce.validate_server().validate_app_mode(app_mode=app_mode)
     if app_mode == AppModes.STATIC:
         ce.make_bundle(
@@ -954,7 +972,7 @@ def deploy_notebook(
             make_notebook_source_bundle,
             file,
             environment,
-            extra_files,
+            extra_files_list,
             hide_all_input,
             hide_tagged_input,
             image=image,
@@ -1044,9 +1062,8 @@ def deploy_voila(
     cacert: Optional[str],
     multi_notebook: bool,
     no_verify: bool,
-    connect_server: Optional[api.RSConnectServer] = None,
+    connect_server: Optional[api.RSConnectServer] = None,  # TODO: This appears to be unused
 ):
-    kwargs = locals()
     set_verbosity(verbose)
     output_params(ctx, locals().items())
     app_mode = AppModes.JUPYTER_VOILA
@@ -1055,7 +1072,26 @@ def deploy_voila(
         force_generate,
         python,
     )
-    ce = RSConnectExecutor(**kwargs).validate_server().validate_app_mode(app_mode=app_mode)
+
+    extra_kwargs: ExecutorKwargs = {
+        "server": server,
+        "new": new,
+        "app_id": app_id,
+        "title": title,
+        "disable_env_management": disable_env_management,
+        "env_vars": env_vars,
+    }
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        insecure=insecure,
+        cacert=cacert,
+        extra_kwargs=extra_kwargs,
+    )
+
+    ce.validate_server().validate_app_mode(app_mode=app_mode)
     ce.make_bundle(
         make_voila_bundle,
         path,
@@ -1110,15 +1146,34 @@ def deploy_manifest(
     visibility: Optional[str],
     no_verify: bool,
 ):
-    kwargs = locals()
     set_verbosity(verbose)
     output_params(ctx, locals().items())
 
-    file_name = kwargs["file"] = validate_manifest_file(file)
+    file_name = validate_manifest_file(file)
     app_mode = read_manifest_app_mode(file_name)
-    kwargs["title"] = title or default_title_from_manifest(file)
+    title = title or default_title_from_manifest(file)
 
-    ce = RSConnectExecutor(**kwargs)
+    extra_kwargs: ExecutorKwargs = {
+        "path": file_name,
+        "server": server,
+        "new": new,
+        "app_id": app_id,
+        "title": title,
+        "visibility": visibility,
+        "env_vars": env_vars,
+    }
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        insecure=insecure,
+        cacert=cacert,
+        account=account,
+        token=token,
+        secret=secret,
+        extra_kwargs=extra_kwargs,
+    )
     (
         ce.validate_server()
         .validate_app_mode(app_mode=app_mode)
@@ -1213,7 +1268,6 @@ def deploy_quarto(
     env_management_r: bool,
     no_verify: bool,
 ):
-    kwargs = locals()
     set_verbosity(verbose)
     output_params(ctx, locals().items())
 
@@ -1243,7 +1297,25 @@ def deploy_quarto(
             if force_generate:
                 _warn_on_ignored_requirements(base_dir, environment.filename)
 
-    ce = RSConnectExecutor(**kwargs)
+    extra_kwargs: ExecutorKwargs = {
+        "path": file_or_directory,
+        "server": server,
+        "exclude": exclude,
+        "new": new,
+        "app_id": app_id,
+        "title": title,
+        "disable_env_management": disable_env_management,
+        "env_vars": env_vars,
+    }
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        insecure=insecure,
+        cacert=cacert,
+        extra_kwargs=extra_kwargs,
+    )
     (
         ce.validate_server()
         .validate_app_mode(app_mode=AppModes.STATIC_QUARTO)
@@ -1322,16 +1394,39 @@ def deploy_html(
     no_verify: bool,
     connect_server: Optional[api.RSConnectServer] = None,
 ):
-    kwargs = locals()
     set_verbosity(verbose)
     output_params(ctx, locals().items())
 
-    ce = None
+    extra_kwargs: ExecutorKwargs = {
+        "server": server,
+        "exclude": exclude,
+        "new": new,
+        "app_id": app_id,
+        "title": title,
+        "env_vars": env_vars,
+    }
+
     if connect_server:
-        kwargs = filter_out_server_info(**kwargs)
-        ce = RSConnectExecutor.fromConnectServer(connect_server, **kwargs)
+        ce = RSConnectExecutor.fromConnectServer(
+            connect_server,
+            ctx=ctx,
+            account=account,
+            token=token,
+            secret=secret,
+            extra_kwargs=extra_kwargs,
+        )
     else:
-        ce = RSConnectExecutor(**kwargs)
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            api_key=api_key,
+            insecure=insecure,
+            cacert=cacert,
+            account=account,
+            token=token,
+            secret=secret,
+            extra_kwargs=extra_kwargs,
+        )
 
     (
         ce.validate_server()
@@ -1454,17 +1549,17 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             if is_express_app(entrypoint + ".py", directory):
                 entrypoint = "shiny.express.app:" + escape_to_var_name(entrypoint + ".py")
 
-        extra_args = dict(
-            directory=directory,
-            server=server,
-            exclude=exclude,
-            new=new,
-            app_id=app_id,
-            title=title,
-            visibility=visibility,
-            disable_env_management=disable_env_management,
-            env_vars=env_vars,
-        )
+        extra_kwargs: ExecutorKwargs = {
+            "path": directory,
+            "server": server,
+            "exclude": exclude,
+            "new": new,
+            "app_id": app_id,
+            "title": title,
+            "visibility": visibility,
+            "disable_env_management": disable_env_management,
+            "env_vars": env_vars,
+        }
 
         ce = RSConnectExecutor(
             ctx=ctx,
@@ -1475,7 +1570,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             account=account,
             token=token,
             secret=secret,
-            **extra_args,  # type: ignore
+            extra_kwargs=extra_kwargs,
         )
 
         if isinstance(ce.client, RSConnectClient):

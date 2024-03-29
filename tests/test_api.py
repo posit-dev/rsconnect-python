@@ -142,7 +142,7 @@ class TestSystemRuntimeCachesAPI(TestCase):
         self.assertEqual(output_lines[0], "Dry run finished")
 
         # Result expectations
-        self.assertDictEqual(mocked_output, ce.state["result"])
+        self.assertDictEqual(mocked_output, ce.extra_kwargs["result"])
 
     # RSConnectExecutor.delete_runtime_cache() wet run returns expected request
     # RSConnectExecutor.delete_runtime_cache() wet run prints expected messages
@@ -192,7 +192,7 @@ class TestSystemRuntimeCachesAPI(TestCase):
         # self.assertEqual(output_lines[0], "Cache deletion finished")
 
         # Result expectations
-        self.assertDictEqual(mocked_task_status, ce.state["task_status"])
+        self.assertDictEqual(mocked_task_status, ce.extra_kwargs["task_status"])
 
     # RSConnectExecutor.delete_runtime_cache() raises the correct error
     @httpretty.activate(verbose=True, allow_net_connect=False)
