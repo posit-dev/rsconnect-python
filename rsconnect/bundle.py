@@ -144,7 +144,6 @@ class Manifest:
         primary_html: Optional[str] = None,
         metadata: Optional[ManifestDataMetadata] = None,
         files: Optional[dict[str, ManifestDataFile]] = None,
-        **kwargs: object
     ) -> None:
         self.data: ManifestData = cast(ManifestData, {})
         self.buffer: dict[str, str] = {}
@@ -978,7 +977,6 @@ def create_html_manifest(
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
-    **kwargs: object
 ) -> Manifest:
     """
     Creates and writes a manifest.json file for the given path.
@@ -1067,7 +1065,16 @@ def make_html_bundle(
     :return: a file-like object containing the bundle tarball.
     """
 
-    manifest = create_html_manifest(**locals())
+    manifest = create_html_manifest(
+        path=path,
+        entrypoint=entrypoint,
+        extra_files=extra_files,
+        excludes=excludes,
+        image=image,
+        env_management_py=env_management_py,
+        env_management_r=env_management_r,
+    )
+
     if manifest.data.get("files") is None:
         raise RSConnectException("No valid files were found for the manifest.")
 
@@ -1239,7 +1246,19 @@ def make_voila_bundle(
     :return: a file-like object containing the bundle tarball.
     """
 
-    manifest = create_voila_manifest(**locals())
+    manifest = create_voila_manifest(
+        path=path,
+        entrypoint=entrypoint,
+        extra_files=extra_files,
+        excludes=excludes,
+        force_generate=force_generate,
+        environment=environment,
+        image=image,
+        env_management_py=env_management_py,
+        env_management_r=env_management_r,
+        multi_notebook=multi_notebook,
+    )
+
     if manifest.data.get("files") is None:
         raise RSConnectException("No valid files were found for the manifest.")
 
@@ -1850,7 +1869,6 @@ def create_voila_manifest(
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
     multi_notebook: bool = False,
-    **kwargs: object
 ) -> Manifest:
     """
     Creates and writes a manifest.json file for the given path.
@@ -1959,7 +1977,19 @@ def write_voila_manifest_json(
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :return: whether the manifest was written.
     """
-    manifest = create_voila_manifest(**locals())
+    manifest = create_voila_manifest(
+        path=path,
+        entrypoint=entrypoint,
+        environment=environment,
+        app_mode=app_mode,
+        extra_files=extra_files,
+        excludes=excludes,
+        force_generate=force_generate,
+        image=image,
+        env_management_py=env_management_py,
+        env_management_r=env_management_r,
+        multi_notebook=multi_notebook,
+    )
     deploy_dir = dirname(manifest.entrypoint) if isfile(manifest.entrypoint) else manifest.entrypoint
     manifest_flattened_copy_data = manifest.flattened_copy.data
     if multi_notebook and "metadata" in manifest_flattened_copy_data:
