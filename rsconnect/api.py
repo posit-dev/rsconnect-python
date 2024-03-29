@@ -240,7 +240,7 @@ class S3Server(AbstractRemoteServer):
         super().__init__(url, "S3")
 
 
-class DeployResult(TypedDict):
+class RSConnectClientDeployResult(TypedDict):
     task_id: NotRequired[str]
     app_id: str
     app_guid: str
@@ -409,7 +409,7 @@ class RSConnectClient(HTTPServer):
         title_is_default: bool,
         tarball: IO[bytes],
         env_vars: Optional[dict[str, str]] = None,
-    ) -> DeployResult:
+    ) -> RSConnectClientDeployResult:
         if app_id is None:
             if app_name is None:
                 raise RSConnectException("An app ID or name is required to deploy an app.")
@@ -588,7 +588,7 @@ class ExecutorState(ExecutorKwargs, TypedDict):
     title_is_default: NotRequired[bool]
     deployment_name: NotRequired[str]
     bundle: NotRequired[IO[bytes]]
-    deployed_info: NotRequired[DeployResult]
+    deployed_info: NotRequired[RSConnectClientDeployResult]
     result: NotRequired[DeleteOutputDTO]
     task_status: NotRequired[TaskStatusV0]
 
