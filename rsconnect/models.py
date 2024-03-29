@@ -208,11 +208,12 @@ class GlobMatcher(object):
             self.matches = self._match_with_starts_with
         else:
             self._pattern_parts: list[str | re.Pattern[str]]
+            self._wildcard_index: int | None
             self._pattern_parts, self._wildcard_index = self._to_parts_list(pattern)
             self.matches = self._match_with_list_parts
 
     @staticmethod
-    def _to_parts_list(pattern: str):
+    def _to_parts_list(pattern: str) -> tuple[list[str | re.Pattern[str]], int | None]:
         """
         Converts a glob expression into a list, with an entry for each directory
         level.  Each entry will be either a string, in which case an equality

@@ -476,7 +476,7 @@ def _order_content_results(
     content_list: Iterator[ContentItemV1],
     order_by: Optional[Literal["created", "last_deployed"]],
 ) -> list[ContentItemV1]:
-    result = iter(content_list)
+    result = content_list
     if order_by == "last_deployed":
         pass  # do nothing, content is ordered by last_deployed by default
     elif order_by == "created":
