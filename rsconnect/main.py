@@ -220,14 +220,6 @@ def shinyapps_deploy_args(func: Callable[P, T]) -> Callable[P, T]:
     return wrapper
 
 
-def _passthrough(func: Callable[P, T]) -> Callable[P, T]:
-    @functools.wraps(func)
-    def wrapper(*args: P.args, **kwargs: P.kwargs):
-        return func(*args, **kwargs)
-
-    return wrapper
-
-
 def validate_env_vars(ctx: click.Context, param: click.Parameter, all_values: tuple[str, ...]) -> dict[str, str]:
     vars: dict[str, str] = {}
 

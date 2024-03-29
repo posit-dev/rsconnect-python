@@ -2052,23 +2052,3 @@ def find_unique_name(remote_server: TargetableServer, name: str):
         name = test
 
     return name
-
-
-def _to_server_check_list(url: str) -> list[str]:
-    """
-    Build a list of servers to check from the given one.  If the specified server
-    appears not to have a scheme, then we'll provide https and http variants to test.
-
-    :param url: the server URL text to start with.
-    :return: a list of server strings to test.
-    """
-    # urlparse will end up with an empty netloc in this case.
-    if "//" not in url:
-        items = ["https://%s", "http://%s"]
-    # urlparse would parse this correctly and end up with an empty scheme.
-    elif url.startswith("//"):
-        items = ["https:%s", "http:%s"]
-    else:
-        items = ["%s"]
-
-    return [item % url for item in items]
