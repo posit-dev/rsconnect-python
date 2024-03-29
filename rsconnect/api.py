@@ -16,7 +16,17 @@ import time
 import typing
 import webbrowser
 from os.path import abspath, dirname
-from typing import IO, TYPE_CHECKING, Any, Callable, Optional, TypeVar, cast
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Literal,
+    Optional,
+    TypeVar,
+    cast,
+    overload,
+)
 from urllib import parse
 from urllib.parse import urlparse
 from warnings import warn
@@ -76,21 +86,41 @@ class AbstractRemoteServer:
         self.url = url
         self.remote_name = remote_name
 
-    def handle_bad_response(self, response: HTTPResponse | T) -> T:
+    @overload
+    def handle_bad_response(self, response: HTTPResponse, is_httpresponse: Literal[True]) -> HTTPResponse: ...
+
+    @overload
+    def handle_bad_response(self, response: HTTPResponse | T, is_httpresponse: Literal[False] = False) -> T: ...
+
+    def handle_bad_response(self, response: HTTPResponse | T, is_httpresponse: bool = False) -> T | HTTPResponse:
         """
-            Handle a bad response from the server.
+        Handle a bad response from the server.
 
-            By the time a response object reaches this function, it should have been
-            converted to the JSON data contained in the original HTTPResponse object. If the
-            response is still an HTTPResponse object at this point, that means that
-            something went wrong.
+        For most requests, we expect the response to already have been converted to
+        JSON. This is when `is_httpresponse` has the default value False. In these
+        cases:
 
-        `   If the response is an HTTPResponse, raise an exception.
+        * By the time a response object reaches this function, it should have been
+          converted to the JSON data contained in the original HTTPResponse object.
+          If the response is still an HTTPResponse object at this point, that means
+          that something went wrong, and it raises an exception, even if the status
+          was 2xx.
 
-            :param response: The response object to check.
-            :return: The response object, if it is not an HTTPResponse object. If it was an
-                    HTTPResponse object, this function will raise an exception and not
-                    return.
+        However, in some cases, we expect that the input object is an HTTPResponse
+        that did not contain JSON. This is when `is_httpresponse` is set to True. In
+        these cases:
+
+        * The response object should still be an HTTPResponse object. If it has a
+          2xx status, then it will be returned. If it has any other status, then
+          an exceptio nwill be raised.
+
+        :param response: The response object to check.
+        :param is_httpresponse: If False (the default), expect that the input object is
+            a JsonData object. If True, expect that the input object is a HTTPResponse
+            object.
+        :return: The response object, if it is not an HTTPResponse object. If it was
+                an HTTPResponse object, this function will raise an exception and
+                not return.
         """
 
         if isinstance(response, HTTPResponse):
@@ -124,21 +154,21 @@ class AbstractRemoteServer:
                             response.reason,
                         )
                     )
-                # If we got here, it was a 2xx response that contained JSON and did not
-                # have an error field, but for some reason the object returned from the
-                # prior function call was not converted from a HTTPResponse to JSON. This
-                # should never happen, so raise an exception.
-                raise RSConnectException(
-                    "Received an unexpected response from %s (calling %s): %s %s"
-                    % (
-                        self.remote_name,
-                        response.full_uri,
-                        response.status,
-                        response.reason,
+                if not is_httpresponse:
+                    # If we got here, it was a 2xx response that contained JSON and did not
+                    # have an error field, but for some reason the object returned from the
+                    # prior function call was not converted from a HTTPResponse to JSON. This
+                    # should never happen, so raise an exception.
+                    raise RSConnectException(
+                        "Received an unexpected response from %s (calling %s): %s %s"
+                        % (
+                            self.remote_name,
+                            response.full_uri,
+                            response.status,
+                            response.reason,
+                        )
                     )
-                )
-        else:
-            return response
+        return response
 
 
 class PositServer(AbstractRemoteServer):
@@ -327,9 +357,12 @@ class RSConnectClient(HTTPServer):
                 + "Visit it in Connect to view the logs."
             )
 
-    def bundle_download(self, content_guid: str, bundle_id: str) -> JsonData:
-        response = self.get("v1/content/%s/bundles/%s/download" % (content_guid, bundle_id), decode_response=False)
-        response = self._server.handle_bad_response(response)
+    def bundle_download(self, content_guid: str, bundle_id: str) -> HTTPResponse:
+        response = cast(
+            HTTPResponse,
+            self.get("v1/content/%s/bundles/%s/download" % (content_guid, bundle_id), decode_response=False),
+        )
+        response = self._server.handle_bad_response(response, is_httpresponse=True)
         return response
 
     def content_search(self) -> list[ContentItemV1]:
@@ -416,7 +449,7 @@ class RSConnectClient(HTTPServer):
             "title": app["title"],
         }
 
-    def download_bundle(self, content_guid: str, bundle_id: str) -> JsonData:
+    def download_bundle(self, content_guid: str, bundle_id: str) -> HTTPResponse:
         results = self.bundle_download(content_guid, bundle_id)
         return results
 
@@ -1514,9 +1547,8 @@ class PositClient(HTTPServer):
         return response
 
     def get_task_logs(self, task_id: str) -> HTTPResponse:
-        response = self.get("/v1/tasks/{}/logs".format(task_id))
-        # TODO: Accept a 200 response? !!!
-        response = self._server.handle_bad_response(response)
+        response = cast(HTTPResponse, self.get("/v1/tasks/{}/logs".format(task_id)))
+        response = self._server.handle_bad_response(response, is_httpresponse=True)
         return response
 
     def get_current_user(self):
