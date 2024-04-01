@@ -756,7 +756,7 @@ class RSConnectExecutor:
         else:
             raise RSConnectException("Unable to infer Connect server type and setup server.")
 
-    def setup_client(self, cookies: Optional[CookieJar] = None, **kwargs: object):
+    def setup_client(self, cookies: Optional[CookieJar] = None):
         if isinstance(self.remote_server, RSConnectServer):
             self.client = RSConnectClient(self.remote_server, cookies)
         elif isinstance(self.remote_server, PositServer):
@@ -864,7 +864,6 @@ class RSConnectExecutor:
         account_name: Optional[str] = None,
         token: Optional[str] = None,
         secret: Optional[str] = None,
-        **kwargs: object,
     ):
         if not isinstance(self.remote_server, PositServer):
             raise RSConnectException("remote_server is not a Posit server.")
