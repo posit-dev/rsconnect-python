@@ -890,9 +890,9 @@ class RSConnectExecutor:
     @cls_logged("Making bundle ...")
     def make_bundle(
         self,
-        func: Callable[..., IO[bytes]],
-        *args: object,
-        **kwargs: object,
+        func: Callable[P, IO[bytes]],
+        *args: P.args,
+        **kwargs: P.kwargs,
         # These are the actual kwargs that appear to be present in practice
         # image: Optional[str] = None,
         # env_management_py: Optional[bool] = None,
