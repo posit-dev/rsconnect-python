@@ -43,7 +43,7 @@ from .actions_content import (
     get_content,
     search_content,
 )
-from .api import ExecutorKwargs, RSConnectClient, RSConnectExecutor, RSConnectServer
+from .api import RSConnectClient, RSConnectExecutor, RSConnectServer
 from .bundle import (
     create_python_environment,
     default_title_from_manifest,
@@ -929,22 +929,18 @@ def deploy_notebook(
     if force_generate:
         _warn_on_ignored_requirements(base_dir, environment.filename)
 
-    extra_kwargs: ExecutorKwargs = {
-        "server": server,
-        "new": new,
-        "app_id": app_id,
-        "title": title,
-        "disable_env_management": disable_env_management,
-        "env_vars": env_vars,
-    }
-
     ce = RSConnectExecutor(
         ctx=ctx,
         name=name,
         api_key=api_key,
         insecure=insecure,
         cacert=cacert,
-        extra_kwargs=extra_kwargs,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=title,
+        disable_env_management=disable_env_management,
+        env_vars=env_vars,
     )
 
     ce.validate_server().validate_app_mode(app_mode=app_mode)
@@ -1065,22 +1061,18 @@ def deploy_voila(
         python,
     )
 
-    extra_kwargs: ExecutorKwargs = {
-        "server": server,
-        "new": new,
-        "app_id": app_id,
-        "title": title,
-        "disable_env_management": disable_env_management,
-        "env_vars": env_vars,
-    }
-
     ce = RSConnectExecutor(
         ctx=ctx,
         name=name,
         api_key=api_key,
         insecure=insecure,
         cacert=cacert,
-        extra_kwargs=extra_kwargs,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=title,
+        disable_env_management=disable_env_management,
+        env_vars=env_vars,
     )
 
     ce.validate_server().validate_app_mode(app_mode=app_mode)
@@ -1145,16 +1137,6 @@ def deploy_manifest(
     app_mode = read_manifest_app_mode(file_name)
     title = title or default_title_from_manifest(file)
 
-    extra_kwargs: ExecutorKwargs = {
-        "path": file_name,
-        "server": server,
-        "new": new,
-        "app_id": app_id,
-        "title": title,
-        "visibility": visibility,
-        "env_vars": env_vars,
-    }
-
     ce = RSConnectExecutor(
         ctx=ctx,
         name=name,
@@ -1164,7 +1146,13 @@ def deploy_manifest(
         account=account,
         token=token,
         secret=secret,
-        extra_kwargs=extra_kwargs,
+        path=file_name,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=title,
+        visibility=visibility,
+        env_vars=env_vars,
     )
     (
         ce.validate_server()
@@ -1289,24 +1277,20 @@ def deploy_quarto(
             if force_generate:
                 _warn_on_ignored_requirements(base_dir, environment.filename)
 
-    extra_kwargs: ExecutorKwargs = {
-        "path": file_or_directory,
-        "server": server,
-        "exclude": exclude,
-        "new": new,
-        "app_id": app_id,
-        "title": title,
-        "disable_env_management": disable_env_management,
-        "env_vars": env_vars,
-    }
-
     ce = RSConnectExecutor(
         ctx=ctx,
         name=name,
         api_key=api_key,
         insecure=insecure,
         cacert=cacert,
-        extra_kwargs=extra_kwargs,
+        path=file_or_directory,
+        server=server,
+        exclude=exclude,
+        new=new,
+        app_id=app_id,
+        title=title,
+        disable_env_management=disable_env_management,
+        env_vars=env_vars,
     )
     (
         ce.validate_server()
@@ -1389,15 +1373,6 @@ def deploy_html(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
 
-    extra_kwargs: ExecutorKwargs = {
-        "server": server,
-        "exclude": exclude,
-        "new": new,
-        "app_id": app_id,
-        "title": title,
-        "env_vars": env_vars,
-    }
-
     if connect_server:
         ce = RSConnectExecutor.fromConnectServer(
             connect_server,
@@ -1405,7 +1380,12 @@ def deploy_html(
             account=account,
             token=token,
             secret=secret,
-            extra_kwargs=extra_kwargs,
+            server=server,
+            exclude=exclude,
+            new=new,
+            app_id=app_id,
+            title=title,
+            env_vars=env_vars,
         )
     else:
         ce = RSConnectExecutor(
@@ -1417,7 +1397,12 @@ def deploy_html(
             account=account,
             token=token,
             secret=secret,
-            extra_kwargs=extra_kwargs,
+            server=server,
+            exclude=exclude,
+            new=new,
+            app_id=app_id,
+            title=title,
+            env_vars=env_vars,
         )
 
     (
@@ -1541,18 +1526,6 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             if is_express_app(entrypoint + ".py", directory):
                 entrypoint = "shiny.express.app:" + escape_to_var_name(entrypoint + ".py")
 
-        extra_kwargs: ExecutorKwargs = {
-            "path": directory,
-            "server": server,
-            "exclude": exclude,
-            "new": new,
-            "app_id": app_id,
-            "title": title,
-            "visibility": visibility,
-            "disable_env_management": disable_env_management,
-            "env_vars": env_vars,
-        }
-
         ce = RSConnectExecutor(
             ctx=ctx,
             name=name,
@@ -1562,7 +1535,15 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             account=account,
             token=token,
             secret=secret,
-            extra_kwargs=extra_kwargs,
+            path=directory,
+            server=server,
+            exclude=exclude,
+            new=new,
+            app_id=app_id,
+            title=title,
+            visibility=visibility,
+            disable_env_management=disable_env_management,
+            env_vars=env_vars,
         )
 
         if isinstance(ce.client, RSConnectClient):

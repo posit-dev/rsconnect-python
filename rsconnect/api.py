@@ -553,46 +553,6 @@ class ServerDetails(TypedDict):
     python: ServerDetailsPython
 
 
-class ExecutorKwargs(TypedDict):
-    """
-    This describes possible kwargs that can be passed to the RSConnectExecutor.
-    """
-
-    path: NotRequired[str]
-    server: NotRequired[str | None]
-    exclude: NotRequired[tuple[str, ...]]
-    new: NotRequired[bool]
-    app_id: NotRequired[str | None]
-    title: NotRequired[str | None]
-    visibility: NotRequired[str | None]
-    disable_env_management: NotRequired[bool | None]
-    env_vars: NotRequired[dict[str, str]]
-
-
-class ExecutorState(ExecutorKwargs, TypedDict):
-    """
-    This describes some internal state variables for the RSConnectExecutor. It inherits
-    fields ExecutorKwargs and adds more fields.
-    """
-
-    # TODO:
-    # - Should these two things be merged into one type? Or maybe they should be kept
-    #   completely separate?
-    # - It may be better to replace all these uses `NotRequired` with `| None`, and
-    #   then in the code below, use ["key"] instead of .get("key").
-
-    app_mode: NotRequired[AppMode]
-    app_store: NotRequired[AppStore]
-    app_store_version: NotRequired[int]
-    api_key_is_required: NotRequired[bool]
-    title_is_default: NotRequired[bool]
-    deployment_name: NotRequired[str]
-    bundle: NotRequired[IO[bytes]]
-    deployed_info: NotRequired[RSConnectClientDeployResult]
-    result: NotRequired[DeleteOutputDTO]
-    task_status: NotRequired[TaskStatusV0]
-
-
 class RSConnectExecutor:
     def __init__(
         self,
@@ -609,19 +569,46 @@ class RSConnectExecutor:
         secret: Optional[str] = None,
         timeout: int = 30,
         logger: Optional[logging.Logger] = console_logger,
-        extra_kwargs: ExecutorKwargs | None = None,
+        *,
+        path: Optional[str] = None,
+        server: Optional[str] = None,
+        exclude: Optional[tuple[str, ...]] = None,
+        new: Optional[bool] = None,
+        app_id: Optional[str] = None,
+        title: Optional[str] = None,
+        visibility: Optional[str] = None,
+        disable_env_management: Optional[bool] = None,
+        env_vars: Optional[dict[str, str]] = None,
     ) -> None:
         self.remote_server: TargetableServer
         self.client: RSConnectClient | PositClient
-        if extra_kwargs is None:
-            extra_kwargs = {}
-        self.state: ExecutorState = {**extra_kwargs}
+
+        self.path = path
+        self.server = server
+        self.exclude = exclude
+        self.new = new
+        self.app_id = app_id
+        self.title = title
+        self.visibility = visibility
+        self.disable_env_management = disable_env_management
+        self.env_vars = env_vars
+        self.app_mode: AppMode | None = None
+        self.app_store: AppStore | None = None
+        self.app_store_version: int | None = None
+        self.api_key_is_required: bool | None = None
+        self.title_is_default: bool | None = None
+        self.deployment_name: str | None = None
+        self.bundle: IO[bytes] | None = None
+        self.deployed_info: RSConnectClientDeployResult | None = None
+        self.result: DeleteOutputDTO | None = None
+        self.task_status: TaskStatusV0 | None = None
+
         self.logger: logging.Logger | None = logger
         self.ctx = ctx
         self.setup_remote_server(
             ctx=ctx,
             name=name,
-            url=url or extra_kwargs.get("server"),
+            url=url or server,
             api_key=api_key,
             insecure=insecure,
             cacert=cacert,
@@ -643,7 +630,16 @@ class RSConnectExecutor:
         secret: Optional[str] = None,
         timeout: int = 30,
         logger: Optional[logging.Logger] = console_logger,
-        extra_kwargs: ExecutorKwargs | None = None,
+        *,
+        path: Optional[str] = None,
+        server: Optional[str] = None,
+        exclude: Optional[tuple[str, ...]] = None,
+        new: Optional[bool] = None,
+        app_id: Optional[str] = None,
+        title: Optional[str] = None,
+        visibility: Optional[str] = None,
+        disable_env_management: Optional[bool] = None,
+        env_vars: Optional[dict[str, str]] = None,
     ):
         return cls(
             ctx=ctx,
@@ -657,7 +653,15 @@ class RSConnectExecutor:
             secret=secret,
             timeout=timeout,
             logger=logger,
-            extra_kwargs=extra_kwargs,
+            path=path,
+            server=server,
+            exclude=exclude,
+            new=new,
+            app_id=app_id,
+            title=title,
+            visibility=visibility,
+            disable_env_management=disable_env_management,
+            env_vars=env_vars,
         )
 
     def output_overlap_header(self, previous: bool) -> bool:
@@ -814,7 +818,7 @@ class RSConnectExecutor:
         api_key = api_key or self.remote_server.api_key
         # TODO: Are these falsy checks safe for these boolean values?
         insecure = insecure or self.remote_server.insecure
-        api_key_is_required = api_key_is_required or self.state.get("api_key_is_required")
+        api_key_is_required = api_key_is_required or self.api_key_is_required
 
         ca_data = None
         if cacert:
@@ -824,7 +828,7 @@ class RSConnectExecutor:
         if not ca_data:
             ca_data = self.remote_server.ca_data
 
-        api_key_is_required = api_key_is_required or self.state.get("api_key_is_required")
+        api_key_is_required = api_key_is_required or self.api_key_is_required
 
         if name and url:
             raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both")
@@ -895,19 +899,18 @@ class RSConnectExecutor:
         # env_management_r: Optional[bool] = None,
         # multi_notebook: Optional[bool] = None,
     ):
-        path = self.state.get("path")
-        app_id = self.state.get("app_id")
-        title = self.state.get("title")
-        app_store = self.state.get("app_store")
+        path = self.path
+        app_id = self.app_id
+        title = self.title
+        app_store = self.app_store
         if not app_store:
             module_file = fake_module_file_from_directory(path)
-            self.state["app_store"] = app_store = AppStore(module_file)
+            self.app_store = app_store = AppStore(module_file)
 
-        d = self.state
-        d["title_is_default"] = not bool(title)
-        d["title"] = title or _default_title(path)
+        self.title_is_default = not bool(title)
+        self.title = title or _default_title(path)
         force_unique_name = app_id is None
-        d["deployment_name"] = self.make_deployment_name(d["title"], force_unique_name)
+        self.deployment_name = self.make_deployment_name(self.title, force_unique_name)
 
         try:
             bundle = func(*args, **kwargs)
@@ -918,7 +921,7 @@ class RSConnectExecutor:
             )
             raise RSConnectException(msg)
 
-        d["bundle"] = bundle
+        self.bundle = bundle
 
         return self
 
@@ -946,15 +949,15 @@ class RSConnectExecutor:
         app_mode: Optional[AppMode] = None,
         visibility: Optional[str] = None,
     ):
-        app_id = app_id or self.state.get("app_id")
-        deployment_name = deployment_name or self.state.get("deployment_name")
-        title = title or self.state.get("title")
+        app_id = app_id or self.app_id
+        deployment_name = deployment_name or self.deployment_name
+        title = title or self.title
         # TODO: Is the falsy check safe for this boolean value?
-        title_is_default = title_is_default or self.state.get("title_is_default")
-        bundle = bundle or self.state.get("bundle")
-        env_vars = env_vars or self.state.get("env_vars")
-        app_mode = app_mode or self.state.get("app_mode")
-        visibility = visibility or self.state.get("visibility")
+        title_is_default = title_is_default or self.title_is_default
+        bundle = bundle or self.bundle
+        env_vars = env_vars or self.env_vars
+        app_mode = app_mode or self.app_mode
+        visibility = visibility or self.visibility
 
         if isinstance(self.remote_server, RSConnectServer):
             if not isinstance(self.client, RSConnectClient):
@@ -967,7 +970,7 @@ class RSConnectExecutor:
                 bundle,
                 env_vars,
             )
-            self.state["deployed_info"] = result
+            self.deployed_info = result
             return self
         else:
             contents = bundle.read()
@@ -990,7 +993,7 @@ class RSConnectExecutor:
                 shinyapps_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
             else:
                 cloud_service = CloudService(self.client, self.remote_server, os.getenv("LUCID_APPLICATION_ID"))
-                app_store_version = self.state.get("app_store_version")
+                app_store_version = self.app_store_version
                 prepare_deploy_result = cloud_service.prepare_deploy(
                     app_id, deployment_name, bundle_size, bundle_hash, app_mode, app_store_version
                 )
@@ -1000,7 +1003,7 @@ class RSConnectExecutor:
             print("Application successfully deployed to {}".format(prepare_deploy_result.app_url))
             webbrowser.open_new(prepare_deploy_result.app_url)
 
-            self.state["deployed_info"] = {
+            self.deployed_info = {
                 "app_url": prepare_deploy_result.app_url,
                 "app_id": prepare_deploy_result.app_id,
                 "app_guid": None,
@@ -1036,8 +1039,8 @@ class RSConnectExecutor:
             if not isinstance(self.client, RSConnectClient):
                 raise RSConnectException("To emit task log, client must be a RSConnectClient.")
 
-            app_id = app_id or self.state["deployed_info"]["app_id"]
-            task_id = task_id or self.state["deployed_info"]["task_id"]
+            app_id = app_id or self.deployed_info["app_id"]
+            task_id = task_id or self.deployed_info["task_id"]
             log_lines, _ = self.client.wait_for_task(
                 task_id, log_callback.info, abort_func, timeout, poll_wait, raise_on_error
             )
@@ -1047,15 +1050,15 @@ class RSConnectExecutor:
             app_dashboard_url = app_config.get("config_url")
             log_callback.info("Deployment completed successfully.")
             log_callback.info("\t Dashboard content URL: %s", app_dashboard_url)
-            log_callback.info("\t Direct content URL: %s", self.state["deployed_info"]["app_url"])
+            log_callback.info("\t Direct content URL: %s", self.deployed_info["app_url"])
 
         return self
 
     @cls_logged("Saving deployed information...")
     def save_deployed_info(self):
-        app_store = self.state.get("app_store")
-        path = self.state.get("path")
-        deployed_info = self.state.get("deployed_info")
+        app_store = self.app_store
+        path = self.path
+        deployed_info = self.deployed_info
 
         app_store.set(
             self.remote_server.url,
@@ -1064,7 +1067,7 @@ class RSConnectExecutor:
             deployed_info["app_id"],
             deployed_info["app_guid"],
             deployed_info["title"],
-            self.state["app_mode"],
+            self.app_mode,
         )
 
         return self
@@ -1074,20 +1077,20 @@ class RSConnectExecutor:
         if isinstance(self.remote_server, RSConnectServer):
             if not isinstance(self.client, RSConnectClient):
                 raise RSConnectException("To verify deployment, client must be a RSConnectClient.")
-            deployed_info = self.state.get("deployed_info")
+            deployed_info = self.deployed_info
             app_guid = deployed_info["app_guid"]
             self.client.app_access(app_guid)
 
     @cls_logged("Validating app mode...")
     def validate_app_mode(self, app_mode: AppMode):
-        path = self.state.get("path")
-        app_store = self.state.get("app_store")
+        path = self.path
+        app_store = self.app_store
         if not app_store:
             module_file = fake_module_file_from_directory(path)
-            self.state["app_store"] = app_store = AppStore(module_file)
-        new = self.state.get("new")
-        app_id = self.state.get("app_id")
-        app_mode = app_mode or self.state.get("app_mode")
+            self.app_store = app_store = AppStore(module_file)
+        new = self.new
+        app_id = self.app_id
+        app_mode = app_mode or self.app_mode
 
         if new and app_id:
             raise RSConnectException("Specify either a new deploy or an app ID but not both.")
@@ -1101,7 +1104,7 @@ class RSConnectExecutor:
                 app_id, existing_app_mode, app_store_version = app_store.resolve(
                     self.remote_server.url, app_id, app_mode
                 )
-                self.state["app_store_version"] = app_store_version
+                self.app_store_version = app_store_version
 
                 logger.debug("Using app mode from app %s: %s" % (app_id, app_mode))
             elif app_id is not None:
@@ -1113,7 +1116,7 @@ class RSConnectExecutor:
                         # TODO: verify that this is correct. The previous code seemed
                         # incorrect. It passed an arg to app.get(), which would have
                         # been ignored.
-                        existing_app_mode = AppModes.get_by_ordinal(app.state.get("app_mode"), True)
+                        existing_app_mode = AppModes.get_by_ordinal(app.app_mode, True)
                     except RSConnectException as e:
                         raise RSConnectException(
                             f"{e} Try setting the --new flag to overwrite the previous deployment."
@@ -1136,9 +1139,9 @@ class RSConnectExecutor:
                 ) % (app_mode.desc(), existing_app_mode.desc())
                 raise RSConnectException(msg)
 
-        self.state["app_id"] = app_id
-        self.state["app_mode"] = app_mode
-        self.state["app_store_version"] = app_store_version
+        self.app_id = app_id
+        self.app_mode = app_mode
+        self.app_store_version = app_store_version
         return self
 
     def server_settings(self):
@@ -1257,12 +1260,12 @@ class RSConnectExecutor:
             "dry_run": dry_run,
         }
         result = self.client.system_caches_runtime_delete(target)
-        self.state["result"] = result
+        self.result = result
         if result["task_id"] is None:
             print("Dry run finished")
         else:
             (_, task_status) = self.client.wait_for_task(result["task_id"], connect_logger.info, raise_on_error=False)
-            self.state["task_status"] = task_status
+            self.task_status = task_status
         return self
 
 
