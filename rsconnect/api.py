@@ -770,8 +770,6 @@ class RSConnectExecutor:
     @cls_logged("Validating server...")
     def validate_server(
         self,
-        # TODO: In practice, these arguments are not used. Should they be removed?
-        # And same for the downstream functions that are called from this function.
         name: Optional[str] = None,
         url: Optional[str] = None,
         api_key: Optional[str] = None,
@@ -782,6 +780,18 @@ class RSConnectExecutor:
         token: Optional[str] = None,
         secret: Optional[str] = None,
     ):
+        """
+        Validate that the user gave us enough information to talk to shinyapps.io or a Connect server.
+        :param name: the nickname, if any, specified by the user.
+        :param url: the URL, if any, specified by the user.
+        :param api_key: the API key, if any, specified by the user.
+        :param insecure: a flag noting whether TLS host/validation should be skipped.
+        :param cacert: the file path of a CA certs file containing certificates to use.
+        :param api_key_is_required: a flag that notes whether the API key is required or may
+        be omitted.
+        :param token: The shinyapps.io authentication token.
+        :param secret: The shinyapps.io authentication secret.
+        """
         if (url and api_key) or isinstance(self.remote_server, RSConnectServer):
             self.validate_connect_server(name, url, api_key, insecure, cacert, api_key_is_required)
         elif (url and token and secret) or isinstance(self.remote_server, PositServer):
@@ -800,18 +810,6 @@ class RSConnectExecutor:
         cacert: Optional[str] = None,
         api_key_is_required: bool = False,
     ):
-        """
-        Validate that the user gave us enough information to talk to shinyapps.io or a Connect server.
-        :param name: the nickname, if any, specified by the user.
-        :param url: the URL, if any, specified by the user.
-        :param api_key: the API key, if any, specified by the user.
-        :param insecure: a flag noting whether TLS host/validation should be skipped.
-        :param cacert: the file path of a CA certs file containing certificates to use.
-        :param api_key_is_required: a flag that notes whether the API key is required or may
-        be omitted.
-        :param token: The shinyapps.io authentication token.
-        :param secret: The shinyapps.io authentication secret.
-        """
         if not isinstance(self.remote_server, RSConnectServer):
             raise RSConnectException("remote_server must be a Connect server.")
         url = url or self.remote_server.url
@@ -851,7 +849,7 @@ class RSConnectExecutor:
 
         # If our info came from the command line, make sure the key really works.
         if not server_data.from_store:
-            _ = self.verify_api_key(connect_server)
+            self.verify_api_key(connect_server)
 
         self.remote_server = connect_server
         self.client = RSConnectClient(self.remote_server)
