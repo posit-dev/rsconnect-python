@@ -312,12 +312,18 @@ def _build_content_item(connect_server: RSConnectServer, content: ContentItemWit
             build_store.update_content_item_last_build_log(guid, None)
             raise
         log_file = build_store.get_build_log(guid, task_id)
+        if log_file is None:
+            raise RSConnectException("Log file not found for content: %s" % guid)
         with open(log_file, "w") as log:
+
+            def write_log(line: str):
+                log.write("%s\n" % line)
+
             _, _, task_status = emit_task_log(
                 connect_server,
                 guid,
                 task_id,
-                log_callback=lambda line: log.write("%s\n" % line),
+                log_callback=write_log,
                 abort_func=build_store.aborted,
                 poll_wait=poll_wait,
                 raise_on_error=False,
