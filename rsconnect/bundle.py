@@ -955,7 +955,7 @@ def make_api_manifest(
 
 def create_html_manifest(
     path: str,
-    entrypoint: str,
+    entrypoint: Optional[str],
     extra_files: Sequence[str],
     excludes: Sequence[str],
     image: Optional[str] = None,
@@ -1025,7 +1025,7 @@ def create_html_manifest(
 
 def make_html_bundle(
     path: str,
-    entrypoint: str,
+    entrypoint: Optional[str],
     extra_files: Sequence[str],
     excludes: Sequence[str],
     image: Optional[str] = None,
@@ -1104,7 +1104,7 @@ def create_file_list(
         file_set.add(path_to_add)
         return sorted(file_set)
 
-    for cur_dir, sub_dirs, files in os.walk(path):
+    for cur_dir, _, files in os.walk(path):
         if Path(cur_dir) in exclude_paths:
             continue
         if any(parent in exclude_paths for parent in Path(cur_dir).parents):
@@ -1146,42 +1146,53 @@ def infer_entrypoint_candidates(path: str, mimetype: str) -> list[str]:
         abs_path = os.path.join(path, file)
         if not isfile(abs_path):
             continue
-        mimetype_filelist[guess_type(file)[0]].append(abs_path)
+        file_type = guess_type(file)[0]
+        if file_type is None:
+            raise RSConnectException(f"Could not determine the mime type of {file}.")
+        mimetype_filelist[file_type].append(abs_path)
         if file in default_mimetype_entrypoints[mimetype]:
             return [abs_path]
     return mimetype_filelist[mimetype] or []
 
 
-def guess_deploy_dir(path: str | Path, entrypoint: str) -> str | None:
+def guess_deploy_dir(path: str | Path, entrypoint: Optional[str]) -> str:
     if path and not exists(path):
         raise RSConnectException(f"Path {path} does not exist.")
     if entrypoint and not exists(entrypoint):
         raise RSConnectException(f"Entrypoint {entrypoint} does not exist.")
-    abs_path = abspath(path) if path else None
+    abs_path = abspath(path)
     abs_entrypoint = abspath(entrypoint) if entrypoint else None
     if not path and not entrypoint:
         raise RSConnectException("No path or entrypoint provided.")
-    deploy_dir = None
+    deploy_dir: str
     if path and isfile(path):
         if not entrypoint:
             deploy_dir = dirname(abs_path)
-        elif isfile(entrypoint) and abs_path != abs_entrypoint:
-            raise RSConnectException("Path and entrypoint need to match if they are both files.")
-        elif isfile(entrypoint) and abs_path == abs_entrypoint:
-            deploy_dir = dirname(abs_path)
+        elif isfile(entrypoint):
+            if abs_path == abs_entrypoint:
+                deploy_dir = dirname(abs_path)
+            else:
+                raise RSConnectException("Path and entrypoint need to match if they are both files.")
         elif isdir(entrypoint):
             raise RSConnectException("Entrypoint cannot be a directory while the path is a file.")
+        else:
+            raise RSConnectException("Entrypoint cannot be a special file.")
+
     elif path and isdir(path):
-        if not entrypoint:
+        if not entrypoint or not abs_entrypoint:
             deploy_dir = abs_path
-        elif entrypoint and isdir(entrypoint):
-            raise RSConnectException("Path and entrypoint cannot both be directories.")
-        elif entrypoint:
+        # elif entrypoint and isdir(entrypoint):
+        #     raise RSConnectException("Path and entrypoint cannot both be directories.")
+        else:
+            if isdir(entrypoint):
+                raise RSConnectException("Path and entrypoint cannot both be directories.")
             guess_entry_file = os.path.join(abs_path, basename(entrypoint))
             if isfile(guess_entry_file):
                 deploy_dir = dirname(guess_entry_file)
             elif isfile(entrypoint):
                 deploy_dir = dirname(abs_entrypoint)
+            else:
+                raise RSConnectException("Can't find entrypoint.")
     elif not path and entrypoint:
         raise RSConnectException("A path needs to be provided.")
     else:
@@ -1548,7 +1559,7 @@ def validate_entry_point(entry_point: str | None, directory: str) -> str:
     return entry_point
 
 
-def _warn_on_ignored_entrypoint(entrypoint: str) -> None:
+def _warn_on_ignored_entrypoint(entrypoint: Optional[str]) -> None:
     if entrypoint:
         click.secho(
             "    Warning: entrypoint will not be used or considered for multi-notebook mode.",
@@ -1831,11 +1842,11 @@ Multi-notebook deployments need to be specified with the following:
 
 def create_voila_manifest(
     path: str,
-    entrypoint: str,
+    entrypoint: Optional[str],
     environment: Environment,
-    app_mode: AppMode = AppModes.JUPYTER_VOILA,
-    extra_files: Sequence[str] = None,
-    excludes: Sequence[str] = None,
+    app_mode: AppMode,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
     force_generate: bool = True,
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
@@ -1919,11 +1930,11 @@ def create_voila_manifest(
 
 def write_voila_manifest_json(
     path: str,
-    entrypoint: str,
+    entrypoint: Optional[str],
     environment: Environment,
-    app_mode: AppMode = AppModes.JUPYTER_VOILA,
-    extra_files: Sequence[str] = None,
-    excludes: Sequence[str] = None,
+    app_mode: AppMode,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
     force_generate: bool = True,
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
