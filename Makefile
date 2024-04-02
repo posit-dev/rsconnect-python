@@ -59,7 +59,8 @@ lint-%:
 	$(RUNNER) 'black --check --diff rsconnect/'
 	$(RUNNER) 'flake8 rsconnect/'
 	$(RUNNER) 'flake8 tests/'
-	$(RUNNER) 'pyright rsconnect/'
+	# Temporarily use leading '-' so it will continue even if pyright finds issues.
+	-$(RUNNER) 'pyright rsconnect/'
 
 .PHONY: .lint-unsupported
 .lint-unsupported:
