@@ -768,72 +768,29 @@ class RSConnectExecutor:
         return func(*args, **kwargs)
 
     @cls_logged("Validating server...")
-    def validate_server(
-        self,
-        name: Optional[str] = None,
-        url: Optional[str] = None,
-        api_key: Optional[str] = None,
-        insecure: bool = False,
-        cacert: Optional[str] = None,
-        api_key_is_required: bool = False,
-        account_name: Optional[str] = None,
-        token: Optional[str] = None,
-        secret: Optional[str] = None,
-    ):
+    def validate_server(self):
         """
-        Validate that the user gave us enough information to talk to shinyapps.io or a Connect server.
-        :param name: the nickname, if any, specified by the user.
-        :param url: the URL, if any, specified by the user.
-        :param api_key: the API key, if any, specified by the user.
-        :param insecure: a flag noting whether TLS host/validation should be skipped.
-        :param cacert: the file path of a CA certs file containing certificates to use.
-        :param api_key_is_required: a flag that notes whether the API key is required or may
-        be omitted.
-        :param token: The shinyapps.io authentication token.
-        :param secret: The shinyapps.io authentication secret.
+        Validate that there is enough information to talk to shinyapps.io or a Connect server.
         """
-        if (url and api_key) or isinstance(self.remote_server, RSConnectServer):
-            self.validate_connect_server(name, url, api_key, insecure, cacert, api_key_is_required)
-        elif (url and token and secret) or isinstance(self.remote_server, PositServer):
-            self.validate_posit_server(url, account_name, token, secret)
+        if isinstance(self.remote_server, RSConnectServer):
+            self.validate_connect_server()
+        elif isinstance(self.remote_server, PositServer):
+            self.validate_posit_server()
         else:
             raise RSConnectException("Unable to validate server from information provided.")
 
         return self
 
-    def validate_connect_server(
-        self,
-        name: Optional[str] = None,
-        url: Optional[str] = None,
-        api_key: Optional[str] = None,
-        insecure: bool = False,
-        cacert: Optional[str] = None,
-        api_key_is_required: bool = False,
-    ):
+    def validate_connect_server(self):
         if not isinstance(self.remote_server, RSConnectServer):
             raise RSConnectException("remote_server must be a Connect server.")
-        url = url or self.remote_server.url
-        api_key = api_key or self.remote_server.api_key
-        # TODO: Are these falsy checks safe for these boolean values?
-        insecure = insecure or self.remote_server.insecure
-        api_key_is_required = api_key_is_required or self.api_key_is_required
+        url = self.remote_server.url
+        api_key = self.remote_server.api_key
+        insecure = self.remote_server.insecure
+        api_key_is_required = self.api_key_is_required
+        ca_data = self.remote_server.ca_data
 
-        ca_data = None
-        if cacert:
-            ca_data = read_certificate_file(cacert)
-        api_key = api_key or self.remote_server.api_key
-        insecure = insecure or self.remote_server.insecure
-        if not ca_data:
-            ca_data = self.remote_server.ca_data
-
-        api_key_is_required = api_key_is_required or self.api_key_is_required
-
-        if name and url:
-            raise RSConnectException("You must specify only one of -n/--name or -s/--server, not both")
-        if not name and not url:
-            raise RSConnectException("You must specify one of -n/--name or -s/--server.")
-
-        server_data = ServerStore().resolve(name, url)
+        server_data = ServerStore().resolve(None, url)
         connect_server = RSConnectServer(url, None, insecure, ca_data)
 
         # If our info came from the command line, make sure the URL really works.
@@ -856,21 +813,15 @@ class RSConnectExecutor:
 
         return self
 
-    def validate_posit_server(
-        self,
-        url: Optional[str] = None,
-        account_name: Optional[str] = None,
-        token: Optional[str] = None,
-        secret: Optional[str] = None,
-    ):
+    def validate_posit_server(self):
         if not isinstance(self.remote_server, PositServer):
             raise RSConnectException("remote_server is not a Posit server.")
 
         remote_server: PositServer = self.remote_server
-        url = url or remote_server.url
-        account_name = account_name or remote_server.account_name
-        token = token or remote_server.token
-        secret = secret or remote_server.secret
+        url = remote_server.url
+        account_name = remote_server.account_name
+        token = remote_server.token
+        secret = remote_server.secret
         server = (
             CloudServer(url, account_name, token, secret)
             if "rstudio.cloud" in url or "posit.cloud" in url
