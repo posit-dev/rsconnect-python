@@ -737,6 +737,7 @@ class RSConnectExecutor:
                 if header_output:
                     self.logger.warning("\n")
 
+            # TODO: Is this logic backward? Seems like the provided value should override the stored value.
             api_key = server_data.api_key or api_key
             insecure = server_data.insecure or insecure
             ca_data = server_data.ca_data or ca_data
