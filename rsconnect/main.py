@@ -560,8 +560,8 @@ def add(
         _test_rstudio_creds(real_server)
 
         server_store.set(
-            name,
-            real_server.url,
+            name=name,
+            url=real_server.url,
             account_name=real_server.account_name,
             token=real_server.token,
             secret=real_server.secret,
@@ -575,11 +575,11 @@ def add(
         real_server_rsc, _ = _test_server_and_api(server, api_key, insecure, cacert)
 
         server_store.set(
-            name,
-            real_server_rsc.url,
-            real_server_rsc.api_key,
-            real_server_rsc.insecure,
-            real_server_rsc.ca_data,
+            name=name,
+            url=real_server_rsc.url,
+            api_key=real_server_rsc.api_key,
+            insecure=real_server_rsc.insecure,
+            ca_data=real_server_rsc.ca_data,
         )
 
         if old_server:

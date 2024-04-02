@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from io import BufferedWriter
 from os.path import abspath, basename, dirname, exists, join
 from threading import Lock
-from typing import TYPE_CHECKING, Callable, Generic, Mapping, Optional, TypeVar
+from typing import TYPE_CHECKING, Callable, Generic, Mapping, Optional, TypeVar, Union
 from urllib.parse import urlparse
 
 # Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
@@ -236,51 +236,34 @@ class DataStore(Generic[T]):
             os.chmod(self._real_path, 0o600)
 
 
-class ServerDataDict(TypedDict):
-    """
-    Server data representation used internally in the ServerStore class.
-    """
-
+class RSConnectServerData(TypedDict):
     name: str
     url: str
-    api_key: NotRequired[str]
-    insecure: NotRequired[bool]
-    ca_cert: NotRequired[str]
-    account_name: NotRequired[str]
-    token: NotRequired[str]
-    secret: NotRequired[str]
+    api_key: str
+    insecure: bool
+    ca_cert: str | None
 
 
-class ServerData:
-    """
-    Server data representation which the ServerStore class provides to external
-    consumers.
-    """
-
-    def __init__(
-        self,
-        name: str,
-        url: str,
-        from_store: bool,
-        api_key: Optional[str] = None,
-        insecure: Optional[bool] = None,
-        ca_data: Optional[str] = None,
-        account_name: Optional[str] = None,
-        token: Optional[str] = None,
-        secret: Optional[str] = None,
-    ):
-        self.name = name
-        self.url = url
-        self.from_store = from_store
-        self.api_key = api_key
-        self.insecure = insecure
-        self.ca_data = ca_data
-        self.account_name = account_name
-        self.token = token
-        self.secret = secret
+class ShinyappsServerData(TypedDict):
+    name: str
+    url: str
+    account_name: str
+    token: str
+    secret: str
 
 
-class ServerStore(DataStore[ServerDataDict]):
+class CloudServerData(TypedDict):
+    name: str
+    url: str
+    account_name: Optional[str]
+    token: str
+    secret: str
+
+
+ServerData = Union[RSConnectServerData, ShinyappsServerData, CloudServerData]
+
+
+class ServerStore(DataStore[ServerData]):
     """Defines a metadata store for server information.
 
     Servers consist of a user-supplied name, URL, and API key.
@@ -320,7 +303,7 @@ class ServerStore(DataStore[ServerDataDict]):
         name: str,
         url: str,
         api_key: Optional[str] = None,
-        insecure: Optional[bool] = False,
+        insecure: bool = False,
         ca_data: Optional[str] = None,
         account_name: Optional[str] = None,
         token: Optional[str] = None,
@@ -338,18 +321,32 @@ class ServerStore(DataStore[ServerDataDict]):
         :param token: shinyapps.io token.
         :param secret: shinyapps.io secret.
         """
-        common_data: ServerDataDict = {
-            "name": name,
-            "url": url,
-        }
         if api_key:
-            target_data = dict(api_key=api_key, insecure=insecure, ca_cert=ca_data)
+            connect_data: RSConnectServerData = {
+                "name": name,
+                "url": url,
+                "api_key": api_key,
+                "insecure": insecure,
+                "ca_cert": ca_data,
+            }
+            self._set(name, connect_data)
         elif account_name:
-            target_data = dict(account_name=account_name, token=token, secret=secret)
+            shinyapps_data: ShinyappsServerData = {
+                "name": name,
+                "url": url,
+                "account_name": account_name,
+                "token": token,
+                "secret": secret,
+            }
+            self._set(name, shinyapps_data)
         else:
-            target_data = dict(token=token, secret=secret)
-
-        self._set(name, {**common_data, **target_data})  # type: ignore
+            cloud_data: CloudServerData = {
+                "name": name,
+                "url": url,
+                "token": token,
+                "secret": secret,
+            }
+            self._set(name, cloud_data)
 
     def remove_by_name(self, name: str):
         """
@@ -367,7 +364,7 @@ class ServerStore(DataStore[ServerDataDict]):
         """
         return self._remove_by_value_attr("name", "url", url)
 
-    def resolve(self, name: Optional[str], url: Optional[str]) -> ServerData:
+    def resolve(self, name: Optional[str], url: Optional[str]) -> ServerData | None:
         """
         This function will resolve the given inputs into a set of server information.
         It assumes that either `name` or `url` is provided.
@@ -401,24 +398,30 @@ class ServerStore(DataStore[ServerDataDict]):
             else:
                 entry = None
 
-        if entry:
-            return ServerData(
-                name,
-                entry["url"],
-                True,
-                insecure=entry.get("insecure"),
-                ca_data=entry.get("ca_cert"),
-                api_key=entry.get("api_key"),
-                account_name=entry.get("account_name"),
-                token=entry.get("token"),
-                secret=entry.get("secret"),
-            )
-        else:
-            return ServerData(
-                name,
-                url,
-                False,
-            )
+        if entry is not None:
+            # Make a copy in case the consumer modifies the data.
+            entry = entry.copy()
+
+        return entry
+
+        # if entry:
+        #     return ServerData(
+        #         name,
+        #         entry["url"],
+        #         True,
+        #         insecure=entry.get("insecure"),
+        #         ca_data=entry.get("ca_cert"),
+        #         api_key=entry.get("api_key"),
+        #         account_name=entry.get("account_name"),
+        #         token=entry.get("token"),
+        #         secret=entry.get("secret"),
+        #     )
+        # else:
+        #     return ServerData(
+        #         name,
+        #         url,
+        #         False,
+        #     )
 
 
 def sha1(s: str):

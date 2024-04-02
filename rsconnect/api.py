@@ -719,13 +719,19 @@ class RSConnectExecutor:
             ca_data = read_certificate_file(cacert)
 
         server_data = ServerStore().resolve(name, url)
-        if server_data.from_store:
-            url = server_data.url
+        if server_data is not None:
+            url = server_data["url"]
             if self.logger:
-                if server_data.api_key and api_key:
-                    header_output = self.output_overlap_details("api-key", header_output)
-                if server_data.insecure and insecure:
-                    header_output = self.output_overlap_details("insecure", header_output)
+                if "api_key" in server_data:
+                    if server_data["api_key"] and api_key:
+                        header_output = self.output_overlap_details("api-key", header_output)
+                    api_key = server_data["api_key"] or api_key
+                if "insecure" in server_data:
+                    if server_data["insecure"] and insecure:
+                        header_output = self.output_overlap_details("insecure", header_output)
+                    insecure = server_data["insecure"] or insecure
+                # if server_data.insecure and insecure:
+                #     header_output = self.output_overlap_details("insecure", header_output)
                 if server_data.ca_data and ca_data:
                     header_output = self.output_overlap_details("cacert", header_output)
                 if server_data.account_name and account_name:
@@ -744,8 +750,6 @@ class RSConnectExecutor:
             account_name = server_data.account_name or account_name
             token = server_data.token or token
             secret = server_data.secret or secret
-
-        self.is_server_from_store = server_data.from_store
 
         if api_key:
             self.remote_server = RSConnectServer(url, api_key, insecure, ca_data)
