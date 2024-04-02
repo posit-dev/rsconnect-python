@@ -583,21 +583,21 @@ class RSConnectExecutor:
         self.remote_server: TargetableServer
         self.client: RSConnectClient | PositClient
 
-        self.path = path
+        self.path = path or os.getcwd()
         self.server = server
         self.exclude = exclude
         self.new = new
         self.app_id = app_id
-        self.title = title
+        self.title = title or _default_title(self.path)
         self.visibility = visibility
         self.disable_env_management = disable_env_management
         self.env_vars = env_vars
         self.app_mode: AppMode | None = None
-        self.app_store: AppStore | None = None
+        self.app_store: AppStore = AppStore(fake_module_file_from_directory(self.path))
         self.app_store_version: int | None = None
         self.api_key_is_required: bool | None = None
-        self.title_is_default: bool | None = None
-        self.deployment_name: str | None = None
+        self.title_is_default: bool = not title
+        self.deployment_name: str = self.make_deployment_name(self.title, self.app_id is None)
         self.bundle: IO[bytes] | None = None
         self.deployed_info: RSConnectClientDeployResult | None = None
         self.result: DeleteOutputDTO | None = None
@@ -847,29 +847,14 @@ class RSConnectExecutor:
         # env_management_r: Optional[bool] = None,
         # multi_notebook: Optional[bool] = None,
     ):
-        path = self.path
-        app_id = self.app_id
-        title = self.title
-        app_store = self.app_store
-        if not app_store:
-            module_file = fake_module_file_from_directory(path)
-            self.app_store = app_store = AppStore(module_file)
-
-        self.title_is_default = not bool(title)
-        self.title = title or _default_title(path)
-        force_unique_name = app_id is None
-        self.deployment_name = self.make_deployment_name(self.title, force_unique_name)
-
         try:
-            bundle = func(*args, **kwargs)
+            self.bundle = func(*args, **kwargs)
         except IOError as error:
             msg = "Unable to include the file %s in the bundle: %s" % (
                 error.filename,
                 error.args[1],
             )
             raise RSConnectException(msg)
-
-        self.bundle = bundle
 
         return self
 
@@ -886,42 +871,25 @@ class RSConnectExecutor:
             upload_result = S3Server(upload_url).handle_bad_response(upload_result)
 
     @cls_logged("Deploying bundle ...")
-    def deploy_bundle(
-        self,
-        app_id: Optional[str] = None,
-        deployment_name: Optional[str] = None,
-        title: Optional[str] = None,
-        title_is_default: bool = False,
-        bundle: Optional[IO[bytes]] = None,
-        env_vars: Optional[dict[str, str]] = None,
-        app_mode: Optional[AppMode] = None,
-        visibility: Optional[str] = None,
-    ):
-        app_id = app_id or self.app_id
-        deployment_name = deployment_name or self.deployment_name
-        title = title or self.title
-        # TODO: Is the falsy check safe for this boolean value?
-        title_is_default = title_is_default or self.title_is_default
-        bundle = bundle or self.bundle
-        env_vars = env_vars or self.env_vars
-        app_mode = app_mode or self.app_mode
-        visibility = visibility or self.visibility
+    def deploy_bundle(self):
+        if self.bundle is None:
+            raise RSConnectException("A bundle must be created before deploying it.")
 
         if isinstance(self.remote_server, RSConnectServer):
             if not isinstance(self.client, RSConnectClient):
                 raise RSConnectException("client must be an RSConnectClient.")
             result = self.client.deploy(
-                app_id,
-                deployment_name,
-                title,
-                title_is_default,
-                bundle,
-                env_vars,
+                self.app_id,
+                self.deployment_name,
+                self.title,
+                self.title_is_default,
+                self.bundle,
+                self.env_vars,
             )
             self.deployed_info = result
             return self
         else:
-            contents = bundle.read()
+            contents = self.bundle.read()
             bundle_size = len(contents)
             bundle_hash = hashlib.md5(contents).hexdigest()
 
@@ -931,11 +899,11 @@ class RSConnectExecutor:
             if isinstance(self.remote_server, ShinyappsServer):
                 shinyapps_service = ShinyappsService(self.client, self.remote_server)
                 prepare_deploy_result = shinyapps_service.prepare_deploy(
-                    app_id,
-                    deployment_name,
+                    self.app_id,
+                    self.deployment_name,
                     bundle_size,
                     bundle_hash,
-                    visibility,
+                    self.visibility,
                 )
                 self.upload_posit_bundle(prepare_deploy_result, bundle_size, contents)
                 shinyapps_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
@@ -943,7 +911,12 @@ class RSConnectExecutor:
                 cloud_service = CloudService(self.client, self.remote_server, os.getenv("LUCID_APPLICATION_ID"))
                 app_store_version = self.app_store_version
                 prepare_deploy_result = cloud_service.prepare_deploy(
-                    app_id, deployment_name, bundle_size, bundle_hash, app_mode, app_store_version
+                    self.app_id,
+                    self.deployment_name,
+                    bundle_size,
+                    bundle_hash,
+                    self.app_mode,
+                    app_store_version,
                 )
                 self.upload_posit_bundle(prepare_deploy_result, bundle_size, contents)
                 cloud_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.application_id)
@@ -955,14 +928,12 @@ class RSConnectExecutor:
                 "app_url": prepare_deploy_result.app_url,
                 "app_id": prepare_deploy_result.app_id,
                 "app_guid": None,
-                "title": title,
+                "title": self.title,
             }
             return self
 
     def emit_task_log(
         self,
-        app_id: Optional[int] = None,
-        task_id: Optional[int] = None,
         log_callback: logging.Logger = connect_logger,
         abort_func: Callable[[], bool] = lambda: False,
         timeout: int = get_task_timeout(),
@@ -987,13 +958,16 @@ class RSConnectExecutor:
             if not isinstance(self.client, RSConnectClient):
                 raise RSConnectException("To emit task log, client must be a RSConnectClient.")
 
-            app_id = app_id or self.deployed_info["app_id"]
-            task_id = task_id or self.deployed_info["task_id"]
             log_lines, _ = self.client.wait_for_task(
-                task_id, log_callback.info, abort_func, timeout, poll_wait, raise_on_error
+                self.deployed_info["task_id"],
+                log_callback.info,
+                abort_func,
+                timeout,
+                poll_wait,
+                raise_on_error,
             )
             log_lines = self.remote_server.handle_bad_response(log_lines)
-            app_config = self.client.app_config(app_id)
+            app_config = self.client.app_config(self.deployed_info["app_id"])
             app_config = self.remote_server.handle_bad_response(app_config)
             app_dashboard_url = app_config.get("config_url")
             log_callback.info("Deployment completed successfully.")
