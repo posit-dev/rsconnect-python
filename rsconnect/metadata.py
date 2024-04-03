@@ -15,7 +15,16 @@ from datetime import datetime, timezone
 from io import BufferedWriter
 from os.path import abspath, basename, dirname, exists, join
 from threading import Lock
-from typing import TYPE_CHECKING, Callable, Generic, Mapping, Optional, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    Generic,
+    Mapping,
+    Optional,
+    TypeVar,
+    Union,
+)
 from urllib.parse import urlparse
 
 # Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
@@ -559,7 +568,8 @@ class ContentBuildStoreData(TypedDict):
     rsconnect_content: dict[str, ContentItemWithBuildState]
 
 
-class ContentBuildStore(DataStore[dict[str, object]]):
+# Capital "D" Dict needed for Python<=3.8. After dropping 3.8 support it can be changed to `dict`.
+class ContentBuildStore(DataStore[Dict[str, object]]):
     """
     Defines a metadata store for information about content builds.
 

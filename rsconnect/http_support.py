@@ -379,7 +379,7 @@ class HTTPServer(object):
                 local_connection = True
 
             # At this point we know that self._conn is not None.
-            conn = cast(http.HTTPConnection | http.HTTPSConnection, self._conn)
+            conn = cast(Union[http.HTTPConnection, http.HTTPSConnection], self._conn)
 
             try:
                 conn.request(method, full_uri, body, headers)
