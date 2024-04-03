@@ -21,6 +21,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    List,
     Literal,
     Optional,
     TypeVar,
@@ -367,7 +368,7 @@ class RSConnectClient(HTTPServer):
         return response
 
     def content_search(self) -> list[ContentItemV1]:
-        response = cast(Union[list[ContentItemV1], HTTPResponse], self.get("v1/content"))
+        response = cast(Union[List[ContentItemV1], HTTPResponse], self.get("v1/content"))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -385,7 +386,7 @@ class RSConnectClient(HTTPServer):
         return response
 
     def system_caches_runtime_list(self) -> list[ListEntryOutputDTO]:
-        response = cast(Union[list[ListEntryOutputDTO], HTTPResponse], self.get("v1/system/caches/runtime"))
+        response = cast(Union[List[ListEntryOutputDTO], HTTPResponse], self.get("v1/system/caches/runtime"))
         response = self._server.handle_bad_response(response)
         return response
 
