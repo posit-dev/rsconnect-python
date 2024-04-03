@@ -39,6 +39,7 @@ from typing import (
     Literal,
     Optional,
     Sequence,
+    Union,
     cast,
 )
 
@@ -1392,7 +1393,7 @@ def make_quarto_manifest(
         excludes = list(excludes or []) + [".quarto"]
 
         project_config = quarto_inspection.get("config", {}).get("project", {})
-        output_dir = cast(str | None, project_config.get("output-dir", None))
+        output_dir = cast(Union[str, None], project_config.get("output-dir", None))
         if output_dir:
             excludes = excludes + [output_dir]
 

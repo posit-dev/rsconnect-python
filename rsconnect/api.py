@@ -24,6 +24,7 @@ from typing import (
     Literal,
     Optional,
     TypeVar,
+    Union,
     cast,
     overload,
 )
@@ -274,47 +275,47 @@ class RSConnectClient(HTTPServer):
         )
 
     def me(self) -> UserRecord:
-        response = cast(UserRecord | HTTPResponse, self.get("me"))
+        response = cast(Union[UserRecord, HTTPResponse], self.get("me"))
         response = self._server.handle_bad_response(response)
         return response
 
     def bootstrap(self) -> BootstrapOutputDTO:
-        response = cast(BootstrapOutputDTO | HTTPResponse, self.post("v1/experimental/bootstrap"))
+        response = cast(Union[BootstrapOutputDTO, HTTPResponse], self.post("v1/experimental/bootstrap"))
         response = self._server.handle_bad_response(response)
         return response
 
     def server_settings(self) -> ServerSettings:
-        response = cast(ServerSettings | HTTPResponse, self.get("server_settings"))
+        response = cast(Union[ServerSettings, HTTPResponse], self.get("server_settings"))
         response = self._server.handle_bad_response(response)
         return response
 
     def python_settings(self) -> PyInfo:
-        response = cast(PyInfo | HTTPResponse, self.get("v1/server_settings/python"))
+        response = cast(Union[PyInfo, HTTPResponse], self.get("v1/server_settings/python"))
         response = self._server.handle_bad_response(response)
         return response
 
     def app_search(self, filters: Optional[dict[str, JsonData]]) -> AppSearchResults:
-        response = cast(AppSearchResults | HTTPResponse, self.get("applications", query_params=filters))
+        response = cast(Union[AppSearchResults, HTTPResponse], self.get("applications", query_params=filters))
         response = self._server.handle_bad_response(response)
         return response
 
     def app_create(self, name: str) -> ContentItemV0:
-        response = cast(ContentItemV0 | HTTPResponse, self.post("applications", body={"name": name}))
+        response = cast(Union[ContentItemV0, HTTPResponse], self.post("applications", body={"name": name}))
         response = self._server.handle_bad_response(response)
         return response
 
     def app_get(self, app_id: str) -> ContentItemV0:
-        response = cast(ContentItemV0 | HTTPResponse, self.get("applications/%s" % app_id))
+        response = cast(Union[ContentItemV0, HTTPResponse], self.get("applications/%s" % app_id))
         response = self._server.handle_bad_response(response)
         return response
 
     def app_upload(self, app_id: str, tarball: typing.IO[bytes]) -> ContentItemV0:
-        response = cast(ContentItemV0 | HTTPResponse, self.post("applications/%s/upload" % app_id, body=tarball))
+        response = cast(Union[ContentItemV0, HTTPResponse], self.post("applications/%s/upload" % app_id, body=tarball))
         response = self._server.handle_bad_response(response)
         return response
 
     def app_update(self, app_id: str, updates: dict[str, str | None]) -> ContentItemV0:
-        response = cast(ContentItemV0 | HTTPResponse, self.post("applications/%s" % app_id, body=updates))
+        response = cast(Union[ContentItemV0, HTTPResponse], self.post("applications/%s" % app_id, body=updates))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -337,7 +338,7 @@ class RSConnectClient(HTTPServer):
         )
 
     def app_config(self, app_id: str) -> ConfigureResult:
-        response = cast(ConfigureResult | HTTPResponse, self.get("applications/%s/config" % app_id))
+        response = cast(Union[ConfigureResult, HTTPResponse], self.get("applications/%s/config" % app_id))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -366,12 +367,12 @@ class RSConnectClient(HTTPServer):
         return response
 
     def content_search(self) -> list[ContentItemV1]:
-        response = cast(list[ContentItemV1] | HTTPResponse, self.get("v1/content"))
+        response = cast(Union[list[ContentItemV1], HTTPResponse], self.get("v1/content"))
         response = self._server.handle_bad_response(response)
         return response
 
     def content_get(self, content_guid: str) -> ContentItemV1:
-        response = cast(ContentItemV1 | HTTPResponse, self.get("v1/content/%s" % content_guid))
+        response = cast(Union[ContentItemV1, HTTPResponse], self.get("v1/content/%s" % content_guid))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -384,12 +385,12 @@ class RSConnectClient(HTTPServer):
         return response
 
     def system_caches_runtime_list(self) -> list[ListEntryOutputDTO]:
-        response = cast(list[ListEntryOutputDTO] | HTTPResponse, self.get("v1/system/caches/runtime"))
+        response = cast(Union[list[ListEntryOutputDTO], HTTPResponse], self.get("v1/system/caches/runtime"))
         response = self._server.handle_bad_response(response)
         return response
 
     def system_caches_runtime_delete(self, target: DeleteInputDTO) -> DeleteOutputDTO:
-        response = cast(DeleteOutputDTO | HTTPResponse, self.delete("v1/system/caches/runtime", body=target))
+        response = cast(Union[DeleteOutputDTO, HTTPResponse], self.delete("v1/system/caches/runtime", body=target))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -397,7 +398,7 @@ class RSConnectClient(HTTPServer):
         params = None
         if first_status is not None:
             params = {"first_status": first_status}
-        response = cast(TaskStatusV0 | HTTPResponse, self.get("tasks/%s" % task_id, query_params=params))
+        response = cast(Union[TaskStatusV0, HTTPResponse], self.get("tasks/%s" % task_id, query_params=params))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -1364,7 +1365,7 @@ class PositClient(HTTPServer):
         }
 
     def get_application(self, application_id: str):
-        response = cast(PositClientApp | HTTPResponse, self.get("/v1/applications/{}".format(application_id)))
+        response = cast(Union[PositClientApp, HTTPResponse], self.get("/v1/applications/{}".format(application_id)))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -1377,7 +1378,7 @@ class PositClient(HTTPServer):
         return response
 
     def get_content(self, content_id: str) -> PositClientCloudOutput:
-        response = cast(PositClientCloudOutput | HTTPResponse, self.get("/v1/content/{}".format(content_id)))
+        response = cast(Union[PositClientCloudOutput, HTTPResponse], self.get("/v1/content/{}".format(content_id)))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -1387,7 +1388,7 @@ class PositClient(HTTPServer):
             "name": application_name,
             "template": "shiny",
         }
-        response = cast(PositClientApp | HTTPResponse, self.post("/v1/applications/", body=application_data))
+        response = cast(Union[PositClientApp, HTTPResponse], self.post("/v1/applications/", body=application_data))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -1402,7 +1403,7 @@ class PositClient(HTTPServer):
         data = {"name": name, "space": space_id, "project": project_id, "application_type": application_type}
         if render_by:
             data["render_by"] = render_by
-        response = cast(PositClientCloudOutput | HTTPResponse, self.post("/v1/outputs/", body=data))
+        response = cast(Union[PositClientCloudOutput, HTTPResponse], self.post("/v1/outputs/", body=data))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -1418,7 +1419,7 @@ class PositClient(HTTPServer):
         return self.patch("/v1/outputs/{}".format(output_id), body=output_data)
 
     def get_accounts(self) -> PositClientAccountSearchResults:
-        response = cast(PositClientAccountSearchResults | HTTPResponse, self.get("/v1/accounts/"))
+        response = cast(Union[PositClientAccountSearchResults, HTTPResponse], self.get("/v1/accounts/"))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -1443,7 +1444,7 @@ class PositClient(HTTPServer):
             "content_length": content_length,
             "checksum": checksum,
         }
-        response = cast(PositClientBundle | HTTPResponse, self.post("/v1/bundles", body=bundle_data))
+        response = cast(Union[PositClientBundle, HTTPResponse], self.post("/v1/bundles", body=bundle_data))
         response = self._server.handle_bad_response(response)
         return response
 
