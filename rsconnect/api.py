@@ -325,7 +325,7 @@ class RSConnectClient(HTTPServer):
 
     def app_deploy(self, app_id: str, bundle_id: Optional[int] = None) -> TaskStatusV0:
         response = cast(
-            TaskStatusV0 | HTTPResponse,
+            Union[TaskStatusV0, HTTPResponse],
             self.post("applications/%s/deploy" % app_id, body={"bundle": bundle_id}),
         )
         response = self._server.handle_bad_response(response)
@@ -378,7 +378,7 @@ class RSConnectClient(HTTPServer):
 
     def content_build(self, content_guid: str, bundle_id: Optional[str] = None) -> BuildOutputDTO:
         response = cast(
-            BuildOutputDTO | HTTPResponse,
+            Union[BuildOutputDTO, HTTPResponse],
             self.post("v1/content/%s/build" % content_guid, body={"bundle_id": bundle_id}),
         )
         response = self._server.handle_bad_response(response)
@@ -1409,7 +1409,7 @@ class PositClient(HTTPServer):
 
     def create_revision(self, content_id: str) -> PositClientCloudOutputRevision:
         response = cast(
-            PositClientCloudOutputRevision | HTTPResponse,
+            Union[PositClientCloudOutputRevision, HTTPResponse],
             self.post("/v1/outputs/{}/revisions".format(content_id), body={}),
         )
         response = self._server.handle_bad_response(response)
@@ -1425,7 +1425,7 @@ class PositClient(HTTPServer):
 
     def _get_applications_like_name_page(self, name: str, offset: int) -> PositClientAppSearchResults:
         response = cast(
-            PositClientAppSearchResults | HTTPResponse,
+            Union[PositClientAppSearchResults, HTTPResponse],
             self.get(
                 "/v1/applications?filter=name:like:{}&offset={}&count=100&use_advanced_filters=true".format(
                     name, offset
@@ -1455,7 +1455,7 @@ class PositClient(HTTPServer):
 
     def deploy_application(self, bundle_id: str, app_id: str) -> PositClientDeployTask:
         response = cast(
-            PositClientDeployTask | HTTPResponse,
+            Union[PositClientDeployTask, HTTPResponse],
             self.post("/v1/applications/{}/deploy".format(app_id), body={"bundle": bundle_id, "rebuild": False}),
         )
         response = self._server.handle_bad_response(response)
@@ -1463,7 +1463,7 @@ class PositClient(HTTPServer):
 
     def get_task(self, task_id: str) -> PositClientDeployTask:
         response = cast(
-            PositClientDeployTask | HTTPResponse,
+            Union[PositClientDeployTask, HTTPResponse],
             self.get("/v1/tasks/{}".format(task_id), query_params={"legacy": "true"}),
         )
         response = self._server.handle_bad_response(response)
@@ -1471,7 +1471,7 @@ class PositClient(HTTPServer):
 
     def get_shinyapps_build_task(self, parent_task_id: str) -> PositClientShinyappsBuildTaskSearchResults:
         response = cast(
-            PositClientShinyappsBuildTaskSearchResults | HTTPResponse,
+            Union[PositClientShinyappsBuildTaskSearchResults, HTTPResponse],
             self.get(
                 "/v1/tasks",
                 query_params={
