@@ -50,7 +50,6 @@ universal = true
 
 [tool.black]
 line-length = 120
-target-version = ['py35']
 
 [tool.coverage.run]
 omit = ["tests/*"]
