@@ -280,9 +280,12 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def bootstrap(self) -> BootstrapOutputDTO:
+    def bootstrap(self) -> BootstrapOutputDTO | HTTPResponse:
         response = cast(Union[BootstrapOutputDTO, HTTPResponse], self.post("v1/experimental/bootstrap"))
-        response = self._server.handle_bad_response(response)
+        # TODO: The place where bootstrap() is called expects a JSON object if the response is successfule, and a
+        # HTTPResponse if it is not; then it handles the error. This is different from the other methods, and probably
+        # should be changed in the future. For this to work, we will _not_ call .handle_bad_response() here at present.
+        # response = self._server.handle_bad_response(response)
         return response
 
     def server_settings(self) -> ServerSettings:
