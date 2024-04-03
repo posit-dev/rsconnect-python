@@ -597,7 +597,8 @@ class RSConnectExecutor:
         self.app_store_version: int | None = None
         self.api_key_is_required: bool | None = None
         self.title_is_default: bool = not title
-        self.deployment_name: str = self.make_deployment_name(self.title, self.app_id is None)
+        self.deployment_name: str | None = None
+
         self.bundle: IO[bytes] | None = None
         self.deployed_info: RSConnectClientDeployResult | None = None
         self.result: DeleteOutputDTO | None = None
@@ -848,6 +849,9 @@ class RSConnectExecutor:
         # env_management_r: Optional[bool] = None,
         # multi_notebook: Optional[bool] = None,
     ):
+        force_unique_name = self.app_id is None
+        self.deployment_name = self.make_deployment_name(self.title, force_unique_name)
+
         try:
             self.bundle = func(*args, **kwargs)
         except IOError as error:
@@ -863,16 +867,21 @@ class RSConnectExecutor:
         upload_url = prepare_deploy_result.presigned_url
         parsed_upload_url = urlparse(upload_url)
         with S3Client("{}://{}".format(parsed_upload_url.scheme, parsed_upload_url.netloc)) as s3_client:
-            upload_result = s3_client.upload(
-                "{}?{}".format(parsed_upload_url.path, parsed_upload_url.query),
-                prepare_deploy_result.presigned_checksum,
-                bundle_size,
-                contents,
+            upload_result = cast(
+                HTTPResponse,
+                s3_client.upload(
+                    "{}?{}".format(parsed_upload_url.path, parsed_upload_url.query),
+                    prepare_deploy_result.presigned_checksum,
+                    bundle_size,
+                    contents,
+                ),
             )
-            upload_result = S3Server(upload_url).handle_bad_response(upload_result)
+            upload_result = S3Server(upload_url).handle_bad_response(upload_result, is_httpresponse=True)
 
     @cls_logged("Deploying bundle ...")
     def deploy_bundle(self):
+        if self.deployment_name is None:
+            raise RSConnectException("A deployment name must be created before deploying a bundle.")
         if self.bundle is None:
             raise RSConnectException("A bundle must be created before deploying it.")
 
@@ -1359,9 +1368,12 @@ class PositClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def update_application_property(self, application_id: int, property: str, value: str):
-        response = self.put("/v1/applications/{}/properties/{}".format(application_id, property), body={"value": value})
-        response = self._server.handle_bad_response(response)
+    def update_application_property(self, application_id: int, property: str, value: str) -> HTTPResponse:
+        response = cast(
+            HTTPResponse,
+            self.put("/v1/applications/{}/properties/{}".format(application_id, property), body={"value": value}),
+        )
+        response = self._server.handle_bad_response(response, is_httpresponse=True)
         return response
 
     def get_content(self, content_id: str) -> PositClientCloudOutput:
@@ -1553,16 +1565,11 @@ class ShinyappsService:
 
         if app_id is None:
             application = self._posit_client.create_application(account["id"], app_name)
-            application = self._server.handle_bad_response(application)
             if visibility is not None:
-                property_update = self._posit_client.update_application_property(
-                    application["id"], "application.visibility", visibility
-                )
-                property_update = self._server.handle_bad_response(property_update)
+                self._posit_client.update_application_property(application["id"], "application.visibility", visibility)
 
         else:
             application = self._posit_client.get_application(app_id)
-            application = self._server.handle_bad_response(application)
 
             if visibility is not None:
                 if visibility != application["deployment"]["properties"]["application.visibility"]:
@@ -1574,7 +1581,6 @@ class ShinyappsService:
         app_url = application["url"]
 
         bundle = self._posit_client.create_bundle(app_id_int, "application/x-tar", bundle_size, bundle_hash)
-        bundle = self._server.handle_bad_response(bundle)
 
         return PrepareDeployResult(
             app_id_int,

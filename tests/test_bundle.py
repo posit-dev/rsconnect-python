@@ -1,49 +1,49 @@
 # -*- coding: utf-8 -*-
 import json
 import os
-import pytest
 import subprocess
 import sys
 import tarfile
 import tempfile
+from os.path import abspath, basename, dirname, join
 from pathlib import Path
+from unittest import TestCase, mock
 
-from os.path import dirname, join, basename, abspath
-from unittest import mock, TestCase
+import pytest
 
 import rsconnect.bundle
 from rsconnect.bundle import (
+    Manifest,
     _default_title,
     _default_title_from_manifest,
-    _validate_title,
     create_html_manifest,
     create_python_environment,
+    create_voila_manifest,
     get_python_env_info,
+    guess_deploy_dir,
     inspect_environment,
+    keep_manifest_specified_file,
     list_files,
     make_api_bundle,
     make_api_manifest,
     make_html_bundle,
+    make_html_manifest,
     make_manifest_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
+    make_quarto_manifest,
     make_quarto_source_bundle,
-    keep_manifest_specified_file,
+    make_source_manifest,
     make_voila_bundle,
     to_bytes,
-    make_source_manifest,
-    make_quarto_manifest,
-    make_html_manifest,
     validate_entry_point,
     validate_extra_files,
     which_python,
-    guess_deploy_dir,
-    Manifest,
-    create_voila_manifest,
 )
-from rsconnect.environment import MakeEnvironment, detect_environment, Environment
+from rsconnect.environment import Environment, MakeEnvironment, detect_environment
 from rsconnect.exception import RSConnectException
 from rsconnect.models import AppModes
+
 from .utils import get_dir, get_manifest_path
 
 
@@ -636,6 +636,7 @@ class TestBundle(TestCase):
                         "appmode": "static",
                         "primary_html": "dummy.html",
                     },
+                    "files": {},
                 },
             )
         finally:
@@ -1065,6 +1066,7 @@ class TestBundle(TestCase):
                     "appmode": "static",
                     "primary_html": "abc.html",
                 },
+                "files": {},
             },
         )
 
@@ -1082,6 +1084,7 @@ class TestBundle(TestCase):
                 "environment": {
                     "image": "rstudio/connect:bionic",
                 },
+                "files": {},
             },
         )
 
@@ -1101,6 +1104,7 @@ class TestBundle(TestCase):
                         "python": False,
                     }
                 },
+                "files": {},
             },
         )
 
@@ -1120,6 +1124,7 @@ class TestBundle(TestCase):
                         "r": False,
                     }
                 },
+                "files": {},
             },
         )
 
@@ -1143,6 +1148,7 @@ class TestBundle(TestCase):
                         "r": False,
                     },
                 },
+                "files": {},
             },
         )
 
@@ -1162,16 +1168,6 @@ class TestBundle(TestCase):
             validate_extra_files(directory, [join(directory, "index.htm")]),
             ["index.htm"],
         )
-
-    def test_validate_title(self):
-        with self.assertRaises(RSConnectException):
-            _validate_title("12")
-
-        with self.assertRaises(RSConnectException):
-            _validate_title("1" * 1025)
-
-        _validate_title("123")
-        _validate_title("1" * 1024)
 
     def test_validate_entry_point(self):
         # Simple cases
@@ -1249,10 +1245,14 @@ class TestBundle(TestCase):
             False,
             sys.executable,
             MakeEnvironment(
+                contents=None,
                 filename="requirements.txt",
                 locale="en_US.UTF-8",
                 package_manager="pip",
+                pip=None,
+                python=None,
                 source="pip_freeze",
+                error=None,
             ),
             id="basic",
         ),
@@ -1262,10 +1262,14 @@ class TestBundle(TestCase):
             False,
             sys.executable,
             MakeEnvironment(
+                contents=None,
                 filename="requirements.txt",
                 locale="en_US.UTF-8",
                 package_manager="pip",
+                pip=None,
+                python=None,
                 source="pip_freeze",
+                error=None,
             ),
             id="which_python",
         ),
@@ -1274,7 +1278,7 @@ class TestBundle(TestCase):
             "argh.py",
             False,
             "unused",
-            MakeEnvironment(error="Could not even do things"),
+            MakeEnvironment(None, None, None, None, None, None, None, error="Could not even do things"),
             id="exploding",
         ),
     ],
@@ -1354,15 +1358,9 @@ nonexistent_file = os.path.join(cur_dir, "nonexistent.txt")
 class Test_guess_deploy_dir(TestCase):
     def test_guess_deploy_dir(self):
         with self.assertRaises(RSConnectException):
-            guess_deploy_dir(None, None)
-        with self.assertRaises(RSConnectException):
-            guess_deploy_dir(None, bqplot_dir)
-        with self.assertRaises(RSConnectException):
             guess_deploy_dir(bqplot_dir, bqplot_dir)
         with self.assertRaises(RSConnectException):
             guess_deploy_dir(nonexistent_dir, None)
-        with self.assertRaises(RSConnectException):
-            guess_deploy_dir(None, nonexistent_file)
         with self.assertRaises(RSConnectException):
             guess_deploy_dir(nonexistent_dir, nonexistent_file)
         self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_dir, None))
@@ -1448,7 +1446,6 @@ def test_create_voila_manifest_1(path, entrypoint):
                 path,
                 entrypoint,
                 environment,
-                app_mode=AppModes.JUPYTER_VOILA,
                 extra_files=None,
                 excludes=None,
                 force_generate=True,
@@ -1460,7 +1457,6 @@ def test_create_voila_manifest_1(path, entrypoint):
             path,
             entrypoint,
             environment,
-            app_mode=AppModes.JUPYTER_VOILA,
             extra_files=None,
             excludes=None,
             force_generate=True,
@@ -1519,7 +1515,6 @@ def test_create_voila_manifest_2(path, entrypoint):
         path,
         entrypoint,
         environment,
-        app_mode=AppModes.JUPYTER_VOILA,
         extra_files=None,
         excludes=None,
         force_generate=True,
@@ -1568,7 +1563,6 @@ def test_create_voila_manifest_extra():
         dashboard_ipynb,
         None,
         environment,
-        app_mode=AppModes.JUPYTER_VOILA,
         extra_files=[dashboard_extra_ipynb],
         excludes=None,
         force_generate=True,
@@ -1660,7 +1654,6 @@ def test_create_voila_manifest_multi_notebook(path, entrypoint):
                 path,
                 entrypoint,
                 environment,
-                app_mode=AppModes.JUPYTER_VOILA,
                 extra_files=None,
                 excludes=None,
                 force_generate=True,
@@ -1672,7 +1665,6 @@ def test_create_voila_manifest_multi_notebook(path, entrypoint):
             path,
             entrypoint,
             environment,
-            app_mode=AppModes.JUPYTER_VOILA,
             extra_files=None,
             excludes=None,
             force_generate=True,
@@ -2082,6 +2074,8 @@ def test_create_html_manifest():
     manifest = create_html_manifest(
         single_file_index_file,
         None,
+        extra_files=tuple(),
+        excludes=tuple(),
     )
     assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
 
@@ -2101,6 +2095,8 @@ def test_create_html_manifest():
     manifest = create_html_manifest(
         single_file_index_file,
         None,
+        extra_files=tuple(),
+        excludes=tuple(),
         image="rstudio/connect:bionic",
         env_management_py=False,
         env_management_r=False,
@@ -2119,6 +2115,8 @@ def test_create_html_manifest():
     manifest = create_html_manifest(
         single_file_index_file,
         None,
+        extra_files=tuple(),
+        excludes=tuple(),
         image="rstudio/connect:bionic",
         env_management_py=None,
         env_management_r=None,
@@ -2139,6 +2137,8 @@ def test_create_html_manifest():
     manifest = create_html_manifest(
         single_file_index_file,
         None,
+        extra_files=tuple(),
+        excludes=tuple(),
         env_management_py=False,
     )
     assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
@@ -2157,6 +2157,8 @@ def test_create_html_manifest():
     manifest = create_html_manifest(
         single_file_index_file,
         None,
+        extra_files=tuple(),
+        excludes=tuple(),
         env_management_r=False,
     )
     assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
@@ -2174,12 +2176,16 @@ def test_create_html_manifest():
     manifest = create_html_manifest(
         single_file_index_dir,
         None,
+        extra_files=tuple(),
+        excludes=tuple(),
     )
     assert single_file_index_dir_ans == json.loads(manifest.flattened_copy.json)
 
     manifest = create_html_manifest(
         single_file_index_dir,
         single_file_index_file,
+        extra_files=tuple(),
+        excludes=tuple(),
     )
     assert single_file_index_dir_ans == json.loads(manifest.flattened_copy.json)
 
@@ -2192,6 +2198,8 @@ def test_create_html_manifest():
     manifest = create_html_manifest(
         multi_file_index_file,
         None,
+        extra_files=tuple(),
+        excludes=tuple(),
     )
     assert multi_file_index_file_ans == json.loads(manifest.flattened_copy.json)
 
@@ -2207,12 +2215,16 @@ def test_create_html_manifest():
     manifest = create_html_manifest(
         multi_file_index_dir,
         None,
+        extra_files=tuple(),
+        excludes=tuple(),
     )
     assert multi_file_index_dir_ans == json.loads(manifest.flattened_copy.json)
 
     manifest = create_html_manifest(
         multi_file_index_dir,
         multi_file_index_file,
+        extra_files=tuple(),
+        excludes=tuple(),
     )
     assert multi_file_index_dir_ans == json.loads(manifest.flattened_copy.json)
 
@@ -2225,6 +2237,8 @@ def test_create_html_manifest():
     manifest = create_html_manifest(
         multi_file_nonindex_fileb,
         None,
+        extra_files=tuple(),
+        excludes=tuple(),
     )
     assert multi_file_nonindex_file_ans == json.loads(manifest.flattened_copy.json)
 
@@ -2240,6 +2254,8 @@ def test_create_html_manifest():
     manifest = create_html_manifest(
         multi_file_nonindex_dir,
         multi_file_nonindex_fileb,
+        extra_files=tuple(),
+        excludes=tuple(),
     )
     assert multi_file_nonindex_dir_and_file_ans == json.loads(manifest.flattened_copy.json)
 
@@ -2255,6 +2271,7 @@ def test_create_html_manifest():
         multi_file_nonindex_fileb,
         None,
         extra_files=[multi_file_nonindex_filea],
+        excludes=tuple(),
     )
     assert multi_file_nonindex_file_extras_ans == json.loads(manifest.flattened_copy.json)
 
@@ -2271,6 +2288,7 @@ def test_create_html_manifest():
         multi_file_index_dir,
         None,
         extra_files=[multi_file_index_file2],
+        excludes=tuple(),
     )
     assert multi_file_index_dir_extras_ans == json.loads(manifest.flattened_copy.json)
 
@@ -2293,8 +2311,8 @@ def test_make_html_bundle():
     with make_html_bundle(
         single_file_index_file,
         None,
-        None,
-        None,
+        extra_files=tuple(),
+        excludes=tuple(),
     ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
@@ -2315,8 +2333,8 @@ def test_make_html_bundle():
     with make_html_bundle(
         single_file_index_dir,
         None,
-        None,
-        None,
+        extra_files=tuple(),
+        excludes=tuple(),
     ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
@@ -2330,8 +2348,8 @@ def test_make_html_bundle():
     with make_html_bundle(
         single_file_index_dir,
         single_file_index_file,
-        None,
-        None,
+        extra_files=tuple(),
+        excludes=tuple(),
     ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
@@ -2356,8 +2374,8 @@ def test_make_html_bundle():
     with make_html_bundle(
         multi_file_index_file,
         None,
-        None,
-        None,
+        extra_files=tuple(),
+        excludes=tuple(),
     ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
@@ -2377,8 +2395,8 @@ def test_make_html_bundle():
     with make_html_bundle(
         multi_file_index_dir,
         None,
-        None,
-        None,
+        extra_files=tuple(),
+        excludes=tuple(),
     ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
@@ -2391,8 +2409,8 @@ def test_make_html_bundle():
     with make_html_bundle(
         multi_file_index_dir,
         multi_file_index_file,
-        None,
-        None,
+        extra_files=tuple(),
+        excludes=tuple(),
     ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
@@ -2410,8 +2428,8 @@ def test_make_html_bundle():
     with make_html_bundle(
         multi_file_nonindex_fileb,
         None,
-        None,
-        None,
+        extra_files=tuple(),
+        excludes=tuple(),
     ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
@@ -2431,8 +2449,8 @@ def test_make_html_bundle():
     with make_html_bundle(
         multi_file_nonindex_dir,
         multi_file_nonindex_fileb,
-        None,
-        None,
+        extra_files=tuple(),
+        excludes=tuple(),
     ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
@@ -2455,8 +2473,8 @@ def test_make_html_bundle():
     with make_html_bundle(
         multi_file_nonindex_fileb,
         None,
-        [multi_file_nonindex_filea],
-        None,
+        extra_files=[multi_file_nonindex_filea],
+        excludes=tuple(),
     ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [
@@ -2480,8 +2498,8 @@ def test_make_html_bundle():
     with make_html_bundle(
         multi_file_index_dir,
         None,
-        [multi_file_index_file2],
-        None,
+        extra_files=[multi_file_index_file2],
+        excludes=tuple(),
     ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
         names = sorted(tar.getnames())
         assert names == [

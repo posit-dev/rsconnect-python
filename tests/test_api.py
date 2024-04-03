@@ -1,30 +1,26 @@
-from unittest import TestCase
-from unittest.mock import Mock, patch, call
+import io
 import json
+import sys
+from unittest import TestCase
+from unittest.mock import Mock, call, patch
 
 import httpretty
-import sys
-import io
-
 import pytest
 
-from rsconnect.exception import RSConnectException, DeploymentFailedException
-from rsconnect.models import AppModes
-from .utils import (
-    require_api_key,
-    require_connect,
-)
 from rsconnect.api import (
+    CloudServer,
+    CloudService,
+    PositClient,
     RSConnectClient,
     RSConnectExecutor,
     RSConnectServer,
-    _to_server_check_list,
-    CloudService,
-    PositClient,
-    CloudServer,
     ShinyappsServer,
     ShinyappsService,
 )
+from rsconnect.exception import DeploymentFailedException, RSConnectException
+from rsconnect.models import AppModes
+
+from .utils import require_api_key, require_connect
 
 
 class TestAPI(TestCase):
@@ -53,19 +49,6 @@ class TestAPI(TestCase):
 
         self.assertEqual(len(output), 4)
         self.assertEqual(output[3], "line 4")
-
-    def test_to_server_check_list(self):
-        a_list = _to_server_check_list("no-scheme")
-
-        self.assertEqual(a_list, ["https://no-scheme", "http://no-scheme"])
-
-        a_list = _to_server_check_list("//no-scheme")
-
-        self.assertEqual(a_list, ["https://no-scheme", "http://no-scheme"])
-
-        a_list = _to_server_check_list("scheme://no-scheme")
-
-        self.assertEqual(a_list, ["scheme://no-scheme"])
 
     def test_make_deployment_name(self):
         connect_server = require_connect()
@@ -142,7 +125,7 @@ class TestSystemRuntimeCachesAPI(TestCase):
         self.assertEqual(output_lines[0], "Dry run finished")
 
         # Result expectations
-        self.assertDictEqual(mocked_output, ce.extra_kwargs["result"])
+        self.assertDictEqual(mocked_output, ce.result)
 
     # RSConnectExecutor.delete_runtime_cache() wet run returns expected request
     # RSConnectExecutor.delete_runtime_cache() wet run prints expected messages
@@ -192,7 +175,7 @@ class TestSystemRuntimeCachesAPI(TestCase):
         # self.assertEqual(output_lines[0], "Cache deletion finished")
 
         # Result expectations
-        self.assertDictEqual(mocked_task_status, ce.extra_kwargs["task_status"])
+        self.assertDictEqual(mocked_task_status, ce.task_status)
 
     # RSConnectExecutor.delete_runtime_cache() raises the correct error
     @httpretty.activate(verbose=True, allow_net_connect=False)
@@ -215,9 +198,8 @@ class RSConnectClientTestCase(TestCase):
     def test_deploy_existing_application_with_failure(self):
         with patch.object(RSConnectClient, "__init__", lambda _, server, cookies, timeout: None):
             client = RSConnectClient(Mock(), Mock(), Mock())
-            client.app_get = Mock(return_value=Mock())
+            client.app_get = Mock(side_effect=RSConnectException(""))
             client._server = Mock(spec=RSConnectServer)
-            client._server.handle_bad_response = Mock(side_effect=RSConnectException(""))
             app_id = Mock()
             with self.assertRaises(RSConnectException):
                 client.deploy(app_id, app_name=None, app_title=None, title_is_default=None, tarball=None)

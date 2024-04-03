@@ -1,12 +1,17 @@
 import shutil
 import tempfile
-
-from unittest import TestCase
 from os.path import exists, join
+from unittest import TestCase
 
 from rsconnect.api import RSConnectServer
+from rsconnect.exception import RSConnectException
+from rsconnect.metadata import (
+    AppStore,
+    ContentBuildStore,
+    ServerStore,
+    _normalize_server_url,
+)
 from rsconnect.models import BuildStatus
-from rsconnect.metadata import AppStore, ServerStore, ContentBuildStore, _normalize_server_url
 
 
 class TestServerMetadata(TestCase):
@@ -403,8 +408,10 @@ class TestBuildMetadata(TestCase):
 
     def test_get_content_item(self):
         self.assertIsNotNone(self.build_store.get_content_item("015143da-b75f-407c-81b1-99c4a724341e"))
-        self.assertIsNone(self.build_store.get_content_item("not real"))
-        self.assertIsNone(self.build_store.get_content_item(None))
+        with self.assertRaises(RSConnectException):
+            self.build_store.get_content_item("not real")
+        with self.assertRaises(RSConnectException):
+            self.build_store.get_content_item(None)
 
     def test_remove_content_item(self):
         guid = "015143da-b75f-407c-81b1-99c4a724341e"
