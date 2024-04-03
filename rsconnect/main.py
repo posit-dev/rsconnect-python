@@ -695,19 +695,18 @@ def remove(
         if name and server:
             raise RSConnectException("You must specify only one of -n/--name or -s/--server.")
 
-        if not (name or server):
-            raise RSConnectException("You must specify one of -n/--name or -s/--server.")
-
         if name:
             if server_store.remove_by_name(name):
                 message = 'Removed nickname "%s".' % name
             else:
                 raise RSConnectException('Nickname "%s" was not found.' % name)
-        else:  # the user specified -s/--server
+        elif server:
             if server_store.remove_by_url(server):
                 message = 'Removed URL "%s".' % server
             else:
                 raise RSConnectException('URL "%s" was not found.' % server)
+        else:
+            raise RSConnectException("You must specify one of -n/--name or -s/--server.")
 
     if message:
         click.echo(message)
@@ -742,6 +741,8 @@ def _get_names_to_check(file_or_directory: str) -> list[str]:
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 def info(file: str):
     with cli_feedback(""):
+        deployments = []
+        app_store: AppStore | None = None
         for file_name in _get_names_to_check(file):
             app_store = AppStore(file_name)
             deployments = app_store.get_all()
@@ -749,7 +750,7 @@ def info(file: str):
             if len(deployments) > 0:
                 break
 
-        if len(deployments) > 0:
+        if len(deployments) > 0 and app_store is not None:
             click.echo("Loaded deployment information from %s" % abspath(app_store.get_path()))
 
             for deployment in deployments:
@@ -1800,7 +1801,6 @@ def write_manifest_voila(
             path,
             entrypoint,
             environment,
-            AppModes.JUPYTER_VOILA,
             extra_files,
             exclude,
             force_generate,

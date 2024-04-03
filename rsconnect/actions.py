@@ -14,7 +14,7 @@ import sys
 import traceback
 import typing
 from os.path import basename, exists
-from typing import Optional, cast
+from typing import Optional, Sequence, cast
 from warnings import warn
 
 # Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
@@ -267,11 +267,11 @@ def validate_quarto_engines(inspect: QuartoInspectResult):
 
 def create_quarto_deployment_bundle(
     file_or_directory: str,
-    extra_files: list[str],
-    excludes: list[str],
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
     app_mode: AppMode,
     inspect: QuartoInspectResult,
-    environment: Environment,
+    environment: Optional[Environment],
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
