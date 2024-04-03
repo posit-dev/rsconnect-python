@@ -5,8 +5,6 @@ from rsconnect.actions import _verify_server
 from rsconnect.api import RSConnectServer
 from rsconnect.exception import RSConnectException
 
-from .utils import get_api_path, get_dir
-
 
 class TestActions(TestCase):
     @staticmethod
