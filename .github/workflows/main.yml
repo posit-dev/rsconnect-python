@@ -3,6 +3,8 @@ on:
   push:
     branches: [master]
     tags: ['*']
+  schedule:
+  - cron: "0 09 * * *" # Runs 11 AM UTC == 2 AM PDT
   pull_request:
     branches: [master]
   workflow_dispatch:
