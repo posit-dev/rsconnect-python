@@ -174,7 +174,7 @@ jobs:
           python -m pip install -r vetiver-testing/vetiver-requirements.txt
       - name: Run RStudio Connect
         run: |
-          docker-compose up --build -d
+          docker compose up --build -d
           pip freeze > requirements.txt
           make dev
         env:
@@ -182,7 +182,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
       - name: Get logs in case of failure
         run: |
-          docker-compose logs rsconnect
+          docker compose logs rsconnect
         if: ${{ failure() }}
 
       # NOTE: edited to run checks for python package
