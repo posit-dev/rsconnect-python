@@ -59,7 +59,7 @@ jobs:
         - name: Build docker container-image
           run: |
             cd test/connect-rsconnect-python/test/rsconnect-python/
-            docker-compose --profile rsconnect build
+            docker compose --profile rsconnect build
     
         - name: Restore dist
           uses: actions/download-artifact@v3
@@ -85,7 +85,7 @@ jobs:
             docker compose build client-cli
             docker compose up -d connect-cli
             docker compose up -d client-cli
-            docker-compose run --rm client-cli just ../test/connect-rsconnect-python/test/rsconnect-python/_start-dev
+            docker compose run --rm client-cli just ../test/connect-rsconnect-python/test/rsconnect-python/_start-dev
         
         # Videos are captured whether the suite fails or passes
         - name: Save videos

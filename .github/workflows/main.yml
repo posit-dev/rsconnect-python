@@ -3,6 +3,8 @@ on:
   push:
     branches: [master]
     tags: ['*']
+  schedule:
+  - cron: "0 09 * * *" # Runs 11 AM UTC == 2 AM PDT
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -185,7 +187,7 @@ jobs:
           python -m pip install '.[test]'
       - name: Run RStudio Connect
         run: |
-          docker-compose up --build -d
+          docker compose up --build -d
           pip freeze > requirements.txt
           make dev
         env:
@@ -193,7 +195,7 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
       - name: Get logs in case of failure
         run: |
-          docker-compose logs rsconnect
+          docker compose logs rsconnect
         if: ${{ failure() }}
 
       # NOTE: edited to run checks for python package
@@ -282,7 +284,7 @@ jobs:
           - name: Build docker container-image
             run: |
               cd test/connect-rsconnect-python/test/rsconnect-python/
-              docker-compose --profile rsconnect build
+              docker compose --profile rsconnect build
       
           - name: Restore dist
             uses: actions/download-artifact@v3

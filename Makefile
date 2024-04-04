@@ -150,10 +150,10 @@ promote-docs-in-s3:
 RSC_API_KEYS=vetiver-testing/rsconnect_api_keys.json
 
 dev:
-	docker-compose up -d
-	docker-compose exec -T rsconnect bash < vetiver-testing/setup-rsconnect/add-users.sh
+	docker compose up -d
+	docker compose exec -T rsconnect bash < vetiver-testing/setup-rsconnect/add-users.sh
 	python vetiver-testing/setup-rsconnect/dump_api_keys.py $(RSC_API_KEYS)
 
 dev-stop:
-	docker-compose down
+	docker compose down
 	rm -f $(RSC_API_KEYS)
