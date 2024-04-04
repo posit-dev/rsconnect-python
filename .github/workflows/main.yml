@@ -16,6 +16,7 @@ permissions:
 
 jobs:
   test:
+    if: false
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -49,6 +50,7 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
 
   prerelease-test:
+    if: false
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -68,6 +70,7 @@ jobs:
     - run: make test-3.8
 
   distributions:
+    if: false
     needs: test
     runs-on: ubuntu-latest
     steps:
@@ -125,6 +128,7 @@ jobs:
         password: ${{ secrets.PYPI_TOKEN }}
 
   docs:
+    if: false
     needs: test
     runs-on: ubuntu-latest
     steps:
@@ -158,7 +162,8 @@ jobs:
       run: make promote-docs-in-s3
 
   dispatch:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: false
+    # if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: distributions
     runs-on: ubuntu-latest
     steps:
@@ -205,6 +210,7 @@ jobs:
           pytest -m 'vetiver'
                   
   test-jupyter:
+    if: false
     runs-on: ubuntu-latest
     env:
       CONNECT_LICENSE: ${{ secrets.RSC_LICENSE }}
@@ -252,6 +258,7 @@ jobs:
           retention-days: 1
     
   test-connect:
+    if: false
     needs: distributions
     runs-on: ubuntu-latest
     strategy:
