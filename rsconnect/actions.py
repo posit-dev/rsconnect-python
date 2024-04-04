@@ -378,6 +378,35 @@ def deploy_app(
         python,
     )
 
+    # At this point, kwargs has a lot of things, but we can need to prune it down to just the things that
+    # the RSConnectExecutor constructor knows about.
+    executor_params = [
+        "ctx",
+        "name",
+        "url",
+        "api_key",
+        "insecure",
+        "cacert",
+        "ca_data",
+        "cookies",
+        "account",
+        "token",
+        "secret",
+        "timeout",
+        "logger",
+        "path",
+        "server",
+        "exclude",
+        "new",
+        "app_id",
+        "title",
+        "visibility",
+        "disable_env_management",
+        "env_vars",
+    ]
+    shared_keys = set(executor_params).intersection(kwargs.keys())
+    kwargs = {key: kwargs[key] for key in shared_keys}
+
     ce = api.RSConnectExecutor(**kwargs)
     (
         ce.validate_server()
