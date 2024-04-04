@@ -15,35 +15,43 @@ import os
 import re
 import subprocess
 import sys
-from typing import Callable, NamedTuple, Optional
+from dataclasses import asdict, dataclass, replace
+from typing import Callable, Optional
 
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
 exec_dir = os.path.dirname(sys.executable)
 
 
-class Environment(NamedTuple):
-    contents: Optional[str]
-    error: Optional[str]
-    filename: Optional[str]
-    locale: Optional[str]
-    package_manager: Optional[str]
-    pip: Optional[str]
-    python: Optional[str]
-    source: Optional[str]
+@dataclass(frozen=True)
+class Environment:
+    contents: str
+    filename: str
+    locale: str
+    package_manager: str
+    pip: str
+    python: str
+    source: str
+    error: str | None
+
+    def _asdict(self):
+        return asdict(self)
+
+    def _replace(self, **kwargs: object):
+        return replace(self, **kwargs)
 
 
 def MakeEnvironment(
-    contents: Optional[str] = None,
+    contents: str,
+    filename: str,
+    locale: str,
+    package_manager: str,
+    pip: str,
+    python: str,
+    source: str,
     error: Optional[str] = None,
-    filename: Optional[str] = None,
-    locale: Optional[str] = None,
-    package_manager: Optional[str] = None,
-    pip: Optional[str] = None,
-    python: Optional[str] = None,
-    source: Optional[str] = None,
     **kwargs: object,  # provides compatibility where we no longer support some older properties
 ) -> Environment:
-    return Environment(contents, error, filename, locale, package_manager, pip, python, source)
+    return Environment(contents, filename, locale, package_manager, pip, python, source, error)
 
 
 class EnvironmentException(Exception):
@@ -67,14 +75,14 @@ def detect_environment(dirname: str, force_generate: bool = False) -> Environmen
         result = output_file(dirname, "requirements.txt", "pip") or pip_freeze()
 
     if result is not None:
-        result["python"] = get_python_version(MakeEnvironment(**result))
+        result["python"] = get_python_version()
         result["pip"] = get_version("pip")
         result["locale"] = get_default_locale()
 
     return MakeEnvironment(**result)
 
 
-def get_python_version(environment: Environment) -> str:
+def get_python_version() -> str:
     v = sys.version_info
     return "%d.%d.%d" % (v[0], v[1], v[2])
 

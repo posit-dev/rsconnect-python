@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from io import BufferedWriter
 from os.path import abspath, basename, dirname, exists, join
 from threading import Lock
-from typing import TYPE_CHECKING, Callable, Generic, Mapping, Optional, TypeVar
+from typing import TYPE_CHECKING, Callable, Dict, Generic, Mapping, Optional, TypeVar
 from urllib.parse import urlparse
 
 # Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 from .exception import RSConnectException
 from .log import logger
-from .models import AppMode, AppModes, ContentItem
+from .models import AppMode, AppModes, ContentItemV1, TaskStatusV0
 
 T = TypeVar("T", bound=Mapping[str, object])
 
@@ -128,7 +128,7 @@ class DataStore(Generic[T]):
         """
         return self._data.get(key, default)
 
-    def _get_by_value_attr(self, attr: str, value: str) -> T | None:
+    def _get_by_value_attr(self, attr: str, value: T) -> T | None:
         """
         Return a stored value by an attribute of its value.
 
@@ -185,7 +185,7 @@ class DataStore(Generic[T]):
             return True
         return False
 
-    def _remove_by_value_attr(self, key_attr: str, attr: str, value: str):
+    def _remove_by_value_attr(self, key_attr: str, attr: str, value: T) -> bool:
         """
         Remove a stored value by an attribute of its value.
 
@@ -195,9 +195,9 @@ class DataStore(Generic[T]):
         :param value: the value of the attribute to search for.
         :return: True if the associated value was removed.
         """
-        value = self._get_by_value_attr(attr, value)
-        if value:
-            del self._data[value[key_attr]]
+        val = self._get_by_value_attr(attr, value)
+        if val:
+            del self._data[val[key_attr]]
             self.save()
             return True
         return False
@@ -423,9 +423,8 @@ class ServerStore(DataStore[ServerDataDict]):
 
 def sha1(s: str):
     m = hashlib.sha1()
-    if hasattr(s, "encode"):
-        s = s.encode("utf-8")
-    m.update(s)
+    b = s.encode("utf-8")
+    m.update(b)
     return base64.urlsafe_b64encode(m.digest()).decode("utf-8").rstrip("=")
 
 
@@ -545,11 +544,11 @@ class AppStore(DataStore[AppMetadata]):
 DEFAULT_BUILD_DIR = join(os.getcwd(), "rsconnect-build")
 
 
-class ContentItemWithBuildState(ContentItem, TypedDict):
+class ContentItemWithBuildState(ContentItemV1, TypedDict):
     rsconnect_build_status: str
     rsconnect_last_build_time: NotRequired[str]
     rsconnect_last_build_log: NotRequired[str | None]
-    rsconnect_build_task_result: NotRequired[dict[str, str]]
+    rsconnect_build_task_result: NotRequired[TaskStatusV0]
 
 
 class ContentBuildStoreData(TypedDict):
@@ -557,7 +556,8 @@ class ContentBuildStoreData(TypedDict):
     rsconnect_content: dict[str, ContentItemWithBuildState]
 
 
-class ContentBuildStore(DataStore[dict[str, object]]):
+# Python<=3.8 needs `Dict`. After dropping 3.8 support it can be changed to `dict`.
+class ContentBuildStore(DataStore[Dict[str, object]]):
     """
     Defines a metadata store for information about content builds.
 
@@ -647,7 +647,7 @@ class ContentBuildStore(DataStore[dict[str, object]]):
             if not defer_save:
                 self.save()
 
-    def add_content_item(self, content: dict[str, object], defer_save: bool = False) -> None:
+    def add_content_item(self, content: ContentItemV1, defer_save: bool = False) -> None:
         """
         Add an item to the tracked content store
         """
@@ -670,11 +670,14 @@ class ContentBuildStore(DataStore[dict[str, object]]):
             if not defer_save:
                 self.save()
 
-    def get_content_item(self, guid: str) -> ContentItemWithBuildState | None:
+    def get_content_item(self, guid: str) -> ContentItemWithBuildState:
         """
         Get a content item from the tracked content store by guid
         """
-        return self._data.get("rsconnect_content", {}).get(guid)
+        item = self._data.get("rsconnect_content", {}).get(guid)
+        if item is None:
+            raise RSConnectException(f"Content item with guid {guid} not found.")
+        return item
 
     def _cleanup_content_log_dir(self, guid: str) -> None:
         """
@@ -722,7 +725,7 @@ class ContentBuildStore(DataStore[dict[str, object]]):
             if not defer_save:
                 self.save()
 
-    def update_content_item_last_build_log(self, guid: str, log_file: str, defer_save: bool = False) -> None:
+    def update_content_item_last_build_log(self, guid: str, log_file: str | None, defer_save: bool = False) -> None:
         """
         Set the last_build_log filepath for a content build
         """
@@ -732,9 +735,7 @@ class ContentBuildStore(DataStore[dict[str, object]]):
             if not defer_save:
                 self.save()
 
-    def set_content_item_last_build_task_result(
-        self, guid: str, task: dict[str, str], defer_save: bool = False
-    ) -> None:
+    def set_content_item_last_build_task_result(self, guid: str, task: TaskStatusV0, defer_save: bool = False) -> None:
         """
         Set the latest task_result for a content build
         """

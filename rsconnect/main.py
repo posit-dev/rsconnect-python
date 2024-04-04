@@ -8,7 +8,7 @@ import textwrap
 import traceback
 from functools import wraps
 from os.path import abspath, dirname, exists, isdir, join
-from typing import Callable, ItemsView, Literal, Optional, Sequence, TypeVar, cast
+from typing import Callable, ItemsView, Literal, Optional, Sequence, TypeVar
 
 import click
 
@@ -43,7 +43,7 @@ from .actions_content import (
     get_content,
     search_content,
 )
-from .api import RSConnectClient, RSConnectExecutor, RSConnectServer, filter_out_server_info
+from .api import RSConnectClient, RSConnectExecutor, RSConnectServer
 from .bundle import (
     create_python_environment,
     default_title_from_manifest,
@@ -213,14 +213,6 @@ def shinyapps_deploy_args(func: Callable[P, T]) -> Callable[P, T]:
         type=click.Choice(["public", "private"]),
         help="The visibility of the resource being deployed. (shinyapps.io only; must be public (default) or private)",
     )
-    @functools.wraps(func)
-    def wrapper(*args: P.args, **kwargs: P.kwargs):
-        return func(*args, **kwargs)
-
-    return wrapper
-
-
-def _passthrough(func: Callable[P, T]) -> Callable[P, T]:
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
         return func(*args, **kwargs)
@@ -560,7 +552,6 @@ def add(
     old_server = server_store.get_by_name(name)
 
     if token:
-        real_server: api.PositServer  # This annotation seems to be necessary for mypy
         if server and ("rstudio.cloud" in server or "posit.cloud" in server):
             real_server = api.CloudServer(server, account, token, secret)
         else:
@@ -659,7 +650,7 @@ def details(
         return
 
     with cli_feedback("Gathering details"):
-        server_details = ce.server_details
+        server_details = ce.server_details()
 
     connect_version = server_details["connect"]
     apis_allowed = server_details["python"]["api_enabled"]
@@ -704,19 +695,18 @@ def remove(
         if name and server:
             raise RSConnectException("You must specify only one of -n/--name or -s/--server.")
 
-        if not (name or server):
-            raise RSConnectException("You must specify one of -n/--name or -s/--server.")
-
         if name:
             if server_store.remove_by_name(name):
                 message = 'Removed nickname "%s".' % name
             else:
                 raise RSConnectException('Nickname "%s" was not found.' % name)
-        else:  # the user specified -s/--server
+        elif server:
             if server_store.remove_by_url(server):
                 message = 'Removed URL "%s".' % server
             else:
                 raise RSConnectException('URL "%s" was not found.' % server)
+        else:
+            raise RSConnectException("You must specify one of -n/--name or -s/--server.")
 
     if message:
         click.echo(message)
@@ -751,6 +741,8 @@ def _get_names_to_check(file_or_directory: str) -> list[str]:
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 def info(file: str):
     with cli_feedback(""):
+        deployments = []
+        app_store: AppStore | None = None
         for file_name in _get_names_to_check(file):
             app_store = AppStore(file_name)
             deployments = app_store.get_all()
@@ -758,7 +750,7 @@ def info(file: str):
             if len(deployments) > 0:
                 break
 
-        if len(deployments) > 0:
+        if len(deployments) > 0 and app_store is not None:
             click.echo("Loaded deployment information from %s" % abspath(app_store.get_path()))
 
             for deployment in deployments:
@@ -911,7 +903,7 @@ def deploy_notebook(
     force_generate: bool,
     verbose: int,
     file: str,
-    extra_files: Sequence[str],
+    extra_files: tuple[str, ...],
     hide_all_input: bool,
     hide_tagged_input: bool,
     env_vars: dict[str, str],
@@ -921,11 +913,12 @@ def deploy_notebook(
     env_management_r: Optional[bool],
     no_verify: bool = False,
 ):
-    kwargs = locals()
     set_verbosity(verbose)
     output_params(ctx, locals().items())
 
-    kwargs["extra_files"] = extra_files = validate_extra_files(dirname(file), extra_files)
+    # TODO: This used to save a value in kwargs["extra_files"] which would get passed to
+    # the executor and stored there, but it looks like that value was never read.
+    extra_files_list = validate_extra_files(dirname(file), extra_files)
     app_mode = AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC
 
     base_dir = dirname(file)
@@ -937,7 +930,20 @@ def deploy_notebook(
     if force_generate:
         _warn_on_ignored_requirements(base_dir, environment.filename)
 
-    ce = RSConnectExecutor(**kwargs)
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        insecure=insecure,
+        cacert=cacert,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=title,
+        disable_env_management=disable_env_management,
+        env_vars=env_vars,
+    )
+
     ce.validate_server().validate_app_mode(app_mode=app_mode)
     if app_mode == AppModes.STATIC:
         ce.make_bundle(
@@ -955,7 +961,7 @@ def deploy_notebook(
             make_notebook_source_bundle,
             file,
             environment,
-            extra_files,
+            extra_files_list,
             hide_all_input,
             hide_tagged_input,
             image=image,
@@ -1045,9 +1051,8 @@ def deploy_voila(
     cacert: Optional[str],
     multi_notebook: bool,
     no_verify: bool,
-    connect_server: Optional[api.RSConnectServer] = None,
+    connect_server: Optional[api.RSConnectServer] = None,  # TODO: This appears to be unused
 ):
-    kwargs = locals()
     set_verbosity(verbose)
     output_params(ctx, locals().items())
     app_mode = AppModes.JUPYTER_VOILA
@@ -1056,7 +1061,22 @@ def deploy_voila(
         force_generate,
         python,
     )
-    ce = RSConnectExecutor(**kwargs).validate_server().validate_app_mode(app_mode=app_mode)
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        insecure=insecure,
+        cacert=cacert,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=title,
+        disable_env_management=disable_env_management,
+        env_vars=env_vars,
+    )
+
+    ce.validate_server().validate_app_mode(app_mode=app_mode)
     ce.make_bundle(
         make_voila_bundle,
         path,
@@ -1111,15 +1131,30 @@ def deploy_manifest(
     visibility: Optional[str],
     no_verify: bool,
 ):
-    kwargs = locals()
     set_verbosity(verbose)
     output_params(ctx, locals().items())
 
-    file_name = kwargs["file"] = validate_manifest_file(file)
+    file_name = validate_manifest_file(file)
     app_mode = read_manifest_app_mode(file_name)
-    kwargs["title"] = title or default_title_from_manifest(file)
+    title = title or default_title_from_manifest(file)
 
-    ce = RSConnectExecutor(**kwargs)
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        insecure=insecure,
+        cacert=cacert,
+        account=account,
+        token=token,
+        secret=secret,
+        path=file_name,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=title,
+        visibility=visibility,
+        env_vars=env_vars,
+    )
     (
         ce.validate_server()
         .validate_app_mode(app_mode=app_mode)
@@ -1214,7 +1249,6 @@ def deploy_quarto(
     env_management_r: bool,
     no_verify: bool,
 ):
-    kwargs = locals()
     set_verbosity(verbose)
     output_params(ctx, locals().items())
 
@@ -1244,7 +1278,21 @@ def deploy_quarto(
             if force_generate:
                 _warn_on_ignored_requirements(base_dir, environment.filename)
 
-    ce = RSConnectExecutor(**kwargs)
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        insecure=insecure,
+        cacert=cacert,
+        path=file_or_directory,
+        server=server,
+        exclude=exclude,
+        new=new,
+        app_id=app_id,
+        title=title,
+        disable_env_management=disable_env_management,
+        env_vars=env_vars,
+    )
     (
         ce.validate_server()
         .validate_app_mode(app_mode=AppModes.STATIC_QUARTO)
@@ -1323,16 +1371,40 @@ def deploy_html(
     no_verify: bool,
     connect_server: Optional[api.RSConnectServer] = None,
 ):
-    kwargs = locals()
     set_verbosity(verbose)
     output_params(ctx, locals().items())
 
-    ce = None
     if connect_server:
-        kwargs = filter_out_server_info(**kwargs)
-        ce = RSConnectExecutor.fromConnectServer(connect_server, **kwargs)
+        ce = RSConnectExecutor.fromConnectServer(
+            connect_server,
+            ctx=ctx,
+            account=account,
+            token=token,
+            secret=secret,
+            server=server,
+            exclude=exclude,
+            new=new,
+            app_id=app_id,
+            title=title,
+            env_vars=env_vars,
+        )
     else:
-        ce = RSConnectExecutor(**kwargs)
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            api_key=api_key,
+            insecure=insecure,
+            cacert=cacert,
+            account=account,
+            token=token,
+            secret=secret,
+            server=server,
+            exclude=exclude,
+            new=new,
+            app_id=app_id,
+            title=title,
+            env_vars=env_vars,
+        )
 
     (
         ce.validate_server()
@@ -1455,8 +1527,16 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             if is_express_app(entrypoint + ".py", directory):
                 entrypoint = "shiny.express.app:" + escape_to_var_name(entrypoint + ".py")
 
-        extra_args = dict(
-            directory=directory,
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            api_key=api_key,
+            insecure=insecure,
+            cacert=cacert,
+            account=account,
+            token=token,
+            secret=secret,
+            path=directory,
             server=server,
             exclude=exclude,
             new=new,
@@ -1467,25 +1547,13 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             env_vars=env_vars,
         )
 
-        ce = RSConnectExecutor(
-            ctx=ctx,
-            name=name,
-            api_key=api_key,
-            insecure=insecure,
-            cacert=cacert,
-            account=account,
-            token=token,
-            secret=secret,
-            **extra_args,  # type: ignore
-        )
-
         if isinstance(ce.client, RSConnectClient):
             # Update the starlette version if needed. After all users are on Connect
             # 2024.01.1 or later, this can be removed.
             environment = fix_starlette_requirements(
                 environment=environment,
                 app_mode=app_mode,
-                connect_version_string=cast(str, ce.client.server_settings()["version"]),
+                connect_version_string=ce.client.server_settings()["version"],
             )
 
         ce.validate_server()
@@ -1733,7 +1801,6 @@ def write_manifest_voila(
             path,
             entrypoint,
             environment,
-            AppModes.JUPYTER_VOILA,
             extra_files,
             exclude,
             force_generate,

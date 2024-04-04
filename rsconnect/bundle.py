@@ -18,10 +18,30 @@ import typing
 from collections import defaultdict
 from copy import deepcopy
 from mimetypes import guess_type
-from os.path import abspath, basename, dirname, exists, isdir, isfile, join, relpath, splitext
+from os.path import (
+    abspath,
+    basename,
+    dirname,
+    exists,
+    isdir,
+    isfile,
+    join,
+    relpath,
+    splitext,
+)
 from pathlib import Path
 from pprint import pformat
-from typing import TYPE_CHECKING, Callable, Iterator, Literal, Optional, Sequence, cast
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Callable,
+    Iterator,
+    Literal,
+    Optional,
+    Sequence,
+    Union,
+    cast,
+)
 
 # Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
 # they should both come from the same typing module.
@@ -113,7 +133,7 @@ class ManifestData(TypedDict):
 class Manifest:
     def __init__(
         self,
-        *args: object,
+        *,
         version: Optional[int] = None,
         environment: Optional[Environment] = None,
         app_mode: Optional[AppMode] = None,
@@ -125,20 +145,19 @@ class Manifest:
         primary_html: Optional[str] = None,
         metadata: Optional[ManifestDataMetadata] = None,
         files: Optional[dict[str, ManifestDataFile]] = None,
-        **kwargs: object
     ) -> None:
         self.data: ManifestData = cast(ManifestData, {})
         self.buffer: dict[str, str] = {}
-        self._deploy_dir: str | None = None
+        self.deploy_dir: str | None = None
 
         self.data["version"] = version if version else 1
-        if environment:
+        if environment and environment.locale is not None:
             self.data["locale"] = environment.locale
 
         if metadata is None:
             self.data["metadata"] = cast(ManifestDataMetadata, {})
             if app_mode is None:
-                self.data["metadata"]["appmode"] = AppModes.UNKNOWN
+                self.data["metadata"]["appmode"] = AppModes.UNKNOWN.name()
             else:
                 self.data["metadata"]["appmode"] = app_mode.name()
         else:
@@ -186,14 +205,6 @@ class Manifest:
         self.data["files"] = {}
         if files:
             self.data["files"] = files
-
-    @property
-    def deploy_dir(self):
-        return self._deploy_dir
-
-    @deploy_dir.setter
-    def deploy_dir(self, value: str):
-        self._deploy_dir = value
 
     @classmethod
     def from_json(cls, json_str: str):
@@ -306,18 +317,10 @@ class Manifest:
 
 
 class Bundle:
-    def __init__(self, *args: object, **kwargs: object) -> None:
+    def __init__(self) -> None:
         self.file_paths: set[str] = set()
         self.buffer: dict[str, str] = {}
-        self._deploy_dir: str | None = None
-
-    @property
-    def deploy_dir(self) -> str | None:
-        return self._deploy_dir
-
-    @deploy_dir.setter
-    def deploy_dir(self, value: str | None) -> None:
-        self._deploy_dir = value
+        self.deploy_dir: str | None = None
 
     def add_file(self, filepath: str) -> None:
         self.file_paths.add(filepath)
@@ -465,7 +468,7 @@ def buffer_checksum(buf: str | bytes) -> str:
 def to_bytes(s: str | bytes) -> bytes:
     if isinstance(s, bytes):
         return s
-    elif hasattr(s, "encode"):
+    elif isinstance(s, str):
         return s.encode("utf-8")
     logger.warning("can't encode to bytes: %s" % type(s).__name__)
     return s
@@ -589,7 +592,7 @@ def make_notebook_source_bundle(
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
-) -> typing.IO[bytes]:
+) -> IO[bytes]:
     """Create a bundle containing the specified notebook and python environment.
 
     Returns a file-like object containing the bundle tarball.
@@ -640,7 +643,7 @@ def make_quarto_source_bundle(
     file_or_directory: str,
     inspect: QuartoInspectResult,
     app_mode: AppMode,
-    environment: Environment,
+    environment: Optional[Environment],
     extra_files: Sequence[str],
     excludes: Sequence[str],
     image: Optional[str] = None,
@@ -697,6 +700,7 @@ def make_html_manifest(
             "appmode": "static",
             "primary_html": filename,
         },
+        "files": {},
     }
 
     if image or env_management_py is not None or env_management_r is not None:
@@ -952,13 +956,12 @@ def make_api_manifest(
 
 def create_html_manifest(
     path: str,
-    entrypoint: str,
+    entrypoint: Optional[str],
     extra_files: Sequence[str],
     excludes: Sequence[str],
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
-    **kwargs: object
 ) -> Manifest:
     """
     Creates and writes a manifest.json file for the given path.
@@ -1023,7 +1026,7 @@ def create_html_manifest(
 
 def make_html_bundle(
     path: str,
-    entrypoint: str,
+    entrypoint: Optional[str],
     extra_files: Sequence[str],
     excludes: Sequence[str],
     image: Optional[str] = None,
@@ -1047,7 +1050,16 @@ def make_html_bundle(
     :return: a file-like object containing the bundle tarball.
     """
 
-    manifest = create_html_manifest(**locals())
+    manifest = create_html_manifest(
+        path=path,
+        entrypoint=entrypoint,
+        extra_files=extra_files,
+        excludes=excludes,
+        image=image,
+        env_management_py=env_management_py,
+        env_management_r=env_management_r,
+    )
+
     if manifest.data.get("files") is None:
         raise RSConnectException("No valid files were found for the manifest.")
 
@@ -1093,7 +1105,7 @@ def create_file_list(
         file_set.add(path_to_add)
         return sorted(file_set)
 
-    for cur_dir, sub_dirs, files in os.walk(path):
+    for cur_dir, _, files in os.walk(path):
         if Path(cur_dir) in exclude_paths:
             continue
         if any(parent in exclude_paths for parent in Path(cur_dir).parents):
@@ -1135,42 +1147,53 @@ def infer_entrypoint_candidates(path: str, mimetype: str) -> list[str]:
         abs_path = os.path.join(path, file)
         if not isfile(abs_path):
             continue
-        mimetype_filelist[guess_type(file)[0]].append(abs_path)
+        file_type = guess_type(file)[0]
+        if file_type is None:
+            raise RSConnectException(f"Could not determine the mime type of {file}.")
+        mimetype_filelist[file_type].append(abs_path)
         if file in default_mimetype_entrypoints[mimetype]:
             return [abs_path]
     return mimetype_filelist[mimetype] or []
 
 
-def guess_deploy_dir(path: str | Path, entrypoint: str) -> str | None:
+def guess_deploy_dir(path: str | Path, entrypoint: Optional[str]) -> str:
     if path and not exists(path):
         raise RSConnectException(f"Path {path} does not exist.")
     if entrypoint and not exists(entrypoint):
         raise RSConnectException(f"Entrypoint {entrypoint} does not exist.")
-    abs_path = abspath(path) if path else None
+    abs_path = abspath(path)
     abs_entrypoint = abspath(entrypoint) if entrypoint else None
     if not path and not entrypoint:
         raise RSConnectException("No path or entrypoint provided.")
-    deploy_dir = None
+    deploy_dir: str
     if path and isfile(path):
         if not entrypoint:
             deploy_dir = dirname(abs_path)
-        elif isfile(entrypoint) and abs_path != abs_entrypoint:
-            raise RSConnectException("Path and entrypoint need to match if they are both files.")
-        elif isfile(entrypoint) and abs_path == abs_entrypoint:
-            deploy_dir = dirname(abs_path)
+        elif isfile(entrypoint):
+            if abs_path == abs_entrypoint:
+                deploy_dir = dirname(abs_path)
+            else:
+                raise RSConnectException("Path and entrypoint need to match if they are both files.")
         elif isdir(entrypoint):
             raise RSConnectException("Entrypoint cannot be a directory while the path is a file.")
+        else:
+            raise RSConnectException("Entrypoint cannot be a special file.")
+
     elif path and isdir(path):
-        if not entrypoint:
+        if not entrypoint or not abs_entrypoint:
             deploy_dir = abs_path
-        elif entrypoint and isdir(entrypoint):
-            raise RSConnectException("Path and entrypoint cannot both be directories.")
-        elif entrypoint:
+        # elif entrypoint and isdir(entrypoint):
+        #     raise RSConnectException("Path and entrypoint cannot both be directories.")
+        else:
+            if isdir(entrypoint):
+                raise RSConnectException("Path and entrypoint cannot both be directories.")
             guess_entry_file = os.path.join(abs_path, basename(entrypoint))
             if isfile(guess_entry_file):
                 deploy_dir = dirname(guess_entry_file)
             elif isfile(entrypoint):
                 deploy_dir = dirname(abs_entrypoint)
+            else:
+                raise RSConnectException("Can't find entrypoint.")
     elif not path and entrypoint:
         raise RSConnectException("A path needs to be provided.")
     else:
@@ -1189,7 +1212,7 @@ def abs_entrypoint(path: str | Path, entrypoint: str) -> str | None:
 
 def make_voila_bundle(
     path: str,
-    entrypoint: str,
+    entrypoint: Optional[str],
     extra_files: Sequence[str],
     excludes: Sequence[str],
     force_generate: bool,
@@ -1219,7 +1242,19 @@ def make_voila_bundle(
     :return: a file-like object containing the bundle tarball.
     """
 
-    manifest = create_voila_manifest(**locals())
+    manifest = create_voila_manifest(
+        path=path,
+        entrypoint=entrypoint,
+        extra_files=extra_files,
+        excludes=excludes,
+        force_generate=force_generate,
+        environment=environment,
+        image=image,
+        env_management_py=env_management_py,
+        env_management_r=env_management_r,
+        multi_notebook=multi_notebook,
+    )
+
     if manifest.data.get("files") is None:
         raise RSConnectException("No valid files were found for the manifest.")
 
@@ -1358,7 +1393,7 @@ def make_quarto_manifest(
         excludes = list(excludes or []) + [".quarto"]
 
         project_config = quarto_inspection.get("config", {}).get("project", {})
-        output_dir = cast(str | None, project_config.get("output-dir", None))
+        output_dir = cast(Union[str, None], project_config.get("output-dir", None))
         if output_dir:
             excludes = excludes + [output_dir]
 
@@ -1404,18 +1439,6 @@ def make_quarto_manifest(
         manifest_add_file(manifest, rel_path, base_dir)
 
     return manifest, relevant_files
-
-
-def _validate_title(title: str) -> None:
-    """
-    If the user specified a title, validate that it meets Connect's length requirements.
-    If the validation fails, an exception is raised.  Otherwise,
-
-    :param title: the title to validate.
-    """
-    if title:
-        if not (3 <= len(title) <= 1024):
-            raise RSConnectException("A title must be between 3-1024 characters long.")
 
 
 def _default_title(file_name: str | Path) -> str:
@@ -1537,7 +1560,7 @@ def validate_entry_point(entry_point: str | None, directory: str) -> str:
     return entry_point
 
 
-def _warn_on_ignored_entrypoint(entrypoint: str) -> None:
+def _warn_on_ignored_entrypoint(entrypoint: Optional[str]) -> None:
     if entrypoint:
         click.secho(
             "    Warning: entrypoint will not be used or considered for multi-notebook mode.",
@@ -1820,17 +1843,15 @@ Multi-notebook deployments need to be specified with the following:
 
 def create_voila_manifest(
     path: str,
-    entrypoint: str,
+    entrypoint: Optional[str],
     environment: Environment,
-    app_mode: AppMode = AppModes.JUPYTER_VOILA,
-    extra_files: Sequence[str] = None,
-    excludes: Sequence[str] = None,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
     force_generate: bool = True,
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
     multi_notebook: bool = False,
-    **kwargs: object
 ) -> Manifest:
     """
     Creates and writes a manifest.json file for the given path.
@@ -1909,11 +1930,10 @@ def create_voila_manifest(
 
 def write_voila_manifest_json(
     path: str,
-    entrypoint: str,
+    entrypoint: Optional[str],
     environment: Environment,
-    app_mode: AppMode = AppModes.JUPYTER_VOILA,
-    extra_files: Sequence[str] = None,
-    excludes: Sequence[str] = None,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
     force_generate: bool = True,
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
@@ -1939,7 +1959,18 @@ def write_voila_manifest_json(
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :return: whether the manifest was written.
     """
-    manifest = create_voila_manifest(**locals())
+    manifest = create_voila_manifest(
+        path=path,
+        entrypoint=entrypoint,
+        environment=environment,
+        extra_files=extra_files,
+        excludes=excludes,
+        force_generate=force_generate,
+        image=image,
+        env_management_py=env_management_py,
+        env_management_r=env_management_r,
+        multi_notebook=multi_notebook,
+    )
     deploy_dir = dirname(manifest.entrypoint) if isfile(manifest.entrypoint) else manifest.entrypoint
     manifest_flattened_copy_data = manifest.flattened_copy.data
     if multi_notebook and "metadata" in manifest_flattened_copy_data:

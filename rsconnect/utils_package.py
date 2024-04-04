@@ -220,7 +220,7 @@ def fix_starlette_requirements(
     if not (app_mode == AppModes.PYTHON_SHINY and compare_semvers(connect_version_string, "2024.01.0") == -1):
         return environment
 
-    requirements_txt = cast(str, environment.contents)
+    requirements_txt = environment.contents
 
     reqs = parse_requirements_txt(requirements_txt)
     starlette_req = find_package_info("starlette", reqs)

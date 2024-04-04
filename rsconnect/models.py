@@ -8,11 +8,10 @@ import fnmatch
 import pathlib
 import re
 import sys
-from typing import Callable, Literal, Optional, Sequence, cast
+from typing import Callable, Literal, Optional, cast
 
 import click
 import semver
-import six
 from click import ParamType
 from click.types import StringParamType
 
@@ -208,11 +207,13 @@ class GlobMatcher(object):
             self._pattern = pattern[:-4]
             self.matches = self._match_with_starts_with
         else:
+            self._pattern_parts: list[str | re.Pattern[str]]
+            self._wildcard_index: int | None
             self._pattern_parts, self._wildcard_index = self._to_parts_list(pattern)
             self.matches = self._match_with_list_parts
 
     @staticmethod
-    def _to_parts_list(pattern: str):
+    def _to_parts_list(pattern: str) -> tuple[list[str | re.Pattern[str]], int | None]:
         """
         Converts a glob expression into a list, with an entry for each directory
         level.  Each entry will be either a string, in which case an equality
@@ -225,16 +226,20 @@ class GlobMatcher(object):
         The index will be None if `**` is never found.
         """
         # Incoming pattern is ALWAYS a Posix-style path.
-        parts: Sequence[str | re.Pattern[str]] = pattern.split("/")
+        parts_start = pattern.split("/")
+        parts_result: list[str | re.Pattern[str]] = []
         depth_wildcard_index = None
-        for index, name in enumerate(parts):
+        for index, name in enumerate(parts_start):
+            value = name
             if name == "**":
                 if depth_wildcard_index is not None:
                     raise ValueError('Only one occurrence of the "**" pattern is allowed.')
                 depth_wildcard_index = index
             elif any(ch in name for ch in "*?["):
-                parts[index] = re.compile(r"\A" + fnmatch.translate(name))
-        return parts, depth_wildcard_index
+                value = re.compile(r"\A" + fnmatch.translate(name))
+            parts_result.append(value)
+
+        return parts_result, depth_wildcard_index
 
     def _match_with_starts_with(self, path: str | pathlib.PurePath):
         path = pathlib.PurePath(path).as_posix()
@@ -247,9 +252,10 @@ class GlobMatcher(object):
         def items_match(i1: int, i2: int):
             if i2 >= len(parts):
                 return False
-            if isinstance(self._pattern_parts[i1], six.string_types):
+            part1 = self._pattern_parts[i1]
+            if isinstance(part1, str):
                 return self._pattern_parts[i1] == parts[i2]
-            return self._pattern_parts[i1].match(parts[i2]) is not None
+            return part1.match(parts[i2]) is not None
 
         wildcard_index = len(self._pattern_parts) if self._wildcard_index is None else self._wildcard_index
 
@@ -304,7 +310,7 @@ class StrippedStringParamType(StringParamType):
 
 
 class ContentGuidWithBundle(object):
-    def __init__(self, guid: Optional[str] = None, bundle_id: Optional[str] = None):
+    def __init__(self, guid: str, bundle_id: Optional[str] = None):
         self.guid = guid
         self.bundle_id = bundle_id
 
@@ -317,7 +323,7 @@ class ContentGuidWithBundle(object):
 class ContentGuidWithBundleParamType(StrippedStringParamType):
     name = "ContentGuidWithBundle"
 
-    def convert(
+    def convert(  # pyright: ignore[reportIncompatibleMethodOverride]
         self,
         value: str | ContentGuidWithBundle,
         param: Optional[click.Parameter],
@@ -329,8 +335,7 @@ class ContentGuidWithBundleParamType(StrippedStringParamType):
             value = super(ContentGuidWithBundleParamType, self).convert(value, param, ctx)
             m = re.match(_content_guid_pattern, value)
             if m is not None:
-                guid_with_bundle = ContentGuidWithBundle()
-                guid_with_bundle.guid = m.group(1)
+                guid_with_bundle = ContentGuidWithBundle(m.group(1))
                 if len(m.groups()) == 2 and len(m.group(2)) > 0:
                     try:
                         int(m.group(2))
@@ -344,8 +349,58 @@ class ContentGuidWithBundleParamType(StrippedStringParamType):
 AppRole = Literal["owner", "editor", "viewer", "none"]
 
 
-# From https://docs.posit.co/connect/api/#get-/v1/experimental/content/-guid-
-class ContentItem(TypedDict):
+# Also known as AppRecord in Connect.
+class ContentItemV0(TypedDict):
+    id: int
+    guid: str
+    access_type: Literal["all", "logged_in", "acl"]
+    connection_timeout: int | None
+    read_timeout: int | None
+    init_timeout: int | None
+    idle_timeout: int | None
+    max_processes: int | None
+    min_processes: int | None
+    max_conns_per_process: int | None
+    load_factor: float | None
+    memory_request: float | None
+    memory_limit: int | None
+    cpu_request: float | None
+    cpu_limit: int | None
+    amd_gpu_limit: int | None
+    nvidia_gpu_limit: int | None
+    url: str
+    vanity_url: str
+    name: str
+    title: str | None
+    bundle_id: int | None
+    app_mode: AppModes.Modes
+    content_category: str
+    has_parameters: bool
+    created_time: str
+    last_deployed_time: str
+    build_status: int
+    cluster_name: str | None
+    image_name: str | None
+    default_image_name: str | None
+    service_account_name: str | None
+    r_version: str | None
+    py_version: str | None
+    quarto_version: str | None
+    r_environment_management: bool | None
+    default_r_environment_management: bool | None
+    py_environment_management: bool | None
+    default_py_environment_management: bool | None
+    run_as: str | None
+    run_as_current_user: bool
+    description: str
+    # Note: the next one is listed as "environment_json" in the AppRecord type, but
+    # in practice it comes in as "EnvironmentJson" from the API, so it's commented out
+    # here.
+    # environment_json: object
+
+
+# Also known as V1 ContentOutputDTO in Connect (note: this is not V1 experimental).
+class ContentItemV1(TypedDict):
     guid: str
     name: str
     title: str | None
@@ -359,29 +414,29 @@ class ContentItem(TypedDict):
     min_processes: int | None
     max_conns_per_process: int | None
     load_factor: float | None
-    cpu_request: float | None
-    cpu_limit: int | None
     memory_request: float | None
     memory_limit: int | None
-    amd_gpu_limit: float | None
-    nvidia_gpu_limit: float | None
+    cpu_request: float | None
+    cpu_limit: float | None
+    amd_gpu_limit: int | None
+    nvidia_gpu_limit: int | None
+    service_account_name: str | None
+    default_image_name: str | None
     created_time: str
     last_deployed_time: str
-    bundle_id: str
+    bundle_id: str | None
     app_mode: AppModes.Modes
     content_category: str
     parameterized: bool
     cluster_name: str | None
     image_name: str | None
-    default_image_name: str | None
-    default_r_environment_management: bool | None
-    default_py_environment_management: bool | None
-    service_account_name: str | None
     r_version: str | None
-    r_environment_management: bool | None
     py_version: str | None
-    py_environment_management: bool | None
     quarto_version: str | None
+    r_environment_management: bool | None
+    default_r_environment_management: bool | None
+    py_environment_management: bool | None
+    default_py_environment_management: bool | None
     run_as: str | None
     run_as_current_user: bool
     owner_guid: str
@@ -398,13 +453,13 @@ ComparisonOperator = Literal[">", "<", ">=", "<=", "=", "=="]
 class VersionSearchFilter(object):
     def __init__(
         self,
-        name: VersionProgramName | None = None,
-        comp: ComparisonOperator | None = None,
-        vers: str | None = None,
+        name: VersionProgramName,
+        comp: ComparisonOperator,
+        vers: str,
     ):
-        self.name: VersionProgramName = name
-        self.comp: ComparisonOperator = comp
-        self.vers: str = vers
+        self.name = name
+        self.comp = comp
+        self.vers = vers
 
     def __repr__(self):
         return "%s %s %s" % (self.name, self.comp, self.vers)
@@ -432,9 +487,11 @@ class VersionSearchFilterParamType(ParamType):
         if isinstance(value, str):
             m = re.match(_version_search_pattern, value)
             if m is not None and len(m.groups()) == 2:
-                version_search = VersionSearchFilter(name=self.key)
-                version_search.comp = cast(ComparisonOperator, m.group(1))
-                version_search.vers = m.group(2)
+                version_search = VersionSearchFilter(
+                    name=self.key,
+                    comp=cast(ComparisonOperator, m.group(1)),
+                    vers=m.group(2),
+                )
 
                 # default to == if no comparator was provided
                 if not version_search.comp:
@@ -444,7 +501,7 @@ class VersionSearchFilterParamType(ParamType):
                     self.fail("Failed to parse verison filter: %s is not a valid comparitor" % version_search.comp)
 
                 try:
-                    semver.parse(version_search.vers)
+                    semver.parse(version_search.vers)  # pyright: ignore[reportUnknownMemberType]
                 except ValueError:
                     self.fail("Failed to parse version info: %s" % version_search.vers)
                 return version_search
@@ -452,21 +509,101 @@ class VersionSearchFilterParamType(ParamType):
         self.fail("Failed to parse version filter %s" % value)
 
 
+class AppSearchResults(TypedDict):
+    total: int
+    applications: list[ContentItemV0]
+    count: int
+    continuation: int
+
+
 class TaskStatusResult(TypedDict):
     type: str
     data: object  # Don't know the structure of this type yet
 
 
-class TaskStatus(TypedDict):
+class TaskStatusV0(TypedDict):
     id: str
-    # NOTE: The API docs say this should be "output" instead of "status".
     status: list[str]
     finished: bool
     code: int
     error: str
-    # Note: The API docs say this should be "last" instead of "last_status"
     last_status: int
     user_id: int
-    # NOTE: The API docs say this should always be a dict, but the actual response can
-    # be None.
     result: TaskStatusResult | None
+
+
+# https://docs.posit.co/connect/api/#get-/v1/tasks/-id-
+class TaskStatusV1(TypedDict):
+    id: str
+    output: list[str]
+    finished: bool
+    code: int
+    error: str
+    last: int
+    result: TaskStatusResult | None
+
+
+class BootstrapOutputDTO(TypedDict):
+    api_key: str
+
+
+# This not the complete specification of the server settings data structure, but it is
+# sufficient for the purposes of this package.
+class ServerSettings(TypedDict):
+    hostname: str
+    version: str
+
+
+class PyInfo(TypedDict):
+    installations: list[PyInstallation]
+    api_enabled: bool
+
+
+class PyInstallation(TypedDict):
+    version: str
+    cluster_name: str
+    image_name: str
+
+
+class BuildOutputDTO(TypedDict):
+    task_id: str
+
+
+class ListEntryOutputDTO(TypedDict):
+    language: str
+    version: str
+    image_name: str
+
+
+class DeleteInputDTO(TypedDict):
+    language: str
+    version: str
+    image_name: str
+    dry_run: bool
+
+
+class DeleteOutputDTO(TypedDict):
+    language: str
+    version: str
+    iamge_name: str
+    task_id: str | None
+
+
+class ConfigureResult(TypedDict):
+    config_url: str
+    logs_url: str
+
+
+class UserRecord(TypedDict):
+    email: str
+    username: str
+    first_name: str
+    last_name: str
+    password: str
+    created_time: str
+    updated_time: str
+    active_time: str | None
+    confirmed: bool
+    locked: bool
+    guid: str
+    preferences: dict[str, object]

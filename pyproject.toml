@@ -9,7 +9,6 @@ requires-python = ">=3.8"
 
 dependencies = [
     "typing-extensions>=4.10.0",
-    "six>=1.14.0",
     "pip>=10.0.0",
     "semver>=2.0.0,<3.0.0",
     "pyjwt>=2.4.0",
@@ -29,16 +28,14 @@ test = [
     "flake8",
     "httpretty",
     "ipykernel",
-    "mypy",
     "nbconvert",
+    "pyright",
     "pytest-cov",
-    "pytest-mypy",
     "pytest",
     "setuptools>=61",
     "setuptools_scm[toml]>=3.4",
     "twine",
     "types-Flask",
-    "types-six",
 ]
 
 [project.urls]
@@ -53,7 +50,6 @@ universal = true
 
 [tool.black]
 line-length = 120
-target-version = ['py35']
 
 [tool.coverage.run]
 omit = ["tests/*"]
@@ -74,10 +70,6 @@ exclude = [".git", ".venv", ".venv2", ".venv3", "__pycache__", ".cache"]
 #
 extend_ignore = ["E203", "E231", "E302"]
 per-file-ignores = ["tests/test_metadata.py: E501"]
-
-[tool.mypy]
-ignore_missing_imports = true
-strict_optional = false
 
 [tool.setuptools]
 packages = ["rsconnect"]

@@ -1,15 +1,15 @@
 import re
 import sys
-
 from unittest import TestCase
 
 from rsconnect.environment import (
     MakeEnvironment,
     detect_environment,
+    filter_pip_freeze_output,
     get_default_locale,
     get_python_version,
-    filter_pip_freeze_output,
 )
+
 from .utils import get_dir
 
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
@@ -22,7 +22,7 @@ class TestEnvironment(TestCase):
 
     def test_get_python_version(self):
         self.assertEqual(
-            get_python_version(MakeEnvironment(package_manager="pip")),
+            get_python_version(),
             self.python_version(),
         )
 
