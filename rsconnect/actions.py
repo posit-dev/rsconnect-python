@@ -13,7 +13,7 @@ import subprocess
 import sys
 import traceback
 import typing
-from os.path import basename, exists
+from os.path import basename, exists, join, relpath
 from typing import Optional, Sequence, cast
 from warnings import warn
 
@@ -30,7 +30,13 @@ from urllib.parse import urlparse
 import click
 
 from . import api
-from .bundle import make_quarto_source_bundle, read_manifest_file
+from .bundle import (
+    create_python_environment,
+    get_default_entrypoint,
+    make_api_bundle,
+    make_quarto_source_bundle,
+    read_manifest_file,
+)
 from .environment import Environment, EnvironmentException
 from .exception import RSConnectException
 from .log import VERBOSE, logger
@@ -263,6 +269,188 @@ def validate_quarto_engines(inspect: QuartoInspectResult):
     if unsupported:
         raise RSConnectException("The following Quarto engine(s) are not supported: %s" % ", ".join(unsupported))
     return engines
+
+
+# ===============================================================================
+# The following deprecated functions are here only for the vetiver-python package
+# ===============================================================================
+def validate_extra_files(directory: str, extra_files: Sequence[str]):
+    """
+    If the user specified a list of extra files, validate that they all exist and are
+    beneath the given directory and, if so, return a list of them made relative to that
+    directory.
+
+    :param directory: the directory that the extra files must be relative to.
+    :param extra_files: the list of extra files to qualify and validate.
+    :return: the extra files qualified by the directory.
+    """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
+    result: list[str] = []
+    if extra_files:
+        for extra in extra_files:
+            extra_file = relpath(extra, directory)
+            # It's an error if we have to leave the given dir to get to the extra
+            # file.
+            if extra_file.startswith("../"):
+                raise RSConnectException("%s must be under %s." % (extra_file, directory))
+            if not exists(join(directory, extra_file)):
+                raise RSConnectException("Could not find file %s under %s" % (extra, directory))
+            result.append(extra_file)
+    return result
+
+
+def validate_entry_point(entry_point: Optional[str], directory: str):
+    """
+    Validates the entry point specified by the user, expanding as necessary.  If the
+    user specifies nothing, a module of "app" is assumed.  If the user specifies a
+    module only, the object is assumed to be the same name as the module.
+
+    :param entry_point: the entry point as specified by the user.
+    :return: the fully expanded and validated entry point and the module file name..
+    """
+    warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
+    if not entry_point:
+        entry_point = get_default_entrypoint(directory)
+
+    parts = entry_point.split(":")
+
+    if len(parts) > 2:
+        raise RSConnectException('Entry point is not in "module:object" format.')
+
+    return entry_point
+
+
+def deploy_app(
+    name: Optional[str] = None,
+    server: Optional[str] = None,
+    api_key: Optional[str] = None,
+    insecure: Optional[bool] = None,
+    cacert: Optional[typing.IO[str]] = None,
+    ca_data: Optional[str] = None,
+    entry_point: Optional[str] = None,
+    excludes: Optional[list[str]] = None,
+    new: bool = False,
+    app_id: Optional[str] = None,
+    title: Optional[str] = None,
+    python: Optional[str] = None,
+    force_generate: bool = False,
+    verbose: Optional[bool] = None,
+    directory: Optional[str] = None,
+    extra_files: Optional[list[str]] = None,
+    env_vars: Optional[dict[str, str]] = None,
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
+    account: Optional[str] = None,
+    token: Optional[str] = None,
+    secret: Optional[str] = None,
+    app_mode: Optional[AppMode] = None,
+    connect_server: Optional[api.TargetableServer] = None,
+    **kws: object,
+):
+    kwargs = locals()
+    kwargs["entry_point"] = entry_point = validate_entry_point(entry_point, directory)
+    kwargs["extra_files"] = extra_files = validate_extra_files(directory, extra_files)
+
+    if isinstance(connect_server, api.RSConnectServer):
+        kwargs.update(
+            dict(
+                url=connect_server.url,
+                api_key=connect_server.api_key,
+                insecure=connect_server.insecure,
+                ca_data=connect_server.ca_data,
+                cookies=connect_server.cookie_jar,
+            )
+        )
+    elif isinstance(connect_server, api.ShinyappsServer) or isinstance(connect_server, api.CloudServer):
+        kwargs.update(
+            dict(
+                url=connect_server.url,
+                account=connect_server.account_name,
+                token=connect_server.token,
+                secret=connect_server.secret,
+            )
+        )
+
+    environment = create_python_environment(
+        directory,
+        force_generate,
+        python,
+    )
+
+    ce = api.RSConnectExecutor(**kwargs)
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=app_mode)
+        .make_bundle(
+            make_api_bundle,
+            directory,
+            entry_point,
+            app_mode,
+            environment,
+            extra_files,
+            excludes,
+            image=image,
+            env_management_py=env_management_py,
+            env_management_r=env_management_r,
+        )
+        .deploy_bundle()
+        .save_deployed_info()
+        .emit_task_log()
+    )
+
+
+# ===============================================================================
+# END deprecated functions for the vetiver-python package
+# ===============================================================================
+
+
+def deploy_python_fastapi(
+    connect_server: api.TargetableServer,
+    directory: str,
+    extra_files: typing.List[str],
+    excludes: typing.List[str],
+    entry_point: str,
+    new: bool,
+    app_id: int,
+    title: str,
+    python: str,
+    conda_mode: bool,
+    force_generate: bool,
+    log_callback: typing.Callable[..., None],
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
+):
+    """
+    A function to deploy a Python ASGI API module to Posit Connect.  Depending on the files involved
+        and network latency, this may take a bit of time.
+        :param connect_server: the Connect server information.
+        :param directory: the app directory to deploy.
+        :param extra_files: any extra files that should be included in the deploy.
+        :param excludes: a sequence of glob patterns that will exclude matched files.
+        :param entry_point: the module/executable object for the WSGi framework.
+        :param new: a flag to force this as a new deploy. Previous default = False.
+        :param app_id: the ID of an existing application to deploy new files for. Previous default = None.
+        :param title: an optional title for the deploy.  If this is not provided, one will
+        be generated. Previous default = None.
+        :param python: the optional name of a Python executable. Previous default = None.
+        :param conda_mode: depricated parameter, included for compatibility. Ignored.
+        :param force_generate: force generating "requirements.txt" or "environment.yml",
+        even if it already exists. Previous default = False.
+        :param log_callback: the callback to use to write the log to.  If this is None
+        (the default) the lines from the deployment log will be returned as a sequence.
+        If a log callback is provided, then None will be returned for the log lines part
+        of the return tuple. Previous default = None.
+        :param image: the optional docker image to be specified for off-host execution. Default = None.
+        :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+        :param env_management_r: False prevents Connect from managing the R environment for this bundle.
+        The server administrator is responsible for installing packages in the runtime environment. Default = None.
+        :return: the ultimate URL where the deployed app may be accessed and the sequence
+        of log lines.  The log lines value will be None if a log callback was provided.
+    """
+    return deploy_app(app_mode=AppModes.PYTHON_FASTAPI, **locals())
 
 
 def create_quarto_deployment_bundle(
