@@ -1,7 +1,6 @@
 VERSION := $(shell python -m setuptools_scm)
 HOSTNAME := $(shell hostname)
 S3_PREFIX := s3://rstudio-connect-downloads/connect/rsconnect-python
-export RSC_LICENSE := ${RSC_LICENSE}
 
 BDIST_WHEEL := dist/rsconnect_python-$(VERSION)-py2.py3-none-any.whl
 
