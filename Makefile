@@ -1,6 +1,7 @@
 VERSION := $(shell python -m setuptools_scm)
 HOSTNAME := $(shell hostname)
 S3_PREFIX := s3://rstudio-connect-downloads/connect/rsconnect-python
+export RSC_LICENSE := ${RSC_LICENSE}
 
 BDIST_WHEEL := dist/rsconnect_python-$(VERSION)-py2.py3-none-any.whl
 
@@ -150,7 +151,6 @@ promote-docs-in-s3:
 RSC_API_KEYS=vetiver-testing/rsconnect_api_keys.json
 
 dev:
-	RSC_LICENSE=$RSC_LICENSE \
 	docker compose up -d
 	docker compose exec -T rsconnect bash < vetiver-testing/setup-rsconnect/add-users.sh
 	python vetiver-testing/setup-rsconnect/dump_api_keys.py $(RSC_API_KEYS)
