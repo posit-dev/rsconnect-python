@@ -13,9 +13,9 @@ def get_api_key(user, password, email):
 
 
 api_keys = {
-    "admin": get_api_key("admin", "admin0", "admin@example.com"),
-    "susan": get_api_key("susan", "susan", "susan@example.com"),
-    "derek": get_api_key("derek", "derek", "derek@example.com"),
+    "admin": get_api_key("admin", "password", "admin@example.com"),
+    "susan": get_api_key("susan", "password", "susan@example.com"),
+    "derek": get_api_key("derek", "password", "derek@example.com"),
 }
 
 json.dump(api_keys, open(OUT_FILE, "w"))
