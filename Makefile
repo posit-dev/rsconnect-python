@@ -151,7 +151,9 @@ RSC_API_KEYS=vetiver-testing/rsconnect_api_keys.json
 
 dev:
 	docker compose up -d
+	sleep 4
 	docker compose exec -T rsconnect bash < vetiver-testing/setup-rsconnect/add-users.sh
+	sleep 4
 	python vetiver-testing/setup-rsconnect/dump_api_keys.py $(RSC_API_KEYS)
 
 dev-stop:
