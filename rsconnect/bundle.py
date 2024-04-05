@@ -491,32 +491,6 @@ def write_manifest(
     return created, skipped
 
 
-def list_files(base_dir, include_sub_dirs, walk=os.walk):
-    """List the files in the directory at path.
-
-    If include_sub_dirs is True, recursively list
-    files in subdirectories.
-
-    Returns an iterable of file paths relative to base_dir.
-    """
-    skip_dirs = [".ipynb_checkpoints", ".git"]
-
-    def iter_files():
-        for root, sub_dirs, files in walk(base_dir):
-            if include_sub_dirs:
-                for skip in skip_dirs:
-                    if skip in sub_dirs:
-                        sub_dirs.remove(skip)
-            else:
-                # tell walk not to traverse any subdirectories
-                sub_dirs[:] = []
-
-            for filename in files:
-                yield relpath(join(root, filename), base_dir)
-
-    return list(iter_files())
-
-
 def make_notebook_source_bundle(
     file: str,
     environment: Environment,
@@ -1031,7 +1005,7 @@ def create_file_list(
         file_set.add(path_to_add)
         return sorted(file_set)
 
-    for cur_dir, sub_dirs, files in os.walk(path):
+    for cur_dir, sub_dirs, files in os.walk(path, followlinks=True):
         if Path(cur_dir) in exclude_paths:
             continue
         if any(parent in exclude_paths for parent in Path(cur_dir).parents):

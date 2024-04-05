@@ -20,7 +20,6 @@ from rsconnect.bundle import (
     create_python_environment,
     get_python_env_info,
     inspect_environment,
-    list_files,
     make_api_bundle,
     make_api_manifest,
     make_html_bundle,
@@ -560,41 +559,6 @@ class TestBundle(TestCase):
                     },
                 },
             )
-
-    def test_list_files(self):
-        # noinspection SpellCheckingInspection
-        paths = [
-            "notebook.ipynb",
-            "somedata.csv",
-            os.path.join("subdir", "subfile"),
-            os.path.join("subdir2", "subfile2"),
-            os.path.join(".ipynb_checkpoints", "notebook.ipynb"),
-            os.path.join(".git", "config"),
-        ]
-
-        def walk(base_dir):
-            dir_names = []
-            file_names = []
-
-            for path in paths:
-                if os.sep in path:
-                    dir_name, file_name = path.split(os.sep, 1)
-                    dir_names.append(dir_name)
-                else:
-                    file_names.append(path)
-
-            yield base_dir, dir_names, file_names
-
-            for subdir in dir_names:
-                for path in paths:
-                    if path.startswith(subdir + os.sep):
-                        yield base_dir + os.sep + subdir, [], [path.split(os.sep, 1)[1]]
-
-        files = list_files(".", True, walk=walk)
-        self.assertEqual(files, paths[:4])
-
-        files = list_files(os.sep, False, walk=walk)
-        self.assertEqual(files, paths[:2])
 
     def test_html_bundle1(self):
         self.do_test_html_bundle(get_dir("pip1"))
