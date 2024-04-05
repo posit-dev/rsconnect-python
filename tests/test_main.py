@@ -4,27 +4,26 @@ import shutil
 from os.path import join
 from unittest import TestCase
 
-
+import click
 import httpretty
 import pytest
-import click
 from click.testing import CliRunner
 
+from rsconnect import VERSION
 from rsconnect.json_web_token import SECRET_KEY_ENV
+from rsconnect.main import cli, env_management_callback
 
 from .utils import (
     apply_common_args,
-    optional_ca_data,
-    optional_target,
+    get_api_path,
     get_dir,
     get_manifest_path,
-    get_api_path,
+    has_jwt_structure,
+    optional_ca_data,
+    optional_target,
     require_api_key,
     require_connect,
-    has_jwt_structure,
 )
-from rsconnect.main import cli, env_management_callback
-from rsconnect import VERSION
 
 
 def _error_to_response(error):
@@ -113,6 +112,7 @@ class TestMain:
             httpretty.GET,
             "https://api.shinyapps.io/v1/users/me",
             body=open("tests/testdata/rstudio-responses/get-user.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
@@ -287,6 +287,7 @@ class TestMain:
             httpretty.GET,
             "https://api.shinyapps.io/v1/users/me",
             body=open("tests/testdata/rstudio-responses/get-user.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
@@ -329,6 +330,7 @@ class TestMain:
             httpretty.PUT,
             "https://api.shinyapps.io/v1/applications/8442/properties/application.visibility",
             body=post_application_property_callback,
+            adding_headers={"Content-Type": "application/json"},
             status=200,
         )
 
@@ -459,6 +461,7 @@ class TestMain:
             httpretty.GET,
             "https://api.posit.cloud/v1/users/me",
             body=open("tests/testdata/rstudio-responses/get-user.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         if project_application_id:
@@ -664,6 +667,7 @@ class TestMain:
             httpretty.GET,
             "https://api.posit.cloud/v1/users/me",
             body=open("tests/testdata/rstudio-responses/get-user.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
             status=200,
         )
 
@@ -840,7 +844,11 @@ class TestMain:
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
         try:
             httpretty.register_uri(
-                httpretty.GET, "https://api.shinyapps.io/v1/users/me", body='{"id": 1000}', status=200
+                httpretty.GET,
+                "https://api.shinyapps.io/v1/users/me",
+                body='{"id": 1000}',
+                adding_headers={"Content-Type": "application/json"},
+                status=200,
             )
 
             runner = CliRunner()
@@ -873,7 +881,11 @@ class TestMain:
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
         try:
             httpretty.register_uri(
-                httpretty.GET, "https://api.posit.cloud/v1/users/me", body='{"id": 1000}', status=200
+                httpretty.GET,
+                "https://api.posit.cloud/v1/users/me",
+                body='{"id": 1000}',
+                adding_headers={"Content-Type": "application/json"},
+                status=200,
             )
 
             runner = CliRunner()

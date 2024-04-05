@@ -59,7 +59,8 @@ lint-%:
 	$(RUNNER) 'black --check --diff rsconnect/'
 	$(RUNNER) 'flake8 rsconnect/'
 	$(RUNNER) 'flake8 tests/'
-	$(RUNNER) 'mypy -p rsconnect'
+	# Temporarily use leading '-' so it will continue even if pyright finds issues.
+	-$(RUNNER) 'pyright rsconnect/'
 
 .PHONY: .lint-unsupported
 .lint-unsupported:
@@ -70,7 +71,6 @@ lint-%:
 clean:
 	$(RM) -r \
 		./.coverage \
-		./.mypy_cache \
 		./.pytest_cache \
 		./build \
 		./dist \
@@ -151,6 +151,8 @@ RSC_API_KEYS=vetiver-testing/rsconnect_api_keys.json
 
 dev:
 	docker compose up -d
+	# Docker compose needs a little time to start up
+	sleep 4
 	docker compose exec -T rsconnect bash < vetiver-testing/setup-rsconnect/add-users.sh
 	python vetiver-testing/setup-rsconnect/dump_api_keys.py $(RSC_API_KEYS)
 

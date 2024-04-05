@@ -74,7 +74,7 @@ def get_task_timeout() -> int:
     return timeout
 
 
-def get_task_timeout_help_message(timeout=get_task_timeout()) -> str:
+def get_task_timeout_help_message(timeout: int = get_task_timeout()) -> str:
     """Gets a human friendly help message for adjusting the task timeout value."""
 
     return f"The task timed out after {timeout} seconds." + textwrap.dedent(

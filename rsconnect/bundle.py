@@ -9,26 +9,58 @@ import io
 import json
 import mimetypes
 import os
+import re
 import subprocess
 import sys
 import tarfile
 import tempfile
 import typing
-import re
-from pprint import pformat
 from collections import defaultdict
-from mimetypes import guess_type
-from pathlib import Path
 from copy import deepcopy
-from typing import Optional, Any, Sequence
+from mimetypes import guess_type
+from os.path import (
+    abspath,
+    basename,
+    dirname,
+    exists,
+    isdir,
+    isfile,
+    join,
+    relpath,
+    splitext,
+)
+from pathlib import Path
+from pprint import pformat
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Callable,
+    Iterator,
+    Literal,
+    Optional,
+    Sequence,
+    Union,
+    cast,
+)
+
+# Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
+# they should both come from the same typing module.
+# https://peps.python.org/pep-0655/#usage-in-python-3-11
+if sys.version_info >= (3, 11):
+    from typing import NotRequired, TypedDict
+else:
+    from typing_extensions import NotRequired, TypedDict
+
 import click
 
-from os.path import basename, dirname, exists, isdir, join, relpath, splitext, isfile, abspath
-
-from .log import logger, VERBOSE
-from .models import AppMode, AppModes, GlobSet
 from .environment import Environment, MakeEnvironment
 from .exception import RSConnectException
+from .log import VERBOSE, logger
+from .models import AppMode, AppModes, GlobSet
+
+if TYPE_CHECKING:
+    from .actions import QuartoInspectResult
+
 
 _module_pattern = re.compile(r"^[A-Za-z0-9_]+:[A-Za-z0-9_]+$")
 
@@ -49,35 +81,83 @@ directories_to_ignore = {Path(d) for d in directories_ignore_list}
 mimetypes.add_type("text/ipynb", ".ipynb")
 
 
+class ManifestDataFile(TypedDict):
+    checksum: str
+
+
+class ManifestDataMetadata(TypedDict):
+    appmode: str
+    primary_html: NotRequired[str]
+    entrypoint: NotRequired[str]
+    primary_rmd: NotRequired[str]
+    content_category: NotRequired[str]
+
+
+class ManifestDataJupyter(TypedDict):
+    hide_all_input: NotRequired[bool]
+    hide_tagged_input: NotRequired[bool]
+
+
+class ManifestDataQuarto(TypedDict):
+    version: str
+    engines: list[str]
+
+
+class ManifestDataEnvironment(TypedDict):
+    image: NotRequired[str]
+    environment_management: NotRequired[dict[Literal["python", "r"], bool]]
+
+
+class ManifestDataPython(TypedDict):
+    version: str
+    package_manager: ManifestDataPythonPackageManager
+
+
+class ManifestDataPythonPackageManager(TypedDict):
+    name: str
+    version: str
+    package_file: str
+
+
+class ManifestData(TypedDict):
+    version: int
+    files: dict[str, ManifestDataFile]
+    locale: NotRequired[str]
+    metadata: ManifestDataMetadata
+    jupyter: NotRequired[ManifestDataJupyter]
+    quarto: NotRequired[ManifestDataQuarto]
+    python: NotRequired[ManifestDataPython]
+    environment: NotRequired[ManifestDataEnvironment]
+
+
 class Manifest:
     def __init__(
         self,
-        *args,
-        version: int = None,
-        environment: Environment = None,
-        app_mode: AppMode = None,
-        entrypoint: str = None,
-        quarto_inspection: dict = None,
-        image: str = None,
-        env_management_py: bool = None,
-        env_management_r: bool = None,
-        primary_html: str = None,
-        metadata: dict = None,
-        files: dict = None,
-        **kwargs
+        *,
+        version: Optional[int] = None,
+        environment: Optional[Environment] = None,
+        app_mode: Optional[AppMode] = None,
+        entrypoint: Optional[str] = None,
+        quarto_inspection: Optional[QuartoInspectResult] = None,
+        image: Optional[str] = None,
+        env_management_py: Optional[bool] = None,
+        env_management_r: Optional[bool] = None,
+        primary_html: Optional[str] = None,
+        metadata: Optional[ManifestDataMetadata] = None,
+        files: Optional[dict[str, ManifestDataFile]] = None,
     ) -> None:
-        self.data: dict = dict()
-        self.buffer: dict = dict()
-        self._deploy_dir: str = None
+        self.data: ManifestData = cast(ManifestData, {})
+        self.buffer: dict[str, str] = {}
+        self.deploy_dir: str | None = None
 
         self.data["version"] = version if version else 1
-        if environment:
+        if environment and environment.locale is not None:
             self.data["locale"] = environment.locale
 
         if metadata is None:
-            self.data["metadata"] = {}
+            self.data["metadata"] = cast(ManifestDataMetadata, {})
             if app_mode is None:
-                self.data["metadata"]["appmode"] = AppModes.UNKNOWN
+                self.data["metadata"]["appmode"] = AppModes.UNKNOWN.name()
             else:
                 self.data["metadata"]["appmode"] = app_mode.name()
         else:
@@ -126,20 +206,12 @@ class Manifest:
         if files:
             self.data["files"] = files
 
-    @property
-    def deploy_dir(self):
-        return self._deploy_dir
-
-    @deploy_dir.setter
-    def deploy_dir(self, value):
-        self._deploy_dir = value
-
     @classmethod
-    def from_json(cls, json_str):
+    def from_json(cls, json_str: str):
         return cls(**json.loads(json_str))
 
     @classmethod
-    def from_json_file(cls, json_path):
+    def from_json_file(cls, json_path: str | Path):
         with open(json_path) as json_file:
             return cls(**json.load(json_file))
 
@@ -156,7 +228,7 @@ class Manifest:
         return None
 
     @entrypoint.setter
-    def entrypoint(self, value):
+    def entrypoint(self, value: str):
         self.data["metadata"]["entrypoint"] = value
 
     @property
@@ -168,25 +240,25 @@ class Manifest:
         return None
 
     @primary_html.setter
-    def primary_html(self, value):
+    def primary_html(self, value: str):
         self.data["metadata"]["primary_html"] = value
 
-    def add_file(self, path):
+    def add_file(self, path: str):
         manifestPath = Path(path).as_posix()
         self.data["files"][manifestPath] = {"checksum": file_checksum(path)}
         return self
 
-    def discard_file(self, path):
+    def discard_file(self, path: str):
         if path in self.data["files"]:
             del self.data["files"][path]
         return self
 
-    def add_to_buffer(self, key, value):
+    def add_to_buffer(self, key: str, value: str):
         self.buffer[key] = value
         self.data["files"][key] = {"checksum": buffer_checksum(value)}
         return self
 
-    def discard_from_buffer(self, key):
+    def discard_from_buffer(self, key: str):
         if key in self.buffer:
             del self.buffer[key]
             del self.data["files"][key]
@@ -210,9 +282,9 @@ class Manifest:
         return new_data_files
 
     @property
-    def flattened_buffer(self):
+    def flattened_buffer(self) -> dict[str, str]:
         self.raise_on_empty_entrypoint()
-        new_buffer = {}
+        new_buffer: dict[str, str] = {}
         deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
         deploy_dir = self.deploy_dir or deploy_dir
         for k, v in self.buffer.items():
@@ -245,26 +317,18 @@ class Manifest:
 
 
 class Bundle:
-    def __init__(self, *args, **kwargs) -> None:
-        self.file_paths: set = set()
-        self.buffer: dict = {}
-        self._deploy_dir = None
+    def __init__(self) -> None:
+        self.file_paths: set[str] = set()
+        self.buffer: dict[str, str] = {}
+        self.deploy_dir: str | None = None
 
-    @property
-    def deploy_dir(self):
-        return self._deploy_dir
-
-    @deploy_dir.setter
-    def deploy_dir(self, value):
-        self._deploy_dir = value
-
-    def add_file(self, filepath):
+    def add_file(self, filepath: str) -> None:
         self.file_paths.add(filepath)
 
-    def discard_file(self, filepath):
+    def discard_file(self, filepath: str) -> None:
         self.file_paths.discard(filepath)
 
-    def to_file(self, flatten_to_deploy_dir=True):
+    def to_file(self, flatten_to_deploy_dir: bool = True) -> typing.IO[bytes]:
         bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
         with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
             for fp in self.file_paths:
@@ -282,11 +346,11 @@ class Bundle:
         bundle_file.seek(0)
         return bundle_file
 
-    def add_to_buffer(self, key, value):
+    def add_to_buffer(self, key: str, value: str):
         self.buffer[key] = value
         return self
 
-    def discard_from_buffer(self, key):
+    def discard_from_buffer(self, key: str):
         if key in self.buffer:
             del self.buffer[key]
         return self
@@ -295,16 +359,14 @@ class Bundle:
 # noinspection SpellCheckingInspection
 def make_source_manifest(
     app_mode: AppMode,
-    environment: Environment,
-    entrypoint: str,
-    quarto_inspection: Optional[dict[str, Any]],
+    environment: Optional[Environment],
+    entrypoint: Optional[str],
+    quarto_inspection: Optional[QuartoInspectResult],
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
-) -> dict[str, Any]:
-    manifest: dict[str, Any] = {
-        "version": 1,
-    }
+) -> ManifestData:
+    manifest: ManifestData = cast(ManifestData, {"version": 1})
 
     # When adding locale, add it early so it is ordered immediately after
     # version.
@@ -356,7 +418,7 @@ def make_source_manifest(
     return manifest
 
 
-def manifest_add_file(manifest, rel_path, base_dir):
+def manifest_add_file(manifest: ManifestData, rel_path: str, base_dir: str) -> None:
     """Add the specified file to the manifest files section
 
     The file must be specified as a pathname relative to the notebook directory.
@@ -368,7 +430,7 @@ def manifest_add_file(manifest, rel_path, base_dir):
     manifest["files"][manifestPath] = {"checksum": file_checksum(path)}
 
 
-def manifest_add_buffer(manifest, filename, buf):
+def manifest_add_buffer(manifest: ManifestData, filename: str, buf: str | bytes) -> None:
     """Add the specified in-memory buffer to the manifest files section"""
     manifest["files"][filename] = {"checksum": buffer_checksum(buf)}
 
@@ -383,7 +445,7 @@ def make_hasher():
         return hashlib.md5(usedforsecurity=False)
 
 
-def file_checksum(path):
+def file_checksum(path: str | Path) -> str:
     """Calculate the md5 hex digest of the specified file"""
     with open(path, "rb") as f:
         m = make_hasher()
@@ -396,23 +458,23 @@ def file_checksum(path):
         return m.hexdigest()
 
 
-def buffer_checksum(buf):
+def buffer_checksum(buf: str | bytes) -> str:
     """Calculate the md5 hex digest of a buffer (str or bytes)"""
     m = make_hasher()
     m.update(to_bytes(buf))
     return m.hexdigest()
 
 
-def to_bytes(s):
+def to_bytes(s: str | bytes) -> bytes:
     if isinstance(s, bytes):
         return s
-    elif hasattr(s, "encode"):
+    elif isinstance(s, str):
         return s.encode("utf-8")
     logger.warning("can't encode to bytes: %s" % type(s).__name__)
     return s
 
 
-def bundle_add_file(bundle, rel_path, base_dir):
+def bundle_add_file(bundle: tarfile.TarFile, rel_path: str, base_dir: str) -> None:
     """Add the specified file to the tarball.
 
     The file path is relative to the notebook directory.
@@ -422,7 +484,7 @@ def bundle_add_file(bundle, rel_path, base_dir):
     bundle.add(path, arcname=rel_path)
 
 
-def bundle_add_buffer(bundle, filename, contents):
+def bundle_add_buffer(bundle: tarfile.TarFile, filename: str, contents: str | bytes) -> None:
     """Add an in-memory buffer to the tarball.
 
     `contents` may be a string or bytes object
@@ -441,10 +503,10 @@ def write_manifest(
     output_dir: str,
     hide_all_input: bool = False,
     hide_tagged_input: bool = False,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
-) -> typing.Tuple[list, list]:
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
+) -> tuple[list[str], list[str]]:
     """Create a manifest for source publishing the specified notebook.
 
     The manifest will be written to `manifest.json` in the output directory..
@@ -465,8 +527,8 @@ def write_manifest(
             manifest["jupyter"] = {}
         manifest["jupyter"].update({"hide_tagged_input": hide_tagged_input})
     manifest_file = join(output_dir, manifest_filename)
-    created = []
-    skipped = []
+    created: list[str] = []
+    skipped: list[str] = []
 
     manifest_relative_path = join(relative_dir, manifest_filename)
     if exists(manifest_file):
@@ -491,7 +553,11 @@ def write_manifest(
     return created, skipped
 
 
-def list_files(base_dir, include_sub_dirs, walk=os.walk):
+def list_files(
+    base_dir: str,
+    include_sub_dirs: bool,
+    walk: Callable[[str], Iterator[tuple[str, list[str], list[str]]]] = os.walk,
+) -> list[str]:
     """List the files in the directory at path.
 
     If include_sub_dirs is True, recursively list
@@ -520,13 +586,13 @@ def list_files(base_dir, include_sub_dirs, walk=os.walk):
 def make_notebook_source_bundle(
     file: str,
     environment: Environment,
-    extra_files: typing.List[str],
+    extra_files: Sequence[str],
     hide_all_input: bool,
     hide_tagged_input: bool,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
-) -> typing.IO[bytes]:
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
+) -> IO[bytes]:
     """Create a bundle containing the specified notebook and python environment.
 
     Returns a file-like object containing the bundle tarball.
@@ -575,14 +641,14 @@ def make_notebook_source_bundle(
 
 def make_quarto_source_bundle(
     file_or_directory: str,
-    inspect: typing.Dict[str, typing.Any],
+    inspect: QuartoInspectResult,
     app_mode: AppMode,
-    environment: Environment,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    environment: Optional[Environment],
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> typing.IO[bytes]:
     """
     Create a bundle containing the specified Quarto content and (optional)
@@ -623,18 +689,19 @@ def make_quarto_source_bundle(
 
 def make_html_manifest(
     filename: str,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
-) -> typing.Dict[str, typing.Any]:
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
+) -> ManifestData:
     # noinspection SpellCheckingInspection
-    manifest = {
+    manifest: ManifestData = {
         "version": 1,
         "metadata": {
             "appmode": "static",
             "primary_html": filename,
         },
-    }  # type: typing.Dict[str, typing.Any]
+        "files": {},
+    }
 
     if image or env_management_py is not None or env_management_r is not None:
         manifest["environment"] = {}
@@ -654,10 +721,10 @@ def make_notebook_html_bundle(
     python: str,
     hide_all_input: bool,
     hide_tagged_input: bool,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
-    check_output: typing.Callable = subprocess.check_output,
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
+    check_output: Callable[..., bytes] = subprocess.check_output,
 ) -> typing.IO[bytes]:
     # noinspection SpellCheckingInspection
     cmd = [
@@ -700,7 +767,7 @@ def make_notebook_html_bundle(
     return bundle_file
 
 
-def keep_manifest_specified_file(relative_path, ignore_path_set=directories_to_ignore):
+def keep_manifest_specified_file(relative_path: str, ignore_path_set: set[Path] = directories_to_ignore) -> bool:
     """
     A helper to see if the relative path given, which is assumed to have come
     from a manifest.json file, should be kept or ignored.
@@ -717,7 +784,7 @@ def keep_manifest_specified_file(relative_path, ignore_path_set=directories_to_i
     return True
 
 
-def _default_title_from_manifest(the_manifest, manifest_file):
+def _default_title_from_manifest(the_manifest: ManifestData, manifest_file: str | Path) -> str:
     """
     Produce a default content title from the contents of a manifest.
     """
@@ -733,20 +800,20 @@ def _default_title_from_manifest(the_manifest, manifest_file):
     return _default_title(filename or dirname(manifest_file))
 
 
-def read_manifest_app_mode(file):
+def read_manifest_app_mode(file: str | Path) -> AppMode:
     source_manifest, _ = read_manifest_file(file)
     # noinspection SpellCheckingInspection
     app_mode = AppModes.get_by_name(source_manifest["metadata"]["appmode"])
     return app_mode
 
 
-def default_title_from_manifest(file):
+def default_title_from_manifest(file: str | Path) -> str:
     source_manifest, _ = read_manifest_file(file)
     title = _default_title_from_manifest(source_manifest, file)
     return title
 
 
-def read_manifest_file(manifest_path):
+def read_manifest_file(manifest_path: str | Path) -> tuple[ManifestData, str]:
     """
     Read a manifest's content from its file.  The content is provided as both a
     raw string and a parsed dictionary.
@@ -761,7 +828,7 @@ def read_manifest_file(manifest_path):
     return manifest, raw_manifest
 
 
-def make_manifest_bundle(manifest_path):
+def make_manifest_bundle(manifest_path: str | Path) -> typing.IO[bytes]:
     """Create a bundle, given a manifest.
 
     :return: a file-like object containing the bundle tarball.
@@ -789,7 +856,7 @@ def make_manifest_bundle(manifest_path):
     return bundle_file
 
 
-def create_glob_set(directory, excludes):
+def create_glob_set(directory: str | Path, excludes: Sequence[str]) -> GlobSet:
     """
     Takes a list of glob strings and produces a GlobSet for path matching.
 
@@ -801,7 +868,7 @@ def create_glob_set(directory, excludes):
     :param excludes: the list of globs to expand.
     :return: a GlobSet ready for path matching.
     """
-    work = []
+    work: list[str] = []
     if excludes:
         for pattern in excludes:
             file_pattern = join(directory, pattern)
@@ -823,10 +890,9 @@ def is_environment_dir(directory: str | Path):
     return exists(python_path) or exists(win_path)
 
 
-def list_environment_dirs(directory):
-    # type: (...) -> typing.List[str]
+def list_environment_dirs(directory: str | Path):
     """Returns a list of subdirectories in `directory` that appear to contain virtual environments."""
-    envs = []
+    envs: list[str] = []
 
     for name in os.listdir(directory):
         path = join(directory, name)
@@ -845,7 +911,7 @@ def make_api_manifest(
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
-) -> tuple[dict[str, Any], list[str]]:
+) -> tuple[ManifestData, list[str]]:
     """
     Makes a manifest for an API.
 
@@ -890,13 +956,12 @@ def make_api_manifest(
 
 def create_html_manifest(
     path: str,
-    entrypoint: str,
-    extra_files: typing.List[str] = None,
-    excludes: typing.List[str] = None,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
-    **kwargs
+    entrypoint: Optional[str],
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> Manifest:
     """
     Creates and writes a manifest.json file for the given path.
@@ -961,12 +1026,12 @@ def create_html_manifest(
 
 def make_html_bundle(
     path: str,
-    entrypoint: str,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    entrypoint: Optional[str],
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> typing.IO[bytes]:
     """
     Create an html bundle, given a path and/or entrypoint.
@@ -985,7 +1050,16 @@ def make_html_bundle(
     :return: a file-like object containing the bundle tarball.
     """
 
-    manifest = create_html_manifest(**locals())
+    manifest = create_html_manifest(
+        path=path,
+        entrypoint=entrypoint,
+        extra_files=extra_files,
+        excludes=excludes,
+        image=image,
+        env_management_py=env_management_py,
+        env_management_r=env_management_r,
+    )
+
     if manifest.data.get("files") is None:
         raise RSConnectException("No valid files were found for the manifest.")
 
@@ -1006,10 +1080,10 @@ def make_html_bundle(
 
 def create_file_list(
     path: str,
-    extra_files: typing.List[str] = None,
-    excludes: typing.List[str] = None,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
     use_abspath: bool = False,
-) -> typing.List[str]:
+) -> list[str]:
     """
     Builds a full list of files under the given path that should be included
     in a manifest or bundle.  Extra files and excludes are relative to the given
@@ -1024,14 +1098,14 @@ def create_file_list(
     excludes = excludes if excludes else []
     glob_set = create_glob_set(path, excludes)
     exclude_paths = {Path(p) for p in excludes}
-    file_set = set(extra_files)  # type: typing.Set[str]
+    file_set: set[str] = set(extra_files)
 
     if isfile(path):
         path_to_add = abspath(path) if use_abspath else path
         file_set.add(path_to_add)
         return sorted(file_set)
 
-    for cur_dir, sub_dirs, files in os.walk(path):
+    for cur_dir, _, files in os.walk(path):
         if Path(cur_dir) in exclude_paths:
             continue
         if any(parent in exclude_paths for parent in Path(cur_dir).parents):
@@ -1051,12 +1125,12 @@ def create_file_list(
     return sorted(file_set)
 
 
-def infer_entrypoint(path, mimetype):
+def infer_entrypoint(path: str, mimetype: str) -> str | None:
     candidates = infer_entrypoint_candidates(path, mimetype)
     return candidates.pop() if len(candidates) == 1 else None
 
 
-def infer_entrypoint_candidates(path, mimetype) -> list[str]:
+def infer_entrypoint_candidates(path: str, mimetype: str) -> list[str]:
     if not path:
         return []
     if isfile(path):
@@ -1064,51 +1138,62 @@ def infer_entrypoint_candidates(path, mimetype) -> list[str]:
     if not isdir(path):
         return []
 
-    default_mimetype_entrypoints = defaultdict(str)
+    default_mimetype_entrypoints: defaultdict[str, str] = defaultdict(str)
     default_mimetype_entrypoints["text/html"] = "index.html"
 
-    mimetype_filelist = defaultdict(list)
+    mimetype_filelist: defaultdict[str, list[str]] = defaultdict(list)
 
     for file in os.listdir(path):
         abs_path = os.path.join(path, file)
         if not isfile(abs_path):
             continue
-        mimetype_filelist[guess_type(file)[0]].append(abs_path)
+        file_type = guess_type(file)[0]
+        if file_type is None:
+            raise RSConnectException(f"Could not determine the mime type of {file}.")
+        mimetype_filelist[file_type].append(abs_path)
         if file in default_mimetype_entrypoints[mimetype]:
             return [abs_path]
     return mimetype_filelist[mimetype] or []
 
 
-def guess_deploy_dir(path, entrypoint):
+def guess_deploy_dir(path: str | Path, entrypoint: Optional[str]) -> str:
     if path and not exists(path):
         raise RSConnectException(f"Path {path} does not exist.")
     if entrypoint and not exists(entrypoint):
         raise RSConnectException(f"Entrypoint {entrypoint} does not exist.")
-    abs_path = abspath(path) if path else None
+    abs_path = abspath(path)
     abs_entrypoint = abspath(entrypoint) if entrypoint else None
     if not path and not entrypoint:
         raise RSConnectException("No path or entrypoint provided.")
-    deploy_dir = None
+    deploy_dir: str
     if path and isfile(path):
         if not entrypoint:
             deploy_dir = dirname(abs_path)
-        elif isfile(entrypoint) and abs_path != abs_entrypoint:
-            raise RSConnectException("Path and entrypoint need to match if they are both files.")
-        elif isfile(entrypoint) and abs_path == abs_entrypoint:
-            deploy_dir = dirname(abs_path)
+        elif isfile(entrypoint):
+            if abs_path == abs_entrypoint:
+                deploy_dir = dirname(abs_path)
+            else:
+                raise RSConnectException("Path and entrypoint need to match if they are both files.")
         elif isdir(entrypoint):
             raise RSConnectException("Entrypoint cannot be a directory while the path is a file.")
+        else:
+            raise RSConnectException("Entrypoint cannot be a special file.")
+
     elif path and isdir(path):
-        if not entrypoint:
+        if not entrypoint or not abs_entrypoint:
             deploy_dir = abs_path
-        elif entrypoint and isdir(entrypoint):
-            raise RSConnectException("Path and entrypoint cannot both be directories.")
-        elif entrypoint:
+        # elif entrypoint and isdir(entrypoint):
+        #     raise RSConnectException("Path and entrypoint cannot both be directories.")
+        else:
+            if isdir(entrypoint):
+                raise RSConnectException("Path and entrypoint cannot both be directories.")
             guess_entry_file = os.path.join(abs_path, basename(entrypoint))
             if isfile(guess_entry_file):
                 deploy_dir = dirname(guess_entry_file)
             elif isfile(entrypoint):
                 deploy_dir = dirname(abs_entrypoint)
+            else:
+                raise RSConnectException("Can't find entrypoint.")
     elif not path and entrypoint:
         raise RSConnectException("A path needs to be provided.")
     else:
@@ -1116,7 +1201,7 @@ def guess_deploy_dir(path, entrypoint):
     return deploy_dir
 
 
-def abs_entrypoint(path, entrypoint):
+def abs_entrypoint(path: str | Path, entrypoint: str) -> str | None:
     if isfile(entrypoint):
         return abspath(entrypoint)
     guess_entry_file = os.path.join(abspath(path), basename(entrypoint))
@@ -1127,14 +1212,14 @@ def abs_entrypoint(path, entrypoint):
 
 def make_voila_bundle(
     path: str,
-    entrypoint: str,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
+    entrypoint: Optional[str],
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
     force_generate: bool,
     environment: Environment,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
     multi_notebook: bool = False,
 ) -> typing.IO[bytes]:
     """
@@ -1157,7 +1242,19 @@ def make_voila_bundle(
     :return: a file-like object containing the bundle tarball.
     """
 
-    manifest = create_voila_manifest(**locals())
+    manifest = create_voila_manifest(
+        path=path,
+        entrypoint=entrypoint,
+        extra_files=extra_files,
+        excludes=excludes,
+        force_generate=force_generate,
+        environment=environment,
+        image=image,
+        env_management_py=env_management_py,
+        env_management_r=env_management_r,
+        multi_notebook=multi_notebook,
+    )
+
     if manifest.data.get("files") is None:
         raise RSConnectException("No valid files were found for the manifest.")
 
@@ -1183,11 +1280,11 @@ def make_api_bundle(
     entry_point: str,
     app_mode: AppMode,
     environment: Environment,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> typing.IO[bytes]:
     """
     Create an API bundle, given a directory path and a manifest.
@@ -1235,7 +1332,7 @@ def _create_quarto_file_list(
     directory: str,
     extra_files: Sequence[str],
     excludes: Sequence[str],
-) -> typing.List[str]:
+) -> list[str]:
     """
     Builds a full list of files under the given directory that should be included
     in a manifest or bundle.  Extra files and excludes are relative to the given
@@ -1262,15 +1359,15 @@ def _create_quarto_file_list(
 
 def make_quarto_manifest(
     file_or_directory: str,
-    quarto_inspection: typing.Dict[str, typing.Any],
+    quarto_inspection: QuartoInspectResult,
     app_mode: AppMode,
-    environment: Environment,
+    environment: Optional[Environment],
     extra_files: Sequence[str],
     excludes: Sequence[str],
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
-) -> typing.Tuple[typing.Dict[str, typing.Any], typing.List[str]]:
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
+) -> tuple[ManifestData, list[str]]:
     """
     Makes a manifest for a Quarto project.
 
@@ -1296,7 +1393,7 @@ def make_quarto_manifest(
         excludes = list(excludes or []) + [".quarto"]
 
         project_config = quarto_inspection.get("config", {}).get("project", {})
-        output_dir = project_config.get("output-dir", None)
+        output_dir = cast(Union[str, None], project_config.get("output-dir", None))
         if output_dir:
             excludes = excludes + [output_dir]
 
@@ -1344,19 +1441,7 @@ def make_quarto_manifest(
     return manifest, relevant_files
 
 
-def _validate_title(title):
-    """
-    If the user specified a title, validate that it meets Connect's length requirements.
-    If the validation fails, an exception is raised.  Otherwise,
-
-    :param title: the title to validate.
-    """
-    if title:
-        if not (3 <= len(title) <= 1024):
-            raise RSConnectException("A title must be between 3-1024 characters long.")
-
-
-def _default_title(file_name):
+def _default_title(file_name: str | Path) -> str:
     """
     Produce a default content title from the given file path.  The result is
     guaranteed to be between 3 and 1024 characters long, as required by Posit
@@ -1371,7 +1456,7 @@ def _default_title(file_name):
     return basename(file_name).rsplit(".", 1)[0][:1024].rjust(3, "0")
 
 
-def validate_file_is_notebook(file_name):
+def validate_file_is_notebook(file_name: str | Path) -> None:
     """
     Validate that the given file is a Jupyter Notebook. If it isn't, an exception is
     thrown.  A file must exist and have the '.ipynb' extension.
@@ -1383,7 +1468,11 @@ def validate_file_is_notebook(file_name):
         raise RSConnectException("A Jupyter notebook (.ipynb) file is required here.")
 
 
-def validate_extra_files(directory: str, extra_files: typing.Sequence[str], use_abspath: bool = False) -> list[str]:
+def validate_extra_files(
+    directory: str | Path,
+    extra_files: Sequence[str] | None,
+    use_abspath: bool = False,
+) -> list[str]:
     """
     If the user specified a list of extra files, validate that they all exist and are
     beneath the given directory and, if so, return a list of them made relative to that
@@ -1427,7 +1516,7 @@ re_app_prefix = re.compile(r"^app[-_].+\.py$")
 re_app_suffix = re.compile(r".+[-_]app\.py$")
 
 
-def get_default_entrypoint(directory: str):
+def get_default_entrypoint(directory: str | Path) -> str:
     candidates = ["app", "application", "main", "api"]
     files = set(os.listdir(directory))
 
@@ -1450,7 +1539,7 @@ def get_default_entrypoint(directory: str):
     raise RSConnectException(f"Could not determine default entrypoint file in directory '{directory}'")
 
 
-def validate_entry_point(entry_point: str | None, directory: str):
+def validate_entry_point(entry_point: str | None, directory: str) -> str:
     """
     Validates the entry point specified by the user, expanding as necessary.  If the
     user specifies nothing, a module of "app" is assumed.  If the user specifies a
@@ -1471,7 +1560,7 @@ def validate_entry_point(entry_point: str | None, directory: str):
     return entry_point
 
 
-def _warn_on_ignored_entrypoint(entrypoint):
+def _warn_on_ignored_entrypoint(entrypoint: Optional[str]) -> None:
     if entrypoint:
         click.secho(
             "    Warning: entrypoint will not be used or considered for multi-notebook mode.",
@@ -1479,7 +1568,7 @@ def _warn_on_ignored_entrypoint(entrypoint):
         )
 
 
-def _warn_on_ignored_manifest(directory: str):
+def _warn_on_ignored_manifest(directory: str) -> None:
     """
     Checks for the existence of a file called manifest.json in the given directory.
     If it's there, a warning noting that it will be ignored will be printed.
@@ -1493,7 +1582,7 @@ def _warn_on_ignored_manifest(directory: str):
         )
 
 
-def _warn_if_no_requirements_file(directory: str):
+def _warn_if_no_requirements_file(directory: str) -> None:
     """
     Checks for the existence of a file called requirements.txt in the given directory.
     If it's not there, a warning will be printed.
@@ -1508,7 +1597,7 @@ def _warn_if_no_requirements_file(directory: str):
         )
 
 
-def _warn_if_environment_directory(directory: str | Path):
+def _warn_if_environment_directory(directory: str | Path) -> None:
     """
     Issue a warning if the deployment directory is itself a virtualenv (yikes!).
 
@@ -1522,7 +1611,7 @@ def _warn_if_environment_directory(directory: str | Path):
         )
 
 
-def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
+def _warn_on_ignored_requirements(directory: str, requirements_file_name: str) -> None:
     """
     Checks for the existence of a file called manifest.json in the given directory.
     If it's there, a warning noting that it will be ignored will be printed.
@@ -1537,7 +1626,7 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
         )
 
 
-def fake_module_file_from_directory(directory: str):
+def fake_module_file_from_directory(directory: str) -> str:
     """
     Takes a directory and invents a properly named file that though possibly fake,
     can be used for other name/title derivation.
@@ -1550,7 +1639,7 @@ def fake_module_file_from_directory(directory: str):
     return join(directory, app_name + ".py")
 
 
-def which_python(python: Optional[str] = None):
+def which_python(python: Optional[str] = None) -> str:
     """Determines which Python executable to use.
 
     If the :param python: is provided, then validation is performed to check if the path is an executable file. If
@@ -1574,14 +1663,14 @@ def inspect_environment(
     python: str,
     directory: str,
     force_generate: bool = False,
-    check_output: typing.Callable = subprocess.check_output,
+    check_output: Callable[..., bytes] = subprocess.check_output,
 ) -> Environment:
     """Run the environment inspector using the specified python binary.
 
     Returns a dictionary of information about the environment,
     or containing an "error" field if an error occurred.
     """
-    flags = []
+    flags: list[str] = []
     if force_generate:
         flags.append("f")
     args = [python, "-m", "rsconnect.environment"]
@@ -1596,7 +1685,11 @@ def inspect_environment(
     return MakeEnvironment(**json.loads(environment_json))
 
 
-def get_python_env_info(file_name: str, python: str | None, force_generate=False):
+def get_python_env_info(
+    file_name: str,
+    python: str | None,
+    force_generate: bool = False,
+) -> tuple[str, Environment]:
     """
     Gathers the python and environment information relating to the specified file
     with an eye to deploy it.
@@ -1623,13 +1716,13 @@ def create_notebook_manifest_and_environment_file(
     entry_point_file: str,
     environment: Environment,
     app_mode: AppMode,
-    extra_files: typing.List[str],
+    extra_files: Sequence[str],
     force: bool,
     hide_all_input: bool,
     hide_tagged_input: bool,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given notebook entry point file.
@@ -1722,7 +1815,7 @@ def write_notebook_manifest_json(
     )
     if hide_all_input or hide_tagged_input:
         if "jupyter" not in manifest_data:
-            manifest_data["jupyter"] = dict()
+            manifest_data["jupyter"] = {}
         if hide_all_input:
             manifest_data["jupyter"]["hide_all_input"] = True
         if hide_tagged_input:
@@ -1750,17 +1843,15 @@ Multi-notebook deployments need to be specified with the following:
 
 def create_voila_manifest(
     path: str,
-    entrypoint: str,
+    entrypoint: Optional[str],
     environment: Environment,
-    app_mode: AppMode = AppModes.JUPYTER_VOILA,
-    extra_files: typing.List[str] = None,
-    excludes: typing.List[str] = None,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
     force_generate: bool = True,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
     multi_notebook: bool = False,
-    **kwargs
 ) -> Manifest:
     """
     Creates and writes a manifest.json file for the given path.
@@ -1839,15 +1930,14 @@ def create_voila_manifest(
 
 def write_voila_manifest_json(
     path: str,
-    entrypoint: str,
+    entrypoint: Optional[str],
     environment: Environment,
-    app_mode: AppMode = AppModes.JUPYTER_VOILA,
-    extra_files: Sequence[str] = None,
-    excludes: Sequence[str] = None,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
     force_generate: bool = True,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
     multi_notebook: bool = False,
 ) -> bool:
     """
@@ -1869,7 +1959,18 @@ def write_voila_manifest_json(
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :return: whether the manifest was written.
     """
-    manifest = create_voila_manifest(**locals())
+    manifest = create_voila_manifest(
+        path=path,
+        entrypoint=entrypoint,
+        environment=environment,
+        extra_files=extra_files,
+        excludes=excludes,
+        force_generate=force_generate,
+        image=image,
+        env_management_py=env_management_py,
+        env_management_r=env_management_r,
+        multi_notebook=multi_notebook,
+    )
     deploy_dir = dirname(manifest.entrypoint) if isfile(manifest.entrypoint) else manifest.entrypoint
     manifest_flattened_copy_data = manifest.flattened_copy.data
     if multi_notebook and "metadata" in manifest_flattened_copy_data:
@@ -1884,12 +1985,12 @@ def create_api_manifest_and_environment_file(
     entry_point: str,
     environment: Environment,
     app_mode: AppMode,
-    extra_files: typing.List[str],
-    excludes: typing.List[str],
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
     force: bool,
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given Python API entry point.  If
@@ -1990,7 +2091,7 @@ def write_environment_file(
 
 def describe_manifest(
     file_name: str,
-) -> typing.Tuple[str, str]:
+) -> tuple[str | None, str | None]:
     """
     Determine the entry point and/or primary file from the given manifest file.
     If no entry point is recorded in the manifest, then None will be returned for
@@ -2014,14 +2115,14 @@ def describe_manifest(
 
 def write_quarto_manifest_json(
     file_or_directory: str,
-    inspect: typing.Any,
+    inspect: QuartoInspectResult,
     app_mode: AppMode,
-    environment: Environment,
+    environment: Optional[Environment],
     extra_files: Sequence[str],
     excludes: Sequence[str],
-    image: str = None,
-    env_management_py: bool = None,
-    env_management_r: bool = None,
+    image: Optional[str] = None,
+    env_management_py: Optional[bool] = None,
+    env_management_r: Optional[bool] = None,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given Quarto project.
@@ -2056,7 +2157,7 @@ def write_quarto_manifest_json(
     write_manifest_json(manifest_path, manifest)
 
 
-def write_manifest_json(manifest_path, manifest):
+def write_manifest_json(manifest_path: str | Path, manifest: ManifestData) -> None:
     """
     Write the manifest data as JSON to the named manifest.json with a trailing newline.
     """

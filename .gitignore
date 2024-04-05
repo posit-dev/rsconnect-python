@@ -11,7 +11,6 @@
 /.local/
 /.pipenv-requires
 /.venv/
-/.vscode/
 /build/
 /dist/
 /docs/docs/changelog.md
@@ -27,6 +26,7 @@ htmlcov
 test-home/
 venv
 coverage.xml
+/typings/
 
 # Temporary dev files
 vetiver-testing/rsconnect_api_keys.json

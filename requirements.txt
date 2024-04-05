@@ -22,10 +22,9 @@ flake8-pyproject
 flake8
 httpretty
 ipykernel
-mypy
 nbconvert
+pyright
 pytest-cov
-pytest-mypy
 pytest
 setuptools_scm[toml]
 twine
