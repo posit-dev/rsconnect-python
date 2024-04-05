@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import typing
-from typing import Optional
+from typing import Any, Optional
 
 import click
 
@@ -14,17 +13,17 @@ def get_parameter_source_name_from_ctx(
 ) -> str:
     if ctx:
         varName = var_or_param_name.replace("-", "_")
-        source = ctx.get_parameter_source(varName)  # type: ignore
+        source = ctx.get_parameter_source(varName)
         if source and source.name:
             return source.name
     return "<source unknown>"
 
 
 def _get_present_options(
-    options: typing.Dict[str, typing.Optional[typing.Any]],
+    options: dict[str, Optional[Any]],
     ctx: Optional[click.Context],
-) -> typing.List[str]:
-    result: typing.List[str] = []
+) -> list[str]:
+    result: list[str] = []
     for k, v in options.items():
         if v:
             parts = k.split("--")

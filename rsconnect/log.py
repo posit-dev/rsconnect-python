@@ -2,11 +2,28 @@
 Logging wrapper and shared instance
 """
 
+from __future__ import annotations
+
 import json
 import logging
+import sys
 from functools import partial, wraps
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Protocol, TypeVar
+
+if sys.version_info >= (3, 10):
+    from typing import Concatenate, ParamSpec
+else:
+    from typing_extensions import Concatenate, ParamSpec
+
+
+if TYPE_CHECKING:
+    from collections.abc import MutableMapping
+
 import click
-import six
+
+T = TypeVar("T")
+P = ParamSpec("P")
+
 
 _DATE_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
 
@@ -19,6 +36,7 @@ class LogOutputFormat(object):
     JSON = "json"
     DEFAULT = TEXT
     _all = [TEXT, JSON]
+    All = Literal["text", "json"]
 
 
 class JsonLogFormatter(logging.Formatter):
@@ -30,7 +48,7 @@ class JsonLogFormatter(logging.Formatter):
     @param str datefmt: Key: strftime format string
     """
 
-    def __init__(self, fmt_dict=None, datefmt=_DATE_FORMAT):
+    def __init__(self, fmt_dict: Optional[dict[str, str]] = None, datefmt: str = _DATE_FORMAT):
         self.fmt_dict = (
             fmt_dict if fmt_dict is not None else {"timestamp": "asctime", "level": "levelname", "message": "message"}
         )
@@ -42,14 +60,14 @@ class JsonLogFormatter(logging.Formatter):
         """
         return "asctime" in self.fmt_dict.values()
 
-    def formatMessage(self, record):
+    def formatMessage(self, record: logging.LogRecord):  # pyright: ignore[reportIncompatibleMethodOverride]
         """
         Overwritten to return a dictionary of the relevant LogRecord attributes instead of a string.
         KeyError is raised if an unknown attribute is provided in the fmt_dict.
         """
         return {fmt_key: record.__dict__[fmt_val] for fmt_key, fmt_val in self.fmt_dict.items()}
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord):
         """
         Mostly the same as the parent's class method, the difference being that a dict is manipulated and dumped as JSON
         instead of a string.
@@ -76,21 +94,30 @@ class JsonLogFormatter(logging.Formatter):
         return json.dumps(message_dict, default=str)
 
 
-class RSLogger(logging.LoggerAdapter):
+# This is a workaround for LoggerAdapter not being generic in Python<=3.10.
+# See also:
+# https://github.com/python/typeshed/issues/7855#issuecomment-1128857842
+if sys.version_info >= (3, 11):
+    _LoggerAdapter = logging.LoggerAdapter[logging.Logger]
+else:
+    _LoggerAdapter = logging.LoggerAdapter
+
+
+class RSLogger(_LoggerAdapter):
     def __init__(self):
         super(RSLogger, self).__init__(logging.getLogger("rsconnect"), {})
         self._in_feedback = False
         self._have_feedback_output = False
         self._log_format = LogOutputFormat.DEFAULT
 
-    def addHandler(self, handler):
+    def addHandler(self, handler: logging.Handler):
         self.logger.addHandler(handler)
 
-    def set_in_feedback(self, value):
+    def set_in_feedback(self, value: bool):
         self._in_feedback = value
         self._have_feedback_output = False
 
-    def set_log_output_format(self, value):
+    def set_log_output_format(self, value: LogOutputFormat.All):
         self._log_format = value
         if self._log_format == LogOutputFormat.JSON:
             for h in self.logger.handlers:
@@ -99,11 +126,11 @@ class RSLogger(logging.LoggerAdapter):
             for h in self.logger.handlers:
                 h.setFormatter(logging.Formatter("[%(levelname)s] %(asctime)s %(message)s", datefmt=_DATE_FORMAT))
 
-    def process(self, msg, kwargs):
+    def process(self, msg: str, kwargs: MutableMapping[str, Any]):
         msg, kwargs = super(RSLogger, self).process(msg, kwargs)
         if self._in_feedback and self.is_debugging():
             if not self._have_feedback_output:
-                six.print_()
+                print()
                 self._have_feedback_output = True
             msg = click.style(" %s" % msg, fg="green")
         return msg, kwargs
@@ -111,7 +138,7 @@ class RSLogger(logging.LoggerAdapter):
     def is_debugging(self):
         return self.isEnabledFor(logging.DEBUG)
 
-    def setLevel(self, level):
+    def setLevel(self, level: int | str):
         """
         Set the specified level on the underlying logger.
 
@@ -142,7 +169,7 @@ class ConsoleFormatter(logging.Formatter):
         logging.CRITICAL: red + msg_format + reset,
     }
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord):
         log_fmt = self.FORMATS.get(record.levelno)
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
@@ -159,10 +186,10 @@ console_handler.setFormatter(ConsoleFormatter())
 console_logger.addHandler(console_handler)
 
 
-def logged(logger, label):
-    def decorator(f):
+def logged(logger: logging.Logger, label: str):
+    def decorator(f: Callable[P, T]) -> Callable[P, T]:
         @wraps(f)
-        def wrapper(*args, **kw):
+        def wrapper(*args: P.args, **kw: P.kwargs):
             logger.info(label)
             result = None
             try:
@@ -178,10 +205,20 @@ def logged(logger, label):
     return decorator
 
 
-def cls_logged(label):  # uses logger provided by a class' self.logger
-    def decorator(method):
+class HasLoggerMethod(Protocol):
+    logger: logging.Logger | None
+
+
+HasLoggerMethodT = TypeVar("HasLoggerMethodT", bound=HasLoggerMethod)
+
+
+def cls_logged(label: str):  # uses logger provided by a class' self.logger
+    def decorator(
+        method: Callable[Concatenate[HasLoggerMethodT, P], T],
+    ) -> Callable[Concatenate[HasLoggerMethodT, P], T]:
+
         @wraps(method)
-        def wrapper(self, *args, **kw):
+        def wrapper(self: HasLoggerMethodT, *args: P.args, **kw: P.kwargs):
             logger = self.logger
             if logger:
                 logger.info(label)
