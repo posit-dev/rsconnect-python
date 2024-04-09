@@ -936,6 +936,7 @@ def deploy_notebook(
         api_key=api_key,
         insecure=insecure,
         cacert=cacert,
+        path=file,
         server=server,
         new=new,
         app_id=app_id,
@@ -1064,6 +1065,7 @@ def deploy_voila(
 
     ce = RSConnectExecutor(
         ctx=ctx,
+        path=path,
         name=name,
         api_key=api_key,
         insecure=insecure,
@@ -1147,7 +1149,7 @@ def deploy_manifest(
         account=account,
         token=token,
         secret=secret,
-        path=file_name,
+        path=file,
         server=server,
         new=new,
         app_id=app_id,
