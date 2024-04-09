@@ -1065,6 +1065,7 @@ def deploy_voila(
 
     ce = RSConnectExecutor(
         ctx=ctx,
+        path=path,
         name=name,
         api_key=api_key,
         insecure=insecure,
