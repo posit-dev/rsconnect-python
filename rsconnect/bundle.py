@@ -1141,15 +1141,13 @@ def infer_entrypoint_candidates(path: str, mimetype: str) -> list[str]:
     default_mimetype_entrypoints: defaultdict[str, str] = defaultdict(str)
     default_mimetype_entrypoints["text/html"] = "index.html"
 
-    mimetype_filelist: defaultdict[str, list[str]] = defaultdict(list)
+    mimetype_filelist: defaultdict[str | None, list[str]] = defaultdict(list)
 
     for file in os.listdir(path):
         abs_path = os.path.join(path, file)
         if not isfile(abs_path):
             continue
         file_type = guess_type(file)[0]
-        if file_type is None:
-            raise RSConnectException(f"Could not determine the mime type of {file}.")
         mimetype_filelist[file_type].append(abs_path)
         if file in default_mimetype_entrypoints[mimetype]:
             return [abs_path]
