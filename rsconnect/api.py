@@ -1053,7 +1053,7 @@ class RSConnectExecutor:
                         # TODO: verify that this is correct. The previous code seemed
                         # incorrect. It passed an arg to app.get(), which would have
                         # been ignored.
-                        existing_app_mode = AppModes.get_by_ordinal(app.app_mode, True)
+                        existing_app_mode = AppModes.get_by_ordinal(app["app_mode"], True)
                     except RSConnectException as e:
                         raise RSConnectException(
                             f"{e} Try setting the --new flag to overwrite the previous deployment."
