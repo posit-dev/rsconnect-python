@@ -369,7 +369,7 @@ class ContentItemV0(TypedDict):
     amd_gpu_limit: int | None
     nvidia_gpu_limit: int | None
     url: str
-    vanity_url: str
+    vanity_url: bool
     name: str
     title: str | None
     bundle_id: int | None
@@ -393,10 +393,20 @@ class ContentItemV0(TypedDict):
     run_as: str | None
     run_as_current_user: bool
     description: str
-    # Note: the next one is listed as "environment_json" in the AppRecord type, but
-    # in practice it comes in as "EnvironmentJson" from the API, so it's commented out
-    # here.
-    # environment_json: object
+    EnvironmentJson: str | None
+    app_role: AppRole
+    owner_first_name: str
+    owner_last_name: str
+    owner_username: str
+    owner_guid: str
+    owner_email: str
+    owner_locked: bool
+    is_scheduled: bool
+    # Not sure how the following 4 fields are structured, so just use object for now.
+    git: object | None
+    users: object | None
+    groups: object | None
+    vanities: object | None
 
 
 # Also known as V1 ContentOutputDTO in Connect (note: this is not V1 experimental).
