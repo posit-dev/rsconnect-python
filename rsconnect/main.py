@@ -2179,7 +2179,7 @@ def content_search(
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         if not isinstance(ce.remote_server, RSConnectServer):
-            raise RSConnectException("This command requires a Posit Connect server.")
+            raise RSConnectException("`rsconnect content search` requires a Posit Connect server.")
         result = search_content(
             ce.remote_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
         )
