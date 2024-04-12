@@ -27,7 +27,7 @@ _version_search_pattern = r"(^[=><]{0,2})(.*)"
 _content_guid_pattern = r"([^,]*),?(.*)"
 
 
-class BuildStatus(object):
+class BuildStatus:
     NEEDS_BUILD = "NEEDS_BUILD"  # marked for build
     RUNNING = "RUNNING"  # running now
     ABORTED = "ABORTED"  # cancelled while running
@@ -37,7 +37,7 @@ class BuildStatus(object):
     _all = [NEEDS_BUILD, RUNNING, ABORTED, COMPLETE, ERROR]
 
 
-class AppMode(object):
+class AppMode:
     """
     Data class defining an "app mode" as understood by Posit
     Connect
@@ -51,14 +51,14 @@ class AppMode(object):
         ext: Optional[str] = None,
     ):
         self._ordinal = ordinal
-        self._name = name
+        self._name: AppModes.Modes = name
         self._text = text
         self._ext = ext
 
     def ordinal(self):
         return self._ordinal
 
-    def name(self):
+    def name(self) -> AppModes.Modes:
         return self._name
 
     def desc(self):
@@ -74,7 +74,7 @@ class AppMode(object):
         return self.desc()
 
 
-class AppModes(object):
+class AppModes:
     """
     Enumeration-like collection of known `AppMode`s with lookup
     functions
@@ -151,7 +151,7 @@ class AppModes(object):
     }
 
     @classmethod
-    def get_by_ordinal(cls, ordinal: int, return_unknown: bool = False):
+    def get_by_ordinal(cls, ordinal: int, return_unknown: bool = False) -> AppMode:
         """Get an AppMode by its associated ordinal (integer)"""
         return cls._find_by(
             lambda mode: mode.ordinal() == ordinal,
@@ -160,12 +160,12 @@ class AppModes(object):
         )
 
     @classmethod
-    def get_by_name(cls, name: str, return_unknown: bool = False):
+    def get_by_name(cls, name: str, return_unknown: bool = False) -> AppMode:
         """Get an AppMode by name"""
         return cls._find_by(lambda mode: mode.name() == name, "named %s" % name, return_unknown)
 
     @classmethod
-    def get_by_extension(cls, extension: Optional[str], return_unknown: bool = False):
+    def get_by_extension(cls, extension: Optional[str], return_unknown: bool = False) -> AppMode:
         """Get an app mode by its associated extension"""
         # We can't allow a lookup by None since some modes have that for an extension.
         if extension is None:
@@ -180,11 +180,11 @@ class AppModes(object):
         )
 
     @classmethod
-    def get_by_cloud_name(cls, name: str):
+    def get_by_cloud_name(cls, name: str) -> AppMode:
         return cls._cloud_to_connect_modes.get(name, cls.UNKNOWN)
 
     @classmethod
-    def _find_by(cls, predicate: Callable[[AppMode], bool], message: str, return_unknown: bool):
+    def _find_by(cls, predicate: Callable[[AppMode], bool], message: str, return_unknown: bool) -> AppMode:
         for mode in cls._modes:
             if predicate(mode):
                 return mode
@@ -373,7 +373,7 @@ class ContentItemV0(TypedDict):
     name: str
     title: str | None
     bundle_id: int | None
-    app_mode: AppModes.Modes
+    app_mode: int
     content_category: str
     has_parameters: bool
     created_time: str
