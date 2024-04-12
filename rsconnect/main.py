@@ -643,6 +643,8 @@ def details(
     set_verbosity(verbose)
 
     ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert).validate_server()
+    if not isinstance(ce.remote_server, RSConnectServer):
+        raise RSConnectException("This command requires a Posit Connect server.")
 
     click.echo("    Posit Connect URL: %s" % ce.remote_server.url)
 
@@ -2102,13 +2104,6 @@ def _write_framework_manifest(
             write_environment_file(environment, directory)
 
 
-def _validate_build_rm_args(guid: str, all: bool, purge: bool):
-    if guid and all:
-        raise RSConnectException("You must specify only one of -g/--guid or --all, not both.")
-    if not guid and not all:
-        raise RSConnectException("You must specify one of -g/--guid or --all.")
-
-
 @cli.group(no_args_is_help=True, help="Interact with Posit Connect's content API.")
 def content():
     pass
@@ -2215,6 +2210,8 @@ def content_describe(
     output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        if not isinstance(ce.remote_server, RSConnectServer):
+            raise RSConnectException("This command requires a Posit Connect server.")
         result = get_content(ce.remote_server, guid)
         json.dump(result, sys.stdout, indent=2)
 
@@ -2262,6 +2259,8 @@ def content_bundle_download(
     output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        if not isinstance(ce.remote_server, RSConnectServer):
+            raise RSConnectException("This command requires a Posit Connect server.")
         if exists(output) and not overwrite:
             raise RSConnectException("The output file already exists: %s" % output)
 
@@ -2304,6 +2303,8 @@ def add_content_build(
     output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        if not isinstance(ce.remote_server, RSConnectServer):
+            raise RSConnectException("This command requires a Posit Connect server.")
         build_add_content(ce.remote_server, guid)
         if len(guid) == 1:
             logger.info('Added "%s".' % guid[0])
@@ -2354,7 +2355,8 @@ def remove_content_build(
     output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
-        _validate_build_rm_args(guid, all, purge)
+        if not isinstance(ce.remote_server, RSConnectServer):
+            raise RSConnectException("This command requires a Posit Connect server.")
         guids = build_remove_content(ce.remote_server, guid, all, purge)
         if len(guids) == 1:
             logger.info('Removed "%s".' % guids[0])
@@ -2398,6 +2400,8 @@ def list_content_build(
     output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        if not isinstance(ce.remote_server, RSConnectServer):
+            raise RSConnectException("This command requires a Posit Connect server.")
         result = build_list_content(ce.remote_server, guid, status)
         json.dump(result, sys.stdout, indent=2)
 
@@ -2430,6 +2434,8 @@ def get_build_history(
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert)
         ce.validate_server()
+        if not isinstance(ce.remote_server, RSConnectServer):
+            raise RSConnectException("This command requires a Posit Connect server.")
         result = build_history(ce.remote_server, guid)
         json.dump(result, sys.stdout, indent=2)
 
@@ -2479,6 +2485,8 @@ def get_build_logs(
     output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        if not isinstance(ce.remote_server, RSConnectServer):
+            raise RSConnectException("This command requires a Posit Connect server.")
         for line in emit_build_log(ce.remote_server, guid, format, task_id):
             sys.stdout.write(line)
 
@@ -2546,6 +2554,8 @@ def start_content_build(
     logger.set_log_output_format(format)
     with cli_feedback("", stderr=True):
         ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        if not isinstance(ce.remote_server, RSConnectServer):
+            raise RSConnectException("This command requires a Posit Connect server.")
         build_start(ce.remote_server, parallelism, aborted, error, running, retry, all, poll_wait, debug)
 
 
