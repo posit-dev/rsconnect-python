@@ -83,23 +83,37 @@ def build_add_content(
             build_store.set_content_item_build_status(content["guid"], BuildStatus.NEEDS_BUILD)
 
 
+def _validate_build_rm_args(guid: Optional[str], all: bool, purge: bool):
+    if guid and all:
+        raise RSConnectException("You must specify only one of -g/--guid or --all, not both.")
+    if not guid and not all:
+        raise RSConnectException("You must specify one of -g/--guid or --all.")
+
+
 def build_remove_content(
     connect_server: RSConnectServer,
-    guid: str,
-    all: bool = False,
-    purge: bool = False,
+    guid: Optional[str],
+    all: bool,
+    purge: bool,
 ) -> list[str]:
     """
     :return: A list of guids of the content items that were removed
     """
+
+    # Make sure that either `guid` is a string or `all == True`, but not both.
+    _validate_build_rm_args(guid, all, purge)
+
     build_store = ensure_content_build_store(connect_server)
     if build_store.get_build_running():
         raise RSConnectException(
             "There is a build running on this server, " + "please wait for it to finish before removing content."
         )
-    guids: list[str] = [guid]
+    guids: list[str]
     if all:
         guids = [c["guid"] for c in build_store.get_content_items()]
+    else:
+        # If we got here, we know `guid` is not None.
+        guids = [cast(str, guid)]
     for guid in guids:
         build_store.remove_content_item(guid, purge)
     return guids
@@ -125,7 +139,7 @@ def build_start(
     running: bool = False,
     retry: bool = False,
     all: bool = False,
-    poll_wait: int = 2,
+    poll_wait: float = 2,
     debug: bool = False,
 ):
     build_store = ensure_content_build_store(connect_server)
@@ -288,7 +302,7 @@ def _monitor_build(connect_server: RSConnectServer, content_items: list[ContentI
     return True
 
 
-def _build_content_item(connect_server: RSConnectServer, content: ContentItemWithBuildState, poll_wait: int):
+def _build_content_item(connect_server: RSConnectServer, content: ContentItemWithBuildState, poll_wait: float):
     build_store = ensure_content_build_store(connect_server)
     with RSConnectClient(connect_server) as client:
         # Pending futures will still try to execute when ThreadPoolExecutor.shutdown() is called
