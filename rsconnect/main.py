@@ -17,6 +17,11 @@ if sys.version_info >= (3, 10):
 else:
     from typing_extensions import ParamSpec
 
+if sys.version_info >= (3, 11):
+    from typing import Never
+else:
+    from typing_extensions import Never
+
 from rsconnect.certificates import read_certificate_file
 
 from . import VERSION, api, validation
@@ -101,7 +106,7 @@ future_enabled = False
 def cli_exception_handler(func: Callable[P, T]) -> Callable[P, T]:
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
-        def failed(err: str):
+        def failed(err: str) -> Never:
             click.secho(str(err), fg="bright_red", err=False)
             sys.exit(1)
 
