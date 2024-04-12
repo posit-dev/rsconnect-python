@@ -436,7 +436,7 @@ def _apply_content_filters(
     def apply_version_filter(items: Iterator[ContentItemV1], version_filter: VersionSearchFilter):
         def do_filter(item: ContentItemV1) -> bool:
             vers = None
-            if version_filter.name in item:
+            if version_filter.name not in item:
                 return False
             else:
                 vers = cast(str, item[version_filter.name])
