@@ -1408,6 +1408,7 @@ def deploy_html(
             account=account,
             token=token,
             secret=secret,
+            path=path,
             server=server,
             exclude=exclude,
             new=new,
