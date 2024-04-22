@@ -264,17 +264,27 @@ class Manifest:
             del self.data["files"][key]
         return self
 
-    def raise_on_empty_entrypoint(self):
+    def check_and_get_entrypoint(self) -> str:
+        """
+        If self.entrypoint is a string, return it; if it is None, raise an exception.
+        """
         if self.entrypoint is None:
             raise RSConnectException("A valid entrypoint must be provided.")
-        return self
+        return self.entrypoint
 
     @property
-    def flattened_data(self):
-        self.raise_on_empty_entrypoint()
-        new_data_files = {}
-        deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
-        deploy_dir = self.deploy_dir or deploy_dir
+    def flattened_data(self) -> dict[str, ManifestDataFile]:
+        new_data_files: dict[str, ManifestDataFile] = {}
+        deploy_dir: str
+
+        entrypoint = self.check_and_get_entrypoint()
+        if self.deploy_dir is not None:
+            deploy_dir = self.deploy_dir
+        elif entrypoint is not None and isfile(entrypoint):
+            deploy_dir = dirname(entrypoint)
+        else:
+            deploy_dir = entrypoint
+
         for path in self.data["files"]:
             rel_path = relpath(path, deploy_dir)
             manifestPath = Path(rel_path).as_posix()
@@ -283,10 +293,18 @@ class Manifest:
 
     @property
     def flattened_buffer(self) -> dict[str, str]:
-        self.raise_on_empty_entrypoint()
         new_buffer: dict[str, str] = {}
-        deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
-        deploy_dir = self.deploy_dir or deploy_dir
+
+        deploy_dir: str
+
+        entrypoint = self.check_and_get_entrypoint()
+        if self.deploy_dir is not None:
+            deploy_dir = self.deploy_dir
+        elif entrypoint is not None and isfile(entrypoint):
+            deploy_dir = dirname(entrypoint)
+        else:
+            deploy_dir = entrypoint
+
         for k, v in self.buffer.items():
             rel_path = relpath(k, deploy_dir)
             manifestPath = Path(rel_path).as_posix()
@@ -294,9 +312,9 @@ class Manifest:
         return new_buffer
 
     @property
-    def flattened_entrypoint(self):
-        self.raise_on_empty_entrypoint()
-        return relpath(self.entrypoint, dirname(self.entrypoint))
+    def flattened_entrypoint(self) -> str:
+        entrypoint = self.check_and_get_entrypoint()
+        return relpath(entrypoint, dirname(entrypoint))
 
     @property
     def flattened_primary_html(self):
@@ -306,7 +324,7 @@ class Manifest:
 
     @property
     def flattened_copy(self):
-        self.raise_on_empty_entrypoint()
+        self.check_and_get_entrypoint()
         new_manifest = deepcopy(self)
         new_manifest.data["files"] = self.flattened_data
         new_manifest.buffer = self.flattened_buffer
@@ -1969,6 +1987,10 @@ def write_voila_manifest_json(
         env_management_r=env_management_r,
         multi_notebook=multi_notebook,
     )
+
+    if manifest.entrypoint is None:
+        raise RSConnectException("Voila manifest requires an entrypoint.")
+
     deploy_dir = dirname(manifest.entrypoint) if isfile(manifest.entrypoint) else manifest.entrypoint
     manifest_flattened_copy_data = manifest.flattened_copy.data
     if multi_notebook and "metadata" in manifest_flattened_copy_data:

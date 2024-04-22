@@ -97,4 +97,4 @@ def test_Manifest_empty_init():
 def test_Manifest_empty_exceptions():
     m = Manifest()
     with pytest.raises(RSConnectException) as _:
-        m.raise_on_empty_entrypoint()
+        m.check_and_get_entrypoint()
