@@ -338,7 +338,6 @@ class Bundle:
     def __init__(self) -> None:
         self.file_paths: set[str] = set()
         self.buffer: dict[str, str] = {}
-        self.deploy_dir: str | None = None
 
     def add_file(self, filepath: str) -> None:
         self.file_paths.add(filepath)
@@ -346,13 +345,13 @@ class Bundle:
     def discard_file(self, filepath: str) -> None:
         self.file_paths.discard(filepath)
 
-    def to_file(self, flatten_to_deploy_dir: bool = True) -> typing.IO[bytes]:
+    def to_file(self, deploy_dir: str) -> typing.IO[bytes]:
         bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
         with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
             for fp in self.file_paths:
                 if Path(fp).name in self.buffer:
                     continue
-                rel_path = Path(fp).relative_to(self.deploy_dir) if flatten_to_deploy_dir else None
+                rel_path = Path(fp).relative_to(deploy_dir)
                 logger.log(VERBOSE, "Adding file: %s", fp)
                 bundle.add(fp, arcname=rel_path)
             for k, v in self.buffer.items():
@@ -1080,6 +1079,8 @@ def make_html_bundle(
 
     if manifest.data.get("files") is None:
         raise RSConnectException("No valid files were found for the manifest.")
+    if manifest.deploy_dir is None:
+        raise RSConnectException("deploy_dir was not set for the manifest.")
 
     bundle = Bundle()
     for f in manifest.data["files"]:
@@ -1091,9 +1092,8 @@ def make_html_bundle(
 
     manifest_flattened_copy_data = manifest.flattened_copy.data
     bundle.add_to_buffer("manifest.json", json.dumps(manifest_flattened_copy_data, indent=2))
-    bundle.deploy_dir = manifest.deploy_dir
 
-    return bundle.to_file()
+    return bundle.to_file(manifest.deploy_dir)
 
 
 def create_file_list(
@@ -1273,6 +1273,8 @@ def make_voila_bundle(
 
     if manifest.data.get("files") is None:
         raise RSConnectException("No valid files were found for the manifest.")
+    if manifest.deploy_dir is None:
+        raise RSConnectException("deploy_dir was not set for the manifest.")
 
     bundle = Bundle()
     for f in manifest.data["files"]:
@@ -1286,9 +1288,8 @@ def make_voila_bundle(
     if multi_notebook and "metadata" in manifest_flattened_copy_data:
         manifest_flattened_copy_data["metadata"]["entrypoint"] = ""
     bundle.add_to_buffer("manifest.json", json.dumps(manifest_flattened_copy_data, indent=2))
-    bundle.deploy_dir = manifest.deploy_dir
 
-    return bundle.to_file()
+    return bundle.to_file(manifest.deploy_dir)
 
 
 def make_api_bundle(
