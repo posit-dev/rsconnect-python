@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Pending Next Release
 
+## [1.23.0] - 2024-04-04
+
 ### Added
 - Added support for creating manifests for Shiny Express apps.
 - Added support for deploying interactive Quarto dashboards that use Shiny Express syntax.
