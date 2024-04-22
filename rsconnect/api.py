@@ -23,6 +23,7 @@ from typing import (
     Callable,
     List,
     Literal,
+    Mapping,
     Optional,
     TypeVar,
     Union,
@@ -298,7 +299,7 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def app_search(self, filters: Optional[dict[str, JsonData]]) -> AppSearchResults:
+    def app_search(self, filters: Optional[Mapping[str, JsonData]]) -> AppSearchResults:
         response = cast(Union[AppSearchResults, HTTPResponse], self.get("applications", query_params=filters))
         response = self._server.handle_bad_response(response)
         return response
@@ -318,7 +319,7 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def app_update(self, app_id: str, updates: dict[str, str | None]) -> ContentItemV0:
+    def app_update(self, app_id: str, updates: Mapping[str, str | None]) -> ContentItemV0:
         response = cast(Union[ContentItemV0, HTTPResponse], self.post("applications/%s" % app_id, body=updates))
         response = self._server.handle_bad_response(response)
         return response
@@ -1419,7 +1420,7 @@ class PositClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def update_output(self, output_id: int, output_data: dict[str, str]):
+    def update_output(self, output_id: int, output_data: Mapping[str, str]):
         return self.patch("/v1/outputs/{}".format(output_id), body=output_data)
 
     def get_accounts(self) -> PositClientAccountSearchResults:
@@ -1866,7 +1867,7 @@ def retrieve_matching_apps(
     """
     page_size = 100
     result: list[ContentItemV0 | AbbreviatedAppItem] = []
-    search_filters = filters.copy() if filters else {}
+    search_filters: dict[str, str | int] = filters.copy() if filters else {}
     search_filters["count"] = min(limit, page_size) if limit else page_size
     total_returned = 0
     maximum = limit
