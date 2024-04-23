@@ -1463,7 +1463,7 @@ def test_create_voila_manifest_1(path, entrypoint):
             image=None,
             multi_notebook=False,
         )
-        assert ans == json.loads(manifest.flattened_copy.json)
+        assert ans == json.loads(manifest.get_flattened_copy().json)
 
 
 @pytest.mark.parametrize(
@@ -1521,7 +1521,7 @@ def test_create_voila_manifest_2(path, entrypoint):
         image=None,
         multi_notebook=False,
     )
-    assert ans == json.loads(manifest.flattened_copy.json)
+    assert ans == json.loads(manifest.get_flattened_copy().json)
 
 
 def test_create_voila_manifest_extra():
@@ -1569,7 +1569,7 @@ def test_create_voila_manifest_extra():
         image=None,
         multi_notebook=False,
     )
-    assert ans == json.loads(manifest.flattened_copy.json)
+    assert ans == json.loads(manifest.get_flattened_copy().json)
 
 
 @pytest.mark.parametrize(
@@ -1671,7 +1671,7 @@ def test_create_voila_manifest_multi_notebook(path, entrypoint):
             image=None,
             multi_notebook=True,
         )
-        assert json.loads(manifest.flattened_copy.json) == ans
+        assert json.loads(manifest.get_flattened_copy().json) == ans
 
 
 @pytest.mark.parametrize(
@@ -2077,7 +2077,7 @@ def test_create_html_manifest():
         extra_files=tuple(),
         excludes=tuple(),
     )
-    assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
+    assert single_file_index_file_ans == json.loads(manifest.get_flattened_copy().json)
 
     # check all runtime_environment vars
     single_file_index_file_ans = {
@@ -2101,7 +2101,7 @@ def test_create_html_manifest():
         env_management_py=False,
         env_management_r=False,
     )
-    assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
+    assert single_file_index_file_ans == json.loads(manifest.get_flattened_copy().json)
 
     # check image param
     single_file_index_file_ans = {
@@ -2121,7 +2121,7 @@ def test_create_html_manifest():
         env_management_py=None,
         env_management_r=None,
     )
-    assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
+    assert single_file_index_file_ans == json.loads(manifest.get_flattened_copy().json)
 
     # check env_management_py param
     single_file_index_file_ans = {
@@ -2141,7 +2141,7 @@ def test_create_html_manifest():
         excludes=tuple(),
         env_management_py=False,
     )
-    assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
+    assert single_file_index_file_ans == json.loads(manifest.get_flattened_copy().json)
 
     # check env_management_r param
     single_file_index_file_ans = {
@@ -2161,7 +2161,7 @@ def test_create_html_manifest():
         excludes=tuple(),
         env_management_r=False,
     )
-    assert single_file_index_file_ans == json.loads(manifest.flattened_copy.json)
+    assert single_file_index_file_ans == json.loads(manifest.get_flattened_copy().json)
 
     single_file_index_dir_ans = {
         "version": 1,
@@ -2179,7 +2179,7 @@ def test_create_html_manifest():
         extra_files=tuple(),
         excludes=tuple(),
     )
-    assert single_file_index_dir_ans == json.loads(manifest.flattened_copy.json)
+    assert single_file_index_dir_ans == json.loads(manifest.get_flattened_copy().json)
 
     manifest = create_html_manifest(
         single_file_index_dir,
@@ -2187,7 +2187,7 @@ def test_create_html_manifest():
         extra_files=tuple(),
         excludes=tuple(),
     )
-    assert single_file_index_dir_ans == json.loads(manifest.flattened_copy.json)
+    assert single_file_index_dir_ans == json.loads(manifest.get_flattened_copy().json)
 
     multi_file_index_file_ans = {
         "version": 1,
@@ -2201,7 +2201,7 @@ def test_create_html_manifest():
         extra_files=tuple(),
         excludes=tuple(),
     )
-    assert multi_file_index_file_ans == json.loads(manifest.flattened_copy.json)
+    assert multi_file_index_file_ans == json.loads(manifest.get_flattened_copy().json)
 
     multi_file_index_dir_ans = {
         "version": 1,
@@ -2218,7 +2218,7 @@ def test_create_html_manifest():
         extra_files=tuple(),
         excludes=tuple(),
     )
-    assert multi_file_index_dir_ans == json.loads(manifest.flattened_copy.json)
+    assert multi_file_index_dir_ans == json.loads(manifest.get_flattened_copy().json)
 
     manifest = create_html_manifest(
         multi_file_index_dir,
@@ -2226,7 +2226,7 @@ def test_create_html_manifest():
         extra_files=tuple(),
         excludes=tuple(),
     )
-    assert multi_file_index_dir_ans == json.loads(manifest.flattened_copy.json)
+    assert multi_file_index_dir_ans == json.loads(manifest.get_flattened_copy().json)
 
     multi_file_nonindex_file_ans = {
         "version": 1,
@@ -2240,7 +2240,7 @@ def test_create_html_manifest():
         extra_files=tuple(),
         excludes=tuple(),
     )
-    assert multi_file_nonindex_file_ans == json.loads(manifest.flattened_copy.json)
+    assert multi_file_nonindex_file_ans == json.loads(manifest.get_flattened_copy().json)
 
     multi_file_nonindex_dir_and_file_ans = {
         "version": 1,
@@ -2257,7 +2257,7 @@ def test_create_html_manifest():
         extra_files=tuple(),
         excludes=tuple(),
     )
-    assert multi_file_nonindex_dir_and_file_ans == json.loads(manifest.flattened_copy.json)
+    assert multi_file_nonindex_dir_and_file_ans == json.loads(manifest.get_flattened_copy().json)
 
     multi_file_nonindex_file_extras_ans = {
         "version": 1,
@@ -2273,7 +2273,7 @@ def test_create_html_manifest():
         extra_files=[multi_file_nonindex_filea],
         excludes=tuple(),
     )
-    assert multi_file_nonindex_file_extras_ans == json.loads(manifest.flattened_copy.json)
+    assert multi_file_nonindex_file_extras_ans == json.loads(manifest.get_flattened_copy().json)
 
     multi_file_index_dir_extras_ans = {
         "version": 1,
@@ -2290,7 +2290,7 @@ def test_create_html_manifest():
         extra_files=[multi_file_index_file2],
         excludes=tuple(),
     )
-    assert multi_file_index_dir_extras_ans == json.loads(manifest.flattened_copy.json)
+    assert multi_file_index_dir_extras_ans == json.loads(manifest.get_flattened_copy().json)
 
 
 def test_make_html_bundle():
