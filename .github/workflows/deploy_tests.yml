@@ -78,6 +78,7 @@ jobs:
             QUARTO_VERSION: "1.4.546"
             # This allows us to start Connect separately in our own docker container
             CONNECT_SERVER: "http://localhost:3939"
+            IMAGE_OS: "ubuntu22"
             remote: "yes"
           run: |
             cd integration-testing
