@@ -303,7 +303,7 @@ jobs:
 
               # This allows us to start Connect separately in our own docker container
               CONNECT_SERVER: "http://localhost:3939"
-              IMAGE_OS: "ubuntu22"
+              IMAGE_OS: "rstudio/connect:ubuntu22"
               remote: "yes"
             run: |
               cd integration-testing
