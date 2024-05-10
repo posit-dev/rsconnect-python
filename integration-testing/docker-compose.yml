@@ -35,6 +35,7 @@ services:
       QUARTO_VERSION: ${QUARTO_VERSION}
       PY_VERSION: ${PY_VERSION}
       API_KEY: ${ADMIN_API_KEY}
+      IMAGE_OS: ${IMAGE_OS}
 
   # customized connect built with updated quarto version
   # used for nightly deploy_tests.yml that include quarto projects
