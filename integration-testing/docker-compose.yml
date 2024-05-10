@@ -26,6 +26,7 @@ services:
       args: 
         QUARTO_VERSION: ${QUARTO_VERSION}
         PY_VERSION: ${PY_VERSION}
+        IMAGE_OS: ${IMAGE_OS}
     volumes:
       - ../:/rsconnect-python 
     working_dir: /rsconnect-python/integration-testing
