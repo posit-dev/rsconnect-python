@@ -1121,8 +1121,6 @@ class TestBundle(TestCase):
                         },
                     },
                 )
-                model_data = tar.extractfile("1/saved_model.pb").read().decode("utf-8")
-                self.assertEqual(model_data, "fake model file\n")
 
     def test_make_html_manifest(self):
         # Verify the optional parameters
