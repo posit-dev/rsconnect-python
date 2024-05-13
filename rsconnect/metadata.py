@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 from .exception import RSConnectException
 from .log import logger
-from .models import AppMode, AppModes, ContentItemV1, TaskStatusV0
+from .models import AppMode, AppModes, ContentItemV1, TaskStatusResult, TaskStatusV0
 
 T = TypeVar("T", bound=Mapping[str, object])
 
@@ -232,7 +232,7 @@ class DataStore(Generic[T]):
             makedirs(self._secondary_path)
             self.save_to(self._secondary_path, data, open)
 
-        if self._chmod:
+        if self._chmod and self._real_path is not None:
             os.chmod(self._real_path, 0o600)
 
 
@@ -544,11 +544,21 @@ class AppStore(DataStore[AppMetadata]):
 DEFAULT_BUILD_DIR = join(os.getcwd(), "rsconnect-build")
 
 
+# A trimmed version of TaskStatusV0 which doesn't contain `status` and `last_status` fields.
+class TaskStatusV0Trimmed(TypedDict):
+    id: str
+    finished: bool
+    code: int
+    error: str
+    user_id: int
+    result: TaskStatusResult | None
+
+
 class ContentItemWithBuildState(ContentItemV1, TypedDict):
     rsconnect_build_status: str
     rsconnect_last_build_time: NotRequired[str]
     rsconnect_last_build_log: NotRequired[str | None]
-    rsconnect_build_task_result: NotRequired[TaskStatusV0]
+    rsconnect_build_task_result: NotRequired[TaskStatusV0Trimmed]
 
 
 class ContentBuildStoreData(TypedDict):
@@ -743,12 +753,16 @@ class ContentBuildStore(DataStore[Dict[str, object]]):
             content = self.get_content_item(guid)
             # status contains the log lines for the build. We have already recorded these in the
             # log file on disk so we can remove them from the task result before storing it
-            # to reduce the data stored in our state-file
-            remove_keys = ["status", "last_status"]
-            for key in remove_keys:
-                if key in task:
-                    task.pop(key)
-            content["rsconnect_build_task_result"] = task
+            # to reduce the data stored in our state-file.
+            task_copy: TaskStatusV0Trimmed = {
+                "id": task["id"],
+                "finished": task["finished"],
+                "code": task["code"],
+                "error": task["error"],
+                "user_id": task["user_id"],
+                "result": task["result"],
+            }
+            content["rsconnect_build_task_result"] = task_copy
             if not defer_save:
                 self.save()
 
