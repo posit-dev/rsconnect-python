@@ -1,4 +1,4 @@
 try:
-    from .version import version as VERSION  # noqa
+    from .version import version as VERSION  # pyright: ignore[reportUnusedImport]
 except ImportError:
-    VERSION = "NOTSET"  # noqa
+    VERSION = "NOTSET"  # pyright: ignore[reportConstantRedefinition]
