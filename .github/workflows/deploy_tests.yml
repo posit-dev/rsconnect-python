@@ -36,7 +36,7 @@ jobs:
               - 3.8.10
               - 3.9.5
         steps:
-        - uses: extractions/setup-just@v1
+        - uses: extractions/setup-just@v2
           env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         - uses: actions/checkout@v4
@@ -78,6 +78,7 @@ jobs:
             QUARTO_VERSION: "1.4.546"
             # This allows us to start Connect separately in our own docker container
             CONNECT_SERVER: "http://localhost:3939"
+            IMAGE_OS: "rstudio/connect:ubuntu22"
             remote: "yes"
           run: |
             cd integration-testing
