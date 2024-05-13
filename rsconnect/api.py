@@ -1347,7 +1347,7 @@ class PositClient(HTTPServer):
     def get_extra_headers(self, url: str, method: str, body: str | bytes):
         canonical_request_method = method.upper()
         canonical_request_path = parse.urlparse(url).path
-        canonical_request_date = datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
+        canonical_request_date = datetime.datetime.now(datetime.timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
 
         # get request checksum
         md5 = hashlib.md5()

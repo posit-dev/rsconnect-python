@@ -721,7 +721,7 @@ class ContentBuildStore(DataStore[Dict[str, object]]):
         """
         with self._lock:
             content = self.get_content_item(guid)
-            content["rsconnect_last_build_time"] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+            content["rsconnect_last_build_time"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             if not defer_save:
                 self.save()
 
