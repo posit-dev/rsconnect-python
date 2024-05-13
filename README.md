@@ -39,7 +39,7 @@ pip install rsconnect-python
 You may also build and install a wheel directly from a repository clone:
 
 ```bash
-git clone https://github.com/rstudio/rsconnect-python.git
+git clone https://github.com/posit-dev/rsconnect-python.git
 cd rsconnect-python
 pip install pipenv
 make dist
@@ -325,7 +325,7 @@ project hierarchies where enumerating the _included_ files is simpler than
 listing the _exclusions_.
 
 ```bash
-rsconnect deploy quarto . _quarto.yml index.qmd requirements.txt --exclude "**" 
+rsconnect deploy quarto . _quarto.yml index.qmd requirements.txt --exclude "**"
 ```
 
 Some directories are excluded by default, to prevent bundling and uploading files that are not needed or might interfere with the deployment process:

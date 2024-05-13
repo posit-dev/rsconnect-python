@@ -53,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Interrupting a long-running `rsconnect content build run` command with `^C`
   will now update the local state file before attempting graceful cleanup. This
   should help prevent users from getting stuck a "build already running" state.
-  See [#467](https://github.com/rstudio/rsconnect-python/issues/467) for details.
+  See [#467](https://github.com/posit-dev/rsconnect-python/issues/467) for details.
 
 - Addressed an error which occurred when attempting to create manifests for
   Quarto documents. (#534)
@@ -102,7 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Python virtualenvs are now detected in Windows environments, and are automatically
   excluded from the uploaded bundle.
-- Error deploying to shinyapps.io when `--app-id` is provided [#464](https://github.com/rstudio/rsconnect-python/issues/464).
+- Error deploying to shinyapps.io when `--app-id` is provided [#464](https://github.com/posit-dev/rsconnect-python/issues/464).
 
 ### Added
 
@@ -137,14 +137,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.17.1] - 2023-05-25
 
 ### Fixed
-- Shiny app deployment fails when static content is present in the app [#373](https://github.com/rstudio/rsconnect-python/issues/373).
+- Shiny app deployment fails when static content is present in the app [#373](https://github.com/posit-dev/rsconnect-python/issues/373).
 
 ## [1.17.0] - 2023-05-12
 
 ### Added
 - `deploy html` and `deploy manifest` now support deployment to Posit Cloud.
 
-- Added `system caches list` and `system caches delete` commands which allow administrators to enumerate and delete R and Python runtime caches from Connect servers [#384](https://github.com/rstudio/rsconnect-python/pull/384). Read more about the feature in our [docs](https://docs.posit.co/connect/admin/server-management/runtime-caches/).
+- Added `system caches list` and `system caches delete` commands which allow administrators to enumerate and delete R and Python runtime caches from Connect servers [#384](https://github.com/posit-dev/rsconnect-python/pull/384). Read more about the feature in our [docs](https://docs.posit.co/connect/admin/server-management/runtime-caches/).
 
 ### Changed
 - Cloud deployments accept the content id instead of application id in the --app-id field.
@@ -152,9 +152,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Application store files include a `version` field, set to 1 for this release.
 
 ### Fixed
-- cacert read error when adding/updating a server [#403](https://github.com/rstudio/rsconnect-python/issues/403).
-- getdefaultlocale no longer work with newer versions of Python [#397](https://github.com/rstudio/rsconnect-python/issues/397) [#399](https://github.com/rstudio/rsconnect-python/issues/399).
-- extra files not being included in write-manifest [#416](https://github.com/rstudio/rsconnect-python/issues/416).
+- cacert read error when adding/updating a server [#403](https://github.com/posit-dev/rsconnect-python/issues/403).
+- getdefaultlocale no longer work with newer versions of Python [#397](https://github.com/posit-dev/rsconnect-python/issues/397) [#399](https://github.com/posit-dev/rsconnect-python/issues/399).
+- extra files not being included in write-manifest [#416](https://github.com/posit-dev/rsconnect-python/issues/416).
 
 ## [1.16.0] - 2023-03-27
 
@@ -525,12 +525,12 @@ rsconnect deploy notebook \
 - first release
 
 
-[Unreleased]: https://github.com/rstudio/rsconnect-python/compare/1.5.0...HEAD
-[1.5.0]: https://github.com/rstudio/rsconnect-python/compare/1.4.5...1.5.0
-[1.4.5]: https://github.com/rstudio/rsconnect-python/compare/1.4.4...1.4.5
-[1.4.4]: https://github.com/rstudio/rsconnect-python/compare/1.4.3...1.4.4
-[1.4.3]: https://github.com/rstudio/rsconnect-python/compare/1.4.2...1.4.3
-[1.4.2]: https://github.com/rstudio/rsconnect-python/compare/1.4.1...1.4.2
-[1.4.1]: https://github.com/rstudio/rsconnect-python/compare/1.4.0...1.4.1
-[1.4.0]: https://github.com/rstudio/rsconnect-python/compare/1.3.0...1.4.0
-[1.3.0]: https://github.com/rstudio/rsconnect-python/releases/tag/1.3.0
+[Unreleased]: https://github.com/posit-dev/rsconnect-python/compare/1.5.0...HEAD
+[1.5.0]: https://github.com/posit-dev/rsconnect-python/compare/1.4.5...1.5.0
+[1.4.5]: https://github.com/posit-dev/rsconnect-python/compare/1.4.4...1.4.5
+[1.4.4]: https://github.com/posit-dev/rsconnect-python/compare/1.4.3...1.4.4
+[1.4.3]: https://github.com/posit-dev/rsconnect-python/compare/1.4.2...1.4.3
+[1.4.2]: https://github.com/posit-dev/rsconnect-python/compare/1.4.1...1.4.2
+[1.4.1]: https://github.com/posit-dev/rsconnect-python/compare/1.4.0...1.4.1
+[1.4.0]: https://github.com/posit-dev/rsconnect-python/compare/1.3.0...1.4.0
+[1.3.0]: https://github.com/posit-dev/rsconnect-python/releases/tag/1.3.0
