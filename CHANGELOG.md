@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Pending Next Release
 
+### Added
+- Added support for creating manifests for TensorFlow models.
+- Added support for deploying TensorFlow models.
+
 ## [1.23.0] - 2024-04-04
 
 ### Added

@@ -61,6 +61,7 @@ from .bundle import (
     make_notebook_html_bundle,
     make_notebook_source_bundle,
     make_voila_bundle,
+    make_tensorflow_bundle,
     read_manifest_app_mode,
     validate_entry_point,
     validate_extra_files,
@@ -70,6 +71,7 @@ from .bundle import (
     write_environment_file,
     write_notebook_manifest_json,
     write_quarto_manifest_json,
+    write_tensorflow_manifest_json,
     write_voila_manifest_json,
 )
 from .environment import EnvironmentException
@@ -971,9 +973,6 @@ def deploy_notebook(
             python,
             hide_all_input,
             hide_tagged_input,
-            image=image,
-            env_management_py=env_management_py,
-            env_management_r=env_management_r,
         )
     else:
         ce.make_bundle(
@@ -1327,6 +1326,98 @@ def deploy_quarto(
             image=image,
             env_management_py=env_management_py,
             env_management_r=env_management_r,
+        )
+        .deploy_bundle()
+        .save_deployed_info()
+        .emit_task_log()
+    )
+    if not no_verify:
+        ce.verify_deployment()
+
+
+# noinspection SpellCheckingInspection,DuplicatedCode
+@deploy.command(
+    name="tensorflow",
+    short_help="Deploy TensorFlow models to Posit Connect [v2024.05.0+].",
+    help=(
+        "Deploy a TensorFlow model to Posit Connect. Requires Posit Connect 2024.05.0 or later."
+        "\n\n"
+        "DIRECTORY is the path containing a TensorFlow model."
+    ),
+    no_args_is_help=True,
+)
+@server_args
+@content_args
+@click.option(
+    "--image",
+    "-I",
+    help="Target image to be used during content build and execution. "
+    "This option is only applicable if the Connect server is configured to use off-host execution.",
+)
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@cli_exception_handler
+@click.pass_context
+def deploy_tensorflow(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    new: bool,
+    app_id: Optional[str],
+    title: Optional[str],
+    exclude: tuple[str, ...],
+    verbose: int,
+    directory: str,
+    extra_files: Sequence[str],
+    env_vars: dict[str, str],
+    image: Optional[str],
+    no_verify: bool,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    _warn_on_ignored_manifest(directory)
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        insecure=insecure,
+        cacert=cacert,
+        path=directory,
+        server=server,
+        exclude=exclude,
+        new=new,
+        app_id=app_id,
+        title=title,
+        env_vars=env_vars,
+    )
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=AppModes.TENSORFLOW)
+        .make_bundle(
+            make_tensorflow_bundle,
+            directory,
+            extra_files,
+            exclude,
+            image=image,
         )
         .deploy_bundle()
         .save_deployed_info()
@@ -1945,6 +2036,69 @@ def write_manifest_quarto(
             image,
             env_management_py,
             env_management_r,
+        )
+
+
+@write_manifest.command(
+    name="tensorflow",
+    short_help="Create a manifest.json file for TensorFlow content.",
+    help=(
+        "Create a manifest.json file for a TensorFlow model for later "
+        "deployment. All files are created in the same directory "
+        "as the content. Requires Posit Connect 2024.05.0 or later."
+        "\n\n"
+        "DIRECTORY is the path to a directory containing a TensorFlow model."
+    ),
+)
+@click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@click.option(
+    "--image",
+    "-I",
+    help="Target image to be used during content build and execution. "
+    "This option is only applicable if the Connect server is configured to use off-host execution.",
+)
+@click.pass_context
+def write_manifest_tensorflow(
+    ctx: click.Context,
+    overwrite: bool,
+    exclude: tuple[str, ...],
+    verbose: int,
+    directory: str,
+    extra_files: tuple[str, ...],
+    image: Optional[str],
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    with cli_feedback("Checking arguments"):
+        manifest_path = join(directory, "manifest.json")
+
+        if exists(manifest_path) and not overwrite:
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+
+    with cli_feedback("Creating manifest.json"):
+        write_tensorflow_manifest_json(
+            directory,
+            extra_files,
+            exclude,
+            image,
         )
 
 

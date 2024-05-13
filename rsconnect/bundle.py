@@ -371,9 +371,9 @@ class Bundle:
 # noinspection SpellCheckingInspection
 def make_source_manifest(
     app_mode: AppMode,
-    environment: Optional[Environment],
-    entrypoint: Optional[str],
-    quarto_inspection: Optional[QuartoInspectResult],
+    environment: Optional[Environment] = None,
+    entrypoint: Optional[str] = None,
+    quarto_inspection: Optional[QuartoInspectResult] = None,
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
@@ -701,9 +701,6 @@ def make_quarto_source_bundle(
 
 def make_html_manifest(
     filename: str,
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
 ) -> ManifestData:
     # noinspection SpellCheckingInspection
     manifest: ManifestData = {
@@ -714,17 +711,6 @@ def make_html_manifest(
         },
         "files": {},
     }
-
-    if image or env_management_py is not None or env_management_r is not None:
-        manifest["environment"] = {}
-        if image:
-            manifest["environment"]["image"] = image
-        if env_management_py is not None or env_management_r is not None:
-            manifest["environment"]["environment_management"] = {}
-            if env_management_py is not None:
-                manifest["environment"]["environment_management"]["python"] = env_management_py
-            if env_management_r is not None:
-                manifest["environment"]["environment_management"]["r"] = env_management_r
     return manifest
 
 
@@ -733,9 +719,6 @@ def make_notebook_html_bundle(
     python: str,
     hide_all_input: bool,
     hide_tagged_input: bool,
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
     check_output: Callable[..., bytes] = subprocess.check_output,
 ) -> typing.IO[bytes]:
     # noinspection SpellCheckingInspection
@@ -766,12 +749,11 @@ def make_notebook_html_bundle(
     filename = splitext(nb_name)[0] + ".html"
 
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
-
     with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
         bundle_add_buffer(bundle, filename, output)
 
         # manifest
-        manifest = make_html_manifest(filename, image, env_management_py, env_management_r)
+        manifest = make_html_manifest(filename)
         bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
 
     # rewind file pointer
@@ -971,9 +953,6 @@ def create_html_manifest(
     entrypoint: Optional[str],
     extra_files: Sequence[str],
     excludes: Sequence[str],
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
 ) -> Manifest:
     """
     Creates and writes a manifest.json file for the given path.
@@ -986,12 +965,6 @@ def create_html_manifest(
     portion of the entry point file name will be used to derive one. Previous default = None.
     :param extra_files: any extra files that should be included in the manifest. Previous default = None.
     :param excludes: a sequence of glob patterns that will exclude matched files.
-    :param force_generate: bool indicating whether to force generate manifest and related environment files.
-    :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
-        The server administrator is responsible for installing packages in the runtime environment. Default = None.
-    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
-        The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :return: the manifest data structure.
     """
     if not path:
@@ -1023,9 +996,6 @@ def create_html_manifest(
         app_mode=AppModes.STATIC,
         entrypoint=entrypoint,
         primary_html=entrypoint,
-        image=image,
-        env_management_py=env_management_py,
-        env_management_r=env_management_r,
     )
     manifest.deploy_dir = deploy_dir
 
@@ -1036,14 +1006,46 @@ def create_html_manifest(
     return manifest
 
 
+def make_tensorflow_manifest(
+    directory: str,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
+    image: Optional[str] = None,
+) -> ManifestData:
+    """
+    Creates and writes a manifest.json file for the given path.
+
+    :param directory the directory containing the TensorFlow model.
+    :param extra_files: any extra files that should be included in the manifest. Previous default = None.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :return: the manifest data structure.
+    """
+    if not directory:
+        raise RSConnectException("A valid directory must be provided.")
+    extra_files = list(extra_files) if extra_files else []
+
+    extra_files = validate_extra_files(directory, extra_files, use_abspath=True)
+    excludes = list(excludes) if excludes else []
+    excludes.extend(["manifest.json"])
+    excludes.extend(list_environment_dirs(directory))
+
+    manifest = make_source_manifest(
+        app_mode=AppModes.TENSORFLOW,
+        image=image,
+    )
+
+    file_list = create_file_list(directory, extra_files, excludes)
+    for rel_path in file_list:
+        manifest_add_file(manifest, rel_path, directory)
+    return manifest
+
+
 def make_html_bundle(
     path: str,
     entrypoint: Optional[str],
     extra_files: Sequence[str],
     excludes: Sequence[str],
-    image: Optional[str] = None,
-    env_management_py: Optional[bool] = None,
-    env_management_r: Optional[bool] = None,
 ) -> typing.IO[bytes]:
     """
     Create an html bundle, given a path and/or entrypoint.
@@ -1054,11 +1056,6 @@ def make_html_bundle(
     :param entrypoint: the main entry point.
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param excludes: a sequence of glob patterns that will exclude matched files.
-    :param image: the optional docker image to be specified for off-host execution. Default = None.
-    :param env_management_py: False prevents Connect from managing the Python environment for this bundle.
-        The server administrator is responsible for installing packages in the runtime environment. Default = None.
-    :param env_management_r: False prevents Connect from managing the R environment for this bundle.
-        The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :return: a file-like object containing the bundle tarball.
     """
 
@@ -1067,9 +1064,6 @@ def make_html_bundle(
         entrypoint=entrypoint,
         extra_files=extra_files,
         excludes=excludes,
-        image=image,
-        env_management_py=env_management_py,
-        env_management_r=env_management_r,
     )
 
     if manifest.data.get("files") is None:
@@ -1089,6 +1083,43 @@ def make_html_bundle(
     bundle.add_to_buffer("manifest.json", json.dumps(manifest_flattened_copy_data, indent=2))
 
     return bundle.to_file(manifest.deploy_dir)
+
+
+def make_tensorflow_bundle(
+    directory: str,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
+    image: Optional[str] = None,
+) -> typing.IO[bytes]:
+    """
+    Create an html bundle, given a path and/or entrypoint.
+
+    The bundle contains a manifest.json file created for the given notebook entrypoint file.
+
+    :param directory: the directory containing the TensorFlow model.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
+    :return: a file-like object containing the bundle tarball.
+    """
+
+    manifest = make_tensorflow_manifest(
+        directory=directory,
+        extra_files=extra_files,
+        excludes=excludes,
+        image=image,
+    )
+
+    if not manifest.get("files"):
+        raise RSConnectException("No valid files were found for the manifest.")
+
+    bundle = Bundle()
+    for f in manifest["files"]:
+        bundle.add_file(join(directory, f))
+
+    bundle.add_to_buffer("manifest.json", json.dumps(manifest, indent=2))
+
+    return bundle.to_file(directory)
 
 
 def create_file_list(
@@ -2170,6 +2201,32 @@ def write_quarto_manifest_json(
     if not isdir(file_or_directory):
         base_dir = dirname(file_or_directory)
     manifest_path = join(base_dir, "manifest.json")
+    write_manifest_json(manifest_path, manifest)
+
+
+def write_tensorflow_manifest_json(
+    directory: str,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
+    image: Optional[str] = None,
+) -> None:
+    """
+    Creates and writes a manifest.json file for the given TensorFlow content.
+
+    :param directory: The directory containing the TensorFlow model.
+    :param environment: The (optional) Python environment to use.
+    :param extra_files: Any extra files to include in the manifest.
+    :param excludes: A sequence of glob patterns to exclude when enumerating files to bundle.
+    :param image: the optional docker image to be specified for off-host execution. Default = None.
+    """
+
+    manifest = make_tensorflow_manifest(
+        directory,
+        extra_files,
+        excludes,
+        image,
+    )
+    manifest_path = join(directory, "manifest.json")
     write_manifest_json(manifest_path, manifest)
 
 

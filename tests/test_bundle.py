@@ -34,6 +34,8 @@ from rsconnect.bundle import (
     make_quarto_manifest,
     make_quarto_source_bundle,
     make_source_manifest,
+    make_tensorflow_bundle,
+    make_tensorflow_manifest,
     make_voila_bundle,
     to_bytes,
     validate_entry_point,
@@ -610,7 +612,6 @@ class TestBundle(TestCase):
             sys.executable,
             hide_all_input=False,
             hide_tagged_input=False,
-            image=None,
         )
 
         tar = tarfile.open(mode="r:gz", fileobj=bundle)
@@ -1051,6 +1052,78 @@ class TestBundle(TestCase):
             },
         )
 
+    def test_make_tensorflow_manifest_empty(self):
+        temp_proj = tempfile.mkdtemp()
+        manifest = make_tensorflow_manifest(temp_proj, [], [])
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {
+                    "appmode": "tensorflow-saved-model"
+                },
+                "files": {},
+            },
+        )
+
+    def test_make_tensorflow_bundle_empty(self):
+        temp_proj = tempfile.mkdtemp()
+        with self.assertRaises(RSConnectException):
+            _ = make_tensorflow_bundle(temp_proj, [], [])
+
+    def test_make_tensorflow_manifest(self):
+        temp_proj = tempfile.mkdtemp()
+        os.mkdir(join(temp_proj, "1"))
+        model_file = join(temp_proj, "1", "saved_model.pb")
+        with open(model_file, "w") as fp:
+            fp.write("fake model file\n")
+        manifest = make_tensorflow_manifest(temp_proj, [], [])
+        self.assertEqual(
+            manifest,
+            {
+                "version": 1,
+                "metadata": {
+                    "appmode": "tensorflow-saved-model"
+                },
+                "files": {
+                    "1/saved_model.pb": {"checksum": mock.ANY},
+                },
+            },
+        )
+
+    def test_make_tensorflow_bundle(self):
+        temp_proj = tempfile.mkdtemp()
+        os.mkdir(join(temp_proj, "1"))
+        model_file = join(temp_proj, "1", "saved_model.pb")
+        with open(model_file, "w") as fp:
+            fp.write("fake model file\n")
+        with make_tensorflow_bundle(temp_proj, [], []) as bundle:
+            with tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+                names = sorted(tar.getnames())
+                self.assertEqual(
+                    names,
+                    [
+                        "1/saved_model.pb",
+                        "manifest.json",
+                        ],
+                    )
+                manifest_data = tar.extractfile("manifest.json").read().decode("utf-8")
+                manifest = json.loads(manifest_data)
+                self.assertEqual(
+                    manifest,
+                    {
+                        "version": 1,
+                        "metadata": {
+                            "appmode": "tensorflow-saved-model"
+                        },
+                        "files": {
+                            "1/saved_model.pb": {"checksum": mock.ANY},
+                        },
+                    },
+                )
+                model_data = tar.extractfile("1/saved_model.pb").read().decode("utf-8")
+                self.assertEqual(model_data, "fake model file\n")
+
     def test_make_html_manifest(self):
         # Verify the optional parameters
         # image=None,  # type: str
@@ -1065,88 +1138,6 @@ class TestBundle(TestCase):
                 "metadata": {
                     "appmode": "static",
                     "primary_html": "abc.html",
-                },
-                "files": {},
-            },
-        )
-
-        # include image parameter
-        manifest = make_html_manifest("abc.html", image="rstudio/connect:bionic")
-        # print(manifest)
-        self.assertEqual(
-            manifest,
-            {
-                "version": 1,
-                "metadata": {
-                    "appmode": "static",
-                    "primary_html": "abc.html",
-                },
-                "environment": {
-                    "image": "rstudio/connect:bionic",
-                },
-                "files": {},
-            },
-        )
-
-        # include env_management_py parameter
-        manifest = make_html_manifest("abc.html", env_management_py=False)
-        # print(manifest)
-        self.assertEqual(
-            manifest,
-            {
-                "version": 1,
-                "metadata": {
-                    "appmode": "static",
-                    "primary_html": "abc.html",
-                },
-                "environment": {
-                    "environment_management": {
-                        "python": False,
-                    }
-                },
-                "files": {},
-            },
-        )
-
-        # include env_management_r parameter
-        manifest = make_html_manifest("abc.html", env_management_r=False)
-        # print(manifest)
-        self.assertEqual(
-            manifest,
-            {
-                "version": 1,
-                "metadata": {
-                    "appmode": "static",
-                    "primary_html": "abc.html",
-                },
-                "environment": {
-                    "environment_management": {
-                        "r": False,
-                    }
-                },
-                "files": {},
-            },
-        )
-
-        # include all runtime environment parameters
-        manifest = make_html_manifest(
-            "abc.html", image="rstudio/connect:bionic", env_management_py=False, env_management_r=False
-        )
-        # print(manifest)
-        self.assertEqual(
-            manifest,
-            {
-                "version": 1,
-                "metadata": {
-                    "appmode": "static",
-                    "primary_html": "abc.html",
-                },
-                "environment": {
-                    "image": "rstudio/connect:bionic",
-                    "environment_management": {
-                        "python": False,
-                        "r": False,
-                    },
                 },
                 "files": {},
             },
@@ -2038,7 +2029,6 @@ def test_create_html_manifest():
             None,
             extra_files=None,
             excludes=None,
-            image=None,
         )
     with pytest.raises(RSConnectException) as _:
         _, _ = create_html_manifest(
@@ -2046,7 +2036,6 @@ def test_create_html_manifest():
             single_file_index_file,
             extra_files=None,
             excludes=None,
-            image=None,
         )
     with pytest.raises(RSConnectException) as _:
         _, _ = create_html_manifest(
@@ -2054,7 +2043,6 @@ def test_create_html_manifest():
             None,
             extra_files=None,
             excludes=None,
-            image=None,
         )
 
     if sys.platform == "win32":
@@ -2076,90 +2064,6 @@ def test_create_html_manifest():
         None,
         extra_files=tuple(),
         excludes=tuple(),
-    )
-    assert single_file_index_file_ans == json.loads(manifest.get_flattened_copy().json)
-
-    # check all runtime_environment vars
-    single_file_index_file_ans = {
-        "version": 1,
-        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
-        "files": {"index.html": {"checksum": index_hash}},
-        "environment": {
-            "image": "rstudio/connect:bionic",
-            "environment_management": {
-                "python": False,
-                "r": False,
-            },
-        },
-    }
-    manifest = create_html_manifest(
-        single_file_index_file,
-        None,
-        extra_files=tuple(),
-        excludes=tuple(),
-        image="rstudio/connect:bionic",
-        env_management_py=False,
-        env_management_r=False,
-    )
-    assert single_file_index_file_ans == json.loads(manifest.get_flattened_copy().json)
-
-    # check image param
-    single_file_index_file_ans = {
-        "version": 1,
-        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
-        "files": {"index.html": {"checksum": index_hash}},
-        "environment": {
-            "image": "rstudio/connect:bionic",
-        },
-    }
-    manifest = create_html_manifest(
-        single_file_index_file,
-        None,
-        extra_files=tuple(),
-        excludes=tuple(),
-        image="rstudio/connect:bionic",
-        env_management_py=None,
-        env_management_r=None,
-    )
-    assert single_file_index_file_ans == json.loads(manifest.get_flattened_copy().json)
-
-    # check env_management_py param
-    single_file_index_file_ans = {
-        "version": 1,
-        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
-        "files": {"index.html": {"checksum": index_hash}},
-        "environment": {
-            "environment_management": {
-                "python": False,
-            }
-        },
-    }
-    manifest = create_html_manifest(
-        single_file_index_file,
-        None,
-        extra_files=tuple(),
-        excludes=tuple(),
-        env_management_py=False,
-    )
-    assert single_file_index_file_ans == json.loads(manifest.get_flattened_copy().json)
-
-    # check env_management_r param
-    single_file_index_file_ans = {
-        "version": 1,
-        "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
-        "files": {"index.html": {"checksum": index_hash}},
-        "environment": {
-            "environment_management": {
-                "r": False,
-            }
-        },
-    }
-    manifest = create_html_manifest(
-        single_file_index_file,
-        None,
-        extra_files=tuple(),
-        excludes=tuple(),
-        env_management_r=False,
     )
     assert single_file_index_file_ans == json.loads(manifest.get_flattened_copy().json)
 
