@@ -264,55 +264,68 @@ class Manifest:
             del self.data["files"][key]
         return self
 
-    def raise_on_empty_entrypoint(self):
+    def require_entrypoint(self) -> str:
+        """
+        If self.entrypoint is a string, return it; if it is None, raise an exception.
+        """
         if self.entrypoint is None:
             raise RSConnectException("A valid entrypoint must be provided.")
-        return self
+        return self.entrypoint
 
-    @property
-    def flattened_data(self):
-        self.raise_on_empty_entrypoint()
-        new_data_files = {}
-        deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
-        deploy_dir = self.deploy_dir or deploy_dir
+    def get_manifest_files(self) -> dict[str, ManifestDataFile]:
+        new_data_files: dict[str, ManifestDataFile] = {}
+        deploy_dir: str
+
+        entrypoint = self.require_entrypoint()
+        if self.deploy_dir is not None:
+            deploy_dir = self.deploy_dir
+        elif entrypoint is not None and isfile(entrypoint):
+            deploy_dir = dirname(entrypoint)
+        else:
+            # TODO: This branch might be an error case. Need to investigate.
+            deploy_dir = entrypoint
+
         for path in self.data["files"]:
             rel_path = relpath(path, deploy_dir)
             manifestPath = Path(rel_path).as_posix()
             new_data_files[manifestPath] = self.data["files"][path]
         return new_data_files
 
-    @property
-    def flattened_buffer(self) -> dict[str, str]:
-        self.raise_on_empty_entrypoint()
+    def get_manifest_files_from_buffer(self) -> dict[str, str]:
         new_buffer: dict[str, str] = {}
-        deploy_dir = dirname(self.entrypoint) if isfile(self.entrypoint) else self.entrypoint
-        deploy_dir = self.deploy_dir or deploy_dir
+        deploy_dir: str
+
+        entrypoint = self.require_entrypoint()
+        if self.deploy_dir is not None:
+            deploy_dir = self.deploy_dir
+        elif entrypoint is not None and isfile(entrypoint):
+            deploy_dir = dirname(entrypoint)
+        else:
+            # TODO: This branch might be an error case. Need to investigate.
+            deploy_dir = entrypoint
+
         for k, v in self.buffer.items():
             rel_path = relpath(k, deploy_dir)
             manifestPath = Path(rel_path).as_posix()
             new_buffer[manifestPath] = v
         return new_buffer
 
-    @property
-    def flattened_entrypoint(self):
-        self.raise_on_empty_entrypoint()
-        return relpath(self.entrypoint, dirname(self.entrypoint))
+    def get_relative_entrypoint(self) -> str:
+        entrypoint = self.require_entrypoint()
+        return basename(entrypoint)
 
-    @property
-    def flattened_primary_html(self):
+    def get_flattened_primary_html(self):
         if self.primary_html is None:
             raise RSConnectException("A valid primary_html must be provided.")
         return relpath(self.primary_html, dirname(self.primary_html))
 
-    @property
-    def flattened_copy(self):
-        self.raise_on_empty_entrypoint()
+    def get_flattened_copy(self):
         new_manifest = deepcopy(self)
-        new_manifest.data["files"] = self.flattened_data
-        new_manifest.buffer = self.flattened_buffer
-        new_manifest.entrypoint = self.flattened_entrypoint
+        new_manifest.data["files"] = self.get_manifest_files()
+        new_manifest.buffer = self.get_manifest_files_from_buffer()
+        new_manifest.entrypoint = self.get_relative_entrypoint()
         if self.primary_html:
-            new_manifest.primary_html = self.flattened_primary_html
+            new_manifest.primary_html = self.get_flattened_primary_html()
         return new_manifest
 
 
@@ -320,7 +333,6 @@ class Bundle:
     def __init__(self) -> None:
         self.file_paths: set[str] = set()
         self.buffer: dict[str, str] = {}
-        self.deploy_dir: str | None = None
 
     def add_file(self, filepath: str) -> None:
         self.file_paths.add(filepath)
@@ -328,13 +340,13 @@ class Bundle:
     def discard_file(self, filepath: str) -> None:
         self.file_paths.discard(filepath)
 
-    def to_file(self, flatten_to_deploy_dir: bool = True) -> typing.IO[bytes]:
+    def to_file(self, deploy_dir: str) -> typing.IO[bytes]:
         bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
         with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
             for fp in self.file_paths:
                 if Path(fp).name in self.buffer:
                     continue
-                rel_path = Path(fp).relative_to(self.deploy_dir) if flatten_to_deploy_dir else None
+                rel_path = Path(fp).relative_to(deploy_dir)
                 logger.log(VERBOSE, "Adding file: %s", fp)
                 bundle.add(fp, arcname=rel_path)
             for k, v in self.buffer.items():
@@ -1062,20 +1074,21 @@ def make_html_bundle(
 
     if manifest.data.get("files") is None:
         raise RSConnectException("No valid files were found for the manifest.")
+    if manifest.deploy_dir is None:
+        raise RSConnectException("deploy_dir was not set for the manifest.")
 
     bundle = Bundle()
     for f in manifest.data["files"]:
         if f in manifest.buffer:
             continue
         bundle.add_file(f)
-    for k, v in manifest.flattened_buffer.items():
+    for k, v in manifest.get_manifest_files_from_buffer().items():
         bundle.add_to_buffer(k, v)
 
-    manifest_flattened_copy_data = manifest.flattened_copy.data
+    manifest_flattened_copy_data = manifest.get_flattened_copy().data
     bundle.add_to_buffer("manifest.json", json.dumps(manifest_flattened_copy_data, indent=2))
-    bundle.deploy_dir = manifest.deploy_dir
 
-    return bundle.to_file()
+    return bundle.to_file(manifest.deploy_dir)
 
 
 def create_file_list(
@@ -1255,22 +1268,23 @@ def make_voila_bundle(
 
     if manifest.data.get("files") is None:
         raise RSConnectException("No valid files were found for the manifest.")
+    if manifest.deploy_dir is None:
+        raise RSConnectException("deploy_dir was not set for the manifest.")
 
     bundle = Bundle()
     for f in manifest.data["files"]:
         if f in manifest.buffer:
             continue
         bundle.add_file(f)
-    for k, v in manifest.flattened_buffer.items():
+    for k, v in manifest.get_manifest_files_from_buffer().items():
         bundle.add_to_buffer(k, v)
 
-    manifest_flattened_copy_data = manifest.flattened_copy.data
+    manifest_flattened_copy_data = manifest.get_flattened_copy().data
     if multi_notebook and "metadata" in manifest_flattened_copy_data:
         manifest_flattened_copy_data["metadata"]["entrypoint"] = ""
     bundle.add_to_buffer("manifest.json", json.dumps(manifest_flattened_copy_data, indent=2))
-    bundle.deploy_dir = manifest.deploy_dir
 
-    return bundle.to_file()
+    return bundle.to_file(manifest.deploy_dir)
 
 
 def make_api_bundle(
@@ -1969,8 +1983,12 @@ def write_voila_manifest_json(
         env_management_r=env_management_r,
         multi_notebook=multi_notebook,
     )
+
+    if manifest.entrypoint is None:
+        raise RSConnectException("Voila manifest requires an entrypoint.")
+
     deploy_dir = dirname(manifest.entrypoint) if isfile(manifest.entrypoint) else manifest.entrypoint
-    manifest_flattened_copy_data = manifest.flattened_copy.data
+    manifest_flattened_copy_data = manifest.get_flattened_copy().data
     if multi_notebook and "metadata" in manifest_flattened_copy_data:
         manifest_flattened_copy_data["metadata"]["entrypoint"] = ""
     manifest_path = join(deploy_dir, "manifest.json")

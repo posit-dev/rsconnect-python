@@ -81,7 +81,7 @@ def test_Manifest_flattened_copy():
             "test_folder1/testfoldertext1.txt": {"checksum": "0a576fd324b6985bac6aa934131d2f5c"},
         },
     }
-    assert m.flattened_copy.data == html_manifest_dict
+    assert m.get_flattened_copy().data == html_manifest_dict
 
 
 def test_Manifest_empty_init():
@@ -97,4 +97,4 @@ def test_Manifest_empty_init():
 def test_Manifest_empty_exceptions():
     m = Manifest()
     with pytest.raises(RSConnectException) as _:
-        m.raise_on_empty_entrypoint()
+        m.require_entrypoint()
