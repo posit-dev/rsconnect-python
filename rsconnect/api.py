@@ -1110,7 +1110,12 @@ class RSConnectExecutor:
         with RSConnectClient(server) as client:
             result = client.me()
             if isinstance(result, HTTPResponse):
-                if result.json_data and "code" in result.json_data and result.json_data["code"] == 30:
+                if (
+                    result.json_data
+                    and isinstance(result.json_data, dict)
+                    and "code" in result.json_data
+                    and result.json_data["code"] == 30
+                ):
                     raise RSConnectException("The specified API key is not valid.")
                 raise RSConnectException("Could not verify the API key: %s %s" % (result.status, result.reason))
         return self
