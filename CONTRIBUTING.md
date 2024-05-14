@@ -16,7 +16,7 @@ steps listed above, the following is an example which uses `venv`.
 ```bash
 # Clone the repo
 cd ~/dev
-git clone https://github.com/rstudio/rsconnect-python.git
+git clone https://github.com/posit-dev/rsconnect-python.git
 cd rsconnect-python
 # Setup a virtual python environment
 python3 -m venv .venv
@@ -71,7 +71,7 @@ git push origin 1.2.3
 
 Once the tag push is received by GitHub, the relevant workflow action will be triggered and, upon successful completion,
 a release will be created and published to the repository
-[releases](https://github.com/rstudio/rsconnect-python/releases) and the public
+[releases](https://github.com/posit-dev/rsconnect-python/releases) and the public
 [PYPI](https://pypi.org/project/rsconnect-python/#history).
 
 > **NOTE**: Pre-releases versions must comply with [PIP 440](https://www.python.org/dev/peps/pep-0440/) in order for

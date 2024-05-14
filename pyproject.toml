@@ -39,7 +39,7 @@ test = [
 ]
 
 [project.urls]
-Repository = "http://github.com/rstudio/rsconnect-python"
+Repository = "http://github.com/posit-dev/rsconnect-python"
 Documentation = "https://docs.posit.co/rsconnect-python"
 
 [build-system]
