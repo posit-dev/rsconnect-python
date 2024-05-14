@@ -2274,6 +2274,8 @@ def content_bundle_download(
             raise RSConnectException("The output file already exists: %s" % output)
 
         result = download_bundle(ce.remote_server, guid)
+        if not isinstance(result.response_body, bytes):
+            raise RSConnectException("The response body must be bytes (not string or None).")
         with open(output, "wb") as f:
             f.write(result.response_body)
 
