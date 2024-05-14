@@ -1510,7 +1510,13 @@ class PositClient(HTTPServer):
     def wait_until_task_is_successful(self, task_id: str, timeout: int = get_task_timeout()) -> None:
         print()
         print("Waiting for task: {}".format(task_id))
+
         start_time = time.time()
+        finished: bool | None = None
+        status: str | None = None
+        error: str | None = None
+        description: str | None = None
+
         while time.time() - start_time < timeout:
             task = self.get_task(task_id)
             finished = task["finished"]
