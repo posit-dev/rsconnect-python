@@ -272,7 +272,10 @@ def validate_quarto_engines(inspect: QuartoInspectResult):
 
 
 # ===============================================================================
-# The following deprecated functions are here only for the vetiver-python package
+# START: The following deprecated functions are here only for the vetiver-python
+# package.
+# Some the code in this section has `pyright: ignore` comments, because this
+# deprecated code which will be removed in the future.
 # ===============================================================================
 def validate_extra_files(directory: str, extra_files: Sequence[str]):
     """
@@ -349,8 +352,8 @@ def deploy_app(
     **kws: object,
 ):
     kwargs = locals()
-    kwargs["entry_point"] = entry_point = validate_entry_point(entry_point, directory)
-    kwargs["extra_files"] = extra_files = validate_extra_files(directory, extra_files)
+    kwargs["entry_point"] = entry_point = validate_entry_point(entry_point, directory)  # pyright: ignore
+    kwargs["extra_files"] = extra_files = validate_extra_files(directory, extra_files)  # pyright: ignore
 
     if isinstance(connect_server, api.RSConnectServer):
         kwargs.update(
@@ -373,7 +376,7 @@ def deploy_app(
         )
 
     environment = create_python_environment(
-        directory,
+        directory,  # pyright: ignore
         force_generate,
         python,
     )
@@ -410,15 +413,15 @@ def deploy_app(
     ce = api.RSConnectExecutor(**kwargs)
     (
         ce.validate_server()
-        .validate_app_mode(app_mode=app_mode)
+        .validate_app_mode(app_mode=app_mode)  # pyright: ignore
         .make_bundle(
             make_api_bundle,
-            directory,
+            directory,  # pyright: ignore
             entry_point,
-            app_mode,
+            app_mode,  # pyright: ignore
             environment,
             extra_files,
-            excludes,
+            excludes,  # pyright: ignore
             image=image,
             env_management_py=env_management_py,
             env_management_r=env_management_r,

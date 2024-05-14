@@ -16,6 +16,7 @@ import time
 import typing
 import webbrowser
 from os.path import abspath, dirname
+from ssl import SSLError
 from typing import (
     IO,
     TYPE_CHECKING,
@@ -35,7 +36,6 @@ from urllib.parse import urlparse
 from warnings import warn
 
 import click
-from _ssl import SSLError
 
 if sys.version_info >= (3, 10):
     from typing import ParamSpec
@@ -720,6 +720,9 @@ class RSConnectExecutor:
             secret=secret,
             name=name,
         )
+        # The validation.validate_connection_options() function ensures that certain
+        # combinations of arguments are present; the cast() calls inside of the
+        # if-statements below merely reflect these validations.
         header_output = False
 
         if cacert and not ca_data:
@@ -755,11 +758,15 @@ class RSConnectExecutor:
         self.is_server_from_store = server_data.from_store
 
         if api_key:
+            url = cast(str, url)
             self.remote_server = RSConnectServer(url, api_key, insecure, ca_data)
         elif token and secret:
             if url and ("rstudio.cloud" in url or "posit.cloud" in url):
+                account_name = cast(str, account_name)
                 self.remote_server = CloudServer(url, account_name, token, secret)
             else:
+                url = cast(str, url)
+                account_name = cast(str, account_name)
                 self.remote_server = ShinyappsServer(url, account_name, token, secret)
         else:
             raise RSConnectException("Unable to infer Connect server type and setup server.")
@@ -1103,7 +1110,12 @@ class RSConnectExecutor:
         with RSConnectClient(server) as client:
             result = client.me()
             if isinstance(result, HTTPResponse):
-                if result.json_data and "code" in result.json_data and result.json_data["code"] == 30:
+                if (
+                    result.json_data
+                    and isinstance(result.json_data, dict)
+                    and "code" in result.json_data
+                    and result.json_data["code"] == 30
+                ):
                     raise RSConnectException("The specified API key is not valid.")
                 raise RSConnectException("Could not verify the API key: %s %s" % (result.status, result.reason))
         return self
@@ -1347,7 +1359,7 @@ class PositClient(HTTPServer):
     def get_extra_headers(self, url: str, method: str, body: str | bytes):
         canonical_request_method = method.upper()
         canonical_request_path = parse.urlparse(url).path
-        canonical_request_date = datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
+        canonical_request_date = datetime.datetime.now(datetime.timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
 
         # get request checksum
         md5 = hashlib.md5()
@@ -1503,7 +1515,13 @@ class PositClient(HTTPServer):
     def wait_until_task_is_successful(self, task_id: str, timeout: int = get_task_timeout()) -> None:
         print()
         print("Waiting for task: {}".format(task_id))
+
         start_time = time.time()
+        finished: bool | None = None
+        status: str | None = None
+        error: str | None = None
+        description: str | None = None
+
         while time.time() - start_time < timeout:
             task = self.get_task(task_id)
             finished = task["finished"]
