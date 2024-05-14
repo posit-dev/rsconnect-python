@@ -720,6 +720,9 @@ class RSConnectExecutor:
             secret=secret,
             name=name,
         )
+        # The validation.validate_connection_options() function ensures that certain
+        # combinations of arguments are present; the cast() calls inside of the
+        # if-statements below merely reflect these validations.
         header_output = False
 
         if cacert and not ca_data:
@@ -755,11 +758,15 @@ class RSConnectExecutor:
         self.is_server_from_store = server_data.from_store
 
         if api_key:
+            url = cast(str, url)
             self.remote_server = RSConnectServer(url, api_key, insecure, ca_data)
         elif token and secret:
             if url and ("rstudio.cloud" in url or "posit.cloud" in url):
+                account_name = cast(str, account_name)
                 self.remote_server = CloudServer(url, account_name, token, secret)
             else:
+                url = cast(str, url)
+                account_name = cast(str, account_name)
                 self.remote_server = ShinyappsServer(url, account_name, token, secret)
         else:
             raise RSConnectException("Unable to infer Connect server type and setup server.")

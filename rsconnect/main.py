@@ -8,7 +8,7 @@ import textwrap
 import traceback
 from functools import wraps
 from os.path import abspath, dirname, exists, isdir, join
-from typing import Callable, ItemsView, Literal, Optional, Sequence, TypeVar
+from typing import Callable, ItemsView, Literal, Optional, Sequence, TypeVar, cast
 
 import click
 
@@ -553,13 +553,21 @@ def add(
         token=token,
         secret=secret,
     )
+    # The validation.validate_connection_options() function ensures that certain
+    # combinations of arguments are present; the cast() calls inside of the
+    # if-statements below merely reflect these validations.
 
     old_server = server_store.get_by_name(name)
 
     if token:
         if server and ("rstudio.cloud" in server or "posit.cloud" in server):
+            account = cast(str, account)
+            secret = cast(str, secret)
             real_server = api.CloudServer(server, account, token, secret)
         else:
+            server = cast(str, server)
+            account = cast(str, account)
+            secret = cast(str, secret)
             real_server = api.ShinyappsServer(server, account, token, secret)
 
         _test_rstudio_creds(real_server)
@@ -576,6 +584,9 @@ def add(
         else:
             click.echo('Added {} credential "{}".'.format(real_server.remote_name, name))
     else:
+        server = cast(str, server)
+        api_key = cast(str, api_key)
+        # If we're in this code path
         # Server must be pingable and the API key must work to be added.
         real_server_rsc, _ = _test_server_and_api(server, api_key, insecure, cacert)
 
