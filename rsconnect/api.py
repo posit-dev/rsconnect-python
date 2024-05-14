@@ -16,6 +16,7 @@ import time
 import typing
 import webbrowser
 from os.path import abspath, dirname
+from ssl import SSLError
 from typing import (
     IO,
     TYPE_CHECKING,
@@ -35,7 +36,6 @@ from urllib.parse import urlparse
 from warnings import warn
 
 import click
-from _ssl import SSLError
 
 if sys.version_info >= (3, 10):
     from typing import ParamSpec
