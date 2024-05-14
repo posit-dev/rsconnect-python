@@ -1,12 +1,12 @@
 name: main
 on:
   push:
-    branches: [master]
+    branches: [main]
     tags: ['*']
   schedule:
   - cron: "0 09 * * *" # Runs 11 AM UTC == 2 AM PDT
   pull_request:
-    branches: [master]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
