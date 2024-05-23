@@ -109,7 +109,7 @@ jobs:
         asset_path: ${{ steps.create_dist.outputs.whl }}
         asset_name: ${{ steps.create_dist.outputs.whl_basename }}
         asset_content_type: application/x-wheel+zip
-    - uses: aws-actions/configure-aws-credentials@v1
+    - uses: aws-actions/configure-aws-credentials@v4
       id: creds
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
@@ -142,7 +142,7 @@ jobs:
       with:
         name: docs
         path: docs/site/
-    - uses: aws-actions/configure-aws-credentials@v1
+    - uses: aws-actions/configure-aws-credentials@v4
       id: creds
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
@@ -150,7 +150,7 @@ jobs:
     - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: make sync-latest-docs-to-s3
     - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-      uses: aws-actions/configure-aws-credentials@v1
+      uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ secrets.DOCS_AWS_ROLE }}
         aws-region: us-east-1
