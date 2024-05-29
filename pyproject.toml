@@ -8,9 +8,9 @@ readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.8"
 
 dependencies = [
-    "typing-extensions>=4.10.0",
+    "typing-extensions>=4.8.0",
     "pip>=10.0.0",
-    "semver>=2.0.0,<3.0.0",
+    "semver>=2.0.0,<4.0.0",
     "pyjwt>=2.4.0",
     "click>=8.0.0",
 ]
