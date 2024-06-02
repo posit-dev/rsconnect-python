@@ -624,3 +624,13 @@ class UserRecord(TypedDict):
     locked: bool
     guid: str
     preferences: dict[str, object]
+
+
+class Examples(TypedDict):
+    name: str
+    type: str
+    title: str
+    description: str
+    files: list[str]
+    requirements: list[str]
+    links: list[dict[str, str]]

@@ -45,8 +45,10 @@ from .actions_content import (
     build_remove_content,
     build_start,
     download_bundle,
+    download_example,
     emit_build_log,
     get_content,
+    list_examples,
     search_content,
 )
 from .api import (
@@ -3007,6 +3009,88 @@ def system_caches_delete(
             logger=None,
         ).validate_server()
         ce.delete_runtime_cache(language, version, image_name, dry_run)
+
+
+@cli.group(no_args_is_help=True, help="Fetch Posit Connect jumpstart examples.")
+def examples():
+    pass
+
+
+@examples.command(
+    name="list",
+    short_help="List jumpstart examples on a Posit Connect server.",
+)
+@server_args
+@click.pass_context
+def examples_list(
+    ctx: click.Context,
+    name: str,
+    server: Optional[str],
+    api_key: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        if not isinstance(ce.remote_server, RSConnectServer):
+            raise RSConnectException("rsconnect examples list` requires a Posit Connect server.")
+        examples = list_examples(ce.remote_server)
+        result = [{"name": ex["name"], "description": ex["description"]} for ex in examples]
+        json.dump(result, sys.stdout, indent=2)
+
+
+@examples.command(
+    name="download",
+    short_help="Download a jumpstart example from a Posit Connect server.",
+)
+@server_args
+@click.option(
+    "--example",
+    required=True,
+    help="The name of the example to download.",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    required=True,
+    help="Defines the output location for the download.",
+)
+@click.option(
+    "--overwrite",
+    is_flag=True,
+    help="Overwrite the output file if it already exists.",
+)
+@click.pass_context
+def examples_download(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    example: str,
+    output: str,
+    overwrite: bool,
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        if not isinstance(ce.remote_server, RSConnectServer):
+            raise RSConnectException("`rsconnect examples download` requires a Posit Connect server.")
+        if exists(output) and not overwrite:
+            raise RSConnectException("The output file already exists: %s" % output)
+
+        result = download_example(ce.remote_server, example)
+        if not isinstance(result.response_body, bytes):
+            raise RSConnectException("The response body must be bytes (not string or None).")
+        with open(output, "wb") as f:
+            f.write(result.response_body)
 
 
 if __name__ == "__main__":

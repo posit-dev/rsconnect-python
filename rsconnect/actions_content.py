@@ -23,6 +23,7 @@ from .models import (
     ContentItemV1,
     VersionSearchFilter,
 )
+from .utils_package import compare_semvers
 
 _content_build_store: ContentBuildStore | None = None
 
@@ -501,3 +502,23 @@ def _order_content_results(
         result = sorted(result, key=lambda c: c["created_time"], reverse=True)
 
     return list(result)
+
+
+def list_examples(connect_server: RSConnectServer):
+    with RSConnectClient(connect_server) as client:
+        connect_version = client.server_settings()["version"]
+        has_public_examples = compare_semvers(connect_version, "2024.05.0")
+        result = client.examples_list() if has_public_examples in [0, 1] else client.examples_list_legacy()
+    return result
+
+
+def download_example(connect_server: RSConnectServer, example_name: str):
+    with RSConnectClient(connect_server) as client:
+        connect_version = client.server_settings()["version"]
+        has_public_examples = compare_semvers(connect_version, "2024.05.0")
+        result = (
+            client.examples_download(example_name)
+            if has_public_examples in [0, 1]
+            else client.examples_download_legacy(example_name)
+        )
+    return result
