@@ -280,6 +280,9 @@ jobs:
                   examples
               sparse-checkout-cone-mode: false
               token: ${{ secrets.CONNECT_PAT }}
+          
+          - name: Delete dotnet to save space
+            run: sudo rm -rf /usr/share/dotnet
       
           - name: Build docker container-image
             run: |

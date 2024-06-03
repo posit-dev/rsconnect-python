@@ -44,6 +44,9 @@ jobs:
             fetch-depth: 0
           env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+        - name: Delete dotnet to save space
+          run: sudo rm -rf /usr/share/dotnet
 
         - uses: actions/checkout@v4
           with:
