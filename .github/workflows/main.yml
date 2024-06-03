@@ -258,8 +258,8 @@ jobs:
       fail-fast: false
       matrix:
         PY_VERSION:
-          - 3.8.10
-          - 3.9.5
+          - 3.11.7
+          - 3.12.1
     steps:
           - uses: extractions/setup-just@v2
             env:
