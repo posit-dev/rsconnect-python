@@ -15,12 +15,12 @@ NoWarning = true
 
 [Python]
 Enabled = true
-Executable = /opt/python/3.8.17/bin/python
-Executable = /opt/python/3.9.17/bin/python
+Executable = /opt/python/3.12.1/bin/python
+Executable = /opt/python/3.11.7/bin/python
 
 [Quarto]
 Enabled = true
-Executable = /opt/quarto/bin/quarto
+Executable = /opt/quarto/1.4.552/bin/quarto
 
 [Authentication]
 BasicAuth = true

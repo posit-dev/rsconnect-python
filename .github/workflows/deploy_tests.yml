@@ -33,8 +33,8 @@ jobs:
           fail-fast: false
           matrix:
             PY_VERSION:
-              - 3.8.10
-              - 3.9.5
+              - 3.11.7
+              - 3.12.1
         steps:
         - uses: extractions/setup-just@v2
           env:
@@ -44,6 +44,9 @@ jobs:
             fetch-depth: 0
           env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+        - name: Delete dotnet to save space
+          run: sudo rm -rf /usr/share/dotnet
 
         - uses: actions/checkout@v4
           with:
