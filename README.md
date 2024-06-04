@@ -800,7 +800,10 @@ Commands:
 ```
 
 To build a specific content item, first `add` it to the list of content that is
-"tracked" for building using its GUID.
+"tracked" for building using its GUID. Content that is "tracked" in the local state
+may become out-of-sync with what exists remotely on the Connect server (the result of
+`rsconnect content search`). When this happens, it is safe to remove the locally tracked
+entries with `rsconnect content build rm`.
 
 > **Note**
 > Metadata for "tracked" content items is stored in a local directory called
@@ -808,7 +811,16 @@ To build a specific content item, first `add` it to the list of content that is
 > You may set the environment variable `CONNECT_CONTENT_BUILD_DIR` to override this directory location.
 
 ```bash
+# `add` the content to mark it as "tracked"
 rsconnect content build add --guid 4ffc819c-065c-420c-88eb-332db1133317
+
+# run the build which kicks off a cache rebuild on the server
+rsconnect content build run
+
+# once the build is complete, the content can be "untracked"
+# this does not remove the content from the Connect server
+# the entry is only removed from the local state file
+rsconnect content build rm --guid 4ffc819c-065c-420c-88eb-332db1133317
 ```
 
 > **Note**
@@ -889,6 +901,15 @@ rsconnect content build logs --guid 4ffc819c-065c-420c-88eb-332db1133317
 # Building Python API...
 # Cannot find compatible environment: no compatible Local environment with Python version 3.9.5
 # Task failed. Task exited with status 1.
+```
+
+Once a build for a piece of tracked content is complete, it can be safely removed from the list of "tracked"
+content by using `rsconnect content build rm` command. This command accepts a `--guid` argument to specify
+which piece of content to remove. Removing the content from the list of tracked content simply removes the item
+from the local state file, the content deployed to the server remains unchanged.
+
+```bash
+rsconnect content build rm --guid 4ffc819c-065c-420c-88eb-332db1133317
 ```
 
 ## Common Usage Examples
