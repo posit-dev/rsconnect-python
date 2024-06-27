@@ -336,12 +336,6 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def app_publish(self, app_id: str, access: str):
-        return self.post(
-            "applications/%s" % app_id,
-            body={"access_type": access, "id": app_id, "needs_config": False},
-        )
-
     def app_config(self, app_id: str) -> ConfigureResult:
         response = cast(Union[ConfigureResult, HTTPResponse], self.get("applications/%s/config" % app_id))
         response = self._server.handle_bad_response(response)
