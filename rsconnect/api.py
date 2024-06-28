@@ -72,6 +72,7 @@ from .models import (
     PyInfo,
     ServerSettings,
     TaskStatusV0,
+    TaskStatusV1,
     UserRecord,
 )
 from .timeouts import get_task_timeout, get_task_timeout_help_message
@@ -393,11 +394,20 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def task_get(self, task_id: str, first_status: Optional[int] = None) -> TaskStatusV0:
+    def task_get(
+        self,
+        task_id: str,
+        first: Optional[int] = None,
+        wait: Optional[int] = None,
+    ) -> TaskStatusV1:
         params = None
-        if first_status is not None:
-            params = {"first_status": first_status}
-        response = cast(Union[TaskStatusV0, HTTPResponse], self.get("tasks/%s" % task_id, query_params=params))
+        if first is not None or wait is not None:
+            params = {}
+            if first is not None:
+                params["first"] = first
+            if wait is not None:
+                params["wait"] = wait
+        response = cast(Union[TaskStatusV1, HTTPResponse], self.get("v1/tasks/%s" % task_id, query_params=params))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -467,76 +477,55 @@ class RSConnectClient(HTTPServer):
         log_callback: Optional[Callable[[str], None]],
         abort_func: Callable[[], bool] = lambda: False,
         timeout: int = get_task_timeout(),
-        poll_wait: float = 0.5,
+        poll_wait: int = 1,
         raise_on_error: bool = True,
-    ) -> tuple[list[str] | None, TaskStatusV0]:
+    ) -> tuple[list[str] | None, TaskStatusV1]:
         if log_callback is None:
             log_lines: list[str] | None = []
             log_callback = log_lines.append
         else:
             log_lines = None
 
-        last_status: int | None = None
+        first: int | None = None
         start_time = time.time()
-        sleep_duration = 0.5
-        time_slept = 0.0
         while True:
             if (time.time() - start_time) > timeout:
                 raise RSConnectException(get_task_timeout_help_message(timeout))
             elif abort_func():
                 raise RSConnectException("Task aborted.")
 
-            # we continue the loop so that we can re-check abort_func() in case there was an interrupt (^C),
-            # otherwise the user would have to wait a full poll_wait cycle before the program would exit.
-            if time_slept <= poll_wait:
-                time_slept += sleep_duration
-                time.sleep(sleep_duration)
-                continue
-            else:
-                time_slept = 0
-                task_status = self.task_get(task_id, last_status)
-                last_status = self.output_task_log(task_status, last_status, log_callback)
-                if task_status["finished"]:
-                    result = task_status.get("result")
-                    if isinstance(result, dict):
-                        data = result.get("data", "")
-                        type = result.get("type", "")
-                        if data or type:
-                            log_callback("%s (%s)" % (data, type))
+            task = self.task_get(task_id, first=first, wait=poll_wait)
+            self.output_task_log(task, log_callback)
+            first = task["last"]
+            if task["finished"]:
+                result = task.get("result")
+                if isinstance(result, dict):
+                    data = result.get("data", "")
+                    type = result.get("type", "")
+                    if data or type:
+                        log_callback("%s (%s)" % (data, type))
 
-                    err = task_status.get("error")
-                    if err:
-                        log_callback("Error from Connect server: " + err)
+                err = task.get("error")
+                if err:
+                    log_callback("Error from Connect server: " + err)
 
-                    exit_code = task_status["code"]
-                    if exit_code != 0:
-                        exit_status = "Task exited with status %d." % exit_code
-                        if raise_on_error:
-                            raise RSConnectException(exit_status)
-                        else:
-                            log_callback("Task failed. %s" % exit_status)
-                    return log_lines, task_status
+                exit_code = task["code"]
+                if exit_code != 0:
+                    exit_status = "Task exited with status %d." % exit_code
+                    if raise_on_error:
+                        raise RSConnectException(exit_status)
+                    else:
+                        log_callback("Task failed. %s" % exit_status)
+                return log_lines, task
 
     @staticmethod
     def output_task_log(
-        task_status: TaskStatusV0,
-        last_status: int | None,
+        task: TaskStatusV1,
         log_callback: Callable[[str], None],
     ):
-        """Pipe any new output through the log_callback.
-
-        Returns an updated last_status which should be passed into
-        the next call to output_task_log.
-
-        Raises RSConnectException on task failure.
-        """
-        new_last_status = last_status
-        if task_status["last_status"] != last_status:
-            for line in task_status["status"]:
-                log_callback(line)
-            new_last_status = task_status["last_status"]
-
-        return new_last_status
+        """Pipe any new output through the log_callback."""
+        for line in task["output"]:
+            log_callback(line)
 
 
 # for backwards compatibility with rsconnect-jupyter
@@ -601,8 +590,6 @@ class RSConnectExecutor:
 
         self.bundle: IO[bytes] | None = None
         self.deployed_info: RSConnectClientDeployResult | None = None
-        self.result: DeleteOutputDTO | None = None
-        self.task_status: TaskStatusV0 | None = None
 
         self.logger: logging.Logger | None = logger
         self.ctx = ctx
@@ -954,7 +941,7 @@ class RSConnectExecutor:
         log_callback: logging.Logger = connect_logger,
         abort_func: Callable[[], bool] = lambda: False,
         timeout: int = get_task_timeout(),
-        poll_wait: float = 0.5,
+        poll_wait: int = 1,
         raise_on_error: bool = True,
     ):
         """
@@ -1207,10 +1194,10 @@ class RSConnectExecutor:
         self.result = result
         if result["task_id"] is None:
             print("Dry run finished")
+            return result, None
         else:
-            (_, task_status) = self.client.wait_for_task(result["task_id"], connect_logger.info, raise_on_error=False)
-            self.task_status = task_status
-        return self
+            (_, task) = self.client.wait_for_task(result["task_id"], connect_logger.info, raise_on_error=False)
+            return result, task
 
 
 class S3Client(HTTPServer):
@@ -1825,7 +1812,7 @@ def emit_task_log(
     log_callback: Optional[Callable[[str], None]],
     abort_func: Callable[[], bool] = lambda: False,
     timeout: int = get_task_timeout(),
-    poll_wait: float = 0.5,
+    poll_wait: int = 1,
     raise_on_error: bool = True,
 ):
     """
