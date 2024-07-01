@@ -139,7 +139,7 @@ def build_start(
     running: bool = False,
     retry: bool = False,
     all: bool = False,
-    poll_wait: float = 2,
+    poll_wait: int = 1,
     debug: bool = False,
 ):
     build_store = ensure_content_build_store(connect_server)
@@ -302,7 +302,7 @@ def _monitor_build(connect_server: RSConnectServer, content_items: list[ContentI
     return True
 
 
-def _build_content_item(connect_server: RSConnectServer, content: ContentItemWithBuildState, poll_wait: float):
+def _build_content_item(connect_server: RSConnectServer, content: ContentItemWithBuildState, poll_wait: int):
     build_store = ensure_content_build_store(connect_server)
     with RSConnectClient(connect_server) as client:
         # Pending futures will still try to execute when ThreadPoolExecutor.shutdown() is called
@@ -333,7 +333,7 @@ def _build_content_item(connect_server: RSConnectServer, content: ContentItemWit
             def write_log(line: str):
                 log.write("%s\n" % line)
 
-            _, _, task_status = emit_task_log(
+            _, _, task = emit_task_log(
                 connect_server,
                 guid,
                 task_id,
@@ -347,8 +347,8 @@ def _build_content_item(connect_server: RSConnectServer, content: ContentItemWit
         if build_store.aborted():
             return
 
-        build_store.set_content_item_last_build_task_result(guid, task_status)
-        if task_status["code"] != 0:
+        build_store.set_content_item_last_build_task_result(guid, task)
+        if task["code"] != 0:
             logger.error("Build failed: %s" % guid)
             build_store.set_content_item_build_status(guid, BuildStatus.ERROR)
         else:

@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 from .exception import RSConnectException
 from .log import logger
-from .models import AppMode, AppModes, ContentItemV1, TaskStatusResult, TaskStatusV0
+from .models import AppMode, AppModes, ContentItemV1, TaskStatusResult, TaskStatusV1
 
 T = TypeVar("T", bound=Mapping[str, object])
 
@@ -544,13 +544,12 @@ class AppStore(DataStore[AppMetadata]):
 DEFAULT_BUILD_DIR = join(os.getcwd(), "rsconnect-build")
 
 
-# A trimmed version of TaskStatusV0 which doesn't contain `status` and `last_status` fields.
-class TaskStatusV0Trimmed(TypedDict):
+# A trimmed version of TaskStatusV1 which doesn't contain `output` and `last` fields.
+class TaskStatusV1Trimmed(TypedDict):
     id: str
     finished: bool
     code: int
     error: str
-    user_id: int
     result: TaskStatusResult | None
 
 
@@ -558,7 +557,7 @@ class ContentItemWithBuildState(ContentItemV1, TypedDict):
     rsconnect_build_status: str
     rsconnect_last_build_time: NotRequired[str]
     rsconnect_last_build_log: NotRequired[str | None]
-    rsconnect_build_task_result: NotRequired[TaskStatusV0Trimmed]
+    rsconnect_build_task_result: NotRequired[TaskStatusV1Trimmed]
 
 
 class ContentBuildStoreData(TypedDict):
@@ -745,7 +744,7 @@ class ContentBuildStore(DataStore[Dict[str, object]]):
             if not defer_save:
                 self.save()
 
-    def set_content_item_last_build_task_result(self, guid: str, task: TaskStatusV0, defer_save: bool = False) -> None:
+    def set_content_item_last_build_task_result(self, guid: str, task: TaskStatusV1, defer_save: bool = False) -> None:
         """
         Set the latest task_result for a content build
         """
@@ -754,12 +753,11 @@ class ContentBuildStore(DataStore[Dict[str, object]]):
             # status contains the log lines for the build. We have already recorded these in the
             # log file on disk so we can remove them from the task result before storing it
             # to reduce the data stored in our state-file.
-            task_copy: TaskStatusV0Trimmed = {
+            task_copy: TaskStatusV1Trimmed = {
                 "id": task["id"],
                 "finished": task["finished"],
                 "code": task["code"],
                 "error": task["error"],
-                "user_id": task["user_id"],
                 "result": task["result"],
             }
             content["rsconnect_build_task_result"] = task_copy

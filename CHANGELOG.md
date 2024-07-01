@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+- The `rsconnect content build run --poll-wait` argument specifies an integral
+  number of seconds. It previously allowed fractional seconds. (#608)
+
+- Uses the public Connect server API endpoint `/v1/tasks/{id}` to poll task
+  progress. (#608)
+
 ### Removed
 
 - Uncalled `RSConnectClient.app_publish()` function, which referenced an
