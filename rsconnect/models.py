@@ -552,6 +552,10 @@ class TaskStatusV1(TypedDict):
     last: int
     result: TaskStatusResult | None
 
+    # redundant fields for compatibility with rsconnect-python.
+    last_status: int
+    status: list[str]
+
 
 class BootstrapOutputDTO(TypedDict):
     api_key: str
