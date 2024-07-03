@@ -158,6 +158,18 @@ class TestSystemRuntimeCachesAPI(TestCase):
             "error": "",
             "last": 1,
         }
+        expected_task = {
+            "id": "this_is_a_task_id",
+            "user_id": 1,
+            "output": ["Removing runtime cache"],
+            "status": ["Removing runtime cache"],
+            "result": {"type": "", "data": None},
+            "finished": True,
+            "code": 0,
+            "error": "",
+            "last": 1,
+            "last_status": 1,
+        }
         httpretty.register_uri(
             httpretty.GET,
             "http://test-server/__api__/v1/tasks/this_is_a_task_id",
@@ -178,7 +190,8 @@ class TestSystemRuntimeCachesAPI(TestCase):
 
         # Result expectations
         self.assertDictEqual(mocked_delete_output, result)
-        self.assertDictEqual(mocked_task, task)
+        # mocked task plus backwards-compatible fields for rsconnect-jupyter
+        self.assertDictEqual(expected_task, task)
 
     # RSConnectExecutor.delete_runtime_cache() raises the correct error
     @httpretty.activate(verbose=True, allow_net_connect=False)

@@ -409,6 +409,11 @@ class RSConnectClient(HTTPServer):
                 params["wait"] = wait
         response = cast(Union[TaskStatusV1, HTTPResponse], self.get("v1/tasks/%s" % task_id, query_params=params))
         response = self._server.handle_bad_response(response)
+
+        # compatibility with rsconnect-jupyter
+        response["status"] = response["output"]
+        response["last_status"] = response["last"]
+
         return response
 
     def deploy(
