@@ -46,7 +46,7 @@ jobs:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
         - name: Delete dotnet to save space
-          run: sudo rm -rf /usr/share/dotnet
+          run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android
 
         - uses: actions/checkout@v4
           with:
