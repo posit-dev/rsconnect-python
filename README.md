@@ -912,6 +912,22 @@ from the local state file, the content deployed to the server remains unchanged.
 rsconnect content build rm --guid 4ffc819c-065c-420c-88eb-332db1133317
 ```
 
+### Rebuilding lots of content
+
+When attempting to rebuild a long list of content, it is recommended to first build a sub-set of the content list.
+First choose 1 or 2 Python and R content items for each version of Python and R on the server. Try to choose content
+items that have the most dependencies in common with other content items on the server. Build these content items
+first with the `rsconnect content build run` command. This will "warm" the Python and R environment cache for subsequent
+content builds. Once these initial builds are complete, add the remaining content items to the list of "tracked" content
+and execute another `rsconnect content build run` command.
+
+To execute multiple content builds simultaniously, use the `rsconnect content build run --parallelism` flag to increase the
+number of concurrent builds. By default, each content item is built serially. Increasing the build parallelism can reduce the total
+time needed to rebuild a long list of content items. We recommend starting with a low parallelism setting (2-3) and increasing
+from there to avoid overloading the Connect server with concurrent build operations. Remember that these builds are executing on the
+Connect server which consumes CPU, RAM, and i/o bandwidth that would otherwise we allocated for Python and R applications
+running on the server.
+
 ## Common Usage Examples
 
 ### Searching for content
