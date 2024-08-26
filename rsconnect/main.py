@@ -2690,9 +2690,9 @@ def get_build_logs(
 @click.option("--all", is_flag=True, help="Build all content, even if it is already marked as COMPLETE.")
 @click.option(
     "--poll-wait",
-    type=click.FloatRange(min=0.5, clamp=True),
-    default=2,
-    help="Defines the number of seconds between polls when polling for build output. Defaults to 2.",
+    type=click.IntRange(min=1, clamp=True),
+    default=1,
+    help="Defines the number of seconds between polls when polling for build output. Defaults to 1.",
 )
 @click.option(
     "--format",
@@ -2720,7 +2720,7 @@ def start_content_build(
     running: bool,
     retry: bool,
     all: bool,
-    poll_wait: float,
+    poll_wait: int,
     format: LogOutputFormat.All,
     debug: bool,
     verbose: int,

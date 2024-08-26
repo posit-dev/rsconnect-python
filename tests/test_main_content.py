@@ -72,16 +72,15 @@ def register_uris(connect_server: str):
     )
     httpretty.register_uri(
         httpretty.GET,
-        f"{connect_server}/__api__/tasks/1234",
+        f"{connect_server}/__api__/v1/tasks/1234",
         body="""{
             "id": "1234",
-            "user_id": 0,
-            "status": ["status1", "status2", "status3"],
+            "output": ["status1", "status2", "status3"],
             "result": {"type": "", "data": ""},
             "finished": true,
             "code": 0,
             "error": "",
-            "last_status": 0
+            "last": 0
         }""",
         adding_headers={"Content-Type": "application/json"},
     )
