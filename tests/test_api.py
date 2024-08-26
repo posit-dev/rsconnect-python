@@ -31,24 +31,25 @@ class TestAPI(TestCase):
         self.assertEqual(ce.remote_server.url, connect_server)
 
     def test_output_task_log(self):
-        lines = ["line 1", "line 2", "line 3"]
-        task_status = {
-            "status": lines,
-            "last_status": 3,
-            "finished": True,
+        first_task = {
+            "output": ["line 1", "line 2", "line 3"],
+            "last": 3,
+            "finished": False,
             "code": 0,
         }
         output = []
 
-        self.assertEqual(RSConnectClient.output_task_log(task_status, 0, output.append), 3)
-        self.assertEqual(lines, output)
+        RSConnectClient.output_task_log(first_task, output.append)
+        self.assertEqual(["line 1", "line 2", "line 3"], output)
 
-        task_status["last_status"] = 4
-        task_status["status"] = ["line 4"]
-        self.assertEqual(RSConnectClient.output_task_log(task_status, 3, output.append), 4)
-
-        self.assertEqual(len(output), 4)
-        self.assertEqual(output[3], "line 4")
+        second_task = {
+            "output": ["line 4"],
+            "last": 4,
+            "finished": True,
+            "code": 0,
+        }
+        RSConnectClient.output_task_log(second_task, output.append)
+        self.assertEqual(["line 1", "line 2", "line 3", "line 4"], output)
 
     def test_make_deployment_name(self):
         connect_server = require_connect()
@@ -117,7 +118,7 @@ class TestSystemRuntimeCachesAPI(TestCase):
 
         captured_output = io.StringIO()
         sys.stdout = captured_output
-        ce.delete_runtime_cache(language="Python", version="1.2.3", image_name="teapot", dry_run=True)
+        result, task = ce.delete_runtime_cache(language="Python", version="1.2.3", image_name="teapot", dry_run=True)
         sys.stdout = sys.__stdout__
 
         # Print expectations
@@ -125,7 +126,8 @@ class TestSystemRuntimeCachesAPI(TestCase):
         self.assertEqual(output_lines[0], "Dry run finished")
 
         # Result expectations
-        self.assertDictEqual(mocked_output, ce.result)
+        self.assertDictEqual(mocked_output, result)
+        self.assertEqual(task, None)
 
     # RSConnectExecutor.delete_runtime_cache() wet run returns expected request
     # RSConnectExecutor.delete_runtime_cache() wet run prints expected messages
@@ -146,27 +148,39 @@ class TestSystemRuntimeCachesAPI(TestCase):
             forcing_headers={"Content-Type": "application/json"},
         )
 
-        mocked_task_status = {
+        mocked_task = {
             "id": "this_is_a_task_id",
             "user_id": 1,
+            "output": ["Removing runtime cache"],
+            "result": {"type": "", "data": None},
+            "finished": True,
+            "code": 0,
+            "error": "",
+            "last": 1,
+        }
+        expected_task = {
+            "id": "this_is_a_task_id",
+            "user_id": 1,
+            "output": ["Removing runtime cache"],
             "status": ["Removing runtime cache"],
             "result": {"type": "", "data": None},
             "finished": True,
             "code": 0,
             "error": "",
+            "last": 1,
             "last_status": 1,
         }
         httpretty.register_uri(
             httpretty.GET,
-            "http://test-server/__api__/tasks/this_is_a_task_id",
-            body=json.dumps(mocked_task_status),
+            "http://test-server/__api__/v1/tasks/this_is_a_task_id",
+            body=json.dumps(mocked_task),
             status=200,
             forcing_headers={"Content-Type": "application/json"},
         )
 
         captured_output = io.StringIO()
         sys.stdout = captured_output
-        ce.delete_runtime_cache(language="Python", version="1.2.3", image_name="teapot", dry_run=False)
+        result, task = ce.delete_runtime_cache(language="Python", version="1.2.3", image_name="teapot", dry_run=False)
         sys.stdout = sys.__stdout__
 
         # Print expectations
@@ -175,7 +189,9 @@ class TestSystemRuntimeCachesAPI(TestCase):
         # self.assertEqual(output_lines[0], "Cache deletion finished")
 
         # Result expectations
-        self.assertDictEqual(mocked_task_status, ce.task_status)
+        self.assertDictEqual(mocked_delete_output, result)
+        # mocked task plus backwards-compatible fields for rsconnect-jupyter
+        self.assertDictEqual(expected_task, task)
 
     # RSConnectExecutor.delete_runtime_cache() raises the correct error
     @httpretty.activate(verbose=True, allow_net_connect=False)
