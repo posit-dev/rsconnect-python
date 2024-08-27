@@ -1732,6 +1732,7 @@ def get_python_env_info(
     file_name: str,
     python: str | None,
     force_generate: bool = False,
+    override_python_version: str | None = None,
 ) -> tuple[str, Environment]:
     """
     Gathers the python and environment information relating to the specified file
@@ -1751,6 +1752,9 @@ def get_python_env_info(
         raise RSConnectException(environment.error)
     logger.debug("Python: %s" % python)
     logger.debug("Environment: %s" % pformat(environment._asdict()))
+
+    if override_python_version:
+        environment = environment._replace(python = override_python_version)
 
     return python, environment
 
@@ -2243,6 +2247,7 @@ def create_python_environment(
     directory: str,
     force_generate: bool = False,
     python: Optional[str] = None,
+    override_python_version: Optional[str] = None
 ) -> Environment:
     module_file = fake_module_file_from_directory(directory)
 
@@ -2253,7 +2258,7 @@ def create_python_environment(
     _warn_if_environment_directory(directory)
 
     # with cli_feedback("Inspecting Python environment"):
-    _, environment = get_python_env_info(module_file, python, force_generate)
+    _, environment = get_python_env_info(module_file, python, force_generate, override_python_version)
 
     if force_generate:
         _warn_on_ignored_requirements(directory, environment.filename)

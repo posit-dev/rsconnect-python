@@ -125,3 +125,21 @@ See command help for further details."
                 "-A/--account, -T/--token, and -S/--secret must all be provided \
 for shinyapps.io. See command help for further details."
             )
+
+
+class PythonVersionParamType(click.ParamType):
+    name = "python-version"
+
+    def convert(self, value: str, param: Optional[click.Parameter], ctx: Optional[click.Context]):
+        try:
+            parts = list(map(int, value.split(".")))
+            if len(parts) == 3:
+                return value
+            elif len(parts) == 2:
+                return value + ".0"
+            else:
+                raise ValueError
+        except (AttributeError, ValueError):
+            self.fail(f"{value!r} is not a valid python version; expected 3.x or 3.x.y", param, ctx)
+
+PYTHON_VERSION = PythonVersionParamType()

@@ -891,6 +891,14 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     ),
 )
 @click.option(
+    "--override-python-version",
+    type=validation.PYTHON_VERSION,
+    help=(
+        "An optional python version to use instead of the version from "
+        "the detected environment."
+    )
+)
+@click.option(
     "--force-generate",
     "-g",
     is_flag=True,
@@ -920,6 +928,7 @@ def deploy_notebook(
     app_id: Optional[str],
     title: Optional[str],
     python: Optional[str],
+    override_python_version: Optional[str],
     force_generate: bool,
     verbose: int,
     file: str,
@@ -945,7 +954,7 @@ def deploy_notebook(
     _warn_on_ignored_manifest(base_dir)
     _warn_if_no_requirements_file(base_dir)
     _warn_if_environment_directory(base_dir)
-    python, environment = get_python_env_info(file, python, force_generate)
+    python, environment = get_python_env_info(file, python, force_generate, override_python_version)
 
     if force_generate:
         _warn_on_ignored_requirements(base_dir, environment.filename)
@@ -1032,6 +1041,14 @@ def deploy_notebook(
     ),
 )
 @click.option(
+    "--override-python-version",
+    type=validation.PYTHON_VERSION,
+    help=(
+        "An optional python version to use instead of the version from "
+        "the detected environment."
+    )
+)
+@click.option(
     "--force-generate",
     "-g",
     is_flag=True,
@@ -1050,6 +1067,7 @@ def deploy_voila(
     path: str,
     entrypoint: Optional[str],
     python: Optional[str],
+    override_python_version: Optional[str],
     force_generate: bool,
     extra_files: tuple[str, ...],
     exclude: tuple[str, ...],
@@ -1078,6 +1096,7 @@ def deploy_voila(
         path if isdir(path) else dirname(path),
         force_generate,
         python,
+        override_python_version
     )
 
     ce = RSConnectExecutor(
@@ -1231,6 +1250,14 @@ def deploy_manifest(
     ),
 )
 @click.option(
+    "--override-python-version",
+    type=validation.PYTHON_VERSION,
+    help=(
+        "An optional python version to use instead of the version from "
+        "the detected environment."
+    )
+)
+@click.option(
     "--force-generate",
     "-g",
     is_flag=True,
@@ -1257,6 +1284,7 @@ def deploy_quarto(
     exclude: tuple[str, ...],
     quarto: Optional[str],
     python: Optional[str],
+    override_python_version: Optional[str],
     force_generate: bool,
     verbose: int,
     file_or_directory: str,
@@ -1292,7 +1320,7 @@ def deploy_quarto(
         _warn_if_environment_directory(base_dir)
 
         with cli_feedback("Inspecting Python environment"):
-            python, environment = get_python_env_info(module_file, python, force_generate)
+            python, environment = get_python_env_info(module_file, python, force_generate, override_python_version)
 
             if force_generate:
                 _warn_on_ignored_requirements(base_dir, environment.filename)
@@ -1585,6 +1613,14 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         ),
     )
     @click.option(
+    "--override-python-version",
+    type=validation.PYTHON_VERSION,
+    help=(
+        "An optional python version to use instead of the version from "
+        "the detected environment."
+    )
+    )
+    @click.option(
         "--force-generate",
         "-g",
         is_flag=True,
@@ -1612,6 +1648,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         app_id: Optional[str],
         title: Optional[str],
         python: Optional[str],
+        override_python_version: Optional[str],
         force_generate: bool,
         verbose: int,
         directory: str,
@@ -1634,6 +1671,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             directory,
             force_generate,
             python,
+            override_python_version=override_python_version
         )
 
         if app_mode == AppModes.PYTHON_SHINY:
@@ -1753,6 +1791,14 @@ def write_manifest():
     + "The Python environment must have the rsconnect package installed.",
 )
 @click.option(
+    "--override-python-version",
+    type=validation.PYTHON_VERSION,
+    help=(
+        "An optional python version to use instead of the version from "
+        "the detected environment."
+    )
+)
+@click.option(
     "--force-generate",
     "-g",
     is_flag=True,
@@ -1773,6 +1819,7 @@ def write_manifest_notebook(
     ctx: click.Context,
     overwrite: bool,
     python: Optional[str],
+    override_python_version: Optional[str],
     force_generate: bool,
     verbose: int,
     file: str,
@@ -1796,7 +1843,7 @@ def write_manifest_notebook(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
-        python, environment = get_python_env_info(file, python, force_generate)
+        python, environment = get_python_env_info(file, python, force_generate, override_python_version)
 
     with cli_feedback("Creating manifest.json"):
         environment_file_exists = write_notebook_manifest_json(
@@ -1839,6 +1886,14 @@ def write_manifest_notebook(
     + "The Python environment must have the rsconnect package installed.",
 )
 @click.option(
+    "--override-python-version",
+    type=validation.PYTHON_VERSION,
+    help=(
+        "An optional python version to use instead of the version from "
+        "the detected environment."
+    )
+)
+@click.option(
     "--force-generate",
     "-g",
     is_flag=True,
@@ -1876,6 +1931,7 @@ def write_manifest_voila(
     entrypoint: Optional[str],
     overwrite: bool,
     python: Optional[str],
+    override_python_version: Optional[str],
     force_generate: bool,
     verbose: int,
     extra_files: tuple[str, ...],
@@ -1896,7 +1952,7 @@ def write_manifest_voila(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
-        python, environment = get_python_env_info(path, python, force_generate)
+        python, environment = get_python_env_info(path, python, force_generate, override_python_version)
 
     environment_file_exists = exists(join(base_dir, environment.filename))
 
@@ -1962,6 +2018,14 @@ def write_manifest_voila(
     + "The Python environment must have the rsconnect package installed.",
 )
 @click.option(
+    "--override-python-version",
+    type=validation.PYTHON_VERSION,
+    help=(
+        "An optional python version to use instead of the version from "
+        "the detected environment."
+    )
+)
+@click.option(
     "--force-generate",
     "-g",
     is_flag=True,
@@ -1982,6 +2046,7 @@ def write_manifest_quarto(
     exclude: tuple[str, ...],
     quarto: Optional[str],
     python: Optional[str],
+    override_python_version: Optional[str],
     force_generate: bool,
     verbose: int,
     file_or_directory: str,
@@ -2013,7 +2078,7 @@ def write_manifest_quarto(
     environment = None
     if "jupyter" in engines:
         with cli_feedback("Inspecting Python environment"):
-            python, environment = get_python_env_info(base_dir, python, force_generate)
+            python, environment = get_python_env_info(base_dir, python, force_generate, override_python_version)
 
         environment_file_exists = exists(join(base_dir, environment.filename))
         if environment_file_exists and not force_generate:
@@ -2142,6 +2207,14 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
         + "The Python environment must have the rsconnect-python package installed.",
     )
     @click.option(
+        "--override-python-version",
+        type=validation.PYTHON_VERSION,
+        help=(
+            "An optional python version to use instead of the version from "
+            "the detected environment."
+        )
+    )
+    @click.option(
         "--force-generate",
         "-g",
         is_flag=True,
@@ -2162,6 +2235,7 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
         entrypoint: Optional[str],
         exclude: tuple[str, ...],
         python: Optional[str],
+        override_python_version: Optional[str],
         force_generate: bool,
         verbose: int,
         directory: str,
@@ -2177,6 +2251,7 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
             entrypoint,
             exclude,
             python,
+            override_python_version,
             force_generate,
             verbose,
             directory,
@@ -2206,6 +2281,7 @@ def _write_framework_manifest(
     entrypoint: Optional[str],
     exclude: tuple[str, ...],
     python: Optional[str],
+    override_python_version: Optional[str],
     force_generate: bool,
     verbose: int,
     directory: str,
@@ -2223,6 +2299,7 @@ def _write_framework_manifest(
     :param exclude: a sequence of exclude glob patterns to exclude files from
                     the deploy.
     :param python: a path to the Python executable to use.
+    :param override_python_version: Python version number Connect should use instead of the locally-installed version
     :param force_generate: a flag to force the generation of manifest and
                            requirements file.
     :param verbose: a flag to produce more (debugging) output.
@@ -2246,7 +2323,7 @@ def _write_framework_manifest(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
-        _, environment = get_python_env_info(directory, python, force_generate)
+        _, environment = get_python_env_info(directory, python, force_generate, override_python_version)
 
     if app_mode == AppModes.PYTHON_SHINY:
         with cli_feedback("Inspecting Shiny for Python app"):
