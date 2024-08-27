@@ -892,7 +892,6 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
 )
 @click.option(
     "--override-python-version",
-    "-op",
     help=(
         "An optional python version to use instead of the version from "
         "the detected environment."
@@ -1042,7 +1041,6 @@ def deploy_notebook(
 )
 @click.option(
     "--override-python-version",
-    "-op",
     help=(
         "An optional python version to use instead of the version from "
         "the detected environment."
@@ -1251,7 +1249,6 @@ def deploy_manifest(
 )
 @click.option(
     "--override-python-version",
-    "-op",
     help=(
         "An optional python version to use instead of the version from "
         "the detected environment."
@@ -1614,7 +1611,6 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
     )
     @click.option(
     "--override-python-version",
-    "-op",
     help=(
         "An optional python version to use instead of the version from "
         "the detected environment."
@@ -1792,7 +1788,6 @@ def write_manifest():
 )
 @click.option(
     "--override-python-version",
-    "-op",
     help=(
         "An optional python version to use instead of the version from "
         "the detected environment."
@@ -1884,6 +1879,13 @@ def write_manifest_notebook(
     type=click.Path(exists=True),
     help="Path to Python interpreter whose environment should be used. "
     + "The Python environment must have the rsconnect package installed.",
+)
+@click.option(
+    "--override-python-version",
+    help=(
+        "An optional python version to use instead of the version from "
+        "the detected environment."
+    )
 )
 @click.option(
     "--force-generate",
@@ -2008,6 +2010,13 @@ def write_manifest_voila(
     type=click.Path(exists=True),
     help="Path to Python interpreter whose environment should be used. "
     + "The Python environment must have the rsconnect package installed.",
+)
+@click.option(
+    "--override-python-version",
+    help=(
+        "An optional python version to use instead of the version from "
+        "the detected environment."
+    )
 )
 @click.option(
     "--force-generate",
@@ -2191,6 +2200,13 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
         + "The Python environment must have the rsconnect-python package installed.",
     )
     @click.option(
+        "--override-python-version",
+        help=(
+            "An optional python version to use instead of the version from "
+            "the detected environment."
+        )
+    )
+    @click.option(
         "--force-generate",
         "-g",
         is_flag=True,
@@ -2211,6 +2227,7 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
         entrypoint: Optional[str],
         exclude: tuple[str, ...],
         python: Optional[str],
+        override_python_version: Optional[str],
         force_generate: bool,
         verbose: int,
         directory: str,
@@ -2226,6 +2243,7 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
             entrypoint,
             exclude,
             python,
+            override_python_version,
             force_generate,
             verbose,
             directory,
