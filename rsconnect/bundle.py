@@ -1754,6 +1754,9 @@ def get_python_env_info(
     logger.debug("Environment: %s" % pformat(environment._asdict()))
 
     if override_python_version:
+        parts = override_python_version.split(".")
+        if len(parts) == 2:
+            override_python_version += ".0"
         environment = environment._replace(python = override_python_version)
 
     return python, environment
