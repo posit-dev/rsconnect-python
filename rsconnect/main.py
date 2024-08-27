@@ -1923,6 +1923,7 @@ def write_manifest_voila(
     entrypoint: Optional[str],
     overwrite: bool,
     python: Optional[str],
+    override_python_version: Optional[str],
     force_generate: bool,
     verbose: int,
     extra_files: tuple[str, ...],
@@ -1943,7 +1944,7 @@ def write_manifest_voila(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
-        python, environment = get_python_env_info(path, python, force_generate)
+        python, environment = get_python_env_info(path, python, force_generate, override_python_version)
 
     environment_file_exists = exists(join(base_dir, environment.filename))
 
@@ -2029,6 +2030,7 @@ def write_manifest_quarto(
     exclude: tuple[str, ...],
     quarto: Optional[str],
     python: Optional[str],
+    override_python_version: Optional[str],
     force_generate: bool,
     verbose: int,
     file_or_directory: str,
@@ -2060,7 +2062,7 @@ def write_manifest_quarto(
     environment = None
     if "jupyter" in engines:
         with cli_feedback("Inspecting Python environment"):
-            python, environment = get_python_env_info(base_dir, python, force_generate)
+            python, environment = get_python_env_info(base_dir, python, force_generate, override_python_version)
 
         environment_file_exists = exists(join(base_dir, environment.filename))
         if environment_file_exists and not force_generate:
@@ -2253,6 +2255,7 @@ def _write_framework_manifest(
     entrypoint: Optional[str],
     exclude: tuple[str, ...],
     python: Optional[str],
+    override_python_version: Optional[str],
     force_generate: bool,
     verbose: int,
     directory: str,
@@ -2270,6 +2273,7 @@ def _write_framework_manifest(
     :param exclude: a sequence of exclude glob patterns to exclude files from
                     the deploy.
     :param python: a path to the Python executable to use.
+    :param override_python_version: Python version number Connect should use instead of the locally-installed version
     :param force_generate: a flag to force the generation of manifest and
                            requirements file.
     :param verbose: a flag to produce more (debugging) output.
@@ -2293,7 +2297,7 @@ def _write_framework_manifest(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
-        _, environment = get_python_env_info(directory, python, force_generate)
+        _, environment = get_python_env_info(directory, python, force_generate, override_python_version)
 
     if app_mode == AppModes.PYTHON_SHINY:
         with cli_feedback("Inspecting Shiny for Python app"):
