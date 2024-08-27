@@ -892,6 +892,7 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
 )
 @click.option(
     "--override-python-version",
+    type=validation.PYTHON_VERSION,
     help=(
         "An optional python version to use instead of the version from "
         "the detected environment."
@@ -1041,6 +1042,7 @@ def deploy_notebook(
 )
 @click.option(
     "--override-python-version",
+    type=validation.PYTHON_VERSION,
     help=(
         "An optional python version to use instead of the version from "
         "the detected environment."
@@ -1249,6 +1251,7 @@ def deploy_manifest(
 )
 @click.option(
     "--override-python-version",
+    type=validation.PYTHON_VERSION,
     help=(
         "An optional python version to use instead of the version from "
         "the detected environment."
@@ -1611,6 +1614,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
     )
     @click.option(
     "--override-python-version",
+    type=validation.PYTHON_VERSION,
     help=(
         "An optional python version to use instead of the version from "
         "the detected environment."
@@ -1788,6 +1792,7 @@ def write_manifest():
 )
 @click.option(
     "--override-python-version",
+    type=validation.PYTHON_VERSION,
     help=(
         "An optional python version to use instead of the version from "
         "the detected environment."
@@ -1882,6 +1887,7 @@ def write_manifest_notebook(
 )
 @click.option(
     "--override-python-version",
+    type=validation.PYTHON_VERSION,
     help=(
         "An optional python version to use instead of the version from "
         "the detected environment."
@@ -2013,6 +2019,7 @@ def write_manifest_voila(
 )
 @click.option(
     "--override-python-version",
+    type=validation.PYTHON_VERSION,
     help=(
         "An optional python version to use instead of the version from "
         "the detected environment."
@@ -2201,6 +2208,7 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
     )
     @click.option(
         "--override-python-version",
+        type=validation.PYTHON_VERSION,
         help=(
             "An optional python version to use instead of the version from "
             "the detected environment."
