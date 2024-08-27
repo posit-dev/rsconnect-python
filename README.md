@@ -12,21 +12,6 @@ prepared `manifest.json` file. See ["Deploying R or Other
 Content"](#deploying-r-or-other-content) for details.
 
 
-## Deploying Python Content to Posit Connect
-
-Posit Connect supports the deployment of Jupyter notebooks, Python APIs (such as
-those based on Flask or FastAPI) and apps (such as Dash, Streamlit, and Bokeh apps).
-Much like deploying R
-content to Posit Connect, there are some caveats to understand when replicating your
-environment on the Posit Connect server:
-
-Posit Connect insists on matching `<MAJOR.MINOR>` versions of Python. For example,
-a server with only Python 3.9 installed will fail to match content deployed with
-Python 3.8. Your administrator may also enable exact Python version matching which
-will be stricter and require matching major, minor, and patch versions. For more
-information see the [Posit Connect Admin Guide chapter titled Python Version
-Matching](https://docs.posit.co/connect/admin/python/#python-version-matching).
-
 ### Installation
 
 To install `rsconnect-python` from PYPI, you may use any python package manager such as
@@ -233,6 +218,33 @@ ensuring that you use the same Python that you use to run your Jupyter Notebook:
 /path/to/python -m pip list --format=freeze
 ```
 
+#### Python Version
+
+When deploying Python content to Posit Connect,
+the server will require matching `<MAJOR.MINOR>` versions of Python. For example,
+a server with only Python 3.9 installed will fail to match content deployed with
+Python 3.8. Your administrator may also enable exact Python version matching which
+will be stricter and require matching major, minor, and patch versions. For more
+information see the [Posit Connect Admin Guide chapter titled Python Version
+Matching](https://docs.posit.co/connect/admin/python/#python-version-matching).
+
+We recommend installing a version of Python on your client that is also available
+in your Connect installation. If that's not possible, you can override
+rsconnect-python's detected Python version and request a version of Python
+that is installed in Connect, For example, this command:
+
+```bash
+rsconnect deploy api --override-python-version 3.11.5 my-api/
+```
+
+will deploy the content in `my-api` while requesting that Connect
+use Python version 3.11.5.
+
+> **Note**
+> The packages and package versions listed in `requirements.txt` must be
+> compatible with the Python version you request.
+
+
 #### Static (Snapshot) Deployment
 
 By default, `rsconnect` deploys the original notebook with all its source code. This
@@ -370,6 +382,32 @@ ensuring that you use the same Python that you use to run your API or applicatio
 ```bash
 /path/to/python -m pip list --format=freeze
 ```
+
+#### Python Version
+
+When deploying Python content to Posit Connect,
+the server will require matching `<MAJOR.MINOR>` versions of Python. For example,
+a server with only Python 3.9 installed will fail to match content deployed with
+Python 3.8. Your administrator may also enable exact Python version matching which
+will be stricter and require matching major, minor, and patch versions. For more
+information see the [Posit Connect Admin Guide chapter titled Python Version
+Matching](https://docs.posit.co/connect/admin/python/#python-version-matching).
+
+We recommend installing a version of Python on your client that is also available
+in your Connect installation. If that's not possible, you can override
+rsconnect-python's detected Python version and request a version of Python
+that is installed in Connect, For example, this command:
+
+```bash
+rsconnect deploy api --override-python-version 3.11.5 my-api/
+```
+
+will deploy the content in `my-api` while requesting that Connect
+use Python version 3.11.5.
+
+> **Note**
+> The packages and package versions listed in `requirements.txt` must be
+> compatible with the Python version you request.
 
 ### Creating a Manifest for Future Deployment
 
