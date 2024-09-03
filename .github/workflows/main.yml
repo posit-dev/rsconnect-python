@@ -191,7 +191,7 @@ jobs:
           pip freeze > requirements.txt
           make dev
         env:
-          RSC_LICENSE_NEW: ${{ secrets.RSC_LICENSE_NEW }}
+          RSC_LICENSE: ${{ secrets.RSC_LICENSE_NEW }}
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
       - name: Get logs in case of failure
         run: |
