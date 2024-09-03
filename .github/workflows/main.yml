@@ -191,7 +191,7 @@ jobs:
           pip freeze > requirements.txt
           make dev
         env:
-          RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
+          RSC_LICENSE_NEW: ${{ secrets.RSC_LICENSE_NEW }}
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
       - name: Get logs in case of failure
         run: |
@@ -207,7 +207,7 @@ jobs:
   test-jupyter:
     runs-on: ubuntu-latest
     env:
-      CONNECT_LICENSE: ${{ secrets.RSC_LICENSE }}
+      CONNECT_LICENSE: ${{ secrets.RSC_LICENSE_NEW }}
       ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
     steps:
       - uses: actions/checkout@v4
@@ -297,7 +297,7 @@ jobs:
           
           - name: Run rsconnect-python Tests
             env:
-              CONNECT_LICENSE: "${{ secrets.RSC_LICENSE }}"
+              CONNECT_LICENSE: "${{ secrets.RSC_LICENSE_NEW }}"
               PY_VERSION: ${{ matrix.PY_VERSION }}
               TEST_SUBSET: "CI"
               RSC_AUTOMATION_PAT: "${{ secrets.CONNECT_PAT }}"
