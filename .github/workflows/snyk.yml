@@ -6,7 +6,7 @@ on:
 
 env:
   SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-  SNYK_ORG: rstudio-connect
+  SNYK_ORG: posit-connect-tools
 
 jobs:
   snyk-monitor:
