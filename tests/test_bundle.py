@@ -1059,9 +1059,7 @@ class TestBundle(TestCase):
             manifest,
             {
                 "version": 1,
-                "metadata": {
-                    "appmode": "tensorflow-saved-model"
-                },
+                "metadata": {"appmode": "tensorflow-saved-model"},
                 "files": {},
             },
         )
@@ -1082,9 +1080,7 @@ class TestBundle(TestCase):
             manifest,
             {
                 "version": 1,
-                "metadata": {
-                    "appmode": "tensorflow-saved-model"
-                },
+                "metadata": {"appmode": "tensorflow-saved-model"},
                 "files": {
                     "1/saved_model.pb": {"checksum": mock.ANY},
                 },
@@ -1105,17 +1101,15 @@ class TestBundle(TestCase):
                     [
                         "1/saved_model.pb",
                         "manifest.json",
-                        ],
-                    )
+                    ],
+                )
                 manifest_data = tar.extractfile("manifest.json").read().decode("utf-8")
                 manifest = json.loads(manifest_data)
                 self.assertEqual(
                     manifest,
                     {
                         "version": 1,
-                        "metadata": {
-                            "appmode": "tensorflow-saved-model"
-                        },
+                        "metadata": {"appmode": "tensorflow-saved-model"},
                         "files": {
                             "1/saved_model.pb": {"checksum": mock.ANY},
                         },
@@ -2907,6 +2901,76 @@ def test_make_manifest_bundle():
         bundle_json = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
         assert manifest["metadata"] == bundle_json["metadata"]
         assert manifest["files"].keys() == bundle_json["files"].keys()
+
+
+gradio_dir = os.path.join(cur_dir, "./testdata/gradio")
+gradio_file = os.path.join(cur_dir, "./testdata/gradio/app.py")
+
+
+def test_make_api_manifest_gradio():
+    gradio_dir_ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-gradio"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "381ccadfb8d4848add470e33033b198f"},
+            "app.py": {"checksum": "22feec76e9c02ac6b5a34a083e2983b6"},
+        },
+    }
+    environment = create_python_environment(
+        gradio_dir,
+    )
+    manifest, _ = make_api_manifest(
+        gradio_dir,
+        None,
+        AppModes.PYTHON_GRADIO,
+        environment,
+        None,
+        None,
+    )
+
+    assert gradio_dir_ans["metadata"] == manifest["metadata"]
+    assert gradio_dir_ans["files"].keys() == manifest["files"].keys()
+
+
+def test_make_api_bundle_gradio():
+    gradio_dir_ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-gradio"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "381ccadfb8d4848add470e33033b198f"},
+            "app.py": {"checksum": "22feec76e9c02ac6b5a34a083e2983b6"},
+        },
+    }
+    environment = create_python_environment(
+        gradio_dir,
+    )
+    with make_api_bundle(
+        gradio_dir,
+        None,
+        AppModes.PYTHON_GRADIO,
+        environment,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "app.py",
+            "manifest.json",
+            "requirements.txt",
+        ]
+        bundle_json = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+        assert gradio_dir_ans["metadata"] == bundle_json["metadata"]
+        assert gradio_dir_ans["files"].keys() == bundle_json["files"].keys()
 
 
 empty_manifest_file = os.path.join(cur_dir, "./testdata/Manifest_data/empty_manifest.json")

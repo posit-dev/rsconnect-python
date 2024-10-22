@@ -4,8 +4,8 @@ This package provides a CLI (command-line interface) for interacting
 with and deploying to Posit Connect. This is also used by the
 [`rsconnect-jupyter`](https://github.com/rstudio/rsconnect-jupyter) package to deploy
 Jupyter notebooks via the Jupyter web console. Many types of content supported by Posit
-Connect may be deployed by this package, including WSGI-style APIs, Dash, Streamlit, and
-Bokeh applications.
+Connect may be deployed by this package, including WSGI-style APIs, Dash, Streamlit,
+Gradio, and Bokeh applications.
 
 Content types not directly supported by the CLI may also be deployed if they include a
 prepared `manifest.json` file. See ["Deploying R or Other
@@ -288,9 +288,10 @@ You can deploy a variety of APIs and applications using sub-commands of the
 * `dash`: Python Dash apps
 * `streamlit`: Streamlit apps
 * `bokeh`: Bokeh server apps
+* `gradio`: Gradio apps
 
 All options below apply equally to the `api`, `fastapi`, `dash`, `streamlit`,
-and `bokeh` sub-commands.
+`gradio`, and `bokeh` sub-commands.
 
 #### Including Extra Files
 
@@ -470,8 +471,8 @@ rsconnect deploy notebook --title "My Notebook" my-notebook.ipynb
 ```
 
 When using `rsconnect deploy api`, `rsconnect deploy fastapi`, `rsconnect deploy dash`,
-`rsconnect deploy streamlit`, or `rsconnect deploy bokeh`, the title is derived from the directory
-containing the API or application.
+`rsconnect deploy streamlit`, `rsconnect deploy bokeh`, or `rsconnect deploy gradio`,
+the title is derived from the directory containing the API or application.
 
 When using `rsconnect deploy manifest`, the title is derived from the primary
 filename referenced in the manifest.
@@ -726,7 +727,7 @@ rsconnect content search --help
 #   -c, --cacert FILENAME           The path to trusted TLS CA certificates.
 #   --published                     Search only published content.
 #   --unpublished                   Search only unpublished content.
-#   --content-type [unknown|shiny|rmd-static|rmd-shiny|static|api|tensorflow-saved-model|jupyter-static|python-api|python-dash|python-streamlit|python-bokeh|python-fastapi|quarto-shiny|quarto-static]
+#   --content-type [unknown|shiny|rmd-static|rmd-shiny|static|api|tensorflow-saved-model|jupyter-static|python-api|python-dash|python-streamlit|python-bokeh|python-fastapi|python-gradio|quarto-shiny|quarto-static]
 #                                   Filter content results by content type.
 #   --r-version VERSIONSEARCHFILTER
 #                                   Filter content results by R version.
