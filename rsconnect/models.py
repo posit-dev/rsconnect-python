@@ -97,6 +97,7 @@ class AppModes:
     STATIC_QUARTO = AppMode(14, "quarto-static", "Quarto Document", ".qmd")
     PYTHON_SHINY = AppMode(15, "python-shiny", "Python Shiny Application")
     JUPYTER_VOILA = AppMode(16, "jupyter-voila", "Jupyter Voila Application")
+    PYTHON_GRADIO = AppMode(17, "python-gradio", "Gradio Application")
 
     _modes = [
         UNKNOWN,
@@ -116,6 +117,7 @@ class AppModes:
         STATIC_QUARTO,
         PYTHON_SHINY,
         JUPYTER_VOILA,
+        PYTHON_GRADIO
     ]
 
     Modes = Literal[
@@ -136,6 +138,7 @@ class AppModes:
         "quarto-static",
         "python-shiny",
         "jupyter-voila",
+        "python-gradio"
     ]
 
     _cloud_to_connect_modes = {

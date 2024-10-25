@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- You can now deploy Gradio applications. This requires Posit Connect release 2024.11.0
+  or later. Use `rsconnect deploy gradio` to deploy, or `rsconnect write-manifest gradio`
+  to create a manifest file.
+
 ### Changed
 
 - The `rsconnect content build run --poll-wait` argument specifies an integral
