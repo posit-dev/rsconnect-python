@@ -21,7 +21,7 @@ jobs:
         - run: pip freeze
         - run: make dist
           id: create_dist
-        - uses: actions/upload-artifact@v3
+        - uses: actions/upload-artifact@v4
           with:
             name: distributions
             path: dist/
@@ -65,7 +65,7 @@ jobs:
             docker compose --profile rsconnect build
     
         - name: Restore dist
-          uses: actions/download-artifact@v3
+          uses: actions/download-artifact@v4
           with:
             name: distributions
             path: dist/
@@ -93,7 +93,7 @@ jobs:
         
         # Videos are captured whether the suite fails or passes
         - name: Save videos
-          uses: actions/upload-artifact@v3
+          uses: actions/upload-artifact@v4
           if: failure()
           with:
             name: cypress-videos_${{ matrix.PY_VERSION }}_native
@@ -102,7 +102,7 @@ jobs:
 
         # Screenshots are only captured on failure
         - name: Save screenshots
-          uses: actions/upload-artifact@v3
+          uses: actions/upload-artifact@v4
           if: failure()
           with:
             name: cypress-screenshots_${{ matrix.PY_VERSION }}_native
