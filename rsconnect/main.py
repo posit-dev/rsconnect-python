@@ -1738,7 +1738,7 @@ generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.
 generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
 generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
 generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0")
-generate_deploy_python(app_mode=AppModes.PYTHON_GRADIO, alias="gradio", min_version="2024.11.0")
+generate_deploy_python(app_mode=AppModes.PYTHON_GRADIO, alias="gradio", min_version="2024.12.0")
 
 @deploy.command(
     name="other-content",
