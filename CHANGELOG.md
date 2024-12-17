@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.25.0] - 2024-12-18
+
 ### Added
 
 - You can now deploy Gradio applications. This requires Posit Connect release 2024.12.0
