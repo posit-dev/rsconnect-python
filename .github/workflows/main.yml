@@ -38,7 +38,6 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - run: pip install '.[test]'
     - run: pip freeze
-    - run: make fmt
     - run: make lint
     - run: rsconnect version
     - run: make test-${{ matrix.python-version }}
@@ -62,7 +61,6 @@ jobs:
         python-version: 3.8.x
     - run: pip install --pre '.[test]'
     - run: pip freeze
-    - run: make fmt
     - run: make lint
     - run: rsconnect version
     - run: make test-3.8
@@ -188,7 +186,7 @@ jobs:
         run: |
           pytest tests/test_main_system_caches.py
           pytest -m 'vetiver'
-                  
+
   test-jupyter:
     runs-on: ubuntu-latest
     env:
@@ -211,7 +209,7 @@ jobs:
       - name: Start Connect + rsconnect-jupyter
         run: |
             just integration-testing/up
-            
+
       - name: Run Cypress Tests
         run: |
             just integration-testing/up-cypress
@@ -235,7 +233,7 @@ jobs:
           path: integration-testing/cypress/screenshots
           if-no-files-found: ignore
           retention-days: 1
-    
+
   test-connect:
     needs: distributions
     runs-on: ubuntu-latest
@@ -265,21 +263,21 @@ jobs:
                   examples
               sparse-checkout-cone-mode: false
               token: ${{ secrets.CONNECT_PAT }}
-          
+
           - name: Delete dotnet to save space
             run: sudo rm -rf /usr/share/dotnet
-      
+
           - name: Build docker container-image
             run: |
               cd test/connect-rsconnect-python/test/rsconnect-python/
               docker compose --profile rsconnect build
-      
+
           - name: Restore dist
             uses: actions/download-artifact@v4
             with:
               name: distributions
               path: dist/
-          
+
           - name: Run rsconnect-python Tests
             env:
               CONNECT_LICENSE: "${{ secrets.RSC_LICENSE }}"
@@ -298,7 +296,7 @@ jobs:
               docker compose pull connect
               docker compose up -d connect
               just ../test/connect-rsconnect-python/test/rsconnect-python/test-rsconnect-python-repo
-  
+
           # Videos are captured whether the suite fails or passes
           - name: Save videos
             uses: actions/upload-artifact@v4
@@ -307,7 +305,7 @@ jobs:
               name: cypress-videos_${{ matrix.PY_VERSION }}_native
               path: test/connect-rsconnect-python/cypress/videos
               if-no-files-found: ignore
-  
+
           # Screenshots are only captured on failure
           - name: Save screenshots
             uses: actions/upload-artifact@v4
@@ -316,5 +314,5 @@ jobs:
               name: cypress-screenshots_${{ matrix.PY_VERSION }}_native
               path: test/connect-rsconnect-python/cypress/screenshots
               if-no-files-found: ignore
-  
-  
+
+
