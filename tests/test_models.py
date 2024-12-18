@@ -90,7 +90,6 @@ class TestModels(TestCase):
             ("dir", "file", False),
             ("*.txt", "file.txt", True),
             ("*.txt", "file.csv", False),
-
             ("dir", "dir/file", False),
             ("dir/*", "file", False),
             ("dir/*", "dir/file", True),
@@ -99,7 +98,6 @@ class TestModels(TestCase):
             ("dir/*.txt", "dir/file", False),
             ("dir/*.txt", "dir/file.txt", True),
             ("dir/*.txt", "dir/.txt", True),
-
             # recursive wildcard pattern using "/" (input paths using OS separator)
             ("dir/**/*", "dirfile.txt", False),
             ("dir/**/*", os.path.join("dirother", "a.txt"), False),
@@ -110,7 +108,6 @@ class TestModels(TestCase):
             ("dir/**/*.txt", os.path.join("dir", "a.csv"), False),
             ("dir/**/*.txt", os.path.join("dir", "sub", "a.txt"), True),
             ("dir/**/*.txt", os.path.join("dir", "sub", "a.csv"), False),
-
             # recursive wildcards using OS path separator.
             (os.path.join("dir", "**", "*.txt"), os.path.join("dir", "a.txt"), True),
             (os.path.join("dir", "**", "*.txt"), os.path.join("dir", "sub", "a.txt"), True),

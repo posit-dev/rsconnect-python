@@ -142,4 +142,5 @@ class PythonVersionParamType(click.ParamType):
         except (AttributeError, ValueError):
             self.fail(f"{value!r} is not a valid python version; expected 3.x or 3.x.y", param, ctx)
 
+
 PYTHON_VERSION = PythonVersionParamType()

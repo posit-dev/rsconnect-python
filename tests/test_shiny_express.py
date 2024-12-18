@@ -2,6 +2,7 @@ from pathlib import Path
 
 from rsconnect import shiny_express as express
 
+
 def test_is_express_app(tmp_path: Path):
     tmp_file = str(tmp_path / "app.py")
 

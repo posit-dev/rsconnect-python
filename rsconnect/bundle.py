@@ -1754,7 +1754,7 @@ def get_python_env_info(
     logger.debug("Environment: %s" % pformat(environment._asdict()))
 
     if override_python_version:
-        environment = environment._replace(python = override_python_version)
+        environment = environment._replace(python=override_python_version)
 
     return python, environment
 
@@ -2247,7 +2247,7 @@ def create_python_environment(
     directory: str,
     force_generate: bool = False,
     python: Optional[str] = None,
-    override_python_version: Optional[str] = None
+    override_python_version: Optional[str] = None,
 ) -> Environment:
     module_file = fake_module_file_from_directory(directory)
 
