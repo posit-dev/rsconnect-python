@@ -2854,8 +2854,8 @@ def system_caches_delete(
     insecure: bool,
     cacert: Optional[str],
     verbose: int,
-    language: Optional[str],
-    version: Optional[str],
+    language: str,
+    version: str,
     image_name: str,
     dry_run: bool,
 ):

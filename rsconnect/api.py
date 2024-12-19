@@ -1186,7 +1186,7 @@ class RSConnectExecutor:
             raise RSConnectException("To delete a runtime cache, client must be a RSConnectClient.")
         return self.client.system_caches_runtime_list()
 
-    def delete_runtime_cache(self, language: Optional[str], version: Optional[str], image_name: str, dry_run: bool):
+    def delete_runtime_cache(self, language: str, version: str, image_name: str, dry_run: bool):
         if not isinstance(self.client, RSConnectClient):
             raise RSConnectException("To delete a runtime cache, client must be a RSConnectClient.")
         target: DeleteInputDTO = {
