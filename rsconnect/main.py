@@ -2825,11 +2825,13 @@ def system_caches_list(
     "--language",
     "-l",
     help="The language of the target cache.",
+    required=True,
 )
 @click.option(
     "--version",
     "-V",
     help="The version of the target cache.",
+    required=True,
 )
 @click.option(
     "--image-name",
@@ -2852,8 +2854,8 @@ def system_caches_delete(
     insecure: bool,
     cacert: Optional[str],
     verbose: int,
-    language: Optional[str],
-    version: Optional[str],
+    language: str,
+    version: str,
     image_name: str,
     dry_run: bool,
 ):
