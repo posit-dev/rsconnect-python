@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Added validation for required flags for the `rsconnect system caches delete` command.
+
 ## [1.25.0] - 2024-12-18
 
 ### Added

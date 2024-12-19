@@ -2825,11 +2825,13 @@ def system_caches_list(
     "--language",
     "-l",
     help="The language of the target cache.",
+    required=True,
 )
 @click.option(
     "--version",
     "-V",
     help="The version of the target cache.",
+    required=True,
 )
 @click.option(
     "--image-name",
