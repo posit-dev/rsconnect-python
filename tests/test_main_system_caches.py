@@ -143,3 +143,29 @@ class TestSystemCachesDelete(unittest.TestCase):
         self.assertEqual(result.exit_code, 1)
 
         self.assertRegex(result.output, "Cache does not exist")
+
+    # --version and --language flags are required
+    def test_system_caches_delete_required_flags(self):
+        api_key = get_key("admin")
+        runner = CliRunner()
+
+        # neither flag provided should fail
+        args = ["system", "caches", "delete"]
+        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 2)
+        self.assertRegex(result.output, "Error: Missing option '--language' / '-l'")
+
+        # only --language flag provided should fail
+        args = ["system", "caches", "delete", "--language", "Python"]
+        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 2)
+        self.assertRegex(result.output, "Error: Missing option '--version' / '-V'")
+
+        # only --version flag provided should fail
+        args = ["system", "caches", "delete", "--version", "1.2.3"]
+        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 2)
+        self.assertRegex(result.output, "Error: Missing option '--language' / '-l'")
