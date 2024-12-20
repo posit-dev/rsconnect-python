@@ -140,15 +140,6 @@ def build_start(
             "Use the '--force' option to override this check." % connect_server.url
         )
 
-    # prompt the user to confirm that they want to --force a build.
-    if force:
-        logger.warning("Please ensure a build is not already running in another terminal before proceeding.")
-        user_input = input("Proceed with the build? Type 'yes' to confirm, any other key to cancel: ").strip().lower()
-        if user_input != "yes":
-            logger.warning("Build aborted.")
-            return
-        logger.info("Proceeding with the build...")
-
     # if we are re-building any already "tracked" content items, then re-add them to be safe
     if all:
         logger.info("Adding all content to build...")

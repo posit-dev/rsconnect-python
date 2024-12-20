@@ -279,31 +279,7 @@ class TestContentSubcommand(unittest.TestCase):
         self.assertRegex(result.output, "Use the '--force' option to override this check")
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_build_force_abort(self):
-        register_uris(self.connect_server)
-        runner = CliRunner()
-
-        args = ["content", "build", "add", "-g", "7d59c5c7-c4a7-4950-acc3-3943b7192bc4"]
-        apply_common_args(args, server=self.connect_server, key=self.api_key)
-        result = runner.invoke(cli, args)
-        self.assertEqual(result.exit_code, 0, result.output)
-        self.assertTrue(os.path.exists("%s/%s.json" % (TEMP_DIR, _normalize_server_url(self.connect_server))))
-
-        # set rsconnect_build_running to true
-        # --force flag should ignore this and not fail.
-        self.build_store.set_build_running(True)
-
-        # mock "no" input to simulate user response to prompt
-        with patch("builtins.input", return_value="no"), self.assertLogs("rsconnect") as log:
-            args = ["content", "build", "run", "--force"]
-            apply_common_args(args, server=self.connect_server, key=self.api_key)
-            result = runner.invoke(cli, args)
-            self.assertEqual(result.exit_code, 0)
-            self.assertIn("Please ensure a build is not already running in another terminal", log.output[0])
-            self.assertIn("Build aborted", log.output[1])
-
-    @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_build_force_success(self):
+    def test_build_force(self):
         register_uris(self.connect_server)
         runner = CliRunner()
 
@@ -333,14 +309,10 @@ class TestContentSubcommand(unittest.TestCase):
         # --force flag should ignore this and not fail.
         self.build_store.set_build_running(True)
 
-        # mock "yes" input to simulate user response to prompt
-        with patch("builtins.input", return_value="yes"), self.assertLogs("rsconnect") as log:
-            args = ["content", "build", "run", "--force"]
-            apply_common_args(args, server=self.connect_server, key=self.api_key)
-            result = runner.invoke(cli, args)
-            self.assertEqual(result.exit_code, 0)
-            self.assertIn("Please ensure a build is not already running in another terminal", log.output[0])
-            self.assertIn("Proceeding with the build...", log.output[1])
+        args = ["content", "build", "run", "--force"]
+        apply_common_args(args, server=self.connect_server, key=self.api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
 
         # check that the build succeeded
         args = [
