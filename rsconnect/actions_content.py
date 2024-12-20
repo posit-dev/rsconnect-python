@@ -148,8 +148,7 @@ def build_start(
         build_add_content(connect_server, all_content)
     else:
         # --retry is shorthand for --aborted --error --running
-        # --force has the same behavior as --retry and also ignores when rsconnect_build_running=true
-        if retry or force:
+        if retry:
             aborted = True
             error = True
             running = True

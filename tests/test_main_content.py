@@ -300,7 +300,60 @@ class TestContentSubcommand(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertTrue(os.path.exists("%s/%s.json" % (TEMP_DIR, _normalize_server_url(self.connect_server))))
 
+        # set rsconnect_build_running to true
+        # --force flag should ignore this and not fail.
+        self.build_store.set_build_running(True)
+
+        args = ["content", "build", "run", "--force"]
+        apply_common_args(args, server=self.connect_server, key=self.api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+
+        # check that the build succeeded
+        args = [
+            "content",
+            "build",
+            "ls",
+            "-g",
+            "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+            "-g",
+            "ab497e4b-b706-4ae7-be49-228979a95eb4",
+            "-g",
+            "cdfed1f7-0e09-40eb-996d-0ef77ea2d797",
+        ]
+        apply_common_args(args, server=self.connect_server, key=self.api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        listing = json.loads(result.output)
+        self.assertTrue(len(listing) == 3)
+        self.assertEqual(listing[0]["rsconnect_build_status"], BuildStatus.COMPLETE)
+        self.assertEqual(listing[1]["rsconnect_build_status"], BuildStatus.COMPLETE)
+        self.assertEqual(listing[2]["rsconnect_build_status"], BuildStatus.COMPLETE)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_build_force_retry(self):
+        register_uris(self.connect_server)
+        runner = CliRunner()
+
+        # add 3 content items
+        args = [
+            "content",
+            "build",
+            "add",
+            "-g",
+            "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+            "-g",
+            "ab497e4b-b706-4ae7-be49-228979a95eb4",
+            "-g",
+            "cdfed1f7-0e09-40eb-996d-0ef77ea2d797",
+        ]
+        apply_common_args(args, server=self.connect_server, key=self.api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertTrue(os.path.exists("%s/%s.json" % (TEMP_DIR, _normalize_server_url(self.connect_server))))
+
         # change the content build status so it looks like it was interrupted/failed
+        # --retry used with --force should successfully build content with these statuses.
         self.build_store.set_content_item_build_status("7d59c5c7-c4a7-4950-acc3-3943b7192bc4", BuildStatus.RUNNING)
         self.build_store.set_content_item_build_status("ab497e4b-b706-4ae7-be49-228979a95eb4", BuildStatus.ABORTED)
         self.build_store.set_content_item_build_status("cdfed1f7-0e09-40eb-996d-0ef77ea2d797", BuildStatus.ERROR)
@@ -309,7 +362,7 @@ class TestContentSubcommand(unittest.TestCase):
         # --force flag should ignore this and not fail.
         self.build_store.set_build_running(True)
 
-        args = ["content", "build", "run", "--force"]
+        args = ["content", "build", "run", "--force", "--retry"]
         apply_common_args(args, server=self.connect_server, key=self.api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
