@@ -49,12 +49,6 @@ def build_add_content(
     :param content_guids_with_bundle: Union[tuple[models.ContentGuidWithBundle], list[models.ContentGuidWithBundle]]
     """
     build_store = ensure_content_build_store(connect_server)
-    if build_store.get_build_running():
-        raise RSConnectException(
-            "There is already a build running on this server, "
-            + "please wait for it to finish before adding new content."
-        )
-
     with RSConnectClient(connect_server) as client:
         if len(content_guids_with_bundle) == 1:
             all_content = [client.content_get(content_guids_with_bundle[0].guid)]
@@ -104,10 +98,6 @@ def build_remove_content(
     _validate_build_rm_args(guid, all, purge)
 
     build_store = ensure_content_build_store(connect_server)
-    if build_store.get_build_running():
-        raise RSConnectException(
-            "There is a build running on this server, " + "please wait for it to finish before removing content."
-        )
     guids: list[str]
     if all:
         guids = [c["guid"] for c in build_store.get_content_items()]
@@ -141,10 +131,23 @@ def build_start(
     all: bool = False,
     poll_wait: int = 1,
     debug: bool = False,
+    force: bool = False,
 ):
     build_store = ensure_content_build_store(connect_server)
-    if build_store.get_build_running():
-        raise RSConnectException("There is already a build running on this server: %s" % connect_server.url)
+    if build_store.get_build_running() and not force:
+        raise RSConnectException(
+            "There is already a build running on this server: %s. "
+            "Use the '--force' flag to override this check." % connect_server.url
+        )
+
+    # prompt the user to confirm that they want to --force a build.
+    if force:
+        logger.warning("Please ensure a build is not already running in another terminal before proceeding.")
+        user_input = input("Proceed with the build? Type 'yes' to confirm, any other key to cancel: ").strip().lower()
+        if user_input != "yes":
+            logger.warning("Build aborted.")
+            return
+        logger.info("Proceeding with the build...")
 
     # if we are re-building any already "tracked" content items, then re-add them to be safe
     if all:
@@ -154,7 +157,8 @@ def build_start(
         build_add_content(connect_server, all_content)
     else:
         # --retry is shorthand for --aborted --error --running
-        if retry:
+        # --force has the same behavior as --retry and also ignores when rsconnect_build_running=true
+        if retry or force:
             aborted = True
             error = True
             running = True
@@ -277,12 +281,12 @@ def _monitor_build(connect_server: RSConnectServer, content_items: list[ContentI
         )
 
     if build_store.aborted():
-        logger.warn("Build interrupted!")
+        logger.warning("Build interrupted!")
         aborted_builds = [i["guid"] for i in content_items if i["rsconnect_build_status"] == BuildStatus.RUNNING]
         if len(aborted_builds) > 0:
-            logger.warn("Marking %d builds as ABORTED..." % len(aborted_builds))
+            logger.warning("Marking %d builds as ABORTED..." % len(aborted_builds))
             for guid in aborted_builds:
-                logger.warn("Build aborted: %s" % guid)
+                logger.warning("Build aborted: %s" % guid)
                 build_store.set_content_item_build_status(guid, BuildStatus.ABORTED)
         return False
 
