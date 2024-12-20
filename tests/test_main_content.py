@@ -272,8 +272,11 @@ class TestContentSubcommand(unittest.TestCase):
         apply_common_args(args, server=self.connect_server, key=self.api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 1)
-        self.assertRegex(result.output, "There is already a build running on this server")
-        self.assertRegex(result.output, "Use the '--force' flag to override this check")
+        self.assertRegex(
+            result.output,
+            "A content build operation targeting 'http://localhost:3939' is still running, or exited abnormally",
+        )
+        self.assertRegex(result.output, "Use the '--force' option to override this check")
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_build_force_abort(self):

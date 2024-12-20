@@ -136,8 +136,8 @@ def build_start(
     build_store = ensure_content_build_store(connect_server)
     if build_store.get_build_running() and not force:
         raise RSConnectException(
-            "There is already a build running on this server: %s. "
-            "Use the '--force' flag to override this check." % connect_server.url
+            "A content build operation targeting '%s' is still running, or exited abnormally. "
+            "Use the '--force' option to override this check." % connect_server.url
         )
 
     # prompt the user to confirm that they want to --force a build.
