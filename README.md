@@ -885,6 +885,8 @@ build all "tracked" content that has the status `NEEDS_BUILD`.
 
 > To re-run failed builds, use `rsconnect content build run --retry`. This will build
 all tracked content in any of the following states: `[NEEDS_BUILD, ABORTED, ERROR, RUNNING]`.
+>
+> If you encounter an error stating that a build operation is already running, you can use `rsconnect content build run --force`. This will override this check and build any content marked as `NEEDS_BUILD`.
 
 ```bash
 rsconnect content build run
