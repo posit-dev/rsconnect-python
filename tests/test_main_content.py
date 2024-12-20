@@ -3,7 +3,6 @@ import json
 import shutil
 import tarfile
 import unittest
-from unittest.mock import patch
 
 import httpretty
 from click.testing import CliRunner
