@@ -2758,7 +2758,7 @@ def get_build_logs(
 @click.option(
     "--force",
     is_flag=True,
-    help="Always build content even if a build is already marked as running. Builds the same content as --retry.",
+    help="Always build content even if a build is already marked as running.",
 )
 @click.pass_context
 def start_content_build(
