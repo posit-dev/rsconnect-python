@@ -49,12 +49,6 @@ def build_add_content(
     :param content_guids_with_bundle: Union[tuple[models.ContentGuidWithBundle], list[models.ContentGuidWithBundle]]
     """
     build_store = ensure_content_build_store(connect_server)
-    if build_store.get_build_running():
-        raise RSConnectException(
-            "There is already a build running on this server, "
-            + "please wait for it to finish before adding new content."
-        )
-
     with RSConnectClient(connect_server) as client:
         if len(content_guids_with_bundle) == 1:
             all_content = [client.content_get(content_guids_with_bundle[0].guid)]
@@ -104,10 +98,6 @@ def build_remove_content(
     _validate_build_rm_args(guid, all, purge)
 
     build_store = ensure_content_build_store(connect_server)
-    if build_store.get_build_running():
-        raise RSConnectException(
-            "There is a build running on this server, " + "please wait for it to finish before removing content."
-        )
     guids: list[str]
     if all:
         guids = [c["guid"] for c in build_store.get_content_items()]
@@ -141,10 +131,14 @@ def build_start(
     all: bool = False,
     poll_wait: int = 1,
     debug: bool = False,
+    force: bool = False,
 ):
     build_store = ensure_content_build_store(connect_server)
-    if build_store.get_build_running():
-        raise RSConnectException("There is already a build running on this server: %s" % connect_server.url)
+    if build_store.get_build_running() and not force:
+        raise RSConnectException(
+            "A content build operation targeting '%s' is still running, or exited abnormally. "
+            "Use the '--force' option to override this check." % connect_server.url
+        )
 
     # if we are re-building any already "tracked" content items, then re-add them to be safe
     if all:
@@ -277,12 +271,12 @@ def _monitor_build(connect_server: RSConnectServer, content_items: list[ContentI
         )
 
     if build_store.aborted():
-        logger.warn("Build interrupted!")
+        logger.warning("Build interrupted!")
         aborted_builds = [i["guid"] for i in content_items if i["rsconnect_build_status"] == BuildStatus.RUNNING]
         if len(aborted_builds) > 0:
-            logger.warn("Marking %d builds as ABORTED..." % len(aborted_builds))
+            logger.warning("Marking %d builds as ABORTED..." % len(aborted_builds))
             for guid in aborted_builds:
-                logger.warn("Build aborted: %s" % guid)
+                logger.warning("Build aborted: %s" % guid)
                 build_store.set_content_item_build_status(guid, BuildStatus.ABORTED)
         return False
 

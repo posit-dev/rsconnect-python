@@ -2755,6 +2755,11 @@ def get_build_logs(
     is_flag=True,
     help="Log stacktraces from exceptions during background operations.",
 )
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Always build content even if a build is already marked as running.",
+)
 @click.pass_context
 def start_content_build(
     ctx: click.Context,
@@ -2772,6 +2777,7 @@ def start_content_build(
     poll_wait: int,
     format: LogOutputFormat.All,
     debug: bool,
+    force: bool,
     verbose: int,
 ):
     set_verbosity(verbose)
@@ -2781,7 +2787,7 @@ def start_content_build(
         ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
         if not isinstance(ce.remote_server, RSConnectServer):
             raise RSConnectException("rsconnect content build run` requires a Posit Connect server.")
-        build_start(ce.remote_server, parallelism, aborted, error, running, retry, all, poll_wait, debug)
+        build_start(ce.remote_server, parallelism, aborted, error, running, retry, all, poll_wait, debug, force)
 
 
 @cli.group(no_args_is_help=True, help="Interact with Posit Connect's system API.")

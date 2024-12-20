@@ -11,7 +11,8 @@ from rsconnect.main import cli
 from rsconnect import VERSION
 from rsconnect.api import RSConnectServer
 from rsconnect.models import BuildStatus
-from rsconnect.metadata import ContentBuildStore, _normalize_server_url
+from rsconnect.actions_content import ensure_content_build_store
+from rsconnect.metadata import _normalize_server_url
 
 from .utils import apply_common_args
 
@@ -98,6 +99,8 @@ class TestContentSubcommand(unittest.TestCase):
     def setUp(self):
         self.connect_server = "http://localhost:3939"
         self.api_key = "testapikey123"
+        self.build_store = ensure_content_build_store(RSConnectServer(self.connect_server, self.api_key))
+        self.build_store.set_build_running(False)
 
     def test_version(self):
         runner = CliRunner()
@@ -218,13 +221,147 @@ class TestContentSubcommand(unittest.TestCase):
         self.assertTrue(os.path.exists("%s/%s.json" % (TEMP_DIR, _normalize_server_url(self.connect_server))))
 
         # change the content build status so it looks like it was interrupted/failed
-        store = ContentBuildStore(RSConnectServer(self.connect_server, self.api_key))
-        store.set_content_item_build_status("7d59c5c7-c4a7-4950-acc3-3943b7192bc4", BuildStatus.RUNNING)
-        store.set_content_item_build_status("ab497e4b-b706-4ae7-be49-228979a95eb4", BuildStatus.ABORTED)
-        store.set_content_item_build_status("cdfed1f7-0e09-40eb-996d-0ef77ea2d797", BuildStatus.ERROR)
+        self.build_store.set_content_item_build_status("7d59c5c7-c4a7-4950-acc3-3943b7192bc4", BuildStatus.RUNNING)
+        self.build_store.set_content_item_build_status("ab497e4b-b706-4ae7-be49-228979a95eb4", BuildStatus.ABORTED)
+        self.build_store.set_content_item_build_status("cdfed1f7-0e09-40eb-996d-0ef77ea2d797", BuildStatus.ERROR)
 
         # run the build
         args = ["content", "build", "run", "--retry"]
+        apply_common_args(args, server=self.connect_server, key=self.api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+
+        # check that the build succeeded
+        args = [
+            "content",
+            "build",
+            "ls",
+            "-g",
+            "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+            "-g",
+            "ab497e4b-b706-4ae7-be49-228979a95eb4",
+            "-g",
+            "cdfed1f7-0e09-40eb-996d-0ef77ea2d797",
+        ]
+        apply_common_args(args, server=self.connect_server, key=self.api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        listing = json.loads(result.output)
+        self.assertTrue(len(listing) == 3)
+        self.assertEqual(listing[0]["rsconnect_build_status"], BuildStatus.COMPLETE)
+        self.assertEqual(listing[1]["rsconnect_build_status"], BuildStatus.COMPLETE)
+        self.assertEqual(listing[2]["rsconnect_build_status"], BuildStatus.COMPLETE)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_build_already_running_error(self):
+        register_uris(self.connect_server)
+        runner = CliRunner()
+
+        args = ["content", "build", "add", "-g", "7d59c5c7-c4a7-4950-acc3-3943b7192bc4"]
+        apply_common_args(args, server=self.connect_server, key=self.api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertTrue(os.path.exists("%s/%s.json" % (TEMP_DIR, _normalize_server_url(self.connect_server))))
+
+        # set rsconnect_build_running to true to trigger "already a build running" error
+        self.build_store.set_build_running(True)
+
+        # build without --force flag should fail
+        args = ["content", "build", "run"]
+        apply_common_args(args, server=self.connect_server, key=self.api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 1)
+        self.assertRegex(
+            result.output,
+            "A content build operation targeting 'http://localhost:3939' is still running, or exited abnormally",
+        )
+        self.assertRegex(result.output, "Use the '--force' option to override this check")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_build_force(self):
+        register_uris(self.connect_server)
+        runner = CliRunner()
+
+        # add 3 content items
+        args = [
+            "content",
+            "build",
+            "add",
+            "-g",
+            "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+            "-g",
+            "ab497e4b-b706-4ae7-be49-228979a95eb4",
+            "-g",
+            "cdfed1f7-0e09-40eb-996d-0ef77ea2d797",
+        ]
+        apply_common_args(args, server=self.connect_server, key=self.api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertTrue(os.path.exists("%s/%s.json" % (TEMP_DIR, _normalize_server_url(self.connect_server))))
+
+        # set rsconnect_build_running to true
+        # --force flag should ignore this and not fail.
+        self.build_store.set_build_running(True)
+
+        args = ["content", "build", "run", "--force"]
+        apply_common_args(args, server=self.connect_server, key=self.api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+
+        # check that the build succeeded
+        args = [
+            "content",
+            "build",
+            "ls",
+            "-g",
+            "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+            "-g",
+            "ab497e4b-b706-4ae7-be49-228979a95eb4",
+            "-g",
+            "cdfed1f7-0e09-40eb-996d-0ef77ea2d797",
+        ]
+        apply_common_args(args, server=self.connect_server, key=self.api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        listing = json.loads(result.output)
+        self.assertTrue(len(listing) == 3)
+        self.assertEqual(listing[0]["rsconnect_build_status"], BuildStatus.COMPLETE)
+        self.assertEqual(listing[1]["rsconnect_build_status"], BuildStatus.COMPLETE)
+        self.assertEqual(listing[2]["rsconnect_build_status"], BuildStatus.COMPLETE)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_build_force_retry(self):
+        register_uris(self.connect_server)
+        runner = CliRunner()
+
+        # add 3 content items
+        args = [
+            "content",
+            "build",
+            "add",
+            "-g",
+            "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+            "-g",
+            "ab497e4b-b706-4ae7-be49-228979a95eb4",
+            "-g",
+            "cdfed1f7-0e09-40eb-996d-0ef77ea2d797",
+        ]
+        apply_common_args(args, server=self.connect_server, key=self.api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertTrue(os.path.exists("%s/%s.json" % (TEMP_DIR, _normalize_server_url(self.connect_server))))
+
+        # change the content build status so it looks like it was interrupted/failed
+        # --retry used with --force should successfully build content with these statuses.
+        self.build_store.set_content_item_build_status("7d59c5c7-c4a7-4950-acc3-3943b7192bc4", BuildStatus.RUNNING)
+        self.build_store.set_content_item_build_status("ab497e4b-b706-4ae7-be49-228979a95eb4", BuildStatus.ABORTED)
+        self.build_store.set_content_item_build_status("cdfed1f7-0e09-40eb-996d-0ef77ea2d797", BuildStatus.ERROR)
+
+        # set rsconnect_build_running to true
+        # --force flag should ignore this and not fail.
+        self.build_store.set_build_running(True)
+
+        args = ["content", "build", "run", "--force", "--retry"]
         apply_common_args(args, server=self.connect_server, key=self.api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added validation for required flags for the `rsconnect system caches delete` command.
+- Added `--force` flag to `rsconnect content build run` command. This allows users
+  to force builds when a build is already marked as running. (#630)
 
 ## [1.25.0] - 2024-12-18
 
