@@ -1,33 +1,15 @@
 version: '3'
 
 services:
-  client:
-    image: client
-    hostname: client
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://client:9999/tree"]
-      interval: 40s
-      timeout: 3s
-      retries: 30
-    ports:
-      - 9999:9999
-    build: 
-      context: ./docker
-      dockerfile: client.Dockerfile
-    volumes:
-      - ../:/rsconnect-python 
-    working_dir: /rsconnect-python/integration-testing
-    entrypoint: ''
-
   client-cli:
-    build: 
+    build:
       context: ./docker
       dockerfile: cli.Dockerfile
-      args: 
+      args:
         QUARTO_VERSION: ${QUARTO_VERSION}
         PY_VERSION: ${PY_VERSION}
     volumes:
-      - ../:/rsconnect-python 
+      - ../:/rsconnect-python
     working_dir: /rsconnect-python/integration-testing
     network_mode: host
     entrypoint: ''
@@ -42,10 +24,10 @@ services:
   connect-cli:
     hostname: connect-cli
     image: rstudio/rstudio-connect:jammy
-    build: 
+    build:
       context: ./docker
       dockerfile: connect.Dockerfile
-      args: 
+      args:
         QUARTO_VERSION: ${QUARTO_VERSION}
         PY_VERSION: ${PY_VERSION}
     restart: always
@@ -60,7 +42,7 @@ services:
       QUARTO_VERSION: ${QUARTO_VERSION}
       PY_VERSION: ${PY_VERSION}
 
-  # connect from public docker hub 
+  # connect from public docker hub
   # used jupyter-notebook and deploy tests in  CI, main.yml
   connect:
     hostname: connect
@@ -74,19 +56,3 @@ services:
     environment:
       RSTUDIO_CONNECT_HASTE: "enabled"
       RSC_LICENSE: ${CONNECT_LICENSE}
-
-
-  cypress:
-    image: cypress/included:12.7.0
-    depends_on:
-      client:
-        condition: service_healthy
-    build: 
-      context: ./docker
-      dockerfile: cypress.Dockerfile
-    volumes:
-      - ../:/rsconnect-python
-    working_dir: /rsconnect-python/integration-testing/
-    environment:
-      ADMIN_API_KEY: ${ADMIN_API_KEY}
-    entrypoint: ''

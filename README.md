@@ -1,9 +1,7 @@
 # The rsconnect-python CLI
 
 This package provides a CLI (command-line interface) for interacting
-with and deploying to Posit Connect. This is also used by the
-[`rsconnect-jupyter`](https://github.com/rstudio/rsconnect-jupyter) package to deploy
-Jupyter notebooks via the Jupyter web console. Many types of content supported by Posit
+with and deploying to Posit Connect. Many types of content supported by Posit
 Connect may be deployed by this package, including WSGI-style APIs, Dash, Streamlit,
 Gradio, and Bokeh applications.
 
@@ -649,7 +647,7 @@ Generated from <code>rsconnect-python {{ rsconnect_python.version }}</code>
 
 ### Hide Jupyter Notebook Input Code Cells
 
-The user can render a Jupyter notebook without its corresponding input code cells by passing the '--hide-all-input' flag through the cli:
+You can render a Jupyter notebook without its corresponding input code cells by passing the '--hide-all-input' flag through the cli:
 
 ```bash
 rsconnect deploy notebook \
@@ -659,7 +657,8 @@ rsconnect deploy notebook \
     my-notebook.ipynb
 ```
 
-To selectively hide input cells in a Jupyter notebook, the user needs to follow a two step process:
+To selectively hide input cells in a Jupyter notebook, you need to do two things:
+
 1. tag cells with the 'hide_input' tag,
 2. then pass the ' --hide-tagged-input' flag through the cli:
 
@@ -671,7 +670,8 @@ rsconnect deploy notebook \
     my-notebook.ipynb
 ```
 
-By default, rsconnect-python does not install Jupyter notebook related depenencies. These dependencies are installed via rsconnect-jupyter. When the user is using the hide input features in rsconnect-python by itself without rsconnect-jupyter, he/she needs to install the following package depenecies:
+By default, rsconnect-python does not install Jupyter notebook-related depenencies.
+To use these hide input features in rsconnect-python you need to install these extra dependencies:
 
 ```
 notebook
