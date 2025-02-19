@@ -1,6 +1,5 @@
 ARG PY_VERSION=${PY_VERSION}
 FROM python:${PY_VERSION}
-COPY ./requirements.txt .
 EXPOSE 9999
 VOLUME ../../:/rsconnect-python/
 
@@ -34,10 +33,6 @@ RUN curl -fsSL -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-py
     && chmod 755 miniconda.sh \
     && ./miniconda.sh -b -p /opt/miniconda \
     && rm -rf miniconda.sh
-
-RUN pip install rsconnect-jupyter --pre && \
-    pip install pipenv && \
-    jupyter-nbextension install --sys-prefix --py rsconnect_jupyter
 
 RUN curl -fsSLO https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.tar.gz && \
     mkdir /opt/quarto && tar xf quarto-${QUARTO_VERSION}-linux-amd64.tar.gz -C /opt/quarto --strip-components 1 && \
