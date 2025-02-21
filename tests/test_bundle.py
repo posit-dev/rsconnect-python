@@ -1214,11 +1214,10 @@ class TestBundle(TestCase):
 
     def test_inspect_environment_catches_type_error(self):
         with pytest.raises(RSConnectException) as exec_info:
-            inspect_environment(sys.executable, None) # type: ignore
+            inspect_environment(sys.executable, None)  # type: ignore
 
         assert isinstance(exec_info.value, RSConnectException)
         assert isinstance(exec_info.value.__cause__, TypeError)
-
 
 
 @pytest.mark.parametrize(
