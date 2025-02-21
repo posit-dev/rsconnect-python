@@ -1724,13 +1724,13 @@ def inspect_environment(
 
     try:
         environment_json = check_output(args, text=True)
-    except subprocess.CalledProcessError as e:
-        raise RSConnectException(f"Error inspecting environment (subprocess failed): {e.output}") from e
+    except Exception as e:
+        raise RSConnectException("Error inspecting environment (subprocess failed)") from e
 
     try:
         environment_data = json.loads(environment_json)
     except json.JSONDecodeError as e:
-        raise RSConnectException(f"Error parsing environment JSON: {str(e)}") from e
+        raise RSConnectException("Error parsing environment JSON") from e
 
     try:
         return MakeEnvironment(**environment_data)
@@ -1738,7 +1738,7 @@ def inspect_environment(
         system_error_message = environment_data.get("error")
         if system_error_message:
             raise RSConnectException(f"Error creating environment: {system_error_message}") from e
-        raise RSConnectException(f"Error constructing environment object: {str(e)}") from e
+        raise RSConnectException("Error constructing environment object") from e
 
 
 def get_python_env_info(
