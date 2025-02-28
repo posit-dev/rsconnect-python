@@ -31,3 +31,6 @@ coverage.xml
 # Temporary dev files
 vetiver-testing/rsconnect_api_keys.json
 /pip-wheel-metadata/
+
+# license files should not be commited to this repository
+*.lic
