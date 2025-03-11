@@ -41,4 +41,5 @@ def parse_pyproject_python_requires(pyproject_file: pathlib.Path) -> typing.Opti
     """
     content = pyproject_file.read_text()
     pyproject = tomllib.loads(content)
+
     return pyproject.get("project", {}).get("requires-python", None)
