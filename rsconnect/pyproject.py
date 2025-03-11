@@ -12,7 +12,7 @@ try:
     import tomllib
 except ImportError:
     # Python 3.11+ has tomllib in the standard library
-    import toml as tomllib
+    import toml as tomllib  # type: ignore[no-redef]
 
 
 def lookup_metadata_file(directory: typing.Union[str, pathlib.Path]) -> typing.List[typing.Tuple[str, pathlib.Path]]:
