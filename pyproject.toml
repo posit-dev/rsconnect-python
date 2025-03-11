@@ -92,9 +92,3 @@ typeCheckingMode = "strict"
 reportPrivateUsage = "none"
 reportUnnecessaryIsInstance = "none"
 reportUnnecessaryComparison = "none"
-
-[tool.uv.sources]
-rsconnect-python = { workspace = true }
-
-[tool.uv.workspace]
-members = ["tests/testdata/python-project"]
