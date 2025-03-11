@@ -354,8 +354,8 @@ class RSConnectClient(HTTPServer):
         if self.is_app_failed_response(response):
             raise RSConnectException(
                 "Could not access the deployed content. "
-                + "The app might not have started successfully. "
-                + "Visit it in Connect to view the logs."
+                + "The app might not have started successfully."
+                + f"\n\t For more information: {self.app_config(app_guid).get('logs_url')}"
             )
 
     def bundle_download(self, content_guid: str, bundle_id: str) -> HTTPResponse:
