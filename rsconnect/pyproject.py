@@ -39,7 +39,7 @@ def parse_pyproject_python_requires(pyproject_file: pathlib.Path) -> typing.Opti
 
     Returns None if the field is not found.
     """
-    with pyproject_file.open("rb") as f:
-        pyproject = tomllib.load(f)
+    content = pyproject_file.read_text()
+    pyproject = tomllib.loads(content)
 
     return pyproject.get("project", {}).get("requires-python", None)
