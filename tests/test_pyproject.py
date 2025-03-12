@@ -1,6 +1,5 @@
 import os
 import pathlib
-import tempfile
 
 from rsconnect.pyproject import (
     lookup_metadata_file,
