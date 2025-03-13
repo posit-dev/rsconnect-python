@@ -17,7 +17,7 @@ PROJECTS_DIRECTORY = os.path.abspath(os.path.join(HERE, "testdata", "python-proj
 # Most of this tests, verify against three fixture projects that are located in PROJECTS_DIRECTORY
 # - using_pyproject: contains a pyproject.toml file with a project.requires-python field
 # - using_setupcfg: contains a setup.cfg file with a options.python_requires field
-# - using_pyversion: contains a .python-version file and a pyproject.toml file without any version constraint.
+# - using_pyversion: contains a .python-version file and pyproject.toml, setup.cfg without any version constraint.
 # - allofthem: contains all metadata files all with different version constraints.
 
 
@@ -55,6 +55,7 @@ def test_python_project_metadata_detect(project_dir, expected):
     ids=["pyproject.toml", "setup.cfg", ".python-version", "invalid"],
 )
 def test_get_python_requires_parser(filename, expected_parser):
+    """Test that given a metadata file name, the correct parser is returned."""
     metadata_file = pathlib.Path(PROJECTS_DIRECTORY) / filename
     parser = get_python_requires_parser(metadata_file)
     assert parser == expected_parser
@@ -82,7 +83,7 @@ def test_python_project_metadata_missing(project_dir):
     ids=["option-exists", "option-missing"],
 )
 def test_pyprojecttoml_python_requires(project_dir, expected):
-    """Test that the python_requires field is correctly parsed from pyproject.toml.
+    """Test that the requires-python field is correctly parsed from pyproject.toml.
 
     Both when the option exists or when it missing in the pyproject.toml file.
     """
@@ -99,6 +100,10 @@ def test_pyprojecttoml_python_requires(project_dir, expected):
     ids=["option-exists", "option-missing"],
 )
 def test_setupcfg_python_requires(tmp_path, project_dir, expected):
+    """Test that the python_requires field is correctly parsed from setup.cfg.
+
+    Both when the option exists or when it missing in the file.
+    """
     setupcfg_file = pathlib.Path(project_dir) / "setup.cfg"
     assert parse_setupcfg_python_requires(setupcfg_file) == expected
 
@@ -107,11 +112,14 @@ def test_setupcfg_python_requires(tmp_path, project_dir, expected):
     "project_dir, expected",
     [
         (os.path.join(PROJECTS_DIRECTORY, "using_pyversion"), ">=3.8, <3.12"),
-        # There is no case (option-missing) where the .python-version file is empty,
-        # so we don't test that.
     ],
     ids=["option-exists"],
 )
 def test_pyversion_python_requires(tmp_path, project_dir, expected):
+    """Test that the python version is correctly parsed from .python-version.
+
+    We do not test the case where the option is missing, as an empty .python-version file
+    is not a valid case for a python project.
+    """
     versionfile = pathlib.Path(project_dir) / ".python-version"
     assert parse_pyversion_python_requires(versionfile) == expected

@@ -21,6 +21,9 @@ def lookup_metadata_file(directory: typing.Union[str, pathlib.Path]) -> typing.L
 
     The returned value is either a list of tuples [(filename, path)] or
     an empty list [] if no metadata file was found.
+
+    The metadata files are returned in the priority they should be processed
+    to determine the python version requirements.
     """
     directory = pathlib.Path(directory)
 
@@ -64,7 +67,7 @@ def parse_pyproject_python_requires(pyproject_file: pathlib.Path) -> typing.Opti
 
 
 def parse_setupcfg_python_requires(setupcfg_file: pathlib.Path) -> typing.Optional[str]:
-    """Parse the python_requires field from a setup.cfg file.
+    """Parse the options.python_requires field from a setup.cfg file.
 
     Assumes that the setup.cfg file exists, is accessible and well formatted.
 
