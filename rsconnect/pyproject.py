@@ -36,7 +36,7 @@ def lookup_metadata_file(directory: typing.Union[str, pathlib.Path]) -> typing.L
     return list(_generate())
 
 
-def get_python_requires_parser(
+def get_python_version_requirement_parser(
     metadata_file: pathlib.Path,
 ) -> typing.Optional[typing.Callable[[pathlib.Path], typing.Optional[str]]]:
     """Given the metadata file, return the appropriate parser function.

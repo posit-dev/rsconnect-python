@@ -6,7 +6,7 @@ from rsconnect.pyproject import (
     parse_pyproject_python_requires,
     parse_setupcfg_python_requires,
     parse_pyversion_python_requires,
-    get_python_requires_parser,
+    get_python_version_requirement_parser,
 )
 
 import pytest
@@ -54,10 +54,10 @@ def test_python_project_metadata_detect(project_dir, expected):
     ],
     ids=["pyproject.toml", "setup.cfg", ".python-version", "invalid"],
 )
-def test_get_python_requires_parser(filename, expected_parser):
+def test_get_python_version_requirement_parser(filename, expected_parser):
     """Test that given a metadata file name, the correct parser is returned."""
     metadata_file = pathlib.Path(PROJECTS_DIRECTORY) / filename
-    parser = get_python_requires_parser(metadata_file)
+    parser = get_python_version_requirement_parser(metadata_file)
     assert parser == expected_parser
 
 
