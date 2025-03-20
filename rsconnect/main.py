@@ -74,7 +74,6 @@ from .bundle import (
     write_tensorflow_manifest_json,
     write_voila_manifest_json,
 )
-from .environment import EnvironmentException
 from .exception import RSConnectException
 from .json_web_token import (
     TokenGenerator,
@@ -116,8 +115,6 @@ def cli_exception_handler(func: Callable[P, T]) -> Callable[P, T]:
             result = func(*args, **kwargs)
         except RSConnectException as exc:
             failed("Error: " + exc.message)
-        except EnvironmentException as exc:
-            failed("Error: " + str(exc))
         except Exception as exc:
             traceback.print_exc()
             failed("Internal error: " + str(exc))
@@ -948,10 +945,10 @@ def deploy_notebook(
     app_mode = AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC
 
     base_dir = dirname(file)
-    _warn_on_ignored_manifest(base_dir)
-    _warn_if_no_requirements_file(base_dir)
-    _warn_if_environment_directory(base_dir)
-    python, environment = get_python_env_info(file, python, force_generate, override_python_version)
+    environment = create_python_environment(base_dir, app_file=file,
+                                            force_generate=force_generate,
+                                            python=python,
+                                            override_python_version=override_python_version)
 
     if force_generate:
         _warn_on_ignored_requirements(base_dir, environment.filename)
@@ -1290,7 +1287,6 @@ def deploy_quarto(
     base_dir = file_or_directory
     if not isdir(file_or_directory):
         base_dir = dirname(file_or_directory)
-    module_file = fake_module_file_from_directory(file_or_directory)
     extra_files = validate_extra_files(base_dir, extra_files)
 
     _warn_on_ignored_manifest(base_dir)
@@ -1301,17 +1297,11 @@ def deploy_quarto(
         inspect = quarto_inspect(quarto, file_or_directory)
         engines = validate_quarto_engines(inspect)
 
-    python = None
     environment = None
     if "jupyter" in engines:
-        _warn_if_no_requirements_file(base_dir)
-        _warn_if_environment_directory(base_dir)
-
         with cli_feedback("Inspecting Python environment"):
-            python, environment = get_python_env_info(module_file, python, force_generate, override_python_version)
-
-            if force_generate:
-                _warn_on_ignored_requirements(base_dir, environment.filename)
+            environment = create_python_environment(base_dir, force_generate=force_generate,
+                                                    override_python_version=override_python_version)
 
     ce = RSConnectExecutor(
         ctx=ctx,

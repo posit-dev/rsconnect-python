@@ -53,7 +53,8 @@ else:
 
 import click
 
-from .environment import Environment, MakeEnvironment
+from . import pyproject
+from .environment import Environment
 from .exception import RSConnectException
 from .log import VERBOSE, logger
 from .models import AppMode, AppModes, GlobSet
@@ -1669,6 +1670,22 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str) -
         )
 
 
+def _warn_on_missing_python_version(version_constraint: Optional[str]) -> None:
+    """
+    Check that the project has a Python version constraint requested.
+    If it doesn't warn the user that it should be specified.
+
+    :param version_constraint: the version constraint in the project.
+    """
+    if version_constraint is None:
+        click.secho(
+            "    Warning: Python version constraint missing from pyproject.toml or .python-version\n"
+            "             Connect will guess the version to use based on local environment.\n"
+            "             Consider specifying a Python version constraint.",
+            fg="yellow",
+        )
+
+
 def fake_module_file_from_directory(directory: str) -> str:
     """
     Takes a directory and invents a properly named file that though possibly fake,
@@ -1717,7 +1734,7 @@ def inspect_environment(
     if force_generate:
         flags.append("f")
 
-    args = [python, "-m", "rsconnect.environment"]
+    args = [python, "-m", "rsconnect.subprocesses.environment"]
     if flags:
         args.append("-" + "".join(flags))
     args.append(directory)
@@ -1732,20 +1749,23 @@ def inspect_environment(
     except json.JSONDecodeError as e:
         raise RSConnectException("Error parsing environment JSON") from e
 
-    try:
-        return MakeEnvironment(**environment_data)
-    except TypeError as e:
+    if "error" in environment_data:
         system_error_message = environment_data.get("error")
         if system_error_message:
             raise RSConnectException(f"Error creating environment: {system_error_message}") from e
+
+    try:
+        return Environment.from_json(environment_data)
+    except TypeError as e:
         raise RSConnectException("Error constructing environment object") from e
 
 
-def get_python_env_info(
+def _get_python_env_info(
     file_name: str,
     python: str | None,
     force_generate: bool = False,
     override_python_version: str | None = None,
+    python_version_requirement: str | None = None,
 ) -> tuple[str, Environment]:
     """
     Gathers the python and environment information relating to the specified file
@@ -1766,8 +1786,11 @@ def get_python_env_info(
     logger.debug("Python: %s" % python)
     logger.debug("Environment: %s" % pformat(environment._asdict()))
 
+    if python_version_requirement:
+        environment.python_version_requirement = python_version_requirement
+
     if override_python_version:
-        environment = environment._replace(python=override_python_version)
+        environment = environment.python = override_python_version
 
     return python, environment
 
@@ -2261,17 +2284,29 @@ def create_python_environment(
     force_generate: bool = False,
     python: Optional[str] = None,
     override_python_version: Optional[str] = None,
+    app_file: Optional[str] = None,
 ) -> Environment:
-    module_file = fake_module_file_from_directory(directory)
+    if app_file is None:
+        module_file = fake_module_file_from_directory(directory)
+    else:
+        module_file = app_file
 
     # click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
-
     _warn_on_ignored_manifest(directory)
     _warn_if_no_requirements_file(directory)
     _warn_if_environment_directory(directory)
 
+    python_version_requirement = pyproject.detect_python_version_requirement(directory)
+    _warn_on_missing_python_version(python_version_requirement)
+
+    if override_python_version:
+        # TODO: --override-python-version should be deprecated in the future
+        #       and instead we should suggest the user sets it in .python-version
+        #       or pyproject.toml
+        python_version_requirement = override_python_version
+
     # with cli_feedback("Inspecting Python environment"):
-    _, environment = get_python_env_info(module_file, python, force_generate, override_python_version)
+    _, environment = _get_python_env_info(module_file, python, force_generate, override_python_version)
 
     if force_generate:
         _warn_on_ignored_requirements(directory, environment.filename)

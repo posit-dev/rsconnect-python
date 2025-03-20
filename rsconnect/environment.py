@@ -1,233 +1,35 @@
-#!/usr/bin/env python
-"""
-Environment data class abstraction that is usable as an executable module
+import typing
+import dataclasses
 
-```bash
-python -m rsconnect.environment
-```
-"""
-from __future__ import annotations
-
-import datetime
-import json
-import locale
-import os
-import re
-import subprocess
-import sys
-from dataclasses import asdict, dataclass, replace
-from typing import Callable, Optional
-
-version_re = re.compile(r"\d+\.\d+(\.\d+)?")
-exec_dir = os.path.dirname(sys.executable)
+from .subprocesses.environment import EnvironmentData, MakeEnvironmentData as _MakeEnvironmentData
 
 
-@dataclass(frozen=True)
 class Environment:
-    contents: str
-    filename: str
-    locale: str
-    package_manager: str
-    pip: str
-    python: str
-    source: str
-    error: str | None
+    """A project environment,
 
-    def _asdict(self):
-        return asdict(self)
-
-    def _replace(self, **kwargs: object):
-        return replace(self, **kwargs)
-
-
-def MakeEnvironment(
-    contents: str,
-    filename: str,
-    locale: str,
-    package_manager: str,
-    pip: str,
-    python: str,
-    source: str,
-    error: Optional[str] = None,
-    **kwargs: object,  # provides compatibility where we no longer support some older properties
-) -> Environment:
-    return Environment(contents, filename, locale, package_manager, pip, python, source, error)
-
-
-class EnvironmentException(Exception):
-    pass
-
-
-def detect_environment(dirname: str, force_generate: bool = False) -> Environment:
-    """Determine the python dependencies in the environment.
-
-    `pip freeze` will be used to introspect the environment.
-
-    :param: dirname Directory name
-    :param: force_generate Force the generation of an environment
-    :return: a dictionary containing the package spec filename and contents if successful,
-    or a dictionary containing `error` on failure.
+    The data is loaded from a rsconnect.utils.environment json response
     """
 
-    if force_generate:
-        result = pip_freeze()
-    else:
-        result = output_file(dirname, "requirements.txt", "pip") or pip_freeze()
+    def __init__(self, data: EnvironmentData, python_version_requirement: typing.Optional[str] = None):
+        self._data = data
+        self._data_fields = dataclasses.fields(self.data)
 
-    if result is not None:
-        result["python"] = get_python_version()
-        result["pip"] = get_version("pip")
-        result["locale"] = get_default_locale()
+        # Fields that are not loaded from the environment subprocess
+        self.python_version_requirement
 
-    return MakeEnvironment(**result)
+    def __getattr__(self, name: str) -> typing.Any:
+        # We directly proxy the attributes of the EnvironmentData object
+        # so that schema changes can be handled in EnvironmentData exclusively.
+        return self._data[name]
 
+    def __setattr__(self, name, value):
+        if name in self._data_fields:
+            # proxy the attribute to the underlying EnvironmentData object
+            self._data._replace(name=value)
+        else:
+            super().__setattr__(name, value)
 
-def get_python_version() -> str:
-    v = sys.version_info
-    return "%d.%d.%d" % (v[0], v[1], v[2])
-
-
-def get_default_locale(locale_source: Callable[..., tuple[str | None, str | None]] = locale.getlocale):
-    result = ".".join([item or "" for item in locale_source()])
-    return "" if result == "." else result
-
-
-def get_version(module: str):
-    try:
-        args = [sys.executable, "-m", module, "--version"]
-        proc = subprocess.Popen(
-            args,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
-        )
-        stdout, _stderr = proc.communicate()
-        match = version_re.search(stdout)
-        if match:
-            return match.group()
-
-        msg = "Failed to get version of '%s' from the output of: %s" % (
-            module,
-            " ".join(args),
-        )
-        raise EnvironmentException(msg)
-    except Exception as exception:
-        raise EnvironmentException("Error getting '%s' version: %s" % (module, str(exception)))
-
-
-def output_file(dirname: str, filename: str, package_manager: str):
-    """Read an existing package spec file.
-
-    Returns a dictionary containing the filename and contents
-    if successful, None if the file does not exist,
-    or a dictionary containing 'error' on failure.
-    """
-    try:
-        path = os.path.join(dirname, filename)
-        if not os.path.exists(path):
-            return None
-
-        with open(path, "r") as f:
-            data = f.read()
-
-        data = "\n".join([line for line in data.split("\n") if "rsconnect" not in line])
-
-        return {
-            "filename": filename,
-            "contents": data,
-            "source": "file",
-            "package_manager": package_manager,
-        }
-    except Exception as exception:
-        raise EnvironmentException("Error reading %s: %s" % (filename, str(exception)))
-
-
-def pip_freeze():
-    """Inspect the environment using `pip freeze --disable-pip-version-check version`.
-
-    Returns a dictionary containing the filename
-    (always 'requirements.txt') and contents if successful,
-    or a dictionary containing 'error' on failure.
-    """
-    try:
-        proc = subprocess.Popen(
-            [sys.executable, "-m", "pip", "freeze", "--disable-pip-version-check"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
-        )
-
-        pip_stdout, pip_stderr = proc.communicate()
-        pip_status = proc.returncode
-    except Exception as exception:
-        raise EnvironmentException("Error during pip freeze: %s" % str(exception))
-
-    if pip_status != 0:
-        msg = pip_stderr or ("exited with code %d" % pip_status)
-        raise EnvironmentException("Error during pip freeze: %s" % msg)
-
-    pip_stdout = filter_pip_freeze_output(pip_stdout)
-
-    pip_stdout = (
-        "# requirements.txt generated by rsconnect-python on "
-        + str(datetime.datetime.now(datetime.timezone.utc))
-        + "\n"
-        + pip_stdout
-    )
-
-    return {
-        "filename": "requirements.txt",
-        "contents": pip_stdout,
-        "source": "pip_freeze",
-        "package_manager": "pip",
-    }
-
-
-def filter_pip_freeze_output(pip_stdout: str):
-    # Filter out dependency on `rsconnect` and ignore output lines from pip which start with `[notice]`
-    return "\n".join(
-        [line for line in pip_stdout.split("\n") if (("rsconnect" not in line) and (line.find("[notice]") != 0))]
-    )
-
-
-def strip_ref(line: str):
-    # remove erroneous conda build paths that will break pip install
-    return line.split(" @ file:", 1)[0].strip()
-
-
-def exclude(line: str):
-    return line and line.startswith("setuptools") and "post" in line
-
-
-def main():
-    """
-    Run `detect_environment` and dump the result as JSON.
-    """
-    try:
-        if len(sys.argv) < 2:
-            raise EnvironmentException("Usage: %s [-fc] DIRECTORY" % sys.argv[0])
-        # directory is always the last argument
-        directory = sys.argv[len(sys.argv) - 1]
-        flags = ""
-        force_generate = False
-        if len(sys.argv) > 2:
-            flags = sys.argv[1]
-        if "f" in flags:
-            force_generate = True
-        envinfo = detect_environment(directory, force_generate)._asdict()
-        if "contents" in envinfo:
-            keepers = list(map(strip_ref, envinfo["contents"].split("\n")))
-            keepers = [line for line in keepers if not exclude(line)]
-            envinfo["contents"] = "\n".join(keepers)
-
-        json.dump(
-            envinfo,
-            sys.stdout,
-            indent=4,
-        )
-    except EnvironmentException as exception:
-        json.dump(dict(error=str(exception)), sys.stdout, indent=4)
-
-
-if __name__ == "__main__":
-    main()
+    @classmethod
+    def from_json(cls, json_data: dict) -> "Environment":
+        """Create an Environment instance from the JSON representation of EnvironmentData."""
+        return cls(_MakeEnvironmentData(**json_data))

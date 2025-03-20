@@ -37,7 +37,7 @@ from .bundle import (
     make_quarto_source_bundle,
     read_manifest_file,
 )
-from .environment import Environment, EnvironmentException
+from .environment import Environment
 from .exception import RSConnectException
 from .log import VERBOSE, logger
 from .models import AppMode, AppModes
@@ -78,8 +78,6 @@ def cli_feedback(label: str, stderr: bool = False):
         passed()
     except RSConnectException as exc:
         failed("Error: " + exc.message)
-    except EnvironmentException as exc:
-        failed("Error: " + str(exc))
     except Exception as exc:
         traceback.print_exc()
         failed("Internal error: " + str(exc))
