@@ -52,7 +52,7 @@ def MakeEnvironmentData(
     python_requires: Optional[str] = None,
     error: Optional[str] = None,
     **kwargs: object,  # provides compatibility where we no longer support some older properties
-) -> Environment:
+) -> EnvironmentData:
     return EnvironmentData(contents, filename, locale, package_manager, pip, python, source, python_requires, error)
 
 

@@ -201,9 +201,7 @@ class Manifest:
                 # If the environment has a python version requirement,
                 # add it to the manifest as environment.python.requires
                 manifest_environment = self.data.setdefault("environment", {})
-                manifest_environment["python"] = {
-                    "requires": environment.python_version_requirement
-                }
+                manifest_environment["python"] = {"requires": environment.python_version_requirement}
 
         if image or env_management_py is not None or env_management_r is not None:
             manifest_environment = self.data.setdefault("environment", {})
@@ -677,9 +675,10 @@ def make_html_manifest(
     filename: str,
 ) -> ManifestData:
     # noinspection SpellCheckingInspection
+    appmode = "static"
     manifest: Manifest(
         metadata=ManifestDataMetadata(
-            appmode="static",
+            appmode=appmode,
             primary_html=filename,
         )
     )
@@ -1723,7 +1722,7 @@ def inspect_environment(
     if "error" in environment_data:
         system_error_message = environment_data.get("error")
         if system_error_message:
-            raise RSConnectException(f"Error creating environment: {system_error_message}") from e
+            raise RSConnectException(f"Error creating environment: {system_error_message}")
 
     try:
         return Environment.from_json(environment_data)
@@ -1731,11 +1730,7 @@ def inspect_environment(
         raise RSConnectException("Error constructing environment object") from e
 
 
-def _get_python_env_info(
-    file_name: str,
-    python: str | None,
-    force_generate: bool = False
-) -> tuple[str, Environment]:
+def _get_python_env_info(file_name: str, python: str | None, force_generate: bool = False) -> tuple[str, Environment]:
     """
     Gathers the python and environment information relating to the specified file
     with an eye to deploy it.

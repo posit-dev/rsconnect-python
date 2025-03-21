@@ -9,6 +9,7 @@ class Environment:
 
     The data is loaded from a rsconnect.utils.environment json response
     """
+
     DATA_FIELDS = dataclasses.fields(EnvironmentData)
 
     def __init__(self, data: EnvironmentData, python_version_requirement: typing.Optional[str] = None):
@@ -22,7 +23,7 @@ class Environment:
         # so that schema changes can be handled in EnvironmentData exclusively.
         return getattr(self._data, name)
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name: str, value: typing.Any) -> None:
         if name in self.DATA_FIELDS:
             # proxy the attribute to the underlying EnvironmentData object
             self._data._replace(name=value)

@@ -53,7 +53,6 @@ from .bundle import (
     create_python_environment,
     default_title_from_manifest,
     fake_module_file_from_directory,
-    is_environment_dir,
     make_api_bundle,
     make_html_bundle,
     make_manifest_bundle,
@@ -809,35 +808,6 @@ def _warn_on_ignored_manifest(directory: str):
         )
 
 
-def _warn_if_no_requirements_file(directory: str):
-    """
-    Checks for the existence of a file called requirements.txt in the given directory.
-    If it's not there, a warning will be printed.
-
-    :param directory: the directory to check in.
-    """
-    if not exists(join(directory, "requirements.txt")):
-        click.secho(
-            "    Warning: Capturing the environment using 'pip freeze --disable-pip-version-check'.\n"
-            "             Consider creating a requirements.txt file instead.",
-            fg="yellow",
-        )
-
-
-def _warn_if_environment_directory(directory: str):
-    """
-    Issue a warning if the deployment directory is itself a virtualenv (yikes!).
-
-    :param directory: the directory to check in.
-    """
-    if is_environment_dir(directory):
-        click.secho(
-            "    Warning: The deployment directory appears to be a python virtual environment.\n"
-            "             Python libraries and binaries will be excluded from the deployment.",
-            fg="yellow",
-        )
-
-
 def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     """
     Checks for the existence of a file called manifest.json in the given directory.
@@ -944,10 +914,13 @@ def deploy_notebook(
     app_mode = AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC
 
     base_dir = dirname(file)
-    environment = create_python_environment(base_dir, app_file=file,
-                                            force_generate=force_generate,
-                                            python=python,
-                                            override_python_version=override_python_version)
+    environment = create_python_environment(
+        base_dir,
+        app_file=file,
+        force_generate=force_generate,
+        python=python,
+        override_python_version=override_python_version,
+    )
 
     if force_generate:
         _warn_on_ignored_requirements(base_dir, environment.filename)
@@ -1299,8 +1272,9 @@ def deploy_quarto(
     environment = None
     if "jupyter" in engines:
         with cli_feedback("Inspecting Python environment"):
-            environment = create_python_environment(base_dir, force_generate=force_generate,
-                                                    override_python_version=override_python_version)
+            environment = create_python_environment(
+                base_dir, force_generate=force_generate, override_python_version=override_python_version
+            )
 
     ce = RSConnectExecutor(
         ctx=ctx,
@@ -1812,9 +1786,13 @@ def write_manifest_notebook(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
-        environment = create_python_environment(base_dir, force_generate=force_generate, python=python,
-                                                override_python_version=override_python_version,
-                                                app_file=file)
+        environment = create_python_environment(
+            base_dir,
+            force_generate=force_generate,
+            python=python,
+            override_python_version=override_python_version,
+            app_file=file,
+        )
 
     with cli_feedback("Creating manifest.json"):
         environment_file_exists = write_notebook_manifest_json(
@@ -2050,10 +2028,7 @@ def write_manifest_quarto(
     if "jupyter" in engines:
         with cli_feedback("Inspecting Python environment"):
             environment = create_python_environment(
-                base_dir,
-                force_generate=force_generate,
-                override_python_version=override_python_version,
-                python=python
+                base_dir, force_generate=force_generate, override_python_version=override_python_version, python=python
             )
 
         environment_file_exists = exists(join(base_dir, environment.filename))
