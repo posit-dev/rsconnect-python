@@ -25,9 +25,13 @@ import click
 
 
 class Environment:
-    """A project environment,
+    """A Python project environment,
 
-    The data is loaded from a rsconnect.utils.environment json response
+    The data is loaded from a rsconnect.utils.environment json response,
+    the environment contains all the information provided by :class:`EnvironmentData` plus
+    the environment python interpreter and the python interpreter version requirement.
+
+    The goal is to capture all the information needed to replicate such environment.
     """
 
     DATA_FIELDS = {f.name for f in dataclasses.fields(EnvironmentData)}
