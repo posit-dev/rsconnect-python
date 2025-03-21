@@ -130,7 +130,9 @@ class Environment:
         return environment
 
     @classmethod
-    def _get_python_env_info(cls, file_name: str, python: typing.Optional[str], force_generate: bool = False) -> "Environment":
+    def _get_python_env_info(
+        cls, file_name: str, python: typing.Optional[str], force_generate: bool = False
+    ) -> "Environment":
         """
         Gathers the python and environment information relating to the specified file
         with an eye to deploy it.
