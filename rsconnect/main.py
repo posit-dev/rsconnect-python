@@ -53,7 +53,6 @@ from .bundle import (
     create_python_environment,
     default_title_from_manifest,
     fake_module_file_from_directory,
-    get_python_env_info,
     is_environment_dir,
     make_api_bundle,
     make_html_bundle,
@@ -1813,7 +1812,9 @@ def write_manifest_notebook(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
-        python, environment = get_python_env_info(file, python, force_generate, override_python_version)
+        environment = create_python_environment(base_dir, force_generate=force_generate, python=python,
+                                                override_python_version=override_python_version,
+                                                app_file=file)
 
     with cli_feedback("Creating manifest.json"):
         environment_file_exists = write_notebook_manifest_json(
@@ -1919,7 +1920,13 @@ def write_manifest_voila(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
-        python, environment = get_python_env_info(path, python, force_generate, override_python_version)
+        environment = create_python_environment(
+            base_dir,
+            force_generate=force_generate,
+            override_python_version=override_python_version,
+            python=python,
+            app_file=path,
+        )
 
     environment_file_exists = exists(join(base_dir, environment.filename))
 
@@ -2042,7 +2049,12 @@ def write_manifest_quarto(
     environment = None
     if "jupyter" in engines:
         with cli_feedback("Inspecting Python environment"):
-            python, environment = get_python_env_info(base_dir, python, force_generate, override_python_version)
+            environment = create_python_environment(
+                base_dir,
+                force_generate=force_generate,
+                override_python_version=override_python_version,
+                python=python
+            )
 
         environment_file_exists = exists(join(base_dir, environment.filename))
         if environment_file_exists and not force_generate:
@@ -2285,7 +2297,12 @@ def _write_framework_manifest(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
-        _, environment = get_python_env_info(directory, python, force_generate, override_python_version)
+        environment = create_python_environment(
+            directory,
+            force_generate=force_generate,
+            override_python_version=override_python_version,
+            python=python,
+        )
 
     if app_mode == AppModes.PYTHON_SHINY:
         with cli_feedback("Inspecting Shiny for Python app"):

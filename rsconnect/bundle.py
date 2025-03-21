@@ -2306,7 +2306,8 @@ def create_python_environment(
         python_version_requirement = override_python_version
 
     # with cli_feedback("Inspecting Python environment"):
-    _, environment = _get_python_env_info(module_file, python, force_generate, override_python_version)
+    detected_python, environment = _get_python_env_info(module_file, python, force_generate, override_python_version)
+    environment.python = detected_python  # If python is provided, _get_python_env_info will return it as is.
 
     if force_generate:
         _warn_on_ignored_requirements(directory, environment.filename)
