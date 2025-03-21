@@ -56,7 +56,7 @@ class Environment:
     def __setattr__(self, name: str, value: typing.Any) -> None:
         if name in self.DATA_FIELDS:
             # proxy the attribute to the underlying EnvironmentData object
-            self._data._replace(name=value)
+            self._data._replace(**{name: value})
         else:
             super().__setattr__(name, value)
 
@@ -130,7 +130,7 @@ class Environment:
         return environment
 
     @classmethod
-    def _get_python_env_info(cls, file_name: str, python: str | None, force_generate: bool = False) -> "Environment":
+    def _get_python_env_info(cls, file_name: str, python: typing.Optional[str], force_generate: bool = False) -> "Environment":
         """
         Gathers the python and environment information relating to the specified file
         with an eye to deploy it.
@@ -227,7 +227,7 @@ def fake_module_file_from_directory(directory: str) -> str:
     return os.path.join(directory, app_name + ".py")
 
 
-def is_environment_dir(directory: str | pathlib.Path) -> bool:
+def is_environment_dir(directory: typing.Union[str, pathlib.Path]) -> bool:
     """Detect whether `directory` is a virtualenv"""
 
     # A virtualenv will have Python at ./bin/python
@@ -237,7 +237,7 @@ def is_environment_dir(directory: str | pathlib.Path) -> bool:
     return os.path.exists(python_path) or os.path.exists(win_path)
 
 
-def list_environment_dirs(directory: str | pathlib.Path) -> list[str]:
+def list_environment_dirs(directory: typing.Union[str, pathlib.Path]) -> list[str]:
     """Returns a list of subdirectories in `directory` that appear to contain virtual environments."""
     envs: list[str] = []
 
@@ -277,7 +277,7 @@ def _warn_if_no_requirements_file(directory: str) -> None:
         )
 
 
-def _warn_if_environment_directory(directory: str | pathlib.Path) -> None:
+def _warn_if_environment_directory(directory: typing.Union[str, pathlib.Path]) -> None:
     """
     Issue a warning if the deployment directory is itself a virtualenv (yikes!).
 

@@ -51,7 +51,8 @@ else:
     from typing_extensions import NotRequired, TypedDict
 
 from . import validation
-from .bundle import _default_title, fake_module_file_from_directory
+from .bundle import _default_title
+from .environment import fake_module_file_from_directory
 from .certificates import read_certificate_file
 from .exception import DeploymentFailedException, RSConnectException
 from .http_support import CookieJar, HTTPResponse, HTTPServer, JsonData, append_to_path
