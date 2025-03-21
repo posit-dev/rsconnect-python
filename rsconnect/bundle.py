@@ -1650,7 +1650,7 @@ def _warn_on_missing_python_version(version_constraint: Optional[str]) -> None:
     """
     if version_constraint is None:
         click.secho(
-            "    Warning: Python version constraint missing from pyproject.toml or .python-version\n"
+            "    Warning: Python version constraint missing from pyproject.toml, setup.cfg or .python-version\n"
             "             Connect will guess the version to use based on local environment.\n"
             "             Consider specifying a Python version constraint.",
             fg="yellow",
@@ -1734,9 +1734,7 @@ def inspect_environment(
 def _get_python_env_info(
     file_name: str,
     python: str | None,
-    force_generate: bool = False,
-    override_python_version: str | None = None,
-    python_version_requirement: str | None = None,
+    force_generate: bool = False
 ) -> tuple[str, Environment]:
     """
     Gathers the python and environment information relating to the specified file
@@ -1756,13 +1754,6 @@ def _get_python_env_info(
         raise RSConnectException(environment.error)
     logger.debug("Python: %s" % python)
     logger.debug("Environment: %s" % pformat(environment._asdict()))
-
-    if python_version_requirement:
-        environment.python_version_requirement = python_version_requirement
-
-    if override_python_version:
-        environment.python = override_python_version
-
     return python, environment
 
 
@@ -2277,8 +2268,13 @@ def create_python_environment(
         python_version_requirement = f"=={override_python_version}"
 
     # with cli_feedback("Inspecting Python environment"):
-    detected_python, environment = _get_python_env_info(module_file, python, force_generate, override_python_version,
-                                                        python_version_requirement)
+    detected_python, environment = _get_python_env_info(module_file, python, force_generate)
+    environment.python_version_requirement = python_version_requirement
+
+    if override_python_version:
+        # Retaing backward compatibility with old Connect versions
+        # that didn't support environment.python.requires
+        environment.python = override_python_version
 
     if force_generate:
         _warn_on_ignored_requirements(directory, environment.filename)
