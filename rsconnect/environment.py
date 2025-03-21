@@ -1,7 +1,18 @@
 import typing
+import sys
 import dataclasses
+import pprint
+import subprocess
+import json
+import pathlib
+import os.path
 
+from . import pyproject
+from .log import logger
+from .exception import RSConnectException
 from .subprocesses.environment import EnvironmentData, MakeEnvironmentData as _MakeEnvironmentData
+
+import click
 
 
 class Environment:
@@ -10,7 +21,7 @@ class Environment:
     The data is loaded from a rsconnect.utils.environment json response
     """
 
-    DATA_FIELDS = dataclasses.fields(EnvironmentData)
+    DATA_FIELDS = {f.name for f in dataclasses.fields(EnvironmentData)}
 
     def __init__(self, data: EnvironmentData, python_version_requirement: typing.Optional[str] = None):
         self._data = data
@@ -31,6 +42,242 @@ class Environment:
             super().__setattr__(name, value)
 
     @classmethod
-    def from_json(cls, json_data: dict) -> "Environment":
+    def from_dict(cls, data: dict[str, typing.Any]) -> "Environment":
         """Create an Environment instance from the JSON representation of EnvironmentData."""
-        return cls(_MakeEnvironmentData(**json_data))
+        return cls(_MakeEnvironmentData(**data))
+
+    @classmethod
+    def create_python_environment(
+        cls,
+        directory: str,
+        force_generate: bool = False,
+        python: typing.Optional[str] = None,
+        override_python_version: typing.Optional[str] = None,
+        app_file: typing.Optional[str] = None,
+    ) -> typing.Tuple[str, "Environment"]:
+        if app_file is None:
+            module_file = fake_module_file_from_directory(directory)
+        else:
+            module_file = app_file
+
+        # click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
+        _warn_on_ignored_manifest(directory)
+        _warn_if_no_requirements_file(directory)
+        _warn_if_environment_directory(directory)
+
+        python_version_requirement = pyproject.detect_python_version_requirement(directory)
+        _warn_on_missing_python_version(python_version_requirement)
+
+        if override_python_version:
+            # TODO: --override-python-version should be deprecated in the future
+            #       and instead we should suggest the user sets it in .python-version
+            #       or pyproject.toml
+            python_version_requirement = f"=={override_python_version}"
+
+        # with cli_feedback("Inspecting Python environment"):
+        python_interpreter, environment = cls._get_python_env_info(module_file, python, force_generate)
+        environment.python_version_requirement = python_version_requirement
+
+        if override_python_version:
+            # Retaing backward compatibility with old Connect versions
+            # that didn't support environment.python.requires
+            environment.python = override_python_version
+
+        if force_generate:
+            _warn_on_ignored_requirements(directory, environment.filename)
+
+        return python_interpreter, environment
+
+    @classmethod
+    def _get_python_env_info(
+        cls, file_name: str, python: str | None, force_generate: bool = False
+    ) -> tuple[str, "Environment"]:
+        """
+        Gathers the python and environment information relating to the specified file
+        with an eye to deploy it.
+
+        :param file_name: the primary file being deployed.
+        :param python: the optional name of a Python executable.
+        :param force_generate: force generating "requirements.txt" or "environment.yml",
+        even if it already exists.
+        :return: information about the version of Python in use plus some environmental
+        stuff.
+        """
+        python = which_python(python)
+        logger.debug("Python: %s" % python)
+        environment = cls._inspect_environment(python, os.path.dirname(file_name), force_generate=force_generate)
+        if environment.error:
+            raise RSConnectException(environment.error)
+        logger.debug("Python: %s" % python)
+        logger.debug("Environment: %s" % pprint.pformat(environment._asdict()))
+        return python, environment
+
+    @classmethod
+    def _inspect_environment(
+        cls,
+        python: str,
+        directory: str,
+        force_generate: bool = False,
+        check_output: typing.Callable[..., bytes] = subprocess.check_output,
+    ) -> "Environment":
+        """Run the environment inspector using the specified python binary.
+
+        Returns a dictionary of information about the environment,
+        or containing an "error" field if an error occurred.
+        """
+        flags: list[str] = []
+        if force_generate:
+            flags.append("f")
+
+        args = [python, "-m", "rsconnect.subprocesses.environment"]
+        if flags:
+            args.append("-" + "".join(flags))
+        args.append(directory)
+
+        try:
+            environment_json = check_output(args, text=True)
+        except Exception as e:
+            raise RSConnectException("Error inspecting environment (subprocess failed)") from e
+
+        try:
+            environment_data = json.loads(environment_json)
+        except json.JSONDecodeError as e:
+            raise RSConnectException("Error parsing environment JSON") from e
+
+        if "error" in environment_data:
+            system_error_message = environment_data.get("error")
+            if system_error_message:
+                raise RSConnectException(f"Error creating environment: {system_error_message}")
+
+        try:
+            return cls.from_dict(environment_data)
+        except TypeError as e:
+            raise RSConnectException("Error constructing environment object") from e
+
+
+def which_python(python: typing.Optional[str] = None) -> str:
+    """Determines which Python executable to use.
+
+    If the :param python: is provided, then validation is performed to check if the path is an executable file. If
+    None, the invoking system Python executable location is returned.
+
+    :param python: (Optional) path to a python executable.
+    :return: :param python: or `sys.executable`.
+    """
+    if python is None:
+        return sys.executable
+    if not os.path.exists(python):
+        raise RSConnectException(f"The path '{python}' does not exist. Expected a Python executable.")
+    if os.path.isdir(python):
+        raise RSConnectException(f"The path '{python}' is a directory. Expected a Python executable.")
+    if not os.access(python, os.X_OK):
+        raise RSConnectException(f"The path '{python}' is not executable. Expected a Python executable")
+    return python
+
+
+def fake_module_file_from_directory(directory: str) -> str:
+    """
+    Takes a directory and invents a properly named file that though possibly fake,
+    can be used for other name/title derivation.
+
+    :param directory: the directory to start with.
+    :return: the directory plus the (potentially) fake module file.
+    """
+    app_name = os.path.abspath(directory)
+    app_name = os.path.dirname(app_name) if app_name.endswith(os.path.sep) else os.path.basename(app_name)
+    return os.path.join(directory, app_name + ".py")
+
+
+def is_environment_dir(directory: str | pathlib.Path) -> bool:
+    """Detect whether `directory` is a virtualenv"""
+
+    # A virtualenv will have Python at ./bin/python
+    python_path = os.path.join(directory, "bin", "python")
+    # But on Windows, it's at Scripts\Python.exe
+    win_path = os.path.join(directory, "Scripts", "Python.exe")
+    return os.path.exists(python_path) or os.path.exists(win_path)
+
+
+def list_environment_dirs(directory: str | pathlib.Path) -> list[str]:
+    """Returns a list of subdirectories in `directory` that appear to contain virtual environments."""
+    envs: list[str] = []
+
+    for name in os.listdir(directory):
+        path = os.path.join(directory, name)
+        if is_environment_dir(path):
+            envs.append(name)
+    return envs
+
+
+def _warn_on_ignored_manifest(directory: str) -> None:
+    """
+    Checks for the existence of a file called manifest.json in the given directory.
+    If it's there, a warning noting that it will be ignored will be printed.
+
+    :param directory: the directory to check in.
+    """
+    if os.path.exists(os.path.join(directory, "manifest.json")):
+        click.secho(
+            "    Warning: the existing manifest.json file will not be used or considered.",
+            fg="yellow",
+        )
+
+
+def _warn_if_no_requirements_file(directory: str) -> None:
+    """
+    Checks for the existence of a file called requirements.txt in the given directory.
+    If it's not there, a warning will be printed.
+
+    :param directory: the directory to check in.
+    """
+    if not os.path.exists(os.path.join(directory, "requirements.txt")):
+        click.secho(
+            "    Warning: Capturing the environment using 'pip freeze'.\n"
+            "             Consider creating a requirements.txt file instead.",
+            fg="yellow",
+        )
+
+
+def _warn_if_environment_directory(directory: str | pathlib.Path) -> None:
+    """
+    Issue a warning if the deployment directory is itself a virtualenv (yikes!).
+
+    :param directory: the directory to check in.
+    """
+    if is_environment_dir(directory):
+        click.secho(
+            "    Warning: The deployment directory appears to be a python virtual environment.\n"
+            "             Python libraries and binaries will be excluded from the deployment.",
+            fg="yellow",
+        )
+
+
+def _warn_on_ignored_requirements(directory: str, requirements_file_name: str) -> None:
+    """
+    Checks for the existence of a file called manifest.json in the given directory.
+    If it's there, a warning noting that it will be ignored will be printed.
+
+    :param directory: the directory to check in.
+    :param requirements_file_name: the name of the requirements file.
+    """
+    if os.path.exists(os.path.join(directory, requirements_file_name)):
+        click.secho(
+            "    Warning: the existing %s file will not be used or considered." % requirements_file_name,
+            fg="yellow",
+        )
+
+
+def _warn_on_missing_python_version(version_constraint: typing.Optional[str]) -> None:
+    """
+    Check that the project has a Python version constraint requested.
+    If it doesn't warn the user that it should be specified.
+
+    :param version_constraint: the version constraint in the project.
+    """
+    if version_constraint is None:
+        click.secho(
+            "    Warning: Python version constraint missing from pyproject.toml, setup.cfg or .python-version\n"
+            "             Connect will guess the version to use based on local environment.\n"
+            "             Consider specifying a Python version constraint.",
+            fg="yellow",
+        )

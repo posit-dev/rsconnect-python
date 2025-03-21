@@ -30,7 +30,6 @@ from os.path import (
     splitext,
 )
 from pathlib import Path
-from pprint import pformat
 from typing import (
     IO,
     TYPE_CHECKING,
@@ -53,8 +52,7 @@ else:
 
 import click
 
-from . import pyproject
-from .environment import Environment
+from .environment import Environment, list_environment_dirs, is_environment_dir
 from .exception import RSConnectException
 from .log import VERBOSE, logger
 from .models import AppMode, AppModes, GlobSet
@@ -675,10 +673,9 @@ def make_html_manifest(
     filename: str,
 ) -> ManifestData:
     # noinspection SpellCheckingInspection
-    appmode = "static"
-    manifest: Manifest(
+    manifest = Manifest(
         metadata=ManifestDataMetadata(
-            appmode=appmode,
+            appmode="static",
             primary_html=filename,
         )
     )
@@ -843,27 +840,6 @@ def create_glob_set(directory: str | Path, excludes: Sequence[str]) -> GlobSet:
             work.append(file_pattern)
 
     return GlobSet(work)
-
-
-def is_environment_dir(directory: str | Path):
-    """Detect whether `directory` is a virtualenv"""
-
-    # A virtualenv will have Python at ./bin/python
-    python_path = join(directory, "bin", "python")
-    # But on Windows, it's at Scripts\Python.exe
-    win_path = join(directory, "Scripts", "Python.exe")
-    return exists(python_path) or exists(win_path)
-
-
-def list_environment_dirs(directory: str | Path):
-    """Returns a list of subdirectories in `directory` that appear to contain virtual environments."""
-    envs: list[str] = []
-
-    for name in os.listdir(directory):
-        path = join(directory, name)
-        if is_environment_dir(path):
-            envs.append(name)
-    return envs
 
 
 def make_api_manifest(
@@ -1582,176 +1558,6 @@ def _warn_on_ignored_entrypoint(entrypoint: Optional[str]) -> None:
         )
 
 
-def _warn_on_ignored_manifest(directory: str) -> None:
-    """
-    Checks for the existence of a file called manifest.json in the given directory.
-    If it's there, a warning noting that it will be ignored will be printed.
-
-    :param directory: the directory to check in.
-    """
-    if exists(join(directory, "manifest.json")):
-        click.secho(
-            "    Warning: the existing manifest.json file will not be used or considered.",
-            fg="yellow",
-        )
-
-
-def _warn_if_no_requirements_file(directory: str) -> None:
-    """
-    Checks for the existence of a file called requirements.txt in the given directory.
-    If it's not there, a warning will be printed.
-
-    :param directory: the directory to check in.
-    """
-    if not exists(join(directory, "requirements.txt")):
-        click.secho(
-            "    Warning: Capturing the environment using 'pip freeze'.\n"
-            "             Consider creating a requirements.txt file instead.",
-            fg="yellow",
-        )
-
-
-def _warn_if_environment_directory(directory: str | Path) -> None:
-    """
-    Issue a warning if the deployment directory is itself a virtualenv (yikes!).
-
-    :param directory: the directory to check in.
-    """
-    if is_environment_dir(directory):
-        click.secho(
-            "    Warning: The deployment directory appears to be a python virtual environment.\n"
-            "             Python libraries and binaries will be excluded from the deployment.",
-            fg="yellow",
-        )
-
-
-def _warn_on_ignored_requirements(directory: str, requirements_file_name: str) -> None:
-    """
-    Checks for the existence of a file called manifest.json in the given directory.
-    If it's there, a warning noting that it will be ignored will be printed.
-
-    :param directory: the directory to check in.
-    :param requirements_file_name: the name of the requirements file.
-    """
-    if exists(join(directory, requirements_file_name)):
-        click.secho(
-            "    Warning: the existing %s file will not be used or considered." % requirements_file_name,
-            fg="yellow",
-        )
-
-
-def _warn_on_missing_python_version(version_constraint: Optional[str]) -> None:
-    """
-    Check that the project has a Python version constraint requested.
-    If it doesn't warn the user that it should be specified.
-
-    :param version_constraint: the version constraint in the project.
-    """
-    if version_constraint is None:
-        click.secho(
-            "    Warning: Python version constraint missing from pyproject.toml, setup.cfg or .python-version\n"
-            "             Connect will guess the version to use based on local environment.\n"
-            "             Consider specifying a Python version constraint.",
-            fg="yellow",
-        )
-
-
-def fake_module_file_from_directory(directory: str) -> str:
-    """
-    Takes a directory and invents a properly named file that though possibly fake,
-    can be used for other name/title derivation.
-
-    :param directory: the directory to start with.
-    :return: the directory plus the (potentially) fake module file.
-    """
-    app_name = abspath(directory)
-    app_name = dirname(app_name) if app_name.endswith(os.path.sep) else basename(app_name)
-    return join(directory, app_name + ".py")
-
-
-def which_python(python: Optional[str] = None) -> str:
-    """Determines which Python executable to use.
-
-    If the :param python: is provided, then validation is performed to check if the path is an executable file. If
-    None, the invoking system Python executable location is returned.
-
-    :param python: (Optional) path to a python executable.
-    :return: :param python: or `sys.executable`.
-    """
-    if python is None:
-        return sys.executable
-    if not exists(python):
-        raise RSConnectException(f"The path '{python}' does not exist. Expected a Python executable.")
-    if isdir(python):
-        raise RSConnectException(f"The path '{python}' is a directory. Expected a Python executable.")
-    if not os.access(python, os.X_OK):
-        raise RSConnectException(f"The path '{python}' is not executable. Expected a Python executable")
-    return python
-
-
-def inspect_environment(
-    python: str,
-    directory: str,
-    force_generate: bool = False,
-    check_output: Callable[..., bytes] = subprocess.check_output,
-) -> Environment:
-    """Run the environment inspector using the specified python binary.
-
-    Returns a dictionary of information about the environment,
-    or containing an "error" field if an error occurred.
-    """
-    flags: list[str] = []
-    if force_generate:
-        flags.append("f")
-
-    args = [python, "-m", "rsconnect.subprocesses.environment"]
-    if flags:
-        args.append("-" + "".join(flags))
-    args.append(directory)
-
-    try:
-        environment_json = check_output(args, text=True)
-    except Exception as e:
-        raise RSConnectException("Error inspecting environment (subprocess failed)") from e
-
-    try:
-        environment_data = json.loads(environment_json)
-    except json.JSONDecodeError as e:
-        raise RSConnectException("Error parsing environment JSON") from e
-
-    if "error" in environment_data:
-        system_error_message = environment_data.get("error")
-        if system_error_message:
-            raise RSConnectException(f"Error creating environment: {system_error_message}")
-
-    try:
-        return Environment.from_json(environment_data)
-    except TypeError as e:
-        raise RSConnectException("Error constructing environment object") from e
-
-
-def _get_python_env_info(file_name: str, python: str | None, force_generate: bool = False) -> tuple[str, Environment]:
-    """
-    Gathers the python and environment information relating to the specified file
-    with an eye to deploy it.
-
-    :param file_name: the primary file being deployed.
-    :param python: the optional name of a Python executable.
-    :param force_generate: force generating "requirements.txt" or "environment.yml",
-    even if it already exists.
-    :return: information about the version of Python in use plus some environmental
-    stuff.
-    """
-    python = which_python(python)
-    logger.debug("Python: %s" % python)
-    environment = inspect_environment(python, dirname(file_name), force_generate=force_generate)
-    if environment.error:
-        raise RSConnectException(environment.error)
-    logger.debug("Python: %s" % python)
-    logger.debug("Environment: %s" % pformat(environment._asdict()))
-    return python, environment
-
-
 def create_notebook_manifest_and_environment_file(
     entry_point_file: str,
     environment: Environment,
@@ -2234,44 +2040,3 @@ def write_manifest_json(manifest_path: str | Path, manifest: ManifestData) -> No
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
         f.write("\n")
-
-
-def create_python_environment(
-    directory: str,
-    force_generate: bool = False,
-    python: Optional[str] = None,
-    override_python_version: Optional[str] = None,
-    app_file: Optional[str] = None,
-) -> Environment:
-    if app_file is None:
-        module_file = fake_module_file_from_directory(directory)
-    else:
-        module_file = app_file
-
-    # click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
-    _warn_on_ignored_manifest(directory)
-    _warn_if_no_requirements_file(directory)
-    _warn_if_environment_directory(directory)
-
-    python_version_requirement = pyproject.detect_python_version_requirement(directory)
-    _warn_on_missing_python_version(python_version_requirement)
-
-    if override_python_version:
-        # TODO: --override-python-version should be deprecated in the future
-        #       and instead we should suggest the user sets it in .python-version
-        #       or pyproject.toml
-        python_version_requirement = f"=={override_python_version}"
-
-    # with cli_feedback("Inspecting Python environment"):
-    detected_python, environment = _get_python_env_info(module_file, python, force_generate)
-    environment.python_version_requirement = python_version_requirement
-
-    if override_python_version:
-        # Retaing backward compatibility with old Connect versions
-        # that didn't support environment.python.requires
-        environment.python = override_python_version
-
-    if force_generate:
-        _warn_on_ignored_requirements(directory, environment.filename)
-
-    return environment

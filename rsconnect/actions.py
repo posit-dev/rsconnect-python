@@ -31,7 +31,6 @@ import click
 
 from . import api
 from .bundle import (
-    create_python_environment,
     get_default_entrypoint,
     make_api_bundle,
     make_quarto_source_bundle,
@@ -373,7 +372,7 @@ def deploy_app(
             )
         )
 
-    environment = create_python_environment(
+    _, environment = Environment.create_python_environment(
         directory,  # pyright: ignore
         force_generate,
         python,

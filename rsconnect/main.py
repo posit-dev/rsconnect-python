@@ -48,11 +48,10 @@ from .actions_content import (
     get_content,
     search_content,
 )
+from .environment import Environment, fake_module_file_from_directory
 from .api import RSConnectClient, RSConnectExecutor, RSConnectServer
 from .bundle import (
-    create_python_environment,
     default_title_from_manifest,
-    fake_module_file_from_directory,
     make_api_bundle,
     make_html_bundle,
     make_manifest_bundle,
@@ -914,7 +913,7 @@ def deploy_notebook(
     app_mode = AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC
 
     base_dir = dirname(file)
-    environment = create_python_environment(
+    python, environment = Environment.create_python_environment(
         base_dir,
         app_file=file,
         force_generate=force_generate,
@@ -1055,7 +1054,7 @@ def deploy_voila(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
     app_mode = AppModes.JUPYTER_VOILA
-    environment = create_python_environment(
+    _, environment = Environment.create_python_environment(
         path if isdir(path) else dirname(path), force_generate, python, override_python_version
     )
 
@@ -1272,7 +1271,7 @@ def deploy_quarto(
     environment = None
     if "jupyter" in engines:
         with cli_feedback("Inspecting Python environment"):
-            environment = create_python_environment(
+            _, environment = Environment.create_python_environment(
                 base_dir, force_generate=force_generate, override_python_version=override_python_version
             )
 
@@ -1615,7 +1614,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         set_verbosity(verbose)
         entrypoint = validate_entry_point(entrypoint, directory)
         extra_files_list = validate_extra_files(directory, extra_files)
-        environment = create_python_environment(
+        _, environment = Environment.create_python_environment(
             directory, force_generate, python, override_python_version=override_python_version
         )
 
@@ -1786,7 +1785,7 @@ def write_manifest_notebook(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
-        environment = create_python_environment(
+        _, environment = Environment.create_python_environment(
             base_dir,
             force_generate=force_generate,
             python=python,
@@ -1898,7 +1897,7 @@ def write_manifest_voila(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
-        environment = create_python_environment(
+        _, environment = Environment.create_python_environment(
             base_dir,
             force_generate=force_generate,
             override_python_version=override_python_version,
@@ -2027,7 +2026,7 @@ def write_manifest_quarto(
     environment = None
     if "jupyter" in engines:
         with cli_feedback("Inspecting Python environment"):
-            environment = create_python_environment(
+            _, environment = Environment.create_python_environment(
                 base_dir, force_generate=force_generate, override_python_version=override_python_version, python=python
             )
 
@@ -2272,7 +2271,7 @@ def _write_framework_manifest(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
-        environment = create_python_environment(
+        _, environment = Environment.create_python_environment(
             directory,
             force_generate=force_generate,
             override_python_version=override_python_version,
