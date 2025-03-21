@@ -53,7 +53,7 @@ def MakeEnvironmentData(
     error: Optional[str] = None,
     **kwargs: object,  # provides compatibility where we no longer support some older properties
 ) -> Environment:
-    return Environment(contents, filename, locale, package_manager, pip, python, source, python_requires, error)
+    return EnvironmentData(contents, filename, locale, package_manager, pip, python, source, python_requires, error)
 
 
 class EnvironmentException(Exception):

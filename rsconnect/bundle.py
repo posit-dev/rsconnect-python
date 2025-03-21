@@ -104,9 +104,14 @@ class ManifestDataQuarto(TypedDict):
     engines: list[str]
 
 
+class ManifestDataEnvironmentPython(TypedDict):
+    requires: NotRequired[str]
+
+
 class ManifestDataEnvironment(TypedDict):
     image: NotRequired[str]
     environment_management: NotRequired[dict[Literal["python", "r"], bool]]
+    python: NotRequired[ManifestDataEnvironmentPython]
 
 
 class ManifestDataPython(TypedDict):
@@ -192,16 +197,24 @@ class Manifest:
                 },
             }
 
+            if environment.python_version_requirement:
+                # If the environment has a python version requirement,
+                # add it to the manifest as environment.python.requires
+                manifest_environment = self.data.setdefault("environment", {})
+                manifest_environment["python"] = {
+                    "requires": environment.python_version_requirement
+                }
+
         if image or env_management_py is not None or env_management_r is not None:
-            self.data["environment"] = {}
+            manifest_environment = self.data.setdefault("environment", {})
             if image:
-                self.data["environment"]["image"] = image
+                manifest_environment["image"] = image
             if env_management_py is not None or env_management_r is not None:
-                self.data["environment"]["environment_management"] = {}
+                manifest_environment["environment_management"] = {}
                 if env_management_py is not None:
-                    self.data["environment"]["environment_management"]["python"] = env_management_py
+                    manifest_environment["environment_management"]["python"] = env_management_py
                 if env_management_r is not None:
-                    self.data["environment"]["environment_management"]["r"] = env_management_r
+                    manifest_environment["environment_management"]["r"] = env_management_r
 
         self.data["files"] = {}
         if files:
@@ -379,56 +392,16 @@ def make_source_manifest(
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
 ) -> ManifestData:
-    manifest: ManifestData = cast(ManifestData, {"version": 1})
-
-    # When adding locale, add it early so it is ordered immediately after
-    # version.
-    if environment:
-        manifest["locale"] = environment.locale
-
-    manifest["metadata"] = {
-        "appmode": app_mode.name(),
-    }
-
-    if entrypoint:
-        manifest["metadata"]["entrypoint"] = entrypoint
-
-    if quarto_inspection:
-        manifest["quarto"] = {
-            "version": quarto_inspection.get("quarto", {}).get("version", "99.9.9"),
-            "engines": quarto_inspection.get("engines", []),
-        }
-
-        files_data = quarto_inspection.get("files", {})
-        files_input_data = files_data.get("input", [])
-        if len(files_input_data) > 1:
-            manifest["metadata"]["content_category"] = "site"
-
-    if environment:
-        package_manager = environment.package_manager
-        manifest["python"] = {
-            "version": environment.python,
-            "package_manager": {
-                "name": package_manager,
-                "version": getattr(environment, package_manager),
-                "package_file": environment.filename,
-            },
-        }
-
-    if image or env_management_py is not None or env_management_r is not None:
-        manifest["environment"] = {}
-        if image:
-            manifest["environment"]["image"] = image
-        if env_management_py is not None or env_management_r is not None:
-            manifest["environment"]["environment_management"] = {}
-            if env_management_py is not None:
-                manifest["environment"]["environment_management"]["python"] = env_management_py
-            if env_management_r is not None:
-                manifest["environment"]["environment_management"]["r"] = env_management_r
-
-    manifest["files"] = {}
-
-    return manifest
+    manifest: Manifest = Manifest(
+        app_mode=app_mode,
+        environment=environment,
+        entrypoint=entrypoint,
+        quarto_inspection=quarto_inspection,
+        image=image,
+        env_management_py=env_management_py,
+        env_management_r=env_management_r,
+    )
+    return manifest.data
 
 
 def manifest_add_file(manifest: ManifestData, rel_path: str, base_dir: str) -> None:
@@ -704,15 +677,13 @@ def make_html_manifest(
     filename: str,
 ) -> ManifestData:
     # noinspection SpellCheckingInspection
-    manifest: ManifestData = {
-        "version": 1,
-        "metadata": {
-            "appmode": "static",
-            "primary_html": filename,
-        },
-        "files": {},
-    }
-    return manifest
+    manifest: Manifest(
+        metadata=ManifestDataMetadata(
+            appmode="static",
+            primary_html=filename,
+        )
+    )
+    return manifest.data
 
 
 def make_notebook_html_bundle(
@@ -1790,7 +1761,7 @@ def _get_python_env_info(
         environment.python_version_requirement = python_version_requirement
 
     if override_python_version:
-        environment = environment.python = override_python_version
+        environment.python = override_python_version
 
     return python, environment
 
@@ -2303,11 +2274,11 @@ def create_python_environment(
         # TODO: --override-python-version should be deprecated in the future
         #       and instead we should suggest the user sets it in .python-version
         #       or pyproject.toml
-        python_version_requirement = override_python_version
+        python_version_requirement = f"=={override_python_version}"
 
     # with cli_feedback("Inspecting Python environment"):
-    detected_python, environment = _get_python_env_info(module_file, python, force_generate, override_python_version)
-    environment.python = detected_python  # If python is provided, _get_python_env_info will return it as is.
+    detected_python, environment = _get_python_env_info(module_file, python, force_generate, override_python_version,
+                                                        python_version_requirement)
 
     if force_generate:
         _warn_on_ignored_requirements(directory, environment.filename)
