@@ -19,7 +19,7 @@ from rsconnect.bundle import (
     create_html_manifest,
     create_python_environment,
     create_voila_manifest,
-    get_python_env_info,
+    _get_python_env_info,
     guess_deploy_dir,
     inspect_environment,
     keep_manifest_specified_file,
@@ -1298,9 +1298,9 @@ def test_get_python_env_info(
 
     if expected_environment.error is not None:
         with pytest.raises(RSConnectException):
-            _, _ = get_python_env_info(file_name, python, force_generate=force_generate)
+            _, _ = _get_python_env_info(file_name, python, force_generate=force_generate)
     else:
-        python, environment = get_python_env_info(file_name, python, force_generate=force_generate)
+        python, environment = _get_python_env_info(file_name, python, force_generate=force_generate)
 
         assert python == expected_python
         assert environment == expected_environment

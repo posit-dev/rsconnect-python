@@ -48,13 +48,10 @@ from .actions_content import (
     get_content,
     search_content,
 )
+from .environment import Environment, fake_module_file_from_directory
 from .api import RSConnectClient, RSConnectExecutor, RSConnectServer
 from .bundle import (
-    create_python_environment,
     default_title_from_manifest,
-    fake_module_file_from_directory,
-    get_python_env_info,
-    is_environment_dir,
     make_api_bundle,
     make_html_bundle,
     make_manifest_bundle,
@@ -74,7 +71,6 @@ from .bundle import (
     write_tensorflow_manifest_json,
     write_voila_manifest_json,
 )
-from .environment import EnvironmentException
 from .exception import RSConnectException
 from .json_web_token import (
     TokenGenerator,
@@ -116,8 +112,6 @@ def cli_exception_handler(func: Callable[P, T]) -> Callable[P, T]:
             result = func(*args, **kwargs)
         except RSConnectException as exc:
             failed("Error: " + exc.message)
-        except EnvironmentException as exc:
-            failed("Error: " + str(exc))
         except Exception as exc:
             traceback.print_exc()
             failed("Internal error: " + str(exc))
@@ -813,35 +807,6 @@ def _warn_on_ignored_manifest(directory: str):
         )
 
 
-def _warn_if_no_requirements_file(directory: str):
-    """
-    Checks for the existence of a file called requirements.txt in the given directory.
-    If it's not there, a warning will be printed.
-
-    :param directory: the directory to check in.
-    """
-    if not exists(join(directory, "requirements.txt")):
-        click.secho(
-            "    Warning: Capturing the environment using 'pip freeze --disable-pip-version-check'.\n"
-            "             Consider creating a requirements.txt file instead.",
-            fg="yellow",
-        )
-
-
-def _warn_if_environment_directory(directory: str):
-    """
-    Issue a warning if the deployment directory is itself a virtualenv (yikes!).
-
-    :param directory: the directory to check in.
-    """
-    if is_environment_dir(directory):
-        click.secho(
-            "    Warning: The deployment directory appears to be a python virtual environment.\n"
-            "             Python libraries and binaries will be excluded from the deployment.",
-            fg="yellow",
-        )
-
-
 def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     """
     Checks for the existence of a file called manifest.json in the given directory.
@@ -948,10 +913,13 @@ def deploy_notebook(
     app_mode = AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC
 
     base_dir = dirname(file)
-    _warn_on_ignored_manifest(base_dir)
-    _warn_if_no_requirements_file(base_dir)
-    _warn_if_environment_directory(base_dir)
-    python, environment = get_python_env_info(file, python, force_generate, override_python_version)
+    environment = Environment.create_python_environment(
+        base_dir,
+        app_file=file,
+        force_generate=force_generate,
+        python=python,
+        override_python_version=override_python_version,
+    )
 
     if force_generate:
         _warn_on_ignored_requirements(base_dir, environment.filename)
@@ -976,7 +944,7 @@ def deploy_notebook(
         ce.make_bundle(
             make_notebook_html_bundle,
             file,
-            python,
+            environment.python,
             hide_all_input,
             hide_tagged_input,
         )
@@ -1086,7 +1054,7 @@ def deploy_voila(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
     app_mode = AppModes.JUPYTER_VOILA
-    environment = create_python_environment(
+    environment = Environment.create_python_environment(
         path if isdir(path) else dirname(path), force_generate, python, override_python_version
     )
 
@@ -1290,7 +1258,6 @@ def deploy_quarto(
     base_dir = file_or_directory
     if not isdir(file_or_directory):
         base_dir = dirname(file_or_directory)
-    module_file = fake_module_file_from_directory(file_or_directory)
     extra_files = validate_extra_files(base_dir, extra_files)
 
     _warn_on_ignored_manifest(base_dir)
@@ -1301,17 +1268,12 @@ def deploy_quarto(
         inspect = quarto_inspect(quarto, file_or_directory)
         engines = validate_quarto_engines(inspect)
 
-    python = None
     environment = None
     if "jupyter" in engines:
-        _warn_if_no_requirements_file(base_dir)
-        _warn_if_environment_directory(base_dir)
-
         with cli_feedback("Inspecting Python environment"):
-            python, environment = get_python_env_info(module_file, python, force_generate, override_python_version)
-
-            if force_generate:
-                _warn_on_ignored_requirements(base_dir, environment.filename)
+            environment = Environment.create_python_environment(
+                base_dir, force_generate=force_generate, override_python_version=override_python_version
+            )
 
     ce = RSConnectExecutor(
         ctx=ctx,
@@ -1652,7 +1614,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         set_verbosity(verbose)
         entrypoint = validate_entry_point(entrypoint, directory)
         extra_files_list = validate_extra_files(directory, extra_files)
-        environment = create_python_environment(
+        environment = Environment.create_python_environment(
             directory, force_generate, python, override_python_version=override_python_version
         )
 
@@ -1823,7 +1785,13 @@ def write_manifest_notebook(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
-        python, environment = get_python_env_info(file, python, force_generate, override_python_version)
+        environment = Environment.create_python_environment(
+            base_dir,
+            force_generate=force_generate,
+            python=python,
+            override_python_version=override_python_version,
+            app_file=file,
+        )
 
     with cli_feedback("Creating manifest.json"):
         environment_file_exists = write_notebook_manifest_json(
@@ -1929,7 +1897,13 @@ def write_manifest_voila(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
-        python, environment = get_python_env_info(path, python, force_generate, override_python_version)
+        environment = Environment.create_python_environment(
+            base_dir,
+            force_generate=force_generate,
+            override_python_version=override_python_version,
+            python=python,
+            app_file=path,
+        )
 
     environment_file_exists = exists(join(base_dir, environment.filename))
 
@@ -2052,7 +2026,9 @@ def write_manifest_quarto(
     environment = None
     if "jupyter" in engines:
         with cli_feedback("Inspecting Python environment"):
-            python, environment = get_python_env_info(base_dir, python, force_generate, override_python_version)
+            environment = Environment.create_python_environment(
+                base_dir, force_generate=force_generate, override_python_version=override_python_version, python=python
+            )
 
         environment_file_exists = exists(join(base_dir, environment.filename))
         if environment_file_exists and not force_generate:
@@ -2295,7 +2271,12 @@ def _write_framework_manifest(
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
     with cli_feedback("Inspecting Python environment"):
-        _, environment = get_python_env_info(directory, python, force_generate, override_python_version)
+        environment = Environment.create_python_environment(
+            directory,
+            force_generate=force_generate,
+            override_python_version=override_python_version,
+            python=python,
+        )
 
     if app_mode == AppModes.PYTHON_SHINY:
         with cli_feedback("Inspecting Shiny for Python app"):

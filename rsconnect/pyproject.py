@@ -16,6 +16,23 @@ except ImportError:
     import toml as tomllib  # type: ignore[no-redef]
 
 
+def detect_python_version_requirement(directory: typing.Union[str, pathlib.Path]) -> typing.Optional[str]:
+    """Detect the python version requirement for a project.
+
+    The directory should contain a metadata file such as pyproject.toml,
+    setup.cfg, or .python-version.
+
+    Returns the python version requirement as a string or None if not found.
+    """
+    for _, metadata_file in lookup_metadata_file(directory):
+        parser = get_python_version_requirement_parser(metadata_file)
+        version_constraint = parser(metadata_file)
+        if version_constraint:
+            return version_constraint
+
+    return None
+
+
 def lookup_metadata_file(directory: typing.Union[str, pathlib.Path]) -> typing.List[typing.Tuple[str, pathlib.Path]]:
     """Given the directory of a project return the path of a usable metadata file.
 
@@ -38,7 +55,7 @@ def lookup_metadata_file(directory: typing.Union[str, pathlib.Path]) -> typing.L
 
 def get_python_version_requirement_parser(
     metadata_file: pathlib.Path,
-) -> typing.Optional[typing.Callable[[pathlib.Path], typing.Optional[str]]]:
+) -> typing.Callable[[pathlib.Path], typing.Optional[str]]:
     """Given the metadata file, return the appropriate parser function.
 
     The returned function takes a pathlib.Path and returns the parsed value.
@@ -50,7 +67,7 @@ def get_python_version_requirement_parser(
     elif metadata_file.name == ".python-version":
         return parse_pyversion_python_requires
     else:
-        return None
+        raise NotImplementedError(f"Unknown metadata file type: {metadata_file.name}")
 
 
 def parse_pyproject_python_requires(pyproject_file: pathlib.Path) -> typing.Optional[str]:

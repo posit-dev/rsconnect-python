@@ -31,13 +31,12 @@ import click
 
 from . import api
 from .bundle import (
-    create_python_environment,
     get_default_entrypoint,
     make_api_bundle,
     make_quarto_source_bundle,
     read_manifest_file,
 )
-from .environment import Environment, EnvironmentException
+from .environment import Environment
 from .exception import RSConnectException
 from .log import VERBOSE, logger
 from .models import AppMode, AppModes
@@ -78,8 +77,6 @@ def cli_feedback(label: str, stderr: bool = False):
         passed()
     except RSConnectException as exc:
         failed("Error: " + exc.message)
-    except EnvironmentException as exc:
-        failed("Error: " + str(exc))
     except Exception as exc:
         traceback.print_exc()
         failed("Internal error: " + str(exc))
@@ -375,7 +372,7 @@ def deploy_app(
             )
         )
 
-    environment = create_python_environment(
+    environment = Environment.create_python_environment(
         directory,  # pyright: ignore
         force_generate,
         python,
