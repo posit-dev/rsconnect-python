@@ -1,3 +1,12 @@
+"""Detects the configuration of a Python environment.
+
+Given a directory and a Python executable, this module inspects the environment
+and returns information about the Python version and the environment itself.
+
+To inspect the environment it relies on a subprocess that runs the `rsconnect.subprocesses.environment`
+module. This module is responsible for gathering the environment information and returning it in a JSON format.
+"""
+
 import typing
 import sys
 import dataclasses
@@ -23,11 +32,17 @@ class Environment:
 
     DATA_FIELDS = {f.name for f in dataclasses.fields(EnvironmentData)}
 
-    def __init__(self, data: EnvironmentData, python_version_requirement: typing.Optional[str] = None):
+    def __init__(
+        self,
+        data: EnvironmentData,
+        python_interpreter: typing.Optional[str] = None,
+        python_version_requirement: typing.Optional[str] = None,
+    ):
         self._data = data
 
         # Fields that are not loaded from the environment subprocess
         self.python_version_requirement = python_version_requirement
+        self.python_interpreter = python_interpreter
 
     def __getattr__(self, name: str) -> typing.Any:
         # We directly proxy the attributes of the EnvironmentData object
@@ -42,9 +57,18 @@ class Environment:
             super().__setattr__(name, value)
 
     @classmethod
-    def from_dict(cls, data: dict[str, typing.Any]) -> "Environment":
-        """Create an Environment instance from the JSON representation of EnvironmentData."""
-        return cls(_MakeEnvironmentData(**data))
+    def from_dict(
+        cls,
+        data: dict[str, typing.Any],
+        python_interpreter: typing.Optional[str] = None,
+        python_version_requirement: typing.Optional[str] = None,
+    ) -> "Environment":
+        """Create an Environment instance from the dictionary representation of EnvironmentData."""
+        return cls(
+            _MakeEnvironmentData(**data),
+            python_interpreter=python_interpreter,
+            python_version_requirement=python_version_requirement,
+        )
 
     @classmethod
     def create_python_environment(
@@ -54,7 +78,20 @@ class Environment:
         python: typing.Optional[str] = None,
         override_python_version: typing.Optional[str] = None,
         app_file: typing.Optional[str] = None,
-    ) -> typing.Tuple[str, "Environment"]:
+    ) -> "Environment":
+        """Given a project directory and a Python executable, return Environment information.
+
+        If no Python executable is provided, the current system Python executable is used.
+
+        :param directory: the project directory to inspect.
+        :param force_generate: force generating "requirements.txt" to snapshot the environment
+                               packages even if it already exists.
+        :param python: the Python executable of the environment to use for inspection.
+        :param override_python_version: the Python version required by  the project.
+        :param app_file: the main application file to use for inspection.
+
+        :return: a tuple containing the Python executable of the environment and the Environment object.
+        """
         if app_file is None:
             module_file = fake_module_file_from_directory(directory)
         else:
@@ -75,7 +112,7 @@ class Environment:
             python_version_requirement = f"=={override_python_version}"
 
         # with cli_feedback("Inspecting Python environment"):
-        python_interpreter, environment = cls._get_python_env_info(module_file, python, force_generate)
+        environment = cls._get_python_env_info(module_file, python, force_generate)
         environment.python_version_requirement = python_version_requirement
 
         if override_python_version:
@@ -86,12 +123,10 @@ class Environment:
         if force_generate:
             _warn_on_ignored_requirements(directory, environment.filename)
 
-        return python_interpreter, environment
+        return environment
 
     @classmethod
-    def _get_python_env_info(
-        cls, file_name: str, python: str | None, force_generate: bool = False
-    ) -> tuple[str, "Environment"]:
+    def _get_python_env_info(cls, file_name: str, python: str | None, force_generate: bool = False) -> "Environment":
         """
         Gathers the python and environment information relating to the specified file
         with an eye to deploy it.
@@ -110,7 +145,7 @@ class Environment:
             raise RSConnectException(environment.error)
         logger.debug("Python: %s" % python)
         logger.debug("Environment: %s" % pprint.pformat(environment._asdict()))
-        return python, environment
+        return environment
 
     @classmethod
     def _inspect_environment(
@@ -150,7 +185,7 @@ class Environment:
                 raise RSConnectException(f"Error creating environment: {system_error_message}")
 
         try:
-            return cls.from_dict(environment_data)
+            return cls.from_dict(environment_data, python_interpreter=python)
         except TypeError as e:
             raise RSConnectException("Error constructing environment object") from e
 

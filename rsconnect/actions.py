@@ -372,7 +372,7 @@ def deploy_app(
             )
         )
 
-    _, environment = Environment.create_python_environment(
+    environment = Environment.create_python_environment(
         directory,  # pyright: ignore
         force_generate,
         python,
