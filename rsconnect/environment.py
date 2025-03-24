@@ -60,6 +60,16 @@ class Environment:
         else:
             super().__setattr__(name, value)
 
+    def __eq__(self, other: typing.Any) -> bool:
+        if not isinstance(other, Environment):
+            return False
+
+        return (
+            self._data == other._data
+            and self.python_interpreter == other.python_interpreter
+            and self.python_version_requirement == other.python_version_requirement
+        )
+
     @classmethod
     def from_dict(
         cls,

@@ -2,9 +2,13 @@ import re
 import sys
 import os
 import tempfile
+import subprocess
 from unittest import TestCase
 
-from rsconnect.environment import Environment
+import rsconnect.environment
+from rsconnect.exception import RSConnectException
+from rsconnect.environment import Environment, which_python
+from rsconnect.subprocesses.environment import get_python_version, get_default_locale, filter_pip_freeze_output
 
 from .utils import get_dir
 
@@ -31,14 +35,14 @@ class TestEnvironment(TestCase):
         self.assertEqual(get_default_locale(lambda: (None, None)), "")
 
     def test_file(self):
-        result = detect_environment(get_dir("pip1"))
+        result = Environment.create_python_environment(get_dir("pip1"))
 
         self.assertTrue(version_re.match(result.pip))
 
         self.assertIsInstance(result.locale, str)
         self.assertIn(".", result.locale)
 
-        expected = MakeEnvironment(
+        expected = Environment.from_dict(dict(
             contents="numpy\npandas\nmatplotlib\n",
             filename="requirements.txt",
             locale=result.locale,
@@ -46,11 +50,11 @@ class TestEnvironment(TestCase):
             pip=result.pip,
             python=self.python_version(),
             source="file",
-        )
+        ), python_interpreter=sys.executable)
         self.assertEqual(expected, result)
 
     def test_pip_freeze(self):
-        result = detect_environment(get_dir("pip2"))
+        result = Environment.create_python_environment(get_dir("pip2"))
 
         # these are the dependencies declared in our pyproject.toml
         self.assertIn("six", result.contents)
@@ -61,7 +65,7 @@ class TestEnvironment(TestCase):
         self.assertIsInstance(result.locale, str)
         self.assertIn(".", result.locale)
 
-        expected = MakeEnvironment(
+        expected = Environment.from_dict(dict(
             contents=result.contents,
             filename="requirements.txt",
             locale=result.locale,
@@ -69,7 +73,7 @@ class TestEnvironment(TestCase):
             pip=result.pip,
             python=self.python_version(),
             source="pip_freeze",
-        )
+        ), python_interpreter=sys.executable)
         self.assertEqual(expected, result)
 
     def test_filter_pip_freeze_output(self):
@@ -123,14 +127,14 @@ class WhichPythonTestCase(TestCase):
 
 
 def test_inspect_environment():
-    environment = inspect_environment(sys.executable, get_dir("pip1"))
+    environment = Environment._inspect_environment(sys.executable, get_dir("pip1"))
     assert environment is not None
     assert environment.python != ""
 
 
 def test_inspect_environment_catches_type_error():
     with pytest.raises(RSConnectException) as exec_info:
-        inspect_environment(sys.executable, None)  # type: ignore
+        Environment._inspect_environment(sys.executable, None)  # type: ignore
 
     assert isinstance(exec_info.value, RSConnectException)
     assert isinstance(exec_info.value.__cause__, TypeError)
@@ -159,7 +163,7 @@ def test_inspect_environment_catches_type_error():
                 python=None,
                 source="pip_freeze",
                 error=None,
-            )),
+            ), python_interpreter=sys.executable),
             id="basic",
         ),
         pytest.param(
@@ -176,7 +180,7 @@ def test_inspect_environment_catches_type_error():
                 python=None,
                 source="pip_freeze",
                 error=None,
-            )),
+            ), python_interpreter=sys.executable),
             id="which_python",
         ),
         pytest.param(
@@ -208,15 +212,15 @@ def test_get_python_env_info(
     ):
         return expected_environment
 
-    monkeypatch.setattr(rsconnect.bundle, "inspect_environment", fake_inspect_environment)
+    monkeypatch.setattr(Environment, "_inspect_environment", fake_inspect_environment)
 
-    monkeypatch.setattr(rsconnect.bundle, "which_python", fake_which_python)
+    monkeypatch.setattr(rsconnect.environment, "which_python", fake_which_python)
 
     if expected_environment.error is not None:
         with pytest.raises(RSConnectException):
-            _, _ = _get_python_env_info(file_name, python, force_generate=force_generate)
+            _ = Environment._get_python_env_info(file_name, python, force_generate=force_generate)
     else:
-        python, environment = _get_python_env_info(file_name, python, force_generate=force_generate)
+        environment = Environment._get_python_env_info(file_name, python, force_generate=force_generate)
 
-        assert python == expected_python
+        assert environment.python_interpreter == expected_python
         assert environment == expected_environment
