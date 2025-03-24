@@ -42,15 +42,18 @@ class TestEnvironment(TestCase):
         self.assertIsInstance(result.locale, str)
         self.assertIn(".", result.locale)
 
-        expected = Environment.from_dict(dict(
-            contents="numpy\npandas\nmatplotlib\n",
-            filename="requirements.txt",
-            locale=result.locale,
-            package_manager="pip",
-            pip=result.pip,
-            python=self.python_version(),
-            source="file",
-        ), python_interpreter=sys.executable)
+        expected = Environment.from_dict(
+            dict(
+                contents="numpy\npandas\nmatplotlib\n",
+                filename="requirements.txt",
+                locale=result.locale,
+                package_manager="pip",
+                pip=result.pip,
+                python=self.python_version(),
+                source="file",
+            ),
+            python_interpreter=sys.executable,
+        )
         self.assertEqual(expected, result)
 
     def test_pip_freeze(self):
@@ -65,15 +68,18 @@ class TestEnvironment(TestCase):
         self.assertIsInstance(result.locale, str)
         self.assertIn(".", result.locale)
 
-        expected = Environment.from_dict(dict(
-            contents=result.contents,
-            filename="requirements.txt",
-            locale=result.locale,
-            package_manager="pip",
-            pip=result.pip,
-            python=self.python_version(),
-            source="pip_freeze",
-        ), python_interpreter=sys.executable)
+        expected = Environment.from_dict(
+            dict(
+                contents=result.contents,
+                filename="requirements.txt",
+                locale=result.locale,
+                package_manager="pip",
+                pip=result.pip,
+                python=self.python_version(),
+                source="pip_freeze",
+            ),
+            python_interpreter=sys.executable,
+        )
         self.assertEqual(expected, result)
 
     def test_filter_pip_freeze_output(self):
@@ -154,16 +160,19 @@ def test_inspect_environment_catches_type_error():
             sys.executable,
             False,
             sys.executable,
-            Environment.from_dict(dict(
-                contents=None,
-                filename="requirements.txt",
-                locale="en_US.UTF-8",
-                package_manager="pip",
-                pip=None,
-                python=None,
-                source="pip_freeze",
-                error=None,
-            ), python_interpreter=sys.executable),
+            Environment.from_dict(
+                dict(
+                    contents=None,
+                    filename="requirements.txt",
+                    locale="en_US.UTF-8",
+                    package_manager="pip",
+                    pip=None,
+                    python=None,
+                    source="pip_freeze",
+                    error=None,
+                ),
+                python_interpreter=sys.executable,
+            ),
             id="basic",
         ),
         pytest.param(
@@ -171,16 +180,19 @@ def test_inspect_environment_catches_type_error():
             os.path.basename(sys.executable),
             False,
             sys.executable,
-            Environment.from_dict(dict(
-                contents=None,
-                filename="requirements.txt",
-                locale="en_US.UTF-8",
-                package_manager="pip",
-                pip=None,
-                python=None,
-                source="pip_freeze",
-                error=None,
-            ), python_interpreter=sys.executable),
+            Environment.from_dict(
+                dict(
+                    contents=None,
+                    filename="requirements.txt",
+                    locale="en_US.UTF-8",
+                    package_manager="pip",
+                    pip=None,
+                    python=None,
+                    source="pip_freeze",
+                    error=None,
+                ),
+                python_interpreter=sys.executable,
+            ),
             id="which_python",
         ),
         pytest.param(
@@ -188,7 +200,18 @@ def test_inspect_environment_catches_type_error():
             "argh.py",
             False,
             "unused",
-            Environment.from_dict(dict(contents=None, filename=None, locale=None, package_manager=None, pip=None, python=None, source=None, error="Could not even do things")),
+            Environment.from_dict(
+                dict(
+                    contents=None,
+                    filename=None,
+                    locale=None,
+                    package_manager=None,
+                    pip=None,
+                    python=None,
+                    source=None,
+                    error="Could not even do things",
+                )
+            ),
             id="exploding",
         ),
     ],

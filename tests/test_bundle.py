@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import json
 import os
-import subprocess
 import sys
 import tarfile
 import tempfile
@@ -738,16 +737,18 @@ class TestBundle(TestCase):
         # include environment parameter
         manifest = make_source_manifest(
             AppModes.PYTHON_API,
-            Environment.from_dict(dict(
-                contents="",
-                error=None,
-                filename="requirements.txt",
-                locale="en_US.UTF-8",
-                package_manager="pip",
-                pip="22.0.4",
-                python="3.9.12",
-                source="file",
-            )),
+            Environment.from_dict(
+                dict(
+                    contents="",
+                    error=None,
+                    filename="requirements.txt",
+                    locale="en_US.UTF-8",
+                    package_manager="pip",
+                    pip="22.0.4",
+                    python="3.9.12",
+                    source="file",
+                )
+            ),
             None,
             None,
             None,
@@ -917,16 +918,18 @@ class TestBundle(TestCase):
                 "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
             },
             AppModes.SHINY_QUARTO,
-            Environment.from_dict(dict(
-                contents="",
-                error=None,
-                filename="requirements.txt",
-                locale="en_US.UTF-8",
-                package_manager="pip",
-                pip="22.0.4",
-                python="3.9.12",
-                source="file",
-            )),
+            Environment.from_dict(
+                dict(
+                    contents="",
+                    error=None,
+                    filename="requirements.txt",
+                    locale="en_US.UTF-8",
+                    package_manager="pip",
+                    pip="22.0.4",
+                    python="3.9.12",
+                    source="file",
+                )
+            ),
             [],
             [],
             None,
@@ -1265,16 +1268,18 @@ class Test_guess_deploy_dir(TestCase):
     ],
 )
 def test_create_voila_manifest_1(path, entrypoint):
-    environment = Environment.from_dict(dict(
-        contents="bqplot\n",
-        error=None,
-        filename="requirements.txt",
-        locale="en_US.UTF-8",
-        package_manager="pip",
-        pip="23.0",
-        python="3.8.12",
-        source="file",
-    ))
+    environment = Environment.from_dict(
+        dict(
+            contents="bqplot\n",
+            error=None,
+            filename="requirements.txt",
+            locale="en_US.UTF-8",
+            package_manager="pip",
+            pip="23.0",
+            python="3.8.12",
+            source="file",
+        )
+    )
 
     if sys.platform == "win32":
         checksum_hash = "b7ba4ec7b6721c86ab883f5e6e2ea68f"
@@ -1338,16 +1343,18 @@ def test_create_voila_manifest_1(path, entrypoint):
     ],
 )
 def test_create_voila_manifest_2(path, entrypoint):
-    environment = Environment.from_dict(dict(
-        contents="numpy\nipywidgets\nbqplot\n",
-        error=None,
-        filename="requirements.txt",
-        locale="en_US.UTF-8",
-        package_manager="pip",
-        pip="23.0",
-        python="3.8.12",
-        source="file",
-    ))
+    environment = Environment.from_dict(
+        dict(
+            contents="numpy\nipywidgets\nbqplot\n",
+            error=None,
+            filename="requirements.txt",
+            locale="en_US.UTF-8",
+            package_manager="pip",
+            pip="23.0",
+            python="3.8.12",
+            source="file",
+        )
+    )
 
     if sys.platform == "win32":
         bqplot_hash = "b7ba4ec7b6721c86ab883f5e6e2ea68f"
@@ -1384,16 +1391,18 @@ def test_create_voila_manifest_2(path, entrypoint):
 
 
 def test_create_voila_manifest_extra():
-    environment = Environment.from_dict(dict(
-        contents="numpy\nipywidgets\nbqplot\n",
-        error=None,
-        filename="requirements.txt",
-        locale="en_US.UTF-8",
-        package_manager="pip",
-        pip="23.0.1",
-        python="3.8.12",
-        source="file",
-    ))
+    environment = Environment.from_dict(
+        dict(
+            contents="numpy\nipywidgets\nbqplot\n",
+            error=None,
+            filename="requirements.txt",
+            locale="en_US.UTF-8",
+            package_manager="pip",
+            pip="23.0.1",
+            python="3.8.12",
+            source="file",
+        )
+    )
 
     if sys.platform == "win32":
         requirements_checksum = "d51994456975ff487749acc247ae6d63"
@@ -1468,16 +1477,18 @@ def test_create_voila_manifest_extra():
     ],
 )
 def test_create_voila_manifest_multi_notebook(path, entrypoint):
-    environment = Environment.from_dict(dict(
-        contents="bqplot\n",
-        error=None,
-        filename="requirements.txt",
-        locale="en_US.UTF-8",
-        package_manager="pip",
-        pip="23.0",
-        python="3.8.12",
-        source="file",
-    ))
+    environment = Environment.from_dict(
+        dict(
+            contents="bqplot\n",
+            error=None,
+            filename="requirements.txt",
+            locale="en_US.UTF-8",
+            package_manager="pip",
+            pip="23.0",
+            python="3.8.12",
+            source="file",
+        )
+    )
 
     if sys.platform == "win32":
         bqplot_hash = "ddb4070466d3c45b2f233dd39906ddf6"
@@ -1573,16 +1584,18 @@ def test_make_voila_bundle(
     path,
     entrypoint,
 ):
-    environment = Environment.from_dict(dict(
-        contents="bqplot",
-        error=None,
-        filename="requirements.txt",
-        locale="en_US.UTF-8",
-        package_manager="pip",
-        pip="23.0",
-        python="3.8.12",
-        source="file",
-    ))
+    environment = Environment.from_dict(
+        dict(
+            contents="bqplot",
+            error=None,
+            filename="requirements.txt",
+            locale="en_US.UTF-8",
+            package_manager="pip",
+            pip="23.0",
+            python="3.8.12",
+            source="file",
+        )
+    )
 
     if sys.platform == "win32":
         checksum_hash = "b7ba4ec7b6721c86ab883f5e6e2ea68f"
@@ -1680,16 +1693,18 @@ def test_make_voila_bundle_multi_notebook(
     path,
     entrypoint,
 ):
-    environment = Environment.from_dict(dict(
-        contents="bqplot",
-        error=None,
-        filename="requirements.txt",
-        locale="en_US.UTF-8",
-        package_manager="pip",
-        pip="23.0",
-        python="3.8.12",
-        source="file",
-    ))
+    environment = Environment.from_dict(
+        dict(
+            contents="bqplot",
+            error=None,
+            filename="requirements.txt",
+            locale="en_US.UTF-8",
+            package_manager="pip",
+            pip="23.0",
+            python="3.8.12",
+            source="file",
+        )
+    )
 
     if sys.platform == "win32":
         bqplot_hash = "ddb4070466d3c45b2f233dd39906ddf6"
@@ -1769,16 +1784,18 @@ def test_make_voila_bundle_2(
     path,
     entrypoint,
 ):
-    environment = Environment.from_dict(dict(
-        contents="numpy\nipywidgets\nbqplot\n",
-        error=None,
-        filename="requirements.txt",
-        locale="en_US.UTF-8",
-        package_manager="pip",
-        pip="23.0",
-        python="3.8.12",
-        source="file",
-    ))
+    environment = Environment.from_dict(
+        dict(
+            contents="numpy\nipywidgets\nbqplot\n",
+            error=None,
+            filename="requirements.txt",
+            locale="en_US.UTF-8",
+            package_manager="pip",
+            pip="23.0",
+            python="3.8.12",
+            source="file",
+        )
+    )
 
     if sys.platform == "win32":
         bqplot_hash = "b7ba4ec7b6721c86ab883f5e6e2ea68f"
@@ -1833,16 +1850,18 @@ def test_make_voila_bundle_extra():
 
     requirements_hash = "d51994456975ff487749acc247ae6d63"
 
-    environment = Environment.from_dict(dict(
-        contents="numpy\nipywidgets\nbqplot\n",
-        error=None,
-        filename="requirements.txt",
-        locale="en_US.UTF-8",
-        package_manager="pip",
-        pip="23.0.1",
-        python="3.8.12",
-        source="file",
-    ))
+    environment = Environment.from_dict(
+        dict(
+            contents="numpy\nipywidgets\nbqplot\n",
+            error=None,
+            filename="requirements.txt",
+            locale="en_US.UTF-8",
+            package_manager="pip",
+            pip="23.0.1",
+            python="3.8.12",
+            source="file",
+        )
+    )
     ans = {
         "version": 1,
         "locale": "en_US.UTF-8",
