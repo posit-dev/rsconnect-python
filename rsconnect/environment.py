@@ -73,7 +73,9 @@ class Environment:
     def __repr__(self) -> str:
         data = self._data._asdict()
         data.pop("contents", None)  # Remove contents as it's too long to display
-        return f"Environment({data}, python_interpreter={self.python_interpreter}, python_version_requirement={self.python_version_requirement})"
+        return (f"Environment({data}, "
+                f"python_interpreter={self.python_interpreter}, "
+                f"python_version_requirement={self.python_version_requirement})")
 
     @classmethod
     def from_dict(
