@@ -176,7 +176,7 @@ class Environment:
         Returns a dictionary of information about the environment,
         or containing an "error" field if an error occurred.
         """
-        flags: list[str] = []
+        flags: typing.List[str] = []
         if force_generate:
             flags.append("f")
 
@@ -249,9 +249,9 @@ def is_environment_dir(directory: typing.Union[str, pathlib.Path]) -> bool:
     return os.path.exists(python_path) or os.path.exists(win_path)
 
 
-def list_environment_dirs(directory: typing.Union[str, pathlib.Path]) -> list[str]:
+def list_environment_dirs(directory: typing.Union[str, pathlib.Path]) -> typing.List[str]:
     """Returns a list of subdirectories in `directory` that appear to contain virtual environments."""
-    envs: list[str] = []
+    envs: typing.List[str] = []
 
     for name in os.listdir(directory):
         path = os.path.join(directory, name)
