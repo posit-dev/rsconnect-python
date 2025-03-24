@@ -175,6 +175,14 @@ def test_rstudio_server(server: api.PositServer):
             raise RSConnectException("Failed to verify with {} ({}).".format(server.remote_name, exc))
 
 
+def test_spcs_server(server: api.SPCSServer):
+    with api.RSConnectClient(server) as client:
+        try:
+            client.me()
+        except RSConnectException as exc:
+            raise RSConnectException("Failed to verify with {} ({}).".format(server.remote_name, exc))
+
+
 def test_api_key(connect_server: api.RSConnectServer) -> str:
     """
     Test that an API Key may be used to authenticate with the given Posit Connect server.
