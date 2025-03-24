@@ -73,7 +73,7 @@ class Environment:
     @classmethod
     def from_dict(
         cls,
-        data: dict[str, typing.Any],
+        data: typing.Dict[str, typing.Any],
         python_interpreter: typing.Optional[str] = None,
         python_version_requirement: typing.Optional[str] = None,
     ) -> "Environment":
