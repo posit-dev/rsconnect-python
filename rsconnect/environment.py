@@ -3,7 +3,7 @@
 Given a directory and a Python executable, this module inspects the environment
 and returns information about the Python version and the environment itself.
 
-To inspect the environment it relies on a subprocess that runs the `rsconnect.subprocesses.environment`
+To inspect the environment it relies on a subprocess that runs the `rsconnect.subprocesses.inspect_environment`
 module. This module is responsible for gathering the environment information and returning it in a JSON format.
 """
 
@@ -19,7 +19,7 @@ import os.path
 from . import pyproject
 from .log import logger
 from .exception import RSConnectException
-from .subprocesses.environment import EnvironmentData, MakeEnvironmentData as _MakeEnvironmentData
+from .subprocesses.inspect_environment import EnvironmentData, MakeEnvironmentData as _MakeEnvironmentData
 
 import click
 
@@ -189,7 +189,7 @@ class Environment:
         if force_generate:
             flags.append("f")
 
-        args = [python, "-m", "rsconnect.subprocesses.environment"]
+        args = [python, "-m", "rsconnect.subprocesses.inspect_environment"]
         if flags:
             args.append("-" + "".join(flags))
         args.append(directory)

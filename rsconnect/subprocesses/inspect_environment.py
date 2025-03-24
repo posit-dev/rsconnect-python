@@ -3,7 +3,7 @@
 Environment data class abstraction that is usable as an executable module
 
 ```bash
-python -m rsconnect.subprocesses.environment
+python -m rsconnect.subprocesses.inspect_environment
 ```
 """
 from __future__ import annotations

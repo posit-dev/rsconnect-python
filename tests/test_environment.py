@@ -8,7 +8,7 @@ from unittest import TestCase
 import rsconnect.environment
 from rsconnect.exception import RSConnectException
 from rsconnect.environment import Environment, which_python
-from rsconnect.subprocesses.environment import get_python_version, get_default_locale, filter_pip_freeze_output
+from rsconnect.subprocesses.inspect_environment import get_python_version, get_default_locale, filter_pip_freeze_output
 
 from .utils import get_dir
 
