@@ -38,6 +38,7 @@ test = [
     "twine",
     "types-Flask",
 ]
+snowflake = ["snowflake-cli"]
 
 [project.urls]
 Repository = "http://github.com/posit-dev/rsconnect-python"
