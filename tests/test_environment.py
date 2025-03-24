@@ -15,6 +15,7 @@ from .utils import get_dir
 import pytest
 
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
+TESTDATA = os.path.join(os.path.dirname(__file__), "testdata")
 
 
 class TestEnvironment(TestCase):
@@ -130,6 +131,28 @@ class WhichPythonTestCase(TestCase):
         with tempfile.NamedTemporaryFile() as tmpfile:
             with self.assertRaises(RSConnectException):
                 which_python(tmpfile.name)
+
+
+class TestPythonVersionRequirements:
+    def test_pyproject_toml(self):
+        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "using_pyproject"))
+        assert env.python_interpreter == sys.executable
+        assert env.python_version_requirement == ">=3.8"
+
+    def test_python_version(self):
+        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "using_pyversion"))
+        assert env.python_interpreter == sys.executable
+        assert env.python_version_requirement == ">=3.8, <3.12"
+
+    def test_all_of_them(self):
+        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "allofthem"))
+        assert env.python_interpreter == sys.executable
+        assert env.python_version_requirement == ">=3.8, <3.12"
+
+    def test_missing(self):
+        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "empty"))
+        assert env.python_interpreter == sys.executable
+        assert env.python_version_requirement is None
 
 
 def test_inspect_environment():

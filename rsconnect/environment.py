@@ -70,6 +70,11 @@ class Environment:
             and self.python_version_requirement == other.python_version_requirement
         )
 
+    def __repr__(self) -> str:
+        data = self._data._asdict()
+        data.pop("contents", None)  # Remove contents as it's too long to display
+        return f"Environment({data}, python_interpreter={self.python_interpreter}, python_version_requirement={self.python_version_requirement})"
+
     @classmethod
     def from_dict(
         cls,
