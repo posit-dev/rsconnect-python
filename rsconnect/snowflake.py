@@ -3,8 +3,6 @@ import subprocess
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode, urlparse
 
-import requests
-
 from .exception import RSConnectException
 from .http_support import HTTPServer
 
@@ -59,26 +57,6 @@ def get_jwt(snowflake_connection_name: Optional[str] = None):
     output = json.loads(snow_cx_jwt.stdout)
     jwt = output.get("message")
     return jwt
-
-
-def get_access_token(spcs_endpoint: str, snowflake_connection_name: Optional[str] = None) -> str:
-
-    cx = get_connection(snowflake_connection_name)
-    if cx is None:
-        raise RSConnectException("No Snowflake connection found")
-    spcs_url = urlparse(spcs_endpoint)
-
-    token_endpoint = f"https://{cx["account"]}.snowflakecomputing.com/oauth/token"
-    scope = f"session:role:{cx["role"]} {spcs_url.netloc}"
-    jwt = get_jwt(snowflake_connection_name)
-    GRANT_TYPE = "urn:ietf:params:oauth:grant-type:jwt-bearer"
-
-    payload = {"scope": scope, "assertion": jwt, "grant_type": GRANT_TYPE}
-
-    r = requests.post(url=token_endpoint, data=payload)
-    r.raise_for_status()
-
-    return r.text
 
 
 def get_token_endpoint(snowflake_connection_name: Optional[str] = None) -> str:
