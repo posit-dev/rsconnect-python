@@ -75,7 +75,7 @@ class SnowflakeExchangeClient(HTTPServer):
             raise RSConnectException("No Snowflake connection found")
         spcs_url = urlparse(spcs_endpoint)
 
-        scope = f"session:role:{cx["role"]} {spcs_url.netloc}"
+        scope = "session:role:{} {}".format(cx["role"], spcs_url.netloc)
         jwt = get_jwt(snowflake_connection_name)
         grant_type = "urn:ietf:params:oauth:grant-type:jwt-bearer"
 
@@ -83,7 +83,7 @@ class SnowflakeExchangeClient(HTTPServer):
         payload = urlencode(payload)
         return payload
 
-    def exchange_token(self, spcs_endpoint: str, snowflake_connection_name: Optional[str] = None):
+    def exchange_token(self, spcs_endpoint: str, snowflake_connection_name: Optional[str] = None) -> str:
         """
         Exchange Snowflake JWT for an OAuth token.
 
