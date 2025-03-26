@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import json
 import os
-import subprocess
 import sys
 import tarfile
 import tempfile
@@ -11,17 +10,13 @@ from unittest import TestCase, mock
 
 import pytest
 
-import rsconnect.bundle
 from rsconnect.bundle import (
     Manifest,
     _default_title,
     _default_title_from_manifest,
     create_html_manifest,
-    create_python_environment,
     create_voila_manifest,
-    get_python_env_info,
     guess_deploy_dir,
-    inspect_environment,
     keep_manifest_specified_file,
     list_files,
     make_api_bundle,
@@ -40,9 +35,8 @@ from rsconnect.bundle import (
     to_bytes,
     validate_entry_point,
     validate_extra_files,
-    which_python,
 )
-from rsconnect.environment import Environment, MakeEnvironment, detect_environment
+from rsconnect.environment import Environment
 from rsconnect.exception import RSConnectException
 from rsconnect.models import AppModes
 
@@ -85,7 +79,7 @@ class TestBundle(TestCase):
         # the test environment. Don't do this in the production code, which
         # runs in the notebook server. We need the introspection to run in
         # the kernel environment and not the notebook server environment.
-        environment = detect_environment(directory)
+        environment = Environment.create_python_environment(directory)
         with make_notebook_source_bundle(
             nb_path,
             environment,
@@ -155,7 +149,7 @@ class TestBundle(TestCase):
         # the test environment. Don't do this in the production code, which
         # runs in the notebook server. We need the introspection to run in
         # the kernel environment and not the notebook server environment.
-        environment = detect_environment(directory)
+        environment = Environment.create_python_environment(directory)
 
         with make_notebook_source_bundle(
             nb_path,
@@ -255,7 +249,7 @@ class TestBundle(TestCase):
         # input file.
         create_fake_quarto_rendered_output(temp_proj, "myquarto")
 
-        environment = detect_environment(temp_proj)
+        environment = Environment.create_python_environment(temp_proj)
 
         # mock the result of running of `quarto inspect <project_dir>`
         inspect = {
@@ -352,7 +346,7 @@ class TestBundle(TestCase):
         create_fake_quarto_rendered_output(site_dir, "index")
         create_fake_quarto_rendered_output(site_dir, "about")
 
-        environment = detect_environment(temp_proj)
+        environment = Environment.create_python_environment(temp_proj)
 
         # mock the result of running of `quarto inspect <project_dir>`
         inspect = {
@@ -454,7 +448,7 @@ class TestBundle(TestCase):
         fp.write("pandas\n")
         fp.close()
 
-        environment = detect_environment(temp_proj)
+        environment = Environment.create_python_environment(temp_proj)
 
         # mock the result of running of `quarto inspect <project_dir>`
         inspect = {
@@ -743,15 +737,17 @@ class TestBundle(TestCase):
         # include environment parameter
         manifest = make_source_manifest(
             AppModes.PYTHON_API,
-            Environment(
-                contents="",
-                error=None,
-                filename="requirements.txt",
-                locale="en_US.UTF-8",
-                package_manager="pip",
-                pip="22.0.4",
-                python="3.9.12",
-                source="file",
+            Environment.from_dict(
+                dict(
+                    contents="",
+                    error=None,
+                    filename="requirements.txt",
+                    locale="en_US.UTF-8",
+                    package_manager="pip",
+                    pip="22.0.4",
+                    python="3.9.12",
+                    source="file",
+                )
             ),
             None,
             None,
@@ -922,15 +918,17 @@ class TestBundle(TestCase):
                 "config": {"project": {"title": "quarto-proj-py"}, "editor": "visual", "language": {}},
             },
             AppModes.SHINY_QUARTO,
-            Environment(
-                contents="",
-                error=None,
-                filename="requirements.txt",
-                locale="en_US.UTF-8",
-                package_manager="pip",
-                pip="22.0.4",
-                python="3.9.12",
-                source="file",
+            Environment.from_dict(
+                dict(
+                    contents="",
+                    error=None,
+                    filename="requirements.txt",
+                    locale="en_US.UTF-8",
+                    package_manager="pip",
+                    pip="22.0.4",
+                    python="3.9.12",
+                    source="file",
+                )
             ),
             [],
             [],
@@ -1207,132 +1205,6 @@ class TestBundle(TestCase):
         m = {"metadata": {"entrypoint": "module:object"}}
         self.assertEqual(_default_title_from_manifest(m, "dir/to/manifest.json"), "0to")
 
-    def test_inspect_environment(self):
-        environment = inspect_environment(sys.executable, get_dir("pip1"))
-        assert environment is not None
-        assert environment.python != ""
-
-    def test_inspect_environment_catches_type_error(self):
-        with pytest.raises(RSConnectException) as exec_info:
-            inspect_environment(sys.executable, None)  # type: ignore
-
-        assert isinstance(exec_info.value, RSConnectException)
-        assert isinstance(exec_info.value.__cause__, TypeError)
-
-
-@pytest.mark.parametrize(
-    (
-        "file_name",
-        "python",
-        "force_generate",
-        "expected_python",
-        "expected_environment",
-    ),
-    [
-        pytest.param(
-            "path/to/file.py",
-            sys.executable,
-            False,
-            sys.executable,
-            MakeEnvironment(
-                contents=None,
-                filename="requirements.txt",
-                locale="en_US.UTF-8",
-                package_manager="pip",
-                pip=None,
-                python=None,
-                source="pip_freeze",
-                error=None,
-            ),
-            id="basic",
-        ),
-        pytest.param(
-            "another/file.py",
-            basename(sys.executable),
-            False,
-            sys.executable,
-            MakeEnvironment(
-                contents=None,
-                filename="requirements.txt",
-                locale="en_US.UTF-8",
-                package_manager="pip",
-                pip=None,
-                python=None,
-                source="pip_freeze",
-                error=None,
-            ),
-            id="which_python",
-        ),
-        pytest.param(
-            "will/the/files/never/stop.py",
-            "argh.py",
-            False,
-            "unused",
-            MakeEnvironment(None, None, None, None, None, None, None, error="Could not even do things"),
-            id="exploding",
-        ),
-    ],
-)
-def test_get_python_env_info(
-    monkeypatch,
-    file_name,
-    python,
-    force_generate,
-    expected_python,
-    expected_environment,
-):
-    def fake_which_python(python, env=os.environ):
-        return expected_python
-
-    def fake_inspect_environment(
-        python,
-        directory,
-        force_generate=False,
-        check_output=subprocess.check_output,
-    ):
-        return expected_environment
-
-    monkeypatch.setattr(rsconnect.bundle, "inspect_environment", fake_inspect_environment)
-
-    monkeypatch.setattr(rsconnect.bundle, "which_python", fake_which_python)
-
-    if expected_environment.error is not None:
-        with pytest.raises(RSConnectException):
-            _, _ = get_python_env_info(file_name, python, force_generate=force_generate)
-    else:
-        python, environment = get_python_env_info(file_name, python, force_generate=force_generate)
-
-        assert python == expected_python
-        assert environment == expected_environment
-
-
-class WhichPythonTestCase(TestCase):
-    def test_default(self):
-        self.assertEqual(which_python(), sys.executable)
-
-    def test_none(self):
-        self.assertEqual(which_python(None), sys.executable)
-
-    def test_sys(self):
-        self.assertEqual(which_python(sys.executable), sys.executable)
-
-    def test_does_not_exist(self):
-        with tempfile.NamedTemporaryFile() as tmpfile:
-            name = tmpfile.name
-        with self.assertRaises(RSConnectException):
-            which_python(name)
-
-    def test_is_directory(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with self.assertRaises(RSConnectException):
-                which_python(tmpdir)
-
-    @pytest.mark.skipif(sys.platform.startswith("win"), reason="os.X_OK always returns True")
-    def test_is_not_executable(self):
-        with tempfile.NamedTemporaryFile() as tmpfile:
-            with self.assertRaises(RSConnectException):
-                which_python(tmpfile.name)
-
 
 cur_dir = os.path.dirname(__file__)
 bqplot_dir = os.path.join(cur_dir, "testdata", "voila", "bqplot", "")
@@ -1396,15 +1268,17 @@ class Test_guess_deploy_dir(TestCase):
     ],
 )
 def test_create_voila_manifest_1(path, entrypoint):
-    environment = Environment(
-        contents="bqplot\n",
-        error=None,
-        filename="requirements.txt",
-        locale="en_US.UTF-8",
-        package_manager="pip",
-        pip="23.0",
-        python="3.8.12",
-        source="file",
+    environment = Environment.from_dict(
+        dict(
+            contents="bqplot\n",
+            error=None,
+            filename="requirements.txt",
+            locale="en_US.UTF-8",
+            package_manager="pip",
+            pip="23.0",
+            python="3.8.12",
+            source="file",
+        )
     )
 
     if sys.platform == "win32":
@@ -1469,15 +1343,17 @@ def test_create_voila_manifest_1(path, entrypoint):
     ],
 )
 def test_create_voila_manifest_2(path, entrypoint):
-    environment = Environment(
-        contents="numpy\nipywidgets\nbqplot\n",
-        error=None,
-        filename="requirements.txt",
-        locale="en_US.UTF-8",
-        package_manager="pip",
-        pip="23.0",
-        python="3.8.12",
-        source="file",
+    environment = Environment.from_dict(
+        dict(
+            contents="numpy\nipywidgets\nbqplot\n",
+            error=None,
+            filename="requirements.txt",
+            locale="en_US.UTF-8",
+            package_manager="pip",
+            pip="23.0",
+            python="3.8.12",
+            source="file",
+        )
     )
 
     if sys.platform == "win32":
@@ -1515,15 +1391,17 @@ def test_create_voila_manifest_2(path, entrypoint):
 
 
 def test_create_voila_manifest_extra():
-    environment = Environment(
-        contents="numpy\nipywidgets\nbqplot\n",
-        error=None,
-        filename="requirements.txt",
-        locale="en_US.UTF-8",
-        package_manager="pip",
-        pip="23.0.1",
-        python="3.8.12",
-        source="file",
+    environment = Environment.from_dict(
+        dict(
+            contents="numpy\nipywidgets\nbqplot\n",
+            error=None,
+            filename="requirements.txt",
+            locale="en_US.UTF-8",
+            package_manager="pip",
+            pip="23.0.1",
+            python="3.8.12",
+            source="file",
+        )
     )
 
     if sys.platform == "win32":
@@ -1599,15 +1477,17 @@ def test_create_voila_manifest_extra():
     ],
 )
 def test_create_voila_manifest_multi_notebook(path, entrypoint):
-    environment = Environment(
-        contents="bqplot\n",
-        error=None,
-        filename="requirements.txt",
-        locale="en_US.UTF-8",
-        package_manager="pip",
-        pip="23.0",
-        python="3.8.12",
-        source="file",
+    environment = Environment.from_dict(
+        dict(
+            contents="bqplot\n",
+            error=None,
+            filename="requirements.txt",
+            locale="en_US.UTF-8",
+            package_manager="pip",
+            pip="23.0",
+            python="3.8.12",
+            source="file",
+        )
     )
 
     if sys.platform == "win32":
@@ -1704,15 +1584,17 @@ def test_make_voila_bundle(
     path,
     entrypoint,
 ):
-    environment = Environment(
-        contents="bqplot",
-        error=None,
-        filename="requirements.txt",
-        locale="en_US.UTF-8",
-        package_manager="pip",
-        pip="23.0",
-        python="3.8.12",
-        source="file",
+    environment = Environment.from_dict(
+        dict(
+            contents="bqplot",
+            error=None,
+            filename="requirements.txt",
+            locale="en_US.UTF-8",
+            package_manager="pip",
+            pip="23.0",
+            python="3.8.12",
+            source="file",
+        )
     )
 
     if sys.platform == "win32":
@@ -1811,15 +1693,17 @@ def test_make_voila_bundle_multi_notebook(
     path,
     entrypoint,
 ):
-    environment = Environment(
-        contents="bqplot",
-        error=None,
-        filename="requirements.txt",
-        locale="en_US.UTF-8",
-        package_manager="pip",
-        pip="23.0",
-        python="3.8.12",
-        source="file",
+    environment = Environment.from_dict(
+        dict(
+            contents="bqplot",
+            error=None,
+            filename="requirements.txt",
+            locale="en_US.UTF-8",
+            package_manager="pip",
+            pip="23.0",
+            python="3.8.12",
+            source="file",
+        )
     )
 
     if sys.platform == "win32":
@@ -1900,15 +1784,17 @@ def test_make_voila_bundle_2(
     path,
     entrypoint,
 ):
-    environment = Environment(
-        contents="numpy\nipywidgets\nbqplot\n",
-        error=None,
-        filename="requirements.txt",
-        locale="en_US.UTF-8",
-        package_manager="pip",
-        pip="23.0",
-        python="3.8.12",
-        source="file",
+    environment = Environment.from_dict(
+        dict(
+            contents="numpy\nipywidgets\nbqplot\n",
+            error=None,
+            filename="requirements.txt",
+            locale="en_US.UTF-8",
+            package_manager="pip",
+            pip="23.0",
+            python="3.8.12",
+            source="file",
+        )
     )
 
     if sys.platform == "win32":
@@ -1964,15 +1850,17 @@ def test_make_voila_bundle_extra():
 
     requirements_hash = "d51994456975ff487749acc247ae6d63"
 
-    environment = Environment(
-        contents="numpy\nipywidgets\nbqplot\n",
-        error=None,
-        filename="requirements.txt",
-        locale="en_US.UTF-8",
-        package_manager="pip",
-        pip="23.0.1",
-        python="3.8.12",
-        source="file",
+    environment = Environment.from_dict(
+        dict(
+            contents="numpy\nipywidgets\nbqplot\n",
+            error=None,
+            filename="requirements.txt",
+            locale="en_US.UTF-8",
+            package_manager="pip",
+            pip="23.0.1",
+            python="3.8.12",
+            source="file",
+        )
     )
     ans = {
         "version": 1,
@@ -2437,7 +2325,7 @@ def test_make_api_manifest_fastapi():
             "prices.csv": {"checksum": "012afa636c426748177b38160135307a"},
         },
     }
-    environment = create_python_environment(
+    environment = Environment.create_python_environment(
         fastapi_dir,
     )
     manifest, _ = make_api_manifest(
@@ -2469,7 +2357,7 @@ def test_make_api_bundle_fastapi():
             "prices.csv": {"checksum": "012afa636c426748177b38160135307a"},
         },
     }
-    environment = create_python_environment(
+    environment = Environment.create_python_environment(
         fastapi_dir,
     )
     with make_api_bundle(
@@ -2513,7 +2401,7 @@ def test_make_api_manifest_flask():
             "prices.csv": {"checksum": "012afa636c426748177b38160135307a"},
         },
     }
-    environment = create_python_environment(
+    environment = Environment.create_python_environment(
         flask_dir,
     )
     manifest, _ = make_api_manifest(
@@ -2545,7 +2433,7 @@ def test_make_api_bundle_flask():
             "prices.csv": {"checksum": "012afa636c426748177b38160135307a"},
         },
     }
-    environment = create_python_environment(
+    environment = Environment.create_python_environment(
         flask_dir,
     )
     with make_api_bundle(
@@ -2589,7 +2477,7 @@ def test_make_api_manifest_streamlit():
             "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
         },
     }
-    environment = create_python_environment(
+    environment = Environment.create_python_environment(
         streamlit_dir,
     )
     manifest, _ = make_api_manifest(
@@ -2620,7 +2508,7 @@ def test_make_api_bundle_streamlit():
             "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
         },
     }
-    environment = create_python_environment(
+    environment = Environment.create_python_environment(
         streamlit_dir,
     )
     with make_api_bundle(
@@ -2665,7 +2553,7 @@ def test_make_api_manifest_dash():
             "prices.csv": {"checksum": "3efb0ed7ad93bede9dc88f7a81ad4153"},
         },
     }
-    environment = create_python_environment(
+    environment = Environment.create_python_environment(
         dash_dir,
     )
     manifest, _ = make_api_manifest(
@@ -2697,7 +2585,7 @@ def test_make_api_bundle_dash():
             "prices.csv": {"checksum": "3efb0ed7ad93bede9dc88f7a81ad4153"},
         },
     }
-    environment = create_python_environment(
+    environment = Environment.create_python_environment(
         dash_dir,
     )
     with make_api_bundle(
@@ -2741,7 +2629,7 @@ def test_make_api_manifest_bokeh():
             "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
         },
     }
-    environment = create_python_environment(
+    environment = Environment.create_python_environment(
         bokeh_dir,
     )
     manifest, _ = make_api_manifest(
@@ -2774,7 +2662,7 @@ def test_make_api_bundle_bokeh():
         },
     }
 
-    environment = create_python_environment(
+    environment = Environment.create_python_environment(
         bokeh_dir,
     )
     with make_api_bundle(
@@ -2818,7 +2706,7 @@ def test_make_api_manifest_shiny():
             "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
         },
     }
-    environment = create_python_environment(
+    environment = Environment.create_python_environment(
         shiny_dir,
     )
     manifest, _ = make_api_manifest(
@@ -2850,7 +2738,7 @@ def test_make_api_bundle_shiny():
             "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
         },
     }
-    environment = create_python_environment(
+    environment = Environment.create_python_environment(
         shiny_dir,
     )
     with make_api_bundle(
@@ -2928,7 +2816,7 @@ def test_make_api_manifest_gradio():
             "app.py": {"checksum": "22feec76e9c02ac6b5a34a083e2983b6"},
         },
     }
-    environment = create_python_environment(
+    environment = Environment.create_python_environment(
         gradio_dir,
     )
     manifest, _ = make_api_manifest(
@@ -2958,7 +2846,7 @@ def test_make_api_bundle_gradio():
             "app.py": {"checksum": "22feec76e9c02ac6b5a34a083e2983b6"},
         },
     }
-    environment = create_python_environment(
+    environment = Environment.create_python_environment(
         gradio_dir,
     )
     with make_api_bundle(

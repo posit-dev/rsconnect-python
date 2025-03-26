@@ -7,6 +7,7 @@ from rsconnect.pyproject import (
     parse_setupcfg_python_requires,
     parse_pyversion_python_requires,
     get_python_version_requirement_parser,
+    detect_python_version_requirement,
 )
 
 import pytest
@@ -50,15 +51,20 @@ def test_python_project_metadata_detect(project_dir, expected):
         ("pyproject.toml", parse_pyproject_python_requires),
         ("setup.cfg", parse_setupcfg_python_requires),
         (".python-version", parse_pyversion_python_requires),
-        ("invalid.txt", None),
+        ("invalid.txt", NotImplementedError("Unknown metadata file type: invalid.txt")),
     ],
     ids=["pyproject.toml", "setup.cfg", ".python-version", "invalid"],
 )
 def test_get_python_version_requirement_parser(filename, expected_parser):
     """Test that given a metadata file name, the correct parser is returned."""
     metadata_file = pathlib.Path(PROJECTS_DIRECTORY) / filename
-    parser = get_python_version_requirement_parser(metadata_file)
-    assert parser == expected_parser
+    if isinstance(expected_parser, Exception):
+        with pytest.raises(expected_parser.__class__) as excinfo:
+            parser = get_python_version_requirement_parser(metadata_file)
+            assert str(excinfo.value) == expected_parser.args[0]
+    else:
+        parser = get_python_version_requirement_parser(metadata_file)
+        assert parser == expected_parser
 
 
 @pytest.mark.parametrize(
@@ -99,7 +105,7 @@ def test_pyprojecttoml_python_requires(project_dir, expected):
     ],
     ids=["option-exists", "option-missing"],
 )
-def test_setupcfg_python_requires(tmp_path, project_dir, expected):
+def test_setupcfg_python_requires(project_dir, expected):
     """Test that the python_requires field is correctly parsed from setup.cfg.
 
     Both when the option exists or when it missing in the file.
@@ -115,7 +121,7 @@ def test_setupcfg_python_requires(tmp_path, project_dir, expected):
     ],
     ids=["option-exists"],
 )
-def test_pyversion_python_requires(tmp_path, project_dir, expected):
+def test_pyversion_python_requires(project_dir, expected):
     """Test that the python version is correctly parsed from .python-version.
 
     We do not test the case where the option is missing, as an empty .python-version file
@@ -123,3 +129,16 @@ def test_pyversion_python_requires(tmp_path, project_dir, expected):
     """
     versionfile = pathlib.Path(project_dir) / ".python-version"
     assert parse_pyversion_python_requires(versionfile) == expected
+
+
+def test_detect_python_version_requirement():
+    """Test that the python version requirement is correctly detected from the metadata files.
+
+    Given that we already know from the other tests that the metadata files are correctly parsed,
+    this test primarily checks that when there are multiple metadata files, the one with the most specific
+    version requirement is used.
+    """
+    project_dir = os.path.join(PROJECTS_DIRECTORY, "allofthem")
+    assert detect_python_version_requirement(project_dir) == ">=3.8, <3.12"
+
+    assert detect_python_version_requirement(os.path.join(PROJECTS_DIRECTORY, "empty")) is None

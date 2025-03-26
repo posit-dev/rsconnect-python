@@ -1,18 +1,21 @@
 import re
 import sys
+import os
+import tempfile
+import subprocess
 from unittest import TestCase
 
-from rsconnect.environment import (
-    MakeEnvironment,
-    detect_environment,
-    filter_pip_freeze_output,
-    get_default_locale,
-    get_python_version,
-)
+import rsconnect.environment
+from rsconnect.exception import RSConnectException
+from rsconnect.environment import Environment, which_python
+from rsconnect.subprocesses.inspect_environment import get_python_version, get_default_locale, filter_pip_freeze_output
 
 from .utils import get_dir
 
+import pytest
+
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
+TESTDATA = os.path.join(os.path.dirname(__file__), "testdata")
 
 
 class TestEnvironment(TestCase):
@@ -33,26 +36,29 @@ class TestEnvironment(TestCase):
         self.assertEqual(get_default_locale(lambda: (None, None)), "")
 
     def test_file(self):
-        result = detect_environment(get_dir("pip1"))
+        result = Environment.create_python_environment(get_dir("pip1"))
 
         self.assertTrue(version_re.match(result.pip))
 
         self.assertIsInstance(result.locale, str)
         self.assertIn(".", result.locale)
 
-        expected = MakeEnvironment(
-            contents="numpy\npandas\nmatplotlib\n",
-            filename="requirements.txt",
-            locale=result.locale,
-            package_manager="pip",
-            pip=result.pip,
-            python=self.python_version(),
-            source="file",
+        expected = Environment.from_dict(
+            dict(
+                contents="numpy\npandas\nmatplotlib\n",
+                filename="requirements.txt",
+                locale=result.locale,
+                package_manager="pip",
+                pip=result.pip,
+                python=self.python_version(),
+                source="file",
+            ),
+            python_interpreter=sys.executable,
         )
         self.assertEqual(expected, result)
 
     def test_pip_freeze(self):
-        result = detect_environment(get_dir("pip2"))
+        result = Environment.create_python_environment(get_dir("pip2"))
 
         # these are the dependencies declared in our pyproject.toml
         self.assertIn("six", result.contents)
@@ -63,14 +69,17 @@ class TestEnvironment(TestCase):
         self.assertIsInstance(result.locale, str)
         self.assertIn(".", result.locale)
 
-        expected = MakeEnvironment(
-            contents=result.contents,
-            filename="requirements.txt",
-            locale=result.locale,
-            package_manager="pip",
-            pip=result.pip,
-            python=self.python_version(),
-            source="pip_freeze",
+        expected = Environment.from_dict(
+            dict(
+                contents=result.contents,
+                filename="requirements.txt",
+                locale=result.locale,
+                package_manager="pip",
+                pip=result.pip,
+                python=self.python_version(),
+                source="pip_freeze",
+            ),
+            python_interpreter=sys.executable,
         )
         self.assertEqual(expected, result)
 
@@ -94,3 +103,170 @@ class TestEnvironment(TestCase):
         expected = "numpy\npandas\nnot at beginning [notice]"
 
         self.assertEqual(filtered, expected)
+
+
+class WhichPythonTestCase(TestCase):
+    def test_default(self):
+        self.assertEqual(which_python(), sys.executable)
+
+    def test_none(self):
+        self.assertEqual(which_python(None), sys.executable)
+
+    def test_sys(self):
+        self.assertEqual(which_python(sys.executable), sys.executable)
+
+    def test_does_not_exist(self):
+        with tempfile.NamedTemporaryFile() as tmpfile:
+            name = tmpfile.name
+        with self.assertRaises(RSConnectException):
+            which_python(name)
+
+    def test_is_directory(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with self.assertRaises(RSConnectException):
+                which_python(tmpdir)
+
+    @pytest.mark.skipif(sys.platform.startswith("win"), reason="os.X_OK always returns True")
+    def test_is_not_executable(self):
+        with tempfile.NamedTemporaryFile() as tmpfile:
+            with self.assertRaises(RSConnectException):
+                which_python(tmpfile.name)
+
+
+class TestPythonVersionRequirements:
+    def test_pyproject_toml(self):
+        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "using_pyproject"))
+        assert env.python_interpreter == sys.executable
+        assert env.python_version_requirement == ">=3.8"
+
+    def test_python_version(self):
+        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "using_pyversion"))
+        assert env.python_interpreter == sys.executable
+        assert env.python_version_requirement == ">=3.8, <3.12"
+
+    def test_all_of_them(self):
+        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "allofthem"))
+        assert env.python_interpreter == sys.executable
+        assert env.python_version_requirement == ">=3.8, <3.12"
+
+    def test_missing(self):
+        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "empty"))
+        assert env.python_interpreter == sys.executable
+        assert env.python_version_requirement is None
+
+
+def test_inspect_environment():
+    environment = Environment._inspect_environment(sys.executable, get_dir("pip1"))
+    assert environment is not None
+    assert environment.python != ""
+
+
+def test_inspect_environment_catches_type_error():
+    with pytest.raises(RSConnectException) as exec_info:
+        Environment._inspect_environment(sys.executable, None)  # type: ignore
+
+    assert isinstance(exec_info.value, RSConnectException)
+    assert isinstance(exec_info.value.__cause__, TypeError)
+
+
+@pytest.mark.parametrize(
+    (
+        "file_name",
+        "python",
+        "force_generate",
+        "expected_python",
+        "expected_environment",
+    ),
+    [
+        pytest.param(
+            "path/to/file.py",
+            sys.executable,
+            False,
+            sys.executable,
+            Environment.from_dict(
+                dict(
+                    contents=None,
+                    filename="requirements.txt",
+                    locale="en_US.UTF-8",
+                    package_manager="pip",
+                    pip=None,
+                    python=None,
+                    source="pip_freeze",
+                    error=None,
+                ),
+                python_interpreter=sys.executable,
+            ),
+            id="basic",
+        ),
+        pytest.param(
+            "another/file.py",
+            os.path.basename(sys.executable),
+            False,
+            sys.executable,
+            Environment.from_dict(
+                dict(
+                    contents=None,
+                    filename="requirements.txt",
+                    locale="en_US.UTF-8",
+                    package_manager="pip",
+                    pip=None,
+                    python=None,
+                    source="pip_freeze",
+                    error=None,
+                ),
+                python_interpreter=sys.executable,
+            ),
+            id="which_python",
+        ),
+        pytest.param(
+            "will/the/files/never/stop.py",
+            "argh.py",
+            False,
+            "unused",
+            Environment.from_dict(
+                dict(
+                    contents=None,
+                    filename=None,
+                    locale=None,
+                    package_manager=None,
+                    pip=None,
+                    python=None,
+                    source=None,
+                    error="Could not even do things",
+                )
+            ),
+            id="exploding",
+        ),
+    ],
+)
+def test_get_python_env_info(
+    monkeypatch,
+    file_name,
+    python,
+    force_generate,
+    expected_python,
+    expected_environment,
+):
+    def fake_which_python(python, env=os.environ):
+        return expected_python
+
+    def fake_inspect_environment(
+        python,
+        directory,
+        force_generate=False,
+        check_output=subprocess.check_output,
+    ):
+        return expected_environment
+
+    monkeypatch.setattr(Environment, "_inspect_environment", fake_inspect_environment)
+
+    monkeypatch.setattr(rsconnect.environment, "which_python", fake_which_python)
+
+    if expected_environment.error is not None:
+        with pytest.raises(RSConnectException):
+            _ = Environment._get_python_env_info(file_name, python, force_generate=force_generate)
+    else:
+        environment = Environment._get_python_env_info(file_name, python, force_generate=force_generate)
+
+        assert environment.python_interpreter == expected_python
+        assert environment == expected_environment

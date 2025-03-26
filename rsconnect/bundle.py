@@ -30,7 +30,6 @@ from os.path import (
     splitext,
 )
 from pathlib import Path
-from pprint import pformat
 from typing import (
     IO,
     TYPE_CHECKING,
@@ -53,7 +52,7 @@ else:
 
 import click
 
-from .environment import Environment, MakeEnvironment
+from .environment import Environment, list_environment_dirs, is_environment_dir
 from .exception import RSConnectException
 from .log import VERBOSE, logger
 from .models import AppMode, AppModes, GlobSet
@@ -103,9 +102,14 @@ class ManifestDataQuarto(TypedDict):
     engines: list[str]
 
 
+class ManifestDataEnvironmentPython(TypedDict):
+    requires: NotRequired[str]
+
+
 class ManifestDataEnvironment(TypedDict):
     image: NotRequired[str]
     environment_management: NotRequired[dict[Literal["python", "r"], bool]]
+    python: NotRequired[ManifestDataEnvironmentPython]
 
 
 class ManifestDataPython(TypedDict):
@@ -191,16 +195,22 @@ class Manifest:
                 },
             }
 
+            if environment.python_version_requirement:
+                # If the environment has a python version requirement,
+                # add it to the manifest as environment.python.requires
+                manifest_environment = self.data.setdefault("environment", {})
+                manifest_environment["python"] = {"requires": environment.python_version_requirement}
+
         if image or env_management_py is not None or env_management_r is not None:
-            self.data["environment"] = {}
+            manifest_environment = self.data.setdefault("environment", {})
             if image:
-                self.data["environment"]["image"] = image
+                manifest_environment["image"] = image
             if env_management_py is not None or env_management_r is not None:
-                self.data["environment"]["environment_management"] = {}
+                manifest_environment["environment_management"] = {}
                 if env_management_py is not None:
-                    self.data["environment"]["environment_management"]["python"] = env_management_py
+                    manifest_environment["environment_management"]["python"] = env_management_py
                 if env_management_r is not None:
-                    self.data["environment"]["environment_management"]["r"] = env_management_r
+                    manifest_environment["environment_management"]["r"] = env_management_r
 
         self.data["files"] = {}
         if files:
@@ -378,56 +388,16 @@ def make_source_manifest(
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
 ) -> ManifestData:
-    manifest: ManifestData = cast(ManifestData, {"version": 1})
-
-    # When adding locale, add it early so it is ordered immediately after
-    # version.
-    if environment:
-        manifest["locale"] = environment.locale
-
-    manifest["metadata"] = {
-        "appmode": app_mode.name(),
-    }
-
-    if entrypoint:
-        manifest["metadata"]["entrypoint"] = entrypoint
-
-    if quarto_inspection:
-        manifest["quarto"] = {
-            "version": quarto_inspection.get("quarto", {}).get("version", "99.9.9"),
-            "engines": quarto_inspection.get("engines", []),
-        }
-
-        files_data = quarto_inspection.get("files", {})
-        files_input_data = files_data.get("input", [])
-        if len(files_input_data) > 1:
-            manifest["metadata"]["content_category"] = "site"
-
-    if environment:
-        package_manager = environment.package_manager
-        manifest["python"] = {
-            "version": environment.python,
-            "package_manager": {
-                "name": package_manager,
-                "version": getattr(environment, package_manager),
-                "package_file": environment.filename,
-            },
-        }
-
-    if image or env_management_py is not None or env_management_r is not None:
-        manifest["environment"] = {}
-        if image:
-            manifest["environment"]["image"] = image
-        if env_management_py is not None or env_management_r is not None:
-            manifest["environment"]["environment_management"] = {}
-            if env_management_py is not None:
-                manifest["environment"]["environment_management"]["python"] = env_management_py
-            if env_management_r is not None:
-                manifest["environment"]["environment_management"]["r"] = env_management_r
-
-    manifest["files"] = {}
-
-    return manifest
+    manifest: Manifest = Manifest(
+        app_mode=app_mode,
+        environment=environment,
+        entrypoint=entrypoint,
+        quarto_inspection=quarto_inspection,
+        image=image,
+        env_management_py=env_management_py,
+        env_management_r=env_management_r,
+    )
+    return manifest.data
 
 
 def manifest_add_file(manifest: ManifestData, rel_path: str, base_dir: str) -> None:
@@ -703,15 +673,13 @@ def make_html_manifest(
     filename: str,
 ) -> ManifestData:
     # noinspection SpellCheckingInspection
-    manifest: ManifestData = {
-        "version": 1,
-        "metadata": {
-            "appmode": "static",
-            "primary_html": filename,
-        },
-        "files": {},
-    }
-    return manifest
+    manifest = Manifest(
+        metadata=ManifestDataMetadata(
+            appmode="static",
+            primary_html=filename,
+        )
+    )
+    return manifest.data
 
 
 def make_notebook_html_bundle(
@@ -872,27 +840,6 @@ def create_glob_set(directory: str | Path, excludes: Sequence[str]) -> GlobSet:
             work.append(file_pattern)
 
     return GlobSet(work)
-
-
-def is_environment_dir(directory: str | Path):
-    """Detect whether `directory` is a virtualenv"""
-
-    # A virtualenv will have Python at ./bin/python
-    python_path = join(directory, "bin", "python")
-    # But on Windows, it's at Scripts\Python.exe
-    win_path = join(directory, "Scripts", "Python.exe")
-    return exists(python_path) or exists(win_path)
-
-
-def list_environment_dirs(directory: str | Path):
-    """Returns a list of subdirectories in `directory` that appear to contain virtual environments."""
-    envs: list[str] = []
-
-    for name in os.listdir(directory):
-        path = join(directory, name)
-        if is_environment_dir(path):
-            envs.append(name)
-    return envs
 
 
 def make_api_manifest(
@@ -1611,167 +1558,6 @@ def _warn_on_ignored_entrypoint(entrypoint: Optional[str]) -> None:
         )
 
 
-def _warn_on_ignored_manifest(directory: str) -> None:
-    """
-    Checks for the existence of a file called manifest.json in the given directory.
-    If it's there, a warning noting that it will be ignored will be printed.
-
-    :param directory: the directory to check in.
-    """
-    if exists(join(directory, "manifest.json")):
-        click.secho(
-            "    Warning: the existing manifest.json file will not be used or considered.",
-            fg="yellow",
-        )
-
-
-def _warn_if_no_requirements_file(directory: str) -> None:
-    """
-    Checks for the existence of a file called requirements.txt in the given directory.
-    If it's not there, a warning will be printed.
-
-    :param directory: the directory to check in.
-    """
-    if not exists(join(directory, "requirements.txt")):
-        click.secho(
-            "    Warning: Capturing the environment using 'pip freeze'.\n"
-            "             Consider creating a requirements.txt file instead.",
-            fg="yellow",
-        )
-
-
-def _warn_if_environment_directory(directory: str | Path) -> None:
-    """
-    Issue a warning if the deployment directory is itself a virtualenv (yikes!).
-
-    :param directory: the directory to check in.
-    """
-    if is_environment_dir(directory):
-        click.secho(
-            "    Warning: The deployment directory appears to be a python virtual environment.\n"
-            "             Python libraries and binaries will be excluded from the deployment.",
-            fg="yellow",
-        )
-
-
-def _warn_on_ignored_requirements(directory: str, requirements_file_name: str) -> None:
-    """
-    Checks for the existence of a file called manifest.json in the given directory.
-    If it's there, a warning noting that it will be ignored will be printed.
-
-    :param directory: the directory to check in.
-    :param requirements_file_name: the name of the requirements file.
-    """
-    if exists(join(directory, requirements_file_name)):
-        click.secho(
-            "    Warning: the existing %s file will not be used or considered." % requirements_file_name,
-            fg="yellow",
-        )
-
-
-def fake_module_file_from_directory(directory: str) -> str:
-    """
-    Takes a directory and invents a properly named file that though possibly fake,
-    can be used for other name/title derivation.
-
-    :param directory: the directory to start with.
-    :return: the directory plus the (potentially) fake module file.
-    """
-    app_name = abspath(directory)
-    app_name = dirname(app_name) if app_name.endswith(os.path.sep) else basename(app_name)
-    return join(directory, app_name + ".py")
-
-
-def which_python(python: Optional[str] = None) -> str:
-    """Determines which Python executable to use.
-
-    If the :param python: is provided, then validation is performed to check if the path is an executable file. If
-    None, the invoking system Python executable location is returned.
-
-    :param python: (Optional) path to a python executable.
-    :return: :param python: or `sys.executable`.
-    """
-    if python is None:
-        return sys.executable
-    if not exists(python):
-        raise RSConnectException(f"The path '{python}' does not exist. Expected a Python executable.")
-    if isdir(python):
-        raise RSConnectException(f"The path '{python}' is a directory. Expected a Python executable.")
-    if not os.access(python, os.X_OK):
-        raise RSConnectException(f"The path '{python}' is not executable. Expected a Python executable")
-    return python
-
-
-def inspect_environment(
-    python: str,
-    directory: str,
-    force_generate: bool = False,
-    check_output: Callable[..., bytes] = subprocess.check_output,
-) -> Environment:
-    """Run the environment inspector using the specified python binary.
-
-    Returns a dictionary of information about the environment,
-    or containing an "error" field if an error occurred.
-    """
-    flags: list[str] = []
-    if force_generate:
-        flags.append("f")
-
-    args = [python, "-m", "rsconnect.environment"]
-    if flags:
-        args.append("-" + "".join(flags))
-    args.append(directory)
-
-    try:
-        environment_json = check_output(args, text=True)
-    except Exception as e:
-        raise RSConnectException("Error inspecting environment (subprocess failed)") from e
-
-    try:
-        environment_data = json.loads(environment_json)
-    except json.JSONDecodeError as e:
-        raise RSConnectException("Error parsing environment JSON") from e
-
-    try:
-        return MakeEnvironment(**environment_data)
-    except TypeError as e:
-        system_error_message = environment_data.get("error")
-        if system_error_message:
-            raise RSConnectException(f"Error creating environment: {system_error_message}") from e
-        raise RSConnectException("Error constructing environment object") from e
-
-
-def get_python_env_info(
-    file_name: str,
-    python: str | None,
-    force_generate: bool = False,
-    override_python_version: str | None = None,
-) -> tuple[str, Environment]:
-    """
-    Gathers the python and environment information relating to the specified file
-    with an eye to deploy it.
-
-    :param file_name: the primary file being deployed.
-    :param python: the optional name of a Python executable.
-    :param force_generate: force generating "requirements.txt" or "environment.yml",
-    even if it already exists.
-    :return: information about the version of Python in use plus some environmental
-    stuff.
-    """
-    python = which_python(python)
-    logger.debug("Python: %s" % python)
-    environment = inspect_environment(python, dirname(file_name), force_generate=force_generate)
-    if environment.error:
-        raise RSConnectException(environment.error)
-    logger.debug("Python: %s" % python)
-    logger.debug("Environment: %s" % pformat(environment._asdict()))
-
-    if override_python_version:
-        environment = environment._replace(python=override_python_version)
-
-    return python, environment
-
-
 def create_notebook_manifest_and_environment_file(
     entry_point_file: str,
     environment: Environment,
@@ -2254,26 +2040,3 @@ def write_manifest_json(manifest_path: str | Path, manifest: ManifestData) -> No
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
         f.write("\n")
-
-
-def create_python_environment(
-    directory: str,
-    force_generate: bool = False,
-    python: Optional[str] = None,
-    override_python_version: Optional[str] = None,
-) -> Environment:
-    module_file = fake_module_file_from_directory(directory)
-
-    # click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
-
-    _warn_on_ignored_manifest(directory)
-    _warn_if_no_requirements_file(directory)
-    _warn_if_environment_directory(directory)
-
-    # with cli_feedback("Inspecting Python environment"):
-    _, environment = get_python_env_info(module_file, python, force_generate, override_python_version)
-
-    if force_generate:
-        _warn_on_ignored_requirements(directory, environment.filename)
-
-    return environment
