@@ -231,7 +231,7 @@ that requires Python 3.8.
     2. A `pyproject.toml` with a `project.requires-python` field exists.
        In such case the requirement specified in the field will be used
        if no `.python-version` file exists.
-    3. A `setup.cfg` with a `options.python_requirs` field exists.
+    3. A `setup.cfg` with an `options.python_requires` field exists.
        In such case the requirement specified in the field will be used
        if no `.python-version` or `pyproject.toml` files exist.
     4. If no other source of version requirement was found, then
