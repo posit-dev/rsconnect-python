@@ -225,7 +225,7 @@ requirements.
 For example, a server with only Python 3.9 installed will fail to match content
 that requires Python 3.8.
 
-`rsconnect` will supports detecting Python version requirements in 4 ways:
+`rsconnect` supports detecting Python version requirements in several ways:
     1. A `.python-version` file exists. In such case
        `rsconnect` will use its content to determine the python version requirement.
     2. A `pyproject.toml` with a `project.requires-python` field exists.
@@ -233,11 +233,11 @@ that requires Python 3.8.
        if no `.python-version` file exists.
     3. A `setup.cfg` with an `options.python_requires` field exists.
        In such case the requirement specified in the field will be used
-       if no `.python-version` or `pyproject.toml` files exist.
+       if **1** or **2** were not already satisfied.
     4. If no other source of version requirement was found, then
        the interpreter in use is considered the one required to run the content.
 
-On newer Posit Connect versions the requirement detected by `rsconnect` is
+On Posit Connect `>=2025.03.0` the requirement detected by `rsconnect` is
 always respected. Older Connect versions will instead rely only on the
 python version used to deploy the content to determine the requirement.
 
