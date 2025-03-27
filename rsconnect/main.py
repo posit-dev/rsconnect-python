@@ -2861,4 +2861,3 @@ def system_caches_delete(
 if __name__ == "__main__":
     cli()
     click.echo()
-    click.echo()
