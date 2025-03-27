@@ -199,7 +199,11 @@ class HTTPResponse(object):
                 and self.response_body is not None
                 and len(self.response_body) > 0
             ):
-                self.json_data = json.loads(self.response_body)
+                try:
+                    self.json_data = json.loads(self.response_body)
+                # snowflake crudo
+                except json.decoder.JSONDecodeError:
+                    self.response_body
 
 
 class HTTPServer(object):
@@ -255,6 +259,9 @@ class HTTPServer(object):
 
     def bootstrap_authorization(self, key: str):
         self.authorization("Connect-Bootstrap %s" % key)
+
+    def snowflake_authorization(self, token: str):
+        self.authorization('Snowflake Token="%s"' % token)
 
     def _get_full_path(self, path: str):
         return append_to_path(self._url.path, path)
