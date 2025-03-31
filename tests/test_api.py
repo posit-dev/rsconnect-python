@@ -16,6 +16,7 @@ from rsconnect.api import (
     RSConnectServer,
     ShinyappsServer,
     ShinyappsService,
+    SPCSConnectServer,
 )
 from rsconnect.exception import DeploymentFailedException, RSConnectException
 from rsconnect.models import AppModes
@@ -508,3 +509,132 @@ class CloudServiceTestCase(TestCase):
         self.cloud_client.deploy_application.assert_called_with(bundle_id, app_id)
         self.cloud_client.wait_until_task_is_successful.assert_called_with(task_id)
         self.cloud_client.get_task_logs.assert_called_with(task_id)
+
+
+class SPCSConnectServerTestCase(TestCase):
+    def test_init(self):
+        server = SPCSConnectServer("https://spcs.example.com", "example_connection")
+        assert server.url == "https://spcs.example.com"
+        assert server.remote_name == "Posit Connect (SPCS)"
+        assert server.snowflake_connection_name == "example_connection"
+        assert server.api_key is None
+
+    @patch("rsconnect.api.SPCSConnectServer.token_endpoint")
+    def test_token_endpoint(self, mock_token_endpoint):
+        server = SPCSConnectServer("https://spcs.example.com", "example_connection")
+        mock_token_endpoint.return_value = "https://example.snowflakecomputing.com/"
+        endpoint = server.token_endpoint()
+        assert endpoint == "https://example.snowflakecomputing.com/"
+
+    @patch("rsconnect.api.get_connection_parameters")
+    def test_token_endpoint_with_account(self, mock_get_connection_parameters):
+        server = SPCSConnectServer("https://spcs.example.com", "example_connection")
+        mock_get_connection_parameters.return_value = {"account": "test_account"}
+        endpoint = server.token_endpoint()
+        assert endpoint == "https://test_account.snowflakecomputing.com/"
+        mock_get_connection_parameters.assert_called_once_with("example_connection")
+
+    @patch("rsconnect.api.get_connection_parameters")
+    def test_token_endpoint_with_none_params(self, mock_get_connection_parameters):
+        server = SPCSConnectServer("https://spcs.example.com", "example_connection")
+        mock_get_connection_parameters.return_value = None
+        with pytest.raises(RSConnectException, match="No Snowflake connection found."):
+            server.token_endpoint()
+
+    @patch("rsconnect.api.get_connection_parameters")
+    def test_fmt_payload(self, mock_get_connection_parameters):
+        server = SPCSConnectServer("https://spcs.example.com", "example_connection")
+        mock_get_connection_parameters.return_value = {"account": "test_account", "role": "test_role"}
+
+        with patch("rsconnect.api.generate_jwt") as mock_generate_jwt:
+            mock_generate_jwt.return_value = "mocked_jwt"
+            payload = server.fmt_payload()
+
+            assert "scope=session%3Arole%3Atest_role+spcs.example.com" in payload
+            assert "assertion=mocked_jwt" in payload
+            assert "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer" in payload
+
+            mock_get_connection_parameters.assert_called_once_with("example_connection")
+            mock_generate_jwt.assert_called_once_with("example_connection")
+
+    @patch("rsconnect.api.get_connection_parameters")
+    def test_fmt_payload_with_none_params(self, mock_get_connection_parameters):
+        server = SPCSConnectServer("https://spcs.example.com", "example_connection")
+        mock_get_connection_parameters.return_value = None
+        with pytest.raises(RSConnectException, match="No Snowflake connection found."):
+            server.fmt_payload()
+
+    @patch("rsconnect.api.HTTPServer")
+    @patch("rsconnect.api.SPCSConnectServer.token_endpoint")
+    @patch("rsconnect.api.SPCSConnectServer.fmt_payload")
+    def test_exchange_token_success(self, mock_fmt_payload, mock_token_endpoint, mock_http_server):
+        server = SPCSConnectServer("https://spcs.example.com", "example_connection")
+
+        # Mock the HTTP request
+        mock_server_instance = mock_http_server.return_value
+        mock_response = Mock()
+        mock_response.status = 200
+        mock_response.response_body = "token_data"
+        mock_server_instance.request.return_value = mock_response
+
+        # Mock the token endpoint and payload
+        mock_token_endpoint.return_value = "https://example.snowflakecomputing.com/"
+        mock_fmt_payload.return_value = "mocked_payload"
+
+        # Call the method
+        result = server.exchange_token()
+
+        # Verify the results
+        assert result == "token_data"
+        mock_http_server.assert_called_once_with(url="https://example.snowflakecomputing.com/")
+        mock_server_instance.request.assert_called_once_with(
+            method="POST",
+            path="/oauth/token",
+            body="mocked_payload",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+    @patch("rsconnect.api.HTTPServer")
+    @patch("rsconnect.api.SPCSConnectServer.token_endpoint")
+    @patch("rsconnect.api.SPCSConnectServer.fmt_payload")
+    def test_exchange_token_error_status(self, mock_fmt_payload, mock_token_endpoint, mock_http_server):
+        server = SPCSConnectServer("https://spcs.example.com", "example_connection")
+
+        # Mock the HTTP request with error status
+        mock_server_instance = mock_http_server.return_value
+        mock_response = Mock()
+        mock_response.status = 401
+        mock_response.full_uri = "https://example.snowflakecomputing.com/oauth/token"
+        mock_response.reason = "Unauthorized"
+        mock_server_instance.request.return_value = mock_response
+
+        # Mock the token endpoint and payload
+        mock_token_endpoint.return_value = "https://example.snowflakecomputing.com/"
+        mock_fmt_payload.return_value = "mocked_payload"
+
+        # Call the method and verify it raises the expected exception
+        with pytest.raises(RSConnectException, match="Failed to exchange Snowflake token"):
+            server.exchange_token()
+
+    @patch("rsconnect.api.HTTPServer")
+    @patch("rsconnect.api.SPCSConnectServer.token_endpoint")
+    @patch("rsconnect.api.SPCSConnectServer.fmt_payload")
+    def test_exchange_token_empty_response(self, mock_fmt_payload, mock_token_endpoint, mock_http_server):
+        server = SPCSConnectServer("https://spcs.example.com", "example_connection")
+
+        # Mock the HTTP request with empty response body
+        mock_server_instance = mock_http_server.return_value
+        mock_response = Mock()
+        mock_response.status = 200
+        mock_response.response_body = None
+        mock_server_instance.request.return_value = mock_response
+
+        # Mock the token endpoint and payload
+        mock_token_endpoint.return_value = "https://example.snowflakecomputing.com/"
+        mock_fmt_payload.return_value = "mocked_payload"
+
+        # Call the method and verify it raises the expected exception
+        with pytest.raises(
+            RSConnectException, match="Failed to exchange Snowflake token: Token exchange returned empty response"
+        ):
+            server.exchange_token()
