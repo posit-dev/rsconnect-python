@@ -45,6 +45,7 @@ def validate_connection_options(
     token: Optional[str],
     secret: Optional[str],
     name: Optional[str] = None,
+    snowflake_connection_name: Optional[str] = None,
 ):
     """
     Validates provided Connect or shinyapps.io connection options and returns which target to use given the provided
@@ -63,6 +64,7 @@ def validate_connection_options(
     -T/--token or SHINYAPPS_TOKEN or RSCLOUD_TOKEN
     -S/--secret or SHINYAPPS_SECRET or RSCLOUD_SECRET
     -A/--account or SHINYAPPS_ACCOUNT
+    --snowflake-connection-name
 
     FAILURE if any of:
     -k/--api-key or CONNECT_API_KEY
@@ -82,10 +84,16 @@ def validate_connection_options(
     -T/--token or SHINYAPPS_TOKEN or RSCLOUD_TOKEN
     -S/--secret or SHINYAPPS_SECRET or RSCLOUD_SECRET
     -A/--account or SHINYAPPS_ACCOUNT
+
+
+    FAILURE if -s/--server or CONNECT_SERVER include "snowflakecomputing.app"
+    and not
+    --snowflake-connection-name
     """
     connect_options = {"-k/--api-key": api_key, "-i/--insecure": insecure, "-c/--cacert": cacert}
     shinyapps_options = {"-T/--token": token, "-S/--secret": secret, "-A/--account": account_name}
     cloud_options = {"-T/--token": token, "-S/--secret": secret}
+    spcs_options = {"--snowflake-connection-name": snowflake_connection_name}
     options_mutually_exclusive_with_name = {"-s/--server": url, **shinyapps_options}
     present_options_mutually_exclusive_with_name = _get_present_options(options_mutually_exclusive_with_name, ctx)
 
@@ -105,12 +113,26 @@ either via command options or environment variables. See command help for furthe
     present_connect_options = _get_present_options(connect_options, ctx)
     present_shinyapps_options = _get_present_options(shinyapps_options, ctx)
     present_cloud_options = _get_present_options(cloud_options, ctx)
+    present_spcs_options = _get_present_options(spcs_options, ctx)
 
     if present_connect_options and present_shinyapps_options:
         raise RSConnectException(
             f"Connect options ({', '.join(present_connect_options)}) may not be passed \
 alongside shinyapps.io or Posit Cloud options ({', '.join(present_shinyapps_options)}). \
 See command help for further details."
+        )
+
+    if snowflake_connection_name and not url:
+        raise RSConnectException(
+            "--snowflake-connection-name requires -s/--server to be specified. \
+See command help for further details."
+        )
+
+    if present_shinyapps_options and present_spcs_options:
+        raise RSConnectException(
+            f"Shinyapps.io/Cloud options ({', '.join(present_shinyapps_options)}) may not be passed \
+alongside SPCS options ({', '.join(present_spcs_options)}). \
+    See command help for further details."
         )
 
     if url and ("posit.cloud" in url or "rstudio.cloud" in url):
