@@ -37,7 +37,9 @@ test = [
     "setuptools_scm[toml]>=3.4",
     "twine",
     "types-Flask",
+    "snowflake-cli"
 ]
+snowflake = ["snowflake-cli"]
 
 [project.urls]
 Repository = "http://github.com/posit-dev/rsconnect-python"

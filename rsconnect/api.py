@@ -52,8 +52,8 @@ else:
 
 from . import validation
 from .bundle import _default_title
-from .environment import fake_module_file_from_directory
 from .certificates import read_certificate_file
+from .environment import fake_module_file_from_directory
 from .exception import DeploymentFailedException, RSConnectException
 from .http_support import CookieJar, HTTPResponse, HTTPServer, JsonData, append_to_path
 from .log import cls_logged, connect_logger, console_logger, logger
@@ -235,6 +235,13 @@ class RSConnectServer(AbstractRemoteServer):
         self.ca_data = ca_data
         # This is specifically not None.
         self.cookie_jar = CookieJar()
+
+
+class SPCSConnectServer(AbstractRemoteServer):
+    """ """
+
+    def __init__(self, url: str):
+        super().__init__(url, "Posit Connect (SPCS)")
 
 
 TargetableServer = typing.Union[ShinyappsServer, RSConnectServer, CloudServer]

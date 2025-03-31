@@ -16,6 +16,7 @@ from rsconnect.api import (
     RSConnectServer,
     ShinyappsServer,
     ShinyappsService,
+    SPCSConnectServer,
 )
 from rsconnect.exception import DeploymentFailedException, RSConnectException
 from rsconnect.models import AppModes
@@ -508,3 +509,10 @@ class CloudServiceTestCase(TestCase):
         self.cloud_client.deploy_application.assert_called_with(bundle_id, app_id)
         self.cloud_client.wait_until_task_is_successful.assert_called_with(task_id)
         self.cloud_client.get_task_logs.assert_called_with(task_id)
+
+
+class SPCSConnectServerTestCase(TestCase):
+    def test_init(self):
+        server = SPCSConnectServer("https://spcs.example.com")
+        assert server.url == "https://spcs.example.com"
+        assert server.remote_name == "Posit Connect (SPCS)"
