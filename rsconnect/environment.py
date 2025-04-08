@@ -129,9 +129,10 @@ class Environment:
         _warn_on_missing_python_version(python_version_requirement)
 
         if override_python_version:
-            # TODO: --override-python-version should be deprecated in the future
-            #       and instead we should suggest the user sets it in .python-version
-            #       or pyproject.toml
+            logger.warning(
+                "The --override-python-version option is deprecated, "
+                "please use a .python-version file to force a specific interpreter version."
+            )
             python_version_requirement = f"=={override_python_version}"
 
         # with cli_feedback("Inspecting Python environment"):
