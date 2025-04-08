@@ -287,3 +287,21 @@ class TestEnvironmentDeprecations:
             "please use a .python-version file to force a specific interpreter version."
         )
         assert result.python_version_requirement == "==3.8"
+
+    def test_python_interpreter(self):
+        current_python_version = ".".join((str(v) for v in sys.version_info[:3]))
+
+        with mock.patch.object(rsconnect.environment.logger, "warning") as mock_warning:
+            result = Environment.create_python_environment(get_dir("pip1"))
+        assert mock_warning.call_count == 0
+        assert result.python == current_python_version
+
+        with mock.patch.object(rsconnect.environment.logger, "warning") as mock_warning:
+            result = Environment.create_python_environment(get_dir("pip1"), python=sys.executable)
+        assert mock_warning.call_count == 1
+        mock_warning.assert_called_once_with(
+            "On modern connect versions, the --python option won't influence "
+            "the Python version used to deploy the application anymore. "
+            "Please use a .python-version file to force a specific interpreter version."
+        )
+        assert result.python == current_python_version

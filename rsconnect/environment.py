@@ -128,7 +128,16 @@ class Environment:
         python_version_requirement = pyproject.detect_python_version_requirement(directory)
         _warn_on_missing_python_version(python_version_requirement)
 
+        if python is not None:
+            # TODO: Remove the option in a future release
+            logger.warning(
+                "On modern connect versions, the --python option won't influence "
+                "the Python version used to deploy the application anymore. "
+                "Please use a .python-version file to force a specific interpreter version."
+            )
+
         if override_python_version:
+            # TODO: Remove the option in a future release
             logger.warning(
                 "The --override-python-version option is deprecated, "
                 "please use a .python-version file to force a specific interpreter version."
