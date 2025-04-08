@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `rsconnect` now detects Python interpreter version requirements from
   `.python-version`, `pyproject.toml` and `setup.cfg`
+- `--python` and `--override-python-version` options are now deprecated
+  in favor of using `.python-version` requirement file.
 
 ## [1.25.2] - 2025-02-26
 
