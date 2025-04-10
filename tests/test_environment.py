@@ -4,6 +4,7 @@ import os
 import tempfile
 import subprocess
 from unittest import TestCase
+from unittest import mock
 
 import rsconnect.environment
 from rsconnect.exception import RSConnectException
@@ -270,3 +271,37 @@ def test_get_python_env_info(
 
         assert environment.python_interpreter == expected_python
         assert environment == expected_environment
+
+class TestEnvironmentDeprecations:
+    def test_override_python_version(self):
+        with mock.patch.object(rsconnect.environment.logger, "warning") as mock_warning:
+            result = Environment.create_python_environment(get_dir("pip1"), override_python_version=None)
+        assert mock_warning.call_count == 0
+        assert result.python_version_requirement is None
+
+        with mock.patch.object(rsconnect.environment.logger, "warning") as mock_warning:
+            result = Environment.create_python_environment(get_dir("pip1"), override_python_version="3.8")
+        assert mock_warning.call_count == 1
+        mock_warning.assert_called_once_with(
+            "The --override-python-version option is deprecated, "
+            "please use a .python-version file to force a specific interpreter version."
+        )
+        assert result.python_version_requirement == "==3.8"
+
+    def test_python_interpreter(self):
+        current_python_version = ".".join((str(v) for v in sys.version_info[:3]))
+
+        with mock.patch.object(rsconnect.environment.logger, "warning") as mock_warning:
+            result = Environment.create_python_environment(get_dir("pip1"))
+        assert mock_warning.call_count == 0
+        assert result.python == current_python_version
+
+        with mock.patch.object(rsconnect.environment.logger, "warning") as mock_warning:
+            result = Environment.create_python_environment(get_dir("pip1"), python=sys.executable)
+        assert mock_warning.call_count == 1
+        mock_warning.assert_called_once_with(
+            "On modern Posit Connect versions, the --python option won't influence "
+            "the Python version used to deploy the application anymore. "
+            "Please use a .python-version file to force a specific interpreter version."
+        )
+        assert result.python == current_python_version

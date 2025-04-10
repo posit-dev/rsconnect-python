@@ -128,10 +128,20 @@ class Environment:
         python_version_requirement = pyproject.detect_python_version_requirement(directory)
         _warn_on_missing_python_version(python_version_requirement)
 
+        if python is not None:
+            # TODO: Remove the option in a future release
+            logger.warning(
+                "On modern Posit Connect versions, the --python option won't influence "
+                "the Python version used to deploy the application anymore. "
+                "Please use a .python-version file to force a specific interpreter version."
+            )
+
         if override_python_version:
-            # TODO: --override-python-version should be deprecated in the future
-            #       and instead we should suggest the user sets it in .python-version
-            #       or pyproject.toml
+            # TODO: Remove the option in a future release
+            logger.warning(
+                "The --override-python-version option is deprecated, "
+                "please use a .python-version file to force a specific interpreter version."
+            )
             python_version_requirement = f"=={override_python_version}"
 
         # with cli_feedback("Inspecting Python environment"):
