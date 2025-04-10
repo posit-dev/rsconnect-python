@@ -131,7 +131,7 @@ class Environment:
         if python is not None:
             # TODO: Remove the option in a future release
             logger.warning(
-                "On modern connect versions, the --python option won't influence "
+                "On modern Posit Connect versions, the --python option won't influence "
                 "the Python version used to deploy the application anymore. "
                 "Please use a .python-version file to force a specific interpreter version."
             )
