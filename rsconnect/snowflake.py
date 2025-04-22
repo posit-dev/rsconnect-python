@@ -1,9 +1,14 @@
 import json
-import subprocess
+from subprocess import CalledProcessError, run
 from typing import Any, Dict, Optional, cast
 
 from .exception import RSConnectException
 from .log import logger
+
+
+def snow(*args: str):
+    ensure_snow_installed()
+    return run(["snow"] + list(args), capture_output=True, text=True, check=True)
 
 
 def ensure_snow_installed() -> None:
@@ -15,31 +20,25 @@ def ensure_snow_installed() -> None:
     except ImportError:
         logger.warning("snowflake-cli is not installed.")
         try:
-
-            p = subprocess.run(["snow", "--version"], capture_output=True)
-            if p.returncode != 0:
-                raise RSConnectException("snow is installed but could not be run.")
+            run(["snow", "--version"], capture_output=True, check=True)
+        except CalledProcessError:
+            raise RSConnectException("snow is installed but could not be run.")
         except FileNotFoundError:
             raise RSConnectException("snow cannot be found.")
 
 
 def list_connections():
-    ensure_snow_installed()
-    snow_cx_list = subprocess.run(
-        ["snow", "connection", "list", "--format", "json"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+
     try:
-        connection_list = json.loads(snow_cx_list.stdout)
+        res = snow("connection", "list", "--format", "json")
+        connection_list = json.loads(res.stdout)
         return connection_list
-    except RSConnectException:
+    except:
         raise RSConnectException("Could not list snowflake connections.")
 
 
 def get_connection_parameters(name: Optional[str] = None):
-    ensure_snow_installed()
+
     connection_list = list_connections()
     # return parameters for default connection if configured
     # otherwise return named connection
@@ -57,25 +56,25 @@ def get_connection_parameters(name: Optional[str] = None):
 
 
 def generate_jwt(name: Optional[str] = None):
-    ensure_snow_installed()
 
     _ = get_connection_parameters(name)
     connection_name = "" if name is None else name
 
     try:
-        snow_cx_jwt = subprocess.run(
-            ["snow", "connection", "generate-jwt", "--connection", connection_name, "--format", "json"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        res = snow("connection", "generate-jwt", "--connection", connection_name, "--format", "json")
         try:
-            output = json.loads(snow_cx_jwt.stdout)
+            output = json.loads(res.stdout)
         except json.JSONDecodeError as e:
-            raise RSConnectException(f"Failed to parse JSON from snow-cli: {snow_cx_jwt.stdout}")
+            raise RSConnectException(f"Failed to parse JSON from snow-cli: {res.stdout}")
         jwt = output.get("message")
         if jwt is None:
             raise RSConnectException(f"Failed to generate JWT: Missing 'message' field in response: {output}")
         return jwt
-    except subprocess.CalledProcessError as e:
+    except CalledProcessError as e:
         raise RSConnectException(f"Failed to generate JWT for connection '{name}': {e.stderr}")
+
+
+def token_endpoint(name: Optional[str] = None):
+
+    params = get_connection_parameters(name)
+    return "https://{}.snowflakecomputing.com/".format(params["account"])
