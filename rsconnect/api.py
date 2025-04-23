@@ -32,7 +32,7 @@ from typing import (
     overload,
 )
 from urllib import parse
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 from warnings import warn
 
 import click
@@ -76,6 +76,7 @@ from .models import (
     TaskStatusV1,
     UserRecord,
 )
+from .snowflake import ensure_snow_installed, generate_jwt, get_connection_parameters
 from .timeouts import get_task_timeout, get_task_timeout_help_message
 
 if TYPE_CHECKING:
@@ -235,16 +236,91 @@ class RSConnectServer(AbstractRemoteServer):
         self.ca_data = ca_data
         # This is specifically not None.
         self.cookie_jar = CookieJar()
+        # for compatibility with RSconnectClient
+        self.snowflake_connection_name = None
 
 
 class SPCSConnectServer(AbstractRemoteServer):
     """ """
 
-    def __init__(self, url: str):
+    def __init__(
+        self,
+        url: str,
+        snowflake_connection_name: Optional[str],
+        insecure: bool = False,
+        ca_data: Optional[str | bytes] = None,
+    ):
         super().__init__(url, "Posit Connect (SPCS)")
+        self.snowflake_connection_name = snowflake_connection_name
+        self.insecure = insecure
+        self.ca_data = ca_data
+        # for compatibility with RSConnectClient
+        self.cookie_jar = CookieJar()
+        self.api_key = None
+        self.bootstrap_jwt = None
+
+    def token_endpoint(self):
+        params = get_connection_parameters(self.snowflake_connection_name)
+
+        if params is None:
+            raise RSConnectException("No Snowflake connection found.")
+
+        return "https://{}.snowflakecomputing.com/".format(params["account"])
+
+    def fmt_payload(self):
+        params = get_connection_parameters(self.snowflake_connection_name)
+
+        if params is None:
+            raise RSConnectException("No Snowflake connection found.")
+
+        spcs_url = urlparse(self.url)
+        scope = "session:role:{} {}".format(params["role"], spcs_url.netloc)
+        jwt = generate_jwt(self.snowflake_connection_name)
+        grant_type = "urn:ietf:params:oauth:grant-type:jwt-bearer"
+
+        payload = {"scope": scope, "assertion": jwt, "grant_type": grant_type}
+        payload = urlencode(payload)
+        return payload
+
+    def exchange_token(self):
+        try:
+            server = HTTPServer(url=self.token_endpoint())
+            payload = self.fmt_payload()
+
+            response = server.request(
+                method="POST",
+                path="/oauth/token",
+                body=payload,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+
+            response = cast(HTTPResponse, response)
+
+            # borrowed from AbstractRemoteServer.handle_bad_response
+            # since we don't want to pick up its json decoding assumptions
+            if response.status < 200 or response.status > 299:
+                raise RSConnectException(
+                    "Received an unexpected response from %s (calling %s): %s %s"
+                    % (
+                        self.url,
+                        response.full_uri,
+                        response.status,
+                        response.reason,
+                    )
+                )
+
+            # Validate response body exists
+            if not response.response_body:
+                raise RSConnectException("Token exchange returned empty response")
+
+            return response.response_body
+
+        except RSConnectException as e:
+            raise RSConnectException(f"Failed to exchange Snowflake token: {str(e)}") from e
 
 
-TargetableServer = typing.Union[ShinyappsServer, RSConnectServer, CloudServer]
+TargetableServer = typing.Union[ShinyappsServer, RSConnectServer, CloudServer, SPCSConnectServer]
+PositConnectServer = typing.Union[RSConnectServer, SPCSConnectServer]
 
 
 class S3Server(AbstractRemoteServer):
@@ -261,7 +337,7 @@ class RSConnectClientDeployResult(TypedDict):
 
 
 class RSConnectClient(HTTPServer):
-    def __init__(self, server: RSConnectServer, cookies: Optional[CookieJar] = None):
+    def __init__(self, server: PositConnectServer, cookies: Optional[CookieJar] = None):
         if cookies is None:
             cookies = server.cookie_jar
         super().__init__(
@@ -277,6 +353,10 @@ class RSConnectClient(HTTPServer):
 
         if server.bootstrap_jwt:
             self.bootstrap_authorization(server.bootstrap_jwt)
+
+        if server.snowflake_connection_name:
+            token = server.exchange_token()
+            self.snowflake_authorization(token)
 
     def _tweak_response(self, response: HTTPResponse) -> JsonData | HTTPResponse:
         return (
@@ -562,6 +642,7 @@ class RSConnectExecutor:
         name: Optional[str] = None,
         url: Optional[str] = None,
         api_key: Optional[str] = None,
+        snowflake_connection_name: Optional[str] = None,
         insecure: bool = False,
         cacert: Optional[str] = None,
         ca_data: Optional[str | bytes] = None,
@@ -611,6 +692,7 @@ class RSConnectExecutor:
             name=name,
             url=url or server,
             api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
             insecure=insecure,
             cacert=cacert,
             ca_data=ca_data,
@@ -696,6 +778,7 @@ class RSConnectExecutor:
         name: Optional[str] = None,
         url: Optional[str] = None,
         api_key: Optional[str] = None,
+        snowflake_connection_name: Optional[str] = None,
         insecure: bool = False,
         cacert: Optional[str] = None,
         ca_data: Optional[str | bytes] = None,
@@ -707,6 +790,7 @@ class RSConnectExecutor:
             ctx=ctx,
             url=url,
             api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
             insecure=insecure,
             cacert=cacert,
             account_name=account_name,
@@ -728,6 +812,8 @@ class RSConnectExecutor:
             if self.logger:
                 if server_data.api_key and api_key:
                     header_output = self.output_overlap_details("api-key", header_output)
+                if server_data.snowflake_connection_name and snowflake_connection_name:
+                    header_output = self.output_overlap_details("snowflake_connection_name", header_output)
                 if server_data.insecure and insecure:
                     header_output = self.output_overlap_details("insecure", header_output)
                 if server_data.ca_data and ca_data:
@@ -743,6 +829,7 @@ class RSConnectExecutor:
 
             # TODO: Is this logic backward? Seems like the provided value should override the stored value.
             api_key = server_data.api_key or api_key
+            snowflake_connection_name = server_data.snowflake_connection_name or snowflake_connection_name
             insecure = server_data.insecure or insecure
             ca_data = server_data.ca_data or ca_data
             account_name = server_data.account_name or account_name
@@ -754,6 +841,9 @@ class RSConnectExecutor:
         if api_key:
             url = cast(str, url)
             self.remote_server = RSConnectServer(url, api_key, insecure, ca_data)
+        elif snowflake_connection_name:
+            url = cast(str, url)
+            self.remote_server = SPCSConnectServer(url, snowflake_connection_name)
         elif token and secret:
             if url and ("rstudio.cloud" in url or "posit.cloud" in url):
                 account_name = cast(str, account_name)
@@ -768,6 +858,8 @@ class RSConnectExecutor:
     def setup_client(self, cookies: Optional[CookieJar] = None):
         if isinstance(self.remote_server, RSConnectServer):
             self.client = RSConnectClient(self.remote_server, cookies)
+        elif isinstance(self.remote_server, SPCSConnectServer):
+            self.client = RSConnectClient(self.remote_server)
         elif isinstance(self.remote_server, PositServer):
             self.client = PositClient(self.remote_server)
         else:
@@ -781,8 +873,11 @@ class RSConnectExecutor:
         """
         Validate that there is enough information to talk to shinyapps.io or a Connect server.
         """
-        if isinstance(self.remote_server, RSConnectServer):
+        if isinstance(self.remote_server, SPCSConnectServer):
+            self.validate_spcs_server()
+        elif isinstance(self.remote_server, RSConnectServer):
             self.validate_connect_server()
+
         elif isinstance(self.remote_server, PositServer):
             self.validate_posit_server()
         else:
@@ -819,6 +914,23 @@ class RSConnectExecutor:
 
         self.remote_server = connect_server
         self.client = RSConnectClient(self.remote_server)
+
+        return self
+
+    def validate_spcs_server(self):
+        if not isinstance(self.remote_server, SPCSConnectServer):
+            raise RSConnectException("remote_server must be a Connect server in SPCS")
+
+        url = self.remote_server.url
+        snowflake_connection_name = self.remote_server.snowflake_connection_name
+        server = SPCSConnectServer(url, snowflake_connection_name)
+
+        with RSConnectClient(server) as client:
+            try:
+                result = client.me()
+                result = server.handle_bad_response(result)
+            except RSConnectException as exc:
+                raise RSConnectException(f"Failed to verify with {server.remote_name} ({exc})")
 
         return self
 
@@ -892,7 +1004,7 @@ class RSConnectExecutor:
         if self.bundle is None:
             raise RSConnectException("A bundle must be created before deploying it.")
 
-        if isinstance(self.remote_server, RSConnectServer):
+        if isinstance(self.remote_server, PositConnectServer):
             if not isinstance(self.client, RSConnectClient):
                 raise RSConnectException("client must be an RSConnectClient.")
             result = self.client.deploy(
@@ -971,7 +1083,7 @@ class RSConnectExecutor:
         :param raise_on_error: whether to raise an exception when a task is failed, otherwise we
         return the task_result so we can record the exit code.
         """
-        if isinstance(self.remote_server, RSConnectServer):
+        if isinstance(self.remote_server, PositConnectServer):
             if not isinstance(self.client, RSConnectClient):
                 raise RSConnectException("To emit task log, client must be a RSConnectClient.")
 
@@ -1013,7 +1125,7 @@ class RSConnectExecutor:
 
     @cls_logged("Verifying deployed content...")
     def verify_deployment(self):
-        if isinstance(self.remote_server, RSConnectServer):
+        if isinstance(self.remote_server, PositConnectServer):
             if not isinstance(self.client, RSConnectClient):
                 raise RSConnectException("To verify deployment, client must be a RSConnectClient.")
             deployed_info = self.deployed_info

@@ -34,6 +34,7 @@ from .actions import (
     test_api_key,
     test_rstudio_server,
     test_server,
+    test_spcs_server,
     validate_quarto_engines,
     which_quarto,
 )
@@ -48,8 +49,13 @@ from .actions_content import (
     get_content,
     search_content,
 )
-from .environment import Environment, fake_module_file_from_directory
-from .api import RSConnectClient, RSConnectExecutor, RSConnectServer
+from .api import (
+    PositConnectServer,
+    RSConnectClient,
+    RSConnectExecutor,
+    RSConnectServer,
+    SPCSConnectServer,
+)
 from .bundle import (
     default_title_from_manifest,
     make_api_bundle,
@@ -57,8 +63,8 @@ from .bundle import (
     make_manifest_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
-    make_voila_bundle,
     make_tensorflow_bundle,
+    make_voila_bundle,
     read_manifest_app_mode,
     validate_entry_point,
     validate_extra_files,
@@ -71,6 +77,7 @@ from .bundle import (
     write_tensorflow_manifest_json,
     write_voila_manifest_json,
 )
+from .environment import Environment, fake_module_file_from_directory
 from .exception import RSConnectException
 from .json_web_token import (
     TokenGenerator,
@@ -171,6 +178,15 @@ def server_args(func: Callable[P, T]) -> Callable[P, T]:
 CONNECT_CA_CERTIFICATE environment variable.)",
     )
     @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def spcs_args(func: Callable[P, T]) -> Callable[P, T]:
+    @click.option("--snowflake-connection-name", help="The name of the Snowflake connection in the configuration file")
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
         return func(*args, **kwargs)
@@ -403,6 +419,11 @@ def _test_rstudio_creds(server: api.PositServer):
         test_rstudio_server(server)
 
 
+def _test_spcs_creds(server: SPCSConnectServer):
+    with cli_feedback(f"Checking {server.remote_name} credential"):
+        test_spcs_server(server)
+
+
 @cli.command(
     short_help="Create an initial admin user to bootstrap a Connect instance.",
     help="Creates an initial admin user to bootstrap a Connect instance. Returns the provisionend API key.",
@@ -491,37 +512,8 @@ def bootstrap(
     ),
     no_args_is_help=True,
 )
-@click.option("--name", "-n", required=True, help="The nickname of the Posit Connect server to deploy to.")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the Posit Connect server to deploy to, OR \
-rstudio.cloud OR shinyapps.io. (Also settable via CONNECT_SERVER \
-environment variable.)",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with Posit Connect. \
-(Also settable via CONNECT_API_KEY environment variable.)",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation. (Also settable via CONNECT_INSECURE environment variable.)",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    help="The path to trusted TLS CA certificates. (Also settable via CONNECT_CA_CERTIFICATE environment variable.)",
-)
-@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
+@server_args
+@spcs_args
 @cloud_shinyapps_args
 @click.pass_context
 def add(
@@ -529,6 +521,7 @@ def add(
     name: str,
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     account: Optional[str],
@@ -548,6 +541,7 @@ def add(
         account_name=account,
         token=token,
         secret=secret,
+        snowflake_connection_name=snowflake_connection_name,
     )
     # The validation.validate_connection_options() function ensures that certain
     # combinations of arguments are present; the cast() calls inside of the
@@ -580,24 +574,39 @@ def add(
         else:
             click.echo('Added {} credential "{}".'.format(real_server.remote_name, name))
     else:
-        server = cast(str, server)
-        api_key = cast(str, api_key)
-        # If we're in this code path
-        # Server must be pingable and the API key must work to be added.
-        real_server_rsc, _ = _test_server_and_api(server, api_key, insecure, cacert)
 
-        server_store.set(
-            name,
-            real_server_rsc.url,
-            real_server_rsc.api_key,
-            real_server_rsc.insecure,
-            real_server_rsc.ca_data,
-        )
+        if server and ("snowflakecomputing.app" in server or snowflake_connection_name):
 
-        if old_server:
-            click.echo('Updated Connect server "%s" with URL %s' % (name, real_server_rsc.url))
+            real_server_spcs = api.SPCSConnectServer(server, snowflake_connection_name)
+
+            _test_spcs_creds(real_server_spcs)
+
+            server_store.set(name, server, snowflake_connection_name=snowflake_connection_name)
+            if old_server:
+                click.echo('Updated {} credential "{}".'.format(real_server_spcs.remote_name, name))
+            else:
+                click.echo('Added {} credential "{}".'.format(real_server_spcs.remote_name, name))
+
         else:
-            click.echo('Added Connect server "%s" with URL %s' % (name, real_server_rsc.url))
+
+            server = cast(str, server)
+            api_key = cast(str, api_key)
+            # If we're in this code path
+            # Server must be pingable and the API key must work to be added.
+            real_server_rsc, _ = _test_server_and_api(server, api_key, insecure, cacert)
+
+            server_store.set(
+                name,
+                real_server_rsc.url,
+                api_key=real_server_rsc.api_key,
+                insecure=real_server_rsc.insecure,
+                ca_data=real_server_rsc.ca_data,
+            )
+
+            if old_server:
+                click.echo('Updated Connect server "%s" with URL %s' % (name, real_server_rsc.url))
+            else:
+                click.echo('Added Connect server "%s" with URL %s' % (name, real_server_rsc.url))
 
 
 @cli.command(
@@ -626,6 +635,8 @@ def list_servers(verbose: int):
                     click.echo("    Insecure mode (TLS host/certificate validation disabled)")
                 if server.get("ca_cert"):
                     click.echo("    Client TLS certificate data provided")
+                if server.get("snowflake_connection_name"):
+                    click.echo('    Snowflake Connection Name: "%s"' % server["snowflake_connection_name"])
                 click.echo()
 
 
@@ -641,6 +652,7 @@ def list_servers(verbose: int):
     no_args_is_help=True,
 )
 @server_args
+@spcs_args
 @cli_exception_handler
 @click.pass_context
 def details(
@@ -648,19 +660,20 @@ def details(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     verbose: int,
 ):
     set_verbosity(verbose)
 
-    ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert).validate_server()
-    if not isinstance(ce.remote_server, RSConnectServer):
+    ce = RSConnectExecutor(ctx, name, server, api_key, snowflake_connection_name, insecure, cacert).validate_server()
+    if not isinstance(ce.remote_server, PositConnectServer):
         raise RSConnectException("`rsconnect details` requires a Posit Connect server.")
 
     click.echo("    Posit Connect URL: %s" % ce.remote_server.url)
 
-    if not ce.remote_server.api_key:
+    if not (ce.remote_server.api_key or ce.remote_server.snowflake_connection_name):
         return
 
     with cli_feedback("Gathering details"):
@@ -834,6 +847,7 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     no_args_is_help=True,
 )
 @server_args
+@spcs_args
 @content_args
 @runtime_environment_args
 @click.option(
@@ -883,6 +897,7 @@ def deploy_notebook(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     static: bool,
@@ -928,6 +943,7 @@ def deploy_notebook(
         ctx=ctx,
         name=name,
         api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
         insecure=insecure,
         cacert=cacert,
         path=file,
@@ -973,6 +989,7 @@ def deploy_notebook(
     no_args_is_help=True,
 )
 @server_args
+@spcs_args
 @content_args
 @runtime_environment_args
 @click.option(
@@ -1045,6 +1062,7 @@ def deploy_voila(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     multi_notebook: bool,
@@ -1063,6 +1081,7 @@ def deploy_voila(
         path=path,
         name=name,
         api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
         insecure=insecure,
         cacert=cacert,
         server=server,
@@ -1103,6 +1122,7 @@ def deploy_voila(
     no_args_is_help=True,
 )
 @server_args
+@spcs_args
 @content_args
 @cloud_shinyapps_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
@@ -1114,6 +1134,7 @@ def deploy_manifest(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     account: Optional[str],
@@ -1139,6 +1160,7 @@ def deploy_manifest(
         ctx=ctx,
         name=name,
         api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
         insecure=insecure,
         cacert=cacert,
         account=account,
@@ -1181,6 +1203,7 @@ def deploy_manifest(
     no_args_is_help=True,
 )
 @server_args
+@spcs_args
 @content_args
 @runtime_environment_args
 @click.option(
@@ -1232,6 +1255,7 @@ def deploy_quarto(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     new: bool,
@@ -1279,6 +1303,7 @@ def deploy_quarto(
         ctx=ctx,
         name=name,
         api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
         insecure=insecure,
         cacert=cacert,
         path=file_or_directory,
@@ -1325,6 +1350,7 @@ def deploy_quarto(
     no_args_is_help=True,
 )
 @server_args
+@spcs_args
 @content_args
 @click.option(
     "--image",
@@ -1355,6 +1381,7 @@ def deploy_tensorflow(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     new: bool,
@@ -1377,6 +1404,7 @@ def deploy_tensorflow(
         ctx=ctx,
         name=name,
         api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
         insecure=insecure,
         cacert=cacert,
         path=directory,
@@ -1413,6 +1441,7 @@ def deploy_tensorflow(
     no_args_is_help=True,
 )
 @server_args
+@spcs_args
 @content_args
 @cloud_shinyapps_args
 @click.option(
@@ -1452,6 +1481,7 @@ def deploy_html(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     account: Optional[str],
@@ -1483,6 +1513,7 @@ def deploy_html(
             ctx=ctx,
             name=name,
             api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
             insecure=insecure,
             cacert=cacert,
             account=account,
@@ -1533,6 +1564,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         no_args_is_help=True,
     )
     @server_args
+    @spcs_args
     @content_args
     @cloud_shinyapps_args
     @runtime_environment_args
@@ -1587,6 +1619,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         name: Optional[str],
         server: Optional[str],
         api_key: Optional[str],
+        snowflake_connection_name: Optional[str],
         insecure: bool,
         cacert: Optional[str],
         entrypoint: Optional[str],
@@ -1626,6 +1659,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             ctx=ctx,
             name=name,
             api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
             insecure=insecure,
             cacert=cacert,
             account=account,
@@ -2855,4 +2889,5 @@ def system_caches_delete(
 
 if __name__ == "__main__":
     cli()
+    click.echo()
     click.echo()
