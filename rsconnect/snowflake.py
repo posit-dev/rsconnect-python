@@ -72,9 +72,3 @@ def generate_jwt(name: Optional[str] = None):
         return jwt
     except CalledProcessError as e:
         raise RSConnectException(f"Failed to generate JWT for connection '{name}': {e.stderr}")
-
-
-def token_endpoint(name: Optional[str] = None):
-
-    params = get_connection_parameters(name)
-    return "https://{}.snowflakecomputing.com/".format(params["account"])

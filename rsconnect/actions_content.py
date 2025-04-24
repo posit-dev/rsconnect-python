@@ -13,7 +13,7 @@ from typing import Iterator, Literal, Optional, Sequence, cast
 
 import semver
 
-from .api import RSConnectClient, RSConnectServer, emit_task_log
+from .api import PositConnectServer, RSConnectClient, emit_task_log
 from .exception import RSConnectException
 from .log import logger
 from .metadata import ContentBuildStore, ContentItemWithBuildState
@@ -33,7 +33,7 @@ def content_build_store() -> ContentBuildStore:
     return _content_build_store
 
 
-def ensure_content_build_store(connect_server: RSConnectServer) -> ContentBuildStore:
+def ensure_content_build_store(connect_server: PositConnectServer) -> ContentBuildStore:
     global _content_build_store
     if not _content_build_store:
         logger.info("Initializing ContentBuildStore for %s" % connect_server.url)
@@ -42,7 +42,7 @@ def ensure_content_build_store(connect_server: RSConnectServer) -> ContentBuildS
 
 
 def build_add_content(
-    connect_server: RSConnectServer,
+    connect_server: PositConnectServer,
     content_guids_with_bundle: Sequence[ContentGuidWithBundle],
 ):
     """
@@ -85,7 +85,7 @@ def _validate_build_rm_args(guid: Optional[str], all: bool, purge: bool):
 
 
 def build_remove_content(
-    connect_server: RSConnectServer,
+    connect_server: PositConnectServer,
     guid: Optional[str],
     all: bool,
     purge: bool,
@@ -109,7 +109,7 @@ def build_remove_content(
     return guids
 
 
-def build_list_content(connect_server: RSConnectServer, guid: str, status: Optional[str]):
+def build_list_content(connect_server: PositConnectServer, guid: str, status: Optional[str]):
     build_store = ensure_content_build_store(connect_server)
     if guid:
         return [build_store.get_content_item(g) for g in guid]
@@ -117,12 +117,12 @@ def build_list_content(connect_server: RSConnectServer, guid: str, status: Optio
         return build_store.get_content_items(status=status)
 
 
-def build_history(connect_server: RSConnectServer, guid: str):
+def build_history(connect_server: PositConnectServer, guid: str):
     return ensure_content_build_store(connect_server).get_build_history(guid)
 
 
 def build_start(
-    connect_server: RSConnectServer,
+    connect_server: PositConnectServer,
     parallelism: int,
     aborted: bool = False,
     error: bool = False,
@@ -251,7 +251,7 @@ def build_start(
             build_monitor.shutdown()
 
 
-def _monitor_build(connect_server: RSConnectServer, content_items: list[ContentItemWithBuildState]):
+def _monitor_build(connect_server: PositConnectServer, content_items: list[ContentItemWithBuildState]):
     """
     :return bool: True if the build completed without errors, False otherwise
     """
@@ -296,7 +296,7 @@ def _monitor_build(connect_server: RSConnectServer, content_items: list[ContentI
     return True
 
 
-def _build_content_item(connect_server: RSConnectServer, content: ContentItemWithBuildState, poll_wait: int):
+def _build_content_item(connect_server: PositConnectServer, content: ContentItemWithBuildState, poll_wait: int):
     build_store = ensure_content_build_store(connect_server)
     with RSConnectClient(connect_server) as client:
         # Pending futures will still try to execute when ThreadPoolExecutor.shutdown() is called
@@ -351,7 +351,7 @@ def _build_content_item(connect_server: RSConnectServer, content: ContentItemWit
 
 
 def emit_build_log(
-    connect_server: RSConnectServer,
+    connect_server: PositConnectServer,
     guid: str,
     format: str,
     task_id: Optional[str] = None,
@@ -369,7 +369,7 @@ def emit_build_log(
         raise RSConnectException("Log file not found for content: %s" % guid)
 
 
-def download_bundle(connect_server: RSConnectServer, guid_with_bundle: ContentGuidWithBundle):
+def download_bundle(connect_server: PositConnectServer, guid_with_bundle: ContentGuidWithBundle):
     """
     :param guid_with_bundle: models.ContentGuidWithBundle
     """
@@ -387,7 +387,7 @@ def download_bundle(connect_server: RSConnectServer, guid_with_bundle: ContentGu
         return client.download_bundle(guid_with_bundle.guid, guid_with_bundle.bundle_id)
 
 
-def get_content(connect_server: RSConnectServer, guid: str | list[str]):
+def get_content(connect_server: PositConnectServer, guid: str | list[str]):
     """
     :param guid: a single guid as a string or list of guids.
     :return: a list of content items.
@@ -401,7 +401,7 @@ def get_content(connect_server: RSConnectServer, guid: str | list[str]):
 
 
 def search_content(
-    connect_server: RSConnectServer,
+    connect_server: PositConnectServer,
     published: bool,
     unpublished: bool,
     content_type: Sequence[str],
