@@ -76,7 +76,7 @@ from .models import (
     TaskStatusV1,
     UserRecord,
 )
-from .snowflake import ensure_snow_installed, generate_jwt, get_connection_parameters
+from .snowflake import generate_jwt, get_connection_parameters
 from .timeouts import get_task_timeout, get_task_timeout_help_message
 
 if TYPE_CHECKING:

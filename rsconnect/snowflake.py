@@ -1,6 +1,6 @@
 import json
 from subprocess import CalledProcessError, run
-from typing import Any, Dict, Optional, cast
+from typing import Optional
 
 from .exception import RSConnectException
 from .log import logger
@@ -13,7 +13,7 @@ def snow(*args: str):
 
 def ensure_snow_installed() -> None:
     try:
-        import snowflake.cli
+        import snowflake.cli  # noqa
 
         logger.debug("snowflake-cli is installed.")
 
@@ -33,7 +33,7 @@ def list_connections():
         res = snow("connection", "list", "--format", "json")
         connection_list = json.loads(res.stdout)
         return connection_list
-    except:
+    except CalledProcessError:
         raise RSConnectException("Could not list snowflake connections.")
 
 
@@ -64,7 +64,7 @@ def generate_jwt(name: Optional[str] = None):
         res = snow("connection", "generate-jwt", "--connection", connection_name, "--format", "json")
         try:
             output = json.loads(res.stdout)
-        except json.JSONDecodeError as e:
+        except json.JSONDecodeError:
             raise RSConnectException(f"Failed to parse JSON from snow-cli: {res.stdout}")
         jwt = output.get("message")
         if jwt is None:
