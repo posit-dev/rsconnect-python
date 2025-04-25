@@ -28,7 +28,7 @@ else:
 
 
 if TYPE_CHECKING:
-    from .api import RSConnectServer
+    from .api import PositConnectServer
 
 from .exception import RSConnectException
 from .log import logger
@@ -602,7 +602,7 @@ class ContentBuildStore(DataStore[Dict[str, object]]):
 
     def __init__(
         self,
-        server: RSConnectServer,
+        server: PositConnectServer,
         base_dir: str = os.getenv("CONNECT_CONTENT_BUILD_DIR", DEFAULT_BUILD_DIR),
     ):
         # This type declaration is a bit of a hack. It is needed because data model used

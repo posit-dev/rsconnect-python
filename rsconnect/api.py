@@ -259,7 +259,7 @@ class SPCSConnectServer(AbstractRemoteServer):
         self.api_key = None
         self.bootstrap_jwt = None
 
-    def token_endpoint(self):
+    def token_endpoint(self) -> str:
         params = get_connection_parameters(self.snowflake_connection_name)
 
         if params is None:
@@ -267,7 +267,7 @@ class SPCSConnectServer(AbstractRemoteServer):
 
         return "https://{}.snowflakecomputing.com/".format(params["account"])
 
-    def fmt_payload(self):
+    def fmt_payload(self) -> str:
         params = get_connection_parameters(self.snowflake_connection_name)
 
         if params is None:
@@ -282,7 +282,7 @@ class SPCSConnectServer(AbstractRemoteServer):
         payload = urlencode(payload)
         return payload
 
-    def exchange_token(self):
+    def exchange_token(self) -> str | bytes:
         try:
             server = HTTPServer(url=self.token_endpoint())
             payload = self.fmt_payload()
@@ -1880,7 +1880,7 @@ def verify_api_key(connect_server: RSConnectServer) -> str:
         return result["username"]
 
 
-def get_python_info(connect_server: RSConnectServer):
+def get_python_info(connect_server: PositConnectServer):
     """
     Return information about versions of Python that are installed on the indicated
     Connect server.
@@ -1894,7 +1894,7 @@ def get_python_info(connect_server: RSConnectServer):
         return result
 
 
-def get_app_info(connect_server: RSConnectServer, app_id: str):
+def get_app_info(connect_server: PositConnectServer, app_id: str):
     """
     Return information about an application that has been created in Connect.
 
@@ -1915,7 +1915,7 @@ def get_posit_app_info(server: PositServer, app_id: str):
             return response["source"]
 
 
-def get_app_config(connect_server: RSConnectServer, app_id: str):
+def get_app_config(connect_server: PositConnectServer, app_id: str):
     """
     Return the configuration information for an application that has been created
     in Connect.
@@ -1931,7 +1931,7 @@ def get_app_config(connect_server: RSConnectServer, app_id: str):
 
 
 def emit_task_log(
-    connect_server: RSConnectServer,
+    connect_server: PositConnectServer,
     app_id: str,
     task_id: str,
     log_callback: Optional[Callable[[str], None]],
@@ -1967,7 +1967,7 @@ def emit_task_log(
 
 
 def retrieve_matching_apps(
-    connect_server: RSConnectServer,
+    connect_server: PositConnectServer,
     filters: Optional[dict[str, str | int]] = None,
     limit: Optional[int] = None,
     mapping_function: Optional[Callable[[RSConnectClient, ContentItemV0], AbbreviatedAppItem | None]] = None,
@@ -2043,7 +2043,7 @@ class AbbreviatedAppItem(TypedDict):
     config_url: str
 
 
-def override_title_search(connect_server: RSConnectServer, app_id: str, app_title: str):
+def override_title_search(connect_server: PositConnectServer, app_id: str, app_title: str):
     """
     Returns a list of abbreviated app data that contains apps with a title
     that matches the given one and/or the specific app noted by its ID.
@@ -2124,7 +2124,7 @@ def find_unique_name(remote_server: TargetableServer, name: str):
     :param name: the default name for an app.
     :return: the name, potentially with a suffixed number to guarantee uniqueness.
     """
-    if isinstance(remote_server, RSConnectServer):
+    if isinstance(remote_server, PositConnectServer):
         existing_names = retrieve_matching_apps(
             remote_server,
             filters={"search": name},

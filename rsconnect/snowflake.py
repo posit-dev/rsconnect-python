@@ -1,19 +1,20 @@
+# pyright: reportMissingTypeStubs=false, reportUnusedImport=false
 import json
-from subprocess import CalledProcessError, run
-from typing import Optional
+from subprocess import CalledProcessError, CompletedProcess, run
+from typing import Any, Dict, List, Optional
 
 from .exception import RSConnectException
 from .log import logger
 
 
-def snow(*args: str):
+def snow(*args: str) -> CompletedProcess[str]:
     ensure_snow_installed()
     return run(["snow"] + list(args), capture_output=True, text=True, check=True)
 
 
 def ensure_snow_installed() -> None:
     try:
-        import snowflake.cli  # noqa
+        import snowflake.cli  # noqa: F401
 
         logger.debug("snowflake-cli is installed.")
 
@@ -27,7 +28,7 @@ def ensure_snow_installed() -> None:
             raise RSConnectException("snow cannot be found.")
 
 
-def list_connections():
+def list_connections() -> List[Dict[str, Any]]:
 
     try:
         res = snow("connection", "list", "--format", "json")
@@ -37,7 +38,7 @@ def list_connections():
         raise RSConnectException("Could not list snowflake connections.")
 
 
-def get_connection_parameters(name: Optional[str] = None):
+def get_connection_parameters(name: Optional[str] = None) -> Optional[Dict[str, Any]]:
 
     connection_list = list_connections()
     # return parameters for default connection if configured
@@ -55,7 +56,7 @@ def get_connection_parameters(name: Optional[str] = None):
         raise RSConnectException(f"No Snowflake connection found with name '{name}'.")
 
 
-def generate_jwt(name: Optional[str] = None):
+def generate_jwt(name: Optional[str] = None) -> str:
 
     _ = get_connection_parameters(name)
     connection_name = "" if name is None else name
