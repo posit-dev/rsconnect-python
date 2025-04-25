@@ -636,7 +636,9 @@ def list_servers(verbose: int):
                 if server.get("ca_cert"):
                     click.echo("    Client TLS certificate data provided")
                 if server.get("snowflake_connection_name"):
-                    click.echo('    Snowflake Connection Name: "%s"' % server["snowflake_connection_name"])
+                    snowflake_connection_name = server.get("snowflake_connection_name")
+                    if snowflake_connection_name:
+                        click.echo('    Snowflake Connection Name: "%s"' % snowflake_connection_name)
                 click.echo()
 
 

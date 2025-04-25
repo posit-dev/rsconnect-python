@@ -282,7 +282,7 @@ class SPCSConnectServer(AbstractRemoteServer):
         payload = urlencode(payload)
         return payload
 
-    def exchange_token(self) -> str | bytes:
+    def exchange_token(self) -> str:
         try:
             server = HTTPServer(url=self.token_endpoint())
             payload = self.fmt_payload()
@@ -313,6 +313,9 @@ class SPCSConnectServer(AbstractRemoteServer):
             if not response.response_body:
                 raise RSConnectException("Token exchange returned empty response")
 
+            # Ensure we return a string
+            if isinstance(response.response_body, bytes):
+                return response.response_body.decode("utf-8")
             return response.response_body
 
         except RSConnectException as e:
@@ -354,7 +357,7 @@ class RSConnectClient(HTTPServer):
         if server.bootstrap_jwt:
             self.bootstrap_authorization(server.bootstrap_jwt)
 
-        if server.snowflake_connection_name:
+        if server.snowflake_connection_name and isinstance(server, SPCSConnectServer):
             token = server.exchange_token()
             self.snowflake_authorization(token)
 
