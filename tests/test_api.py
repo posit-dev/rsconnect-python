@@ -502,6 +502,14 @@ class CloudServiceTestCase(TestCase):
         task_logs_response.response_body = "here's why it failed"
         self.cloud_client.get_task_logs.return_value = task_logs_response
 
+        with pytest.raises(DeploymentFailedException):
+            self.cloud_service.do_deploy(bundle_id, app_id)
+
+        self.cloud_client.set_bundle_status.assert_called_with(bundle_id, "ready")
+        self.cloud_client.deploy_application.assert_called_with(bundle_id, app_id)
+        self.cloud_client.wait_until_task_is_successful.assert_called_with(task_id)
+        self.cloud_client.get_task_logs.assert_called_with(task_id)
+
 
 class SPCSConnectServerTestCase(TestCase):
     def test_init(self):

@@ -254,7 +254,7 @@ def test_generate_jwt(monkeypatch: MonkeyPatch):
         elif conn_name == "prod":
             return MockSnowGenerateJWT()
         else:
-            raise subprocess.CalledProcessError(
+            raise CalledProcessError(
                 returncode=1,
                 cmd=["snow"] + list(args),
                 output="",
