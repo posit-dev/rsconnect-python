@@ -16,6 +16,9 @@ except ImportError:
     # Python 3.11+ has tomllib in the standard library
     import toml as tomllib  # type: ignore[no-redef]
 
+from .log import logger
+
+
 PEP440_OPERATORS_REGEX = r"(===|==|!=|<=|>=|<|>|~=)"
 VALID_VERSION_REQ_REGEX = rf"^({PEP440_OPERATORS_REGEX}?\d+(\.[\d\*]+)*)+$"
 
@@ -30,7 +33,12 @@ def detect_python_version_requirement(directory: typing.Union[str, pathlib.Path]
     """
     for _, metadata_file in lookup_metadata_file(directory):
         parser = get_python_version_requirement_parser(metadata_file)
-        version_constraint = parser(metadata_file)
+        try:
+            version_constraint = parser(metadata_file)
+        except InvalidVersionConstraintError as err:
+            logger.error(f"Invalid python version constraint in {metadata_file}, ignoring it: {err}")
+            continue
+
         if version_constraint:
             return version_constraint
 
@@ -126,15 +134,15 @@ def adapt_python_requires(
         for constraint in constraints:
             constraint = constraint.strip()
             if "@" in constraint or "-" in constraint or "/" in constraint:
-                raise ValueError(
-                    f"Invalid python version, python specific implementations are not supported: {constraint}"
+                raise InvalidVersionConstraintError(
+                    f"python specific implementations are not supported: {constraint}"
                 )
 
             if "b" in constraint or "rc" in constraint or "a" in constraint:
-                raise ValueError(f"Invalid python version, pre-release versions are not supported: {constraint}")
+                raise InvalidVersionConstraintError(f"pre-release versions are not supported: {constraint}")
 
             if re.match(VALID_VERSION_REQ_REGEX, constraint) is None:
-                raise ValueError(f"Invalid python version: {constraint}")
+                raise InvalidVersionConstraintError(f"Invalid python version: {constraint}")
 
             if re.search(PEP440_OPERATORS_REGEX, constraint):
                 yield constraint
@@ -146,3 +154,7 @@ def adapt_python_requires(
                     yield f"~={constraint.rstrip('0').rstrip('.')}"  # Remove trailing zeros and dots
 
     return ",".join(_adapt_contraint(current_contraints))
+
+
+class InvalidVersionConstraintError(ValueError):
+    pass

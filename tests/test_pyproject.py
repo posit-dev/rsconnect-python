@@ -11,6 +11,7 @@ from rsconnect.pyproject import (
     parse_pyproject_python_requires,
     parse_pyversion_python_requires,
     parse_setupcfg_python_requires,
+    InvalidVersionConstraintError
 )
 
 HERE = os.path.dirname(__file__)
@@ -150,25 +151,24 @@ def test_detect_python_version_requirement():
     [
         ("3.8", "~=3.8"),
         ("3.8.0", "~=3.8"),
-        ("3.8.0b1", ValueError("Invalid python version, pre-release versions are not supported: 3.8.0b1")),
-        ("3.8.0rc1", ValueError("Invalid python version, pre-release versions are not supported: 3.8.0rc1")),
-        ("3.8.0a1", ValueError("Invalid python version, pre-release versions are not supported: 3.8.0a1")),
+        ("3.8.0b1", InvalidVersionConstraintError("pre-release versions are not supported: 3.8.0b1")),
+        ("3.8.0rc1", InvalidVersionConstraintError("pre-release versions are not supported: 3.8.0rc1")),
+        ("3.8.0a1", InvalidVersionConstraintError("pre-release versions are not supported: 3.8.0a1")),
         ("3.8.*", "==3.8.*"),
         ("3.*", "==3.*"),
-        ("*", ValueError("Invalid python version: *")),
+        ("*", InvalidVersionConstraintError("Invalid python version: *")),
         # This is not perfect, but the added regex complexity doesn't seem worth it.
-        ("invalid", ValueError("Invalid python version, pre-release versions are not supported: invalid")),
-        ("pypi@3.1", ValueError("Invalid python version, python specific implementations are not supported: pypi@3.1")),
+        ("invalid", InvalidVersionConstraintError("pre-release versions are not supported: invalid")),
+        ("pypi@3.1", InvalidVersionConstraintError("python specific implementations are not supported: pypi@3.1")),
         (
             "cpython-3.12.3-macos-aarch64-none",
-            ValueError(
-                "Invalid python version, python specific implementations are not supported: "
-                "cpython-3.12.3-macos-aarch64-none"
+            InvalidVersionConstraintError(
+                "python specific implementations are not supported: cpython-3.12.3-macos-aarch64-none"
             ),
         ),
         (
             "/usr/bin/python3.8",
-            ValueError("Invalid python version, python specific implementations are not supported: /usr/bin/python3.8"),
+            InvalidVersionConstraintError("python specific implementations are not supported: /usr/bin/python3.8"),
         ),
         (">=3.8,<3.10", ">=3.8,<3.10"),
         (">=3.8, <*", ValueError("Invalid python version: <*")),
@@ -182,21 +182,19 @@ def test_python_version_file_adapt(content, expected):
 
     We should convert them to the constraints that connect expects.
     """
-    # delete=False is necessary on windows to reopen the file.
-    # Otherwise it can't be opened again.
-    # Ideally delete_on_close=False does what we need, but it's only >=3.12
-    with tempfile.NamedTemporaryFile(mode="w+", delete=False) as tmpfile:
-        tmpfile.write(content)
-        tmpfile.flush()
-        tmpfile.close()  # Also needed for windows to allow subsequent reading.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        versionfile = pathlib.Path(tmpdir) / ".python-version"
+        with open(versionfile, "w") as tmpfile:
+            tmpfile.write(content)
 
         try:
-            versionfile = pathlib.Path(tmpfile.name)
             if isinstance(expected, Exception):
                 with pytest.raises(expected.__class__) as excinfo:
                     parse_pyversion_python_requires(versionfile)
                 assert str(excinfo.value) == expected.args[0]
+                assert detect_python_version_requirement(tmpdir) is None
             else:
                 assert parse_pyversion_python_requires(versionfile) == expected
+                assert detect_python_version_requirement(tmpdir) == expected
         finally:
             os.remove(tmpfile.name)
