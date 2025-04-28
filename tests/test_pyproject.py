@@ -11,7 +11,7 @@ from rsconnect.pyproject import (
     parse_pyproject_python_requires,
     parse_pyversion_python_requires,
     parse_setupcfg_python_requires,
-    InvalidVersionConstraintError
+    InvalidVersionConstraintError,
 )
 
 HERE = os.path.dirname(__file__)

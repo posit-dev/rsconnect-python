@@ -134,9 +134,7 @@ def adapt_python_requires(
         for constraint in constraints:
             constraint = constraint.strip()
             if "@" in constraint or "-" in constraint or "/" in constraint:
-                raise InvalidVersionConstraintError(
-                    f"python specific implementations are not supported: {constraint}"
-                )
+                raise InvalidVersionConstraintError(f"python specific implementations are not supported: {constraint}")
 
             if "b" in constraint or "rc" in constraint or "a" in constraint:
                 raise InvalidVersionConstraintError(f"pre-release versions are not supported: {constraint}")
