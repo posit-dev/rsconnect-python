@@ -5,15 +5,19 @@ Metadata can only be loaded from static files (e.g. pyproject.toml, setup.cfg, e
 but not from setup.py due to its dynamic nature.
 """
 
-import pathlib
-import typing
 import configparser
+import pathlib
+import re
+import typing
 
 try:
     import tomllib
 except ImportError:
     # Python 3.11+ has tomllib in the standard library
     import toml as tomllib  # type: ignore[no-redef]
+
+PEP440_OPERATORS_REGEX = r"(===|==|!=|<=|>=|<|>|~=)"
+VALID_VERSION_REQ_REGEX = rf"^({PEP440_OPERATORS_REGEX}?\d+(\.[\d\*]+)*)+$"
 
 
 def detect_python_version_requirement(directory: typing.Union[str, pathlib.Path]) -> typing.Optional[str]:
@@ -103,5 +107,42 @@ def parse_pyversion_python_requires(pyversion_file: pathlib.Path) -> typing.Opti
 
     Returns None if the field is not found.
     """
-    content = pyversion_file.read_text()
-    return content.strip()
+    return adapt_python_requires(pyversion_file.read_text().strip())
+
+
+def adapt_python_requires(
+    python_requires: str,
+) -> str:
+    """Convert a literal python version to a PEP440 constraint.
+
+    Connect expects a PEP440 format, but the .python-version file can contain
+    plain version numbers and other formats.
+
+    We should convert them to the constraints that connect expects.
+    """
+    current_contraints = python_requires.split(",")
+
+    def _adapt_contraint(constraints: list[str]) -> typing.Generator[str, None, None]:
+        for constraint in constraints:
+            constraint = constraint.strip()
+            if "@" in constraint or "-" in constraint or "/" in constraint:
+                raise ValueError(
+                    f"Invalid python version, python specific implementations are not supported: {constraint}"
+                )
+
+            if "b" in constraint or "rc" in constraint or "a" in constraint:
+                raise ValueError(f"Invalid python version, pre-release versions are not supported: {constraint}")
+
+            if re.match(VALID_VERSION_REQ_REGEX, constraint) is None:
+                raise ValueError(f"Invalid python version: {constraint}")
+
+            if re.search(PEP440_OPERATORS_REGEX, constraint):
+                yield constraint
+            else:
+                # Convert to PEP440 format
+                if "*" in constraint:
+                    yield f"=={constraint}"
+                else:
+                    yield f"~={constraint.rstrip('0').rstrip('.')}"  # Remove trailing zeros and dots
+
+    return ",".join(_adapt_contraint(current_contraints))

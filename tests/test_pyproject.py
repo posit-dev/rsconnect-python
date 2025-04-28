@@ -1,16 +1,17 @@
 import os
 import pathlib
-
-from rsconnect.pyproject import (
-    lookup_metadata_file,
-    parse_pyproject_python_requires,
-    parse_setupcfg_python_requires,
-    parse_pyversion_python_requires,
-    get_python_version_requirement_parser,
-    detect_python_version_requirement,
-)
+import tempfile
 
 import pytest
+
+from rsconnect.pyproject import (
+    detect_python_version_requirement,
+    get_python_version_requirement_parser,
+    lookup_metadata_file,
+    parse_pyproject_python_requires,
+    parse_pyversion_python_requires,
+    parse_setupcfg_python_requires,
+)
 
 HERE = os.path.dirname(__file__)
 PROJECTS_DIRECTORY = os.path.abspath(os.path.join(HERE, "testdata", "python-project"))
@@ -142,3 +143,52 @@ def test_detect_python_version_requirement():
     assert detect_python_version_requirement(project_dir) == ">=3.8, <3.12"
 
     assert detect_python_version_requirement(os.path.join(PROJECTS_DIRECTORY, "empty")) is None
+
+
+@pytest.mark.parametrize(  # type: ignore
+    ["content", "expected"],
+    [
+        ("3.8", "~=3.8"),
+        ("3.8.0", "~=3.8"),
+        ("3.8.0b1", ValueError("Invalid python version, pre-release versions are not supported: 3.8.0b1")),
+        ("3.8.0rc1", ValueError("Invalid python version, pre-release versions are not supported: 3.8.0rc1")),
+        ("3.8.0a1", ValueError("Invalid python version, pre-release versions are not supported: 3.8.0a1")),
+        ("3.8.*", "==3.8.*"),
+        ("3.*", "==3.*"),
+        ("*", ValueError("Invalid python version: *")),
+        # This is not perfect, but the added regex complexity doesn't seem worth it.
+        ("invalid", ValueError("Invalid python version, pre-release versions are not supported: invalid")),
+        ("pypi@3.1", ValueError("Invalid python version, python specific implementations are not supported: pypi@3.1")),
+        (
+            "cpython-3.12.3-macos-aarch64-none",
+            ValueError(
+                "Invalid python version, python specific implementations are not supported: "
+                "cpython-3.12.3-macos-aarch64-none"
+            ),
+        ),
+        (
+            "/usr/bin/python3.8",
+            ValueError("Invalid python version, python specific implementations are not supported: /usr/bin/python3.8"),
+        ),
+    ],
+)
+def test_python_version_file_adapt(content, expected):
+    """Test that the python version is correctly converted to a PEP440 format.
+
+    Connect expects a PEP440 format, but the .python-version file can contain
+    plain version numbers and other formats.
+
+    We should convert them to the constraints that connect expects.
+    """
+    with tempfile.NamedTemporaryFile(mode="w+") as tmpfile:
+        tmpfile.write(content)
+        tmpfile.flush()
+
+        versionfile = pathlib.Path(tmpfile.name)
+
+        if isinstance(expected, Exception):
+            with pytest.raises(expected.__class__) as excinfo:
+                parse_pyversion_python_requires(versionfile)
+            assert str(excinfo.value) == expected.args[0]
+        else:
+            assert parse_pyversion_python_requires(versionfile) == expected
