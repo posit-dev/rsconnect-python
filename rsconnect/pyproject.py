@@ -122,7 +122,7 @@ def adapt_python_requires(
     """
     current_contraints = python_requires.split(",")
 
-    def _adapt_contraint(constraints: list[str]) -> typing.Generator[str, None, None]:
+    def _adapt_contraint(constraints: typing.List[str]) -> typing.Generator[str, None, None]:
         for constraint in constraints:
             constraint = constraint.strip()
             if "@" in constraint or "-" in constraint or "/" in constraint:

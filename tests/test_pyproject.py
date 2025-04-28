@@ -118,7 +118,7 @@ def test_setupcfg_python_requires(project_dir, expected):
 @pytest.mark.parametrize(
     "project_dir, expected",
     [
-        (os.path.join(PROJECTS_DIRECTORY, "using_pyversion"), ">=3.8, <3.12"),
+        (os.path.join(PROJECTS_DIRECTORY, "using_pyversion"), ">=3.8,<3.12"),
     ],
     ids=["option-exists"],
 )
@@ -140,7 +140,7 @@ def test_detect_python_version_requirement():
     version requirement is used.
     """
     project_dir = os.path.join(PROJECTS_DIRECTORY, "allofthem")
-    assert detect_python_version_requirement(project_dir) == ">=3.8, <3.12"
+    assert detect_python_version_requirement(project_dir) == ">=3.8,<3.12"
 
     assert detect_python_version_requirement(os.path.join(PROJECTS_DIRECTORY, "empty")) is None
 
@@ -182,15 +182,21 @@ def test_python_version_file_adapt(content, expected):
 
     We should convert them to the constraints that connect expects.
     """
-    with tempfile.NamedTemporaryFile(mode="w+") as tmpfile:
+    # delete=False is necessary on windows to reopen the file.
+    # Otherwise it can't be opened again.
+    # Ideally delete_on_close=False does what we need, but it's only >=3.12
+    with tempfile.NamedTemporaryFile(mode="w+", delete=False) as tmpfile:
         tmpfile.write(content)
         tmpfile.flush()
+        tmpfile.close()  # Also needed for windows to allow subsequent reading.
 
-        versionfile = pathlib.Path(tmpfile.name)
-
-        if isinstance(expected, Exception):
-            with pytest.raises(expected.__class__) as excinfo:
-                parse_pyversion_python_requires(versionfile)
-            assert str(excinfo.value) == expected.args[0]
-        else:
-            assert parse_pyversion_python_requires(versionfile) == expected
+        try:
+            versionfile = pathlib.Path(tmpfile.name)
+            if isinstance(expected, Exception):
+                with pytest.raises(expected.__class__) as excinfo:
+                    parse_pyversion_python_requires(versionfile)
+                assert str(excinfo.value) == expected.args[0]
+            else:
+                assert parse_pyversion_python_requires(versionfile) == expected
+        finally:
+            os.remove(tmpfile.name)
