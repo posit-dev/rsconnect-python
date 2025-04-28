@@ -170,6 +170,8 @@ def test_detect_python_version_requirement():
             "/usr/bin/python3.8",
             ValueError("Invalid python version, python specific implementations are not supported: /usr/bin/python3.8"),
         ),
+        (">=3.8,<3.10", ">=3.8,<3.10"),
+        (">=3.8, <*", ValueError("Invalid python version: <*")),
     ],
 )
 def test_python_version_file_adapt(content, expected):
