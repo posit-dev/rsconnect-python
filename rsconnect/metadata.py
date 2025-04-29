@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from io import BufferedWriter
 from os.path import abspath, basename, dirname, exists, join
 from threading import Lock
-from typing import TYPE_CHECKING, Callable, Dict, Generic, Mapping, Optional, TypeVar
+from typing import TYPE_CHECKING, Callable, Dict, Generic, Mapping, Optional, TypeVar, Union
 from urllib.parse import urlparse
 
 # Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
@@ -28,7 +28,7 @@ else:
 
 
 if TYPE_CHECKING:
-    from .api import PositConnectServer
+    from .api import RSConnectServer, SPCSConnectServer
 
 from .exception import RSConnectException
 from .log import logger
@@ -602,7 +602,7 @@ class ContentBuildStore(DataStore[Dict[str, object]]):
 
     def __init__(
         self,
-        server: PositConnectServer,
+        server: Union[RSConnectServer, SPCSConnectServer],
         base_dir: str = os.getenv("CONNECT_CONTENT_BUILD_DIR", DEFAULT_BUILD_DIR),
     ):
         # This type declaration is a bit of a hack. It is needed because data model used

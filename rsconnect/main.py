@@ -50,7 +50,6 @@ from .actions_content import (
     search_content,
 )
 from .api import (
-    PositConnectServer,
     RSConnectClient,
     RSConnectExecutor,
     RSConnectServer,
@@ -670,7 +669,7 @@ def details(
     set_verbosity(verbose)
 
     ce = RSConnectExecutor(ctx, name, server, api_key, snowflake_connection_name, insecure, cacert).validate_server()
-    if not isinstance(ce.remote_server, PositConnectServer):
+    if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
         raise RSConnectException("`rsconnect details` requires a Posit Connect server.")
 
     click.echo("    Posit Connect URL: %s" % ce.remote_server.url)
@@ -2422,7 +2421,7 @@ def content_search(
             cacert=cacert,
             logger=None,
         ).validate_server()
-        if not isinstance(ce.remote_server, PositConnectServer):
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
             raise RSConnectException("`rsconnect content search` requires a Posit Connect server.")
         result = search_content(
             ce.remote_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
@@ -2472,7 +2471,7 @@ def content_describe(
             cacert=cacert,
             logger=None,
         ).validate_server()
-        if not isinstance(ce.remote_server, PositConnectServer):
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
             raise RSConnectException("`rsconnect content describe` requires a Posit Connect server.")
         result = get_content(ce.remote_server, guid)
         json.dump(result, sys.stdout, indent=2)
@@ -2532,7 +2531,7 @@ def content_bundle_download(
             cacert=cacert,
             logger=None,
         ).validate_server()
-        if not isinstance(ce.remote_server, PositConnectServer):
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
             raise RSConnectException("`rsconnect content download-bundle` requires a Posit Connect server.")
         if exists(output) and not overwrite:
             raise RSConnectException("The output file already exists: %s" % output)
@@ -2589,7 +2588,7 @@ def add_content_build(
             cacert=cacert,
             logger=None,
         ).validate_server()
-        if not isinstance(ce.remote_server, PositConnectServer):
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
             raise RSConnectException("`rsconnect content build add` requires a Posit Connect server.")
         build_add_content(ce.remote_server, guid)
         if len(guid) == 1:
@@ -2708,7 +2707,7 @@ def list_content_build(
             cacert=cacert,
             logger=None,
         ).validate_server()
-        if not isinstance(ce.remote_server, PositConnectServer):
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
             raise RSConnectException("`rsconnect content build ls` requires a Posit Connect server.")
         result = build_list_content(ce.remote_server, guid, status)
         json.dump(result, sys.stdout, indent=2)
@@ -2753,7 +2752,7 @@ def get_build_history(
             logger=None,
         )
         ce.validate_server()
-        if not isinstance(ce.remote_server, PositConnectServer):
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
             raise RSConnectException("`rsconnect content build history` requires a Posit Connect server.")
         result = build_history(ce.remote_server, guid)
         json.dump(result, sys.stdout, indent=2)
@@ -2815,7 +2814,7 @@ def get_build_logs(
             cacert=cacert,
             logger=None,
         ).validate_server()
-        if not isinstance(ce.remote_server, PositConnectServer):
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
             raise RSConnectException("`rsconnect content build logs` requires a Posit Connect server.")
         for line in emit_build_log(ce.remote_server, guid, format, task_id):
             sys.stdout.write(line)
@@ -2901,7 +2900,7 @@ def start_content_build(
             cacert=cacert,
             logger=None,
         ).validate_server()
-        if not isinstance(ce.remote_server, PositConnectServer):
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
             raise RSConnectException("rsconnect content build run` requires a Posit Connect server.")
         build_start(ce.remote_server, parallelism, aborted, error, running, retry, all, poll_wait, debug, force)
 

@@ -323,7 +323,6 @@ class SPCSConnectServer(AbstractRemoteServer):
 
 
 TargetableServer = typing.Union[ShinyappsServer, RSConnectServer, CloudServer, SPCSConnectServer]
-PositConnectServer = typing.Union[RSConnectServer, SPCSConnectServer]
 
 
 class S3Server(AbstractRemoteServer):
@@ -340,7 +339,7 @@ class RSConnectClientDeployResult(TypedDict):
 
 
 class RSConnectClient(HTTPServer):
-    def __init__(self, server: PositConnectServer, cookies: Optional[CookieJar] = None):
+    def __init__(self, server: Union[RSConnectServer, SPCSConnectServer], cookies: Optional[CookieJar] = None):
         if cookies is None:
             cookies = server.cookie_jar
         super().__init__(
@@ -1007,7 +1006,7 @@ class RSConnectExecutor:
         if self.bundle is None:
             raise RSConnectException("A bundle must be created before deploying it.")
 
-        if isinstance(self.remote_server, PositConnectServer):
+        if isinstance(self.remote_server, (RSConnectServer, SPCSConnectServer)):
             if not isinstance(self.client, RSConnectClient):
                 raise RSConnectException("client must be an RSConnectClient.")
             result = self.client.deploy(
@@ -1086,7 +1085,7 @@ class RSConnectExecutor:
         :param raise_on_error: whether to raise an exception when a task is failed, otherwise we
         return the task_result so we can record the exit code.
         """
-        if isinstance(self.remote_server, PositConnectServer):
+        if isinstance(self.remote_server, (RSConnectServer, SPCSConnectServer)):
             if not isinstance(self.client, RSConnectClient):
                 raise RSConnectException("To emit task log, client must be a RSConnectClient.")
 
@@ -1128,7 +1127,7 @@ class RSConnectExecutor:
 
     @cls_logged("Verifying deployed content...")
     def verify_deployment(self):
-        if isinstance(self.remote_server, PositConnectServer):
+        if isinstance(self.remote_server, (RSConnectServer, SPCSConnectServer)):
             if not isinstance(self.client, RSConnectClient):
                 raise RSConnectException("To verify deployment, client must be a RSConnectClient.")
             deployed_info = self.deployed_info
@@ -1883,7 +1882,7 @@ def verify_api_key(connect_server: RSConnectServer) -> str:
         return result["username"]
 
 
-def get_python_info(connect_server: PositConnectServer):
+def get_python_info(connect_server: Union[RSConnectServer, SPCSConnectServer]):
     """
     Return information about versions of Python that are installed on the indicated
     Connect server.
@@ -1897,7 +1896,7 @@ def get_python_info(connect_server: PositConnectServer):
         return result
 
 
-def get_app_info(connect_server: PositConnectServer, app_id: str):
+def get_app_info(connect_server: Union[RSConnectServer, SPCSConnectServer], app_id: str):
     """
     Return information about an application that has been created in Connect.
 
@@ -1918,7 +1917,7 @@ def get_posit_app_info(server: PositServer, app_id: str):
             return response["source"]
 
 
-def get_app_config(connect_server: PositConnectServer, app_id: str):
+def get_app_config(connect_server: Union[RSConnectServer, SPCSConnectServer], app_id: str):
     """
     Return the configuration information for an application that has been created
     in Connect.
@@ -1934,7 +1933,7 @@ def get_app_config(connect_server: PositConnectServer, app_id: str):
 
 
 def emit_task_log(
-    connect_server: PositConnectServer,
+    connect_server: Union[RSConnectServer, SPCSConnectServer],
     app_id: str,
     task_id: str,
     log_callback: Optional[Callable[[str], None]],
@@ -1970,7 +1969,7 @@ def emit_task_log(
 
 
 def retrieve_matching_apps(
-    connect_server: PositConnectServer,
+    connect_server: Union[RSConnectServer, SPCSConnectServer],
     filters: Optional[dict[str, str | int]] = None,
     limit: Optional[int] = None,
     mapping_function: Optional[Callable[[RSConnectClient, ContentItemV0], AbbreviatedAppItem | None]] = None,
@@ -2046,7 +2045,7 @@ class AbbreviatedAppItem(TypedDict):
     config_url: str
 
 
-def override_title_search(connect_server: PositConnectServer, app_id: str, app_title: str):
+def override_title_search(connect_server: Union[RSConnectServer, SPCSConnectServer], app_id: str, app_title: str):
     """
     Returns a list of abbreviated app data that contains apps with a title
     that matches the given one and/or the specific app noted by its ID.
@@ -2127,7 +2126,7 @@ def find_unique_name(remote_server: TargetableServer, name: str):
     :param name: the default name for an app.
     :return: the name, potentially with a suffixed number to guarantee uniqueness.
     """
-    if isinstance(remote_server, PositConnectServer):
+    if isinstance(remote_server, (RSConnectServer, SPCSConnectServer)):
         existing_names = retrieve_matching_apps(
             remote_server,
             filters={"search": name},
