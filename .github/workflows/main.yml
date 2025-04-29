@@ -17,6 +17,7 @@ permissions:
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest]
         python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
@@ -254,5 +255,3 @@ jobs:
               name: cypress-screenshots_${{ matrix.PY_VERSION }}_native
               path: test/connect-rsconnect-python/cypress/screenshots
               if-no-files-found: ignore
-
-
