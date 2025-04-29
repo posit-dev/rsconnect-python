@@ -1,4 +1,6 @@
 # pyright: reportMissingTypeStubs=false, reportUnusedImport=false
+from __future__ import annotations
+
 import json
 from subprocess import CalledProcessError, CompletedProcess, run
 from typing import Any, Dict, List, Optional
