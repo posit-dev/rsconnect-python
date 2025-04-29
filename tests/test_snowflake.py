@@ -2,6 +2,7 @@ import json
 import logging
 import sys
 from subprocess import CalledProcessError
+from typing import List
 
 import pytest
 from pytest import LogCaptureFixture, MonkeyPatch
@@ -91,7 +92,7 @@ def test_ensure_snow_installed_binary(monkeypatch: MonkeyPatch, caplog: LogCaptu
     monkeypatch.setattr("builtins.__import__", mock_failed_import)
 
     # Mock run to return success
-    def mock_run(cmd: list[str], **kwargs):
+    def mock_run(cmd: List[str], **kwargs):
         assert cmd == ["snow", "--version"]
         assert kwargs.get("capture_output") is True
         assert kwargs.get("check") is True
@@ -116,7 +117,7 @@ def test_ensure_snow_installed_nobinary(monkeypatch: MonkeyPatch, caplog: LogCap
     monkeypatch.setattr("builtins.__import__", mock_failed_import)
 
     # Mock run to raise FileNotFoundError
-    def mock_run(cmd: list[str], **kwargs):
+    def mock_run(cmd: List[str], **kwargs):
         if cmd == ["snow", "--version"]:
             raise FileNotFoundError("No such file or directory: 'snow'")
         return MockRunResult(returncode=0)
@@ -142,7 +143,7 @@ def test_ensure_snow_installed_failing_binary(monkeypatch: MonkeyPatch, caplog: 
     monkeypatch.setattr("builtins.__import__", mock_failed_import)
 
     # Mock run to raise CalledProcessError
-    def mock_run(cmd: list[str], **kwargs):
+    def mock_run(cmd: List[str], **kwargs):
         if cmd == ["snow", "--version"]:
             raise CalledProcessError(returncode=1, cmd=cmd, output="", stderr="Command failed with exit code 1")
         return MockRunResult(returncode=0)
