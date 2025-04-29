@@ -1,16 +1,18 @@
 import os
 import pathlib
-
-from rsconnect.pyproject import (
-    lookup_metadata_file,
-    parse_pyproject_python_requires,
-    parse_setupcfg_python_requires,
-    parse_pyversion_python_requires,
-    get_python_version_requirement_parser,
-    detect_python_version_requirement,
-)
+import tempfile
 
 import pytest
+
+from rsconnect.pyproject import (
+    detect_python_version_requirement,
+    get_python_version_requirement_parser,
+    lookup_metadata_file,
+    parse_pyproject_python_requires,
+    parse_pyversion_python_requires,
+    parse_setupcfg_python_requires,
+    InvalidVersionConstraintError,
+)
 
 HERE = os.path.dirname(__file__)
 PROJECTS_DIRECTORY = os.path.abspath(os.path.join(HERE, "testdata", "python-project"))
@@ -117,7 +119,7 @@ def test_setupcfg_python_requires(project_dir, expected):
 @pytest.mark.parametrize(
     "project_dir, expected",
     [
-        (os.path.join(PROJECTS_DIRECTORY, "using_pyversion"), ">=3.8, <3.12"),
+        (os.path.join(PROJECTS_DIRECTORY, "using_pyversion"), ">=3.8,<3.12"),
     ],
     ids=["option-exists"],
 )
@@ -139,6 +141,60 @@ def test_detect_python_version_requirement():
     version requirement is used.
     """
     project_dir = os.path.join(PROJECTS_DIRECTORY, "allofthem")
-    assert detect_python_version_requirement(project_dir) == ">=3.8, <3.12"
+    assert detect_python_version_requirement(project_dir) == ">=3.8,<3.12"
 
     assert detect_python_version_requirement(os.path.join(PROJECTS_DIRECTORY, "empty")) is None
+
+
+@pytest.mark.parametrize(  # type: ignore
+    ["content", "expected"],
+    [
+        ("3.8", "~=3.8"),
+        ("3.8.0", "~=3.8"),
+        ("3.8.0b1", InvalidVersionConstraintError("pre-release versions are not supported: 3.8.0b1")),
+        ("3.8.0rc1", InvalidVersionConstraintError("pre-release versions are not supported: 3.8.0rc1")),
+        ("3.8.0a1", InvalidVersionConstraintError("pre-release versions are not supported: 3.8.0a1")),
+        ("3.8.*", "==3.8.*"),
+        ("3.*", "==3.*"),
+        ("*", InvalidVersionConstraintError("Invalid python version: *")),
+        # This is not perfect, but the added regex complexity doesn't seem worth it.
+        ("invalid", InvalidVersionConstraintError("pre-release versions are not supported: invalid")),
+        ("pypi@3.1", InvalidVersionConstraintError("python specific implementations are not supported: pypi@3.1")),
+        (
+            "cpython-3.12.3-macos-aarch64-none",
+            InvalidVersionConstraintError(
+                "python specific implementations are not supported: cpython-3.12.3-macos-aarch64-none"
+            ),
+        ),
+        (
+            "/usr/bin/python3.8",
+            InvalidVersionConstraintError("python specific implementations are not supported: /usr/bin/python3.8"),
+        ),
+        (">=3.8,<3.10", ">=3.8,<3.10"),
+        (">=3.8, <*", ValueError("Invalid python version: <*")),
+    ],
+)
+def test_python_version_file_adapt(content, expected):
+    """Test that the python version is correctly converted to a PEP440 format.
+
+    Connect expects a PEP440 format, but the .python-version file can contain
+    plain version numbers and other formats.
+
+    We should convert them to the constraints that connect expects.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        versionfile = pathlib.Path(tmpdir) / ".python-version"
+        with open(versionfile, "w") as tmpfile:
+            tmpfile.write(content)
+
+        try:
+            if isinstance(expected, Exception):
+                with pytest.raises(expected.__class__) as excinfo:
+                    parse_pyversion_python_requires(versionfile)
+                assert str(excinfo.value) == expected.args[0]
+                assert detect_python_version_requirement(tmpdir) is None
+            else:
+                assert parse_pyversion_python_requires(versionfile) == expected
+                assert detect_python_version_requirement(tmpdir) == expected
+        finally:
+            os.remove(tmpfile.name)
