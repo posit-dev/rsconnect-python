@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added support for interaction with Posit Connect deployments
+  hosted in Snowpark Container Services.
 - `rsconnect` now detects Python interpreter version requirements from
   `.python-version`, `pyproject.toml` and `setup.cfg`
 - `--python` and `--override-python-version` options are now deprecated
