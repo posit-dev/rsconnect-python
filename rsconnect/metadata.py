@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from io import BufferedWriter
 from os.path import abspath, basename, dirname, exists, join
 from threading import Lock
-from typing import TYPE_CHECKING, Callable, Dict, Generic, Mapping, Optional, TypeVar
+from typing import TYPE_CHECKING, Callable, Dict, Generic, Mapping, Optional, TypeVar, Union
 from urllib.parse import urlparse
 
 # Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
@@ -28,7 +28,7 @@ else:
 
 
 if TYPE_CHECKING:
-    from .api import RSConnectServer
+    from .api import RSConnectServer, SPCSConnectServer
 
 from .exception import RSConnectException
 from .log import logger
@@ -244,6 +244,7 @@ class ServerDataDict(TypedDict):
     name: str
     url: str
     api_key: NotRequired[str]
+    snowflake_connection_name: NotRequired[str]
     insecure: NotRequired[bool]
     ca_cert: NotRequired[str]
     account_name: NotRequired[str]
@@ -263,6 +264,7 @@ class ServerData:
         url: str,
         from_store: bool,
         api_key: Optional[str] = None,
+        snowflake_connection_name: Optional[str] = None,
         insecure: Optional[bool] = None,
         ca_data: Optional[str] = None,
         account_name: Optional[str] = None,
@@ -273,6 +275,7 @@ class ServerData:
         self.url = url
         self.from_store = from_store
         self.api_key = api_key
+        self.snowflake_connection_name = snowflake_connection_name
         self.insecure = insecure
         self.ca_data = ca_data
         self.account_name = account_name
@@ -320,6 +323,7 @@ class ServerStore(DataStore[ServerDataDict]):
         name: str,
         url: str,
         api_key: Optional[str] = None,
+        snowflake_connection_name: Optional[str] = None,
         insecure: Optional[bool] = False,
         ca_data: Optional[str] = None,
         account_name: Optional[str] = None,
@@ -332,6 +336,7 @@ class ServerStore(DataStore[ServerDataDict]):
         :param name: the nickname for the Connect server.
         :param url: the full URL for the Connect server.
         :param api_key: the API key to use to authenticate with the Connect server.
+        :param snowflake_connection_name: the snowflake connection name
         :param insecure: a flag to disable TLS verification.
         :param ca_data: client side certificate data to use for TLS.
         :param account_name: shinyapps.io account name.
@@ -344,6 +349,8 @@ class ServerStore(DataStore[ServerDataDict]):
         }
         if api_key:
             target_data = dict(api_key=api_key, insecure=insecure, ca_cert=ca_data)
+        elif snowflake_connection_name:
+            target_data = dict(snowflake_connection_name=snowflake_connection_name)
         elif account_name:
             target_data = dict(account_name=account_name, token=token, secret=secret)
         else:
@@ -409,6 +416,7 @@ class ServerStore(DataStore[ServerDataDict]):
                 insecure=entry.get("insecure"),
                 ca_data=entry.get("ca_cert"),
                 api_key=entry.get("api_key"),
+                snowflake_connection_name=entry.get("snowflake_connection_name"),
                 account_name=entry.get("account_name"),
                 token=entry.get("token"),
                 secret=entry.get("secret"),
@@ -594,7 +602,7 @@ class ContentBuildStore(DataStore[Dict[str, object]]):
 
     def __init__(
         self,
-        server: RSConnectServer,
+        server: Union[RSConnectServer, SPCSConnectServer],
         base_dir: str = os.getenv("CONNECT_CONTENT_BUILD_DIR", DEFAULT_BUILD_DIR),
     ):
         # This type declaration is a bit of a hack. It is needed because data model used
