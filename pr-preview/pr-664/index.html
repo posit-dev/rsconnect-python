@@ -1,0 +1,2844 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+      
+        <link rel="next" href="commands/add/">
+      
+      
+      <link rel="icon" href="images/favicon.ico">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.12">
+    
+    
+      
+        <title>Posit Connect: rsconnect-python</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.2afb09e1.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Open Sans";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="docs/css/custom.css">
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+<!-- Google Analytics 4 (G-XXXXXXXXXX) -->
+<script>
+    /* Use GA when hosted by our public docs site, not when installed. */
+    if (location.href.indexOf("docs.posit.co") >= 0) {
+        window.dataLayer = window.dataLayer || []
+        function gtag() { dataLayer.push(arguments) }
+        /* Set up integration and send page view */
+        gtag("js", new Date())
+        gtag("config", "")
+
+        /* Register virtual event handlers */
+        document.addEventListener("DOMContentLoaded", function () {
+            if (document.forms.search) {
+                var query = document.forms.search.query
+                query.addEventListener("blur", function () {
+                    if (this.value) {
+                        gtag("event", "search", { search_term: this.value })
+                    }
+                })
+            }
+
+            /* Send page view on location change */
+            if (typeof location$ !== "undefined")
+                location$.subscribe(function (url) {
+                    gtag("config", "", {
+                        page_path: url.pathname
+                    })
+                })
+        })
+        /* Create script tag */
+        var script = document.createElement("script")
+        script.async = true
+        script.src = "https://www.googletagmanager.com/gtag/js?id="
+
+        /* Inject script tag */
+        var container = document.getElementsByTagName("head")[0]
+        var firstChild = container.firstChild
+        container.insertBefore(script, firstChild)
+    }
+</script>
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#the-rsconnect-python-cli" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="header.title">
+    <a href="." title="Posit Connect: rsconnect-python" class="md-header__button md-logo" aria-label="Posit Connect: rsconnect-python">
+      
+  <img src="images/iconPositConnect.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Posit Connect: rsconnect-python
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Home
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="md-header__options">
+      
+    </div>
+        <!-- Color palette -->
+        
+        <form class="md-header__option" data-md-component="palette">
+          
+            
+            
+            <input
+              class="md-option"
+              data-md-color-media="(prefers-color-scheme)"
+              data-md-color-scheme=""
+              data-md-color-primary="white"
+              data-md-color-accent="blue"
+              type="radio"
+              name="__palette"
+              id="__palette_1"
+            />
+            
+              <label
+                class="md-header__button md-icon"
+                title="Switch to light mode"
+                for="__palette_3"
+                hidden
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+              </label>
+            
+          
+            
+            
+            <input
+              class="md-option"
+              data-md-color-media=""
+              data-md-color-scheme="default"
+              data-md-color-primary="white"
+              data-md-color-accent=""
+              type="radio"
+              name="__palette"
+              id="__palette_2"
+            />
+            
+              <label
+                class="md-header__button md-icon"
+                title="Switch to dark mode"
+                for="__palette_1"
+                hidden
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+              </label>
+            
+          
+            
+            
+            <input
+              class="md-option"
+              data-md-color-media=""
+              data-md-color-scheme="slate"
+              data-md-color-primary="black"
+              data-md-color-accent=""
+              type="radio"
+              name="__palette"
+              id="__palette_3"
+            />
+            
+              <label
+                class="md-header__button md-icon"
+                title="Switch to light mode"
+                for="__palette_2"
+                hidden
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+              </label>
+            
+          
+        </form>
+      
+    <div class="md-flex__cell md-flex__cell--shrink left-nav">
+      <ul class="md-tabs__list">
+        <li class="md-tabs__item"><a href="./changelog/" title="Release Notes" class="md-tabs__link md-source">Release Notes</a></li>
+        <li class="md-tabs__item"><a href="https://support.posit.co/hc/en-us" title="Posit Support" class="md-tabs__link md-source">Help</a></li>
+      </ul>
+    </div>
+    
+    
+  </nav>
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="Posit Connect: rsconnect-python" class="md-nav__button md-logo" aria-label="Posit Connect: rsconnect-python" data-md-component="logo">
+      
+  <img src="images/iconPositConnect.svg" alt="logo">
+
+    </a>
+    Posit Connect: rsconnect-python
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="." class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-rsconnect-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the rsconnect CLI
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setting-up-rsconnect-cli-auto-completion" class="md-nav__link">
+    <span class="md-ellipsis">
+      Setting up rsconnect CLI auto-completion
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setting up rsconnect CLI auto-completion">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bash" class="md-nav__link">
+    <span class="md-ellipsis">
+      bash
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#zsh" class="md-nav__link">
+    <span class="md-ellipsis">
+      zsh
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#managing-server-information" class="md-nav__link">
+    <span class="md-ellipsis">
+      Managing Server Information
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Managing Server Information">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tls-support-and-posit-connect" class="md-nav__link">
+    <span class="md-ellipsis">
+      TLS Support and Posit Connect
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#remembering-server-information" class="md-nav__link">
+    <span class="md-ellipsis">
+      Remembering Server Information
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listing-server-information" class="md-nav__link">
+    <span class="md-ellipsis">
+      Listing Server Information
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removing-server-information" class="md-nav__link">
+    <span class="md-ellipsis">
+      Removing Server Information
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verifying-server-information" class="md-nav__link">
+    <span class="md-ellipsis">
+      Verifying Server Information
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notebook-deployment-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      Notebook Deployment Options
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Notebook Deployment Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#including-extra-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      Including Extra Files
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#package-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      Package Dependencies
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#python-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      Python Version
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#static-snapshot-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Static (Snapshot) Deployment
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#creating-a-manifest-for-future-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating a Manifest for Future Deployment
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#apiapplication-deployment-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      API/Application Deployment Options
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API/Application Deployment Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#including-extra-files_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Including Extra Files
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#package-dependencies_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Package Dependencies
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#python-version_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Python Version
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#creating-a-manifest-for-future-deployment_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating a Manifest for Future Deployment
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploying-r-or-other-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deploying R or Other Content
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#options-for-all-types-of-deployments" class="md-nav__link">
+    <span class="md-ellipsis">
+      Options for All Types of Deployments
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Options for All Types of Deployments">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#title" class="md-nav__link">
+    <span class="md-ellipsis">
+      Title
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verification-after-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Verification After Deployment
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      Environment variables
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#network-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      Network Options
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Network Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tlsssl-certificates" class="md-nav__link">
+    <span class="md-ellipsis">
+      TLS/SSL Certificates
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updating-a-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Updating a Deployment
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Updating a Deployment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#forcing-a-new-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Forcing a New Deployment
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#updating-a-different-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Updating a Different Deployment
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Updating a Different Deployment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#finding-the-app-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      Finding the App ID
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#showing-the-deployment-information" class="md-nav__link">
+    <span class="md-ellipsis">
+      Showing the Deployment Information
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stored-information-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      Stored Information Files
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Stored Information Files">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#deployment-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deployment Data
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hide-jupyter-notebook-input-code-cells" class="md-nav__link">
+    <span class="md-ellipsis">
+      Hide Jupyter Notebook Input Code Cells
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#content-subcommands" class="md-nav__link">
+    <span class="md-ellipsis">
+      Content subcommands
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Content subcommands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#content-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      Content Search
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#content-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      Content Build
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rebuilding-lots-of-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      Rebuilding lots of content
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-usage-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Usage Examples
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Usage Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#searching-for-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      Searching for content
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finding-r-and-python-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Finding r and python versions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finding-recently-deployed-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      Finding recently deployed content
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add-to-build-from-search-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Add to build from search results
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#programmatic-provisioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      Programmatic Provisioning
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#server-administration-tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Server Administration Tasks
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Server Administration Tasks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#enumerate-runtime-caches" class="md-nav__link">
+    <span class="md-ellipsis">
+      Enumerate Runtime Caches
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-runtime-caches" class="md-nav__link">
+    <span class="md-ellipsis">
+      Delete Runtime Caches
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    CLI reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            CLI reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_1" id="__nav_2_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    rsconnect
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_1">
+            <span class="md-nav__icon md-icon"></span>
+            rsconnect
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="commands/add/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    add
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="commands/bootstrap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    bootstrap
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="commands/content/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    content
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="commands/deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    deploy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="commands/details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    details
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="commands/info/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    info
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="commands/list/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    list
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="commands/remove/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    remove
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="commands/system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    system
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="commands/version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    version
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="commands/write-manifest/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    write-manifest
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-rsconnect-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the rsconnect CLI
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#setting-up-rsconnect-cli-auto-completion" class="md-nav__link">
+    <span class="md-ellipsis">
+      Setting up rsconnect CLI auto-completion
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Setting up rsconnect CLI auto-completion">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bash" class="md-nav__link">
+    <span class="md-ellipsis">
+      bash
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#zsh" class="md-nav__link">
+    <span class="md-ellipsis">
+      zsh
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#managing-server-information" class="md-nav__link">
+    <span class="md-ellipsis">
+      Managing Server Information
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Managing Server Information">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tls-support-and-posit-connect" class="md-nav__link">
+    <span class="md-ellipsis">
+      TLS Support and Posit Connect
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#remembering-server-information" class="md-nav__link">
+    <span class="md-ellipsis">
+      Remembering Server Information
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listing-server-information" class="md-nav__link">
+    <span class="md-ellipsis">
+      Listing Server Information
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removing-server-information" class="md-nav__link">
+    <span class="md-ellipsis">
+      Removing Server Information
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verifying-server-information" class="md-nav__link">
+    <span class="md-ellipsis">
+      Verifying Server Information
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notebook-deployment-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      Notebook Deployment Options
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Notebook Deployment Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#including-extra-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      Including Extra Files
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#package-dependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      Package Dependencies
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#python-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      Python Version
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#static-snapshot-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Static (Snapshot) Deployment
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#creating-a-manifest-for-future-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating a Manifest for Future Deployment
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#apiapplication-deployment-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      API/Application Deployment Options
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API/Application Deployment Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#including-extra-files_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Including Extra Files
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#package-dependencies_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Package Dependencies
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#python-version_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Python Version
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#creating-a-manifest-for-future-deployment_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating a Manifest for Future Deployment
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploying-r-or-other-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deploying R or Other Content
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#options-for-all-types-of-deployments" class="md-nav__link">
+    <span class="md-ellipsis">
+      Options for All Types of Deployments
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Options for All Types of Deployments">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#title" class="md-nav__link">
+    <span class="md-ellipsis">
+      Title
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verification-after-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Verification After Deployment
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      Environment variables
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#network-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      Network Options
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Network Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tlsssl-certificates" class="md-nav__link">
+    <span class="md-ellipsis">
+      TLS/SSL Certificates
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#updating-a-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Updating a Deployment
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Updating a Deployment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#forcing-a-new-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Forcing a New Deployment
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#updating-a-different-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Updating a Different Deployment
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Updating a Different Deployment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#finding-the-app-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      Finding the App ID
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#showing-the-deployment-information" class="md-nav__link">
+    <span class="md-ellipsis">
+      Showing the Deployment Information
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stored-information-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      Stored Information Files
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Stored Information Files">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#deployment-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deployment Data
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hide-jupyter-notebook-input-code-cells" class="md-nav__link">
+    <span class="md-ellipsis">
+      Hide Jupyter Notebook Input Code Cells
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#content-subcommands" class="md-nav__link">
+    <span class="md-ellipsis">
+      Content subcommands
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Content subcommands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#content-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      Content Search
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#content-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      Content Build
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rebuilding-lots-of-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      Rebuilding lots of content
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-usage-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Usage Examples
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Common Usage Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#searching-for-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      Searching for content
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finding-r-and-python-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Finding r and python versions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finding-recently-deployed-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      Finding recently deployed content
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add-to-build-from-search-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Add to build from search results
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#programmatic-provisioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      Programmatic Provisioning
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#server-administration-tasks" class="md-nav__link">
+    <span class="md-ellipsis">
+      Server Administration Tasks
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Server Administration Tasks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#enumerate-runtime-caches" class="md-nav__link">
+    <span class="md-ellipsis">
+      Enumerate Runtime Caches
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-runtime-caches" class="md-nav__link">
+    <span class="md-ellipsis">
+      Delete Runtime Caches
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="the-rsconnect-python-cli">The rsconnect-python CLI<a class="headerlink" href="#the-rsconnect-python-cli" title="Permanent link">#</a></h1>
+<p>This package provides a CLI (command-line interface) for interacting
+with and deploying to Posit Connect. Many types of content supported by Posit
+Connect may be deployed by this package, including WSGI-style APIs, Dash, Streamlit,
+Gradio, and Bokeh applications.</p>
+<p>Content types not directly supported by the CLI may also be deployed if they include a
+prepared <code>manifest.json</code> file. See <a href="#deploying-r-or-other-content">"Deploying R or Other
+Content"</a> for details.</p>
+<h3 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">#</a></h3>
+<p>To install <code>rsconnect-python</code> from PYPI, you may use any python package manager such as
+pip:</p>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>rsconnect-python
+</code></pre></div>
+<p>You may also build and install a wheel directly from a repository clone:</p>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/posit-dev/rsconnect-python.git
+<span class="nb">cd</span><span class="w"> </span>rsconnect-python
+pip<span class="w"> </span>install<span class="w"> </span>pipenv
+make<span class="w"> </span>dist
+pip<span class="w"> </span>install<span class="w"> </span>./dist/rsconnect_python-*.whl
+</code></pre></div>
+<h3 id="using-the-rsconnect-cli">Using the rsconnect CLI<a class="headerlink" href="#using-the-rsconnect-cli" title="Permanent link">#</a></h3>
+<p>Here's an example command that deploys a Jupyter notebook to Posit Connect.</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--server<span class="w"> </span>https://connect.example.org<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--api-key<span class="w"> </span>my-api-key<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>my-notebook.ipynb
+</code></pre></div>
+<blockquote>
+<p><strong>Note</strong>
+The examples here use long command line options, but there are short
+options (<code>-s</code>, <code>-k</code>, etc.) available also. Run <code>rsconnect deploy notebook --help</code>
+for details.</p>
+</blockquote>
+<h3 id="setting-up-rsconnect-cli-auto-completion">Setting up <code>rsconnect</code> CLI auto-completion<a class="headerlink" href="#setting-up-rsconnect-cli-auto-completion" title="Permanent link">#</a></h3>
+<p>If you would like to use your shell's tab completion support with the <code>rsconnect</code>
+command, use the command below for the shell you are using.</p>
+<h4 id="bash"><code>bash</code><a class="headerlink" href="#bash" title="Permanent link">#</a></h4>
+<p>If you are using the <code>bash</code> shell, use this to enable tab completion.</p>
+<div class="highlight"><pre><span></span><code><span class="c1">#~/.bashrc</span>
+<span class="nb">eval</span><span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span><span class="nv">_RSCONNECT_COMPLETE</span><span class="o">=</span><span class="nb">source</span><span class="w"> </span>rsconnect<span class="k">)</span><span class="s2">&quot;</span>
+</code></pre></div>
+<h4 id="zsh"><code>zsh</code><a class="headerlink" href="#zsh" title="Permanent link">#</a></h4>
+<p>If you are using the <code>zsh</code> shell, use this to enable tab completion.</p>
+<div class="highlight"><pre><span></span><code><span class="c1">#~/.zshrc</span>
+<span class="nb">eval</span><span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span><span class="nv">_RSCONNECT_COMPLETE</span><span class="o">=</span>source_zsh<span class="w"> </span>rsconnect<span class="k">)</span><span class="s2">&quot;</span>
+</code></pre></div>
+<p>If you get <code>command not found: compdef</code>, you need to add the following lines to your
+<code>.zshrc</code> before the completion setup:</p>
+<div class="highlight"><pre><span></span><code><span class="c1">#~/.zshrc</span>
+autoload<span class="w"> </span>-Uz<span class="w"> </span>compinit
+compinit
+</code></pre></div>
+<h3 id="managing-server-information">Managing Server Information<a class="headerlink" href="#managing-server-information" title="Permanent link">#</a></h3>
+<p>The information used by the <code>rsconnect</code> command to communicate with a Posit Connect
+server can be tedious to repeat on every command. To help, the CLI supports the idea
+of saving this information, making it usable by a simple nickname.</p>
+<blockquote>
+<p><strong>Warning</strong>
+One item of information saved is the API key used to authenticate with
+Posit Connect. Although the file where this information is saved is marked as
+accessible by the owner only, it's important to remember that the key is present
+in the file as plain text so care must be taken to prevent any unauthorized access
+to the server information file.</p>
+</blockquote>
+<h4 id="tls-support-and-posit-connect">TLS Support and Posit Connect<a class="headerlink" href="#tls-support-and-posit-connect" title="Permanent link">#</a></h4>
+<p>Usually, a Posit Connect server will be set up to be accessed in a secure manner,
+using the <code>https</code> protocol rather than simple <code>http</code>. If Posit Connect is set up
+with a self-signed certificate, you will need to include the <code>--insecure</code> flag on
+all commands. If Posit Connect is set up to require a client-side certificate chain,
+you will need to include the <code>--cacert</code> option that points to your certificate
+authority (CA) trusted certificates file. Both of these options can be saved along
+with the URL and API Key for a server.</p>
+<blockquote>
+<p><strong>Note</strong>
+When certificate information is saved for the server, the specified file
+is read and its <em>contents</em> are saved under the server's nickname. If the CA file's
+contents are ever changed, you will need to add the server information again.</p>
+</blockquote>
+<p>See the <a href="#network-options">Network Options</a> section for more details about these options.</p>
+<h4 id="remembering-server-information">Remembering Server Information<a class="headerlink" href="#remembering-server-information" title="Permanent link">#</a></h4>
+<p>Use the <code>add</code> command to store information about a Posit Connect server:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>add<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--api-key<span class="w"> </span>my-api-key<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--server<span class="w"> </span>https://connect.example.org<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--name<span class="w"> </span>myserver
+</code></pre></div>
+<blockquote>
+<p><strong>Note</strong>
+The <code>rsconnect</code> CLI will verify that the serve URL and API key
+are valid. If either is found not to be, no information will be saved.</p>
+</blockquote>
+<p>If any of the access information for the server changes, simply rerun the
+<code>add</code> command with the new information and it will replace the original
+information.</p>
+<p>Once the server's information is saved, you can refer to it by its nickname:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--name<span class="w"> </span>myserver<span class="w"> </span>my-notebook.ipynb
+</code></pre></div>
+<p>If there is information for only one server saved, this will work too:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>my-notebook.ipynb
+</code></pre></div>
+<h4 id="listing-server-information">Listing Server Information<a class="headerlink" href="#listing-server-information" title="Permanent link">#</a></h4>
+<p>You can see the list of saved server information with:</p>
+<div class="highlight"><pre><span></span><code>rsconnect list
+</code></pre></div>
+<h4 id="removing-server-information">Removing Server Information<a class="headerlink" href="#removing-server-information" title="Permanent link">#</a></h4>
+<p>You can remove information about a server with:</p>
+<div class="highlight"><pre><span></span><code>rsconnect remove --name myserver
+</code></pre></div>
+<p>Removing may be done by its nickname (<code>--name</code>) or URL (<code>--server</code>).</p>
+<h3 id="verifying-server-information">Verifying Server Information<a class="headerlink" href="#verifying-server-information" title="Permanent link">#</a></h3>
+<p>You can verify that a URL refers to a running instance of Posit Connect by using
+the <code>details</code> command:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>details<span class="w"> </span>--server<span class="w"> </span>https://connect.example.org
+</code></pre></div>
+<p>In this form, <code>rsconnect</code> will only tell you whether the URL given does, in fact, refer
+to a running Posit Connect instance. If you include a valid API key:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>details<span class="w"> </span>--server<span class="w"> </span>https://connect.example.org<span class="w"> </span>--api-key<span class="w"> </span>my-api-key
+</code></pre></div>
+<p>the tool will provide the version of Posit Connect (if the server is configured to
+divulge that information) and environmental information including versions of Python
+that are installed on the server.</p>
+<p>You can also use nicknames with the <code>details</code> command if you want to verify that the
+stored information is still valid.</p>
+<h3 id="notebook-deployment-options">Notebook Deployment Options<a class="headerlink" href="#notebook-deployment-options" title="Permanent link">#</a></h3>
+<p>There are a variety of options available to you when deploying a Jupyter notebook to
+Posit Connect.</p>
+<h4 id="including-extra-files">Including Extra Files<a class="headerlink" href="#including-extra-files" title="Permanent link">#</a></h4>
+<p>You can include extra files in the deployment bundle to make them available when your
+notebook is run by the Posit Connect server. Just specify them on the command line
+after the notebook file:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>my-notebook.ipynb<span class="w"> </span>data.csv
+</code></pre></div>
+<h4 id="package-dependencies">Package Dependencies<a class="headerlink" href="#package-dependencies" title="Permanent link">#</a></h4>
+<p>If a <code>requirements.txt</code> file exists in the same directory as the notebook file, it will
+be included in the bundle. It must specify the package dependencies needed to execute
+the notebook. Posit Connect will reconstruct the Python environment using the
+specified package list.</p>
+<p>If there is no <code>requirements.txt</code> file or the <code>--force-generate</code> option is specified,
+the package dependencies will be determined from the current Python environment, or
+from an alternative Python executable specified via the <code>--python</code> option:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--python<span class="w"> </span>/path/to/python<span class="w"> </span>my-notebook.ipynb
+</code></pre></div>
+<p>You can see the packages list that will be included by running <code>pip list --format=freeze</code> yourself,
+ensuring that you use the same Python that you use to run your Jupyter Notebook:</p>
+<div class="highlight"><pre><span></span><code>/path/to/python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>list<span class="w"> </span>--format<span class="o">=</span>freeze
+</code></pre></div>
+<h4 id="python-version">Python Version<a class="headerlink" href="#python-version" title="Permanent link">#</a></h4>
+<p>When deploying Python content to Posit Connect,
+the server will require a version of Python that matches the content
+requirements.</p>
+<p>For example, a server with only Python 3.9 installed will fail to match content
+that requires Python 3.8.</p>
+<p><code>rsconnect</code> supports detecting Python version requirements in several ways:
+    1. A <code>.python-version</code> file exists. In such case
+       <code>rsconnect</code> will use its content to determine the python version requirement.
+    2. A <code>pyproject.toml</code> with a <code>project.requires-python</code> field exists.
+       In such case the requirement specified in the field will be used
+       if no <code>.python-version</code> file exists.
+    3. A <code>setup.cfg</code> with an <code>options.python_requires</code> field exists.
+       In such case the requirement specified in the field will be used
+       if <strong>1</strong> or <strong>2</strong> were not already satisfied.
+    4. If no other source of version requirement was found, then
+       the interpreter in use is considered the one required to run the content.</p>
+<p>On Posit Connect <code>&gt;=2025.03.0</code> the requirement detected by <code>rsconnect</code> is
+always respected. Older Connect versions will instead rely only on the
+python version used to deploy the content to determine the requirement.</p>
+<p>For more information see the <a href="https://docs.posit.co/connect/admin/python/#python-version-matching">Posit Connect Admin Guide chapter titled Python Version
+Matching</a>.</p>
+<p>We recommend providing a <code>pyproject.toml</code> with a <code>project.requires-python</code> field
+if the deployed content is an installable package and a <code>.python-version</code> file
+for plain directories.</p>
+<blockquote>
+<p><strong>Note</strong>
+The packages and package versions listed in <code>requirements.txt</code> must be
+compatible with the Python version you request.</p>
+</blockquote>
+<h4 id="static-snapshot-deployment">Static (Snapshot) Deployment<a class="headerlink" href="#static-snapshot-deployment" title="Permanent link">#</a></h4>
+<p>By default, <code>rsconnect</code> deploys the original notebook with all its source code. This
+enables the Posit Connect server to re-run the notebook upon request or on a schedule.</p>
+<p>If you just want to publish an HTML snapshot of the notebook, you can use the <code>--static</code>
+option. This will cause <code>rsconnect</code> to execute your notebook locally to produce the HTML
+file, then publish the HTML file to the Posit Connect server:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--static<span class="w"> </span>my-notebook.ipynb
+</code></pre></div>
+<h3 id="creating-a-manifest-for-future-deployment">Creating a Manifest for Future Deployment<a class="headerlink" href="#creating-a-manifest-for-future-deployment" title="Permanent link">#</a></h3>
+<p>You can create a <code>manifest.json</code> file for a Jupyter Notebook, then use that manifest
+in a later deployment. Use the <code>write-manifest</code> command to do this.</p>
+<p>The <code>write-manifest</code> command will also create a <code>requirements.txt</code> file, if it does
+not already exist or the <code>--force-generate</code> option is specified. It will contain the
+package dependencies from the current Python environment, or from an alternative
+Python executable specified in the <code>--python</code> option.</p>
+<p>Here is an example of the <code>write-manifest</code> command:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>write-manifest<span class="w"> </span>notebook<span class="w"> </span>my-notebook.ipynb
+</code></pre></div>
+<blockquote>
+<p><strong>Note</strong>
+Manifests for static (pre-rendered) notebooks cannot be created.</p>
+</blockquote>
+<h3 id="apiapplication-deployment-options">API/Application Deployment Options<a class="headerlink" href="#apiapplication-deployment-options" title="Permanent link">#</a></h3>
+<p>You can deploy a variety of APIs and applications using sub-commands of the
+<code>rsconnect deploy</code> command.</p>
+<ul>
+<li><code>api</code>: WSGI-compliant APIs (e.g., <code>bottle</code>, <code>falcon</code>, <code>flask</code>, <code>flask-restx</code>, <code>flasgger</code>, <code>pycnic</code>).</li>
+<li><code>flask</code>: Flask APIs (<em>Note: <code>flask</code> is an alias of <code>api</code>.</em>).</li>
+<li><code>fastapi</code>: ASGI-compliant APIs (e.g, <code>fastapi</code>, <code>quart</code>, <code>sanic</code>, <code>starlette</code>)</li>
+<li><code>dash</code>: Python Dash apps</li>
+<li><code>streamlit</code>: Streamlit apps</li>
+<li><code>bokeh</code>: Bokeh server apps</li>
+<li><code>gradio</code>: Gradio apps</li>
+</ul>
+<p>All options below apply equally to the <code>api</code>, <code>fastapi</code>, <code>dash</code>, <code>streamlit</code>,
+<code>gradio</code>, and <code>bokeh</code> sub-commands.</p>
+<h4 id="including-extra-files_1">Including Extra Files<a class="headerlink" href="#including-extra-files_1" title="Permanent link">#</a></h4>
+<p>You can include extra files in the deployment bundle to make them available when your
+API or application is run by the Posit Connect server. Just specify them on the
+command line after the API or application directory:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>api<span class="w"> </span>flask-api/<span class="w"> </span>data.csv
+</code></pre></div>
+<p>Since deploying an API or application starts at a directory level, there will be times
+when some files under that directory subtree should not be included in the deployment
+or manifest. Use the <code>--exclude</code> option to specify files or directories to exclude.</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>dash<span class="w"> </span>--exclude<span class="w"> </span>dash-app-venv<span class="w"> </span>--exclude<span class="w"> </span>TODO.txt<span class="w"> </span>dash-app/
+</code></pre></div>
+<p>You can exclude a directory by naming it:
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>dash<span class="w"> </span>--exclude<span class="w"> </span>dash-app-venv<span class="w"> </span>--exclude<span class="w"> </span>output/<span class="w"> </span>dash-app/
+</code></pre></div></p>
+<p>The <code>--exclude</code> option may be repeated, and may include a glob pattern.
+You should always quote a glob pattern so that it will be passed to <code>rsconnect</code> as-is
+instead of letting the shell expand it. If a file is specifically listed as an extra
+file that also matches an exclusion pattern, the file will still be included in the
+deployment (i.e., extra files take precedence).</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>dash<span class="w"> </span>--exclude<span class="w"> </span>dash-app-venv<span class="w"> </span>--exclude<span class="w"> </span>“*.txt”<span class="w"> </span>dash-app/
+</code></pre></div>
+<p>The following shows an example of an extra file taking precedence:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>dash<span class="w"> </span>--exclude<span class="w"> </span>“*.csv”<span class="w"> </span>dash-app/<span class="w"> </span>important_data.csv
+</code></pre></div>
+<p>The "<code>**</code>" glob pattern will recursively match all files and directories,
+while "<code>*</code>" only matches files. The "<code>**</code>" pattern is useful with complicated
+project hierarchies where enumerating the <em>included</em> files is simpler than
+listing the <em>exclusions</em>.</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>quarto<span class="w"> </span>.<span class="w"> </span>_quarto.yml<span class="w"> </span>index.qmd<span class="w"> </span>requirements.txt<span class="w"> </span>--exclude<span class="w"> </span><span class="s2">&quot;**&quot;</span>
+</code></pre></div>
+<p>Some directories are excluded by default, to prevent bundling and uploading files that are not needed or might interfere with the deployment process:</p>
+<div class="highlight"><pre><span></span><code>.Rproj.user
+.env
+.git
+.svn
+.venv
+__pycache__
+env
+packrat
+renv
+rsconnect-python
+rsconnect
+venv
+</code></pre></div>
+<p>Any directory that appears to be a Python virtual environment (by containing
+<code>bin/python</code>) will also be excluded.</p>
+<h4 id="package-dependencies_1">Package Dependencies<a class="headerlink" href="#package-dependencies_1" title="Permanent link">#</a></h4>
+<p>If a <code>requirements.txt</code> file exists in the API/application directory, it will be
+included in the bundle. It must specify the package dependencies needed to execute
+the API or application. Posit Connect will reconstruct the Python environment using
+the specified package list.</p>
+<p>If there is no <code>requirements.txt</code> file or the <code>--force-generate</code> option is specified,
+the package dependencies will be determined from the current Python environment, or
+from an alternative Python executable specified via the <code>--python</code> option:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>api<span class="w"> </span>--python<span class="w"> </span>/path/to/python<span class="w"> </span>my-api/
+</code></pre></div>
+<p>You can see the packages list that will be included by running <code>pip list --format=freeze</code> yourself,
+ensuring that you use the same Python that you use to run your API or application:</p>
+<div class="highlight"><pre><span></span><code>/path/to/python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>list<span class="w"> </span>--format<span class="o">=</span>freeze
+</code></pre></div>
+<h4 id="python-version_1">Python Version<a class="headerlink" href="#python-version_1" title="Permanent link">#</a></h4>
+<p>When deploying Python content to Posit Connect,
+the server will require matching <code>&lt;MAJOR.MINOR&gt;</code> versions of Python. For example,
+a server with only Python 3.9 installed will fail to match content deployed with
+Python 3.8. Your administrator may also enable exact Python version matching which
+will be stricter and require matching major, minor, and patch versions. For more
+information see the <a href="https://docs.posit.co/connect/admin/python/#python-version-matching">Posit Connect Admin Guide chapter titled Python Version
+Matching</a>.</p>
+<p>We recommend installing a version of Python on your client that is also available
+in your Connect installation. If that's not possible, you can override
+rsconnect-python's detected Python version and request a version of Python
+that is installed in Connect, For example, this command:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>api<span class="w"> </span>--override-python-version<span class="w"> </span><span class="m">3</span>.11.5<span class="w"> </span>my-api/
+</code></pre></div>
+<p>will deploy the content in <code>my-api</code> while requesting that Connect
+use Python version 3.11.5.</p>
+<blockquote>
+<p><strong>Note</strong>
+The packages and package versions listed in <code>requirements.txt</code> must be
+compatible with the Python version you request.</p>
+</blockquote>
+<h3 id="creating-a-manifest-for-future-deployment_1">Creating a Manifest for Future Deployment<a class="headerlink" href="#creating-a-manifest-for-future-deployment_1" title="Permanent link">#</a></h3>
+<p>You can create a <code>manifest.json</code> file for an API or application, then use that
+manifest in a later deployment. Use the <code>write-manifest</code> command to do this.</p>
+<p>The <code>write-manifest</code> command will also create a <code>requirements.txt</code> file, if it does
+not already exist or the <code>--force-generate</code> option is specified. It will contain
+the package dependencies from the current Python environment, or from an alternative
+Python executable specified in the <code>--python</code> option.</p>
+<p>Here is an example of the <code>write-manifest</code> command:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>write-manifest<span class="w"> </span>api<span class="w"> </span>my-api/
+</code></pre></div>
+<h3 id="deploying-r-or-other-content">Deploying R or Other Content<a class="headerlink" href="#deploying-r-or-other-content" title="Permanent link">#</a></h3>
+<p>You can deploy other content that has an existing Posit Connect <code>manifest.json</code>
+file. For example, if you download and unpack a source bundle from Posit Connect,
+you can deploy the resulting directory. The options are similar to notebook or
+API/application deployment; see <code>rsconnect deploy manifest --help</code> for details.</p>
+<p>Here is an example of the <code>deploy manifest</code> command:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>manifest<span class="w"> </span>/path/to/manifest.json
+</code></pre></div>
+<blockquote>
+<p><strong>Note</strong>
+In this case, the existing content is deployed as-is. Python environment
+inspection and notebook pre-rendering, if needed, are assumed to be done already
+and represented in the manifest.</p>
+</blockquote>
+<p>The argument to <code>deploy manifest</code> may also be a directory so long as that directory
+contains a <code>manifest.json</code> file.</p>
+<p>If you have R content but don't have a <code>manifest.json</code> file, you can use the RStudio
+IDE to create the manifest. See the help for the <code>rsconnect::writeManifest</code> R function:</p>
+<div class="highlight"><pre><span></span><code><span class="nf">install.packages</span><span class="p">(</span><span class="s">&#39;rsconnect&#39;</span><span class="p">)</span>
+<span class="nf">library</span><span class="p">(</span><span class="n">rsconnect</span><span class="p">)</span>
+<span class="o">?</span><span class="n">rsconnect</span><span class="o">::</span><span class="n">writeManifest</span>
+</code></pre></div>
+<h3 id="options-for-all-types-of-deployments">Options for All Types of Deployments<a class="headerlink" href="#options-for-all-types-of-deployments" title="Permanent link">#</a></h3>
+<p>These options apply to any type of content deployment.</p>
+<h4 id="title">Title<a class="headerlink" href="#title" title="Permanent link">#</a></h4>
+<p>The title of the deployed content is, by default, derived from the filename. For
+example, if you deploy <code>my-notebook.ipynb</code>, the title will be <code>my-notebook</code>. To change
+this, use the <code>--title</code> option:</p>
+<div class="highlight"><pre><span></span><code>rsconnect deploy notebook --title &quot;My Notebook&quot; my-notebook.ipynb
+</code></pre></div>
+<p>When using <code>rsconnect deploy api</code>, <code>rsconnect deploy fastapi</code>, <code>rsconnect deploy dash</code>,
+<code>rsconnect deploy streamlit</code>, <code>rsconnect deploy bokeh</code>, or <code>rsconnect deploy gradio</code>,
+the title is derived from the directory containing the API or application.</p>
+<p>When using <code>rsconnect deploy manifest</code>, the title is derived from the primary
+filename referenced in the manifest.</p>
+<h4 id="verification-after-deployment">Verification After Deployment<a class="headerlink" href="#verification-after-deployment" title="Permanent link">#</a></h4>
+<p>After deploying your content, rsconnect accesses the deployed content
+to verify that the deployment is live. This is done with a <code>GET</code> request
+to the content, without parameters. The request is
+considered successful if there isn't a 5xx code returned. Errors like
+400 Bad Request or 405 Method Not Allowed because not all apps support <code>GET /</code>.
+For cases where this is not desired, use the <code>--no-verify</code> flag on the command line.</p>
+<h3 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">#</a></h3>
+<p>You can set environment variables during deployment. Their names and values will be
+passed to Posit Connect during deployment so you can use them in your code. Note that
+if you are using <code>rsconnect</code> to deploy to shinyapps.io, environment variable management
+is not supported on that platform.</p>
+<p>For example, if <code>notebook.ipynb</code> contains
+<div class="highlight"><pre><span></span><code><span class="nb">print</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;MYVAR&quot;</span><span class="p">])</span>
+</code></pre></div></p>
+<p>You can set the value of <code>MYVAR</code> that will be set when your code runs in Posit Connect
+using the <code>-E/--environment</code> option:
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--environment<span class="w"> </span><span class="nv">MYVAR</span><span class="o">=</span><span class="s1">&#39;hello world&#39;</span><span class="w"> </span>notebook.ipynb
+</code></pre></div></p>
+<p>To avoid exposing sensitive values on the command line, you can specify
+a variable without a value. In this case, it will use the value from the
+environment in which rsconnect-python is running:
+<div class="highlight"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">SECRET_KEY</span><span class="o">=</span><span class="m">12345</span>
+
+rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--environment<span class="w"> </span>SECRET_KEY<span class="w"> </span>notebook.ipynb
+</code></pre></div></p>
+<p>If you specify environment variables when updating an existing deployment,
+new values will be set for the variables you provided. Other variables will
+remain unchanged. If you don't specify any variables, all of the existing
+variables will remain unchanged.</p>
+<p>Environment variables are set on the content item before the content bundle
+is uploaded and deployed. If the deployment fails, the new environment variables
+will still take effect.</p>
+<h3 id="network-options">Network Options<a class="headerlink" href="#network-options" title="Permanent link">#</a></h3>
+<p>When specifying information that <code>rsconnect</code> needs to be able to interact with Posit
+Connect, you can tailor how transport layer security is performed.</p>
+<h4 id="tlsssl-certificates">TLS/SSL Certificates<a class="headerlink" href="#tlsssl-certificates" title="Permanent link">#</a></h4>
+<p>Posit Connect servers can be configured to use TLS/SSL. If your server's certificate
+is trusted by your Jupyter Notebook server, API client or user's browser, then you
+don't need to do anything special. You can test this out with the <code>details</code> command:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>details<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--api-key<span class="w"> </span>my-api-key<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--server<span class="w"> </span>https://connect.example.org:3939
+</code></pre></div>
+<p>If this fails with a TLS Certificate Validation error, then you have two options.</p>
+<ul>
+<li>
+<p>Provide the Root CA certificate that is at the root of the signing chain for your
+  Posit Connect server. This will enable <code>rsconnect</code> to securely validate the
+  server's TLS certificate.</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>details<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--api-key<span class="w"> </span>my-api-key<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--server<span class="w"> </span>https://connect.example.org<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--cacert<span class="w"> </span>/path/to/certificate.pem
+</code></pre></div>
+</li>
+<li>
+<p>Posit Connect is in "insecure mode". This disables TLS certificate verification,
+  which results in a less secure connection.</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>add<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--api-key<span class="w"> </span>my-api-key<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--server<span class="w"> </span>https://connect.example.org<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--insecure
+</code></pre></div>
+</li>
+</ul>
+<p>Once you work out the combination of options that allow you to successfully work with
+an instance of Posit Connect, you'll probably want to use the <code>add</code> command to have
+<code>rsconnect</code> remember those options and allow you to just use a nickname.</p>
+<h3 id="updating-a-deployment">Updating a Deployment<a class="headerlink" href="#updating-a-deployment" title="Permanent link">#</a></h3>
+<p>If you deploy a file again to the same server, <code>rsconnect</code> will update the previous
+deployment. This means that you can keep running <code>rsconnect deploy notebook my-notebook.ipynb</code>
+as you develop new versions of your notebook. The same applies to other Python content
+types.</p>
+<h4 id="forcing-a-new-deployment">Forcing a New Deployment<a class="headerlink" href="#forcing-a-new-deployment" title="Permanent link">#</a></h4>
+<p>To bypass this behavior and force a new deployment, use the <code>--new</code> option:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>dash<span class="w"> </span>--new<span class="w"> </span>my-app/
+</code></pre></div>
+<h4 id="updating-a-different-deployment">Updating a Different Deployment<a class="headerlink" href="#updating-a-different-deployment" title="Permanent link">#</a></h4>
+<p>If you want to update an existing deployment but don't have the saved deployment data,
+you can provide the app's numeric ID or GUID on the command line:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--app-id<span class="w"> </span><span class="m">123456</span><span class="w"> </span>my-notebook.ipynb
+</code></pre></div>
+<p>You must be the owner of the target deployment, or a collaborator with permission to
+change the content. The type of content (static notebook, notebook with source code,
+API, or application) must match the existing deployment.</p>
+<blockquote>
+<p><strong>Note</strong>
+There is no confirmation required to update a deployment. If you do so
+accidentally, use the "Source Versions" dialog in the Posit Connect dashboard to
+activate the previous version and remove the erroneous one.</p>
+</blockquote>
+<h5 id="finding-the-app-id">Finding the App ID<a class="headerlink" href="#finding-the-app-id" title="Permanent link">#</a></h5>
+<p>The App ID associated with a piece of content you have previously deployed from the
+<code>rsconnect</code> command line interface can be found easily by querying the deployment
+information using the <code>info</code> command. For more information, see the
+<a href="#showing-the-deployment-information">Showing the Deployment Information</a> section.</p>
+<p>If the content was deployed elsewhere or <code>info</code> does not return the correct App ID,
+but you can open the content on Posit Connect, find the content and open it in a
+browser. The URL in your browser's location bar will contain <code>#/apps/NNN</code> where <code>NNN</code>
+is your App ID. The GUID identifier for the app may be found on the <strong>Info</strong> tab for
+the content in the Posit Connect UI.</p>
+<h4 id="showing-the-deployment-information">Showing the Deployment Information<a class="headerlink" href="#showing-the-deployment-information" title="Permanent link">#</a></h4>
+<p>You can see the information that the <code>rsconnect</code> command has saved for the most recent
+deployment with the <code>info</code> command:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>info<span class="w"> </span>my-notebook.ipynb
+</code></pre></div>
+<p>If you have deployed to multiple servers, the most recent deployment information for
+each server will be shown. This command also displays the path to the file where the
+deployment data is stored.</p>
+<h2 id="stored-information-files">Stored Information Files<a class="headerlink" href="#stored-information-files" title="Permanent link">#</a></h2>
+<p>Stored information files are stored in a platform-specific directory:</p>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mac</td>
+<td><code>$HOME/Library/Application Support/rsconnect-python/</code></td>
+</tr>
+<tr>
+<td>Linux</td>
+<td><code>$HOME/.rsconnect-python/</code> or <code>$XDG_CONFIG_HOME/rsconnect-python/</code></td>
+</tr>
+<tr>
+<td>Windows</td>
+<td><code>$APPDATA/rsconnect-python</code></td>
+</tr>
+</tbody>
+</table>
+<p>Remembered server information is stored in the <code>servers.json</code> file in that directory.</p>
+<h3 id="deployment-data">Deployment Data<a class="headerlink" href="#deployment-data" title="Permanent link">#</a></h3>
+<p>After a deployment is completed, information about the deployment is saved
+to enable later redeployment. This data is stored alongside the deployed file,
+in an <code>rsconnect-python</code> subdirectory, if possible. If that location is not writable
+during deployment, then the deployment data will be stored in the global configuration
+directory specified above.</p>
+<div style="display:none">
+Generated from <code>rsconnect-python None</code>
+</div>
+
+<h3 id="hide-jupyter-notebook-input-code-cells">Hide Jupyter Notebook Input Code Cells<a class="headerlink" href="#hide-jupyter-notebook-input-code-cells" title="Permanent link">#</a></h3>
+<p>You can render a Jupyter notebook without its corresponding input code cells by passing the '--hide-all-input' flag through the cli:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--server<span class="w"> </span>https://connect.example.org<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--api-key<span class="w"> </span>my-api-key<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--hide-all-input<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>my-notebook.ipynb
+</code></pre></div>
+<p>To selectively hide input cells in a Jupyter notebook, you need to do two things:</p>
+<ol>
+<li>tag cells with the 'hide_input' tag,</li>
+<li>then pass the ' --hide-tagged-input' flag through the cli:</li>
+</ol>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--server<span class="w"> </span>https://connect.example.org<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--api-key<span class="w"> </span>my-api-key<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--hide-tagged-input<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>my-notebook.ipynb
+</code></pre></div>
+<p>By default, rsconnect-python does not install Jupyter notebook-related depenencies.
+To use these hide input features in rsconnect-python you need to install these extra dependencies:</p>
+<div class="highlight"><pre><span></span><code>notebook
+nbformat
+nbconvert&gt;=5.6.1
+</code></pre></div>
+<h2 id="content-subcommands">Content subcommands<a class="headerlink" href="#content-subcommands" title="Permanent link">#</a></h2>
+<p>rsconnect-python supports multiple options for interacting with Posit Connect's
+<code>/v1/content</code> API. Both administrators and publishers can use the content subcommands
+to search, download, and rebuild content on Posit Connect without needing to access the
+dashboard from a browser.</p>
+<blockquote>
+<p><strong>Note</strong>
+The <code>rsconnect content</code> CLI subcommands are intended to be easily scriptable.
+The default output format is <code>JSON</code> so that the results can be easily piped into
+other command line utilities like <a href="https://stedolan.github.io/jq/"><code>jq</code></a> for further post-processing.</p>
+</blockquote>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>content<span class="w"> </span>--help
+<span class="c1"># Usage: rsconnect content [OPTIONS] COMMAND [ARGS]...</span>
+
+<span class="c1">#   Interact with Posit Connect&#39;s content API.</span>
+
+<span class="c1"># Options:</span>
+<span class="c1">#   --help  Show this message and exit.</span>
+
+<span class="c1"># Commands:</span>
+<span class="c1">#   build            Build content on Posit Connect.</span>
+<span class="c1">#   describe         Describe a content item on Posit Connect.</span>
+<span class="c1">#   download-bundle  Download a content item&#39;s source bundle.</span>
+<span class="c1">#   search           Search for content on Posit Connect.</span>
+</code></pre></div>
+<h3 id="content-search">Content Search<a class="headerlink" href="#content-search" title="Permanent link">#</a></h3>
+<p>The <code>rsconnect content search</code> subcommands can be used by administrators and publishers
+to find specific content on a given Posit Connect server. The search returns
+metadata for each content item that meets the search criteria.</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--help
+<span class="c1"># Usage: rsconnect content search [OPTIONS]</span>
+
+<span class="c1"># Options:</span>
+<span class="c1">#   -n, --name TEXT                 The nickname of the Posit Connect server.</span>
+<span class="c1">#   -s, --server TEXT               The URL for the Posit Connect server.</span>
+<span class="c1">#   -k, --api-key TEXT              The API key to use to authenticate with</span>
+<span class="c1">#                                   Posit Connect.</span>
+
+<span class="c1">#   -i, --insecure                  Disable TLS certification/host validation.</span>
+<span class="c1">#   -c, --cacert FILENAME           The path to trusted TLS CA certificates.</span>
+<span class="c1">#   --published                     Search only published content.</span>
+<span class="c1">#   --unpublished                   Search only unpublished content.</span>
+<span class="c1">#   --content-type [unknown|shiny|rmd-static|rmd-shiny|static|api|tensorflow-saved-model|jupyter-static|python-api|python-dash|python-streamlit|python-bokeh|python-fastapi|python-gradio|quarto-shiny|quarto-static]</span>
+<span class="c1">#                                   Filter content results by content type.</span>
+<span class="c1">#   --r-version VERSIONSEARCHFILTER</span>
+<span class="c1">#                                   Filter content results by R version.</span>
+<span class="c1">#   --py-version VERSIONSEARCHFILTER</span>
+<span class="c1">#                                   Filter content results by Python version.</span>
+<span class="c1">#   --title-contains TEXT           Filter content results by title.</span>
+<span class="c1">#   --order-by [created|last_deployed]</span>
+<span class="c1">#                                   Order content results.</span>
+<span class="c1">#   -v, --verbose                   Print detailed messages.</span>
+<span class="c1">#   --help                          Show this message and exit.</span>
+
+rsconnect<span class="w"> </span>content<span class="w"> </span>search
+<span class="c1"># [</span>
+<span class="c1">#   {</span>
+<span class="c1">#     &quot;max_conns_per_process&quot;: null,</span>
+<span class="c1">#     &quot;content_category&quot;: &quot;&quot;,</span>
+<span class="c1">#     &quot;load_factor&quot;: null,</span>
+<span class="c1">#     &quot;cluster_name&quot;: &quot;Local&quot;,</span>
+<span class="c1">#     &quot;description&quot;: &quot;&quot;,</span>
+<span class="c1">#     &quot;bundle_id&quot;: &quot;142&quot;,</span>
+<span class="c1">#     &quot;image_name&quot;: null,</span>
+<span class="c1">#     &quot;r_version&quot;: null,</span>
+<span class="c1">#     &quot;content_url&quot;: &quot;https://connect.example.org:3939/content/4ffc819c-065c-420c-88eb-332db1133317/&quot;,</span>
+<span class="c1">#     &quot;connection_timeout&quot;: null,</span>
+<span class="c1">#     &quot;min_processes&quot;: null,</span>
+<span class="c1">#     &quot;last_deployed_time&quot;: &quot;2021-12-02T18:09:11Z&quot;,</span>
+<span class="c1">#     &quot;name&quot;: &quot;logs-api-python&quot;,</span>
+<span class="c1">#     &quot;title&quot;: &quot;logs-api-python&quot;,</span>
+<span class="c1">#     &quot;created_time&quot;: &quot;2021-07-19T19:17:32Z&quot;,</span>
+<span class="c1">#     &quot;read_timeout&quot;: null,</span>
+<span class="c1">#     &quot;guid&quot;: &quot;4ffc819c-065c-420c-88eb-332db1133317&quot;,</span>
+<span class="c1">#     &quot;parameterized&quot;: false,</span>
+<span class="c1">#     &quot;run_as&quot;: null,</span>
+<span class="c1">#     &quot;py_version&quot;: &quot;3.8.2&quot;,</span>
+<span class="c1">#     &quot;idle_timeout&quot;: null,</span>
+<span class="c1">#     &quot;app_role&quot;: &quot;owner&quot;,</span>
+<span class="c1">#     &quot;access_type&quot;: &quot;acl&quot;,</span>
+<span class="c1">#     &quot;app_mode&quot;: &quot;python-api&quot;,</span>
+<span class="c1">#     &quot;init_timeout&quot;: null,</span>
+<span class="c1">#     &quot;id&quot;: &quot;18&quot;,</span>
+<span class="c1">#     &quot;quarto_version&quot;: null,</span>
+<span class="c1">#     &quot;dashboard_url&quot;: &quot;https://connect.example.org:3939/connect/#/apps/4ffc819c-065c-420c-88eb-332db1133317&quot;,</span>
+<span class="c1">#     &quot;run_as_current_user&quot;: false,</span>
+<span class="c1">#     &quot;owner_guid&quot;: &quot;edf26318-0027-4d9d-bbbb-54703ebb1855&quot;,</span>
+<span class="c1">#     &quot;max_processes&quot;: null</span>
+<span class="c1">#   },</span>
+<span class="c1">#   ...</span>
+<span class="c1"># ]</span>
+</code></pre></div>
+<p>See <a href="#searching-for-content">this section</a> for more comprehensive usage examples
+of the available search flags.</p>
+<h3 id="content-build">Content Build<a class="headerlink" href="#content-build" title="Permanent link">#</a></h3>
+<blockquote>
+<p><strong>Note</strong>
+The <code>rsconnect content build</code> subcommand requires Posit Connect &gt;= 2021.11.1</p>
+</blockquote>
+<p>Posit Connect caches R and Python packages in the configured
+<a href="https://docs.posit.co/connect/admin/appendix/configuration/#Server.DataDir"><code>Server.DataDir</code></a>.
+Under certain circumstances (examples below), these package caches can become stale
+and need to be rebuilt. This refresh automatically occurs when a Posit Connect
+user visits the content. You may wish to refresh some content before it is visited
+because it is high priority or is not visited frequently (API content, emailed reports).
+In these cases, it is possible to preemptively build specific content items using
+the <code>rsconnect content build</code> subcommands. This way the user does not have to pay
+the build cost when the content is accessed next.</p>
+<p>The following are some common scenarios where performing a content build might be necessary:</p>
+<ul>
+<li>OS upgrade</li>
+<li>changes to gcc or libc libraries</li>
+<li>changes to Python or R installations</li>
+<li>switching from source to binary package repositories or vice versa</li>
+</ul>
+<blockquote>
+<p><strong>Note</strong>
+The <code>content build</code> command is non-destructive, meaning that it does nothing to purge
+existing packrat/python package caches before a build. If you have an
+existing cache, it should be cleared prior to starting a content build.
+See the <a href="https://docs.posit.co/connect/admin/appendix/cli/#migration">migration documentation</a> for details.</p>
+<p><strong>Note</strong>
+You may use the <a href="#content-search"><code>rsconnect content search</code></a> subcommand to help
+identify high priority content items to build.</p>
+</blockquote>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>--help
+Usage:<span class="w"> </span>rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>COMMAND<span class="w"> </span><span class="o">[</span>ARGS<span class="o">]</span>...
+
+<span class="w">  </span>Build<span class="w"> </span>content<span class="w"> </span>on<span class="w"> </span>Posit<span class="w"> </span>Connect.<span class="w"> </span>Requires<span class="w"> </span>Connect<span class="w"> </span>&gt;<span class="o">=</span><span class="w"> </span><span class="m">2021</span>.11.1
+
+Options:
+<span class="w">  </span>--help<span class="w">  </span>Show<span class="w"> </span>this<span class="w"> </span>message<span class="w"> </span>and<span class="w"> </span>exit.
+
+Commands:
+<span class="w">  </span>add<span class="w">      </span>Mark<span class="w"> </span>a<span class="w"> </span>content<span class="w"> </span>item<span class="w"> </span><span class="k">for</span><span class="w"> </span>build.<span class="w"> </span>Use<span class="w"> </span><span class="sb">`</span>build<span class="w"> </span>run<span class="sb">`</span><span class="w"> </span>to<span class="w"> </span>invoke<span class="w"> </span>the<span class="w"> </span>build
+<span class="w">           </span>on<span class="w"> </span>the<span class="w"> </span>Connect<span class="w"> </span>server.
+
+<span class="w">  </span><span class="nb">history</span><span class="w">  </span>Get<span class="w"> </span>the<span class="w"> </span>build<span class="w"> </span><span class="nb">history</span><span class="w"> </span><span class="k">for</span><span class="w"> </span>a<span class="w"> </span>content<span class="w"> </span>item.
+<span class="w">  </span>logs<span class="w">     </span>Print<span class="w"> </span>the<span class="w"> </span>logs<span class="w"> </span><span class="k">for</span><span class="w"> </span>a<span class="w"> </span>content<span class="w"> </span>build.
+<span class="w">  </span>ls<span class="w">       </span>List<span class="w"> </span>the<span class="w"> </span>content<span class="w"> </span>items<span class="w"> </span>that<span class="w"> </span>are<span class="w"> </span>being<span class="w"> </span>tracked<span class="w"> </span><span class="k">for</span><span class="w"> </span>build<span class="w"> </span>on<span class="w"> </span>a<span class="w"> </span>given
+<span class="w">           </span>Connect<span class="w"> </span>server.
+
+<span class="w">  </span>rm<span class="w">       </span>Remove<span class="w"> </span>a<span class="w"> </span>content<span class="w"> </span>item<span class="w"> </span>from<span class="w"> </span>the<span class="w"> </span>list<span class="w"> </span>of<span class="w"> </span>content<span class="w"> </span>that<span class="w"> </span>are<span class="w"> </span>tracked<span class="w"> </span><span class="k">for</span>
+<span class="w">           </span>build.<span class="w"> </span>Use<span class="w"> </span><span class="sb">`</span>build<span class="w"> </span>ls<span class="sb">`</span><span class="w"> </span>to<span class="w"> </span>view<span class="w"> </span>the<span class="w"> </span>tracked<span class="w"> </span>content.
+
+<span class="w">  </span>run<span class="w">      </span>Start<span class="w"> </span>building<span class="w"> </span>content<span class="w"> </span>on<span class="w"> </span>a<span class="w"> </span>given<span class="w"> </span>Connect<span class="w"> </span>server.
+</code></pre></div>
+<p>To build a specific content item, first <code>add</code> it to the list of content that is
+"tracked" for building using its GUID. Content that is "tracked" in the local state
+may become out-of-sync with what exists remotely on the Connect server (the result of
+<code>rsconnect content search</code>). When this happens, it is safe to remove the locally tracked
+entries with <code>rsconnect content build rm</code>.</p>
+<blockquote>
+<p><strong>Note</strong>
+Metadata for "tracked" content items is stored in a local directory called
+<code>rsconnect-build</code> which will be automatically created in your current working directory.
+You may set the environment variable <code>CONNECT_CONTENT_BUILD_DIR</code> to override this directory location.</p>
+</blockquote>
+<div class="highlight"><pre><span></span><code><span class="c1"># `add` the content to mark it as &quot;tracked&quot;</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>add<span class="w"> </span>--guid<span class="w"> </span>4ffc819c-065c-420c-88eb-332db1133317
+
+<span class="c1"># run the build which kicks off a cache rebuild on the server</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>run
+
+<span class="c1"># once the build is complete, the content can be &quot;untracked&quot;</span>
+<span class="c1"># this does not remove the content from the Connect server</span>
+<span class="c1"># the entry is only removed from the local state file</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>rm<span class="w"> </span>--guid<span class="w"> </span>4ffc819c-065c-420c-88eb-332db1133317
+</code></pre></div>
+<blockquote>
+<p><strong>Note</strong>
+See <a href="#add-to-build-from-search-results">this section</a> for
+an example of how to add multiple content items in bulk, from the results
+of a <code>rsconnect content search</code> command.</p>
+</blockquote>
+<p>To view all currently "tracked" content items, use the <code>rsconnect content build ls</code> subcommand.</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>ls
+</code></pre></div>
+<p>To view only the "tracked" content items that have not yet been built, use the <code>--status NEEDS_BUILD</code> flag.</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>ls<span class="w"> </span>--status<span class="w"> </span>NEEDS_BUILD
+</code></pre></div>
+<p>Once the content items have been added, you may initiate a build
+using the <code>rsconnect content build run</code> subcommand. This command will attempt to
+build all "tracked" content that has the status <code>NEEDS_BUILD</code>.</p>
+<blockquote>
+<p>To re-run failed builds, use <code>rsconnect content build run --retry</code>. This will build
+all tracked content in any of the following states: <code>[NEEDS_BUILD, ABORTED, ERROR, RUNNING]</code>.</p>
+<p>If you encounter an error indicating that a build operation is already in progress,
+you can use <code>rsconnect content build run --force</code> to bypass the check and proceed with building content marked as <code>NEEDS_BUILD</code>.
+Ensure no other build operation is actively running before using the <code>--force</code> option.</p>
+</blockquote>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>run
+<span class="c1"># [INFO] 2021-12-14T13:02:45-0500 Initializing ContentBuildStore for https://connect.example.org:3939</span>
+<span class="c1"># [INFO] 2021-12-14T13:02:45-0500 Starting content build (https://connect.example.org:3939)...</span>
+<span class="c1"># [INFO] 2021-12-14T13:02:45-0500 Starting build: 4ffc819c-065c-420c-88eb-332db1133317</span>
+<span class="c1"># [INFO] 2021-12-14T13:02:50-0500 Running = 1, Pending = 0, Success = 0, Error = 0</span>
+<span class="c1"># [INFO] 2021-12-14T13:02:50-0500 Build succeeded: 4ffc819c-065c-420c-88eb-332db1133317</span>
+<span class="c1"># [INFO] 2021-12-14T13:02:55-0500 Running = 0, Pending = 0, Success = 1, Error = 0</span>
+<span class="c1"># [INFO] 2021-12-14T13:02:55-0500 1/1 content builds completed in 0:00:10</span>
+<span class="c1"># [INFO] 2021-12-14T13:02:55-0500 Success = 1, Error = 0</span>
+<span class="c1"># [INFO] 2021-12-14T13:02:55-0500 Content build complete.</span>
+</code></pre></div>
+<p>Sometimes content builds will fail and require debugging by the publisher or administrator.
+Use the <code>rsconnect content build ls</code> to identify content builds that resulted in errors
+and inspect the build logs with the <code>rsconnect content build logs</code> subcommand.</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>ls<span class="w"> </span>--status<span class="w"> </span>ERROR
+<span class="c1"># [INFO] 2021-12-14T13:07:32-0500 Initializing ContentBuildStore for https://connect.example.org:3939</span>
+<span class="c1"># [</span>
+<span class="c1">#   {</span>
+<span class="c1">#     &quot;rsconnect_build_status&quot;: &quot;ERROR&quot;,</span>
+<span class="c1">#     &quot;last_deployed_time&quot;: &quot;2021-12-02T18:09:11Z&quot;,</span>
+<span class="c1">#     &quot;owner_guid&quot;: &quot;edf26318-0027-4d9d-bbbb-54703ebb1855&quot;,</span>
+<span class="c1">#     &quot;rsconnect_last_build_log&quot;: &quot;/Users/david/code/posit/rsconnect-python/rsconnect-build/logs/connect_example_org_3939/4ffc819c-065c-420c-88eb-332db1133317/pZoqfBoi6BgpKde5.log&quot;,</span>
+<span class="c1">#     &quot;guid&quot;: &quot;4ffc819c-065c-420c-88eb-332db1133317&quot;,</span>
+<span class="c1">#     &quot;rsconnect_build_task_result&quot;: {</span>
+<span class="c1">#       &quot;user_id&quot;: 1,</span>
+<span class="c1">#       &quot;error&quot;: &quot;Cannot find compatible environment: no compatible Local environment with Python version 3.9.5&quot;,</span>
+<span class="c1">#       &quot;code&quot;: 1,</span>
+<span class="c1">#       &quot;finished&quot;: true,</span>
+<span class="c1">#       &quot;result&quot;: {</span>
+<span class="c1">#         &quot;data&quot;: &quot;An error occurred while building the content&quot;,</span>
+<span class="c1">#         &quot;type&quot;: &quot;build-failed-error&quot;</span>
+<span class="c1">#       },</span>
+<span class="c1">#       &quot;id&quot;: &quot;pZoqfBoi6BgpKde5&quot;</span>
+<span class="c1">#     },</span>
+<span class="c1">#     &quot;dashboard_url&quot;: &quot;https://connect.example.org:3939/connect/#/apps/4ffc819c-065c-420c-88eb-332db1133317&quot;,</span>
+<span class="c1">#     &quot;name&quot;: &quot;logs-api-python&quot;,</span>
+<span class="c1">#     &quot;title&quot;: &quot;logs-api-python&quot;,</span>
+<span class="c1">#     &quot;content_url&quot;: &quot;https://connect.example.org:3939/content/4ffc819c-065c-420c-88eb-332db1133317/&quot;,</span>
+<span class="c1">#     &quot;bundle_id&quot;: &quot;141&quot;,</span>
+<span class="c1">#     &quot;rsconnect_last_build_time&quot;: &quot;2021-12-14T18:07:16Z&quot;,</span>
+<span class="c1">#     &quot;created_time&quot;: &quot;2021-07-19T19:17:32Z&quot;,</span>
+<span class="c1">#     &quot;app_mode&quot;: &quot;python-api&quot;</span>
+<span class="c1">#   }</span>
+<span class="c1"># ]</span>
+
+rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>logs<span class="w"> </span>--guid<span class="w"> </span>4ffc819c-065c-420c-88eb-332db1133317
+<span class="c1"># [INFO] 2021-12-14T13:09:27-0500 Initializing ContentBuildStore for https://connect.example.org:3939</span>
+<span class="c1"># Building Python API...</span>
+<span class="c1"># Cannot find compatible environment: no compatible Local environment with Python version 3.9.5</span>
+<span class="c1"># Task failed. Task exited with status 1.</span>
+</code></pre></div>
+<p>Once a build for a piece of tracked content is complete, it can be safely removed from the list of "tracked"
+content by using <code>rsconnect content build rm</code> command. This command accepts a <code>--guid</code> argument to specify
+which piece of content to remove. Removing the content from the list of tracked content simply removes the item
+from the local state file, the content deployed to the server remains unchanged.</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>rm<span class="w"> </span>--guid<span class="w"> </span>4ffc819c-065c-420c-88eb-332db1133317
+</code></pre></div>
+<h3 id="rebuilding-lots-of-content">Rebuilding lots of content<a class="headerlink" href="#rebuilding-lots-of-content" title="Permanent link">#</a></h3>
+<p>When attempting to rebuild a long list of content, it is recommended to first build a sub-set of the content list.
+First choose 1 or 2 Python and R content items for each version of Python and R on the server. Try to choose content
+items that have the most dependencies in common with other content items on the server. Build these content items
+first with the <code>rsconnect content build run</code> command. This will "warm" the Python and R environment cache for subsequent
+content builds. Once these initial builds are complete, add the remaining content items to the list of "tracked" content
+and execute another <code>rsconnect content build run</code> command.</p>
+<p>To execute multiple content builds simultaniously, use the <code>rsconnect content build run --parallelism</code> flag to increase the
+number of concurrent builds. By default, each content item is built serially. Increasing the build parallelism can reduce the total
+time needed to rebuild a long list of content items. We recommend starting with a low parallelism setting (2-3) and increasing
+from there to avoid overloading the Connect server with concurrent build operations. Remember that these builds are executing on the
+Connect server which consumes CPU, RAM, and i/o bandwidth that would otherwise we allocated for Python and R applications
+running on the server.</p>
+<h2 id="common-usage-examples">Common Usage Examples<a class="headerlink" href="#common-usage-examples" title="Permanent link">#</a></h2>
+<h3 id="searching-for-content">Searching for content<a class="headerlink" href="#searching-for-content" title="Permanent link">#</a></h3>
+<p>The following are some examples of how publishers might use the
+<code>rsconnect content search</code> subcommand to find content on Posit Connect.
+By default, the <code>rsconnect content search</code> command will return metadata for ALL
+of the content on a Posit Connect server, both published and unpublished content.</p>
+<blockquote>
+<p><strong>Note</strong>
+When using the <code>--r-version</code> and <code>--py-version</code> flags, users should
+make sure to quote the arguments to avoid conflicting with your shell. For
+example, bash would interpret <code>--py-version &gt;3.0.0</code> as a shell redirect because of the
+unquoted <code>&gt;</code> character.</p>
+</blockquote>
+<div class="highlight"><pre><span></span><code><span class="c1"># return only published content</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--published
+
+<span class="c1"># return only unpublished content</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--unpublished
+
+<span class="c1"># return published content where the python version is at least 3.9.0</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--published<span class="w"> </span>--py-version<span class="w"> </span><span class="s2">&quot;&gt;=3.9.0&quot;</span>
+
+<span class="c1"># return published content where the R version is exactly 3.6.3</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--published<span class="w"> </span>--r-version<span class="w"> </span><span class="s2">&quot;==3.6.3&quot;</span>
+
+<span class="c1"># return published content where the content type is a static RMD</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--content-type<span class="w"> </span>rmd-static
+
+<span class="c1"># return published content where the content type is either shiny OR fast-api</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--content-type<span class="w"> </span>shiny<span class="w"> </span>--content-type<span class="w"> </span>python-fastapi
+
+<span class="c1"># return all content, published or unpublished, where the title contains the</span>
+<span class="c1"># text &quot;Stock Report&quot;</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--title-contains<span class="w"> </span><span class="s2">&quot;Stock Report&quot;</span>
+
+<span class="c1"># return published content, results are ordered by when the content was last</span>
+<span class="c1"># deployed</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--published<span class="w"> </span>--order-by<span class="w"> </span>last_deployed
+
+<span class="c1"># return published content, results are ordered by when the content was</span>
+<span class="c1"># created</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--published<span class="w"> </span>--order-by<span class="w"> </span>created
+</code></pre></div>
+<h3 id="finding-r-and-python-versions">Finding r and python versions<a class="headerlink" href="#finding-r-and-python-versions" title="Permanent link">#</a></h3>
+<p>One common use for the <code>search</code> command might be to find the versions of
+r and python that are currently in use on your Posit Connect server before a migration.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># search for all published content and print the unique r and python version</span>
+<span class="c1"># combinations</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--published<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;.[] | {py_version,r_version}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sort<span class="w"> </span><span class="p">|</span>
+uniq
+<span class="c1"># {&quot;py_version&quot;:&quot;3.8.2&quot;,&quot;r_version&quot;:&quot;3.5.3&quot;}</span>
+<span class="c1"># {&quot;py_version&quot;:&quot;3.8.2&quot;,&quot;r_version&quot;:&quot;3.6.3&quot;}</span>
+<span class="c1"># {&quot;py_version&quot;:&quot;3.8.2&quot;,&quot;r_version&quot;:null}</span>
+<span class="c1"># {&quot;py_version&quot;:null,&quot;r_version&quot;:&quot;3.5.3&quot;}</span>
+<span class="c1"># {&quot;py_version&quot;:null,&quot;r_version&quot;:&quot;3.6.3&quot;}</span>
+<span class="c1"># {&quot;py_version&quot;:null,&quot;r_version&quot;:null}</span>
+</code></pre></div>
+<h3 id="finding-recently-deployed-content">Finding recently deployed content<a class="headerlink" href="#finding-recently-deployed-content" title="Permanent link">#</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># return only the 10 most recently deployed content items</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--order-by<span class="w"> </span>last_deployed<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--published<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;limit(10; .[]) | { guid, last_deployed_time }&#39;</span>
+<span class="c1"># {&quot;guid&quot;:&quot;4ffc819c-065c-420c-88eb-332db1133317&quot;,&quot;last_deployed_time&quot;:&quot;2021-12-02T18:09:11Z&quot;}</span>
+<span class="c1"># {&quot;guid&quot;:&quot;aa2603f8-1988-484f-a335-193f2c57e6c4&quot;,&quot;last_deployed_time&quot;:&quot;2021-12-01T20:56:07Z&quot;}</span>
+<span class="c1"># {&quot;guid&quot;:&quot;051252f0-4f70-438f-9be1-d818a3b5f8d9&quot;,&quot;last_deployed_time&quot;:&quot;2021-12-01T20:37:01Z&quot;}</span>
+<span class="c1"># {&quot;guid&quot;:&quot;015143da-b75f-407c-81b1-99c4a724341e&quot;,&quot;last_deployed_time&quot;:&quot;2021-11-30T16:56:21Z&quot;}</span>
+<span class="c1"># {&quot;guid&quot;:&quot;bcc74209-3a81-4b9c-acd5-d24a597c256c&quot;,&quot;last_deployed_time&quot;:&quot;2021-11-30T15:51:07Z&quot;}</span>
+<span class="c1"># {&quot;guid&quot;:&quot;f21d7767-c99e-4dd4-9b00-ff8ec9ae2f53&quot;,&quot;last_deployed_time&quot;:&quot;2021-11-23T18:46:28Z&quot;}</span>
+<span class="c1"># {&quot;guid&quot;:&quot;da4f709c-c383-4fbc-89e2-f032b2d7e91d&quot;,&quot;last_deployed_time&quot;:&quot;2021-11-23T18:46:28Z&quot;}</span>
+<span class="c1"># {&quot;guid&quot;:&quot;9180809d-38fd-4730-a0e0-8568c45d87b7&quot;,&quot;last_deployed_time&quot;:&quot;2021-11-23T15:16:19Z&quot;}</span>
+<span class="c1"># {&quot;guid&quot;:&quot;2b1d2ab8-927d-4956-bbf9-29798d039bc5&quot;,&quot;last_deployed_time&quot;:&quot;2021-11-22T18:33:17Z&quot;}</span>
+<span class="c1"># {&quot;guid&quot;:&quot;c96db3f3-87a1-4df5-9f58-eb109c397718&quot;,&quot;last_deployed_time&quot;:&quot;2021-11-19T20:25:33Z&quot;}</span>
+</code></pre></div>
+<h3 id="add-to-build-from-search-results">Add to build from search results<a class="headerlink" href="#add-to-build-from-search-results" title="Permanent link">#</a></h3>
+<p>One common use case might be to <code>rsconnect content build add</code> content for build
+based on the results of a <code>rsconnect content search</code>. For example:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># search for all API type content, then</span>
+<span class="c1"># for each guid, add it to the &quot;tracked&quot; content items</span>
+<span class="k">for</span><span class="w"> </span>guid<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="k">$(</span>rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span><span class="se">\</span>
+<span class="w">        </span>--published<span class="w"> </span><span class="se">\</span>
+<span class="w">        </span>--content-type<span class="w"> </span>python-api<span class="w"> </span><span class="se">\</span>
+<span class="w">        </span>--content-type<span class="w"> </span>api<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.[].guid&#39;</span><span class="k">)</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<span class="w">    </span>rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>add<span class="w"> </span>--guid<span class="w"> </span><span class="nv">$guid</span>
+<span class="k">done</span>
+</code></pre></div>
+<p>Adding content items one at a time can be a slow operation. This is because
+<code>rsconnect content build add</code> must fetch metadata for each content item before it
+is added to the "tracked" content items. By providing multiple <code>--guid</code> arguments
+to the <code>rsconnect content build add</code> subcommand, we can fetch metadata for multiple content items
+in a single api call, which speeds up the operation significantly.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># write the guid of every published content item to a file called guids.txt</span>
+rsconnect<span class="w"> </span>content<span class="w"> </span>search<span class="w"> </span>--published<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.[].guid&#39;</span><span class="w"> </span>&gt;<span class="w"> </span>guids.txt
+
+<span class="c1"># bulk-add from the guids.txt with a single `rsconnect content build add` command</span>
+xargs<span class="w"> </span><span class="nb">printf</span><span class="w"> </span>--<span class="w"> </span><span class="s1">&#39;-g %s\n&#39;</span><span class="w"> </span>&lt;<span class="w"> </span>guids.txt<span class="w"> </span><span class="p">|</span><span class="w"> </span>xargs<span class="w"> </span>rsconnect<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>add
+</code></pre></div>
+<h2 id="programmatic-provisioning">Programmatic Provisioning<a class="headerlink" href="#programmatic-provisioning" title="Permanent link">#</a></h2>
+<p>Posit Connect supports the programmatic bootstrapping of an administrator API key
+for scripted provisioning tasks. This process is supported by the <code>rsconnect bootstrap</code> command,
+which uses a JSON Web Token to request an initial API key from a fresh Connect instance.</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>bootstrap<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--server<span class="w"> </span>https://connect.example.org:3939<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--jwt-keypath<span class="w"> </span>/path/to/secret.key
+</code></pre></div>
+<p>A full description on how to use <code>rsconnect bootstrap</code> in a provisioning workflow is provided in the Connect administrator guide's
+<a href="https://docs.posit.co/connect/admin/programmatic-provisioning">programmatic provisioning</a> documentation.</p>
+<h2 id="server-administration-tasks">Server Administration Tasks<a class="headerlink" href="#server-administration-tasks" title="Permanent link">#</a></h2>
+<p>Starting with the 2023.05 edition of Posit Connect, <code>rsconnect-python</code> can be
+used to perform certain server administration tasks, such as instance managing
+runtime caches. For more information on runtime caches in Posit Connect, see the
+Connect Admin Guide's section on <a href="https://docs.posit.co/connect/admin/server-management/runtime-caches/">runtime
+caches</a>.</p>
+<p>Examples in this section will use <code>--name myserver</code> to stand in for your Connect
+server information. See <a href="#managing-server-information">Managing Server
+Information</a> above for more details.</p>
+<h3 id="enumerate-runtime-caches">Enumerate Runtime Caches<a class="headerlink" href="#enumerate-runtime-caches" title="Permanent link">#</a></h3>
+<p><em>New in Connect 2023.05</em></p>
+<p>Use the command below to enumerate runtime caches on a Connect server. The
+command will output a JSON object containing a list of runtime caches . Each
+cache entry will contain the following information:</p>
+<ul>
+<li><code>language</code>: The language of content that uses the cache, either R or Python.</li>
+<li><code>version</code>: The language version of the content that uses the cache.</li>
+<li><code>image_name</code>: The execution environment of the cache. The string <code>Local</code>
+  denotes native execution. For Connect instances that use off-host execution,
+  the name of the image that uses the cache will be displayed.</li>
+</ul>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>system<span class="w"> </span>caches<span class="w"> </span>list<span class="w"> </span>--name<span class="w"> </span>myserver
+<span class="c1"># {</span>
+<span class="c1">#   &quot;caches&quot;: [</span>
+<span class="c1">#     {</span>
+<span class="c1">#       &quot;language&quot;: &quot;R&quot;,</span>
+<span class="c1">#       &quot;version&quot;: &quot;3.6.3&quot;,</span>
+<span class="c1">#       &quot;image_name&quot;: &quot;Local&quot;</span>
+<span class="c1">#     },</span>
+<span class="c1">#     {</span>
+<span class="c1">#       &quot;language&quot;: &quot;Python&quot;,</span>
+<span class="c1">#       &quot;version&quot;: &quot;3.9.5&quot;,</span>
+<span class="c1">#       &quot;image_name&quot;: &quot;Local&quot;</span>
+<span class="c1">#     },</span>
+<span class="c1">#         {</span>
+<span class="c1">#       &quot;language&quot;: &quot;R&quot;,</span>
+<span class="c1">#       &quot;version&quot;: &quot;3.6.3&quot;,</span>
+<span class="c1">#       &quot;image_name&quot;: &quot;rstudio/content-base:r3.6.3-py3.9.5-bionic&quot;</span>
+<span class="c1">#     },</span>
+<span class="c1">#     {</span>
+<span class="c1">#       &quot;language&quot;: &quot;Python&quot;,</span>
+<span class="c1">#       &quot;version&quot;: &quot;3.9.5&quot;,</span>
+<span class="c1">#       &quot;image_name&quot;: &quot;rstudio/content-base:r3.6.3-py3.9.5-bionic&quot;</span>
+<span class="c1">#     }</span>
+<span class="c1">#   ]</span>
+<span class="c1"># }</span>
+</code></pre></div>
+<blockquote>
+<p><strong>Note</strong>
+The <code>image_name</code> field returned by the server will use sanitized versions
+of names.</p>
+</blockquote>
+<h3 id="delete-runtime-caches">Delete Runtime Caches<a class="headerlink" href="#delete-runtime-caches" title="Permanent link">#</a></h3>
+<p><em>New in Connect 2023.05</em></p>
+<p>When Connect's execution environment changes, runtime caches may be invalidated.
+In these cases, you will need to delete the affected runtime caches using the
+<code>system caches delete</code> command.</p>
+<blockquote>
+<p><strong>Warning</strong>
+After deleting a cache, the first time affected content is visited, Connect
+will need to reconstruct its environment. This can take a long time. To
+mitigate this, you can use the <a href="#content-build"><code>content build</code></a> command to
+rebuild affected content ahead of time. You may want to do this just for
+high-priority content, or for all content.</p>
+</blockquote>
+<p>To delete a runtime cache, call the <code>system caches delete</code> command, specifying a
+Connect server, as well as the language (<code>-l, --language</code>), version (<code>-V,
+--version</code>), and image name (<code>-I, --image-name</code>) for the cache you wish to
+delete. Deleting a large cache might take a while. The command will wait for
+Connect to finish the task.</p>
+<p>Use the following parameters specify the target cache:</p>
+<ul>
+<li><code>language</code> (required) must name <code>R</code> or <code>Python</code>. It is case-insensitive.</li>
+<li><code>version</code> (required) must be a three-part version number, e.g. <code>3.8.12</code>.</li>
+<li><code>image-name</code> (optional) defaults to <code>Local</code>, which targets caches used for
+  natively-executed content. Off-host images can be specified using either the
+  literal image name or the sanitized name returned by the <code>list</code> command.</li>
+</ul>
+<p>Use the dry run flag (<code>-d, --dry-run</code>) to surface any errors ahead of
+deletion.</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>system<span class="w"> </span>caches<span class="w"> </span>delete<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--name<span class="w"> </span>myserver<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--language<span class="w"> </span>Python<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--version<span class="w"> </span><span class="m">3</span>.9.5<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--image-name<span class="w"> </span>rstudio/content-base:r3.6.3-py3.9.5-bionic<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--dry-run
+<span class="c1"># Dry run finished</span>
+
+rsconnect<span class="w"> </span>system<span class="w"> </span>caches<span class="w"> </span>delete<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--name<span class="w"> </span>myserver<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--language<span class="w"> </span>Python<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--version<span class="w"> </span><span class="m">3</span>.9.5<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--image-name<span class="w"> </span>rstudio/content-base:r3.6.3-py3.9.5-bionic
+<span class="c1"># Deleting runtime cache...</span>
+<span class="c1"># Successfully deleted runtime cache</span>
+</code></pre></div>
+<p>You should run these commands for each cache you wish to delete.</p>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        
+
+<!-- Application footer -->
+<footer class="md-footer">
+
+  <!-- Link to previous and/or next page -->
+  
+  <nav class="md-footer__inner md-grid" aria-label="footer.title">
+
+        <!-- Link to previous page -->
+        
+
+        <!-- Link to next page -->
+        
+          
+            
+
+            <a href="commands/add/" class="md-footer__link md-footer__link--next" rel="next">
+              <div class="md-footer__title">
+                <div class="md-ellipsis">
+                  <span class="md-footer__direction">
+                    Next
+                  </span>
+                  add
+                </div>
+              </div>
+              <div class="md-footer__button md-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+              </div>
+            </a>
+            
+        
+      </nav>
+    </div>
+  
+
+  <!-- Further information -->
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+
+      <!-- Copyright and theme information -->
+      <div class="md-footer-copyright">
+        
+          <div class="md-footer-copyright__highlight">
+            Copyright &#169; <script type="text/javascript">
+              document.write(new Date().getFullYear());
+            </script>
+            Posit Software, PBC. All Rights Reserved
+          </div>
+        
+        <!-- powered by
+        <a href="https://www.mkdocs.org">MkDocs</a>
+        and
+        <a href="https://squidfunk.github.io/mkdocs-material/">
+          Material for MkDocs</a> -->
+      </div>
+      <a href="https://posit.co/" class="nav-link" target="_blank">
+        <img src="/images/posit-logo-fullcolor-TM.svg" alt="Posit" title="Posit">
+      </a>
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": ".", "features": ["navigation.expand"], "search": "assets/javascripts/workers/search.f8cc74c7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="assets/javascripts/bundle.c8b220af.min.js"></script>
+      
+    
+  </body>
+</html>
