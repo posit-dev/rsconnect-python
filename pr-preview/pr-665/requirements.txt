@@ -1,8 +1,0 @@
-Pygments
-markdown
-markdown-include
-mkdocs
-mkdocs-exclude
-mkdocs-macros-plugin
-mkdocs-material
-pymdown-extensions
