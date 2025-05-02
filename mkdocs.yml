@@ -1,4 +1,4 @@
-site_name: 'Posit Connect: rsconnect-python'
+site_name: 'rsconnect-python'
 copyright: Posit Software, PBC. All Rights Reserved
 
 markdown_extensions:
@@ -33,7 +33,10 @@ plugins:
   - search
 
 nav:
-  - Home: index.md
+  - Getting Started: index.md
+  - Programmatic Provisioning: programmatic-provisioning.md
+  - Deploying Content: deploying.md
+  - Server Administration: server-administration.md
   - CLI reference:
     - rsconnect:
       - add: commands/add.md
