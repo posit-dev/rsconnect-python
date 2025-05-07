@@ -1,0 +1,90 @@
+site_name: 'rsconnect-python'
+copyright: Posit Software, PBC. All Rights Reserved
+
+markdown_extensions:
+  - attr_list
+  - mkdocs-click
+  - admonition
+  - footnotes
+  - pymdownx.details
+  - pymdownx.inlinehilite
+  - pymdownx.magiclink
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.snippets:
+      base_path: "docs/"
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - meta
+  - toc:
+      permalink: "#"
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji
+  - pymdownx.keys
+  - md_in_html
+
+plugins:
+  - macros
+  - search
+
+nav:
+  - Getting Started: index.md
+  - Programmatic Provisioning: programmatic-provisioning.md
+  - Deploying Content: deploying.md
+  - Server Administration: server-administration.md
+  - CLI reference:
+    - rsconnect:
+      - add: commands/add.md
+      - bootstrap: commands/bootstrap.md
+      - content: commands/content.md
+      - deploy: commands/deploy.md
+      - details: commands/details.md
+      - info: commands/info.md
+      - list: commands/list.md
+      - remove: commands/remove.md
+      - system: commands/system.md
+      - version: commands/version.md
+      - write-manifest: commands/write-manifest.md
+
+
+theme:
+  features:
+    - navigation.expand
+  name: material
+  custom_dir: docs/overrides
+  font:
+    text: Open Sans
+  logo: 'images/iconPositConnect.svg'
+  favicon: 'images/favicon.ico'
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+      primary: white
+      accent: blue
+    - scheme: default
+      primary: white
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+    - scheme: slate
+      primary: black
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
+
+extra_css:
+  - docs/css/custom.css
+
+extra:
+  rsconnect_python:
+    version: !!python/object/apply:os.getenv ["VERSION"]
+  analytics:
+    provider: google
+    property: 'GTM-KHBDBW7'
