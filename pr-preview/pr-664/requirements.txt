@@ -6,3 +6,4 @@ mkdocs-exclude
 mkdocs-macros-plugin
 mkdocs-material
 pymdown-extensions
+mkdocs-click
