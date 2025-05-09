@@ -149,8 +149,10 @@ def test_detect_python_version_requirement():
 @pytest.mark.parametrize(  # type: ignore
     ["content", "expected"],
     [
-        ("3.8", "~=3.8"),
-        ("3.8.0", "~=3.8"),
+        ("3", "~=3.0"),
+        ("3.8", "~=3.8.0"),
+        ("3.8.0", "~=3.8.0"),
+        ("3.8.11", "~=3.8.0"),
         ("3.8.0b1", InvalidVersionConstraintError("pre-release versions are not supported: 3.8.0b1")),
         ("3.8.0rc1", InvalidVersionConstraintError("pre-release versions are not supported: 3.8.0rc1")),
         ("3.8.0a1", InvalidVersionConstraintError("pre-release versions are not supported: 3.8.0a1")),

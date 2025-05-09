@@ -149,7 +149,10 @@ def adapt_python_requires(
                 if "*" in constraint:
                     yield f"=={constraint}"
                 else:
-                    yield f"~={constraint.rstrip('0').rstrip('.')}"  # Remove trailing zeros and dots
+                    # only major specified “3” → ~=3.0 → >=3.0,<4.0
+                    # major and minor specified “3.8” or “3.8.11” → ~=3.8.0 → >=3.8.0,<3.9.0
+                    constraint = ".".join(constraint.split(".")[:2] + ["0"])
+                    yield f"~={constraint}"
 
     return ",".join(_adapt_contraint(current_contraints))
 
