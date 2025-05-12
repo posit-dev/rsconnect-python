@@ -31,7 +31,8 @@ class TestServerMetadata(TestCase):
             token="someToken",
             secret="c29tZVNlY3JldAo=",
         )
-        self.assertEqual(len(self.server_store.get_all_servers()), 3, "Unexpected servers after setup")
+        self.server_store.set("qux", "https://example.snowflakecomputing.app", snowflake_connection_name="dev")
+        self.assertEqual(len(self.server_store.get_all_servers()), 4, "Unexpected servers after setup")
 
     def tearDown(self):
         # clean up our temp test directory created with tempfile.mkdtemp()
@@ -71,6 +72,11 @@ class TestServerMetadata(TestCase):
             ),
         )
 
+        self.assertEqual(
+            self.server_store.get_by_name("qux"),
+            dict(name="qux", url="https://example.snowflakecomputing.app", snowflake_connection_name="dev"),
+        )
+
     def test_remove_by_name(self):
         self.server_store.remove_by_name("foo")
         self.assertIsNone(self.server_store.get_by_name("foo"))
@@ -87,19 +93,21 @@ class TestServerMetadata(TestCase):
 
     def test_remove_not_found(self):
         self.assertFalse(self.server_store.remove_by_name("frazzle"))
-        self.assertEqual(len(self.server_store.get_all_servers()), 3)
+        self.assertEqual(len(self.server_store.get_all_servers()), 4)
         self.assertFalse(self.server_store.remove_by_url("http://frazzle"))
-        self.assertEqual(len(self.server_store.get_all_servers()), 3)
+        self.assertEqual(len(self.server_store.get_all_servers()), 4)
 
     def test_list(self):
         servers = self.server_store.get_all_servers()
-        self.assertEqual(len(servers), 3)
+        self.assertEqual(len(servers), 4)
         self.assertEqual(servers[0]["name"], "bar")
         self.assertEqual(servers[0]["url"], "http://connect.remote")
         self.assertEqual(servers[1]["name"], "baz")
         self.assertEqual(servers[1]["url"], "https://shinyapps.io")
         self.assertEqual(servers[2]["name"], "foo")
         self.assertEqual(servers[2]["url"], "http://connect.local")
+        self.assertEqual(servers[3]["name"], "qux")
+        self.assertEqual(servers[3]["url"], "https://example.snowflakecomputing.app")
 
     def check_resolve_call(self, name, server, api_key, insecure, ca_cert, should_be_from_store):
         server_data = self.server_store.resolve(name, server)
@@ -124,6 +132,7 @@ class TestServerMetadata(TestCase):
         # with only a single entry, server None will resolve to that entry
         self.server_store.remove_by_url("http://connect.remote")
         self.server_store.remove_by_url("https://shinyapps.io")
+        self.server_store.remove_by_name("qux")
         self.check_resolve_call(None, None, None, None, None, True)
 
     def test_resolve_from_args(self):

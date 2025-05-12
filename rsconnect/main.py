@@ -34,6 +34,7 @@ from .actions import (
     test_api_key,
     test_rstudio_server,
     test_server,
+    test_spcs_server,
     validate_quarto_engines,
     which_quarto,
 )
@@ -48,8 +49,12 @@ from .actions_content import (
     get_content,
     search_content,
 )
-from .environment import Environment, fake_module_file_from_directory
-from .api import RSConnectClient, RSConnectExecutor, RSConnectServer
+from .api import (
+    RSConnectClient,
+    RSConnectExecutor,
+    RSConnectServer,
+    SPCSConnectServer,
+)
 from .bundle import (
     default_title_from_manifest,
     make_api_bundle,
@@ -57,8 +62,8 @@ from .bundle import (
     make_manifest_bundle,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
-    make_voila_bundle,
     make_tensorflow_bundle,
+    make_voila_bundle,
     read_manifest_app_mode,
     validate_entry_point,
     validate_extra_files,
@@ -71,6 +76,7 @@ from .bundle import (
     write_tensorflow_manifest_json,
     write_voila_manifest_json,
 )
+from .environment import Environment, fake_module_file_from_directory
 from .exception import RSConnectException
 from .json_web_token import (
     TokenGenerator,
@@ -171,6 +177,15 @@ def server_args(func: Callable[P, T]) -> Callable[P, T]:
 CONNECT_CA_CERTIFICATE environment variable.)",
     )
     @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def spcs_args(func: Callable[P, T]) -> Callable[P, T]:
+    @click.option("--snowflake-connection-name", help="The name of the Snowflake connection in the configuration file")
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
         return func(*args, **kwargs)
@@ -403,6 +418,11 @@ def _test_rstudio_creds(server: api.PositServer):
         test_rstudio_server(server)
 
 
+def _test_spcs_creds(server: SPCSConnectServer):
+    with cli_feedback(f"Checking {server.remote_name} credential"):
+        test_spcs_server(server)
+
+
 @cli.command(
     short_help="Create an initial admin user to bootstrap a Connect instance.",
     help="Creates an initial admin user to bootstrap a Connect instance. Returns the provisionend API key.",
@@ -491,37 +511,8 @@ def bootstrap(
     ),
     no_args_is_help=True,
 )
-@click.option("--name", "-n", required=True, help="The nickname of the Posit Connect server to deploy to.")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The URL for the Posit Connect server to deploy to, OR \
-rstudio.cloud OR shinyapps.io. (Also settable via CONNECT_SERVER \
-environment variable.)",
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with Posit Connect. \
-(Also settable via CONNECT_API_KEY environment variable.)",
-)
-@click.option(
-    "--insecure",
-    "-i",
-    envvar="CONNECT_INSECURE",
-    is_flag=True,
-    help="Disable TLS certification/host validation. (Also settable via CONNECT_INSECURE environment variable.)",
-)
-@click.option(
-    "--cacert",
-    "-c",
-    envvar="CONNECT_CA_CERTIFICATE",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    help="The path to trusted TLS CA certificates. (Also settable via CONNECT_CA_CERTIFICATE environment variable.)",
-)
-@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
+@server_args
+@spcs_args
 @cloud_shinyapps_args
 @click.pass_context
 def add(
@@ -529,6 +520,7 @@ def add(
     name: str,
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     account: Optional[str],
@@ -548,6 +540,7 @@ def add(
         account_name=account,
         token=token,
         secret=secret,
+        snowflake_connection_name=snowflake_connection_name,
     )
     # The validation.validate_connection_options() function ensures that certain
     # combinations of arguments are present; the cast() calls inside of the
@@ -580,24 +573,39 @@ def add(
         else:
             click.echo('Added {} credential "{}".'.format(real_server.remote_name, name))
     else:
-        server = cast(str, server)
-        api_key = cast(str, api_key)
-        # If we're in this code path
-        # Server must be pingable and the API key must work to be added.
-        real_server_rsc, _ = _test_server_and_api(server, api_key, insecure, cacert)
 
-        server_store.set(
-            name,
-            real_server_rsc.url,
-            real_server_rsc.api_key,
-            real_server_rsc.insecure,
-            real_server_rsc.ca_data,
-        )
+        if server and ("snowflakecomputing.app" in server or snowflake_connection_name):
 
-        if old_server:
-            click.echo('Updated Connect server "%s" with URL %s' % (name, real_server_rsc.url))
+            real_server_spcs = api.SPCSConnectServer(server, snowflake_connection_name)
+
+            _test_spcs_creds(real_server_spcs)
+
+            server_store.set(name, server, snowflake_connection_name=snowflake_connection_name)
+            if old_server:
+                click.echo('Updated {} credential "{}".'.format(real_server_spcs.remote_name, name))
+            else:
+                click.echo('Added {} credential "{}".'.format(real_server_spcs.remote_name, name))
+
         else:
-            click.echo('Added Connect server "%s" with URL %s' % (name, real_server_rsc.url))
+
+            server = cast(str, server)
+            api_key = cast(str, api_key)
+            # If we're in this code path
+            # Server must be pingable and the API key must work to be added.
+            real_server_rsc, _ = _test_server_and_api(server, api_key, insecure, cacert)
+
+            server_store.set(
+                name,
+                real_server_rsc.url,
+                api_key=real_server_rsc.api_key,
+                insecure=real_server_rsc.insecure,
+                ca_data=real_server_rsc.ca_data,
+            )
+
+            if old_server:
+                click.echo('Updated Connect server "%s" with URL %s' % (name, real_server_rsc.url))
+            else:
+                click.echo('Added Connect server "%s" with URL %s' % (name, real_server_rsc.url))
 
 
 @cli.command(
@@ -626,6 +634,10 @@ def list_servers(verbose: int):
                     click.echo("    Insecure mode (TLS host/certificate validation disabled)")
                 if server.get("ca_cert"):
                     click.echo("    Client TLS certificate data provided")
+                if server.get("snowflake_connection_name"):
+                    snowflake_connection_name = server.get("snowflake_connection_name")
+                    if snowflake_connection_name:
+                        click.echo('    Snowflake Connection Name: "%s"' % snowflake_connection_name)
                 click.echo()
 
 
@@ -641,6 +653,7 @@ def list_servers(verbose: int):
     no_args_is_help=True,
 )
 @server_args
+@spcs_args
 @cli_exception_handler
 @click.pass_context
 def details(
@@ -648,19 +661,20 @@ def details(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     verbose: int,
 ):
     set_verbosity(verbose)
 
-    ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert).validate_server()
-    if not isinstance(ce.remote_server, RSConnectServer):
+    ce = RSConnectExecutor(ctx, name, server, api_key, snowflake_connection_name, insecure, cacert).validate_server()
+    if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
         raise RSConnectException("`rsconnect details` requires a Posit Connect server.")
 
     click.echo("    Posit Connect URL: %s" % ce.remote_server.url)
 
-    if not ce.remote_server.api_key:
+    if not (ce.remote_server.api_key or ce.remote_server.snowflake_connection_name):
         return
 
     with cli_feedback("Gathering details"):
@@ -834,6 +848,7 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     no_args_is_help=True,
 )
 @server_args
+@spcs_args
 @content_args
 @runtime_environment_args
 @click.option(
@@ -883,6 +898,7 @@ def deploy_notebook(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     static: bool,
@@ -928,6 +944,7 @@ def deploy_notebook(
         ctx=ctx,
         name=name,
         api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
         insecure=insecure,
         cacert=cacert,
         path=file,
@@ -973,6 +990,7 @@ def deploy_notebook(
     no_args_is_help=True,
 )
 @server_args
+@spcs_args
 @content_args
 @runtime_environment_args
 @click.option(
@@ -1045,6 +1063,7 @@ def deploy_voila(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     multi_notebook: bool,
@@ -1063,6 +1082,7 @@ def deploy_voila(
         path=path,
         name=name,
         api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
         insecure=insecure,
         cacert=cacert,
         server=server,
@@ -1103,6 +1123,7 @@ def deploy_voila(
     no_args_is_help=True,
 )
 @server_args
+@spcs_args
 @content_args
 @cloud_shinyapps_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
@@ -1114,6 +1135,7 @@ def deploy_manifest(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     account: Optional[str],
@@ -1139,6 +1161,7 @@ def deploy_manifest(
         ctx=ctx,
         name=name,
         api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
         insecure=insecure,
         cacert=cacert,
         account=account,
@@ -1181,6 +1204,7 @@ def deploy_manifest(
     no_args_is_help=True,
 )
 @server_args
+@spcs_args
 @content_args
 @runtime_environment_args
 @click.option(
@@ -1232,6 +1256,7 @@ def deploy_quarto(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     new: bool,
@@ -1279,6 +1304,7 @@ def deploy_quarto(
         ctx=ctx,
         name=name,
         api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
         insecure=insecure,
         cacert=cacert,
         path=file_or_directory,
@@ -1325,6 +1351,7 @@ def deploy_quarto(
     no_args_is_help=True,
 )
 @server_args
+@spcs_args
 @content_args
 @click.option(
     "--image",
@@ -1355,6 +1382,7 @@ def deploy_tensorflow(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     new: bool,
@@ -1377,6 +1405,7 @@ def deploy_tensorflow(
         ctx=ctx,
         name=name,
         api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
         insecure=insecure,
         cacert=cacert,
         path=directory,
@@ -1413,6 +1442,7 @@ def deploy_tensorflow(
     no_args_is_help=True,
 )
 @server_args
+@spcs_args
 @content_args
 @cloud_shinyapps_args
 @click.option(
@@ -1452,6 +1482,7 @@ def deploy_html(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     account: Optional[str],
@@ -1483,6 +1514,7 @@ def deploy_html(
             ctx=ctx,
             name=name,
             api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
             insecure=insecure,
             cacert=cacert,
             account=account,
@@ -1533,6 +1565,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         no_args_is_help=True,
     )
     @server_args
+    @spcs_args
     @content_args
     @cloud_shinyapps_args
     @runtime_environment_args
@@ -1587,6 +1620,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         name: Optional[str],
         server: Optional[str],
         api_key: Optional[str],
+        snowflake_connection_name: Optional[str],
         insecure: bool,
         cacert: Optional[str],
         entrypoint: Optional[str],
@@ -1626,6 +1660,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             ctx=ctx,
             name=name,
             api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
             insecure=insecure,
             cacert=cacert,
             account=account,
@@ -2317,6 +2352,7 @@ def content():
     short_help="Search for content on Posit Connect.",
 )
 @server_args
+@spcs_args
 @click.option(
     "--published",
     is_flag=True,
@@ -2360,6 +2396,7 @@ def content_search(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     published: bool,
@@ -2374,8 +2411,17 @@ def content_search(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
-        if not isinstance(ce.remote_server, RSConnectServer):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
             raise RSConnectException("`rsconnect content search` requires a Posit Connect server.")
         result = search_content(
             ce.remote_server, published, unpublished, content_type, r_version, py_version, title_contains, order_by
@@ -2389,6 +2435,7 @@ def content_search(
     short_help="Describe a content item on Posit Connect.",
 )
 @server_args
+@spcs_args
 @click.option(
     "--guid",
     "-g",
@@ -2405,6 +2452,7 @@ def content_describe(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     guid: str,
@@ -2413,8 +2461,17 @@ def content_describe(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
-        if not isinstance(ce.remote_server, RSConnectServer):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
             raise RSConnectException("`rsconnect content describe` requires a Posit Connect server.")
         result = get_content(ce.remote_server, guid)
         json.dump(result, sys.stdout, indent=2)
@@ -2426,6 +2483,7 @@ def content_describe(
     short_help="Download a content item's source bundle.",
 )
 @server_args
+@spcs_args
 @click.option(
     "--guid",
     "-g",
@@ -2452,6 +2510,7 @@ def content_bundle_download(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     guid: ContentGuidWithBundle,
@@ -2462,8 +2521,17 @@ def content_bundle_download(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
-        if not isinstance(ce.remote_server, RSConnectServer):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
             raise RSConnectException("`rsconnect content download-bundle` requires a Posit Connect server.")
         if exists(output) and not overwrite:
             raise RSConnectException("The output file already exists: %s" % output)
@@ -2485,6 +2553,7 @@ def build():
     name="add", short_help="Mark a content item for build. Use `build run` to invoke the build on the Connect server."
 )
 @server_args
+@spcs_args
 @click.option(
     "--guid",
     "-g",
@@ -2500,6 +2569,7 @@ def add_content_build(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     guid: tuple[ContentGuidWithBundle, ...],
@@ -2508,8 +2578,17 @@ def add_content_build(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
-        if not isinstance(ce.remote_server, RSConnectServer):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
             raise RSConnectException("`rsconnect content build add` requires a Posit Connect server.")
         build_add_content(ce.remote_server, guid)
         if len(guid) == 1:
@@ -2525,6 +2604,7 @@ def add_content_build(
     + "Use `build ls` to view the tracked content.",
 )
 @server_args
+@spcs_args
 @click.option(
     "--guid",
     "-g",
@@ -2550,6 +2630,7 @@ def remove_content_build(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     guid: Optional[str],
@@ -2560,7 +2641,16 @@ def remove_content_build(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
         if not isinstance(ce.remote_server, RSConnectServer):
             raise RSConnectException("`rsconnect content build rm` requires a Posit Connect server.")
         guids = build_remove_content(ce.remote_server, guid, all, purge)
@@ -2575,6 +2665,7 @@ def remove_content_build(
     name="ls", short_help="List the content items that are being tracked for build on a given Connect server."
 )
 @server_args
+@spcs_args
 @click.option(
     "--status",
     type=click.Choice(BuildStatus._all),
@@ -2596,6 +2687,7 @@ def list_content_build(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     status: Optional[str],
@@ -2605,8 +2697,17 @@ def list_content_build(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
-        if not isinstance(ce.remote_server, RSConnectServer):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
             raise RSConnectException("`rsconnect content build ls` requires a Posit Connect server.")
         result = build_list_content(ce.remote_server, guid, status)
         json.dump(result, sys.stdout, indent=2)
@@ -2615,6 +2716,7 @@ def list_content_build(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @build.command(name="history", short_help="Get the build history for a content item.")
 @server_args
+@spcs_args
 @click.option(
     "--guid",
     "-g",
@@ -2630,6 +2732,7 @@ def get_build_history(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     guid: str,
@@ -2638,9 +2741,18 @@ def get_build_history(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert)
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        )
         ce.validate_server()
-        if not isinstance(ce.remote_server, RSConnectServer):
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
             raise RSConnectException("`rsconnect content build history` requires a Posit Connect server.")
         result = build_history(ce.remote_server, guid)
         json.dump(result, sys.stdout, indent=2)
@@ -2652,6 +2764,7 @@ def get_build_history(
     short_help="Print the logs for a content build.",
 )
 @server_args
+@spcs_args
 @click.option(
     "--guid",
     "-g",
@@ -2680,6 +2793,7 @@ def get_build_logs(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     guid: str,
@@ -2690,8 +2804,17 @@ def get_build_logs(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
-        if not isinstance(ce.remote_server, RSConnectServer):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
             raise RSConnectException("`rsconnect content build logs` requires a Posit Connect server.")
         for line in emit_build_log(ce.remote_server, guid, format, task_id):
             sys.stdout.write(line)
@@ -2703,6 +2826,7 @@ def get_build_logs(
     short_help="Start building content on a given Connect server.",
 )
 @server_args
+@spcs_args
 @click.option(
     "--parallelism",
     type=click.IntRange(min=1, clamp=True),
@@ -2747,6 +2871,7 @@ def start_content_build(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     parallelism: int,
@@ -2765,8 +2890,17 @@ def start_content_build(
     output_params(ctx, locals().items())
     logger.set_log_output_format(format)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
-        if not isinstance(ce.remote_server, RSConnectServer):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
             raise RSConnectException("rsconnect content build run` requires a Posit Connect server.")
         build_start(ce.remote_server, parallelism, aborted, error, running, retry, all, poll_wait, debug, force)
 
@@ -2787,17 +2921,28 @@ def caches():
     short_help="List runtime caches present on a Posit Connect server.",
 )
 @server_args
+@spcs_args
 def system_caches_list(
     name: str,
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     verbose: int,
 ):
     set_verbosity(verbose)
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(None, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(
+            None,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
         result = ce.runtime_caches
         json.dump(result, sys.stdout, indent=2)
 
@@ -2808,6 +2953,7 @@ def system_caches_list(
     short_help="Delete a runtime cache on a Posit Connect server.",
 )
 @server_args
+@spcs_args
 @click.option(
     "--language",
     "-l",
@@ -2838,6 +2984,7 @@ def system_caches_delete(
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     verbose: int,
@@ -2849,10 +2996,20 @@ def system_caches_delete(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
     with cli_feedback("", stderr=True):
-        ce = RSConnectExecutor(ctx, name, server, api_key, insecure, cacert, logger=None).validate_server()
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
         ce.delete_runtime_cache(language, version, image_name, dry_run)
 
 
 if __name__ == "__main__":
     cli()
+    click.echo()
     click.echo()
