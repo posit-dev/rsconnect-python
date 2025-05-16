@@ -1,0 +1,18 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# dependencies = ["toml"]
+# ///
+import os
+
+import toml
+
+if "PACKAGE_NAME" in os.environ:
+
+    with open("pyproject.toml", "r") as f:
+        pyproject = toml.load(f)
+
+    # Override package name from pyproject.toml with environment variable
+    pyproject["project"]["name"] = os.environ["PACKAGE_NAME"]
+
+    with open("pyproject.toml", "w") as f:
+        toml.dump(pyproject, f)
