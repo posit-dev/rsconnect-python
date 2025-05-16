@@ -24,7 +24,7 @@ python -m pip install rsconnect-python
 
 ## Usage
 
-Obtain an API key from your Posit Connect server with publisher privileges:
+[Get an API key from your Posit Connect server](https://docs.posit.co/connect/user/api-keys/) with at least publisher privileges:
 
 Store your credentials:
 
