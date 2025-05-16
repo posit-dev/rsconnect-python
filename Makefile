@@ -97,9 +97,25 @@ lint: lint-3.8
 fmt: RUNNER = bash -c
 fmt: fmt-3.8
 
+# Documentation targets
 .PHONY: docs
-docs:
-	$(MAKE) -C docs VERSION=$(VERSION)
+docs: docs-clean docs-build
+
+.PHONY: docs-clean
+docs-clean:
+	rm -rf site
+
+.PHONY: docs-build
+docs-build:
+	uv venv
+	uv pip install ".[docs]"
+	uv run mkdocs build
+
+.PHONY: docs-serve
+docs-serve:
+	uv venv
+	uv pip install -e ".[docs]"
+	uv run mkdocs serve
 
 .PHONY: version
 version:
@@ -137,14 +153,14 @@ sync-latest-to-s3:
 sync-latest-docs-to-s3:
 	aws s3 sync --acl bucket-owner-full-control \
 		--cache-control max-age=0 \
-		docs/site/ \
+		site/ \
 		$(S3_PREFIX)/latest/docs/
 
 .PHONY: promote-docs-in-s3
 promote-docs-in-s3:
 	aws s3 sync --delete --acl bucket-owner-full-control \
 		--cache-control max-age=300 \
-		docs/site/ \
+		site/ \
 		s3://docs.rstudio.com/rsconnect-python/
 
 RSC_API_KEYS=vetiver-testing/rsconnect_api_keys.json
