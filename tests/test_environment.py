@@ -143,12 +143,12 @@ class TestPythonVersionRequirements:
     def test_python_version(self):
         env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "using_pyversion"))
         assert env.python_interpreter == sys.executable
-        assert env.python_version_requirement == ">=3.8, <3.12"
+        assert env.python_version_requirement == ">=3.8,<3.12"
 
     def test_all_of_them(self):
         env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "allofthem"))
         assert env.python_interpreter == sys.executable
-        assert env.python_version_requirement == ">=3.8, <3.12"
+        assert env.python_version_requirement == ">=3.8,<3.12"
 
     def test_missing(self):
         env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "empty"))

@@ -24,4 +24,7 @@
         "build/**": true,
         "venv/**": true,
     },
+    "python.analysis.exclude": [
+        "tests"
+    ],
 }

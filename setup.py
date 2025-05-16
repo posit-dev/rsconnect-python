@@ -3,15 +3,15 @@ import os
 
 from setuptools import find_packages, setup
 
-# dynamic package name
+# Allow overriding the package name via $PACKAGE_NAME
 PACKAGE_NAME = os.environ.get("PACKAGE_NAME", "rsconnect_python")
 
-# read long description from README.md
+# Pull in your README as the long description
 with open("README.md", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    # -- project identity --
+    # -- identity --
     name=PACKAGE_NAME,
     use_scm_version={"write_to": "rsconnect/version.py"},
     setup_requires=["setuptools_scm[toml]>=3.4"],
@@ -22,21 +22,20 @@ setup(
     long_description_content_type="text/markdown",
     author="Michael Marchetti",
     author_email="mike@posit.co",
-    license="MIT",                     # or use license_file below
     license_file="LICENSE.md",
-    url="https://github.com/posit-dev/rsconnect-python",
+    url="http://github.com/posit-dev/rsconnect-python",
     project_urls={
-        "Repository": "https://github.com/posit-dev/rsconnect-python",
+        "Repository": "http://github.com/posit-dev/rsconnect-python",
         "Documentation": "https://docs.posit.co/rsconnect-python",
     },
     python_requires=">=3.8",
 
-    # -- packages & data --
+    # -- packages & typing stub --
     packages=find_packages(include=["rsconnect", "rsconnect.*"]),
     include_package_data=True,
     package_data={"rsconnect": ["py.typed"]},
 
-    # -- dependencies --
+    # -- runtime dependencies --
     install_requires=[
         "typing-extensions>=4.8.0",
         "pip>=10.0.0",
@@ -46,6 +45,7 @@ setup(
         "toml>=0.10; python_version < '3.11'",
     ],
 
+    # -- extras --
     extras_require={
         "test": [
             "black==24.3.0",
@@ -63,21 +63,22 @@ setup(
             "twine",
             "types-Flask",
         ],
+        "snowflake": ["snowflake-cli"],
     },
 
-    # -- console scripts --
+    # -- console script entrypoint --
     entry_points={
         "console_scripts": [
             "rsconnect=rsconnect.main:cli",
         ],
     },
 
-    # -- wheel options --
+    # -- wheel config --
     options={
         "bdist_wheel": {"universal": True},
     },
 
-    # -- (optional) PyPI classifiers, pick what applies --
+    # -- classifiers (optional but recommended) --
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
