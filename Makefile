@@ -2,7 +2,9 @@ VERSION := $(shell python -m setuptools_scm)
 HOSTNAME := $(shell hostname)
 S3_PREFIX := s3://rstudio-connect-downloads/connect/rsconnect-python
 
-BDIST_WHEEL := dist/rsconnect_python-$(VERSION)-py2.py3-none-any.whl
+PACKAGE_NAME := $(or $(PACKAGE_NAME), rsconnect_python)
+
+BDIST_WHEEL := dist/$(PACKAGE_NAME)-$(VERSION)-py2.py3-none-any.whl
 
 RUNNER = docker run \
   -it --rm \
