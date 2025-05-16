@@ -68,6 +68,9 @@ jobs:
 
   distributions:
     needs: test
+    strategy:
+      matrix:
+        package_name: ["rsconnect_python", "rsconnect"]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -78,14 +81,19 @@ jobs:
     - uses: actions/setup-python@v4
       with:
         python-version: 3.8.x
+    - name: Install uv # see scripts/temporary-rename
+      uses: astral-sh/setup-uv@v6
     - run: pip install -e '.[test]'
     - run: pip freeze
     - run: make dist
       id: create_dist
+      env:
+        PACKAGE_NAME: ${{ matrix.package_name }}
     - uses: actions/upload-artifact@v4
       with:
         name: distributions
         path: dist/
+      if: matrix.package_name == 'rsconnect_python'
     - run: pip install -vvv ${{ steps.create_dist.outputs.whl }}
     - run: rsconnect version
     - run: rsconnect --help
@@ -101,16 +109,19 @@ jobs:
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
         aws-region: ${{ secrets.AWS_REGION }}
-    - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    - if: github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.package_name == 'rsconnect_python'
       run: make sync-latest-to-s3
-    - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      env:
+        BDIST_WHEEL: ${{ steps.create_dist.outputs.whl }}
+    - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags') && matrix.package_name == 'rsconnect_python'
       run: make sync-to-s3
+      env:
+        BDIST_WHEEL: ${{ steps.create_dist.outputs.whl }}
     - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         user: __token__
         password: ${{ secrets.PYPI_TOKEN }}
-
   docs:
     needs: test
     runs-on: ubuntu-latest
