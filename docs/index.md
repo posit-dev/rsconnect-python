@@ -22,11 +22,7 @@ pip install rsconnect-python
 You may also build and install a wheel directly from a repository clone:
 
 ```bash
-git clone https://github.com/posit-dev/rsconnect-python.git
-cd rsconnect-python
-pip install pipenv
-make dist
-pip install ./dist/rsconnect_python-*.whl
+pip install git+https://github.com/posit-dev/rsconnect-python.git
 ```
 
 ### Using the rsconnect CLI
