@@ -16,7 +16,7 @@
       
       
       <link rel="icon" href="../../images/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.12">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.14">
     
     
       
@@ -24,7 +24,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.2afb09e1.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.342714a4.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
@@ -1005,25 +1005,28 @@
 <div class="highlight"><pre><span></span><code>content build add [OPTIONS]
 </code></pre></div>
 <p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  -n, --name TEXT              The nickname of the Posit Connect server to
-                               deploy to.
-  -s, --server TEXT            The URL for the Posit Connect server to deploy
-                               to. (Also settable via CONNECT_SERVER
-                               environment variable.)
-  -k, --api-key TEXT           The API key to use to authenticate with Posit
-                               Connect. (Also settable via CONNECT_API_KEY
-                               environment variable.)
-  -i, --insecure               Disable TLS certification/host validation.
-                               (Also settable via CONNECT_INSECURE environment
-                               variable.)
-  -c, --cacert FILE            The path to trusted TLS CA certificates. (Also
-                               settable via CONNECT_CA_CERTIFICATE environment
-                               variable.)
-  -v, --verbose                Enable verbose output. Use -vv for very verbose
-                               (debug) output.
-  -g, --guid GUID[,BUNDLE_ID]  Add a content item by its guid. This flag can
-                               be passed multiple times.  [required]
-  --help                       Show this message and exit.
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  -g, --guid GUID[,BUNDLE_ID]     Add a content item by its guid. This flag
+                                  can be passed multiple times.  [required]
+  --help                          Show this message and exit.
 </code></pre></div>
 <h3 id="content-build-history">content build history<a class="headerlink" href="#content-build-history" title="Permanent link">#</a></h3>
 <p>Get the build history for a content item.</p>
@@ -1031,20 +1034,27 @@
 <div class="highlight"><pre><span></span><code>content build history [OPTIONS]
 </code></pre></div>
 <p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  -n, --name TEXT     The nickname of the Posit Connect server to deploy to.
-  -s, --server TEXT   The URL for the Posit Connect server to deploy to. (Also
-                      settable via CONNECT_SERVER environment variable.)
-  -k, --api-key TEXT  The API key to use to authenticate with Posit Connect.
-                      (Also settable via CONNECT_API_KEY environment
-                      variable.)
-  -i, --insecure      Disable TLS certification/host validation. (Also
-                      settable via CONNECT_INSECURE environment variable.)
-  -c, --cacert FILE   The path to trusted TLS CA certificates. (Also settable
-                      via CONNECT_CA_CERTIFICATE environment variable.)
-  -v, --verbose       Enable verbose output. Use -vv for very verbose (debug)
-                      output.
-  -g, --guid TEXT     The guid of the content item.  [required]
-  --help              Show this message and exit.
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  -g, --guid TEXT                 The guid of the content item.  [required]
+  --help                          Show this message and exit.
 </code></pre></div>
 <h3 id="content-build-logs">content build logs<a class="headerlink" href="#content-build-logs" title="Permanent link">#</a></h3>
 <p>Print the logs for a content build.</p>
@@ -1052,26 +1062,30 @@
 <div class="highlight"><pre><span></span><code>content build logs [OPTIONS]
 </code></pre></div>
 <p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  -n, --name TEXT           The nickname of the Posit Connect server to deploy
-                            to.
-  -s, --server TEXT         The URL for the Posit Connect server to deploy to.
-                            (Also settable via CONNECT_SERVER environment
-                            variable.)
-  -k, --api-key TEXT        The API key to use to authenticate with Posit
-                            Connect. (Also settable via CONNECT_API_KEY
-                            environment variable.)
-  -i, --insecure            Disable TLS certification/host validation. (Also
-                            settable via CONNECT_INSECURE environment
-                            variable.)
-  -c, --cacert FILE         The path to trusted TLS CA certificates. (Also
-                            settable via CONNECT_CA_CERTIFICATE environment
-                            variable.)
-  -v, --verbose             Enable verbose output. Use -vv for very verbose
-                            (debug) output.
-  -g, --guid TEXT           The guid of the content item.  [required]
-  -t, --task-id TEXT        The task ID of the build.
-  -f, --format [text|json]  The output format of the logs. Defaults to text.
-  --help                    Show this message and exit.
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  -g, --guid TEXT                 The guid of the content item.  [required]
+  -t, --task-id TEXT              The task ID of the build.
+  -f, --format [text|json]        The output format of the logs. Defaults to
+                                  text.
+  --help                          Show this message and exit.
 </code></pre></div>
 <h3 id="content-build-ls">content build ls<a class="headerlink" href="#content-build-ls" title="Permanent link">#</a></h3>
 <p>List the content items that are being tracked for build on a given Connect server.</p>
@@ -1095,6 +1109,9 @@
                                   environment variable.)
   -v, --verbose                   Enable verbose output. Use -vv for very
                                   verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
   --status [NEEDS_BUILD|RUNNING|ABORTED|COMPLETE|ERROR]
                                   Filter results by status of the build
                                   operation.
@@ -1111,24 +1128,31 @@
 <div class="highlight"><pre><span></span><code>content build rm [OPTIONS]
 </code></pre></div>
 <p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  -n, --name TEXT     The nickname of the Posit Connect server to deploy to.
-  -s, --server TEXT   The URL for the Posit Connect server to deploy to. (Also
-                      settable via CONNECT_SERVER environment variable.)
-  -k, --api-key TEXT  The API key to use to authenticate with Posit Connect.
-                      (Also settable via CONNECT_API_KEY environment
-                      variable.)
-  -i, --insecure      Disable TLS certification/host validation. (Also
-                      settable via CONNECT_INSECURE environment variable.)
-  -c, --cacert FILE   The path to trusted TLS CA certificates. (Also settable
-                      via CONNECT_CA_CERTIFICATE environment variable.)
-  -v, --verbose       Enable verbose output. Use -vv for very verbose (debug)
-                      output.
-  -g, --guid TEXT     Remove a content item by guid.
-  --all               Remove all content items from the list of content
-                      tracked for build.
-  -p, --purge         Remove build history and log files from the local
-                      filesystem.
-  --help              Show this message and exit.
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  -g, --guid TEXT                 Remove a content item by guid.
+  --all                           Remove all content items from the list of
+                                  content tracked for build.
+  -p, --purge                     Remove build history and log files from the
+                                  local filesystem.
+  --help                          Show this message and exit.
 </code></pre></div>
 <h3 id="content-build-run">content build run<a class="headerlink" href="#content-build-run" title="Permanent link">#</a></h3>
 <p>Start building content on a given Connect server.</p>
@@ -1136,38 +1160,42 @@
 <div class="highlight"><pre><span></span><code>content build run [OPTIONS]
 </code></pre></div>
 <p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  -n, --name TEXT              The nickname of the Posit Connect server to
-                               deploy to.
-  -s, --server TEXT            The URL for the Posit Connect server to deploy
-                               to. (Also settable via CONNECT_SERVER
-                               environment variable.)
-  -k, --api-key TEXT           The API key to use to authenticate with Posit
-                               Connect. (Also settable via CONNECT_API_KEY
-                               environment variable.)
-  -i, --insecure               Disable TLS certification/host validation.
-                               (Also settable via CONNECT_INSECURE environment
-                               variable.)
-  -c, --cacert FILE            The path to trusted TLS CA certificates. (Also
-                               settable via CONNECT_CA_CERTIFICATE environment
-                               variable.)
-  -v, --verbose                Enable verbose output. Use -vv for very verbose
-                               (debug) output.
-  --parallelism INTEGER RANGE  Defines the number of builds that can run
-                               concurrently. Defaults to 1.  [x&gt;=1]
-  --retry                      Build all content that is in the NEEDS_BUILD,
-                               ABORTED, ERROR, or RUNNING state.
-  --all                        Build all content, even if it is already marked
-                               as COMPLETE.
-  --poll-wait INTEGER RANGE    Defines the number of seconds between polls
-                               when polling for build output. Defaults to 1.
-                               [x&gt;=1]
-  -f, --format [text|json]     The output format of the logs. Defaults to
-                               text.
-  --debug                      Log stacktraces from exceptions during
-                               background operations.
-  --force                      Always build content even if a build is already
-                               marked as running.
-  --help                       Show this message and exit.
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  --parallelism INTEGER RANGE     Defines the number of builds that can run
+                                  concurrently. Defaults to 1.  [x&gt;=1]
+  --retry                         Build all content that is in the
+                                  NEEDS_BUILD, ABORTED, ERROR, or RUNNING
+                                  state.
+  --all                           Build all content, even if it is already
+                                  marked as COMPLETE.
+  --poll-wait INTEGER RANGE       Defines the number of seconds between polls
+                                  when polling for build output. Defaults to
+                                  1.  [x&gt;=1]
+  -f, --format [text|json]        The output format of the logs. Defaults to
+                                  text.
+  --debug                         Log stacktraces from exceptions during
+                                  background operations.
+  --force                         Always build content even if a build is
+                                  already marked as running.
+  --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="content-describe">content describe<a class="headerlink" href="#content-describe" title="Permanent link">#</a></h2>
 <p>Describe a content item on Posit Connect.</p>
@@ -1175,21 +1203,29 @@
 <div class="highlight"><pre><span></span><code>content describe [OPTIONS]
 </code></pre></div>
 <p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  -n, --name TEXT     The nickname of the Posit Connect server to deploy to.
-  -s, --server TEXT   The URL for the Posit Connect server to deploy to. (Also
-                      settable via CONNECT_SERVER environment variable.)
-  -k, --api-key TEXT  The API key to use to authenticate with Posit Connect.
-                      (Also settable via CONNECT_API_KEY environment
-                      variable.)
-  -i, --insecure      Disable TLS certification/host validation. (Also
-                      settable via CONNECT_INSECURE environment variable.)
-  -c, --cacert FILE   The path to trusted TLS CA certificates. (Also settable
-                      via CONNECT_CA_CERTIFICATE environment variable.)
-  -v, --verbose       Enable verbose output. Use -vv for very verbose (debug)
-                      output.
-  -g, --guid TEXT     The GUID of a content item to describe. This flag can be
-                      passed multiple times.  [required]
-  --help              Show this message and exit.
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  -g, --guid TEXT                 The GUID of a content item to describe. This
+                                  flag can be passed multiple times.
+                                  [required]
+  --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="content-download-bundle">content download-bundle<a class="headerlink" href="#content-download-bundle" title="Permanent link">#</a></h2>
 <p>Download a content item's source bundle.</p>
@@ -1197,28 +1233,32 @@
 <div class="highlight"><pre><span></span><code>content download-bundle [OPTIONS]
 </code></pre></div>
 <p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  -n, --name TEXT              The nickname of the Posit Connect server to
-                               deploy to.
-  -s, --server TEXT            The URL for the Posit Connect server to deploy
-                               to. (Also settable via CONNECT_SERVER
-                               environment variable.)
-  -k, --api-key TEXT           The API key to use to authenticate with Posit
-                               Connect. (Also settable via CONNECT_API_KEY
-                               environment variable.)
-  -i, --insecure               Disable TLS certification/host validation.
-                               (Also settable via CONNECT_INSECURE environment
-                               variable.)
-  -c, --cacert FILE            The path to trusted TLS CA certificates. (Also
-                               settable via CONNECT_CA_CERTIFICATE environment
-                               variable.)
-  -v, --verbose                Enable verbose output. Use -vv for very verbose
-                               (debug) output.
-  -g, --guid GUID[,BUNDLE_ID]  The GUID of a content item to download.
-                               [required]
-  -o, --output PATH            Defines the output location for the download.
-                               [required]
-  --overwrite                  Overwrite the output file if it already exists.
-  --help                       Show this message and exit.
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  -g, --guid GUID[,BUNDLE_ID]     The GUID of a content item to download.
+                                  [required]
+  -o, --output PATH               Defines the output location for the
+                                  download.  [required]
+  --overwrite                     Overwrite the output file if it already
+                                  exists.
+  --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="content-search">content search<a class="headerlink" href="#content-search" title="Permanent link">#</a></h2>
 <p>Search for content on Posit Connect.</p>
@@ -1242,6 +1282,9 @@
                                   environment variable.)
   -v, --verbose                   Enable verbose output. Use -vv for very
                                   verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
   --published                     Search only published content.
   --unpublished                   Search only unpublished content.
   --content-type [unknown|shiny|rmd-static|rmd-shiny|static|api|tensorflow-saved-model|jupyter-static|python-api|python-dash|python-streamlit|python-bokeh|python-fastapi|quarto-shiny|quarto-static|python-shiny|jupyter-voila|python-gradio]
@@ -1369,10 +1412,10 @@
     
     
       
-      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand"], "search": "../../assets/javascripts/workers/search.f8cc74c7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand"], "search": "../../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c8b220af.min.js"></script>
+      <script src="../../assets/javascripts/bundle.13a4f30d.min.js"></script>
       
     
   </body>
