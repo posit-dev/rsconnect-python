@@ -2,7 +2,8 @@ VERSION := $(shell python -m setuptools_scm)
 HOSTNAME := $(shell hostname)
 S3_PREFIX := s3://rstudio-connect-downloads/connect/rsconnect-python
 
-BDIST_WHEEL := dist/rsconnect_python-$(VERSION)-py2.py3-none-any.whl
+PACKAGE_NAME ?= rsconnect_python
+BDIST_WHEEL := dist/$(PACKAGE_NAME)-$(VERSION)-py2.py3-none-any.whl
 
 RUNNER = docker run \
   -it --rm \
@@ -75,11 +76,12 @@ clean:
 		./build \
 		./dist \
 		./htmlcov \
-		./rsconnect_python.egg-info
+		./rsconnect_python.egg-info \
+		./rsconnect.egg-info
 
 .PHONY: clean-stores
 clean-stores:
-	@find . -name "rsconnect-python" | xargs rm -rf
+	@find . -name "rsconnect-python" -o -name "rsconnect_python-*" -o -name "rsconnect-*" | xargs rm -rf
 
 .PHONY: shell
 shell: RUNNER = bash -c
@@ -126,6 +128,7 @@ version:
 # exported as a point of reference instead.
 .PHONY: dist
 dist:
+	./scripts/temporary-rename
 	pip wheel --no-deps -w dist .
 	twine check $(BDIST_WHEEL)
 	rm -vf dist/*.egg

@@ -1,8 +1,8 @@
 [project]
 name = "rsconnect_python"
-description = "Python integration with Posit Connect"
+description = "The Posit Connect command-line interface."
 
-authors = [{ name = "Michael Marchetti", email = "mike@posit.co" }]
+authors = [{ name = "Posit, PBC", email = "rsconnect@posit.co" }]
 license = { file = "LICENSE.md" }
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.8"
@@ -84,6 +84,10 @@ packages = ["rsconnect"]
 
 [tool.setuptools_scm]
 write_to = "rsconnect/version.py"
+# since we dirty the state by transforming the file
+# keep the version number consistent
+version_scheme = "no-guess-dev"
+local_scheme = "no-local-version"
 
 [tool.setuptools.package-data]
 rsconnect = ["py.typed"]
