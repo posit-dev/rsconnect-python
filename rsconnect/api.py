@@ -69,6 +69,7 @@ from .models import (
     ContentItemV1,
     DeleteInputDTO,
     DeleteOutputDTO,
+    Examples,
     ListEntryOutputDTO,
     PyInfo,
     ServerSettings,
@@ -472,6 +473,28 @@ class RSConnectClient(HTTPServer):
             self.post("v1/content/%s/build" % content_guid, body={"bundle_id": bundle_id}),
         )
         response = self._server.handle_bad_response(response)
+        return response
+
+    def examples_list(self) -> list[Examples]:
+        response = cast(Union[List[Examples], HTTPResponse], self.get("v1/examples"))
+        response = self._server.handle_bad_response(response)
+        return response
+
+    # todo: delete me in October of 2025
+    def examples_list_legacy(self) -> list[Examples]:
+        response = cast(Union[List[Examples], HTTPResponse], self.get("v1/experimental/examples"))
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def examples_download(self, example_name: str) -> HTTPResponse:
+        response = cast(HTTPResponse, self.get("v1/examples/%s/zip" % example_name, decode_response=False))
+        response = self._server.handle_bad_response(response, is_httpresponse=True)
+        return response
+
+    # todo: delete me in October of 2025
+    def examples_download_legacy(self, example_name: str) -> HTTPResponse:
+        response = cast(HTTPResponse, self.get("v1/experimental/examples/%s/zip" % example_name, decode_response=False))
+        response = self._server.handle_bad_response(response, is_httpresponse=True)
         return response
 
     def system_caches_runtime_list(self) -> list[ListEntryOutputDTO]:
