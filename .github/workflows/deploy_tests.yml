@@ -54,7 +54,7 @@ jobs:
             path: 'test/connect-rsconnect-python'
             sparse-checkout: |
                 test/rsconnect-python
-                scripts
+                tools/dev
                 examples
             sparse-checkout-cone-mode: false
             token: ${{ secrets.CONNECT_PAT }}
