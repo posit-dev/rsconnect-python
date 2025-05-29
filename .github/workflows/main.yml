@@ -97,12 +97,12 @@ jobs:
     - run: pip install -vvv ${{ steps.create_dist.outputs.whl }}
     - run: rsconnect version
     - run: rsconnect --help
-    - name: release
+    - name: create github release
       uses: softprops/action-gh-release@v2
-      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags') && matrix.package_name == 'rsconnect_python'
       with:
         files: |
-          *.whl
+          dist/*.whl
         token: ${{ secrets.GITHUB_TOKEN }}
     - uses: aws-actions/configure-aws-credentials@v4
       id: creds
