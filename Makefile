@@ -128,8 +128,9 @@ version:
 # exported as a point of reference instead.
 .PHONY: dist
 dist:
+	$(eval CLEAN_VERSION := $(shell python -m setuptools_scm))
 	./scripts/temporary-rename
-	pip wheel --no-deps -w dist .
+	SETUPTOOLS_SCM_PRETEND_VERSION=$(CLEAN_VERSION) pip wheel --no-deps -w dist .
 	twine check $(BDIST_WHEEL)
 	rm -vf dist/*.egg
 	@echo "::set-output name=whl::$(BDIST_WHEEL)"
