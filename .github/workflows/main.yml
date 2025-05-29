@@ -119,9 +119,7 @@ jobs:
         BDIST_WHEEL: ${{ steps.create_dist.outputs.whl }}
     - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
       uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        user: __token__
-        password: ${{ secrets.PYPI_TOKEN }}
+
   docs:
     needs: test
     runs-on: ubuntu-latest
