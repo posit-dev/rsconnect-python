@@ -3,7 +3,7 @@ HOSTNAME := $(shell hostname)
 S3_PREFIX := s3://rstudio-connect-downloads/connect/rsconnect-python
 
 PACKAGE_NAME ?= rsconnect_python
-BDIST_WHEEL := dist/$(PACKAGE_NAME)-$(VERSION)-py2.py3-none-any.whl
+BDIST_WHEEL ?= dist/$(PACKAGE_NAME)-$(VERSION)-py2.py3-none-any.whl
 
 RUNNER = docker run \
   -it --rm \
@@ -128,9 +128,8 @@ version:
 # exported as a point of reference instead.
 .PHONY: dist
 dist:
-	$(eval CLEAN_VERSION := $(shell python -m setuptools_scm))
 	./scripts/temporary-rename
-	SETUPTOOLS_SCM_PRETEND_VERSION=$(CLEAN_VERSION) pip wheel --no-deps -w dist .
+	SETUPTOOLS_SCM_PRETEND_VERSION=$(VERSION) pip wheel --no-deps -w dist .
 	twine check $(BDIST_WHEEL)
 	rm -vf dist/*.egg
 	@echo "::set-output name=whl::$(BDIST_WHEEL)"
