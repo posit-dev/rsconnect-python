@@ -135,23 +135,6 @@ dist:
 	@echo "::set-output name=whl::$(BDIST_WHEEL)"
 	@echo "::set-output name=whl_basename::$(notdir $(BDIST_WHEEL))"
 
-.PHONY: dist-install
-dist-install: dist
-	pip install $(BDIST_WHEEL)
-
-.PHONY: sync-to-s3
-sync-to-s3:
-	aws s3 cp --acl bucket-owner-full-control \
-		$(BDIST_WHEEL) \
-		$(S3_PREFIX)/$(VERSION)/$(notdir $(BDIST_WHEEL))
-
-.PHONY: sync-latest-to-s3
-sync-latest-to-s3:
-	aws s3 cp --acl bucket-owner-full-control \
-		--cache-control max-age=0 \
-		$(BDIST_WHEEL) \
-		$(S3_PREFIX)/latest/rsconnect_python-latest-py2.py3-none-any.whl
-
 .PHONY: sync-latest-docs-to-s3
 sync-latest-docs-to-s3:
 	aws s3 sync --acl bucket-owner-full-control \
