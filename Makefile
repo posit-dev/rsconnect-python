@@ -135,6 +135,10 @@ dist:
 	@echo "::set-output name=whl::$(BDIST_WHEEL)"
 	@echo "::set-output name=whl_basename::$(notdir $(BDIST_WHEEL))"
 
+.PHONY: install
+install:
+	pip install $(BDIST_WHEEL)
+
 .PHONY: sync-latest-docs-to-s3
 sync-latest-docs-to-s3:
 	aws s3 sync --acl bucket-owner-full-control \
