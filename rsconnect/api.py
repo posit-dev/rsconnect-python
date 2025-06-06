@@ -521,7 +521,7 @@ class RSConnectClient(HTTPServer):
         title_is_default: bool,
         tarball: IO[bytes],
         env_vars: Optional[dict[str, str]] = None,
-        activate: bool = True
+        activate: bool = True,
     ) -> RSConnectClientDeployResult:
         if app_id is None:
             if app_name is None:
@@ -1008,7 +1008,7 @@ class RSConnectExecutor:
             upload_result = S3Server(upload_url).handle_bad_response(upload_result, is_httpresponse=True)
 
     @cls_logged("Deploying bundle ...")
-    def deploy_bundle(self, activate: bool=True):
+    def deploy_bundle(self, activate: bool = True):
         if self.deployment_name is None:
             raise RSConnectException("A deployment name must be created before deploying a bundle.")
         if self.bundle is None:

@@ -293,7 +293,7 @@ def content_args(func: Callable[P, T]) -> Callable[P, T]:
         help=(
             "Deploy the application as a draft. "
             "Previous bundle will continue to be served until the draft is published."
-        )
+        ),
     )
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
@@ -1407,7 +1407,7 @@ def deploy_tensorflow(
     env_vars: dict[str, str],
     image: Optional[str],
     no_verify: bool,
-    draft: bool
+    draft: bool,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1658,7 +1658,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         token: Optional[str],
         secret: Optional[str],
         no_verify: bool,
-        draft: bool
+        draft: bool,
     ):
         set_verbosity(verbose)
         entrypoint = validate_entry_point(entrypoint, directory)

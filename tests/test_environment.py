@@ -272,6 +272,7 @@ def test_get_python_env_info(
         assert environment.python_interpreter == expected_python
         assert environment == expected_environment
 
+
 class TestEnvironmentDeprecations:
     def test_override_python_version(self):
         with mock.patch.object(rsconnect.environment.logger, "warning") as mock_warning:
