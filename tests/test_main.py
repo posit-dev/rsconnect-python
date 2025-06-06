@@ -193,12 +193,14 @@ class TestMain:
 
         # This is the important part for the draft deployment
         # We can check that the process actually submits the draft
+        deploy_api_invoked = []
         def post_application_deploy_callback(request, uri, response_headers):
             parsed_request = _load_json(request.body)
             expectation = {"bundle": "FAKE_BUNDLE_ID"}
             if not expected_activate:
                 expectation["activate"] = False
             assert parsed_request == expectation
+            deploy_api_invoked.append(True)
             return [200, {"Content-Type": "application/json"}, json.dumps({"id": "FAKE_TASK_ID"})]
 
         httpretty.register_uri(
@@ -234,6 +236,7 @@ class TestMain:
                 "rsconnect.main.quarto_inspect", return_value={}
             ):
                 result = runner.invoke(cli, args)
+            assert deploy_api_invoked == [True]
             assert result.exit_code == 0, result.output
         finally:
             if original_api_key_value:
