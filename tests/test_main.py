@@ -236,7 +236,9 @@ class TestMain:
             with mock.patch("rsconnect.main.which_quarto", return_value=None), mock.patch(
                 "rsconnect.main.quarto_inspect", return_value={}
             ), mock.patch(
-                "rsconnect.api.RSConnectExecutor.validate_app_mode", new=lambda self_, *args, **kwargs: self_
+                # Do not validate app mode, so that the "target" content doesn't matter.
+                "rsconnect.api.RSConnectExecutor.validate_app_mode",
+                new=lambda self_, *args, **kwargs: self_,
             ):
                 result = runner.invoke(cli, args)
             assert result.exit_code == 0, result.output
