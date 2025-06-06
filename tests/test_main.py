@@ -194,6 +194,7 @@ class TestMain:
         # This is the important part for the draft deployment
         # We can check that the process actually submits the draft
         deploy_api_invoked = []
+
         def post_application_deploy_callback(request, uri, response_headers):
             parsed_request = _load_json(request.body)
             expectation = {"bundle": "FAKE_BUNDLE_ID"}
