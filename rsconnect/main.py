@@ -287,6 +287,14 @@ def content_args(func: Callable[P, T]) -> Callable[P, T]:
         is_flag=True,
         help="Don't access the deployed content to verify that it started correctly.",
     )
+    @click.option(
+        "--draft",
+        is_flag=True,
+        help=(
+            "Deploy the application as a draft. "
+            "Previous bundle will continue to be served until the draft is published."
+        ),
+    )
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
         return func(*args, **kwargs)
@@ -918,6 +926,7 @@ def deploy_notebook(
     disable_env_management: Optional[bool],
     env_management_py: Optional[bool],
     env_management_r: Optional[bool],
+    draft: bool,
     no_verify: bool = False,
 ):
     set_verbosity(verbose)
@@ -977,7 +986,7 @@ def deploy_notebook(
             env_management_py=env_management_py,
             env_management_r=env_management_r,
         )
-    ce.deploy_bundle().save_deployed_info().emit_task_log()
+    ce.deploy_bundle(activate=not draft).save_deployed_info().emit_task_log()
     if not no_verify:
         ce.verify_deployment()
 
@@ -1068,6 +1077,7 @@ def deploy_voila(
     cacert: Optional[str],
     multi_notebook: bool,
     no_verify: bool,
+    draft: bool = False,
     connect_server: Optional[api.RSConnectServer] = None,  # TODO: This appears to be unused
 ):
     set_verbosity(verbose)
@@ -1106,7 +1116,7 @@ def deploy_voila(
         env_management_py=env_management_py,
         env_management_r=env_management_r,
         multi_notebook=multi_notebook,
-    ).deploy_bundle().save_deployed_info().emit_task_log()
+    ).deploy_bundle(activate=not draft).save_deployed_info().emit_task_log()
     if not no_verify:
         ce.verify_deployment()
 
@@ -1149,6 +1159,7 @@ def deploy_manifest(
     env_vars: dict[str, str],
     visibility: Optional[str],
     no_verify: bool,
+    draft: bool,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1182,7 +1193,7 @@ def deploy_manifest(
             make_manifest_bundle,
             file_name,
         )
-        .deploy_bundle()
+        .deploy_bundle(activate=not draft)
         .save_deployed_info()
         .emit_task_log()
     )
@@ -1276,6 +1287,7 @@ def deploy_quarto(
     env_management_py: bool,
     env_management_r: bool,
     no_verify: bool,
+    draft: bool,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1331,7 +1343,7 @@ def deploy_quarto(
             env_management_py=env_management_py,
             env_management_r=env_management_r,
         )
-        .deploy_bundle()
+        .deploy_bundle(activate=not draft)
         .save_deployed_info()
         .emit_task_log()
     )
@@ -1395,6 +1407,7 @@ def deploy_tensorflow(
     env_vars: dict[str, str],
     image: Optional[str],
     no_verify: bool,
+    draft: bool,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1426,7 +1439,7 @@ def deploy_tensorflow(
             exclude,
             image=image,
         )
-        .deploy_bundle()
+        .deploy_bundle(activate=not draft)
         .save_deployed_info()
         .emit_task_log()
     )
@@ -1489,6 +1502,7 @@ def deploy_html(
     token: Optional[str],
     secret: Optional[str],
     no_verify: bool,
+    draft: bool,
     connect_server: Optional[api.RSConnectServer] = None,
 ):
     set_verbosity(verbose)
@@ -1539,7 +1553,7 @@ def deploy_html(
             extra_files,
             exclude,
         )
-        .deploy_bundle()
+        .deploy_bundle(activate=not draft)
         .save_deployed_info()
         .emit_task_log()
     )
@@ -1644,6 +1658,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         token: Optional[str],
         secret: Optional[str],
         no_verify: bool,
+        draft: bool,
     ):
         set_verbosity(verbose)
         entrypoint = validate_entry_point(entrypoint, directory)
@@ -1700,7 +1715,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             env_management_py=env_management_py,
             env_management_r=env_management_r,
         )
-        ce.deploy_bundle()
+        ce.deploy_bundle(activate=not draft)
         ce.save_deployed_info()
         ce.emit_task_log()
 

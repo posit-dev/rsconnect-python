@@ -16,6 +16,7 @@ def apply_common_args(args: list, server=None, key=None, cacert=None, insecure=F
         args.extend(["--cacert", cacert])
     if insecure:
         args.extend(["--insecure"])
+    return args
 
 
 def optional_target(default):
