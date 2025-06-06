@@ -419,10 +419,17 @@ class RSConnectClient(HTTPServer):
         env_body = [dict(name=kv[0], value=kv[1]) for kv in env_vars]
         return self.patch("v1/content/%s/environment" % app_guid, body=env_body)
 
-    def app_deploy(self, app_id: str, bundle_id: Optional[int] = None) -> TaskStatusV0:
+    def app_deploy(self, app_id: str, bundle_id: Optional[int] = None, activate: bool = True) -> TaskStatusV0:
+        body = {"bundle": bundle_id}
+        if not activate:
+            # The default behavior is to activate the app after deployment.
+            # So we only pass the parameter if we want to deactivate it.
+            # That way we can keep the API backwards compatible.
+            body["activate"] = False
+
         response = cast(
             Union[TaskStatusV0, HTTPResponse],
-            self.post("applications/%s/deploy" % app_id, body={"bundle": bundle_id}),
+            self.post("applications/%s/deploy" % app_id, body=body),
         )
         response = self._server.handle_bad_response(response)
         return response
@@ -514,6 +521,7 @@ class RSConnectClient(HTTPServer):
         title_is_default: bool,
         tarball: IO[bytes],
         env_vars: Optional[dict[str, str]] = None,
+        activate: bool = True
     ) -> RSConnectClientDeployResult:
         if app_id is None:
             if app_name is None:
@@ -544,7 +552,7 @@ class RSConnectClient(HTTPServer):
 
         app_bundle = self.app_upload(app_id, tarball)
 
-        task = self.app_deploy(app_id, app_bundle["id"])
+        task = self.app_deploy(app_id, app_bundle["id"], activate=activate)
 
         return {
             "task_id": task["id"],
@@ -1000,7 +1008,7 @@ class RSConnectExecutor:
             upload_result = S3Server(upload_url).handle_bad_response(upload_result, is_httpresponse=True)
 
     @cls_logged("Deploying bundle ...")
-    def deploy_bundle(self):
+    def deploy_bundle(self, activate: bool=True):
         if self.deployment_name is None:
             raise RSConnectException("A deployment name must be created before deploying a bundle.")
         if self.bundle is None:
@@ -1016,6 +1024,7 @@ class RSConnectExecutor:
                 self.title_is_default,
                 self.bundle,
                 self.env_vars,
+                activate=activate,
             )
             self.deployed_info = result
             return self

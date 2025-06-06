@@ -1,8 +1,11 @@
 import json
+from math import exp
 import os
 import shutil
+import itertools
 from os.path import join
-from unittest import TestCase
+from unittest import TestCase, mock
+
 
 import click
 import httpretty
@@ -93,6 +96,146 @@ class TestMain:
         args = self.create_deploy_args("notebook", target)
         result = runner.invoke(cli, args)
         assert result.exit_code == 0, result.output
+
+    @pytest.mark.parametrize(
+        "command, target,expected_activate",
+        [args + [flag] for flag in [True, False] for args in [
+            ["notebook", get_dir(join("pip1", "dummy.ipynb"))],
+            ["html", get_manifest_path("pyshiny_with_manifest", "")],
+            ["manifest", get_manifest_path("pyshiny_with_manifest", "")],
+            ["quarto", get_manifest_path("pyshiny_with_manifest", "")],
+            ["tensorflow", get_api_path("pyshiny_with_manifest", "")],
+            ["voila", get_dir(join("pip1", "dummy.ipynb"))],
+        ]],
+    )
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_draft(self, command, target, expected_activate):
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/server_settings",
+            body=json.dumps({}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/me",
+            body=open("tests/testdata/rstudio-responses/get-user.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/applications"
+            "?search=app5&count=100",
+            body=open("tests/testdata/rstudio-responses/get-applications.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/applications",
+            body=json.dumps({
+                "id": "1234-5678-9012-3456",
+                "guid": "1234-5678-9012-3456",
+                "title": "app5",
+                "url": "http://fake_server/apps/1234-5678-9012-3456",
+            }),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/applications/1234-5678-9012-3456",
+            body=json.dumps({
+                "id": "1234-5678-9012-3456",
+                "guid": "1234-5678-9012-3456",
+                "title": "app5",
+                "url": "http://fake_server/apps/1234-5678-9012-3456",
+            }),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/applications/1234-5678-9012-3456",
+            body=json.dumps({
+                "id": "1234-5678-9012-3456",
+                "guid": "1234-5678-9012-3456",
+                "title": "app5",
+                "url": "http://fake_server/apps/1234-5678-9012-3456"
+            }),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/applications/1234-5678-9012-3456/upload",
+            body=json.dumps({
+                "id": "FAKE_BUNDLE_ID",
+            }),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        # This is the important part for the draft deployment
+        # We can check that the process actually submits the draft
+        def post_application_deploy_callback(request, uri, response_headers):
+            parsed_request = _load_json(request.body)
+            expectation = {'bundle': 'FAKE_BUNDLE_ID'}
+            if not expected_activate:
+                expectation['activate'] = False
+            assert parsed_request == expectation
+            return [
+                200,
+                {"Content-Type": "application/json"},
+                json.dumps({"id": "FAKE_TASK_ID"})
+            ]
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/applications/1234-5678-9012-3456/deploy",
+            body=post_application_deploy_callback
+        )
+
+        # Fake deploy task completion
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/tasks/FAKE_TASK_ID"
+            "?wait=1",
+            body=json.dumps({"output": ["FAKE_OUTPUT"], "last": "FAKE_LAST", "finished": True, "code": 0}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/applications/1234-5678-9012-3456/config",
+            body=json.dumps({}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+
+        try:
+            runner = CliRunner()
+            args = apply_common_args(["deploy", command, target], server="http://fake_server", key="FAKE_API_KEY")
+            args.append("--no-verify")
+            if not expected_activate:
+                args.append("--draft")
+            with mock.patch("rsconnect.main.which_quarto", return_value=None), \
+                 mock.patch("rsconnect.main.quarto_inspect", return_value={}):
+                result = runner.invoke(cli, args)
+            assert result.exit_code == 0, result.output
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
 
     # noinspection SpellCheckingInspection
     def test_deploy_manifest(self):
