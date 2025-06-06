@@ -1,8 +1,6 @@
 import json
-from math import exp
 import os
 import shutil
-import itertools
 from os.path import join
 from unittest import TestCase, mock
 
