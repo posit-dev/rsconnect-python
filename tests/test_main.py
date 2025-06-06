@@ -235,10 +235,12 @@ class TestMain:
                 args.append("--draft")
             with mock.patch("rsconnect.main.which_quarto", return_value=None), mock.patch(
                 "rsconnect.main.quarto_inspect", return_value={}
+            ), mock.patch(
+                "rsconnect.api.RSConnectExecutor.validate_app_mode", new=lambda self_, *args, **kwargs: self_
             ):
                 result = runner.invoke(cli, args)
-            assert deploy_api_invoked == [True]
             assert result.exit_code == 0, result.output
+            assert deploy_api_invoked == [True]
         finally:
             if original_api_key_value:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
