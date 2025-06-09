@@ -37,7 +37,7 @@ class TestEnvironment(TestCase):
         self.assertEqual(get_default_locale(lambda: (None, None)), "")
 
     def test_file(self):
-        result = Environment.create_python_environment(get_dir("pip1"))
+        result = Environment.create_python_environment(get_dir("pip1"), require_requirements_txt=True)
 
         self.assertTrue(version_re.match(result.pip))
 
@@ -59,7 +59,7 @@ class TestEnvironment(TestCase):
         self.assertEqual(expected, result)
 
     def test_pip_freeze(self):
-        result = Environment.create_python_environment(get_dir("pip2"))
+        result = Environment.create_python_environment(get_dir("pip2"), require_requirements_txt=False)
 
         # these are the dependencies declared in our pyproject.toml
         self.assertIn("six", result.contents)
@@ -83,6 +83,14 @@ class TestEnvironment(TestCase):
             python_interpreter=sys.executable,
         )
         self.assertEqual(expected, result)
+        
+    def test_missing_requirements_file(self):
+        """Test that missing requirements.txt raises an exception"""
+        with tempfile.TemporaryDirectory() as empty_dir:
+            with self.assertRaises(RSConnectException) as context:
+                Environment.create_python_environment(empty_dir)
+            
+            self.assertIn("requirements.txt file is required", str(context.exception))
 
     def test_filter_pip_freeze_output(self):
         raw_stdout = "numpy\npandas\n[notice] A new release of pip is available: 23.1.2 -> 23.3\n\
@@ -136,22 +144,22 @@ class WhichPythonTestCase(TestCase):
 
 class TestPythonVersionRequirements:
     def test_pyproject_toml(self):
-        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "using_pyproject"))
+        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "using_pyproject"), require_requirements_txt=False)
         assert env.python_interpreter == sys.executable
         assert env.python_version_requirement == ">=3.8"
 
     def test_python_version(self):
-        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "using_pyversion"))
+        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "using_pyversion"), require_requirements_txt=False)
         assert env.python_interpreter == sys.executable
         assert env.python_version_requirement == ">=3.8,<3.12"
 
     def test_all_of_them(self):
-        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "allofthem"))
+        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "allofthem"), require_requirements_txt=False)
         assert env.python_interpreter == sys.executable
         assert env.python_version_requirement == ">=3.8,<3.12"
 
     def test_missing(self):
-        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "empty"))
+        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "empty"), require_requirements_txt=False)
         assert env.python_interpreter == sys.executable
         assert env.python_version_requirement is None
 
@@ -256,6 +264,7 @@ def test_get_python_env_info(
         directory,
         force_generate=False,
         check_output=subprocess.check_output,
+        require_requirements_txt=True,
     ):
         return expected_environment
 

@@ -60,13 +60,15 @@ class EnvironmentException(Exception):
     pass
 
 
-def detect_environment(dirname: str, force_generate: bool = False) -> EnvironmentData:
+def detect_environment(dirname: str, force_generate: bool = False, require_requirements_txt: bool = True) -> EnvironmentData:
     """Determine the python dependencies in the environment.
 
-    `pip freeze` will be used to introspect the environment.
+    `pip freeze` will be used to introspect the environment if force_generate=True or if 
+    requirements.txt is missing and require_requirements_txt=False.
 
     :param: dirname Directory name
     :param: force_generate Force the generation of an environment
+    :param: require_requirements_txt If True, requirements.txt is required; otherwise pip freeze is used as fallback
     :return: a dictionary containing the package spec filename and contents if successful,
     or a dictionary containing `error` on failure.
     """
@@ -74,7 +76,15 @@ def detect_environment(dirname: str, force_generate: bool = False) -> Environmen
     if force_generate:
         result = pip_freeze()
     else:
-        result = output_file(dirname, "requirements.txt", "pip") or pip_freeze()
+        # Try to read requirements.txt file
+        try:
+            result = output_file(dirname, "requirements.txt", "pip")
+        except EnvironmentException as e:
+            # For backwards compatibility in tests
+            if not require_requirements_txt:
+                result = pip_freeze()
+            else:
+                raise e
 
     if result is not None:
         result["python"] = get_python_version()
@@ -121,13 +131,13 @@ def output_file(dirname: str, filename: str, package_manager: str):
     """Read an existing package spec file.
 
     Returns a dictionary containing the filename and contents
-    if successful, None if the file does not exist,
-    or a dictionary containing 'error' on failure.
+    if successful, or raises an EnvironmentException if the file does not exist
+    or on other failures.
     """
     try:
         path = os.path.join(dirname, filename)
         if not os.path.exists(path):
-            return None
+            raise EnvironmentException(f"{filename} file is required for deployment")
 
         with open(path, "r") as f:
             data = f.read()
@@ -207,16 +217,35 @@ def main():
     """
     try:
         if len(sys.argv) < 2:
-            raise EnvironmentException("Usage: %s [-fc] DIRECTORY" % sys.argv[0])
-        # directory is always the last argument
-        directory = sys.argv[len(sys.argv) - 1]
+            raise EnvironmentException("Usage: %s [-fc] DIRECTORY [--no-require-requirements]" % sys.argv[0])
+        
+        # Parse arguments
         flags = ""
         force_generate = False
-        if len(sys.argv) > 2:
+        require_requirements_txt = True
+        
+        # Check for flags in first argument
+        if len(sys.argv) > 2 and sys.argv[1].startswith('-') and not sys.argv[1].startswith('--'):
             flags = sys.argv[1]
-        if "f" in flags:
-            force_generate = True
-        envinfo = detect_environment(directory, force_generate)._asdict()
+            if "f" in flags:
+                force_generate = True
+                
+        # Check for --no-require-requirements flag
+        if "--no-require-requirements" in sys.argv:
+            require_requirements_txt = False
+            
+        # directory is always the first non-flag argument
+        directory_index = 1
+        while directory_index < len(sys.argv) and (sys.argv[directory_index].startswith('-') or 
+                                                  sys.argv[directory_index] == "--no-require-requirements"):
+            directory_index += 1
+            
+        if directory_index >= len(sys.argv):
+            raise EnvironmentException("Missing directory argument")
+            
+        directory = sys.argv[directory_index]
+        
+        envinfo = detect_environment(directory, force_generate, require_requirements_txt)._asdict()
         if "contents" in envinfo:
             keepers = list(map(strip_ref, envinfo["contents"].split("\n")))
             keepers = [line for line in keepers if not exclude(line)]
