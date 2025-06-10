@@ -419,17 +419,10 @@ class RSConnectClient(HTTPServer):
         env_body = [dict(name=kv[0], value=kv[1]) for kv in env_vars]
         return self.patch("v1/content/%s/environment" % app_guid, body=env_body)
 
-    def app_deploy(self, app_id: str, bundle_id: Optional[int] = None, activate: bool = True) -> TaskStatusV0:
-        body = {"bundle": bundle_id}
-        if not activate:
-            # The default behavior is to activate the app after deployment.
-            # So we only pass the parameter if we want to deactivate it.
-            # That way we can keep the API backwards compatible.
-            body["activate"] = False
-
+    def app_deploy(self, app_id: str, bundle_id: Optional[int] = None) -> TaskStatusV0:
         response = cast(
             Union[TaskStatusV0, HTTPResponse],
-            self.post("applications/%s/deploy" % app_id, body=body),
+            self.post("applications/%s/deploy" % app_id, body={"bundle": bundle_id}),
         )
         response = self._server.handle_bad_response(response)
         return response
