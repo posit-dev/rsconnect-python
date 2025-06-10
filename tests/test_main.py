@@ -199,16 +199,16 @@ class TestMain:
 
         def post_application_deploy_callback(request, uri, response_headers):
             parsed_request = _load_json(request.body)
-            expectation = {"bundle": "FAKE_BUNDLE_ID"}
+            expectation = {"bundle_id": "FAKE_BUNDLE_ID"}
             if not expected_activate:
                 expectation["activate"] = False
             assert parsed_request == expectation
             deploy_api_invoked.append(True)
-            return [200, {"Content-Type": "application/json"}, json.dumps({"id": "FAKE_TASK_ID"})]
+            return [200, {"Content-Type": "application/json"}, json.dumps({"task_id": "FAKE_TASK_ID"})]
 
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/applications/1234-5678-9012-3456/deploy",
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/build",
             body=post_application_deploy_callback,
         )
 
