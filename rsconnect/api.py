@@ -473,10 +473,16 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def content_build(self, content_guid: str, bundle_id: Optional[str] = None) -> BuildOutputDTO:
+    def content_build(self, content_guid: str, bundle_id: Optional[str] = None, activate: bool = True) -> BuildOutputDTO:
+        body = {"bundle_id": bundle_id}
+        if not activate:
+            # The default behavior is to activate the app after building.
+            # So we only pass the parameter if we want to deactivate it.
+            # That way we can keep the API backwards compatible.
+            body["activate"] = False
         response = cast(
             Union[BuildOutputDTO, HTTPResponse],
-            self.post("v1/content/%s/build" % content_guid, body={"bundle_id": bundle_id}),
+            self.post("v1/content/%s/build" % content_guid, body=body),
         )
         response = self._server.handle_bad_response(response)
         return response
@@ -552,10 +558,10 @@ class RSConnectClient(HTTPServer):
 
         app_bundle = self.app_upload(app_id, tarball)
 
-        task = self.app_deploy(app_id, app_bundle["id"], activate=activate)
+        task = self.content_build(app_guid, str(app_bundle["id"]), activate=activate)
 
         return {
-            "task_id": task["id"],
+            "task_id": task["task_id"],
             "app_id": app_id,
             "app_guid": app["guid"],
             "app_url": app["url"],

@@ -379,6 +379,8 @@ class HTTPServer(object):
                 logger.debug("Headers:")
                 for key, value in headers.items():
                     logger.debug("--> %s: %s" % (key, value))
+                logger.debug("Body:")
+                logger.debug("--> %s" % (body if body is not None else "<no body>"))
 
             # if we weren't called under a `with` statement, we'll need to manage the
             # connection here.
