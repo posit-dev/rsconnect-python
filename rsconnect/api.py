@@ -363,7 +363,7 @@ class RSConnectClient(HTTPServer):
     def _tweak_response(self, response: HTTPResponse) -> JsonData | HTTPResponse:
         return (
             response.json_data
-            if response.status and response.status == 200 and response.json_data is not None
+            if response.status and response.status >= 200 and response.status <= 299 and response.json_data is not None
             else response
         )
 
@@ -482,6 +482,20 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
+    def content_deploy(self, app_guid: str, bundle_id: Optional[int] = None, activate: bool = True) -> TaskStatusV0:
+        body = {"bundle_id": str(bundle_id)}
+        if not activate:
+            # The default behavior is to activate the app after deploying.
+            # So we only pass the parameter if we want to deactivate it.
+            # That way we can keep the API backwards compatible.
+            body["activate"] = False
+        response = cast(
+            Union[TaskStatusV1, HTTPResponse],
+            self.post("v1/content/%s/deploy" % app_guid, body=body),
+        )
+        response = self._server.handle_bad_response(response)
+        return response
+
     def system_caches_runtime_list(self) -> list[ListEntryOutputDTO]:
         response = cast(Union[List[ListEntryOutputDTO], HTTPResponse], self.get("v1/system/caches/runtime"))
         response = self._server.handle_bad_response(response)
@@ -553,7 +567,7 @@ class RSConnectClient(HTTPServer):
 
         app_bundle = self.app_upload(app_id, tarball)
 
-        task = self.content_build(app_guid, str(app_bundle["id"]), activate=activate)
+        task = self.content_deploy(app_guid, app_bundle["id"], activate=activate)
 
         return {
             "task_id": task["task_id"],

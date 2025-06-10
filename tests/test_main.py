@@ -204,11 +204,11 @@ class TestMain:
                 expectation["activate"] = False
             assert parsed_request == expectation
             deploy_api_invoked.append(True)
-            return [200, {"Content-Type": "application/json"}, json.dumps({"task_id": "FAKE_TASK_ID"})]
+            return [201, {"Content-Type": "application/json"}, json.dumps({"task_id": "FAKE_TASK_ID"})]
 
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/build",
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
             body=post_application_deploy_callback,
         )
 

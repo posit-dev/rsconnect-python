@@ -404,6 +404,7 @@ class HTTPServer(object):
                     logger.debug("Headers:")
                     for key, value in response.getheaders():
                         logger.debug("--> %s: %s" % (key, value))
+                    logger.debug("Body:")
                     logger.debug("--> %s" % response_body)
             finally:
                 if local_connection:
