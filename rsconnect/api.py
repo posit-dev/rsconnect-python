@@ -466,7 +466,9 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def content_build(self, content_guid: str, bundle_id: Optional[str] = None, activate: bool = True) -> BuildOutputDTO:
+    def content_build(
+        self, content_guid: str, bundle_id: Optional[str] = None, activate: bool = True
+    ) -> BuildOutputDTO:
         body = {"bundle_id": bundle_id}
         if not activate:
             # The default behavior is to activate the app after building.
