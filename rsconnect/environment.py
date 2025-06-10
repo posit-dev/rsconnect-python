@@ -161,7 +161,11 @@ class Environment:
 
     @classmethod
     def _get_python_env_info(
-        cls, file_name: str, python: typing.Optional[str], force_generate: bool = False, require_requirements_txt: bool = True
+        cls,
+        file_name: str,
+        python: typing.Optional[str],
+        force_generate: bool = False,
+        require_requirements_txt: bool = True,
     ) -> "Environment":
         """
         Gathers the python and environment information relating to the specified file
@@ -176,7 +180,12 @@ class Environment:
         """
         python = which_python(python)
         logger.debug("Python: %s" % python)
-        environment = cls._inspect_environment(python, os.path.dirname(file_name), force_generate=force_generate, require_requirements_txt=require_requirements_txt)
+        environment = cls._inspect_environment(
+            python,
+            os.path.dirname(file_name),
+            force_generate=force_generate,
+            require_requirements_txt=require_requirements_txt,
+        )
         if environment.error:
             raise RSConnectException(environment.error)
         logger.debug("Python: %s" % python)
@@ -204,10 +213,10 @@ class Environment:
         args = [python, "-m", "rsconnect.subprocesses.inspect_environment"]
         if flags:
             args.append("-" + "".join(flags))
-            
+
         # Add arguments for inspect_environment.py
         args.append(directory)
-        
+
         if not require_requirements_txt:
             args.append("--no-require-requirements")
 

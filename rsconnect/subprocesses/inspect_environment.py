@@ -60,10 +60,12 @@ class EnvironmentException(Exception):
     pass
 
 
-def detect_environment(dirname: str, force_generate: bool = False, require_requirements_txt: bool = True) -> EnvironmentData:
+def detect_environment(
+    dirname: str, force_generate: bool = False, require_requirements_txt: bool = True
+) -> EnvironmentData:
     """Determine the python dependencies in the environment.
 
-    `pip freeze` will be used to introspect the environment if force_generate=True or if 
+    `pip freeze` will be used to introspect the environment if force_generate=True or if
     requirements.txt is missing and require_requirements_txt=False.
 
     :param: dirname Directory name
@@ -218,33 +220,34 @@ def main():
     try:
         if len(sys.argv) < 2:
             raise EnvironmentException("Usage: %s [-fc] DIRECTORY [--no-require-requirements]" % sys.argv[0])
-        
+
         # Parse arguments
         flags = ""
         force_generate = False
         require_requirements_txt = True
-        
+
         # Check for flags in first argument
-        if len(sys.argv) > 2 and sys.argv[1].startswith('-') and not sys.argv[1].startswith('--'):
+        if len(sys.argv) > 2 and sys.argv[1].startswith("-") and not sys.argv[1].startswith("--"):
             flags = sys.argv[1]
             if "f" in flags:
                 force_generate = True
-                
+
         # Check for --no-require-requirements flag
         if "--no-require-requirements" in sys.argv:
             require_requirements_txt = False
-            
+
         # directory is always the first non-flag argument
         directory_index = 1
-        while directory_index < len(sys.argv) and (sys.argv[directory_index].startswith('-') or 
-                                                  sys.argv[directory_index] == "--no-require-requirements"):
+        while directory_index < len(sys.argv) and (
+            sys.argv[directory_index].startswith("-") or sys.argv[directory_index] == "--no-require-requirements"
+        ):
             directory_index += 1
-            
+
         if directory_index >= len(sys.argv):
             raise EnvironmentException("Missing directory argument")
-            
+
         directory = sys.argv[directory_index]
-        
+
         envinfo = detect_environment(directory, force_generate, require_requirements_txt)._asdict()
         if "contents" in envinfo:
             keepers = list(map(strip_ref, envinfo["contents"].split("\n")))
