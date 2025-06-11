@@ -241,7 +241,9 @@ class TestMain:
                 # Do not validate app mode, so that the "target" content doesn't matter.
                 "rsconnect.api.RSConnectExecutor.validate_app_mode",
                 new=lambda self_, *args, **kwargs: self_,
-            ), caplog.at_level("INFO"):
+            ), caplog.at_level(
+                "INFO"
+            ):
                 result = runner.invoke(cli, args)
             assert result.exit_code == 0, result.output
             assert deploy_api_invoked == [True]
@@ -249,7 +251,9 @@ class TestMain:
             if expected_activate:
                 assert "Direct content URL: http://fake_server/content/1234-5678-9012-3456" in caplog.text
             else:
-                assert "Direct content URL: http://fake_server/preview/1234-5678-9012-3456/FAKE_BUNDLE_ID" in caplog.text
+                assert (
+                    "Direct content URL: http://fake_server/preview/1234-5678-9012-3456/FAKE_BUNDLE_ID" in caplog.text
+                )
         finally:
             if original_api_key_value:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value

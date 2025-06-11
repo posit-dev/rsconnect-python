@@ -1136,7 +1136,9 @@ class RSConnectExecutor:
             app_dashboard_url = app_config.get("config_url")
             log_callback.info("Deployment completed successfully.")
             log_callback.info("\t Dashboard content URL: %s", app_dashboard_url)
-            log_callback.info("\t Direct content URL: %s", self.deployed_info["preview_url"] or self.deployed_info["app_url"])
+            log_callback.info(
+                "\t Direct content URL: %s", self.deployed_info["preview_url"] or self.deployed_info["app_url"]
+            )
 
         return self
 
