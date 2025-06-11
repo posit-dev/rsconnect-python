@@ -113,7 +113,7 @@ class TestMain:
         ],
     )
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_deploy_draft(self, command, target, expected_activate):
+    def test_deploy_draft(self, command, target, expected_activate, caplog):
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
 
@@ -146,7 +146,7 @@ class TestMain:
                     "id": "1234-5678-9012-3456",
                     "guid": "1234-5678-9012-3456",
                     "title": "app5",
-                    "url": "http://fake_server/apps/1234-5678-9012-3456",
+                    "url": "http://fake_server/content/1234-5678-9012-3456",
                 }
             ),
             adding_headers={"Content-Type": "application/json"},
@@ -241,10 +241,19 @@ class TestMain:
                 # Do not validate app mode, so that the "target" content doesn't matter.
                 "rsconnect.api.RSConnectExecutor.validate_app_mode",
                 new=lambda self_, *args, **kwargs: self_,
+            ), caplog.at_level(
+                "INFO"
             ):
                 result = runner.invoke(cli, args)
             assert result.exit_code == 0, result.output
             assert deploy_api_invoked == [True]
+            assert "Deployment completed successfully." in caplog.text
+            if expected_activate:
+                assert "Direct content URL: http://fake_server/content/1234-5678-9012-3456" in caplog.text
+            else:
+                assert (
+                    "Direct content URL: http://fake_server/preview/1234-5678-9012-3456/FAKE_BUNDLE_ID" in caplog.text
+                )
         finally:
             if original_api_key_value:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value

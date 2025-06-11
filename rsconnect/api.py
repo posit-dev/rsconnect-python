@@ -46,9 +46,9 @@ else:
 # they should both come from the same typing module.
 # https://peps.python.org/pep-0655/#usage-in-python-3-11
 if sys.version_info >= (3, 11):
-    from typing import NotRequired, TypedDict
+    from typing import TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import TypedDict
 
 from . import validation
 from .bundle import _default_title
@@ -331,10 +331,11 @@ class S3Server(AbstractRemoteServer):
 
 
 class RSConnectClientDeployResult(TypedDict):
-    task_id: NotRequired[str]
+    task_id: str | None
     app_id: str
-    app_guid: str
+    app_guid: str | None
     app_url: str
+    preview_url: str | None
     title: str | None
 
 
@@ -569,11 +570,17 @@ class RSConnectClient(HTTPServer):
 
         task = self.content_deploy(app_guid, app_bundle["id"], activate=activate)
 
+        # http://ADDRESS/preview/APP_GUID/BUNDLE_ID
+        # Using replace makes this a bit more robust to changes in the URL structure
+        # like connect being served on a subpath.
+        preview_url = app["url"].replace("/content/", "/preview/") + f"/{app_bundle['id']}"
+
         return {
             "task_id": task["task_id"],
             "app_id": app_id,
             "app_guid": app["guid"],
             "app_url": app["url"],
+            "preview_url": preview_url if not activate else None,
             "title": app["title"],
         }
 
@@ -1079,12 +1086,14 @@ class RSConnectExecutor:
             print("Application successfully deployed to {}".format(prepare_deploy_result.app_url))
             webbrowser.open_new(prepare_deploy_result.app_url)
 
-            self.deployed_info = {
-                "app_url": prepare_deploy_result.app_url,
-                "app_id": prepare_deploy_result.app_id,
-                "app_guid": None,
-                "title": self.title,
-            }
+            self.deployed_info = RSConnectClientDeployResult(
+                app_url=prepare_deploy_result.app_url,
+                app_id=str(prepare_deploy_result.app_id),
+                app_guid=None,
+                task_id=None,
+                preview_url=None,
+                title=self.title,
+            )
             return self
 
     def emit_task_log(
@@ -1127,7 +1136,9 @@ class RSConnectExecutor:
             app_dashboard_url = app_config.get("config_url")
             log_callback.info("Deployment completed successfully.")
             log_callback.info("\t Dashboard content URL: %s", app_dashboard_url)
-            log_callback.info("\t Direct content URL: %s", self.deployed_info["app_url"])
+            log_callback.info(
+                "\t Direct content URL: %s", self.deployed_info["preview_url"] or self.deployed_info["app_url"]
+            )
 
         return self
 
