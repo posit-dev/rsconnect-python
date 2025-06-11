@@ -482,7 +482,7 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def content_deploy(self, app_guid: str, bundle_id: Optional[int] = None, activate: bool = True) -> TaskStatusV0:
+    def content_deploy(self, app_guid: str, bundle_id: Optional[int] = None, activate: bool = True) -> BuildOutputDTO:
         body = {"bundle_id": str(bundle_id)}
         if not activate:
             # The default behavior is to activate the app after deploying.
@@ -490,7 +490,7 @@ class RSConnectClient(HTTPServer):
             # That way we can keep the API backwards compatible.
             body["activate"] = False
         response = cast(
-            Union[TaskStatusV1, HTTPResponse],
+            Union[BuildOutputDTO, HTTPResponse],
             self.post("v1/content/%s/deploy" % app_guid, body=body),
         )
         response = self._server.handle_bad_response(response)
