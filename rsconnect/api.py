@@ -570,6 +570,9 @@ class RSConnectClient(HTTPServer):
 
         task = self.content_deploy(app_guid, app_bundle["id"], activate=activate)
 
+        # http://ADDRESS/preview/APP_GUID/BUNDLE_ID
+        # Using replace makes this a bit more robust to changes in the URL structure
+        # like connect being served on a subpath.
         preview_url = app["url"].replace("/content/", "/preview/") + f"/{app_bundle['id']}"
 
         return {
