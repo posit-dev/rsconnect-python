@@ -146,7 +146,7 @@ class TestMain:
                     "id": "1234-5678-9012-3456",
                     "guid": "1234-5678-9012-3456",
                     "title": "app5",
-                    "url": "http://fake_server/apps/1234-5678-9012-3456",
+                    "url": "http://fake_server/content/1234-5678-9012-3456",
                 }
             ),
             adding_headers={"Content-Type": "application/json"},
@@ -247,7 +247,7 @@ class TestMain:
             assert deploy_api_invoked == [True]
             assert "Deployment completed successfully." in caplog.text
             if expected_activate:
-                assert "Direct content URL: http://fake_server/apps/1234-5678-9012-3456" in caplog.text
+                assert "Direct content URL: http://fake_server/content/1234-5678-9012-3456" in caplog.text
             else:
                 assert "Direct content URL: http://fake_server/preview/1234-5678-9012-3456/FAKE_BUNDLE_ID" in caplog.text
         finally:
