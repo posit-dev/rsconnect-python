@@ -405,7 +405,15 @@ class HTTPServer(object):
                     for key, value in response.getheaders():
                         logger.debug("--> %s: %s" % (key, value))
                     logger.debug("Body:")
-                    logger.debug("--> %s" % response_body)
+                    if response.getheader("Content-Type", "").startswith("application/json"):
+                        # Only print JSON responses.
+                        # Otherwise we end up dumping entire web pages to the log.
+                        try:
+                            logger.debug("--> %s" % response_body)
+                        except json.JSONDecodeError:
+                            logger.debug("--> <invalid JSON>")
+                    else:
+                        logger.debug("--> <non-json-response>")
             finally:
                 if local_connection:
                     self.__exit__()

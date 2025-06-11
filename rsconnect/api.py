@@ -335,6 +335,7 @@ class RSConnectClientDeployResult(TypedDict):
     app_id: str
     app_guid: str
     app_url: str
+    preview_url: str
     title: str | None
 
 
@@ -569,11 +570,14 @@ class RSConnectClient(HTTPServer):
 
         task = self.content_deploy(app_guid, app_bundle["id"], activate=activate)
 
+        preview_url = app["url"].replace("/content/", "/preview/") + f"/{app_bundle['id']}"
+
         return {
-            "task_id": task["task_id"],
+            "task_id": task["id"],
             "app_id": app_id,
             "app_guid": app["guid"],
             "app_url": app["url"],
+            "preview_url": preview_url,
             "title": app["title"],
         }
 
