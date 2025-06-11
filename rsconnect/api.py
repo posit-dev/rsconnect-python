@@ -363,7 +363,7 @@ class RSConnectClient(HTTPServer):
     def _tweak_response(self, response: HTTPResponse) -> JsonData | HTTPResponse:
         return (
             response.json_data
-            if response.status and response.status == 200 and response.json_data is not None
+            if response.status and response.status >= 200 and response.status <= 299 and response.json_data is not None
             else response
         )
 
@@ -466,10 +466,32 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def content_build(self, content_guid: str, bundle_id: Optional[str] = None) -> BuildOutputDTO:
+    def content_build(
+        self, content_guid: str, bundle_id: Optional[str] = None, activate: bool = True
+    ) -> BuildOutputDTO:
+        body = {"bundle_id": bundle_id}
+        if not activate:
+            # The default behavior is to activate the app after building.
+            # So we only pass the parameter if we want to deactivate it.
+            # That way we can keep the API backwards compatible.
+            body["activate"] = False
         response = cast(
             Union[BuildOutputDTO, HTTPResponse],
-            self.post("v1/content/%s/build" % content_guid, body={"bundle_id": bundle_id}),
+            self.post("v1/content/%s/build" % content_guid, body=body),
+        )
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def content_deploy(self, app_guid: str, bundle_id: Optional[int] = None, activate: bool = True) -> BuildOutputDTO:
+        body = {"bundle_id": str(bundle_id)}
+        if not activate:
+            # The default behavior is to activate the app after deploying.
+            # So we only pass the parameter if we want to deactivate it.
+            # That way we can keep the API backwards compatible.
+            body["activate"] = False
+        response = cast(
+            Union[BuildOutputDTO, HTTPResponse],
+            self.post("v1/content/%s/deploy" % app_guid, body=body),
         )
         response = self._server.handle_bad_response(response)
         return response
@@ -514,6 +536,7 @@ class RSConnectClient(HTTPServer):
         title_is_default: bool,
         tarball: IO[bytes],
         env_vars: Optional[dict[str, str]] = None,
+        activate: bool = True,
     ) -> RSConnectClientDeployResult:
         if app_id is None:
             if app_name is None:
@@ -544,10 +567,10 @@ class RSConnectClient(HTTPServer):
 
         app_bundle = self.app_upload(app_id, tarball)
 
-        task = self.app_deploy(app_id, app_bundle["id"])
+        task = self.content_deploy(app_guid, app_bundle["id"], activate=activate)
 
         return {
-            "task_id": task["id"],
+            "task_id": task["task_id"],
             "app_id": app_id,
             "app_guid": app["guid"],
             "app_url": app["url"],
@@ -1000,7 +1023,7 @@ class RSConnectExecutor:
             upload_result = S3Server(upload_url).handle_bad_response(upload_result, is_httpresponse=True)
 
     @cls_logged("Deploying bundle ...")
-    def deploy_bundle(self):
+    def deploy_bundle(self, activate: bool = True):
         if self.deployment_name is None:
             raise RSConnectException("A deployment name must be created before deploying a bundle.")
         if self.bundle is None:
@@ -1016,6 +1039,7 @@ class RSConnectExecutor:
                 self.title_is_default,
                 self.bundle,
                 self.env_vars,
+                activate=activate,
             )
             self.deployed_info = result
             return self
