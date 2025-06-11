@@ -46,9 +46,9 @@ else:
 # they should both come from the same typing module.
 # https://peps.python.org/pep-0655/#usage-in-python-3-11
 if sys.version_info >= (3, 11):
-    from typing import NotRequired, TypedDict
+    from typing import TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import TypedDict
 
 from . import validation
 from .bundle import _default_title
