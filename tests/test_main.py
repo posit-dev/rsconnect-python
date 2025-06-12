@@ -252,7 +252,7 @@ class TestMain:
                 assert "Direct content URL: http://fake_server/content/1234-5678-9012-3456" in caplog.text
             else:
                 assert (
-                    "Direct content URL: http://fake_server/preview/1234-5678-9012-3456/FAKE_BUNDLE_ID" in caplog.text
+                    "Preview content URL: http://fake_server/preview/1234-5678-9012-3456/FAKE_BUNDLE_ID" in caplog.text
                 )
         finally:
             if original_api_key_value:

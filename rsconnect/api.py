@@ -573,7 +573,7 @@ class RSConnectClient(HTTPServer):
         # http://ADDRESS/preview/APP_GUID/BUNDLE_ID
         # Using replace makes this a bit more robust to changes in the URL structure
         # like connect being served on a subpath.
-        preview_url = app["url"].replace("/content/", "/preview/") + f"/{app_bundle['id']}"
+        preview_url = app["url"].replace("/content/", "/preview/").rstrip("/") + f"/{app_bundle['id']}"
 
         return {
             "task_id": task["task_id"],
@@ -1131,14 +1131,16 @@ class RSConnectExecutor:
                 raise_on_error,
             )
             log_lines = self.remote_server.handle_bad_response(log_lines)
-            app_config = self.client.app_config(self.deployed_info["app_id"])
-            app_config = self.remote_server.handle_bad_response(app_config)
-            app_dashboard_url = app_config.get("config_url")
+
             log_callback.info("Deployment completed successfully.")
-            log_callback.info("\t Dashboard content URL: %s", app_dashboard_url)
-            log_callback.info(
-                "\t Direct content URL: %s", self.deployed_info["preview_url"] or self.deployed_info["app_url"]
-            )
+            if self.deployed_info.get("preview_url"):
+                log_callback.info("\t Preview content URL: %s", self.deployed_info["preview_url"])
+            else:
+                app_config = self.client.app_config(self.deployed_info["app_id"])
+                app_config = self.remote_server.handle_bad_response(app_config)
+                app_dashboard_url = app_config.get("config_url")
+                log_callback.info("\t Dashboard content URL: %s", app_dashboard_url)
+                log_callback.info("\t Direct content URL: %s", self.deployed_info["app_url"])
 
         return self
 
