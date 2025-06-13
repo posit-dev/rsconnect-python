@@ -859,14 +859,13 @@ class RSConnectExecutor:
                 if header_output:
                     self.logger.warning("\n")
 
-            # TODO: Is this logic backward? Seems like the provided value should override the stored value.
-            api_key = server_data.api_key or api_key
-            snowflake_connection_name = server_data.snowflake_connection_name or snowflake_connection_name
-            insecure = server_data.insecure or insecure
-            ca_data = server_data.ca_data or ca_data
-            account_name = server_data.account_name or account_name
-            token = server_data.token or token
-            secret = server_data.secret or secret
+            api_key = api_key or server_data.api_key
+            snowflake_connection_name = snowflake_connection_name or server_data.snowflake_connection_name
+            insecure = insecure or server_data.insecure
+            ca_data = ca_data or server_data.ca_data
+            account_name = account_name or server_data.account_name
+            token = token or server_data.token
+            secret = secret or server_data.secret
 
         self.is_server_from_store = server_data.from_store
 
