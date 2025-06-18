@@ -101,6 +101,7 @@ class Environment:
         python: typing.Optional[str] = None,
         override_python_version: typing.Optional[str] = None,
         app_file: typing.Optional[str] = None,
+        require_requirements_txt: bool = True,
     ) -> "Environment":
         """Given a project directory and a Python executable, return Environment information.
 
@@ -122,7 +123,7 @@ class Environment:
 
         # click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
         _warn_on_ignored_manifest(directory)
-        _warn_if_no_requirements_file(directory)
+        _check_requirements_file(directory, require_requirements_txt)
         _warn_if_environment_directory(directory)
 
         python_version_requirement = pyproject.detect_python_version_requirement(directory)
@@ -145,7 +146,7 @@ class Environment:
             python_version_requirement = f"=={override_python_version}"
 
         # with cli_feedback("Inspecting Python environment"):
-        environment = cls._get_python_env_info(module_file, python, force_generate)
+        environment = cls._get_python_env_info(module_file, python, force_generate, require_requirements_txt)
         environment.python_version_requirement = python_version_requirement
 
         if override_python_version:
@@ -160,7 +161,11 @@ class Environment:
 
     @classmethod
     def _get_python_env_info(
-        cls, file_name: str, python: typing.Optional[str], force_generate: bool = False
+        cls,
+        file_name: str,
+        python: typing.Optional[str],
+        force_generate: bool = False,
+        require_requirements_txt: bool = True,
     ) -> "Environment":
         """
         Gathers the python and environment information relating to the specified file
@@ -175,7 +180,12 @@ class Environment:
         """
         python = which_python(python)
         logger.debug("Python: %s" % python)
-        environment = cls._inspect_environment(python, os.path.dirname(file_name), force_generate=force_generate)
+        environment = cls._inspect_environment(
+            python,
+            os.path.dirname(file_name),
+            force_generate=force_generate,
+            require_requirements_txt=require_requirements_txt,
+        )
         if environment.error:
             raise RSConnectException(environment.error)
         logger.debug("Python: %s" % python)
@@ -189,6 +199,7 @@ class Environment:
         directory: str,
         force_generate: bool = False,
         check_output: typing.Callable[..., bytes] = subprocess.check_output,
+        require_requirements_txt: bool = True,
     ) -> "Environment":
         """Run the environment inspector using the specified python binary.
 
@@ -202,7 +213,12 @@ class Environment:
         args = [python, "-m", "rsconnect.subprocesses.inspect_environment"]
         if flags:
             args.append("-" + "".join(flags))
+
+        # Add arguments for inspect_environment.py
         args.append(directory)
+
+        if not require_requirements_txt:
+            args.append("--no-require-requirements")
 
         try:
             environment_json = check_output(args, text=True)
@@ -293,19 +309,31 @@ def _warn_on_ignored_manifest(directory: str) -> None:
         )
 
 
-def _warn_if_no_requirements_file(directory: str) -> None:
+def _check_requirements_file(directory: str, require_requirements_txt: bool = True) -> None:
     """
     Checks for the existence of a file called requirements.txt in the given directory.
-    If it's not there, a warning will be printed.
+    Raises RSConnectException if it doesn't exist and require_requirements_txt is True.
 
     :param directory: the directory to check in.
+    :param require_requirements_txt: if True, raises exception when requirements.txt is missing.
+                                   if False, prints a warning instead (for backwards compatibility in tests).
+    :raises: RSConnectException if requirements.txt is missing and require_requirements_txt is True.
     """
     if not os.path.exists(os.path.join(directory, "requirements.txt")):
-        click.secho(
-            "    Warning: Capturing the environment using 'pip freeze'.\n"
-            "             Consider creating a requirements.txt file instead.",
-            fg="yellow",
-        )
+        if require_requirements_txt:
+            raise RSConnectException(
+                "requirements.txt file is required for deployment. \n"
+                "Please create a requirements.txt file in your project directory.\n"
+                "For best results, use a virtual environment and create your requirements.txt file with:\n"
+                "pip freeze > requirements.txt"
+            )
+        else:
+            # For backwards compatibility in tests
+            click.secho(
+                "    Warning: Capturing the environment using 'pip freeze'.\n"
+                "             Consider creating a requirements.txt file instead.",
+                fg="yellow",
+            )
 
 
 def _warn_if_environment_directory(directory: typing.Union[str, pathlib.Path]) -> None:
