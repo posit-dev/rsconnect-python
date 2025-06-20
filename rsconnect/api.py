@@ -267,20 +267,44 @@ class SPCSConnectServer(AbstractRemoteServer):
 
         return "https://{}.snowflakecomputing.com/".format(params["account"])
 
-    def fmt_payload(self) -> str:
+    def fmt_payload(self):
         params = get_connection_parameters(self.snowflake_connection_name)
 
         if params is None:
             raise RSConnectException("No Snowflake connection found.")
 
-        spcs_url = urlparse(self.url)
-        scope = "session:role:{} {}".format(params["role"], spcs_url.netloc)
-        jwt = generate_jwt(self.snowflake_connection_name)
-        grant_type = "urn:ietf:params:oauth:grant-type:jwt-bearer"
+        authenticator = params.get("authenticator")
+        if authenticator == "SNOWFLAKE_JWT":
+            spcs_url = urlparse(self.url)
+            scope = (
+                "session:role:{} {}".format(params["role"], spcs_url.netloc) if params.get("role") else spcs_url.netloc
+            )
+            jwt = generate_jwt(self.snowflake_connection_name)
+            grant_type = "urn:ietf:params:oauth:grant-type:jwt-bearer"
 
-        payload = {"scope": scope, "assertion": jwt, "grant_type": grant_type}
-        payload = urlencode(payload)
-        return payload
+            payload = {"scope": scope, "assertion": jwt, "grant_type": grant_type}
+            payload = urlencode(payload)
+            return {
+                "body": payload,
+                "headers": {"Content-Type": "application/x-www-form-urlencoded"},
+                "path": "/oauth/token",
+            }
+        elif authenticator == "oauth":
+            payload = {
+                "data": {
+                    "AUTHENTICATOR": "OAUTH",
+                    "TOKEN": params["token"],
+                }
+            }
+            return {
+                "body": payload,
+                "headers": {"Content-Type": "application/json"},
+                "path": "/session/v1/login-request",
+                "Authorization": "Bearer %s" % params["token"],
+                "X-Snowflake-Authorization-Token-Type": "OAUTH",
+            }
+        else:
+            raise NotImplementedError("Unsupported authenticator for SPCS Connect: %s" % authenticator)
 
     def exchange_token(self) -> str:
         try:
@@ -288,12 +312,8 @@ class SPCSConnectServer(AbstractRemoteServer):
             payload = self.fmt_payload()
 
             response = server.request(
-                method="POST",
-                path="/oauth/token",
-                body=payload,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                method="POST", **payload  # type: ignore[arg-type]  # fmt_payload returns a dict with body and headers
             )
-
             response = cast(HTTPResponse, response)
 
             # borrowed from AbstractRemoteServer.handle_bad_response
