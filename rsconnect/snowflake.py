@@ -5,6 +5,8 @@ import json
 from subprocess import CalledProcessError, CompletedProcess, run
 from typing import Any, Dict, List, Optional
 
+from snowflake.connector.config_manager import CONFIG_MANAGER
+
 from .exception import RSConnectException
 from .log import logger
 
@@ -40,27 +42,39 @@ def list_connections() -> List[Dict[str, Any]]:
         raise RSConnectException("Could not list snowflake connections.")
 
 
-def get_connection_parameters(name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def get_parameters(name: Optional[str] = None) -> Dict[str, Any]:
+    """Get Snowflake connection parameters.
+    Args:
+        name: The name of the connection to retrieve. If None, returns the default connection.
 
-    connection_list = list_connections()
-    # return parameters for default connection if configured
-    # otherwise return named connection
-
-    if not connection_list:
-        raise RSConnectException("No Snowflake connections found.")
-
+    Returns:
+        A dictionary of connection parameters.
+    """
     try:
-        if not name:
-            return next((x["parameters"] for x in connection_list if x.get("is_default")), None)
+        connections = CONFIG_MANAGER["connections"]
+        if not isinstance(connections, dict):
+            raise TypeError("connections is not a dictionary")
+
+        if name is None:
+            def_connection_name = CONFIG_MANAGER["default_connection_name"]
+            if not isinstance(def_connection_name, str):
+                raise TypeError("default_connection_name is not a string")
+            params = connections[def_connection_name]
         else:
-            return next((x["parameters"] for x in connection_list if x.get("connection_name") == name))
-    except StopIteration:
-        raise RSConnectException(f"No Snowflake connection found with name '{name}'.")
+            params = connections[name]
+
+        if not isinstance(params, dict):
+            raise TypeError("connection parameters is not a dictionary")
+
+        return {str(k): v for k, v in params.items()}
+
+    except (KeyError, AttributeError) as e:
+        raise RSConnectException(f"Could not get Snowflake connection: {e}")
 
 
 def generate_jwt(name: Optional[str] = None) -> str:
 
-    _ = get_connection_parameters(name)
+    _ = get_parameters(name)
     connection_name = "" if name is None else name
 
     try:
