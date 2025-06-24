@@ -298,10 +298,12 @@ class SPCSConnectServer(AbstractRemoteServer):
             }
             return {
                 "body": payload,
-                "headers": {"Content-Type": "application/json"},
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer %s" % params["token"],
+                    "X-Snowflake-Authorization-Token-Type": "OAUTH",
+                },
                 "path": "/session/v1/login-request",
-                "Authorization": "Bearer %s" % params["token"],
-                "X-Snowflake-Authorization-Token-Type": "OAUTH",
             }
         else:
             raise NotImplementedError("Unsupported authenticator for SPCS Connect: %s" % authenticator)
