@@ -211,7 +211,7 @@ def get_parameters(name: Optional[str] = None) -> Optional[Dict[str, Any]]:
         logger.debug(f"Error using snowflake-connector-python: {e}")
 
     # Fall back to our own implementation that reads the config files directly
-    return read_config_file(name)
+    # return read_config_file(name)
 
 
 def get_connection_parameters(name: Optional[str] = None) -> Optional[Dict[str, Any]]:
