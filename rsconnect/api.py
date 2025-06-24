@@ -76,7 +76,7 @@ from .models import (
     TaskStatusV1,
     UserRecord,
 )
-from .snowflake import generate_jwt, get_connection_parameters
+from .snowflake import generate_jwt, get_parameters
 from .timeouts import get_task_timeout, get_task_timeout_help_message
 
 if TYPE_CHECKING:
@@ -260,7 +260,7 @@ class SPCSConnectServer(AbstractRemoteServer):
         self.bootstrap_jwt = None
 
     def token_endpoint(self) -> str:
-        params = get_connection_parameters(self.snowflake_connection_name)
+        params = get_parameters(self.snowflake_connection_name)
 
         if params is None:
             raise RSConnectException("No Snowflake connection found.")
@@ -268,7 +268,7 @@ class SPCSConnectServer(AbstractRemoteServer):
         return "https://{}.snowflakecomputing.com/".format(params["account"])
 
     def fmt_payload(self):
-        params = get_connection_parameters(self.snowflake_connection_name)
+        params = get_parameters(self.snowflake_connection_name)
 
         if params is None:
             raise RSConnectException("No Snowflake connection found.")
