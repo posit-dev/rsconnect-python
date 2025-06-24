@@ -335,10 +335,24 @@ class SPCSConnectServer(AbstractRemoteServer):
             if not response.response_body:
                 raise RSConnectException("Token exchange returned empty response")
 
-            # Ensure we return a string
+            # Ensure response body is decoded to string on the object
             if isinstance(response.response_body, bytes):
-                return response.response_body.decode("utf-8")
-            return response.response_body
+                response.response_body = response.response_body.decode("utf-8")
+
+                # Try to parse as JSON first
+            try:
+                import json
+
+                json_data = json.loads(response.response_body)
+                # If it's JSON, extract the token from data.token
+                if isinstance(json_data, dict) and "data" in json_data and "token" in json_data["data"]:
+                    return json_data["data"]["token"]
+                else:
+                    # JSON format doesn't match expected structure, return raw response
+                    return response.response_body
+            except (json.JSONDecodeError, ValueError):
+                # Not JSON, return the raw response body
+                return response.response_body
 
         except RSConnectException as e:
             raise RSConnectException(f"Failed to exchange Snowflake token: {str(e)}") from e
