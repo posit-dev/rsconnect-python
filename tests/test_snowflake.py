@@ -196,7 +196,16 @@ def test_get_parameters_noname_default(monkeypatch: MonkeyPatch):
         "connections": {"prod": {"account": "example-prod-acct", "role": "DEVELOPER"}},
     }
 
-    monkeypatch.setattr("rsconnect.snowflake.CONFIG_MANAGER", mock_config_manager)
+    # Mock the import inside get_parameters
+    def mock_import(name, *args, **kwargs):
+        if name == "snowflake.connector.config_manager":
+            # Create a mock module with CONFIG_MANAGER
+            mock_module = type("mock_module", (), {})
+            mock_module.CONFIG_MANAGER = mock_config_manager
+            return mock_module
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", mock_import)
 
     params = get_parameters()
 
@@ -209,7 +218,16 @@ def test_get_parameters_named(monkeypatch: MonkeyPatch):
 
     mock_config_manager = {"connections": {"dev": {"account": "example-dev-acct", "role": "ACCOUNTADMIN"}}}
 
-    monkeypatch.setattr("rsconnect.snowflake.CONFIG_MANAGER", mock_config_manager)
+    # Mock the import inside get_parameters
+    def mock_import(name, *args, **kwargs):
+        if name == "snowflake.connector.config_manager":
+            # Create a mock module with CONFIG_MANAGER
+            mock_module = type("mock_module", (), {})
+            mock_module.CONFIG_MANAGER = mock_config_manager
+            return mock_module
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", mock_import)
 
     params = get_parameters("dev")
 
@@ -224,7 +242,16 @@ def test_get_parameters_errs_if_none(monkeypatch: MonkeyPatch):
     # Test with invalid default connection
     mock_config_manager = {"default_connection_name": "non_existent", "connections": {}}
 
-    monkeypatch.setattr("rsconnect.snowflake.CONFIG_MANAGER", mock_config_manager)
+    # Mock the import inside get_parameters
+    def mock_import(name, *args, **kwargs):
+        if name == "snowflake.connector.config_manager":
+            # Create a mock module with CONFIG_MANAGER
+            mock_module = type("mock_module", (), {})
+            mock_module.CONFIG_MANAGER = mock_config_manager
+            return mock_module
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", mock_import)
 
     with pytest.raises(RSConnectException) as excinfo:
         get_parameters()
@@ -232,7 +259,17 @@ def test_get_parameters_errs_if_none(monkeypatch: MonkeyPatch):
 
     # Test with connections but non-existent name
     mock_config_manager = {"connections": {"prod": {"account": "example-prod-acct"}}}
-    monkeypatch.setattr("rsconnect.snowflake.CONFIG_MANAGER", mock_config_manager)
+
+    # Update the mock with new config
+    def mock_import(name, *args, **kwargs):
+        if name == "snowflake.connector.config_manager":
+            # Create a mock module with CONFIG_MANAGER
+            mock_module = type("mock_module", (), {})
+            mock_module.CONFIG_MANAGER = mock_config_manager
+            return mock_module
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", mock_import)
 
     with pytest.raises(RSConnectException) as excinfo:
         get_parameters("nexiste")
