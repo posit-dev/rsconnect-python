@@ -11,7 +11,7 @@ from rsconnect.exception import RSConnectException
 from rsconnect.snowflake import (
     ensure_snow_installed,
     generate_jwt,
-    get_connection_parameters,
+    get_parameters,
     list_connections,
 )
 
@@ -187,49 +187,93 @@ def test_list_connections(monkeypatch: MonkeyPatch):
     assert connections[1]["is_default"] is True
 
 
-def test_get_connection_noname_default(monkeypatch: MonkeyPatch):
-    # Test that get_connection_parameters() returns parameters from
+def test_get_parameters_noname_default(monkeypatch: MonkeyPatch):
+    # Test that get_parameters() returns parameters from
     # the default connection when no name is provided
 
-    monkeypatch.setattr("rsconnect.snowflake.list_connections", lambda: SAMPLE_CONNECTIONS)
-    monkeypatch.setattr("rsconnect.snowflake.ensure_snow_installed", lambda: None)
+    mock_config_manager = {
+        "default_connection_name": "prod",
+        "connections": {"prod": {"account": "example-prod-acct", "role": "DEVELOPER"}},
+    }
 
-    connection = get_connection_parameters()
+    # Mock the import inside get_parameters
+    def mock_import(name, *args, **kwargs):
+        if name == "snowflake.connector.config_manager":
+            # Create a mock module with CONFIG_MANAGER
+            mock_module = type("mock_module", (), {})
+            mock_module.CONFIG_MANAGER = mock_config_manager
+            return mock_module
+        return original_import(name, *args, **kwargs)
 
-    assert connection["account"] == "example-prod-acct"
-    assert connection["role"] == "DEVELOPER"
+    monkeypatch.setattr("builtins.__import__", mock_import)
+
+    params = get_parameters()
+
+    assert params["account"] == "example-prod-acct"
+    assert params["role"] == "DEVELOPER"
 
 
-def test_get_connection_named(monkeypatch: MonkeyPatch):
-    # Test that get_connection_parameters() returns the specified connection when a name is provided
+def test_get_parameters_named(monkeypatch: MonkeyPatch):
+    # Test that get_parameters() returns the specified connection when a name is provided
 
-    monkeypatch.setattr("rsconnect.snowflake.list_connections", lambda: SAMPLE_CONNECTIONS)
-    monkeypatch.setattr("rsconnect.snowflake.ensure_snow_installed", lambda: None)
+    mock_config_manager = {"connections": {"dev": {"account": "example-dev-acct", "role": "ACCOUNTADMIN"}}}
 
-    connection = get_connection_parameters("dev")
+    # Mock the import inside get_parameters
+    def mock_import(name, *args, **kwargs):
+        if name == "snowflake.connector.config_manager":
+            # Create a mock module with CONFIG_MANAGER
+            mock_module = type("mock_module", (), {})
+            mock_module.CONFIG_MANAGER = mock_config_manager
+            return mock_module
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", mock_import)
+
+    params = get_parameters("dev")
 
     # Should return the connection with the specified name
-    assert connection["account"] == "example-dev-acct"
-    assert connection["role"] == "ACCOUNTADMIN"
+    assert params["account"] == "example-dev-acct"
+    assert params["role"] == "ACCOUNTADMIN"
 
 
-def test_get_connection_errs_if_none(monkeypatch: MonkeyPatch):
-    # Test that get_connection_parameters() raises an exception when no matching connection is found
+def test_get_parameters_errs_if_none(monkeypatch: MonkeyPatch):
+    # Test that get_parameters() raises an exception when no matching connection is found
 
-    # Test with empty connections list
-    monkeypatch.setattr("rsconnect.snowflake.list_connections", lambda: [])
-    monkeypatch.setattr("rsconnect.snowflake.ensure_snow_installed", lambda: None)
+    # Test with invalid default connection
+    mock_config_manager = {"default_connection_name": "non_existent", "connections": {}}
+
+    # Mock the import inside get_parameters
+    def mock_import(name, *args, **kwargs):
+        if name == "snowflake.connector.config_manager":
+            # Create a mock module with CONFIG_MANAGER
+            mock_module = type("mock_module", (), {})
+            mock_module.CONFIG_MANAGER = mock_config_manager
+            return mock_module
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", mock_import)
 
     with pytest.raises(RSConnectException) as excinfo:
-        get_connection_parameters()
-    assert "No Snowflake connections found" in str(excinfo.value)
+        get_parameters()
+    assert "Could not get Snowflake connection" in str(excinfo.value)
 
     # Test with connections but non-existent name
-    monkeypatch.setattr("rsconnect.snowflake.list_connections", lambda: SAMPLE_CONNECTIONS)
+    mock_config_manager = {"connections": {"prod": {"account": "example-prod-acct"}}}
+
+    # Update the mock with new config
+    def mock_import(name, *args, **kwargs):
+        if name == "snowflake.connector.config_manager":
+            # Create a mock module with CONFIG_MANAGER
+            mock_module = type("mock_module", (), {})
+            mock_module.CONFIG_MANAGER = mock_config_manager
+            return mock_module
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", mock_import)
 
     with pytest.raises(RSConnectException) as excinfo:
-        get_connection_parameters("nexiste")
-    assert "No Snowflake connection found with name 'nexiste'" in str(excinfo.value)
+        get_parameters("nexiste")
+    assert "Could not get Snowflake connection" in str(excinfo.value)
 
 
 def test_generate_jwt(monkeypatch: MonkeyPatch):
@@ -263,7 +307,9 @@ def test_generate_jwt(monkeypatch: MonkeyPatch):
             )
 
     monkeypatch.setattr("rsconnect.snowflake.snow", mock_snow)
-    monkeypatch.setattr("rsconnect.snowflake.list_connections", lambda: SAMPLE_CONNECTIONS)
+
+    # Mock get_parameters to return empty dict (we just need it not to fail)
+    monkeypatch.setattr("rsconnect.snowflake.get_parameters", lambda name=None: {})
 
     # Case 1: Test with default connection (no name parameter)
     jwt = generate_jwt()
@@ -274,9 +320,16 @@ def test_generate_jwt(monkeypatch: MonkeyPatch):
     assert jwt == "header.payload.signature"
 
     # Case 3: Test with an invalid connection name
+    def mock_get_parameters_with_error(name=None):
+        if name == "nexiste":
+            raise RSConnectException(f"Could not get Snowflake connection: Key '{name}' does not exist.")
+        return {}
+
+    monkeypatch.setattr("rsconnect.snowflake.get_parameters", mock_get_parameters_with_error)
+
     with pytest.raises(RSConnectException) as excinfo:
         generate_jwt("nexiste")
-    assert "No Snowflake connection found with name 'nexiste'" in str(excinfo.value)
+    assert "Could not get Snowflake connection" in str(excinfo.value)
 
 
 def test_generate_jwt_command_failure(monkeypatch: MonkeyPatch):
@@ -288,7 +341,7 @@ def test_generate_jwt_command_failure(monkeypatch: MonkeyPatch):
         )
 
     monkeypatch.setattr("rsconnect.snowflake.snow", mock_snow)
-    monkeypatch.setattr("rsconnect.snowflake.get_connection_parameters", lambda name=None: {})
+    monkeypatch.setattr("rsconnect.snowflake.get_parameters", lambda name=None: {})
 
     with pytest.raises(RSConnectException) as excinfo:
         generate_jwt()
@@ -306,7 +359,7 @@ def test_generate_jwt_invalid_json(monkeypatch: MonkeyPatch):
         return MockProcessInvalidJSON()
 
     monkeypatch.setattr("rsconnect.snowflake.snow", mock_snow)
-    monkeypatch.setattr("rsconnect.snowflake.get_connection_parameters", lambda name=None: {})
+    monkeypatch.setattr("rsconnect.snowflake.get_parameters", lambda name=None: {})
 
     with pytest.raises(RSConnectException) as excinfo:
         generate_jwt()
@@ -324,7 +377,7 @@ def test_generate_jwt_missing_message(monkeypatch: MonkeyPatch):
         return MockProcessNoMessage()
 
     monkeypatch.setattr("rsconnect.snowflake.snow", mock_snow)
-    monkeypatch.setattr("rsconnect.snowflake.get_connection_parameters", lambda name=None: {})
+    monkeypatch.setattr("rsconnect.snowflake.get_parameters", lambda name=None: {})
 
     with pytest.raises(RSConnectException) as excinfo:
         generate_jwt()

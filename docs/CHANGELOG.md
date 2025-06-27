@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support for the `--draft` option when deploying content,
   this allows to deploy a new bundle for the content without exposing
   it as a the activated one.
+- Improved support for Posit Connect deployments
+  hosted in Snowpark Container Services.
 
 ### Fixed
 
