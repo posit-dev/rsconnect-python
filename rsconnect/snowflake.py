@@ -5,8 +5,6 @@ import json
 from subprocess import CalledProcessError, CompletedProcess, run
 from typing import Any, Dict, List, Optional
 
-from snowflake.connector.config_manager import CONFIG_MANAGER
-
 from .exception import RSConnectException
 from .log import logger
 
@@ -50,6 +48,10 @@ def get_parameters(name: Optional[str] = None) -> Dict[str, Any]:
     Returns:
         A dictionary of connection parameters.
     """
+    try:
+        from snowflake.connector.config_manager import CONFIG_MANAGER
+    except ImportError:
+        raise RSConnectException("snowflake-cli is not installed.")
     try:
         connections = CONFIG_MANAGER["connections"]
         if not isinstance(connections, dict):
