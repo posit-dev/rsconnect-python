@@ -335,7 +335,7 @@ class RSConnectClientDeployResult(TypedDict):
     app_id: str
     app_guid: str | None
     app_url: str
-    preview_url: str | None
+    draft_url: str | None
     title: str | None
 
 
@@ -573,14 +573,14 @@ class RSConnectClient(HTTPServer):
         # http://ADDRESS/DASHBOARD-PATH/#/apps/GUID/draft/BUNDLE_ID_TO_PREVIEW
         # Pulling v1 content to get the full dashboard URL
         app_v1 = self.content_get(app["guid"])
-        preview_url = app_v1["dashboard_url"] + f"/draft/{app_bundle['id']}"
+        draft_url = app_v1["dashboard_url"] + f"/draft/{app_bundle['id']}"
 
         return {
             "task_id": task["task_id"],
             "app_id": app_id,
             "app_guid": app["guid"],
             "app_url": app["url"],
-            "preview_url": preview_url if not activate else None,
+            "draft_url": draft_url if not activate else None,
             "title": app["title"],
         }
 
@@ -1090,7 +1090,7 @@ class RSConnectExecutor:
                 app_id=str(prepare_deploy_result.app_id),
                 app_guid=None,
                 task_id=None,
-                preview_url=None,
+                draft_url=None,
                 title=self.title,
             )
             return self
@@ -1132,8 +1132,8 @@ class RSConnectExecutor:
             log_lines = self.remote_server.handle_bad_response(log_lines)
 
             log_callback.info("Deployment completed successfully.")
-            if self.deployed_info.get("preview_url"):
-                log_callback.info("\t Preview content URL: %s", self.deployed_info["preview_url"])
+            if self.deployed_info.get("draft_url"):
+                log_callback.info("\t Draft content URL: %s", self.deployed_info["draft_url"])
             else:
                 app_config = self.client.app_config(self.deployed_info["app_id"])
                 app_config = self.remote_server.handle_bad_response(app_config)
