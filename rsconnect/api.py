@@ -570,10 +570,10 @@ class RSConnectClient(HTTPServer):
 
         task = self.content_deploy(app_guid, app_bundle["id"], activate=activate)
 
-        # http://ADDRESS/preview/APP_GUID/BUNDLE_ID
-        # Using replace makes this a bit more robust to changes in the URL structure
-        # like connect being served on a subpath.
-        preview_url = app["url"].replace("/content/", "/preview/").rstrip("/") + f"/{app_bundle['id']}"
+        # http://ADDRESS/DASHBOARD-PATH/#/apps/GUID/draft/BUNDLE_ID_TO_PREVIEW
+        # Pulling v1 content to get the full dashboard URL
+        app_v1 = self.content_get(app["guid"])
+        preview_url = app_v1["dashboard_url"] + f"/draft/{app_bundle['id']}"
 
         return {
             "task_id": task["task_id"],
