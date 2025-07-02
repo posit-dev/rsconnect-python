@@ -76,7 +76,7 @@ from .models import (
     TaskStatusV1,
     UserRecord,
 )
-from .snowflake import generate_jwt, get_connection_parameters
+from .snowflake import generate_jwt, get_parameters
 from .timeouts import get_task_timeout, get_task_timeout_help_message
 
 if TYPE_CHECKING:
@@ -260,27 +260,53 @@ class SPCSConnectServer(AbstractRemoteServer):
         self.bootstrap_jwt = None
 
     def token_endpoint(self) -> str:
-        params = get_connection_parameters(self.snowflake_connection_name)
+        params = get_parameters(self.snowflake_connection_name)
 
         if params is None:
             raise RSConnectException("No Snowflake connection found.")
 
         return "https://{}.snowflakecomputing.com/".format(params["account"])
 
-    def fmt_payload(self) -> str:
-        params = get_connection_parameters(self.snowflake_connection_name)
+    def fmt_payload(self):
+        params = get_parameters(self.snowflake_connection_name)
 
         if params is None:
             raise RSConnectException("No Snowflake connection found.")
 
-        spcs_url = urlparse(self.url)
-        scope = "session:role:{} {}".format(params["role"], spcs_url.netloc)
-        jwt = generate_jwt(self.snowflake_connection_name)
-        grant_type = "urn:ietf:params:oauth:grant-type:jwt-bearer"
+        authenticator = params.get("authenticator")
+        if authenticator == "SNOWFLAKE_JWT":
+            spcs_url = urlparse(self.url)
+            scope = (
+                "session:role:{} {}".format(params["role"], spcs_url.netloc) if params.get("role") else spcs_url.netloc
+            )
+            jwt = generate_jwt(self.snowflake_connection_name)
+            grant_type = "urn:ietf:params:oauth:grant-type:jwt-bearer"
 
-        payload = {"scope": scope, "assertion": jwt, "grant_type": grant_type}
-        payload = urlencode(payload)
-        return payload
+            payload = {"scope": scope, "assertion": jwt, "grant_type": grant_type}
+            payload = urlencode(payload)
+            return {
+                "body": payload,
+                "headers": {"Content-Type": "application/x-www-form-urlencoded"},
+                "path": "/oauth/token",
+            }
+        elif authenticator == "oauth":
+            payload = {
+                "data": {
+                    "AUTHENTICATOR": "OAUTH",
+                    "TOKEN": params["token"],
+                }
+            }
+            return {
+                "body": payload,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer %s" % params["token"],
+                    "X-Snowflake-Authorization-Token-Type": "OAUTH",
+                },
+                "path": "/session/v1/login-request",
+            }
+        else:
+            raise NotImplementedError("Unsupported authenticator for SPCS Connect: %s" % authenticator)
 
     def exchange_token(self) -> str:
         try:
@@ -288,12 +314,8 @@ class SPCSConnectServer(AbstractRemoteServer):
             payload = self.fmt_payload()
 
             response = server.request(
-                method="POST",
-                path="/oauth/token",
-                body=payload,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                method="POST", **payload  # type: ignore[arg-type]  # fmt_payload returns a dict with body and headers
             )
-
             response = cast(HTTPResponse, response)
 
             # borrowed from AbstractRemoteServer.handle_bad_response
@@ -313,10 +335,24 @@ class SPCSConnectServer(AbstractRemoteServer):
             if not response.response_body:
                 raise RSConnectException("Token exchange returned empty response")
 
-            # Ensure we return a string
+            # Ensure response body is decoded to string on the object
             if isinstance(response.response_body, bytes):
-                return response.response_body.decode("utf-8")
-            return response.response_body
+                response.response_body = response.response_body.decode("utf-8")
+
+                # Try to parse as JSON first
+            try:
+                import json
+
+                json_data = json.loads(response.response_body)
+                # If it's JSON, extract the token from data.token
+                if isinstance(json_data, dict) and "data" in json_data and "token" in json_data["data"]:
+                    return json_data["data"]["token"]
+                else:
+                    # JSON format doesn't match expected structure, return raw response
+                    return response.response_body
+            except (json.JSONDecodeError, ValueError):
+                # Not JSON, return the raw response body
+                return response.response_body
 
         except RSConnectException as e:
             raise RSConnectException(f"Failed to exchange Snowflake token: {str(e)}") from e
