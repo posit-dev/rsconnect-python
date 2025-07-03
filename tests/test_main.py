@@ -229,6 +229,20 @@ class TestMain:
             status=200,
         )
 
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            body=json.dumps(
+                {
+                    "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+                }
+            ),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        expected_content_url = "http://fake_server/content/1234-5678-9012-3456"
+        expected_draft_url = "http://fake_server/connect/#/apps/1234-5678-9012-3456/draft/FAKE_BUNDLE_ID"
         try:
             runner = CliRunner()
             args = apply_common_args(["deploy", command, target], server="http://fake_server", key="FAKE_API_KEY")
@@ -249,11 +263,9 @@ class TestMain:
             assert deploy_api_invoked == [True]
             assert "Deployment completed successfully." in caplog.text
             if expected_activate:
-                assert "Direct content URL: http://fake_server/content/1234-5678-9012-3456" in caplog.text
+                assert f"Direct content URL: {expected_content_url}" in caplog.text
             else:
-                assert (
-                    "Preview content URL: http://fake_server/preview/1234-5678-9012-3456/FAKE_BUNDLE_ID" in caplog.text
-                )
+                assert f"Draft content URL: {expected_draft_url}" in caplog.text
         finally:
             if original_api_key_value:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
