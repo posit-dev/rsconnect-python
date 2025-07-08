@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it as a the activated one.
 - Improved support for Posit Connect deployments
   hosted in Snowpark Container Services.
+- Relicensed package from GPL to MIT.
 
 ### Fixed
 
