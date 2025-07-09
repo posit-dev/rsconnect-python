@@ -104,19 +104,6 @@ jobs:
         files: |
           dist/*.whl
         token: ${{ secrets.GITHUB_TOKEN }}
-    - uses: aws-actions/configure-aws-credentials@v4
-      id: creds
-      with:
-        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-        aws-region: ${{ secrets.AWS_REGION }}
-    - if: github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.package_name == 'rsconnect_python'
-      run: make sync-latest-to-s3
-      env:
-        BDIST_WHEEL: ${{ steps.create_dist.outputs.whl }}
-    - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags') && matrix.package_name == 'rsconnect_python'
-      run: make sync-to-s3
-      env:
-        BDIST_WHEEL: ${{ steps.create_dist.outputs.whl }}
     - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
       uses: pypa/gh-action-pypi-publish@release/v1
 
