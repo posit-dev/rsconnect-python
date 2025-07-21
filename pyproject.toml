@@ -7,6 +7,7 @@ license = { file = "LICENSE.md" }
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.8"
 
+# If you edit these, please also update requirements.txt
 dependencies = [
     "typing-extensions>=4.8.0",
     "pip>=10.0.0",
