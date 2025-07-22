@@ -3,6 +3,10 @@ on:
   schedule:
     - cron: "0 10 * * 1" # Monday @ 10am UTC
   workflow_dispatch:
+  push:
+    paths:
+      - pyproject.toml
+      - '.github/workflows/snyk.yml'
 
 env:
   SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -12,33 +16,17 @@ jobs:
   snyk-monitor:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      # - name: Run Snyk (setup.py)
-      #   uses: snyk/actions/python@master
-      #   with:
-      #     command: monitor
-      #     args: --file=setup.py --package-manager=pip --project-name=setup.py --org=${{ env.SNYK_ORG }}
-
-      # - name: Run Snyk (requirements.txt)
-      #   uses: snyk/actions/python@master
-      #   with:
-      #     command: monitor
-      #     args: --file=requirements.txt --package-manager=pip --project-name=requirements.txt --org=${{ env.SNYK_ORG }}
-
-      # On Oct 2 2023, the steps using snyk/actions/python@master started failing with "undefined".
-      # Nothing obvious changed in our code or in the Snyk action or Docker image.
-      # Setting up and running snyk generically seems to work, so we'll go with that.
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: '3.11'
-      - name: Install dependencies
+
+      - name: Prepare requirements.txt
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          uv pip compile pyproject.toml --output-file requirements.txt
+          uv pip install -r requirements.txt
 
       - uses: snyk/actions/setup@master
 
