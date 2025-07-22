@@ -26,7 +26,7 @@ jobs:
       - name: Prepare requirements.txt
         run: |
           uv pip compile pyproject.toml --output-file requirements.txt
-          uv pip install -r requirements.txt
+          uv pip install --system -r requirements.txt
 
       - uses: snyk/actions/setup@master
 
