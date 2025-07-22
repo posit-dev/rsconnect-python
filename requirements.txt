@@ -1,7 +1,7 @@
-# This file is just for Snyk scanning,
-# because it doesn't understand pyproject.toml
-# unless it uses Poetry.
-# https://github.com/snyk/snyk-python-plugin/issues/147
+# TODO(#649): this file shouldn't exist, but there currently are some
+# integration test suites that rely on it. The integration tests deserve to be
+# overhauled along the lines of the posit-sdk-py tests, so we can clean this up
+# when we do that.
 
 # build-system.requires
 setuptools>=61
