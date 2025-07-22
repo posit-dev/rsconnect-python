@@ -1,0 +1,32 @@
+# TODO(#649): this file shouldn't exist, but there currently are some
+# integration test suites that rely on it. The integration tests deserve to be
+# overhauled along the lines of the posit-sdk-py tests, so we can clean this up
+# when we do that.
+
+# build-system.requires
+setuptools>=61
+setuptools_scm[toml]>=3.4
+wheel
+
+# project.dependencies
+six>=1.14.0
+click>=8.0.0
+pip>=10.0.0
+semver>=2.0.0,<3.0.0
+pyjwt>=2.4.0
+black==24.3.0
+
+# project.optional-dependencies.test
+coverage
+flake8-pyproject
+flake8
+httpretty
+ipykernel
+nbconvert
+pyright
+pytest-cov
+pytest
+setuptools_scm[toml]
+twine
+types-Flask
+types-six
