@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ??
 
+### Fixed
+
+- Python Shiny apps can be deployed when Connect server version is hidden. (#695)
+
 ## [1.27.0] - 2025-07-10
 
 ### Added
