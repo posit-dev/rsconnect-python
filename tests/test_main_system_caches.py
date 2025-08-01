@@ -9,17 +9,12 @@ from rsconnect.main import cli
 
 CONNECT_SERVER = "http://localhost:3939"
 CONNECT_KEYS_JSON = "vetiver-testing/rsconnect_api_keys.json"
+CONNECT_CACHE_DIR = "/data/python-environments/_packages_cache"
 
-ADD_CACHE_COMMAND = (
-    "docker compose exec -u rstudio-connect -T rsconnect mkdir -p /data/python-environments/_packages_cache/pip/1.2.3"
-)
-RM_CACHE_COMMAND = (
-    "docker compose exec -u rstudio-connect -T rsconnect rm -Rf /data/python-environments/_packages_cache/pip/1.2.3"
-)
+ADD_CACHE_COMMAND = f"docker compose exec -u rstudio-connect -T rsconnect mkdir -p {CONNECT_CACHE_DIR}/pip/1.2.3"
+RM_CACHE_COMMAND = f"docker compose exec -u rstudio-connect -T rsconnect rm -Rf {CONNECT_CACHE_DIR}/pip/1.2.3"
 # The following returns int(0) if dir exists, else int(256).
-CACHE_EXISTS_COMMAND = (
-    "docker compose exec -u rstudio-connect -T rsconnect [ -d /data/python-environments/_packages_cache/pip/1.2.3 ]"
-)
+CACHE_EXISTS_COMMAND = f"docker compose exec -u rstudio-connect -T rsconnect [ -d {CONNECT_CACHE_DIR}/pip/1.2.3 ]"
 SERVICE_RUNNING_COMMAND = "docker compose ps --services --filter 'status=running' | grep rsconnect"
 
 
