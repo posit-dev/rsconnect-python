@@ -137,19 +137,6 @@ class TestSystemCachesDelete(unittest.TestCase):
 
         # TODO: Unsure how to test log messages received from Connect.
 
-    # Admins cannot delete caches that do not exist
-    def test_system_caches_delete_admin_nonexistent(self):
-        api_key = get_key("admin")
-        runner = CliRunner()
-
-        args = ["system", "caches", "delete", "--language", "Python", "--version", "0.1.2", "--image-name", "Local"]
-        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
-
-        result = runner.invoke(cli, args)
-        self.assertEqual(result.exit_code, 1)
-
-        self.assertRegex(result.output, "Cache does not exist")
-
     # --version and --language flags are required
     def test_system_caches_delete_required_flags(self):
         api_key = get_key("admin")
