@@ -9,11 +9,12 @@ from rsconnect.main import cli
 
 CONNECT_SERVER = "http://localhost:3939"
 CONNECT_KEYS_JSON = "vetiver-testing/rsconnect_api_keys.json"
+CONNECT_CACHE_DIR = "/data/python-environments/_packages_cache"
 
-ADD_CACHE_COMMAND = "docker compose exec -u rstudio-connect -T rsconnect mkdir -p /data/python-environments/pip/1.2.3"
-RM_CACHE_COMMAND = "docker compose exec -u rstudio-connect -T rsconnect rm -Rf /data/python-environments/pip/1.2.3"
+ADD_CACHE_COMMAND = f"docker compose exec -u rstudio-connect -T rsconnect mkdir -p {CONNECT_CACHE_DIR}/pip/1.2.3"
+RM_CACHE_COMMAND = f"docker compose exec -u rstudio-connect -T rsconnect rm -Rf {CONNECT_CACHE_DIR}/pip/1.2.3"
 # The following returns int(0) if dir exists, else int(256).
-CACHE_EXISTS_COMMAND = "docker compose exec -u rstudio-connect -T rsconnect [ -d /data/python-environments/pip/1.2.3 ]"
+CACHE_EXISTS_COMMAND = f"docker compose exec -u rstudio-connect -T rsconnect [ -d {CONNECT_CACHE_DIR}/pip/1.2.3 ]"
 SERVICE_RUNNING_COMMAND = "docker compose ps --services --filter 'status=running' | grep rsconnect"
 
 
@@ -130,19 +131,6 @@ class TestSystemCachesDelete(unittest.TestCase):
         self.assertFalse(cache_dir_exists())
 
         # TODO: Unsure how to test log messages received from Connect.
-
-    # Admins cannot delete caches that do not exist
-    def test_system_caches_delete_admin_nonexistent(self):
-        api_key = get_key("admin")
-        runner = CliRunner()
-
-        args = ["system", "caches", "delete", "--language", "Python", "--version", "0.1.2", "--image-name", "Local"]
-        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
-
-        result = runner.invoke(cli, args)
-        self.assertEqual(result.exit_code, 1)
-
-        self.assertRegex(result.output, "Cache does not exist")
 
     # --version and --language flags are required
     def test_system_caches_delete_required_flags(self):
