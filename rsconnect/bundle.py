@@ -40,6 +40,7 @@ from typing import (
     Sequence,
     Union,
     cast,
+    Any,
 )
 
 # Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
@@ -123,6 +124,15 @@ class ManifestDataPythonPackageManager(TypedDict):
     package_file: str
 
 
+class ManifestIntegrations(TypedDict):
+    guid: NotRequired[str]
+    name: NotRequired[str]
+    description: NotRequired[str]
+    authtype: NotRequired[str]
+    integrationtype: NotRequired[str]
+    config: NotRequired[dict[str, Any]]
+
+
 class ManifestData(TypedDict):
     version: int
     files: dict[str, ManifestDataFile]
@@ -132,6 +142,7 @@ class ManifestData(TypedDict):
     quarto: NotRequired[ManifestDataQuarto]
     python: NotRequired[ManifestDataPython]
     environment: NotRequired[ManifestDataEnvironment]
+    integrations: NotRequired[list[ManifestIntegrations]]
 
 
 class Manifest:
@@ -149,6 +160,7 @@ class Manifest:
         primary_html: Optional[str] = None,
         metadata: Optional[ManifestDataMetadata] = None,
         files: Optional[dict[str, ManifestDataFile]] = None,
+        integrations: Optional[list[ManifestIntegrations]] = None,
     ) -> None:
         self.data: ManifestData = cast(ManifestData, {})
         self.buffer: dict[str, str] = {}
@@ -215,6 +227,13 @@ class Manifest:
         self.data["files"] = {}
         if files:
             self.data["files"] = files
+
+        # Add integrations array if provided, or initialize with empty array for new manifests
+        if integrations is not None:
+            self.data["integrations"] = integrations
+        else:
+            # For new manifests, add an empty integrations array
+            self.data["integrations"] = []
 
     @classmethod
     def from_json(cls, json_str: str):

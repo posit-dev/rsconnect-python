@@ -138,6 +138,7 @@ class TestBundle(TestCase):
                         },
                         "requirements.txt": {"checksum": "5f2a5e862fe7afe3def4a57bb5cfb214"},
                     },
+                    "integrations": [],
                 },
             )
 
@@ -224,6 +225,7 @@ class TestBundle(TestCase):
                         },
                         "data.csv": {"checksum": data_csv_hash},
                     },
+                    "integrations": [],
                 },
             )
 
@@ -305,6 +307,7 @@ class TestBundle(TestCase):
                         "myquarto.qmd": {"checksum": mock.ANY},
                         "requirements.txt": {"checksum": mock.ANY},
                     },
+                    "integrations": [],
                 },
             )
 
@@ -371,6 +374,7 @@ class TestBundle(TestCase):
                 "config": [temp_proj + "/_quarto.yml"],
                 "configResources": [],
             },
+            "integrations": [],
         }
 
         with make_quarto_source_bundle(
@@ -421,6 +425,7 @@ class TestBundle(TestCase):
                         "about.qmd": {"checksum": mock.ANY},
                         "requirements.txt": {"checksum": mock.ANY},
                     },
+                    "integrations": [],
                 },
             )
 
@@ -504,6 +509,7 @@ class TestBundle(TestCase):
                         "myquarto.qmd": {"checksum": mock.ANY},
                         "requirements.txt": {"checksum": mock.ANY},
                     },
+                    "integrations": [],
                 },
             )
 
@@ -554,6 +560,7 @@ class TestBundle(TestCase):
                     "files": {
                         "myquarto.qmd": {"checksum": mock.ANY},
                     },
+                    "integrations": [],
                 },
             )
 
@@ -632,6 +639,7 @@ class TestBundle(TestCase):
                         "primary_html": "dummy.html",
                     },
                     "files": {},
+                    "integrations": [],
                 },
             )
         finally:
@@ -670,7 +678,7 @@ class TestBundle(TestCase):
         manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None)
         self.assertEqual(
             manifest,
-            {"version": 1, "metadata": {"appmode": "python-api"}, "files": {}},
+            {"version": 1, "metadata": {"appmode": "python-api"}, "files": {}, "integrations": []},
         )
 
         # include image parameter
@@ -684,6 +692,7 @@ class TestBundle(TestCase):
                     "image": "rstudio/connect:bionic",
                 },
                 "files": {},
+                "integrations": [],
             },
         )
 
@@ -696,6 +705,7 @@ class TestBundle(TestCase):
                 "metadata": {"appmode": "python-api"},
                 "environment": {"environment_management": {"python": False}},
                 "files": {},
+                "integrations": [],
             },
         )
 
@@ -708,6 +718,7 @@ class TestBundle(TestCase):
                 "metadata": {"appmode": "python-api"},
                 "environment": {"environment_management": {"r": False}},
                 "files": {},
+                "integrations": [],
             },
         )
 
@@ -731,6 +742,7 @@ class TestBundle(TestCase):
                     "environment_management": {"r": False, "python": False},
                 },
                 "files": {},
+                "integrations": [],
             },
         )
 
@@ -764,6 +776,7 @@ class TestBundle(TestCase):
                     "package_manager": {"name": "pip", "version": "22.0.4", "package_file": "requirements.txt"},
                 },
                 "files": {},
+                "integrations": [],
             },
         )
 
@@ -778,7 +791,7 @@ class TestBundle(TestCase):
         # print(manifest)
         self.assertEqual(
             manifest,
-            {"version": 1, "metadata": {"appmode": "python-api", "entrypoint": "main.py"}, "files": {}},
+            {"version": 1, "metadata": {"appmode": "python-api", "entrypoint": "main.py"}, "files": {}, "integrations": []},
         )
 
         # include quarto_inspection parameter
@@ -803,6 +816,7 @@ class TestBundle(TestCase):
                 },
                 "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
                 "files": {},
+                "integrations": [],
             },
         )
 
@@ -836,6 +850,7 @@ class TestBundle(TestCase):
                 "metadata": {"appmode": "quarto-shiny"},
                 "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
                 "files": {},
+                "integrations": [],
             },
         )
 
@@ -869,6 +884,7 @@ class TestBundle(TestCase):
                 "metadata": {"appmode": "quarto-static"},
                 "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
                 "files": {basename(temp_doc): {"checksum": mock.ANY}},
+                "integrations": [],
             },
         )
 
@@ -897,6 +913,7 @@ class TestBundle(TestCase):
                 "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
                 "environment": {"image": "rstudio/connect:bionic"},
                 "files": {},
+                "integrations": [],
             },
         )
 
@@ -947,6 +964,7 @@ class TestBundle(TestCase):
                     "package_manager": {"name": "pip", "version": "22.0.4", "package_file": "requirements.txt"},
                 },
                 "files": {"requirements.txt": {"checksum": mock.ANY}},
+                "integrations": [],
             },
         )
 
@@ -998,6 +1016,7 @@ class TestBundle(TestCase):
                     "b": {"checksum": b_hash},
                     "c": {"checksum": c_hash},
                 },
+                "integrations": [],
             },
         )
 
@@ -1047,6 +1066,7 @@ class TestBundle(TestCase):
                     "e": {"checksum": mock.ANY},
                     "f": {"checksum": mock.ANY},
                 },
+                "integrations": [],
             },
         )
 
@@ -1059,6 +1079,7 @@ class TestBundle(TestCase):
                 "version": 1,
                 "metadata": {"appmode": "tensorflow-saved-model"},
                 "files": {},
+                "integrations": [],
             },
         )
 
@@ -1082,6 +1103,7 @@ class TestBundle(TestCase):
                 "files": {
                     "1/saved_model.pb": {"checksum": mock.ANY},
                 },
+                "integrations": [],
             },
         )
 
@@ -1111,6 +1133,7 @@ class TestBundle(TestCase):
                         "files": {
                             "1/saved_model.pb": {"checksum": mock.ANY},
                         },
+                        "integrations": [],
                     },
                 )
 
@@ -1130,6 +1153,7 @@ class TestBundle(TestCase):
                     "primary_html": "abc.html",
                 },
                 "files": {},
+                "integrations": [],
             },
         )
 
@@ -1298,6 +1322,7 @@ def test_create_voila_manifest_1(path, entrypoint):
             "requirements.txt": {"checksum": "9cce1aac313043abd5690f67f84338ed"},
             "bqplot.ipynb": {"checksum": checksum_hash},
         },
+        "integrations": [],
     }
     manifest = Manifest()
     if (path, entrypoint) in (
@@ -1376,6 +1401,7 @@ def test_create_voila_manifest_2(path, entrypoint):
             "bqplot.ipynb": {"checksum": bqplot_hash},
             "dashboard.ipynb": {"checksum": dashboard_hash},
         },
+        "integrations": [],
     }
     manifest = create_voila_manifest(
         path,
@@ -1426,6 +1452,7 @@ def test_create_voila_manifest_extra():
             "bqplot.ipynb": {"checksum": bqplot_checksum},
             "dashboard.ipynb": {"checksum": dashboard_checksum},
         },
+        "integrations": [],
     }
     manifest = create_voila_manifest(
         dashboard_ipynb,
@@ -1510,6 +1537,7 @@ def test_create_voila_manifest_multi_notebook(path, entrypoint):
             "bqplot/bqplot.ipynb": {"checksum": bqplot_hash},
             "dashboard/dashboard.ipynb": {"checksum": dashboard_hash},
         },
+        "integrations": [],
     }
     manifest = Manifest()
     if (path, entrypoint) in (
@@ -1614,6 +1642,7 @@ def test_make_voila_bundle(
             "requirements.txt": {"checksum": "9395f3162b7779c57c86b187fa441d96"},
             "bqplot.ipynb": {"checksum": checksum_hash},
         },
+        "integrations": [],
     }
     if (path, entrypoint) in (
         (None, None),
@@ -1726,6 +1755,7 @@ def test_make_voila_bundle_multi_notebook(
             "bqplot/bqplot.ipynb": {"checksum": bqplot_hash},
             "dashboard/dashboard.ipynb": {"checksum": dashboard_hash},
         },
+        "integrations": [],
     }
     if (path, entrypoint) in (
         (None, None),
@@ -1817,6 +1847,7 @@ def test_make_voila_bundle_2(
             "bqplot.ipynb": {"checksum": bqplot_hash},
             "dashboard.ipynb": {"checksum": dashboard_hash},
         },
+        "integrations": [],
     }
     with make_voila_bundle(
         path,
@@ -1875,6 +1906,7 @@ def test_make_voila_bundle_extra():
             "bqplot.ipynb": {"checksum": bqplot_hash},
             "dashboard.ipynb": {"checksum": dashboard_hash},
         },
+        "integrations": [],
     }
     with make_voila_bundle(
         dashboard_ipynb,
@@ -1945,6 +1977,7 @@ def test_create_html_manifest():
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
         "files": {"index.html": {"checksum": index_hash}},
+        "integrations": [],
     }
     manifest = create_html_manifest(
         single_file_index_file,
@@ -1962,6 +1995,7 @@ def test_create_html_manifest():
             "test1.txt": {"checksum": txt_hash},
             "test_folder1/testfoldertext1.txt": {"checksum": folder_txt_hash},
         },
+        "integrations": [],
     }
 
     manifest = create_html_manifest(
@@ -1984,6 +2018,7 @@ def test_create_html_manifest():
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
         "files": {"index.html": {"checksum": index_hash}},
+        "integrations": [],
     }
 
     manifest = create_html_manifest(
@@ -2001,6 +2036,7 @@ def test_create_html_manifest():
             "index.html": {"checksum": index_hash},
             "main.html": {"checksum": index_hash},
         },
+        "integrations": [],
     }
 
     manifest = create_html_manifest(
@@ -2023,6 +2059,7 @@ def test_create_html_manifest():
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
         "files": {"b.html": {"checksum": index_hash}},
+        "integrations": [],
     }
 
     manifest = create_html_manifest(
@@ -2040,6 +2077,7 @@ def test_create_html_manifest():
             "a.html": {"checksum": index_hash},
             "b.html": {"checksum": index_hash},
         },
+        "integrations": [],
     }
 
     manifest = create_html_manifest(
@@ -2057,6 +2095,7 @@ def test_create_html_manifest():
             "a.html": {"checksum": index_hash},
             "b.html": {"checksum": index_hash},
         },
+        "integrations": [],
     }
     manifest = create_html_manifest(
         multi_file_nonindex_fileb,
@@ -2073,6 +2112,7 @@ def test_create_html_manifest():
             "index.html": {"checksum": index_hash},
             "main.html": {"checksum": index_hash},
         },
+        "integrations": [],
     }
 
     manifest = create_html_manifest(
@@ -2098,6 +2138,7 @@ def test_make_html_bundle():
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
         "files": {"index.html": {"checksum": index_hash}},
+        "integrations": [],
     }
     with make_html_bundle(
         single_file_index_file,
@@ -2120,6 +2161,7 @@ def test_make_html_bundle():
             "test1.txt": {"checksum": txt_hash},
             "test_folder1/testfoldertext1.txt": {"checksum": folder_txt_hash},
         },
+        "integrations": [],
     }
     with make_html_bundle(
         single_file_index_dir,
@@ -2160,6 +2202,7 @@ def test_make_html_bundle():
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "index.html", "entrypoint": "index.html"},
         "files": {"index.html": {"checksum": index_checksum}},
+        "integrations": [],
     }
 
     with make_html_bundle(
@@ -2182,6 +2225,7 @@ def test_make_html_bundle():
             "index.html": {"checksum": index_checksum},
             "main.html": {"checksum": index_checksum},
         },
+        "integrations": [],
     }
     with make_html_bundle(
         multi_file_index_dir,
@@ -2215,6 +2259,7 @@ def test_make_html_bundle():
         "version": 1,
         "metadata": {"appmode": "static", "primary_html": "b.html", "entrypoint": "b.html"},
         "files": {"b.html": {"checksum": index_checksum}},
+        "integrations": [],
     }
     with make_html_bundle(
         multi_file_nonindex_fileb,
@@ -2236,6 +2281,7 @@ def test_make_html_bundle():
             "a.html": {"checksum": index_checksum},
             "b.html": {"checksum": index_checksum},
         },
+        "integrations": [],
     }
     with make_html_bundle(
         multi_file_nonindex_dir,
@@ -2260,6 +2306,7 @@ def test_make_html_bundle():
             "a.html": {"checksum": index_checksum},
             "b.html": {"checksum": index_checksum},
         },
+        "integrations": [],
     }
     with make_html_bundle(
         multi_file_nonindex_fileb,
@@ -2284,6 +2331,7 @@ def test_make_html_bundle():
             "index.html": {"checksum": index_checksum},
             "main.html": {"checksum": index_checksum},
         },
+        "integrations": [],
     }
 
     with make_html_bundle(
@@ -2324,6 +2372,7 @@ def test_make_api_manifest_fastapi():
             "main.py": {"checksum": "a8d8820f25be4dc8e2bf51a5ba1690b6"},
             "prices.csv": {"checksum": "012afa636c426748177b38160135307a"},
         },
+        "integrations": [],
     }
     environment = Environment.create_python_environment(
         fastapi_dir,
@@ -2356,6 +2405,7 @@ def test_make_api_bundle_fastapi():
             "main.py": {"checksum": "a8d8820f25be4dc8e2bf51a5ba1690b6"},
             "prices.csv": {"checksum": "012afa636c426748177b38160135307a"},
         },
+        "integrations": [],
     }
     environment = Environment.create_python_environment(
         fastapi_dir,
@@ -2400,6 +2450,7 @@ def test_make_api_manifest_flask():
             "app.py": {"checksum": "9799c3b834b555cf02e5896ad2997674"},
             "prices.csv": {"checksum": "012afa636c426748177b38160135307a"},
         },
+        "integrations": [],
     }
     environment = Environment.create_python_environment(
         flask_dir,
@@ -2432,6 +2483,7 @@ def test_make_api_bundle_flask():
             "app.py": {"checksum": "9799c3b834b555cf02e5896ad2997674"},
             "prices.csv": {"checksum": "012afa636c426748177b38160135307a"},
         },
+        "integrations": [],
     }
     environment = Environment.create_python_environment(
         flask_dir,
@@ -2476,6 +2528,7 @@ def test_make_api_manifest_streamlit():
             "app1.py": {"checksum": "b203bc6d9512029a414ccbb63514e603"},
             "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
         },
+        "integrations": [],
     }
     environment = Environment.create_python_environment(
         streamlit_dir,
@@ -2507,6 +2560,7 @@ def test_make_api_bundle_streamlit():
             "app1.py": {"checksum": "b203bc6d9512029a414ccbb63514e603"},
             "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
         },
+        "integrations": [],
     }
     environment = Environment.create_python_environment(
         streamlit_dir,
@@ -2552,6 +2606,7 @@ def test_make_api_manifest_dash():
             "app2.py": {"checksum": "0cb6f0261685d29243977c7318d70d6d"},
             "prices.csv": {"checksum": "3efb0ed7ad93bede9dc88f7a81ad4153"},
         },
+        "integrations": [],
     }
     environment = Environment.create_python_environment(
         dash_dir,
@@ -2584,6 +2639,7 @@ def test_make_api_bundle_dash():
             "app2.py": {"checksum": "0cb6f0261685d29243977c7318d70d6d"},
             "prices.csv": {"checksum": "3efb0ed7ad93bede9dc88f7a81ad4153"},
         },
+        "integrations": [],
     }
     environment = Environment.create_python_environment(
         dash_dir,
@@ -2628,6 +2684,7 @@ def test_make_api_manifest_bokeh():
             "app3.py": {"checksum": "a5de7b460476a9ac4e02edfc2d52d9df"},
             "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
         },
+        "integrations": [],
     }
     environment = Environment.create_python_environment(
         bokeh_dir,
@@ -2660,6 +2717,7 @@ def test_make_api_bundle_bokeh():
             "app3.py": {"checksum": "a5de7b460476a9ac4e02edfc2d52d9df"},
             "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
         },
+        "integrations": [],
     }
 
     environment = Environment.create_python_environment(
@@ -2705,6 +2763,7 @@ def test_make_api_manifest_shiny():
             "app4.py": {"checksum": "f7e4b3b7ff0ada525ec388d037ff6c6a"},
             "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
         },
+        "integrations": [],
     }
     environment = Environment.create_python_environment(
         shiny_dir,
@@ -2737,6 +2796,7 @@ def test_make_api_bundle_shiny():
             "app4.py": {"checksum": "f7e4b3b7ff0ada525ec388d037ff6c6a"},
             "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
         },
+        "integrations": [],
     }
     environment = Environment.create_python_environment(
         shiny_dir,
@@ -2781,6 +2841,7 @@ def test_make_manifest_bundle():
             "app5.py": {"checksum": "f7e4b3b7ff0ada525ec388d037ff6c6a"},
             "data.csv": {"checksum": "aabd9d1210246c69403532a6a9d24286"},
         },
+        "integrations": [],
     }
     with make_manifest_bundle(
         pyshiny_manifest_file,
@@ -2815,6 +2876,7 @@ def test_make_api_manifest_gradio():
             "requirements.txt": {"checksum": "381ccadfb8d4848add470e33033b198f"},
             "app.py": {"checksum": "22feec76e9c02ac6b5a34a083e2983b6"},
         },
+        "integrations": [],
     }
     environment = Environment.create_python_environment(
         gradio_dir,
@@ -2845,6 +2907,7 @@ def test_make_api_bundle_gradio():
             "requirements.txt": {"checksum": "381ccadfb8d4848add470e33033b198f"},
             "app.py": {"checksum": "22feec76e9c02ac6b5a34a083e2983b6"},
         },
+        "integrations": [],
     }
     environment = Environment.create_python_environment(
         gradio_dir,
