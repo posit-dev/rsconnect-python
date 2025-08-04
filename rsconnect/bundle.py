@@ -160,7 +160,6 @@ class Manifest:
         primary_html: Optional[str] = None,
         metadata: Optional[ManifestDataMetadata] = None,
         files: Optional[dict[str, ManifestDataFile]] = None,
-        integrations: Optional[list[ManifestIntegrations]] = None,
     ) -> None:
         self.data: ManifestData = cast(ManifestData, {})
         self.buffer: dict[str, str] = {}
@@ -227,13 +226,6 @@ class Manifest:
         self.data["files"] = {}
         if files:
             self.data["files"] = files
-
-        # Add integrations array if provided, or initialize with empty array for new manifests
-        if integrations is not None:
-            self.data["integrations"] = integrations
-        else:
-            # For new manifests, add an empty integrations array
-            self.data["integrations"] = []
 
     @classmethod
     def from_json(cls, json_str: str):
@@ -1678,6 +1670,9 @@ def write_notebook_manifest_json(
     manifest_data = make_source_manifest(
         app_mode, environment, file_name, None, image, env_management_py, env_management_r
     )
+
+    manifest_data["integrations"] = []
+
     if hide_all_input or hide_tagged_input:
         if "jupyter" not in manifest_data:
             manifest_data["jupyter"] = {}
@@ -1844,6 +1839,9 @@ def write_voila_manifest_json(
     manifest_flattened_copy_data = manifest.get_flattened_copy().data
     if multi_notebook and "metadata" in manifest_flattened_copy_data:
         manifest_flattened_copy_data["metadata"]["entrypoint"] = ""
+
+    manifest_flattened_copy_data["integrations"] = []
+
     manifest_path = join(deploy_dir, "manifest.json")
     write_manifest_json(manifest_path, manifest_flattened_copy_data)
     return exists(manifest_path)
@@ -1934,6 +1932,9 @@ def write_api_manifest_json(
     manifest, _ = make_api_manifest(
         directory, entry_point, app_mode, environment, extra_files, excludes, image, env_management_py, env_management_r
     )
+
+    manifest["integrations"] = []
+
     manifest_path = join(directory, "manifest.json")
 
     write_manifest_json(manifest_path, manifest)
@@ -2019,6 +2020,8 @@ def write_quarto_manifest_json(
         image,
     )
 
+    manifest["integrations"] = []
+
     base_dir = file_or_directory
     if not isdir(file_or_directory):
         base_dir = dirname(file_or_directory)
@@ -2048,6 +2051,7 @@ def write_tensorflow_manifest_json(
         excludes,
         image,
     )
+    manifest["integrations"] = []
     manifest_path = join(directory, "manifest.json")
     write_manifest_json(manifest_path, manifest)
 

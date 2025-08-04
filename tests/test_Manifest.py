@@ -19,7 +19,6 @@ def test_Manifest_from_json():
             "test1.txt": {"checksum": "3e7705498e8be60520841409ebc69bc1"},
             "test_folder1/testfoldertext1.txt": {"checksum": "0a576fd324b6985bac6aa934131d2f5c"},
         },
-        "integrations": [],
     }
     manifest_json_str = json.dumps(html_manifest_dict, indent=2)
     m = Manifest.from_json(manifest_json_str)
@@ -42,7 +41,6 @@ def test_Manifest_properties():
             "test1.txt": {"checksum": "3e7705498e8be60520841409ebc69bc1"},
             "test_folder1/testfoldertext1.txt": {"checksum": "0a576fd324b6985bac6aa934131d2f5c"},
         },
-        "integrations": [],
     }
     manifest_json_str = json.dumps(html_manifest_dict, indent=2)
     m = Manifest.from_json(manifest_json_str)
@@ -68,7 +66,6 @@ def test_Manifest_flattened_copy():
                 "checksum": "0a576fd324b6985bac6aa934131d2f5c"
             },
         },
-        "integrations": [],
     }
     start_json_str = json.dumps(start, indent=2)
     m = Manifest.from_json(start_json_str)
@@ -83,7 +80,6 @@ def test_Manifest_flattened_copy():
             "test1.txt": {"checksum": "3e7705498e8be60520841409ebc69bc1"},
             "test_folder1/testfoldertext1.txt": {"checksum": "0a576fd324b6985bac6aa934131d2f5c"},
         },
-        "integrations": [],
     }
     assert m.get_flattened_copy().data == html_manifest_dict
 
@@ -93,7 +89,6 @@ def test_Manifest_empty_init():
         "version": 1,
         "metadata": {},
         "files": {},
-        "integrations": [],
     }
     m = Manifest()
     m.data == init

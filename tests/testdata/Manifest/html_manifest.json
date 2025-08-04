@@ -15,6 +15,5 @@
     "test_folder1/testfoldertext1.txt": {
       "checksum": "0a576fd324b6985bac6aa934131d2f5c"
     }
-  },
-  "integrations": []
+  }
 }
