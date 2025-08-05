@@ -124,12 +124,12 @@ class ManifestDataPythonPackageManager(TypedDict):
     package_file: str
 
 
-class ManifestIntegrations(TypedDict):
+class ManifestIntegrationRequests(TypedDict):
     guid: NotRequired[str]
     name: NotRequired[str]
     description: NotRequired[str]
-    authtype: NotRequired[str]
-    integrationtype: NotRequired[str]
+    auth_type: NotRequired[str]
+    integration_type: NotRequired[str]
     config: NotRequired[dict[str, Any]]
 
 
@@ -142,7 +142,7 @@ class ManifestData(TypedDict):
     quarto: NotRequired[ManifestDataQuarto]
     python: NotRequired[ManifestDataPython]
     environment: NotRequired[ManifestDataEnvironment]
-    integrations: NotRequired[list[ManifestIntegrations]]
+    integration_requests: NotRequired[list[ManifestIntegrationRequests]]
 
 
 class Manifest:
@@ -408,6 +408,7 @@ def make_source_manifest(
         env_management_py=env_management_py,
         env_management_r=env_management_r,
     )
+    manifest.data["integration_requests"] = []
     return manifest.data
 
 
@@ -1671,8 +1672,6 @@ def write_notebook_manifest_json(
         app_mode, environment, file_name, None, image, env_management_py, env_management_r
     )
 
-    manifest_data["integrations"] = []
-
     if hide_all_input or hide_tagged_input:
         if "jupyter" not in manifest_data:
             manifest_data["jupyter"] = {}
@@ -1775,6 +1774,7 @@ def create_voila_manifest(
         env_management_py=env_management_py,
         env_management_r=env_management_r,
     )
+    manifest.data["integration_requests"] = []
     manifest.deploy_dir = deploy_dir
     if entrypoint and isfile(entrypoint):
         validate_file_is_notebook(entrypoint)
@@ -1839,8 +1839,6 @@ def write_voila_manifest_json(
     manifest_flattened_copy_data = manifest.get_flattened_copy().data
     if multi_notebook and "metadata" in manifest_flattened_copy_data:
         manifest_flattened_copy_data["metadata"]["entrypoint"] = ""
-
-    manifest_flattened_copy_data["integrations"] = []
 
     manifest_path = join(deploy_dir, "manifest.json")
     write_manifest_json(manifest_path, manifest_flattened_copy_data)
@@ -1933,8 +1931,6 @@ def write_api_manifest_json(
         directory, entry_point, app_mode, environment, extra_files, excludes, image, env_management_py, env_management_r
     )
 
-    manifest["integrations"] = []
-
     manifest_path = join(directory, "manifest.json")
 
     write_manifest_json(manifest_path, manifest)
@@ -2020,8 +2016,6 @@ def write_quarto_manifest_json(
         image,
     )
 
-    manifest["integrations"] = []
-
     base_dir = file_or_directory
     if not isdir(file_or_directory):
         base_dir = dirname(file_or_directory)
@@ -2051,7 +2045,7 @@ def write_tensorflow_manifest_json(
         excludes,
         image,
     )
-    manifest["integrations"] = []
+
     manifest_path = join(directory, "manifest.json")
     write_manifest_json(manifest_path, manifest)
 

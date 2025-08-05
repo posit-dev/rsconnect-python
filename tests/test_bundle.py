@@ -143,6 +143,7 @@ class TestBundle(TestCase):
                         },
                         "requirements.txt": {"checksum": "5f2a5e862fe7afe3def4a57bb5cfb214"},
                     },
+                    "integration_requests": [],
                 },
             )
 
@@ -229,6 +230,7 @@ class TestBundle(TestCase):
                         },
                         "data.csv": {"checksum": data_csv_hash},
                     },
+                    "integration_requests": [],
                 },
             )
 
@@ -268,6 +270,7 @@ class TestBundle(TestCase):
                 "config": [temp_proj + "/_quarto.yml"],
                 "configResources": [],
             },
+            "integration_requests": [],
         }
 
         with make_quarto_source_bundle(
@@ -310,6 +313,7 @@ class TestBundle(TestCase):
                         "myquarto.qmd": {"checksum": mock.ANY},
                         "requirements.txt": {"checksum": mock.ANY},
                     },
+                    "integration_requests": [],
                 },
             )
 
@@ -376,6 +380,7 @@ class TestBundle(TestCase):
                 "config": [temp_proj + "/_quarto.yml"],
                 "configResources": [],
             },
+            "integration_requests": [],
         }
 
         with make_quarto_source_bundle(
@@ -426,6 +431,7 @@ class TestBundle(TestCase):
                         "about.qmd": {"checksum": mock.ANY},
                         "requirements.txt": {"checksum": mock.ANY},
                     },
+                    "integration_requests": [],
                 },
             )
 
@@ -467,6 +473,7 @@ class TestBundle(TestCase):
                 "config": [temp_proj + "/_quarto.yml"],
                 "configResources": [],
             },
+            "integration_requests": [],
         }
 
         with make_quarto_source_bundle(
@@ -509,6 +516,7 @@ class TestBundle(TestCase):
                         "myquarto.qmd": {"checksum": mock.ANY},
                         "requirements.txt": {"checksum": mock.ANY},
                     },
+                    "integration_requests": [],
                 },
             )
 
@@ -559,6 +567,7 @@ class TestBundle(TestCase):
                     "files": {
                         "myquarto.qmd": {"checksum": mock.ANY},
                     },
+                    "integration_requests": [],
                 },
             )
 
@@ -675,7 +684,7 @@ class TestBundle(TestCase):
         manifest = make_source_manifest(AppModes.PYTHON_API, None, None, None)
         self.assertEqual(
             manifest,
-            {"version": 1, "metadata": {"appmode": "python-api"}, "files": {}},
+            {"version": 1, "metadata": {"appmode": "python-api"}, "files": {}, "integration_requests": []},
         )
 
         # include image parameter
@@ -689,6 +698,7 @@ class TestBundle(TestCase):
                     "image": "rstudio/connect:bionic",
                 },
                 "files": {},
+                "integration_requests": [],
             },
         )
 
@@ -701,6 +711,7 @@ class TestBundle(TestCase):
                 "metadata": {"appmode": "python-api"},
                 "environment": {"environment_management": {"python": False}},
                 "files": {},
+                "integration_requests": [],
             },
         )
 
@@ -713,6 +724,7 @@ class TestBundle(TestCase):
                 "metadata": {"appmode": "python-api"},
                 "environment": {"environment_management": {"r": False}},
                 "files": {},
+                "integration_requests": [],
             },
         )
 
@@ -736,6 +748,7 @@ class TestBundle(TestCase):
                     "environment_management": {"r": False, "python": False},
                 },
                 "files": {},
+                "integration_requests": [],
             },
         )
 
@@ -769,6 +782,7 @@ class TestBundle(TestCase):
                     "package_manager": {"name": "pip", "version": "22.0.4", "package_file": "requirements.txt"},
                 },
                 "files": {},
+                "integration_requests": [],
             },
         )
 
@@ -787,6 +801,7 @@ class TestBundle(TestCase):
                 "version": 1,
                 "metadata": {"appmode": "python-api", "entrypoint": "main.py"},
                 "files": {},
+                "integration_requests": [],
             },
         )
 
@@ -812,6 +827,7 @@ class TestBundle(TestCase):
                 },
                 "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
                 "files": {},
+                "integration_requests": [],
             },
         )
 
@@ -845,6 +861,7 @@ class TestBundle(TestCase):
                 "metadata": {"appmode": "quarto-shiny"},
                 "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
                 "files": {},
+                "integration_requests": [],
             },
         )
 
@@ -878,6 +895,7 @@ class TestBundle(TestCase):
                 "metadata": {"appmode": "quarto-static"},
                 "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
                 "files": {basename(temp_doc): {"checksum": mock.ANY}},
+                "integration_requests": [],
             },
         )
 
@@ -906,6 +924,7 @@ class TestBundle(TestCase):
                 "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
                 "environment": {"image": "rstudio/connect:bionic"},
                 "files": {},
+                "integration_requests": [],
             },
         )
 
@@ -956,6 +975,7 @@ class TestBundle(TestCase):
                     "package_manager": {"name": "pip", "version": "22.0.4", "package_file": "requirements.txt"},
                 },
                 "files": {"requirements.txt": {"checksum": mock.ANY}},
+                "integration_requests": [],
             },
         )
 
@@ -1007,6 +1027,7 @@ class TestBundle(TestCase):
                     "b": {"checksum": b_hash},
                     "c": {"checksum": c_hash},
                 },
+                "integration_requests": [],
             },
         )
 
@@ -1056,6 +1077,7 @@ class TestBundle(TestCase):
                     "e": {"checksum": mock.ANY},
                     "f": {"checksum": mock.ANY},
                 },
+                "integration_requests": [],
             },
         )
 
@@ -1085,7 +1107,7 @@ class TestBundle(TestCase):
                 "metadata": {"appmode": "quarto-shiny"},
                 "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
                 "files": {},
-                "integrations": [],
+                "integration_requests": [],
             },
         )
 
@@ -1098,6 +1120,7 @@ class TestBundle(TestCase):
                 "version": 1,
                 "metadata": {"appmode": "tensorflow-saved-model"},
                 "files": {},
+                "integration_requests": [],
             },
         )
 
@@ -1121,6 +1144,7 @@ class TestBundle(TestCase):
                 "files": {
                     "1/saved_model.pb": {"checksum": mock.ANY},
                 },
+                "integration_requests": [],
             },
         )
 
@@ -1142,7 +1166,7 @@ class TestBundle(TestCase):
                 "files": {
                     "1/saved_model.pb": {"checksum": mock.ANY},
                 },
-                "integrations": [],
+                "integration_requests": [],
             },
         )
 
@@ -1172,6 +1196,7 @@ class TestBundle(TestCase):
                         "files": {
                             "1/saved_model.pb": {"checksum": mock.ANY},
                         },
+                        "integration_requests": [],
                     },
                 )
 
@@ -1206,8 +1231,8 @@ class TestBundle(TestCase):
             manifest_path = join(temp_dir, "manifest.json")
             with open(manifest_path) as f:
                 manifest_data = json.load(f)
-            self.assertIn("integrations", manifest_data)
-            self.assertEqual(manifest_data["integrations"], [])
+            self.assertIn("integration_requests", manifest_data)
+            self.assertEqual(manifest_data["integration_requests"], [])
 
     def test_write_voila_manifest_json(self):
         """Test that write_voila_manifest_json includes empty integrations field"""
@@ -1241,8 +1266,8 @@ class TestBundle(TestCase):
             manifest_path = join(temp_dir, "manifest.json")
             with open(manifest_path) as f:
                 manifest_data = json.load(f)
-            self.assertIn("integrations", manifest_data)
-            self.assertEqual(manifest_data["integrations"], [])
+            self.assertIn("integration_requests", manifest_data)
+            self.assertEqual(manifest_data["integration_requests"], [])
 
     def test_write_notebook_manifest_json(self):
         """Test that write_notebook_manifest_json includes empty integrations field"""
@@ -1276,8 +1301,8 @@ class TestBundle(TestCase):
             with open(manifest_path) as f:
                 manifest_data = json.load(f)
 
-            self.assertIn("integrations", manifest_data)
-            self.assertEqual(manifest_data["integrations"], [])
+            self.assertIn("integration_requests", manifest_data)
+            self.assertEqual(manifest_data["integration_requests"], [])
 
     def test_make_html_manifest(self):
         # Verify the optional parameters
@@ -1463,6 +1488,7 @@ def test_create_voila_manifest_1(path, entrypoint):
             "requirements.txt": {"checksum": "9cce1aac313043abd5690f67f84338ed"},
             "bqplot.ipynb": {"checksum": checksum_hash},
         },
+        "integration_requests": [],
     }
     manifest = Manifest()
     if (path, entrypoint) in (
@@ -1541,6 +1567,7 @@ def test_create_voila_manifest_2(path, entrypoint):
             "bqplot.ipynb": {"checksum": bqplot_hash},
             "dashboard.ipynb": {"checksum": dashboard_hash},
         },
+        "integration_requests": [],
     }
     manifest = create_voila_manifest(
         path,
@@ -1591,6 +1618,7 @@ def test_create_voila_manifest_extra():
             "bqplot.ipynb": {"checksum": bqplot_checksum},
             "dashboard.ipynb": {"checksum": dashboard_checksum},
         },
+        "integration_requests": [],
     }
     manifest = create_voila_manifest(
         dashboard_ipynb,
@@ -1675,6 +1703,7 @@ def test_create_voila_manifest_multi_notebook(path, entrypoint):
             "bqplot/bqplot.ipynb": {"checksum": bqplot_hash},
             "dashboard/dashboard.ipynb": {"checksum": dashboard_hash},
         },
+        "integration_requests": [],
     }
     manifest = Manifest()
     if (path, entrypoint) in (
@@ -1779,6 +1808,7 @@ def test_make_voila_bundle(
             "requirements.txt": {"checksum": "9395f3162b7779c57c86b187fa441d96"},
             "bqplot.ipynb": {"checksum": checksum_hash},
         },
+        "integration_requests": [],
     }
     if (path, entrypoint) in (
         (None, None),
@@ -1891,6 +1921,7 @@ def test_make_voila_bundle_multi_notebook(
             "bqplot/bqplot.ipynb": {"checksum": bqplot_hash},
             "dashboard/dashboard.ipynb": {"checksum": dashboard_hash},
         },
+        "integration_requests": [],
     }
     if (path, entrypoint) in (
         (None, None),
@@ -1982,6 +2013,7 @@ def test_make_voila_bundle_2(
             "bqplot.ipynb": {"checksum": bqplot_hash},
             "dashboard.ipynb": {"checksum": dashboard_hash},
         },
+        "integration_requests": [],
     }
     with make_voila_bundle(
         path,
@@ -2040,6 +2072,7 @@ def test_make_voila_bundle_extra():
             "bqplot.ipynb": {"checksum": bqplot_hash},
             "dashboard.ipynb": {"checksum": dashboard_hash},
         },
+        "integration_requests": [],
     }
     with make_voila_bundle(
         dashboard_ipynb,
