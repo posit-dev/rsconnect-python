@@ -40,6 +40,7 @@ from typing import (
     Sequence,
     Union,
     cast,
+    Any,
 )
 
 # Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
@@ -123,6 +124,15 @@ class ManifestDataPythonPackageManager(TypedDict):
     package_file: str
 
 
+class ManifestIntegrationRequests(TypedDict):
+    guid: NotRequired[str]
+    name: NotRequired[str]
+    description: NotRequired[str]
+    auth_type: NotRequired[str]
+    integration_type: NotRequired[str]
+    config: NotRequired[dict[str, Any]]
+
+
 class ManifestData(TypedDict):
     version: int
     files: dict[str, ManifestDataFile]
@@ -132,6 +142,7 @@ class ManifestData(TypedDict):
     quarto: NotRequired[ManifestDataQuarto]
     python: NotRequired[ManifestDataPython]
     environment: NotRequired[ManifestDataEnvironment]
+    integration_requests: NotRequired[list[ManifestIntegrationRequests]]
 
 
 class Manifest:
@@ -397,6 +408,7 @@ def make_source_manifest(
         env_management_py=env_management_py,
         env_management_r=env_management_r,
     )
+    manifest.data["integration_requests"] = []
     return manifest.data
 
 
@@ -1659,6 +1671,7 @@ def write_notebook_manifest_json(
     manifest_data = make_source_manifest(
         app_mode, environment, file_name, None, image, env_management_py, env_management_r
     )
+
     if hide_all_input or hide_tagged_input:
         if "jupyter" not in manifest_data:
             manifest_data["jupyter"] = {}
@@ -1761,6 +1774,7 @@ def create_voila_manifest(
         env_management_py=env_management_py,
         env_management_r=env_management_r,
     )
+    manifest.data["integration_requests"] = []
     manifest.deploy_dir = deploy_dir
     if entrypoint and isfile(entrypoint):
         validate_file_is_notebook(entrypoint)
@@ -1825,6 +1839,7 @@ def write_voila_manifest_json(
     manifest_flattened_copy_data = manifest.get_flattened_copy().data
     if multi_notebook and "metadata" in manifest_flattened_copy_data:
         manifest_flattened_copy_data["metadata"]["entrypoint"] = ""
+
     manifest_path = join(deploy_dir, "manifest.json")
     write_manifest_json(manifest_path, manifest_flattened_copy_data)
     return exists(manifest_path)
@@ -1915,6 +1930,7 @@ def write_api_manifest_json(
     manifest, _ = make_api_manifest(
         directory, entry_point, app_mode, environment, extra_files, excludes, image, env_management_py, env_management_r
     )
+
     manifest_path = join(directory, "manifest.json")
 
     write_manifest_json(manifest_path, manifest)
@@ -2029,6 +2045,7 @@ def write_tensorflow_manifest_json(
         excludes,
         image,
     )
+
     manifest_path = join(directory, "manifest.json")
     write_manifest_json(manifest_path, manifest)
 
