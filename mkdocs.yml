@@ -35,7 +35,9 @@ plugins:
 nav:
   - Getting Started: index.md
   - Programmatic Provisioning: programmatic-provisioning.md
-  - Deploying Content: deploying.md
+  - Deployment:
+    - Deploying Content: deploying/index.md
+    - Integration Requests: deploying/integration-requests.md
   - Server Administration: server-administration.md
   - CLI reference:
     - rsconnect:
