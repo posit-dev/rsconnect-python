@@ -16,7 +16,7 @@
       
       
       <link rel="icon" href="../../images/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.16">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.17">
     
     
       
@@ -440,9 +440,60 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#example" class="md-nav__link">
+  <a href="#examples" class="md-nav__link">
     <span class="md-ellipsis">
-      Example
+      Examples
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-the-integration-guid" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the integration guid
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-the-integration-name-and-template" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the integration name and template
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-the-name-template-and-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the name, template, and config
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multiple-integration-requests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Multiple integration requests
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploying-from-manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deploying from manifest
     </span>
   </a>
   
@@ -868,9 +919,60 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#example" class="md-nav__link">
+  <a href="#examples" class="md-nav__link">
     <span class="md-ellipsis">
-      Example
+      Examples
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-the-integration-guid" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the integration guid
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-the-integration-name-and-template" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the integration name and template
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-the-name-template-and-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the name, template, and config
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multiple-integration-requests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Multiple integration requests
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploying-from-manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deploying from manifest
     </span>
   </a>
   
@@ -894,9 +996,11 @@
 
   <h1>Integration Requests</h1>
 
-<p>Define integration requests for your deployed content by defining <code>integration_requests</code> in your content's <code>manifest.json</code> file, which can be produced manually or using the <a href="../../commands/write-manifest/"><code>write-manifest</code></a> command.</p>
+<p>Integration requests streamline your deployment process by automatically associating the necessary OAuth integrations with your content, eliminating the need for manual configuration and ensuring that your deployed content has immediate access to the external services that it depends on.</p>
+<p>You can define integration requests for your content by defining <code>integration_requests</code> in your content's <code>manifest.json</code> file. The base <code>manifest.json</code> file can be produced using the <a href="../../commands/write-manifest/"><code>write-manifest</code></a> command, but you will need to edit the file by hand to add the <code>integration_requests</code>.</p>
 <h3 id="integration-request-specification">Integration Request Specification<a class="headerlink" href="#integration-request-specification" title="Permanent link">#</a></h3>
 <p>During deployment, these integration requests will be processed, and the specified integration specifications will be matched to integrations that are available on the Connect server. If a matching integration is found, it will be used for the deployment. If no matching integration is found, the deployment will fail with an error message indicating that the integration request could not be satisfied.</p>
+<p>There are a variety of different fields that can be used within an integration request to reference the desired OAuth integration:</p>
 <table>
 <thead>
 <tr>
@@ -965,18 +1069,49 @@
 - <code>Viewer</code>
 - <code>Service Account</code>
 - <code>Visitor API Key</code></p>
-<h3 id="example">Example<a class="headerlink" href="#example" title="Permanent link">#</a></h3>
-<div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">    </span><span class="c1">// ...</span>
+<p>An integration request can contain any combination of the fields listed above, and the correct combination will vary by situation.</p>
+<h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">#</a></h3>
+<h4 id="using-the-integration-guid">Using the integration guid<a class="headerlink" href="#using-the-integration-guid" title="Permanent link">#</a></h4>
+<p>If the content will only ever be deployed to a single server, the easiest way to make sure an OAuth integration gets automatically associated with it is by only listing the OAuth integration <code>guid</code> in the integration request:</p>
+<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="c1">// ...</span>
 <span class="w">    </span><span class="nt">&quot;integration_requests&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my-integration&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azure&quot;</span><span class="p">},</span>
-<span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;another-integration&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;aws&quot;</span><span class="p">},</span>
-<span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;custom-integration&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;custom&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;auth_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Confidential&quot;</span><span class="p">}},</span>
 <span class="w">        </span><span class="p">{</span><span class="nt">&quot;guid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;123e4567-e89b-12d3-a456-426614174000&quot;</span><span class="p">}</span>
 <span class="w">    </span><span class="p">]</span>
 <span class="w">    </span><span class="c1">// ...</span>
 <span class="p">}</span>
 </code></pre></div>
+<p>A Connect administrator can locate the <code>guid</code> for an OAuth integration by navigating to <strong>System</strong> &gt; <strong>Integrations</strong> within Connect and then clicking on the desired integration. The <code>guid</code> is listed directly beneath the integration name in the resulting popup.</p>
+<h4 id="using-the-integration-name-and-template">Using the integration name and template<a class="headerlink" href="#using-the-integration-name-and-template" title="Permanent link">#</a></h4>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">    </span><span class="c1">// ...</span>
+<span class="w">    </span><span class="nt">&quot;integration_requests&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my-integration&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azure&quot;</span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="w">    </span><span class="c1">// ...</span>
+<span class="p">}</span>
+</code></pre></div>
+<h4 id="using-the-name-template-and-config">Using the name, template, and config<a class="headerlink" href="#using-the-name-template-and-config" title="Permanent link">#</a></h4>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">    </span><span class="c1">// ...</span>
+<span class="w">    </span><span class="nt">&quot;integration_requests&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;custom-integration&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;custom&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;auth_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Confidential&quot;</span><span class="p">}}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="w">    </span><span class="c1">// ...</span>
+<span class="p">}</span>
+</code></pre></div>
+<h4 id="multiple-integration-requests">Multiple integration requests<a class="headerlink" href="#multiple-integration-requests" title="Permanent link">#</a></h4>
+<p>In Posit Connect v2025.07.0 and later, multiple integrations can be associated with a single piece of content. When running this version of Connect, multiple integration requests can be listed in the manifest, and they all will be associated with the content upon deployment.</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">    </span><span class="c1">// ...</span>
+<span class="w">    </span><span class="nt">&quot;integration_requests&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my-integration&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azure&quot;</span><span class="p">},</span>
+<span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;another-integration&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;aws&quot;</span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="w">    </span><span class="c1">// ...</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="deploying-from-manifest">Deploying from manifest<a class="headerlink" href="#deploying-from-manifest" title="Permanent link">#</a></h3>
+<p>Once the integration requests have been specified in the <code>manifest.json</code>. A publisher will need to use the <code>rsconnect deploy manifest</code> command in order for the auto-association to take place. See <code>rsconnect deploy manifest --help</code> for more details on deploying from manifest.</p>
 
 
 
@@ -1091,10 +1226,10 @@
     
     
       
-      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand"], "search": "../../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.expand"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.50899def.min.js"></script>
+      <script src="../../assets/javascripts/bundle.92b07e13.min.js"></script>
       
     
   </body>
