@@ -1,4 +1,4 @@
-Integration requests streamline your deployment process by automatically associating the necessary OAuth integrations with your content, eliminating the need for manual configuration and ensuring that your deployed content has immediate access to the external services that it depends on.
+Integration requests streamline your deployment process by automatically associating the necessary OAuth integrations with your content, eliminating the need for manual configuration and ensuring that your deployed content has immediate access to the external resources that it depends on.
 
 You can define integration requests for your content by defining `integration_requests` in your content's `manifest.json` file. The base `manifest.json` file can be produced using the [`write-manifest`](../commands/write-manifest.md) command, but you will need to edit the file by hand to add the `integration_requests`.
 
@@ -18,6 +18,7 @@ There are a variety of different fields that can be used within an integration r
 | `config` | Configuration settings for the integration | key-value match | `"{"auth_mode": "Confidential"}"` |
 
 Possible values for `type` include:
+
 - `azure`
 - `azure-openai`
 - `sharepoint`
@@ -35,6 +36,7 @@ Possible values for `type` include:
 - `custom`
 
 Possible values for `auth_type` include:
+
 - `Viewer`
 - `Service Account`
 - `Visitor API Key`
@@ -45,7 +47,7 @@ An integration request can contain any combination of the fields listed above, a
 
 #### Using the integration guid
 
-If the content will only ever be deployed to a single server, the easiest way to make sure an OAuth integration gets automatically associated with it is by only listing the OAuth integration `guid` in the integration request:
+If the content will only ever be deployed to a single server, the easiest way to make sure the correct OAuth integration gets automatically associated is by listing the OAuth integration `guid` in the integration request:
 
 ```json
 
@@ -75,11 +77,17 @@ A Connect administrator can locate the `guid` for an OAuth integration by naviga
 
 ```json
 {
-    // ...
-    "integration_requests": [
-        {"name": "custom-integration", "type": "custom", "config": {"auth_mode": "Confidential"}}
-    ]
-    // ...
+  // ...
+  "integration_requests": [
+    {
+      "name": "custom-integration",
+      "type": "custom",
+      "config": {
+        "auth_mode": "Confidential"
+      }
+    }
+  ]
+  // ...
 }
 ```
 
