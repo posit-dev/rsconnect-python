@@ -94,7 +94,7 @@ A Connect administrator can locate the `guid` for an OAuth integration by naviga
 
 #### Multiple integration requests
 
-In Posit Connect v2025.07.0 and later, multiple integrations can be associated with a single piece of content. When running this version of Connect, multiple integration requests can be listed in the manifest, and they all will be associated with the content upon deployment.
+Multiple integration requests can be listed in the manifest, and they all will be associated with the content upon deployment.
 
 ```json
 {
