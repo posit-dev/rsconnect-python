@@ -996,7 +996,7 @@
 
   <h1>Integration Requests</h1>
 
-<p>Integration requests streamline your deployment process by automatically associating the necessary OAuth integrations with your content, eliminating the need for manual configuration and ensuring that your deployed content has immediate access to the external services that it depends on.</p>
+<p>Integration requests streamline your deployment process by automatically associating the necessary OAuth integrations with your content, eliminating the need for manual configuration and ensuring that your deployed content has immediate access to the external resources that it depends on.</p>
 <p>You can define integration requests for your content by defining <code>integration_requests</code> in your content's <code>manifest.json</code> file. The base <code>manifest.json</code> file can be produced using the <a href="../../commands/write-manifest/"><code>write-manifest</code></a> command, but you will need to edit the file by hand to add the <code>integration_requests</code>.</p>
 <h3 id="integration-request-specification">Integration Request Specification<a class="headerlink" href="#integration-request-specification" title="Permanent link">#</a></h3>
 <p>During deployment, these integration requests will be processed, and the specified integration specifications will be matched to integrations that are available on the Connect server. If a matching integration is found, it will be used for the deployment. If no matching integration is found, the deployment will fail with an error message indicating that the integration request could not be satisfied.</p>
@@ -1049,30 +1049,34 @@
 </tr>
 </tbody>
 </table>
-<p>Possible values for <code>type</code> include:
-- <code>azure</code>
-- <code>azure-openai</code>
-- <code>sharepoint</code>
-- <code>msgraph</code>
-- <code>bigquery</code>
-- <code>drive</code>
-- <code>sheets</code>
-- <code>vertex-ai</code>
-- <code>databricks</code>
-- <code>github</code>
-- <code>salesforce</code>
-- <code>snowflake</code>
-- <code>connect</code>
-- <code>aws</code>
-- <code>custom</code></p>
-<p>Possible values for <code>auth_type</code> include:
-- <code>Viewer</code>
-- <code>Service Account</code>
-- <code>Visitor API Key</code></p>
+<p>Possible values for <code>type</code> include:</p>
+<ul>
+<li><code>azure</code></li>
+<li><code>azure-openai</code></li>
+<li><code>sharepoint</code></li>
+<li><code>msgraph</code></li>
+<li><code>bigquery</code></li>
+<li><code>drive</code></li>
+<li><code>sheets</code></li>
+<li><code>vertex-ai</code></li>
+<li><code>databricks</code></li>
+<li><code>github</code></li>
+<li><code>salesforce</code></li>
+<li><code>snowflake</code></li>
+<li><code>connect</code></li>
+<li><code>aws</code></li>
+<li><code>custom</code></li>
+</ul>
+<p>Possible values for <code>auth_type</code> include:</p>
+<ul>
+<li><code>Viewer</code></li>
+<li><code>Service Account</code></li>
+<li><code>Visitor API Key</code></li>
+</ul>
 <p>An integration request can contain any combination of the fields listed above, and the correct combination will vary by situation.</p>
 <h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">#</a></h3>
 <h4 id="using-the-integration-guid">Using the integration guid<a class="headerlink" href="#using-the-integration-guid" title="Permanent link">#</a></h4>
-<p>If the content will only ever be deployed to a single server, the easiest way to make sure an OAuth integration gets automatically associated with it is by only listing the OAuth integration <code>guid</code> in the integration request:</p>
+<p>If the content will only ever be deployed to a single server, the easiest way to make sure the correct OAuth integration gets automatically associated is by listing the OAuth integration <code>guid</code> in the integration request:</p>
 <div class="highlight"><pre><span></span><code><span class="w">    </span><span class="c1">// ...</span>
 <span class="w">    </span><span class="nt">&quot;integration_requests&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">        </span><span class="p">{</span><span class="nt">&quot;guid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;123e4567-e89b-12d3-a456-426614174000&quot;</span><span class="p">}</span>
@@ -1092,11 +1096,17 @@
 </code></pre></div>
 <h4 id="using-the-name-template-and-config">Using the name, template, and config<a class="headerlink" href="#using-the-name-template-and-config" title="Permanent link">#</a></h4>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">    </span><span class="c1">// ...</span>
-<span class="w">    </span><span class="nt">&quot;integration_requests&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;custom-integration&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;custom&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;auth_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Confidential&quot;</span><span class="p">}}</span>
-<span class="w">    </span><span class="p">]</span>
-<span class="w">    </span><span class="c1">// ...</span>
+<span class="w">  </span><span class="c1">// ...</span>
+<span class="w">  </span><span class="nt">&quot;integration_requests&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;custom-integration&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;custom&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;auth_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Confidential&quot;</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="w">  </span><span class="c1">// ...</span>
 <span class="p">}</span>
 </code></pre></div>
 <h4 id="multiple-integration-requests">Multiple integration requests<a class="headerlink" href="#multiple-integration-requests" title="Permanent link">#</a></h4>
