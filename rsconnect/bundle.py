@@ -142,7 +142,7 @@ class ManifestData(TypedDict):
     quarto: NotRequired[ManifestDataQuarto]
     python: NotRequired[ManifestDataPython]
     environment: NotRequired[ManifestDataEnvironment]
-    integration_requests: NotRequired[list[ManifestIntegrationRequests]]
+    integration_requests: list[ManifestIntegrationRequests]
 
 
 class Manifest:
