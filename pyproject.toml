@@ -45,6 +45,9 @@ docs = [
     "pymdown-extensions",
     "mkdocs-macros-plugin"
 ]
+mcp = [
+    "mcp>=1.3.0; python_version >= '3.10'"
+]
 
 [project.urls]
 Repository = "http://github.com/posit-dev/rsconnect-python"

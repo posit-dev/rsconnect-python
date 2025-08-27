@@ -3032,6 +3032,117 @@ def system_caches_delete(
         ce.delete_runtime_cache(language, version, image_name, dry_run)
 
 
+@cli.group(
+    name="mcp",
+    no_args_is_help=True,
+    short_help="Run rsconnect-python as an MCP (Model Context Protocol) server.",
+    help="Run rsconnect-python as an MCP (Model Context Protocol) server. "
+         "This allows AI assistants and other MCP clients to interact with "
+         "Posit Connect servers through standardized tool calls. "
+         "All rsconnect CLI commands are automatically exposed as MCP tools."
+)
+def mcp():
+    pass
+
+
+@mcp.command(
+    name="server",
+    short_help="Start the MCP server.",
+    help="Start the MCP server with the specified transport method."
+)
+@click.option(
+    "--stdio",
+    is_flag=True,
+    default=True,
+    help="Use stdio transport for communication with MCP clients."
+)
+@click.option(
+    "--include",
+    help="Comma-separated list of tool names to include in MCP exposure (if not specified, all tools are included)."
+)
+@click.option(
+    "--exclude",
+    help="Comma-separated list of tool names to exclude from MCP exposure."
+)
+@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
+@cli_exception_handler
+def mcp_server(stdio: bool, include: Optional[str], exclude: Optional[str], verbose: int):
+    set_verbosity(verbose)
+
+    if not stdio:
+        raise click.UsageError("Must specify --stdio transport method")
+
+    try:
+        import asyncio
+
+        from .mcp import ClickToMCPConverter, RSConnectMCPServer
+
+        # Parse include/exclude lists
+        include_tools = []
+        exclude_tools = []
+
+        if include:
+            include_tools = [tool.strip() for tool in include.split(",")]
+        if exclude:
+            exclude_tools = [tool.strip() for tool in exclude.split(",")]
+
+        converter = ClickToMCPConverter(cli, include_tools=include_tools, exclude_tools=exclude_tools)
+
+        logger.info("Starting MCP server with stdio transport...")
+        logger.info("Automatically discovering CLI commands as MCP tools...")
+
+        server = RSConnectMCPServer(cli, converter)
+        logger.info(f"Discovered {len(server.converter.tools)} tools")
+
+        if include_tools:
+            logger.info(f"Included tools: {', '.join(include_tools)}")
+        if exclude_tools:
+            logger.info(f"Excluded tools: {', '.join(exclude_tools)}")
+
+        asyncio.run(server.run())
+
+    except ImportError:
+        click.secho(
+            "MCP dependencies not installed. Install with: pip install mcp",
+            fg="red",
+            err=True
+        )
+        sys.exit(1)
+    except KeyboardInterrupt:
+        logger.info("MCP server stopped by user")
+    except Exception as e:
+        logger.error(f"MCP server error: {e} \n{traceback.format_exc()}")
+        sys.exit(1)
+
+
+@mcp.command(
+    name="list",
+    short_help="List available MCP tools.",
+    help="List all CLI commands that would be exposed as MCP tools."
+)
+@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
+@cli_exception_handler
+def mcp_list(verbose: int):
+    set_verbosity(verbose)
+
+    try:
+        from .mcp import ClickToMCPConverter
+
+        converter = ClickToMCPConverter(cli)
+
+        click.echo(f"Discovered {len(converter.tools)} MCP tools:")
+        for tool in converter.tools:
+            click.echo(f"  - {tool.name}: {tool.description}")
+
+    except ImportError:
+        click.secho(
+            "MCP dependencies not installed. Install with: pip install mcp",
+            fg="red",
+            err=True
+        )
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     cli()
     click.echo()
