@@ -102,7 +102,13 @@ class ClickToMCPConverter:
             if param.name in ["verbose", "v"]:
                 continue
 
-            param_name = param.name
+            # Use the primary option name for MCP tool arguments instead of param.name
+            if isinstance(param, click.Option) and param.opts:
+                # Use the longest option name (usually the full form without dashes)
+                param_name = max(param.opts, key=len).lstrip('-').replace('-', '_')
+            else:
+                param_name = param.name
+
             param_schema = {"type": "string"}  # Default type
 
             # Set description from help text
@@ -234,19 +240,31 @@ class RSConnectMCPServer:
         """Build CLI argument list from tool arguments"""
         args = []
 
+        # Create a mapping from MCP argument names to Click parameters
+        param_mapping = {}
         for param in command.params:
-            if param.name in arguments:
-                value = arguments[param.name]
+            if isinstance(param, click.Option) and param.opts:
+                # Map the longest option name (MCP arg name) to the parameter
+                mcp_arg_name = max(param.opts, key=len).lstrip('-').replace('-', '_')
+                param_mapping[mcp_arg_name] = param
+            else:
+                param_mapping[param.name] = param
+
+        for arg_name, value in arguments.items():
+            if arg_name in param_mapping:
+                param = param_mapping[arg_name]
 
                 if isinstance(param, click.Option):
-                    # Handle option parameters
+                    # Use the primary (longest) option flag for CLI
+                    option_flag = max(param.opts, key=len) if param.opts else f"--{param.name.replace('_', '-')}"
+
                     if param.is_flag and value:
-                        args.append(f"--{param.name.replace('_', '-')}")
+                        args.append(option_flag)
                     elif not param.is_flag and value is not None:
-                        args.extend([f"--{param.name.replace('_', '-')}", str(value)])
+                        args.extend([option_flag, str(value)])
                     elif param.multiple and isinstance(value, list):
                         for v in value:
-                            args.extend([f"--{param.name.replace('_', '-')}", str(v)])
+                            args.extend([option_flag, str(v)])
 
                 elif isinstance(param, click.Argument):
                     # Handle positional arguments
