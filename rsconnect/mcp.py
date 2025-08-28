@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import sys
 import traceback
 from contextlib import redirect_stderr, redirect_stdout
@@ -16,7 +17,7 @@ except ImportError:
 
 import click
 
-from .log import logger
+from .log import ConsoleFormatter, connect_logger, logger
 
 
 class ClickToMCPConverter:
@@ -207,6 +208,21 @@ class RSConnectMCPServer:
             # Capture stdout and stderr
             stdout_capture = StringIO()
             stderr_capture = StringIO()
+
+            # Create a custom handler that writes to our capture buffer
+            log_capture_handler = logging.StreamHandler(stdout_capture)
+            log_capture_handler.terminator = "\n"
+            log_capture_handler.setLevel(logging.DEBUG)
+
+            # Import the formatter from log.py if it exists
+            try:
+                log_capture_handler.setFormatter(ConsoleFormatter())
+            except ImportError:
+                # Fall back to basic formatting if ConsoleFormatter isn't available
+                log_capture_handler.setFormatter(logging.Formatter('%(message)s'))
+
+            connect_logger.handlers.clear()
+            connect_logger.addHandler(log_capture_handler)
 
             # Execute the command in a separate context
             result = await asyncio.get_event_loop().run_in_executor(
