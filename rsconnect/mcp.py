@@ -1,6 +1,7 @@
 import asyncio
 import json
 import sys
+import traceback
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from typing import Any, Dict, List, Optional
@@ -277,6 +278,7 @@ class RSConnectMCPServer:
                     return {
                         "success": False,
                         "error": str(e),
+                        "stacktrace": traceback.format_exc(),
                         "stdout": stdout_capture.getvalue(),
                         "stderr": stderr_capture.getvalue()
                     }
