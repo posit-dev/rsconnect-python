@@ -255,21 +255,19 @@ class RSConnectMCPServer:
         """Run a CLI command synchronously and capture output"""
         try:
             # Create a new Click context
-            ctx = click.Context(command)
+            ctx = command.make_context(command.name, args)
 
             with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
                 try:
-                    # Parse and invoke the command
                     with ctx:
-                        parsed_args = command.parse_args(ctx, args)
-                        print(parsed_args)
-                        ctx.params.update(parsed_args)
-
                         # Call the command function
                         rv = command.invoke(ctx)
 
                         return {
                             "success": True,
+                            "command": command.name,
+                            "arguments": args,
+                            "ctx": ctx.__dict__,
                             "stdout": stdout_capture.getvalue(),
                             "stderr": stderr_capture.getvalue(),
                             "return_value": rv
