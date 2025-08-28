@@ -284,7 +284,7 @@ class RSConnectMCPServer:
                     # Handle positional arguments
                     if isinstance(value, list) and len(value) > 0:
                         args.extend([str(v) for v in value if len(str(v)) > 0])
-                    elif str(value) > 0:
+                    elif len(str(value)) > 0:
                         args.append(str(value))
 
         return args
