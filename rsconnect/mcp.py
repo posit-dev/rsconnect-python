@@ -267,7 +267,7 @@ class RSConnectMCPServer:
                             "success": True,
                             "command": command.name,
                             "arguments": args,
-                            "ctx": ctx.__dict__,
+                            "ctx_params": ctx.params,
                             "stdout": stdout_capture.getvalue(),
                             "stderr": stderr_capture.getvalue(),
                             "return_value": rv
