@@ -262,7 +262,7 @@ class RSConnectMCPServer:
                         args.append(option_flag)
                     elif not param.is_flag and value is not None:
                         args.extend([option_flag, str(value)])
-                    elif param.multiple and isinstance(value, list):
+                    elif param.multiple and isinstance(value, list) and len(value) > 0:
                         for v in value:
                             args.extend([option_flag, str(v)])
 
@@ -301,6 +301,9 @@ class RSConnectMCPServer:
                 except click.ClickException as e:
                     return {
                         "success": False,
+                        "command": command.name,
+                        "arguments": args,
+                        "ctx_params": ctx.params,
                         "error": str(e),
                         "stacktrace": traceback.format_exc(),
                         "stdout": stdout_capture.getvalue(),
@@ -310,6 +313,8 @@ class RSConnectMCPServer:
         except Exception as e:
             return {
                 "success": False,
+                "command": command.name,
+                "arguments": args,
                 "error": str(e),
                 "stacktrace": traceback.format_exc(),
                 "stdout": stdout_capture.getvalue(),
