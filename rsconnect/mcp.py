@@ -287,6 +287,7 @@ class RSConnectMCPServer:
             return {
                 "success": False,
                 "error": str(e),
+                "stacktrace": traceback.format_exc(),
                 "stdout": stdout_capture.getvalue(),
                 "stderr": stderr_capture.getvalue()
             }
