@@ -249,7 +249,6 @@ class RSConnectMCPServer:
                 param_mapping[mcp_arg_name] = param
             else:
                 param_mapping[param.name] = param
-
         for arg_name, value in arguments.items():
             if arg_name in param_mapping:
                 param = param_mapping[arg_name]
@@ -257,18 +256,17 @@ class RSConnectMCPServer:
                 if isinstance(param, click.Option):
                     # Use the primary (longest) option flag for CLI
                     option_flag = max(param.opts, key=len) if param.opts else f"--{param.name.replace('_', '-')}"
-
                     if param.is_flag and value:
                         args.append(option_flag)
-                    elif not param.is_flag and value is not None:
-                        args.extend([option_flag, str(value)])
-                    elif param.multiple and isinstance(value, list) and len(value) > 0:
+                    elif param.multiple and isinstance(value, list):
                         for v in value:
                             args.extend([option_flag, str(v)])
+                    elif not param.is_flag and value is not None:
+                        args.extend([option_flag, str(value)])
 
                 elif isinstance(param, click.Argument):
                     # Handle positional arguments
-                    if isinstance(value, list):
+                    if isinstance(value, list) and len(value) > 0:
                         args.extend([str(v) for v in value])
                     else:
                         args.append(str(value))
@@ -337,3 +335,10 @@ async def run_mcp_server():
 
     server = RSConnectMCPServer(cli, ClickToMCPConverter(cli))
     await server.run()
+
+
+if __name__ == "__main__":
+    from .main import cli  # Import the main CLI group
+
+    server = RSConnectMCPServer(cli, ClickToMCPConverter(cli))
+    print(server._build_cli_args(cli.commands["deploy"].commands["shiny"], {"environment": []}))
