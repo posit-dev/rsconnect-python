@@ -65,6 +65,9 @@ class ClickToMCPConverter:
             # Build input schema from click parameters
             schema = self._build_schema_from_params(command.params)
 
+            if tool_name == "list":
+                print(schema)
+
             return Tool(
                 name=tool_name,
                 description=description,
@@ -94,6 +97,9 @@ class ClickToMCPConverter:
 
         for param in params:
             if isinstance(param, click.Context):
+                continue
+
+            if param.name in ["verbose", "v"]:
                 continue
 
             param_name = param.name
