@@ -261,8 +261,9 @@ class RSConnectMCPServer:
                 try:
                     # Parse and invoke the command
                     with ctx:
-                        params, args_remaining, order = command.parse_args(ctx, args)
-                        ctx.params.update(params)
+                        parsed_args = command.parse_args(ctx, args)
+                        print(parsed_args)
+                        ctx.params.update(parsed_args)
 
                         # Call the command function
                         rv = command.invoke(ctx)
@@ -304,5 +305,5 @@ async def run_mcp_server():
     """Entry point for running the MCP server"""
     from .main import cli  # Import the main CLI group
 
-    server = RSConnectMCPServer(cli)
+    server = RSConnectMCPServer(cli, ClickToMCPConverter(cli))
     await server.run()

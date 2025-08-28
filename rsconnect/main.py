@@ -3132,7 +3132,7 @@ def mcp_list(verbose: int):
 
         click.echo(f"Discovered {len(converter.tools)} MCP tools:")
         for tool in converter.tools:
-            click.echo(f"  - {tool.name}: {tool.description}")
+            click.echo(f"  - {tool.name}: {tool.description}\nParameters: {tool.inputSchema}")
 
     except ImportError:
         click.secho(
