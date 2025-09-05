@@ -144,6 +144,8 @@ jobs:
   test-rsconnect:
     name: "Integration tests against latest Connect"
     runs-on: ubuntu-latest
+    env:
+      RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
@@ -159,9 +161,6 @@ jobs:
           docker compose up --build -d
           pip freeze > requirements.txt
           make dev
-        env:
-          RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
       - name: Get logs in case of failure
         run: |
           docker compose logs rsconnect
