@@ -1,0 +1,2785 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+      
+      
+      <link rel="icon" href="../images/favicon.ico">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.20">
+    
+    
+      
+        <title>Changelog - rsconnect-python</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.e53b48f4.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Open Sans";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../docs/css/custom.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+<!-- Google Analytics 4 (G-XXXXXXXXXX) -->
+<script>
+    /* Use GA when hosted by our public docs site, not when installed. */
+    if (location.href.indexOf("docs.posit.co") >= 0) {
+        window.dataLayer = window.dataLayer || []
+        function gtag() { dataLayer.push(arguments) }
+        /* Set up integration and send page view */
+        gtag("js", new Date())
+        gtag("config", "")
+
+        /* Register virtual event handlers */
+        document.addEventListener("DOMContentLoaded", function () {
+            if (document.forms.search) {
+                var query = document.forms.search.query
+                query.addEventListener("blur", function () {
+                    if (this.value) {
+                        gtag("event", "search", { search_term: this.value })
+                    }
+                })
+            }
+
+            /* Send page view on location change */
+            if (typeof location$ !== "undefined")
+                location$.subscribe(function (url) {
+                    gtag("config", "", {
+                        page_path: url.pathname
+                    })
+                })
+        })
+        /* Create script tag */
+        var script = document.createElement("script")
+        script.async = true
+        script.src = "https://www.googletagmanager.com/gtag/js?id="
+
+        /* Inject script tag */
+        var container = document.getElementsByTagName("head")[0]
+        var firstChild = container.firstChild
+        container.insertBefore(script, firstChild)
+    }
+</script>
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#changelog" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="header.title">
+    <a href=".." title="rsconnect-python" class="md-header__button md-logo" aria-label="rsconnect-python">
+      
+  <img src="../images/iconPositConnect.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            rsconnect-python
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Changelog
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="md-header__options">
+      
+    </div>
+        <!-- Color palette -->
+        
+        <form class="md-header__option" data-md-component="palette">
+          
+            
+            
+            <input
+              class="md-option"
+              data-md-color-media="(prefers-color-scheme)"
+              data-md-color-scheme=""
+              data-md-color-primary="white"
+              data-md-color-accent="blue"
+              type="radio"
+              name="__palette"
+              id="__palette_1"
+            />
+            
+              <label
+                class="md-header__button md-icon"
+                title="Switch to light mode"
+                for="__palette_3"
+                hidden
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+              </label>
+            
+          
+            
+            
+            <input
+              class="md-option"
+              data-md-color-media=""
+              data-md-color-scheme="default"
+              data-md-color-primary="white"
+              data-md-color-accent=""
+              type="radio"
+              name="__palette"
+              id="__palette_2"
+            />
+            
+              <label
+                class="md-header__button md-icon"
+                title="Switch to dark mode"
+                for="__palette_1"
+                hidden
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+              </label>
+            
+          
+            
+            
+            <input
+              class="md-option"
+              data-md-color-media=""
+              data-md-color-scheme="slate"
+              data-md-color-primary="black"
+              data-md-color-accent=""
+              type="radio"
+              name="__palette"
+              id="__palette_3"
+            />
+            
+              <label
+                class="md-header__button md-icon"
+                title="Switch to light mode"
+                for="__palette_2"
+                hidden
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+              </label>
+            
+          
+        </form>
+      
+    <div class="md-flex__cell md-flex__cell--shrink left-nav">
+      <ul class="md-tabs__list">
+        <li class="md-tabs__item"><a href="../CHANGELOG/" title="Release Notes" class="md-tabs__link md-source">Release Notes</a></li>
+        <li class="md-tabs__item"><a href="https://support.posit.co/hc/en-us" title="Posit Support" class="md-tabs__link md-source">Help</a></li>
+      </ul>
+    </div>
+    
+    
+  </nav>
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="rsconnect-python" class="md-nav__button md-logo" aria-label="rsconnect-python" data-md-component="logo">
+      
+  <img src="../images/iconPositConnect.svg" alt="logo">
+
+    </a>
+    rsconnect-python
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Getting Started
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../programmatic-provisioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Programmatic Provisioning
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deploying/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Deploying Content
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../server-administration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Server Administration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    CLI reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            CLI reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_1" id="__nav_5_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    rsconnect
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_1">
+            <span class="md-nav__icon md-icon"></span>
+            rsconnect
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/add/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    add
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/bootstrap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    bootstrap
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/content/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    content
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    deploy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    details
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/info/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    info
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/list/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    list
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/remove/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    remove
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    system
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    version
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/write-manifest/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    write-manifest
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#unreleased-" class="md-nav__link">
+    <span class="md-ellipsis">
+      Unreleased - ??
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1271-2025-08-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.27.1] - 2025-08-12
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.27.1] - 2025-08-12">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1270-2025-07-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.27.0] - 2025-07-10
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.27.0] - 2025-07-10">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1260-2025-05-28" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.26.0] - 2025-05-28
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.26.0] - 2025-05-28">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1252-2025-02-26" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.25.2] - 2025-02-26
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.25.2] - 2025-02-26">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1251-2024-12-20" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.25.1] - 2024-12-20
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.25.1] - 2024-12-20">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1250-2024-12-18" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.25.0] - 2024-12-18
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.25.0] - 2024-12-18">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed" class="md-nav__link">
+    <span class="md-ellipsis">
+      Removed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1240-2024-05-28" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.24.0] - 2024-05-28
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.24.0] - 2024-05-28">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1230-2024-04-04" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.23.0] - 2024-04-04
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.23.0] - 2024-04-04">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Removed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1220-2024-01-23" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.22.0] - 2024-01-23
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.22.0] - 2024-01-23">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1210-2023-10-26" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.21.0] - 2023-10-26
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.21.0] - 2023-10-26">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1200-2023-09-11" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.20.0] - 2023-09-11
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.20.0] - 2023-09-11">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1191-2023-08-01" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.19.1] - 2023-08-01
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.19.1] - 2023-08-01">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1190-2023-07-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.19.0] - 2023-07-12
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.19.0] - 2023-07-12">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1180-2023-06-27" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.18.0] - 2023-06-27
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.18.0] - 2023-06-27">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1171-2023-05-25" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.17.1] - 2023-05-25
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.17.1] - 2023-05-25">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1170-2023-05-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.17.0] - 2023-05-12
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.17.0] - 2023-05-12">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1160-2023-03-27" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.16.0] - 2023-03-27
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.16.0] - 2023-03-27">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1150-2023-03-15" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.15.0] - 2023-03-15
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.15.0] - 2023-03-15">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Changed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#deploying-html" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deploying HTML
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1141-2023-02-09" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.14.1] - 2023-02-09
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.14.1] - 2023-02-09">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#added_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1140-2023-01-19" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.14.0] - 2023-01-19
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.14.0] - 2023-01-19">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Removed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1130-2022-12-02" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.13.0] - 2022-12-02
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.13.0] - 2022-12-02">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1121-2022-11-07" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.12.1] - 2022-11-07
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.12.1] - 2022-11-07">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1120-2022-10-26" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.12.0] - 2022-10-26
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.12.0] - 2022-10-26">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_17" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1110-2022-10-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.11.0] - 2022-10-12
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.11.0] - 2022-10-12">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_18" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1100-2022-07-27" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.10.0] - 2022-07-27
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.10.0] - 2022-07-27">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_19" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#190-2022-07-06" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.9.0] - 2022-07-06
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.9.0] - 2022-07-06">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_20" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#181-2022-05-31" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.8.1] - 2022-05-31
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.8.1] - 2022-05-31">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#180-2022-05-31" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.8.0] - 2022-05-31
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.8.0] - 2022-05-31">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_21" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#171-2022-02-15" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.7.1] - 2022-02-15
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.7.1] - 2022-02-15">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_22" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#170-2022-02-11" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.7.0] - 2022-02-11
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.7.0] - 2022-02-11">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_23" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#160-2021-08-30" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.6.0] - 2021-08-30
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.6.0] - 2021-08-30">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_24" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#154-2021-07-29" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.5.4] - 2021-07-29
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.5.4] - 2021-07-29">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_25" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#153-2021-05-06" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.5.3] - 2021-05-06
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.5.3] - 2021-05-06">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_26" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#152-2021-04-02" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.5.2] - 2021-04-02
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.5.2] - 2021-04-02">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_27" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#151-2020-11-02" class="md-nav__link">
+    <span class="md-ellipsis">
+      [1.5.1] - 2020-11-02
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.5.1] - 2020-11-02">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#150-2020-07-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.5.0 - 2020-07-10
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.5.0 - 2020-07-10">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_28" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_17" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removed_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      Removed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#145-2020-04-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.4.5 - 2020-04-10
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.4.5 - 2020-04-10">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed_18" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#144-2020-04-02" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.4.4 - 2020-04-02
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.4.4 - 2020-04-02">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed_19" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#143-2020-04-01" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.4.3 - 2020-04-01
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.4.3 - 2020-04-01">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changed_20" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#142-2020-03-27" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.4.2 - 2020-03-27
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.4.2 - 2020-03-27">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_29" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_21" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#141-2020-03-26" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.4.1 - 2020-03-26
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.4.1 - 2020-03-26">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#140-2020-03-16" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.4.0 - 2020-03-16
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.4.0 - 2020-03-16">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_30" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changed_22" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#130-2020-01-07" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.3.0 - 2020-01-07
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.3.0 - 2020-01-07">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#added_31" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">#</a></h1>
+<p>All notable changes to this project will be documented in this file.</p>
+<p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>,
+and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
+<h2 id="unreleased-"><a href="https://github.com/posit-dev/rsconnect-python/compare/1.5.0...HEAD">Unreleased</a> - ??<a class="headerlink" href="#unreleased-" title="Permanent link">#</a></h2>
+<h2 id="1271-2025-08-12">[1.27.1] - 2025-08-12<a class="headerlink" href="#1271-2025-08-12" title="Permanent link">#</a></h2>
+<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">#</a></h3>
+<ul>
+<li>Python Shiny apps can be deployed when Connect server version is hidden. (#695)</li>
+</ul>
+<h2 id="1270-2025-07-10">[1.27.0] - 2025-07-10<a class="headerlink" href="#1270-2025-07-10" title="Permanent link">#</a></h2>
+<h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">#</a></h3>
+<ul>
+<li>Added support for the <code>--draft</code> option when deploying content,
+  this allows to deploy a new bundle for the content without exposing
+  it as a the activated one.</li>
+<li>Improved support for Posit Connect deployments
+  hosted in Snowpark Container Services.</li>
+<li>Relicensed package from GPL to MIT.</li>
+</ul>
+<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">#</a></h3>
+<ul>
+<li>Command-line options like <code>--api-key</code> and associated environment variables
+  like <code>CONNECT_API_KEY</code> take precedence over values in a stored deployment
+  target. (#684)</li>
+</ul>
+<h2 id="1260-2025-05-28">[1.26.0] - 2025-05-28<a class="headerlink" href="#1260-2025-05-28" title="Permanent link">#</a></h2>
+<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">#</a></h3>
+<ul>
+<li>Added support for interaction with Posit Connect deployments
+  hosted in Snowpark Container Services.</li>
+<li><code>rsconnect</code> now detects Python interpreter version requirements from
+  <code>.python-version</code>, <code>pyproject.toml</code> and <code>setup.cfg</code></li>
+<li><code>--python</code> and <code>--override-python-version</code> options are now deprecated
+  in favor of using <code>.python-version</code> requirement file.</li>
+</ul>
+<h2 id="1252-2025-02-26">[1.25.2] - 2025-02-26<a class="headerlink" href="#1252-2025-02-26" title="Permanent link">#</a></h2>
+<h3 id="fixed_2">Fixed<a class="headerlink" href="#fixed_2" title="Permanent link">#</a></h3>
+<ul>
+<li>Display system error message when <code>rsconnect.environment</code> inspection fails</li>
+</ul>
+<h2 id="1251-2024-12-20">[1.25.1] - 2024-12-20<a class="headerlink" href="#1251-2024-12-20" title="Permanent link">#</a></h2>
+<h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">#</a></h3>
+<ul>
+<li>Added validation for required flags for the <code>rsconnect system caches delete</code> command.</li>
+<li>Added <code>--force</code> flag to <code>rsconnect content build run</code> command. This allows users
+  to force builds when a build is already marked as running. (#630)</li>
+</ul>
+<h2 id="1250-2024-12-18">[1.25.0] - 2024-12-18<a class="headerlink" href="#1250-2024-12-18" title="Permanent link">#</a></h2>
+<h3 id="added_3">Added<a class="headerlink" href="#added_3" title="Permanent link">#</a></h3>
+<ul>
+<li>You can now deploy Gradio applications. This requires Posit Connect release 2024.12.0
+  or later. Use <code>rsconnect deploy gradio</code> to deploy, or <code>rsconnect write-manifest gradio</code>
+  to create a manifest file.</li>
+</ul>
+<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">#</a></h3>
+<ul>
+<li>
+<p>The <code>rsconnect content build run --poll-wait</code> argument specifies an integral
+  number of seconds. It previously allowed fractional seconds. (#608)</p>
+</li>
+<li>
+<p>Uses the public Connect server API endpoint <code>/v1/tasks/{id}</code> to poll task
+  progress. (#608)</p>
+</li>
+</ul>
+<h3 id="removed">Removed<a class="headerlink" href="#removed" title="Permanent link">#</a></h3>
+<ul>
+<li>Uncalled <code>RSConnectClient.app_publish()</code> function, which referenced an
+  obsolete workflow.</li>
+</ul>
+<h2 id="1240-2024-05-28">[1.24.0] - 2024-05-28<a class="headerlink" href="#1240-2024-05-28" title="Permanent link">#</a></h2>
+<h3 id="added_4">Added<a class="headerlink" href="#added_4" title="Permanent link">#</a></h3>
+<ul>
+<li>Added support for creating manifests for TensorFlow models.</li>
+<li>Added support for deploying TensorFlow models.</li>
+</ul>
+<h2 id="1230-2024-04-04">[1.23.0] - 2024-04-04<a class="headerlink" href="#1230-2024-04-04" title="Permanent link">#</a></h2>
+<h3 id="added_5">Added<a class="headerlink" href="#added_5" title="Permanent link">#</a></h3>
+<ul>
+<li>Added support for creating manifests for Shiny Express apps.</li>
+<li>Added support for deploying interactive Quarto dashboards that use Shiny Express syntax.</li>
+</ul>
+<h3 id="changed_1">Changed<a class="headerlink" href="#changed_1" title="Permanent link">#</a></h3>
+<ul>
+<li>When deploying Shiny for Python applications on servers using a version of
+  Connect prior to 2024.01.0, there is an incompatibility with
+  <code>starlette&gt;=0.35.0</code>. When deploying to these servers, the starlette version
+  is now automatically set to <code>starlette&lt;0.35.0</code>.</li>
+</ul>
+<h3 id="fixed_3">Fixed<a class="headerlink" href="#fixed_3" title="Permanent link">#</a></h3>
+<ul>
+<li>
+<p>Quarto content is marked as a "site" only when there are multiple input
+  files. (#552)</p>
+</li>
+<li>
+<p>Quarto content automatically ignores <code>name.html</code> and <code>name_files</code> when
+  <code>name.md</code>, <code>name.ipynb</code>, <code>name.Rmd</code>, or <code>name.qmd</code> is an input. (#553)</p>
+</li>
+<li>
+<p>Patterns provided to <code>--exclude</code> allow NT-style paths on Windows. (#320)</p>
+</li>
+</ul>
+<h3 id="removed_1">Removed<a class="headerlink" href="#removed_1" title="Permanent link">#</a></h3>
+<ul>
+<li>Python 3.7 support.</li>
+</ul>
+<h2 id="1220-2024-01-23">[1.22.0] - 2024-01-23<a class="headerlink" href="#1220-2024-01-23" title="Permanent link">#</a></h2>
+<h3 id="added_6">Added<a class="headerlink" href="#added_6" title="Permanent link">#</a></h3>
+<ul>
+<li>Added support for deploying Shiny express apps.</li>
+<li>Added support for deploying Shiny Express applications.</li>
+<li>Added a <code>--retry</code> flag to the <code>rsconnect content build run</code> command to re-run
+  builds for all content in the NEEDS_BUILD, ABORTED, ERROR, or RUNNING state.</li>
+</ul>
+<h3 id="changed_2">Changed<a class="headerlink" href="#changed_2" title="Permanent link">#</a></h3>
+<ul>
+<li>Improved the error and warning outputs when options conflict by providing the source
+  from which the values have been determined. This allows for faster resolution of issues
+  when combinations of stored credentials, environment variables and command line options
+  are used.</li>
+<li>Updated verbose mode to output the source of all options being used when processing the
+  CLI command.</li>
+</ul>
+<h3 id="fixed_4">Fixed<a class="headerlink" href="#fixed_4" title="Permanent link">#</a></h3>
+<ul>
+<li>
+<p>Interrupting a long-running <code>rsconnect content build run</code> command with <code>^C</code>
+  will now update the local state file before attempting graceful cleanup. This
+  should help prevent users from getting stuck a "build already running" state.
+  See <a href="https://github.com/posit-dev/rsconnect-python/issues/467">#467</a> for details.</p>
+</li>
+<li>
+<p>Addressed an error which occurred when attempting to create manifests for
+  Quarto documents. (#534)</p>
+</li>
+</ul>
+<h2 id="1210-2023-10-26">[1.21.0] - 2023-10-26<a class="headerlink" href="#1210-2023-10-26" title="Permanent link">#</a></h2>
+<h3 id="fixed_5">Fixed<a class="headerlink" href="#fixed_5" title="Permanent link">#</a></h3>
+<ul>
+<li>The <code>https_proxy</code> environment variable is recognized as a synonym for
+  <code>HTTPS_PROXY</code>.</li>
+<li>When adding a new server, the initial request now includes an
+  authorization header containing the API key. This is needed
+  for Connect installations behind a proxy that only passes
+  authenticated requests.</li>
+<li>Common environment directories (<code>env, venv, .env, .venv</code>) are no longer
+  excluded by name. Environments are detected by the presence of a python
+  executable in <code>bin</code> or <code>Scripts</code> and excluded.</li>
+<li>Lines output from <code>pip freeze</code> which start with [notice] are filtered out from the generated <code>requirements.txt</code>.</li>
+</ul>
+<h3 id="added_7">Added<a class="headerlink" href="#added_7" title="Permanent link">#</a></h3>
+<ul>
+<li>Added support for the <code>no_proxy</code> or <code>NO_PROXY</code> environment variables to specify
+  hosts that should not be accessed via proxy server. It's a comma-separated list
+  of host or domain suffixes. For example, specifying <code>example.com</code> will
+  bypass the proxy for example.com, host.example.com, etc.</li>
+<li>If an entrypoint is not specified with <code>--entrypoint</code>, rsconnect-python will try
+  harder than before to choose an entrypoint file. In addition to the previously
+  recognized filename patterns, the file patterns <code>app-*.py</code>, <code>app_*.py</code>, <code>*-app.py</code>,
+  and <code>*_app.py</code> are now considered. However, if the directory contains more than
+  one file matching these new patterns, you must provide rsconnect-python with an
+  explicit <code>--entrypoint</code> argument.</li>
+<li>Added a new verbose logging level. Specifying <code>-v</code> on the command line uses this
+  new level. Currently this will cause filenames to be logged as they are added to
+  a bundle. To enable maximum verbosity (debug level), use <code>-vv</code>.</li>
+<li>Added a verification step to the deployment process that accesses the deployed content.
+  This is a <code>GET</code> request to the content without parameters. The request is
+  considered successful if there isn't a 5xx code returned (errors like
+  400 Bad Request or 405 Method Not Allowed because not all apps support <code>GET /</code>).
+  For cases where this is not desired, use the <code>--no-verify</code> flag on the command line.</li>
+<li>Added the <code>deploy flask</code> command.</li>
+<li>Added the <code>write-manifest flask</code> command.</li>
+</ul>
+<h3 id="changed_3">Changed<a class="headerlink" href="#changed_3" title="Permanent link">#</a></h3>
+<ul>
+<li>Removing experimental support for Conda. Connect does not support restoring Conda environments.</li>
+</ul>
+<h2 id="1200-2023-09-11">[1.20.0] - 2023-09-11<a class="headerlink" href="#1200-2023-09-11" title="Permanent link">#</a></h2>
+<h3 id="fixed_6">Fixed<a class="headerlink" href="#fixed_6" title="Permanent link">#</a></h3>
+<ul>
+<li>Python virtualenvs are now detected in Windows environments, and are automatically
+  excluded from the uploaded bundle.</li>
+<li>Error deploying to shinyapps.io when <code>--app-id</code> is provided <a href="https://github.com/posit-dev/rsconnect-python/issues/464">#464</a>.</li>
+</ul>
+<h3 id="added_8">Added<a class="headerlink" href="#added_8" title="Permanent link">#</a></h3>
+<ul>
+<li>Add <code>--disable-env-management</code>, <code>--disable-env-management-py</code> and <code>--disable-env-management-r</code> flags for all content types
+  that support environment restores. These flags indicate to Connect that the user is responsible for Python/R package
+  installation, and Connect should not install packages during the build. The Python/R packages must still be available in the runtime
+  environment in order to run the content. This is especially useful if off-host execution is enabled when the execution environment
+  (specified by <code>--image</code>) already contains the required packages. Requires Posit Connect <code>&gt;=2023.07.0</code>.</li>
+</ul>
+<h2 id="1191-2023-08-01">[1.19.1] - 2023-08-01<a class="headerlink" href="#1191-2023-08-01" title="Permanent link">#</a></h2>
+<h3 id="added_9">Added<a class="headerlink" href="#added_9" title="Permanent link">#</a></h3>
+<ul>
+<li>Failed deploys to shinyapps.io will now output build logs. Posit Cloud application deploys will also output build logs once supported server-side.</li>
+<li>Redeploy to Posit Cloud from a project now correctly associates the content with that project.</li>
+</ul>
+<h2 id="1190-2023-07-12">[1.19.0] - 2023-07-12<a class="headerlink" href="#1190-2023-07-12" title="Permanent link">#</a></h2>
+<h3 id="added_10">Added<a class="headerlink" href="#added_10" title="Permanent link">#</a></h3>
+<ul>
+<li>The <code>CONNECT_TASK_TIMEOUT</code> environment variable, which configures the timeout for <a href="https://docs.posit.co/connect/api/#get-/v1/tasks/-id-">task based operations</a>. This value translates into seconds (e.g., <code>CONNECT_TASK_TIMEOUT=60</code> is equivalent to 60 seconds.) By default, this value is set to 86,400 seconds (e.g., 24 hours).</li>
+<li>Deploys for Posit Cloud now support Quarto source files or projects with <code>markdown</code> or <code>jupyter</code> engines.</li>
+</ul>
+<h2 id="1180-2023-06-27">[1.18.0] - 2023-06-27<a class="headerlink" href="#1180-2023-06-27" title="Permanent link">#</a></h2>
+<h3 id="added_11">Added<a class="headerlink" href="#added_11" title="Permanent link">#</a></h3>
+<ul>
+<li>Deploys for Posit Cloud and shinyapps.io now accept the <code>--visibility</code> flag.</li>
+</ul>
+<h3 id="changed_4">Changed<a class="headerlink" href="#changed_4" title="Permanent link">#</a></h3>
+<ul>
+<li>Removes redundant client-side compatibility checks in favor of server-side compatibility checks when deploying Python content. Note that the error handling may differ between versions of Connect. See Connect release notes for additional details regarding compatibility.</li>
+</ul>
+<h2 id="1171-2023-05-25">[1.17.1] - 2023-05-25<a class="headerlink" href="#1171-2023-05-25" title="Permanent link">#</a></h2>
+<h3 id="fixed_7">Fixed<a class="headerlink" href="#fixed_7" title="Permanent link">#</a></h3>
+<ul>
+<li>Shiny app deployment fails when static content is present in the app <a href="https://github.com/posit-dev/rsconnect-python/issues/373">#373</a>.</li>
+</ul>
+<h2 id="1170-2023-05-12">[1.17.0] - 2023-05-12<a class="headerlink" href="#1170-2023-05-12" title="Permanent link">#</a></h2>
+<h3 id="added_12">Added<a class="headerlink" href="#added_12" title="Permanent link">#</a></h3>
+<ul>
+<li>
+<p><code>deploy html</code> and <code>deploy manifest</code> now support deployment to Posit Cloud.</p>
+</li>
+<li>
+<p>Added <code>system caches list</code> and <code>system caches delete</code> commands which allow administrators to enumerate and delete R and Python runtime caches from Connect servers <a href="https://github.com/posit-dev/rsconnect-python/pull/384">#384</a>. Read more about the feature in our <a href="https://docs.posit.co/connect/admin/server-management/runtime-caches/">docs</a>.</p>
+</li>
+</ul>
+<h3 id="changed_5">Changed<a class="headerlink" href="#changed_5" title="Permanent link">#</a></h3>
+<ul>
+<li>Cloud deployments accept the content id instead of application id in the --app-id field.</li>
+<li>The <code>app_id</code> field in application store files also stores the content id instead of the application id.</li>
+<li>Application store files include a <code>version</code> field, set to 1 for this release.</li>
+</ul>
+<h3 id="fixed_8">Fixed<a class="headerlink" href="#fixed_8" title="Permanent link">#</a></h3>
+<ul>
+<li>cacert read error when adding/updating a server <a href="https://github.com/posit-dev/rsconnect-python/issues/403">#403</a>.</li>
+<li>getdefaultlocale no longer work with newer versions of Python <a href="https://github.com/posit-dev/rsconnect-python/issues/397">#397</a> <a href="https://github.com/posit-dev/rsconnect-python/issues/399">#399</a>.</li>
+<li>extra files not being included in write-manifest <a href="https://github.com/posit-dev/rsconnect-python/issues/416">#416</a>.</li>
+</ul>
+<h2 id="1160-2023-03-27">[1.16.0] - 2023-03-27<a class="headerlink" href="#1160-2023-03-27" title="Permanent link">#</a></h2>
+<h3 id="added_13">Added<a class="headerlink" href="#added_13" title="Permanent link">#</a></h3>
+<ul>
+<li>The <code>CONNECT_REQUEST_TIMEOUT</code> environment variable, which configures the request timeout for all blocking HTTP and HTTPS operations. This value translates into seconds (e.g., <code>CONNECT_REQUEST_TIMEOUT=60</code> is equivalent to 60 seconds.) By default, this value is 300.</li>
+</ul>
+<h3 id="fixed_9">Fixed<a class="headerlink" href="#fixed_9" title="Permanent link">#</a></h3>
+<ul>
+<li>
+<p>Extra files were not being included in deploy Voila.</p>
+</li>
+<li>
+<p>Error message to indicate the Python also has to be configured in Connect.</p>
+</li>
+</ul>
+<h2 id="1150-2023-03-15">[1.15.0] - 2023-03-15<a class="headerlink" href="#1150-2023-03-15" title="Permanent link">#</a></h2>
+<h3 id="added_14">Added<a class="headerlink" href="#added_14" title="Permanent link">#</a></h3>
+<ul>
+<li>Added <code>deploy voila</code> command to deploy Jupyter Voila notebooks. See the <a href="https://docs.posit.co/connect/user/publishing-cli-notebook/#interactive-voila-deployment">user documentation</a>
+    for more information.</li>
+</ul>
+<h3 id="changed_6">Changed<a class="headerlink" href="#changed_6" title="Permanent link">#</a></h3>
+<ul>
+<li><code>deploy html</code> was refactored. Its behavior is described below.</li>
+</ul>
+<h4 id="deploying-html">Deploying HTML<a class="headerlink" href="#deploying-html" title="Permanent link">#</a></h4>
+<p>Specifying a directory in the path will result in that entire directory*, subdirectories, and sub contents included in the deploy bundle. The entire directory is included whether or not an entrypoint was supplied</p>
+<p>e.g.
+using the following directory,
+<div class="highlight"><pre><span></span><code>├─ my_project/
+│ ├─ index.html
+│ ├─ second.html
+</code></pre></div>
+and the following command:
+<div class="highlight"><pre><span></span><code>rsconnect deploy html -n local my_project
+</code></pre></div>
+or this command:
+<div class="highlight"><pre><span></span><code>rsconnect deploy html -n local my_project -e my_project/index.html
+</code></pre></div>
+we will have a bundle which includes both <code>index.html</code> and <code>second.html</code></p>
+<ul>
+<li>specifying a file in the path will result in that file* - not the entire directory - included in the deploy bundle</li>
+</ul>
+<p>e.g.
+using the following directory,
+<div class="highlight"><pre><span></span><code>├─ my_project/
+│ ├─ index.html
+│ ├─ second.html
+</code></pre></div>
+and the following command:
+<div class="highlight"><pre><span></span><code>rsconnect deploy html -n local my_project/second.html
+</code></pre></div>
+we will have a bundle which includes <code>second.html</code></p>
+<ul>
+<li>
+<p>a note regarding entrypiont</p>
+<ul>
+<li>providing an entrypoint is optional if there's an <code>index.html</code> inside the project directory, or if there's a <em>single</em> html file in the project directory.</li>
+<li>if there are multiple html files in the project directory and it contains no <code>index.html</code>, we will get an exception when deploying that directory unless an entrypoint is specified.</li>
+</ul>
+</li>
+<li>
+<p>if we want to specify an entrypint, and we are executing the deploy command outside a project folder, we must specify the full path of the entrypoint:</p>
+</li>
+</ul>
+<div class="highlight"><pre><span></span><code>rsconnect deploy html -n local my_project -e my_project/second.html
+</code></pre></div>
+<ul>
+<li>if we want to specify an entrypint,  and we are executing the deploy command inside the project folder, we can abbreviate the entrypoint, like so:
+<div class="highlight"><pre><span></span><code>cd my_project
+rsconnect deploy html -n local ./ -e second.html
+</code></pre></div></li>
+</ul>
+<p>*Plus the manifest &amp; other necessary files needed for the bundle to work on Connect.</p>
+<h2 id="1141-2023-02-09">[1.14.1] - 2023-02-09<a class="headerlink" href="#1141-2023-02-09" title="Permanent link">#</a></h2>
+<h3 id="fixed_10">Fixed<a class="headerlink" href="#fixed_10" title="Permanent link">#</a></h3>
+<ul>
+<li>Extra files were not being included in certain deploy and write-manifest commands.</li>
+</ul>
+<h3 id="added_15">Added<a class="headerlink" href="#added_15" title="Permanent link">#</a></h3>
+<ul>
+<li>The <code>--cacert</code> option now supports certificate files encoded in the Distinguished Encoding Rules (DER) binary format. Certificate files with DER encoding must end in a <code>.cer</code> or <code>.der</code> suffix.</li>
+<li>The <code>--python</code> option now provides additional user guidance when an invalid path is provided.</li>
+</ul>
+<h3 id="changed_7">Changed<a class="headerlink" href="#changed_7" title="Permanent link">#</a></h3>
+<ul>
+<li>The <code>--cacert</code> option now requires that Privacy Enhanced Mail (PEM) formatted certificate files end in a <code>.ca-bundle</code>, <code>.crt</code>, <code>.key</code>, or <code>.pem</code> suffix.</li>
+</ul>
+<h2 id="1140-2023-01-19">[1.14.0] - 2023-01-19<a class="headerlink" href="#1140-2023-01-19" title="Permanent link">#</a></h2>
+<h3 id="changed_8">Changed<a class="headerlink" href="#changed_8" title="Permanent link">#</a></h3>
+<ul>
+<li>You can now redeploy to a content with an "unknown" app mode. A content item's app mode is "unknown" if it was created, but never deployed to, or its deployment failed before an app mode could be determined.</li>
+</ul>
+<h3 id="removed_2">Removed<a class="headerlink" href="#removed_2" title="Permanent link">#</a></h3>
+<ul>
+<li>
+<p>Python 3.5 &amp; 3.6 support.</p>
+</li>
+<li>
+<p><code>rsconnect-python</code> no longer considers the <code>RETICULATE_PYTHON</code> environment variable.
+  In environments where <code>RETICULATE_PYTHON</code> is set outside a project context (e.g. by a Posit Workbench administrator),
+  attempting to deploy content or write manifests in projects using virtual environments required explicitly setting <code>--python /path/to/virtualenv/python</code>.
+  Removing <code>RETICULATE_PYTHON</code> detection should simplify the use of the CLI in this case.</p>
+</li>
+</ul>
+<h2 id="1130-2022-12-02">[1.13.0] - 2022-12-02<a class="headerlink" href="#1130-2022-12-02" title="Permanent link">#</a></h2>
+<h3 id="added_16">Added<a class="headerlink" href="#added_16" title="Permanent link">#</a></h3>
+<ul>
+<li>When running rsconnect bootstrap, you can now specify the jwt secret using the CONNECT_BOOTSTRAP_SECRETKEY environment variable.</li>
+</ul>
+<h3 id="changed_9">Changed<a class="headerlink" href="#changed_9" title="Permanent link">#</a></h3>
+<ul>
+<li>
+<p>Update pip_freeze to use <code>pip freeze</code> since Connect filters for valid package paths in the backend and it no longer depends on the undocumented behavior of <code>pip list --format=freeze</code>. This reverts the change made in 1.5.2.</p>
+</li>
+<li>
+<p>Renamed the deploy_html <code>excludes</code> flag to <code>exclude</code> for consistency with other deploy commands.</p>
+</li>
+</ul>
+<h2 id="1121-2022-11-07">[1.12.1] - 2022-11-07<a class="headerlink" href="#1121-2022-11-07" title="Permanent link">#</a></h2>
+<h3 id="changed_10">Changed<a class="headerlink" href="#changed_10" title="Permanent link">#</a></h3>
+<ul>
+<li>Updated actions.py to reuse code in main, minus the CLI parts. As a result deploy_jupyter_notebook and deploy_by_manifest had their return signatures changed. They now return None.</li>
+</ul>
+<h2 id="1120-2022-10-26">[1.12.0] - 2022-10-26<a class="headerlink" href="#1120-2022-10-26" title="Permanent link">#</a></h2>
+<h3 id="added_17">Added<a class="headerlink" href="#added_17" title="Permanent link">#</a></h3>
+<ul>
+<li>You can now use the new rsconnect bootstrap command to programmatically provision an initial administrator api key on a fresh Connect instance. This requires RStudio Connect release 2022.10.0 or later and Python version &gt;= 3.6.</li>
+</ul>
+<h2 id="1110-2022-10-12">[1.11.0] - 2022-10-12<a class="headerlink" href="#1110-2022-10-12" title="Permanent link">#</a></h2>
+<h3 id="added_18">Added<a class="headerlink" href="#added_18" title="Permanent link">#</a></h3>
+<ul>
+<li>Add support for deployment on RStudio Cloud</li>
+</ul>
+<h3 id="changed_11">Changed<a class="headerlink" href="#changed_11" title="Permanent link">#</a></h3>
+<ul>
+<li>rsconnect-python will now issue warnings if it detects environmental variables that overlap with stored credentials</li>
+</ul>
+<h2 id="1100-2022-07-27">[1.10.0] - 2022-07-27<a class="headerlink" href="#1100-2022-07-27" title="Permanent link">#</a></h2>
+<h3 id="added_19">Added<a class="headerlink" href="#added_19" title="Permanent link">#</a></h3>
+<ul>
+<li>You can now deploy Shiny for Python applications with <code>deploy shiny</code></li>
+<li>In addition to deploying to Connect, you can now deploy to shinyapps.io with <code>deploy shiny</code> or <code>deploy manifest</code></li>
+<li>The <code>add</code> option now supports shinyapps.io credentials.</li>
+</ul>
+<h2 id="190-2022-07-06">[1.9.0] - 2022-07-06<a class="headerlink" href="#190-2022-07-06" title="Permanent link">#</a></h2>
+<h3 id="added_20">Added<a class="headerlink" href="#added_20" title="Permanent link">#</a></h3>
+<ul>
+<li>You can now deploy Quarto documents in addition to Quarto projects. This
+  requires RStudio Connect release 2021.08.0 or later. Use <code>rsconnect deploy
+  quarto</code> to deploy, or <code>rsconnect write-manifest quarto</code> to create a manifest
+  file.</li>
+</ul>
+<h3 id="changed_12">Changed<a class="headerlink" href="#changed_12" title="Permanent link">#</a></h3>
+<ul>
+<li>As a prelude to setting and documenting rsconnect-python APIs, various functions in <code>actions</code> have been moved to <code>bundle</code>, or replaced with RSConnectExecutor. The moved functions now include a deprecation warning, and will be fully deprecated in a future release.</li>
+</ul>
+<h2 id="181-2022-05-31">[1.8.1] - 2022-05-31<a class="headerlink" href="#181-2022-05-31" title="Permanent link">#</a></h2>
+<h3 id="changed_13">Changed<a class="headerlink" href="#changed_13" title="Permanent link">#</a></h3>
+<p>Corrected changelog heading.</p>
+<h2 id="180-2022-05-31">[1.8.0] - 2022-05-31<a class="headerlink" href="#180-2022-05-31" title="Permanent link">#</a></h2>
+<h3 id="added_21">Added<a class="headerlink" href="#added_21" title="Permanent link">#</a></h3>
+<ul>
+<li>
+<p>You can now set environment variables for the deployed content with the <code>-E</code> option.
+  These will be passed to RStudio Connect during the deployment process,
+  so they are available in your code whenever it runs within RStudio Connect.
+  Requires RStudio Connect version 1.8.6 or later.</p>
+</li>
+<li>
+<p>You can now deploy Quarto projects. This requires RStudio Connect release
+  2021.08.0 or later. Use <code>rsconnect deploy quarto</code> to deploy, or <code>rsconnect
+  write-manifest quarto</code> to create a manifest file.</p>
+</li>
+<li>
+<p>An <code>image</code> command line option has been added to the <code>write-manifest</code> and
+  <code>deploy</code> commands to specify the target image to be used on the RStudio Connect
+  server during content execution. This is only supported for the <code>api</code>, <code>bokeh</code>, <code>dash</code>,
+  <code>fastapi</code>, <code>notebook</code>, <code>quarto</code> and <code>streamlit</code> sub-commands. It is only
+  applicable if the RStudio Connect server is configured to use off-host execution.</p>
+</li>
+<li>
+<p>You can now deploy static content such as html and its associated assets with
+  <code>rsconnect deploy html</code>.</p>
+</li>
+</ul>
+<h2 id="171-2022-02-15">[1.7.1] - 2022-02-15<a class="headerlink" href="#171-2022-02-15" title="Permanent link">#</a></h2>
+<h3 id="added_22">Added<a class="headerlink" href="#added_22" title="Permanent link">#</a></h3>
+<ul>
+<li>Publish supported python versions announcement.</li>
+</ul>
+<h2 id="170-2022-02-11">[1.7.0] - 2022-02-11<a class="headerlink" href="#170-2022-02-11" title="Permanent link">#</a></h2>
+<h3 id="added_23">Added<a class="headerlink" href="#added_23" title="Permanent link">#</a></h3>
+<ul>
+<li>Adds <code>rsconnect content</code> subcommands for interacting with RStudio Connect's <code>/v1/content</code>
+  REST API. This allows users to search, download, and (re)build content. Users should
+  note that the <code>rsconnect content build</code> subcommand requires RStudio Connect release 2021.11.1
+  or later.</li>
+</ul>
+<h3 id="changed_14">Changed<a class="headerlink" href="#changed_14" title="Permanent link">#</a></h3>
+<ul>
+<li>Support for Python 2.7 has been removed in this release.</li>
+</ul>
+<h2 id="160-2021-08-30">[1.6.0] - 2021-08-30<a class="headerlink" href="#160-2021-08-30" title="Permanent link">#</a></h2>
+<h3 id="added_24">Added<a class="headerlink" href="#added_24" title="Permanent link">#</a></h3>
+<ul>
+<li>You can now deploy FastAPI applications. This requires RStudio Connect release 2021.08.0
+  or later. Use <code>rsconnect deploy fastapi</code> to deploy, or <code>rsconnect write-manifest fastapi</code>
+  to create a manifest file.</li>
+<li>In addition to FastAPI, you can also deploy Quart, Sanic, and Falcon ASGI applications.</li>
+</ul>
+<h3 id="changed_15">Changed<a class="headerlink" href="#changed_15" title="Permanent link">#</a></h3>
+<ul>
+<li>rsconnect-python will now issue a warning during deployment if there isn't a requirements.txt
+  file in the deployment directory. Using a requirements file ensures consistency in the
+  environment that will be created by the RStudio Connect server during deployment. This helps avoid
+  unnecessary package installations and issues that can occur if rsconnect-python falls back
+  to inferring packages from the local Python environment.</li>
+</ul>
+<h2 id="154-2021-07-29">[1.5.4] - 2021-07-29<a class="headerlink" href="#154-2021-07-29" title="Permanent link">#</a></h2>
+<h3 id="added_25">Added<a class="headerlink" href="#added_25" title="Permanent link">#</a></h3>
+<ul>
+<li>
+<p>If an entrypoint is not specified with <code>--entrypoint</code>, rsconnect-python will attempt
+  to choose an entrypoint file. It looks for common names (<code>app.py</code>, <code>application.py</code>,
+  <code>main.py</code>, <code>api.py</code>). If there is a single python source file in the directory,
+  that will be used as the entrypoint.
+  rsconnect-python does not inspect the file contents to identify the object name, which must be
+  one of the default names that Connect expects (<code>app</code>, <code>application</code>, <code>create_app</code>, or <code>make_app</code>).</p>
+</li>
+<li>
+<p>Ability to hide code cells when rendering Jupyter notebooks.</p>
+</li>
+</ul>
+<p>After setting up Connect (&gt;=1.9.0) and rsconnect-python, the user can render a Jupyter notebook without its corresponding code cells by passing the ' hide-all-input' flag through the rsconnect cli:</p>
+<div class="highlight"><pre><span></span><code>rsconnect deploy notebook \
+    --server https://connect.example.org:3939 \
+    --api-key my-api-key \
+    --hide-all-input \
+    mynotebook.ipynb
+</code></pre></div>
+<p>To selectively hide the input of cells, the user can add a tag call 'hide_input' to the cell, then pass the ' hide-tagged-input' flag through the rsconnect cli:</p>
+<div class="highlight"><pre><span></span><code>rsconnect deploy notebook \
+    --server https://connect.example.org:3939 \
+    --api-key my-api-key \
+    --hide-tagged-input \
+    mynotebook.ipynb
+</code></pre></div>
+<h2 id="153-2021-05-06">[1.5.3] - 2021-05-06<a class="headerlink" href="#153-2021-05-06" title="Permanent link">#</a></h2>
+<h3 id="added_26">Added<a class="headerlink" href="#added_26" title="Permanent link">#</a></h3>
+<ul>
+<li>Support for generating md5 file upload checksums, even if Python's <code>hashlib</code>
+  was configured for FIPS mode. The fallback uses the <code>usedforsecurity</code> option which is
+  available in Python 3.9 and later.</li>
+</ul>
+<h2 id="152-2021-04-02">[1.5.2] - 2021-04-02<a class="headerlink" href="#152-2021-04-02" title="Permanent link">#</a></h2>
+<h3 id="added_27">Added<a class="headerlink" href="#added_27" title="Permanent link">#</a></h3>
+<ul>
+<li>support for HTTPS_PROXY</li>
+</ul>
+<h3 id="changed_16">Changed<a class="headerlink" href="#changed_16" title="Permanent link">#</a></h3>
+<ul>
+<li>Environments are now introspected with <code>pip list --format=freeze</code> instead of <code>pip freeze</code>,
+  since the latter injects nonexistent paths into the requirements file when run in a conda environment.
+  This issue started occurring when pip 20.1 added support for PEP 610 metadata.</li>
+<li>Conda environments contain Conda-only versions of setuptools, which are now filtered out from requirements.txt for non-Conda environments.</li>
+</ul>
+<h2 id="151-2020-11-02">[1.5.1] - 2020-11-02<a class="headerlink" href="#151-2020-11-02" title="Permanent link">#</a></h2>
+<h3 id="fixed_11">Fixed<a class="headerlink" href="#fixed_11" title="Permanent link">#</a></h3>
+<ul>
+<li>Python 2 encoding error when using rsconnect-jupyter to publish a notebook containing binary data.</li>
+<li>Preserve more details when raising exceptions.</li>
+</ul>
+<h2 id="150-2020-07-10"><a href="https://github.com/posit-dev/rsconnect-python/compare/1.4.5...1.5.0">1.5.0</a> - 2020-07-10<a class="headerlink" href="#150-2020-07-10" title="Permanent link">#</a></h2>
+<h3 id="added_28">Added<a class="headerlink" href="#added_28" title="Permanent link">#</a></h3>
+<ul>
+<li>support for deploying Streamlit and Bokeh applications</li>
+<li>improved handling of HTTP timeouts</li>
+<li>CI verification on macos with python3.8</li>
+<li>trigger <a href="https://github.com/rstudio/rsconnect-jupyter">rsconnect-jupyter</a> workflow on
+  successful pushes to main branch</li>
+</ul>
+<h3 id="changed_17">Changed<a class="headerlink" href="#changed_17" title="Permanent link">#</a></h3>
+<ul>
+<li>default exclusion list to include common virtual environment directory names (<code>env</code>,
+  <code>venv</code>, <code>.env</code>, and <code>.venv</code>)</li>
+<li>environment internally represented as data class instead of dict</li>
+<li>replace all internal "compatibility mode" references with "conda mode"</li>
+<li>CI moved to GitHub Actions</li>
+</ul>
+<h3 id="removed_3">Removed<a class="headerlink" href="#removed_3" title="Permanent link">#</a></h3>
+<ul>
+<li>generation and publishing of <code>sdist</code> artifact</li>
+</ul>
+<h3 id="fixed_12">Fixed<a class="headerlink" href="#fixed_12" title="Permanent link">#</a></h3>
+<ul>
+<li>explicitly set the <code>--to-html</code> option to <code>nbconvert</code> when publishing a static notebook,
+  as required by the latest version of <code>nbconvert</code></li>
+</ul>
+<h2 id="145-2020-04-10"><a href="https://github.com/posit-dev/rsconnect-python/compare/1.4.4...1.4.5">1.4.5</a> - 2020-04-10<a class="headerlink" href="#145-2020-04-10" title="Permanent link">#</a></h2>
+<h3 id="changed_18">Changed<a class="headerlink" href="#changed_18" title="Permanent link">#</a></h3>
+<ul>
+<li>provide clearer feedback when errors happen while building bundles from a manifest</li>
+<li>pin required versions of the <code>click</code> and <code>six</code> libraries that we use</li>
+<li>help text touch up</li>
+</ul>
+<h3 id="fixed_13">Fixed<a class="headerlink" href="#fixed_13" title="Permanent link">#</a></h3>
+<ul>
+<li>output alignment under Python 2</li>
+</ul>
+<h2 id="144-2020-04-02"><a href="https://github.com/posit-dev/rsconnect-python/compare/1.4.3...1.4.4">1.4.4</a> - 2020-04-02<a class="headerlink" href="#144-2020-04-02" title="Permanent link">#</a></h2>
+<h3 id="changed_19">Changed<a class="headerlink" href="#changed_19" title="Permanent link">#</a></h3>
+<ul>
+<li>converted a traceback to a more appropriate message</li>
+<li>updated <code>CookieJar</code> class to support marshalling/un-marshalling
+  to/from a dictionary</li>
+</ul>
+<h3 id="fixed_14">Fixed<a class="headerlink" href="#fixed_14" title="Permanent link">#</a></h3>
+<ul>
+<li>an issue with cookie jar continuity across connections</li>
+</ul>
+<h2 id="143-2020-04-01"><a href="https://github.com/posit-dev/rsconnect-python/compare/1.4.2...1.4.3">1.4.3</a> - 2020-04-01<a class="headerlink" href="#143-2020-04-01" title="Permanent link">#</a></h2>
+<h3 id="changed_20">Changed<a class="headerlink" href="#changed_20" title="Permanent link">#</a></h3>
+<ul>
+<li>being more distinguishing between a server that's not running Connect and a credentials
+  problem</li>
+</ul>
+<h2 id="142-2020-03-27"><a href="https://github.com/posit-dev/rsconnect-python/compare/1.4.1...1.4.2">1.4.2</a> - 2020-03-27<a class="headerlink" href="#142-2020-03-27" title="Permanent link">#</a></h2>
+<h3 id="added_29">Added<a class="headerlink" href="#added_29" title="Permanent link">#</a></h3>
+<ul>
+<li>more helpful feedback when a "requested object does not exist" error is returned by
+  Connect</li>
+</ul>
+<h3 id="changed_21">Changed<a class="headerlink" href="#changed_21" title="Permanent link">#</a></h3>
+<ul>
+<li>be more distinguishing between a server that's not running Connect and a credentials
+  problem</li>
+</ul>
+<h3 id="fixed_15">Fixed<a class="headerlink" href="#fixed_15" title="Permanent link">#</a></h3>
+<ul>
+<li>an issue where cookie header size could grow inappropriately (#107)</li>
+<li>corrected the instructions to enable auto-completion</li>
+</ul>
+<h2 id="141-2020-03-26"><a href="https://github.com/posit-dev/rsconnect-python/compare/1.4.0...1.4.1">1.4.1</a> - 2020-03-26<a class="headerlink" href="#141-2020-03-26" title="Permanent link">#</a></h2>
+<h3 id="fixed_16">Fixed<a class="headerlink" href="#fixed_16" title="Permanent link">#</a></h3>
+<ul>
+<li>sticky sessions so we will track deploys correctly when RStudio Connect is in an
+  HA/clustered environment</li>
+</ul>
+<h2 id="140-2020-03-16"><a href="https://github.com/posit-dev/rsconnect-python/compare/1.3.0...1.4.0">1.4.0</a> - 2020-03-16<a class="headerlink" href="#140-2020-03-16" title="Permanent link">#</a></h2>
+<h3 id="added_30">Added<a class="headerlink" href="#added_30" title="Permanent link">#</a></h3>
+<ul>
+<li>functions in <code>actions</code> that provide the same functionality as the CLI</li>
+</ul>
+<h3 id="changed_22">Changed<a class="headerlink" href="#changed_22" title="Permanent link">#</a></h3>
+<ul>
+<li>command line handling of options is more consistent across all commands</li>
+<li><code>test</code> command replaced with a more broadly functional <code>details</code> command</li>
+<li>errors handled much more consistently and are more informative</li>
+<li>CLI output is more clean</li>
+<li>overall code has been refactored and improved for clarity, testability and stability</li>
+<li>all CLI help has been improved for consistency, correctness and completeness</li>
+<li>many documentation improvements in content and appearance</li>
+</ul>
+<h2 id="130-2020-01-07"><a href="https://github.com/posit-dev/rsconnect-python/releases/tag/1.3.0">1.3.0</a> - 2020-01-07<a class="headerlink" href="#130-2020-01-07" title="Permanent link">#</a></h2>
+<h3 id="added_31">Added<a class="headerlink" href="#added_31" title="Permanent link">#</a></h3>
+<ul>
+<li>first release</li>
+</ul>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        
+
+<!-- Application footer -->
+<footer class="md-footer">
+
+  <!-- Link to previous and/or next page -->
+  
+
+  <!-- Further information -->
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+
+      <!-- Copyright and theme information -->
+      <div class="md-footer-copyright">
+        
+          <div class="md-footer-copyright__highlight">
+            Copyright &#169; <script type="text/javascript">
+              document.write(new Date().getFullYear());
+            </script>
+            Posit Software, PBC. All Rights Reserved
+          </div>
+        
+        <!-- powered by
+        <a href="https://www.mkdocs.org">MkDocs</a>
+        and
+        <a href="https://squidfunk.github.io/mkdocs-material/">
+          Material for MkDocs</a> -->
+      </div>
+      <a href="https://posit.co/" class="nav-link" target="_blank">
+        <img src="/images/posit-logo-fullcolor-TM.svg" alt="Posit" title="Posit">
+      </a>
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.expand"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+    
+  </body>
+</html>
