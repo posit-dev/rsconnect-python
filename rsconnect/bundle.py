@@ -121,6 +121,11 @@ class ManifestDataPythonPackageManager(TypedDict):
     name: str
     version: str
     package_file: str
+    # When set, hints server how to perform installs.
+    # If True, server may perform installs using `uv`.
+    # If False, server should not use `uv`.
+    # If omitted, behavior is server-driven (migration default).
+    allow_uv: NotRequired[bool]
 
 
 class ManifestData(TypedDict):
@@ -137,7 +142,6 @@ class ManifestData(TypedDict):
 class Manifest:
     def __init__(
         self,
-        *,
         version: Optional[int] = None,
         environment: Optional[Environment] = None,
         app_mode: Optional[AppMode] = None,
@@ -185,15 +189,19 @@ class Manifest:
                 self.data["metadata"]["content_category"] = "site"
 
         if environment:
-            package_manager = environment.package_manager
-            self.data["python"] = {
-                "version": environment.python,
-                "package_manager": {
-                    "name": package_manager,
-                    "version": getattr(environment, package_manager),
-                    "package_file": environment.filename,
-                },
+            pm_name = environment.package_manager
+            pm_version_value = getattr(environment, pm_name, None)
+            if pm_version_value is None:
+                # Fallback: use pip version if available; otherwise empty string
+                pm_version_value = getattr(environment, "pip", "")
+            pm: ManifestDataPythonPackageManager = {
+                "name": pm_name,
+                "version": pm_version_value,
+                "package_file": environment.filename,
             }
+            if getattr(environment, "package_manager_allow_uv", None) is not None:
+                pm["allow_uv"] = typing.cast(bool, environment.package_manager_allow_uv)
+            self.data["python"] = {"version": environment.python, "package_manager": pm}
 
             if environment.python_version_requirement:
                 # If the environment has a python version requirement,
@@ -585,7 +593,13 @@ def make_notebook_source_bundle(
     nb_name = basename(file)
 
     manifest = make_source_manifest(
-        AppModes.JUPYTER_NOTEBOOK, environment, nb_name, None, image, env_management_py, env_management_r
+        AppModes.JUPYTER_NOTEBOOK,
+        environment,
+        nb_name,
+        None,
+        image,
+        env_management_py,
+        env_management_r,
     )
     if hide_all_input:
         if "jupyter" not in manifest:
@@ -884,7 +898,13 @@ def make_api_manifest(
 
     relevant_files = create_file_list(directory, extra_files, excludes)
     manifest = make_source_manifest(
-        app_mode, environment, entry_point, None, image, env_management_py, env_management_r
+        app_mode,
+        environment,
+        entry_point,
+        None,
+        image,
+        env_management_py,
+        env_management_r,
     )
 
     manifest_add_buffer(manifest, environment.filename, environment.contents)
@@ -1657,7 +1677,13 @@ def write_notebook_manifest_json(
             raise RSConnectException('Could not determine the app mode from "%s"; please specify one.' % extension)
 
     manifest_data = make_source_manifest(
-        app_mode, environment, file_name, None, image, env_management_py, env_management_r
+        app_mode,
+        environment,
+        file_name,
+        None,
+        image,
+        env_management_py,
+        env_management_r,
     )
     if hide_all_input or hide_tagged_input:
         if "jupyter" not in manifest_data:
@@ -1913,7 +1939,15 @@ def write_api_manifest_json(
     """
     extra_files = validate_extra_files(directory, extra_files)
     manifest, _ = make_api_manifest(
-        directory, entry_point, app_mode, environment, extra_files, excludes, image, env_management_py, env_management_r
+        directory,
+        entry_point,
+        app_mode,
+        environment,
+        extra_files,
+        excludes,
+        image,
+        env_management_py,
+        env_management_r,
     )
     manifest_path = join(directory, "manifest.json")
 
@@ -1998,6 +2032,8 @@ def write_quarto_manifest_json(
         extra_files,
         excludes,
         image,
+        env_management_py,
+        env_management_r,
     )
 
     base_dir = file_or_directory

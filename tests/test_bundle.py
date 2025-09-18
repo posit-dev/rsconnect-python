@@ -232,6 +232,65 @@ class TestBundle(TestCase):
                 },
             )
 
+    def test_make_notebook_source_bundle_package_manager_uv(self):
+        directory = get_dir("pip1")
+        nb_path = join(directory, "dummy.ipynb")
+        environment = Environment.create_python_environment(directory, package_manager="uv")
+
+        with make_notebook_source_bundle(
+            nb_path,
+            environment,
+            None,
+            hide_all_input=False,
+            hide_tagged_input=False,
+            image=None,
+            env_management_py=None,
+            env_management_r=None,
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+            assert manifest["python"]["package_manager"]["name"] == "uv"
+            assert manifest["python"]["package_manager"]["allow_uv"] is True
+
+    def test_make_api_bundle_package_manager_pip(self):
+        from .utils import get_api_path
+        directory = get_api_path("stock-api-fastapi", "")
+        environment = Environment.create_python_environment(directory, package_manager="pip")
+        entrypoint = "app:app"
+
+        with make_api_bundle(
+            directory,
+            entrypoint,
+            AppModes.PYTHON_FASTAPI,
+            environment,
+            extra_files=[],
+            excludes=[],
+            image=None,
+            env_management_py=None,
+            env_management_r=None,
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+            assert manifest["python"]["package_manager"]["name"] == "pip"
+            assert manifest["python"]["package_manager"].get("allow_uv") is False
+
+    def test_default_package_manager_omits_allow_uv(self):
+        directory = get_dir("pip1")
+        nb_path = join(directory, "dummy.ipynb")
+        environment = Environment.create_python_environment(directory)
+
+        with make_notebook_source_bundle(
+            nb_path,
+            environment,
+            None,
+            hide_all_input=False,
+            hide_tagged_input=False,
+            image=None,
+            env_management_py=None,
+            env_management_r=None,
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+            assert manifest["python"]["package_manager"]["name"] == "pip"
+            assert "allow_uv" not in manifest["python"]["package_manager"]
+
     def test_make_quarto_source_bundle_from_simple_project(self):
         temp_proj = tempfile.mkdtemp()
 

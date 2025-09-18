@@ -47,6 +47,9 @@ class Environment:
         # Fields that are not loaded from the environment subprocess
         self.python_version_requirement = python_version_requirement
         self.python_interpreter = python_interpreter
+        # Optional override of server install behavior. If None, server-driven
+        # default is used.
+        self.package_manager_allow_uv: typing.Optional[bool] = None
 
     def __getattr__(self, name: str) -> typing.Any:
         # We directly proxy the attributes of the EnvironmentData object
@@ -56,7 +59,7 @@ class Environment:
     def __setattr__(self, name: str, value: typing.Any) -> None:
         if name in self.DATA_FIELDS:
             # proxy the attribute to the underlying EnvironmentData object
-            self._data._replace(**{name: value})
+            self._data = self._data._replace(**{name: value})
         else:
             super().__setattr__(name, value)
 
@@ -101,6 +104,7 @@ class Environment:
         python: typing.Optional[str] = None,
         override_python_version: typing.Optional[str] = None,
         app_file: typing.Optional[str] = None,
+        package_manager: typing.Optional[str] = None,
     ) -> "Environment":
         """Given a project directory and a Python executable, return Environment information.
 
@@ -152,6 +156,14 @@ class Environment:
             # Retaing backward compatibility with old Connect versions
             # that didn't support environment.python.requires
             environment.python = override_python_version
+
+        if package_manager is not None:
+            if package_manager not in ("pip", "uv"):
+                raise RSConnectException("Unsupported package manager: %s" % package_manager)
+            # Override the package manager name recorded by inspector
+            environment.package_manager = package_manager  # type: ignore[attr-defined]
+            # Derive allow_uv from selection
+            environment.package_manager_allow_uv = True if package_manager == "uv" else False
 
         if force_generate:
             _warn_on_ignored_requirements(directory, environment.filename)
