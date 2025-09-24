@@ -889,6 +889,11 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     is_flag=True,
     help='Force generating "requirements.txt", even if it already exists.',
 )
+@click.option(
+    "--package-manager",
+    type=click.Choice(["pip", "uv"]),
+    help=("Select the Python package manager for installs in the manifest. " "By default, behavior is server-driven."),
+)
 @click.option("--hide-all-input", is_flag=True, default=False, help="Hide all input cells when rendering output")
 @click.option(
     "--hide-tagged-input", is_flag=True, default=False, help="Hide input code cells with the 'hide_input' tag"
@@ -928,6 +933,7 @@ def deploy_notebook(
     env_management_r: Optional[bool],
     draft: bool,
     no_verify: bool = False,
+    package_manager: Optional[str] = None,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -944,6 +950,7 @@ def deploy_notebook(
         force_generate=force_generate,
         python=python,
         override_python_version=override_python_version,
+        package_manager=package_manager,
     )
 
     if force_generate:
@@ -1043,6 +1050,11 @@ def deploy_notebook(
     is_flag=True,
     help='Force generating "requirements.txt", even if it already exists.',
 )
+@click.option(
+    "--package-manager",
+    type=click.Choice(["pip", "uv"]),
+    help=("Select the Python package manager for installs in the manifest. " "By default, behavior is server-driven."),
+)
 @click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
     "extra_files",
@@ -1079,12 +1091,17 @@ def deploy_voila(
     no_verify: bool,
     draft: bool = False,
     connect_server: Optional[api.RSConnectServer] = None,  # TODO: This appears to be unused
+    package_manager: Optional[str] = None,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
     app_mode = AppModes.JUPYTER_VOILA
     environment = Environment.create_python_environment(
-        path if isdir(path) else dirname(path), force_generate, python, override_python_version
+        path if isdir(path) else dirname(path),
+        force_generate,
+        python,
+        override_python_version,
+        package_manager=package_manager,
     )
 
     ce = RSConnectExecutor(
@@ -1254,6 +1271,11 @@ def deploy_manifest(
     is_flag=True,
     help='Force generating "requirements.txt", even if it already exists.',
 )
+@click.option(
+    "--package-manager",
+    type=click.Choice(["pip", "uv"]),
+    help=("Select the Python package manager for installs in the manifest. " "By default, behavior is server-driven."),
+)
 @click.argument("file_or_directory", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
     "extra_files",
@@ -1288,6 +1310,7 @@ def deploy_quarto(
     env_management_r: bool,
     no_verify: bool,
     draft: bool,
+    package_manager: Optional[str],
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1620,6 +1643,13 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         is_flag=True,
         help='Force generating "requirements.txt", even if it already exists.',
     )
+    @click.option(
+        "--package-manager",
+        type=click.Choice(["pip", "uv"]),
+        help=(
+            "Select the Python package manager for installs in the manifest. " "By default, behavior is server-driven."
+        ),
+    )
     @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
     @click.argument(
         "extra_files",
@@ -1659,12 +1689,17 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         secret: Optional[str],
         no_verify: bool,
         draft: bool,
+        package_manager: Optional[str],
     ):
         set_verbosity(verbose)
         entrypoint = validate_entry_point(entrypoint, directory)
         extra_files_list = validate_extra_files(directory, extra_files)
         environment = Environment.create_python_environment(
-            directory, force_generate, python, override_python_version=override_python_version
+            directory,
+            force_generate,
+            python,
+            override_python_version=override_python_version,
+            package_manager=package_manager,
         )
 
         if app_mode == AppModes.PYTHON_SHINY:
@@ -1804,6 +1839,11 @@ def write_manifest():
     is_flag=True,
     help='Force generating "requirements.txt", even if it already exists.',
 )
+@click.option(
+    "--package-manager",
+    type=click.Choice(["pip", "uv"]),
+    help=("Select the Python package manager for installs in the manifest. " "By default, behavior is server-driven."),
+)
 @click.option("--hide-all-input", is_flag=True, default=None, help="Hide all input cells when rendering output")
 @click.option("--hide-tagged-input", is_flag=True, default=None, help="Hide input code cells with the 'hide_input' tag")
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
@@ -1830,6 +1870,7 @@ def write_manifest_notebook(
     env_management_r: Optional[bool],
     hide_all_input: Optional[bool] = None,
     hide_tagged_input: Optional[bool] = None,
+    package_manager: Optional[str] = None,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1849,6 +1890,7 @@ def write_manifest_notebook(
             python=python,
             override_python_version=override_python_version,
             app_file=file,
+            package_manager=package_manager,
         )
 
     with cli_feedback("Creating manifest.json"):
@@ -1902,6 +1944,11 @@ def write_manifest_notebook(
     is_flag=True,
     help='Force generating "requirements.txt", even if it already exists.',
 )
+@click.option(
+    "--package-manager",
+    type=click.Choice(["pip", "uv"]),
+    help=("Select the Python package manager for installs in the manifest. " "By default, behavior is server-driven."),
+)
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
 @click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
@@ -1944,6 +1991,7 @@ def write_manifest_voila(
     env_management_py: Optional[bool],
     env_management_r: Optional[bool],
     multi_notebook: bool,
+    package_manager: Optional[str] = None,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1961,6 +2009,7 @@ def write_manifest_voila(
             override_python_version=override_python_version,
             python=python,
             app_file=path,
+            package_manager=package_manager,
         )
 
     environment_file_exists = exists(join(base_dir, environment.filename))
@@ -2037,6 +2086,11 @@ def write_manifest_voila(
     is_flag=True,
     help='Force generating "requirements.txt", even if it already exists.',
 )
+@click.option(
+    "--package-manager",
+    type=click.Choice(["pip", "uv"]),
+    help=("Select the Python package manager for installs in the manifest. " "By default, behavior is server-driven."),
+)
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
 @click.argument("file_or_directory", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
@@ -2061,6 +2115,7 @@ def write_manifest_quarto(
     disable_env_management: Optional[bool],
     env_management_py: Optional[bool],
     env_management_r: Optional[bool],
+    package_manager: Optional[str],
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -2085,7 +2140,11 @@ def write_manifest_quarto(
     if "jupyter" in engines:
         with cli_feedback("Inspecting Python environment"):
             environment = Environment.create_python_environment(
-                base_dir, force_generate=force_generate, override_python_version=override_python_version, python=python
+                base_dir,
+                force_generate=force_generate,
+                override_python_version=override_python_version,
+                python=python,
+                package_manager=package_manager,
             )
 
         environment_file_exists = exists(join(base_dir, environment.filename))
@@ -2225,6 +2284,13 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
         is_flag=True,
         help='Force generating "requirements.txt", even if it already exists.',
     )
+    @click.option(
+        "--package-manager",
+        type=click.Choice(["pip", "uv"]),
+        help=(
+            "Select the Python package manager for installs in the manifest. " "By default, behavior is server-driven."
+        ),
+    )
     @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
     @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
     @click.argument(
@@ -2249,6 +2315,7 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
         disable_env_management: Optional[bool],
         env_management_py: Optional[bool],
         env_management_r: Optional[bool],
+        package_manager: Optional[str],
     ):
         _write_framework_manifest(
             ctx,
@@ -2265,6 +2332,7 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
             image,
             env_management_py,
             env_management_r,
+            package_manager=package_manager,
         )
 
     return manifest_writer
@@ -2296,6 +2364,7 @@ def _write_framework_manifest(
     image: Optional[str],
     env_management_py: Optional[bool],
     env_management_r: Optional[bool],
+    package_manager: Optional[str] = None,
 ):
     """
     A common function for writing manifests for APIs as well as Dash, Streamlit, and Bokeh apps.
