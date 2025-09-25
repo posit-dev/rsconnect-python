@@ -3,12 +3,24 @@ from __future__ import annotations
 import functools
 import json
 import os
+import subprocess
 import sys
 import textwrap
 import traceback
 from functools import wraps
 from os.path import abspath, dirname, exists, isdir, join
-from typing import Callable, ItemsView, Literal, Optional, Sequence, TypeVar, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    ItemsView,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    TypeVar,
+    cast,
+)
 
 import click
 
@@ -390,6 +402,100 @@ def cli(future: bool):
 @cli.command(help="Show the version of the rsconnect-python package.")
 def version():
     click.echo(VERSION)
+
+
+@cli.command(help="Start the MCP server")
+@click.option(
+    "--server",
+    "-s",
+    envvar="CONNECT_SERVER",
+    help="Posit Connect server URL"
+)
+@click.option(
+    "--api-key",
+    "-k",
+    envvar="CONNECT_API_KEY",
+    help="The API key to use to authenticate with Posit Connect."
+)
+def mcp_server(server: str, api_key: str):
+    from fastmcp import FastMCP
+    from fastmcp.exceptions import ToolError
+    from posit.connect import Client
+
+    mcp = FastMCP("Connect MCP")
+
+    def get_content_logs(app_guid: str):
+        try:
+            client = Client(server, api_key)
+            response = client.get(f"v1/content/{app_guid}/jobs")
+            jobs = response.json()
+            # first job key is the most recent one
+            key = jobs[0]["key"]
+            logs = client.get(f"v1/content/{app_guid}/jobs/{key}/log")
+            return logs.json()
+        except Exception as e:
+            raise ToolError(f"Failed to get logs: {e}")
+
+    def list_content():
+        try:
+            client = Client(server, api_key)
+            response = client.get("v1/content")
+            return response.json()
+        except Exception as e:
+            raise ToolError(f"Failed to list content: {e}")
+
+    def get_content_item(app_guid: str):
+        try:
+            client = Client(server, api_key)
+            response = client.content.get(app_guid)
+            return response
+        except Exception as e:
+            raise ToolError(f"Failed to get content: {e}")
+
+    @mcp.tool()
+    async def deploy_shiny(
+        directory: str,
+        name: Optional[str] = None,
+        title: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Deploy a Shiny application to Posit Connect"""
+
+        # Build the CLI command
+        args = ["deploy", "shiny", directory]
+
+        if name:
+            args.extend(["--name", name])
+
+        if title:
+            args.extend(["--title", title])
+
+        args.extend(["--server", server])
+        args.extend(["--api-key", api_key])
+
+        try:
+            result = subprocess.run(
+                args,
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            return {
+                "success": True,
+                "message": "Deployment completed successfully",
+                "stdout": result.stdout,
+                "stderr": result.stderr
+            }
+        except subprocess.CalledProcessError as e:
+            raise ToolError(f"Deployment failed with exit code {e.returncode}: {e.stderr}")
+        except Exception as e:
+            raise ToolError(f"Command failed with error: {e}")
+
+
+    mcp.tool(description="Get content logs from Posit Connect")(get_content_logs)
+    mcp.tool(description="List content from Posit Connect")(list_content)
+    mcp.tool(description="Get content item from Posit Connect")(get_content_item)
+
+    mcp.run()
 
 
 def _test_server_and_api(server: str, api_key: str, insecure: bool, ca_cert: str | None):

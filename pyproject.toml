@@ -5,7 +5,7 @@ description = "The Posit Connect command-line interface."
 authors = [{ name = "Posit, PBC", email = "rsconnect@posit.co" }]
 license = { file = "LICENSE.md" }
 readme = { file = "README.md", content-type = "text/markdown" }
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 
 dependencies = [
     "typing-extensions>=4.8.0",
@@ -13,7 +13,9 @@ dependencies = [
     "semver>=2.0.0,<4.0.0",
     "pyjwt>=2.4.0",
     "click>=8.0.0",
-    "toml>=0.10; python_version < '3.11'"
+    "toml>=0.10; python_version < '3.11'",
+    "fastmcp",
+    "posit-sdk"
 ]
 
 dynamic = ["version"]
