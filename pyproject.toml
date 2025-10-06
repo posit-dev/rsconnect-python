@@ -14,8 +14,7 @@ dependencies = [
     "pyjwt>=2.4.0",
     "click>=8.0.0",
     "toml>=0.10; python_version < '3.11'",
-    "fastmcp",
-    "posit-sdk"
+    "fastmcp"
 ]
 
 dynamic = ["version"]
