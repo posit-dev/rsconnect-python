@@ -3,7 +3,7 @@ from __future__ import annotations
 import functools
 import json
 import os
-import subprocess
+import shlex
 import sys
 import textwrap
 import traceback
@@ -14,7 +14,6 @@ from typing import (
     Callable,
     Dict,
     ItemsView,
-    List,
     Literal,
     Optional,
     Sequence,
@@ -405,95 +404,120 @@ def version():
 
 
 @cli.command(help="Start the MCP server")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="Posit Connect server URL"
-)
-@click.option(
-    "--api-key",
-    "-k",
-    envvar="CONNECT_API_KEY",
-    help="The API key to use to authenticate with Posit Connect."
-)
-def mcp_server(server: str, api_key: str):
+def mcp_server():
     from fastmcp import FastMCP
     from fastmcp.exceptions import ToolError
-    from posit.connect import Client
 
     mcp = FastMCP("Connect MCP")
 
-    def get_content_logs(app_guid: str):
-        try:
-            client = Client(server, api_key)
-            response = client.get(f"v1/content/{app_guid}/jobs")
-            jobs = response.json()
-            # first job key is the most recent one
-            key = jobs[0]["key"]
-            logs = client.get(f"v1/content/{app_guid}/jobs/{key}/log")
-            return logs.json()
-        except Exception as e:
-            raise ToolError(f"Failed to get logs: {e}")
-
-    def list_content():
-        try:
-            client = Client(server, api_key)
-            response = client.get("v1/content")
-            return response.json()
-        except Exception as e:
-            raise ToolError(f"Failed to list content: {e}")
-
-    def get_content_item(app_guid: str):
-        try:
-            client = Client(server, api_key)
-            response = client.content.get(app_guid)
-            return response
-        except Exception as e:
-            raise ToolError(f"Failed to get content: {e}")
+    # Discover all deploy commands at startup
+    from .mcp_deploy_context import discover_deploy_commands
+    deploy_commands_info = discover_deploy_commands(cli)
 
     @mcp.tool()
-    async def deploy_shiny(
-        directory: str,
-        name: Optional[str] = None,
-        title: Optional[str] = None
+    def list_servers() -> Dict[str, Any]:
+        """
+        Show the stored information about each known server nickname.
+
+        :return: a dictionary containing the command to run and instructions.
+        """
+        return {
+            "type": "command",
+            "command": "rsconnect list"
+        }
+
+    @mcp.tool()
+    def add_server(
+        server_url: str,
+        nickname: str,
+        api_key: str,
     ) -> Dict[str, Any]:
-        """Deploy a Shiny application to Posit Connect"""
+        """
+        Prompt user to add a Posit Connect server using rsconnect add.
 
-        # Build the CLI command
-        args = ["deploy", "shiny", directory]
+        This tool guides users through registering a Connect server so they can use
+        rsconnect deployment commands. The server nickname allows you to reference
+        the server in future deployment commands.
 
-        if name:
-            args.extend(["--name", name])
+        :param server_url: the URL of your Posit Connect server (e.g., https://my.connect.server/)
+        :param nickname: a nickname you choose for the server (e.g., myServer)
+        :param api_key: your personal API key for authentication
+        :return: a dictionary containing the command to run and instructions.
+        """
+        command = f"rsconnect add --server {server_url} --name {nickname} --api-key {api_key}"
 
-        if title:
-            args.extend(["--title", title])
+        return {
+            "type": "command",
+            "command": command
+        }
 
-        args.extend(["--server", server])
-        args.extend(["--api-key", api_key])
+    @mcp.tool()
+    def build_deploy_command(
+        application_type: str,
+        parameters: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Build a deploy command for any content type using discovered parameters.
 
-        try:
-            result = subprocess.run(
-                args,
-                check=True,
-                capture_output=True,
-                text=True
+        This tool automatically builds the correct rsconnect deploy command
+        with proper parameter names and types based on the command type.
+
+        :param application_type: the type of content to deploy (e.g., 'shiny', 'notebook', 'quarto', etc.)
+        :param parameters: dictionary of parameter names and their values.
+        :return: dictionary with the generated command and instructions.
+        """
+        # use the deploy commands info discovered at startup
+        deploy_info = deploy_commands_info
+
+        if application_type not in deploy_info["app_type"]:
+            available = ", ".join(deploy_info["app_type"].keys())
+            raise ToolError(
+                f"Unknown application type '{application_type}'. "
+                f"Available types: {available}"
             )
-            return {
-                "success": True,
-                "message": "Deployment completed successfully",
-                "stdout": result.stdout,
-                "stderr": result.stderr
-            }
-        except subprocess.CalledProcessError as e:
-            raise ToolError(f"Deployment failed with exit code {e.returncode}: {e.stderr}")
-        except Exception as e:
-            raise ToolError(f"Command failed with error: {e}")
 
+        cmd_parts = ["rsconnect", "deploy", application_type]
+        cmd_info = deploy_info["app_type"][application_type]
 
-    mcp.tool(description="Get content logs from Posit Connect")(get_content_logs)
-    mcp.tool(description="List content from Posit Connect")(list_content)
-    mcp.tool(description="Get content item from Posit Connect")(get_content_item)
+        arguments = [p for p in cmd_info["parameters"] if p.get("param_type") == "argument"]
+        options = [p for p in cmd_info["parameters"] if p.get("param_type") == "option"]
+
+        # add arguments
+        for arg in arguments:
+            if arg["name"] in parameters:
+                value = parameters[arg["name"]]
+                if value is not None:
+                    cmd_parts.append(shlex.quote(str(value)))
+
+        # add options
+        for opt in options:
+            param_name = opt["name"]
+            if param_name not in parameters:
+                continue
+
+            value = parameters[param_name]
+            if value is None:
+                continue
+
+            cli_flag = max(opt.get("cli_flags", []), key=len) if opt.get("cli_flags") else f"--{param_name.replace('_', '-')}"
+
+            if opt["type"] == "boolean":
+                if value:
+                    cmd_parts.append(cli_flag)
+            elif opt["type"] == "array" and isinstance(value, list):
+                for item in value:
+                    cmd_parts.extend([cli_flag, shlex.quote(str(item))])
+            else:
+                cmd_parts.extend([cli_flag, shlex.quote(str(value))])
+
+        command = " ".join(cmd_parts)
+
+        return {
+            "type": "command",
+            "command": command,
+            "application_type": application_type,
+            "description": cmd_info["description"]
+        }
 
     mcp.run()
 
