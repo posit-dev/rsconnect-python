@@ -62,7 +62,10 @@ def extract_parameter_info(param: click.Parameter) -> Dict[str, Any]:
 
         # defaults (important to avoid noise in returned command)
         if param.default is not None and not param.is_flag:
-            info["default"] = param.default
+            if isinstance(param.default, tuple):
+                info["default"] = list(param.default)
+            elif isinstance(param.default, (str, int, float, bool, list, dict)):
+                info["default"] = param.default
 
     # required params
     info["required"] = param.required
@@ -73,38 +76,28 @@ def extract_parameter_info(param: click.Parameter) -> Dict[str, Any]:
 def discover_deploy_commands(cli_group: click.Group) -> Dict[str, Any]:
     """Discover all deploy commands and their parameters."""
 
-    if "deploy" not in cli_group.commands:
-        return {"error": "deploy command group not found"}
-
     deploy_group = cli_group.commands["deploy"]
-
-    if not isinstance(deploy_group, click.Group):
-        return {"error": "deploy is not a command group"}
 
     result = {
         "group_name": "deploy",
-        "description": deploy_group.help or "Deploy content to Posit Connect, Posit Cloud, or shinyapps.io.",
-        "app_type": {}
+        "description": deploy_group.help,
+        "content_type": {}
     }
 
     for cmd_name, cmd in deploy_group.commands.items():
         cmd_info = {
             "name": cmd_name,
-            "description": cmd.help or cmd.short_help or f"Deploy {cmd_name}",
-            "short_help": cmd.short_help,
+            "description": cmd.help,
             "parameters": []
         }
         for param in cmd.params:
-            if isinstance(param, click.Context):
-                continue
-
             if param.name in ["verbose", "v"]:
                 continue
 
             param_info = extract_parameter_info(param)
             cmd_info["parameters"].append(param_info)
 
-        result["app_type"][cmd_name] = cmd_info
+        result["content_type"][cmd_name] = cmd_info
 
     return result
 
@@ -112,5 +105,5 @@ def discover_deploy_commands(cli_group: click.Group) -> Dict[str, Any]:
 if __name__ == "__main__":
     from rsconnect.main import cli
 
-    deploy_commands_info = discover_deploy_commands(cli)["app_type"]["shiny"]
+    deploy_commands_info = discover_deploy_commands(cli)["content_type"]["shiny"]
     print(json.dumps(deploy_commands_info, indent=2))
