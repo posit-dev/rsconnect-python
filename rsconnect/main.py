@@ -405,6 +405,8 @@ def version():
 
 @cli.command(help="Start the MCP server")
 def mcp_server():
+    import subprocess
+
     from fastmcp import FastMCP
     from fastmcp.exceptions import ToolError
 
@@ -415,16 +417,13 @@ def mcp_server():
     deploy_commands_info = discover_deploy_commands(cli)
 
     @mcp.tool()
-    def list_servers() -> Dict[str, Any]:
-        """
-        Show the stored information about each known server nickname.
-
-        :return: a dictionary containing the command to run and instructions.
-        """
-        return {
-            "type": "command",
-            "command": "rsconnect list"
-        }
+    def list_servers():
+        """Show the stored information about each known server nickname."""
+        try:
+            result = subprocess.run(["rsconnect", "list"], capture_output=True, text=True, check=True)
+            return result.stdout
+        except subprocess.CalledProcessError as e:
+            raise ToolError(f"Command failed with error: {e}")
 
     @mcp.tool()
     def add_server(
@@ -452,71 +451,23 @@ def mcp_server():
         }
 
     @mcp.tool()
-    def build_deploy_command(
-        application_type: str,
-        parameters: Dict[str, Any]
+    def deploy_command_context(
+        content_type: str
     ) -> Dict[str, Any]:
         """
-        Build a deploy command for any content type using discovered parameters.
+        Get the parameter schema for rsconnect deploy commands that should be executed via bash.
 
-        This tool automatically builds the correct rsconnect deploy command
-        with proper parameter names and types based on the command type.
+        Returns information about the parameters needed to construct an rsconnect deploy
+        command that can be executed in a bash shell.
 
-        :param application_type: the type of content to deploy (e.g., 'shiny', 'notebook', 'quarto', etc.)
-        :param parameters: dictionary of parameter names and their values.
-        :return: dictionary with the generated command and instructions.
+        :param content_type: the type of content (e.g., 'shiny', 'notebook', 'quarto')
+        :return: dictionary with command parameter schema and execution metadata
         """
-        # use the deploy commands info discovered at startup
-        deploy_info = deploy_commands_info
-
-        if application_type not in deploy_info["app_type"]:
-            available = ", ".join(deploy_info["app_type"].keys())
-            raise ToolError(
-                f"Unknown application type '{application_type}'. "
-                f"Available types: {available}"
-            )
-
-        cmd_parts = ["rsconnect", "deploy", application_type]
-        cmd_info = deploy_info["app_type"][application_type]
-
-        arguments = [p for p in cmd_info["parameters"] if p.get("param_type") == "argument"]
-        options = [p for p in cmd_info["parameters"] if p.get("param_type") == "option"]
-
-        # add arguments
-        for arg in arguments:
-            if arg["name"] in parameters:
-                value = parameters[arg["name"]]
-                if value is not None:
-                    cmd_parts.append(shlex.quote(str(value)))
-
-        # add options
-        for opt in options:
-            param_name = opt["name"]
-            if param_name not in parameters:
-                continue
-
-            value = parameters[param_name]
-            if value is None:
-                continue
-
-            cli_flag = max(opt.get("cli_flags", []), key=len) if opt.get("cli_flags") else f"--{param_name.replace('_', '-')}"
-
-            if opt["type"] == "boolean":
-                if value:
-                    cmd_parts.append(cli_flag)
-            elif opt["type"] == "array" and isinstance(value, list):
-                for item in value:
-                    cmd_parts.extend([cli_flag, shlex.quote(str(item))])
-            else:
-                cmd_parts.extend([cli_flag, shlex.quote(str(value))])
-
-        command = " ".join(cmd_parts)
-
+        ctx = deploy_commands_info["content_type"][content_type]
         return {
-            "type": "command",
-            "command": command,
-            "application_type": application_type,
-            "description": cmd_info["description"]
+            "context": ctx,
+            "command_usage": "rsconnect deploy COMMAND [OPTIONS] DIRECTORY [ARGS]...",
+            "shell": "bash"
         }
 
     mcp.run()
