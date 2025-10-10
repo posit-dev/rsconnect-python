@@ -2868,6 +2868,76 @@ def test_make_api_bundle_gradio():
         assert gradio_dir_ans["files"].keys() == bundle_json["files"].keys()
 
 
+panel_dir = os.path.join(cur_dir, "./testdata/panel")
+panel_file = os.path.join(cur_dir, "./testdata/panel/app.py")
+
+
+def test_make_api_manifest_panel():
+    panel_dir_ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-panel"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "f90113cfbf5f67bfa6c5c6a5a8bc7eaa"},
+            "app.py": {"checksum": "e3b0c44298fc1c149afbf4c8996fb924"},
+        },
+    }
+    environment = Environment.create_python_environment(
+        panel_dir,
+    )
+    manifest, _ = make_api_manifest(
+        panel_dir,
+        None,
+        AppModes.PYTHON_PANEL,
+        environment,
+        None,
+        None,
+    )
+
+    assert panel_dir_ans["metadata"] == manifest["metadata"]
+    assert panel_dir_ans["files"].keys() == manifest["files"].keys()
+
+
+def test_make_api_bundle_panel():
+    panel_dir_ans = {
+        "version": 1,
+        "locale": "en_US.UTF-8",
+        "metadata": {"appmode": "python-panel"},
+        "python": {
+            "version": "3.8.12",
+            "package_manager": {"name": "pip", "version": "23.0.1", "package_file": "requirements.txt"},
+        },
+        "files": {
+            "requirements.txt": {"checksum": "f90113cfbf5f67bfa6c5c6a5a8bc7eaa"},
+            "app.py": {"checksum": "e3b0c44298fc1c149afbf4c8996fb924"},
+        },
+    }
+    environment = Environment.create_python_environment(
+        panel_dir,
+    )
+    with make_api_bundle(
+        panel_dir,
+        None,
+        AppModes.PYTHON_PANEL,
+        environment,
+        None,
+        None,
+    ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+        names = sorted(tar.getnames())
+        assert names == [
+            "app.py",
+            "manifest.json",
+            "requirements.txt",
+        ]
+        bundle_json = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+        assert panel_dir_ans["metadata"] == bundle_json["metadata"]
+        assert panel_dir_ans["files"].keys() == bundle_json["files"].keys()
+
+
 empty_manifest_file = os.path.join(cur_dir, "./testdata/Manifest_data/empty_manifest.json")
 missing_file_manifest = os.path.join(cur_dir, "./testdata/Manifest_data/missing_file_manifest.json")
 
