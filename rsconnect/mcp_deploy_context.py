@@ -15,7 +15,7 @@ def extract_parameter_info(param: click.Parameter) -> Dict[str, Any]:
 
     if isinstance(param, click.Option) and param.opts:
         # Use the longest option name (usually the full form without dashes)
-        mcp_arg_name = max(param.opts, key=len).lstrip('-').replace('-', '_')
+        mcp_arg_name = max(param.opts, key=len).lstrip("-").replace("-", "_")
         info["name"] = mcp_arg_name
         info["cli_flags"] = param.opts
         info["param_type"] = "option"
@@ -25,7 +25,7 @@ def extract_parameter_info(param: click.Parameter) -> Dict[str, Any]:
             info["param_type"] = "argument"
 
     # extract help text for added context
-    help_text = getattr(param, 'help', None)
+    help_text = getattr(param, "help", None)
     if help_text:
         info["description"] = help_text
 
@@ -36,7 +36,7 @@ def extract_parameter_info(param: click.Parameter) -> Dict[str, Any]:
             info["default"] = param.default or False
 
         # choices
-        elif param.type and hasattr(param.type, 'choices'):
+        elif param.type and hasattr(param.type, "choices"):
             info["type"] = "string"
             info["choices"] = list(param.type.choices)
 
@@ -75,11 +75,7 @@ def extract_parameter_info(param: click.Parameter) -> Dict[str, Any]:
 
 def discover_single_command(cmd: click.Command) -> Dict[str, Any]:
     """Discover a single command and its parameters."""
-    cmd_info = {
-        "name": cmd.name,
-        "description": cmd.help,
-        "parameters": []
-    }
+    cmd_info = {"name": cmd.name, "description": cmd.help, "parameters": []}
 
     for param in cmd.params:
         if param.name in ["verbose", "v"]:
@@ -93,11 +89,7 @@ def discover_single_command(cmd: click.Command) -> Dict[str, Any]:
 
 def discover_command_group(group: click.Group) -> Dict[str, Any]:
     """Discover all commands in a command group and their parameters."""
-    result = {
-        "name": group.name,
-        "description": group.help,
-        "commands": {}
-    }
+    result = {"name": group.name, "description": group.help, "commands": {}}
 
     for cmd_name, cmd in group.commands.items():
         if isinstance(cmd, click.Group):

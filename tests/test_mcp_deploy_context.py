@@ -1,9 +1,14 @@
 """Tests for MCP deploy context."""
 
-from unittest import TestCase
+import pytest
 
-from rsconnect.main import cli
-from rsconnect.mcp_deploy_context import discover_all_commands
+# Skip entire module if fastmcp is not available (requires Python 3.10+)
+pytest.importorskip("fastmcp", reason="fastmcp library not installed (requires Python 3.10+)")
+
+from unittest import TestCase  # noqa
+
+from rsconnect.main import cli  # noqa
+from rsconnect.mcp_deploy_context import discover_all_commands  # noqa
 
 
 class TestDiscoverAllCommands(TestCase):
@@ -16,7 +21,20 @@ class TestDiscoverAllCommands(TestCase):
     def test_top_level_commands(self):
         result = discover_all_commands(cli)
 
-        expected = ["version", "mcp-server", "add", "list", "remove", "details", "info", "deploy", "write-manifest", "content", "system", "bootstrap"]
+        expected = [
+            "version",
+            "mcp-server",
+            "add",
+            "list",
+            "remove",
+            "details",
+            "info",
+            "deploy",
+            "write-manifest",
+            "content",
+            "system",
+            "bootstrap",
+        ]
         for cmd in expected:
             self.assertIn(cmd, result["commands"])
 
@@ -28,7 +46,22 @@ class TestDiscoverAllCommands(TestCase):
         result = discover_all_commands(cli)
 
         deploy = result["commands"]["deploy"]
-        expected = ["notebook", "voila", "manifest", "quarto", "tensorflow", "html", "api", "flask", "fastapi", "dash", "streamlit", "bokeh", "shiny", "gradio"]
+        expected = [
+            "notebook",
+            "voila",
+            "manifest",
+            "quarto",
+            "tensorflow",
+            "html",
+            "api",
+            "flask",
+            "fastapi",
+            "dash",
+            "streamlit",
+            "bokeh",
+            "shiny",
+            "gradio",
+        ]
         for subcmd in expected:
             self.assertIn(subcmd, deploy["commands"])
 
