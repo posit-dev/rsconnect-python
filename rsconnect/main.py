@@ -404,13 +404,20 @@ def version():
 
 @cli.command(help="Start the MCP server")
 def mcp_server():
-    from fastmcp import FastMCP
-    from fastmcp.exceptions import ToolError
+    try:
+        from fastmcp import FastMCP
+        from fastmcp.exceptions import ToolError
+    except ImportError:
+        raise RSConnectException(
+            "The fastmcp package is required for MCP server functionality. "
+            "Install it with: pip install rsconnect-python[mcp]"
+        )
 
     mcp = FastMCP("Connect MCP")
 
     # Discover all commands at startup
     from .mcp_deploy_context import discover_all_commands
+
     all_commands_info = discover_all_commands(cli)
 
     @mcp.tool()
@@ -431,10 +438,7 @@ def mcp_server():
             parts = command_path.strip().split()
             if not parts:
                 available_commands = list(all_commands_info["commands"].keys())
-                return {
-                    "error": "Command path cannot be empty",
-                    "available_commands": available_commands
-                }
+                return {"error": "Command path cannot be empty", "available_commands": available_commands}
 
             current_info = all_commands_info
             current_path = []
@@ -451,11 +455,8 @@ def mcp_server():
                 # try to return useful messaging for invalid subcommands
                 if part not in current_info["commands"]:
                     available = list(current_info["commands"].keys())
-                    path_str = ' '.join(current_path) if current_path else "top level"
-                    return {
-                        "error": f"Command '{part}' not found in {path_str}",
-                        "available_commands": available
-                    }
+                    path_str = " ".join(current_path) if current_path else "top level"
+                    return {"error": f"Command '{part}' not found in {path_str}", "available_commands": available}
 
                 current_info = current_info["commands"][part]
                 current_path.append(part)
@@ -467,7 +468,7 @@ def mcp_server():
                     "name": current_info.get("name", parts[-1]),
                     "description": current_info.get("description"),
                     "available_subcommands": list(current_info["commands"].keys()),
-                    "message": f"The '{' '.join(parts)}' command requires a subcommand."
+                    "message": f"The '{' '.join(parts)}' command requires a subcommand.",
                 }
             else:
                 return {
@@ -476,7 +477,7 @@ def mcp_server():
                     "name": current_info.get("name", parts[-1]),
                     "description": current_info.get("description"),
                     "parameters": current_info.get("parameters", []),
-                    "shell": "bash"
+                    "shell": "bash",
                 }
         except Exception as e:
             raise ToolError(f"Failed to retrieve command info: {str(e)}")
