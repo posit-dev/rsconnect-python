@@ -3,7 +3,6 @@ from __future__ import annotations
 import functools
 import json
 import os
-import shlex
 import sys
 import textwrap
 import traceback
@@ -405,70 +404,82 @@ def version():
 
 @cli.command(help="Start the MCP server")
 def mcp_server():
-    import subprocess
-
     from fastmcp import FastMCP
     from fastmcp.exceptions import ToolError
 
     mcp = FastMCP("Connect MCP")
 
-    # Discover all deploy commands at startup
-    from .mcp_deploy_context import discover_deploy_commands
-    deploy_commands_info = discover_deploy_commands(cli)
+    # Discover all commands at startup
+    from .mcp_deploy_context import discover_all_commands
+    all_commands_info = discover_all_commands(cli)
 
     @mcp.tool()
-    def list_servers():
-        """Show the stored information about each known server nickname."""
-        try:
-            result = subprocess.run(["rsconnect", "list"], capture_output=True, text=True, check=True)
-            return result.stdout
-        except subprocess.CalledProcessError as e:
-            raise ToolError(f"Command failed with error: {e}")
-
-    @mcp.tool()
-    def add_server(
-        server_url: str,
-        nickname: str,
-        api_key: str,
+    def get_command_info(
+        command_path: str,
     ) -> Dict[str, Any]:
         """
-        Prompt user to add a Posit Connect server using rsconnect add.
+        Get the parameter schema for any rsconnect command.
 
-        This tool guides users through registering a Connect server so they can use
-        rsconnect deployment commands. The server nickname allows you to reference
-        the server in future deployment commands.
+        Returns information about the parameters needed to construct an rsconnect command
+        that can be executed in a bash shell. Supports nested command groups of arbitrary depth.
 
-        :param server_url: the URL of your Posit Connect server (e.g., https://my.connect.server/)
-        :param nickname: a nickname you choose for the server (e.g., myServer)
-        :param api_key: your personal API key for authentication
-        :return: a dictionary containing the command to run and instructions.
-        """
-        command = f"rsconnect add --server {server_url} --name {nickname} --api-key {api_key}"
-
-        return {
-            "type": "command",
-            "command": command
-        }
-
-    @mcp.tool()
-    def deploy_command_context(
-        content_type: str
-    ) -> Dict[str, Any]:
-        """
-        Get the parameter schema for rsconnect deploy commands that should be executed via bash.
-
-        Returns information about the parameters needed to construct an rsconnect deploy
-        command that can be executed in a bash shell.
-
-        :param content_type: the type of content (e.g., 'shiny', 'notebook', 'quarto')
+        :param command_path: space-separated command path (e.g., 'version', 'deploy notebook', 'content build add')
         :return: dictionary with command parameter schema and execution metadata
         """
-        ctx = deploy_commands_info["content_type"][content_type]
-        return {
-            "context": ctx,
-            "command_usage": "rsconnect deploy COMMAND [OPTIONS] DIRECTORY [ARGS]...",
-            "shell": "bash"
-        }
+        try:
+            # split the command path into parts
+            parts = command_path.strip().split()
+            if not parts:
+                available_commands = list(all_commands_info["commands"].keys())
+                return {
+                    "error": "Command path cannot be empty",
+                    "available_commands": available_commands
+                }
+
+            current_info = all_commands_info
+            current_path = []
+
+            for _, part in enumerate(parts):
+                # error if we find unexpected additional subcommands
+                if "commands" not in current_info:
+                    return {
+                        "error": f"'{' '.join(current_path)}' is not a command group. Unexpected part: '{part}'",
+                        "type": "command",
+                        "command_path": f"rsconnect {' '.join(current_path)}",
+                    }
+
+                # try to return useful messaging for invalid subcommands
+                if part not in current_info["commands"]:
+                    available = list(current_info["commands"].keys())
+                    path_str = ' '.join(current_path) if current_path else "top level"
+                    return {
+                        "error": f"Command '{part}' not found in {path_str}",
+                        "available_commands": available
+                    }
+
+                current_info = current_info["commands"][part]
+                current_path.append(part)
+
+            # still return something useful if additional subcommands are needed
+            if "commands" in current_info:
+                return {
+                    "type": "command_group",
+                    "name": current_info.get("name", parts[-1]),
+                    "description": current_info.get("description"),
+                    "available_subcommands": list(current_info["commands"].keys()),
+                    "message": f"The '{' '.join(parts)}' command requires a subcommand."
+                }
+            else:
+                return {
+                    "type": "command",
+                    "command_path": f"rsconnect {' '.join(parts)}",
+                    "name": current_info.get("name", parts[-1]),
+                    "description": current_info.get("description"),
+                    "parameters": current_info.get("parameters", []),
+                    "shell": "bash"
+                }
+        except Exception as e:
+            raise ToolError(f"Failed to retrieve command info: {str(e)}")
 
     mcp.run()
 
@@ -514,7 +525,7 @@ def _test_spcs_creds(server: SPCSConnectServer):
 
 @cli.command(
     short_help="Create an initial admin user to bootstrap a Connect instance.",
-    help="Creates an initial admin user to bootstrap a Connect instance. Returns the provisionend API key.",
+    help="Creates an initial admin user to bootstrap a Connect instance. Returns the provisioned API key.",
     no_args_is_help=True,
 )
 @click.option(

@@ -1,6 +1,6 @@
 """
-Programmatically discover all parameters for rsconnect deploy commands.
-This helps MCP tools understand exactly how to use `rsconnect deploy ...`
+Programmatically discover all parameters for rsconnect commands.
+This helps MCP tools understand how to use the cli.
 """
 
 import json
@@ -73,37 +73,51 @@ def extract_parameter_info(param: click.Parameter) -> Dict[str, Any]:
     return info
 
 
-def discover_deploy_commands(cli_group: click.Group) -> Dict[str, Any]:
-    """Discover all deploy commands and their parameters."""
-
-    deploy_group = cli_group.commands["deploy"]
-
-    result = {
-        "group_name": "deploy",
-        "description": deploy_group.help,
-        "content_type": {}
+def discover_single_command(cmd: click.Command) -> Dict[str, Any]:
+    """Discover a single command and its parameters."""
+    cmd_info = {
+        "name": cmd.name,
+        "description": cmd.help,
+        "parameters": []
     }
 
-    for cmd_name, cmd in deploy_group.commands.items():
-        cmd_info = {
-            "name": cmd_name,
-            "description": cmd.help,
-            "parameters": []
-        }
-        for param in cmd.params:
-            if param.name in ["verbose", "v"]:
-                continue
+    for param in cmd.params:
+        if param.name in ["verbose", "v"]:
+            continue
 
-            param_info = extract_parameter_info(param)
-            cmd_info["parameters"].append(param_info)
+        param_info = extract_parameter_info(param)
+        cmd_info["parameters"].append(param_info)
 
-        result["content_type"][cmd_name] = cmd_info
+    return cmd_info
+
+
+def discover_command_group(group: click.Group) -> Dict[str, Any]:
+    """Discover all commands in a command group and their parameters."""
+    result = {
+        "name": group.name,
+        "description": group.help,
+        "commands": {}
+    }
+
+    for cmd_name, cmd in group.commands.items():
+        if isinstance(cmd, click.Group):
+            # recursively discover nested command groups
+            result["commands"][cmd_name] = discover_command_group(cmd)
+        else:
+            result["commands"][cmd_name] = discover_single_command(cmd)
 
     return result
+
+
+def discover_all_commands(cli: click.Group) -> Dict[str, Any]:
+    """Discover all commands in the CLI and their parameters."""
+    return discover_command_group(cli)
 
 
 if __name__ == "__main__":
     from rsconnect.main import cli
 
-    deploy_commands_info = discover_deploy_commands(cli)["content_type"]["shiny"]
-    print(json.dumps(deploy_commands_info, indent=2))
+    # Discover all commands in the CLI
+    # use this for testing/debugging
+    all_commands = discover_all_commands(cli)
+    print(json.dumps(all_commands, indent=2))
