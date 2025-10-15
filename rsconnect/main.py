@@ -420,19 +420,9 @@ def mcp_server():
 
     all_commands_info = discover_all_commands(cli)
 
-    @mcp.tool()
     def get_command_info(
         command_path: str,
     ) -> Dict[str, Any]:
-        """
-        Get the parameter schema for any rsconnect command.
-
-        Returns information about the parameters needed to construct an rsconnect command
-        that can be executed in a bash shell. Supports nested command groups of arbitrary depth.
-
-        :param command_path: space-separated command path (e.g., 'version', 'deploy notebook', 'content build add')
-        :return: dictionary with command parameter schema and execution metadata
-        """
         try:
             # split the command path into parts
             parts = command_path.strip().split()
@@ -481,6 +471,25 @@ def mcp_server():
                 }
         except Exception as e:
             raise ToolError(f"Failed to retrieve command info: {str(e)}")
+
+    # dynamically build docstring with top level commands
+    # note: excluding mcp-server here
+    available_commands = sorted(cmd for cmd in all_commands_info["commands"].keys() if cmd != "mcp-server")
+    commands_list = "\n    ".join(f"- {cmd}" for cmd in available_commands)
+
+    get_command_info.__doc__ = f"""Get the parameter schema for any rsconnect command.
+
+    Returns information about the parameters needed to construct an rsconnect command
+    that can be executed in a bash shell. Supports nested command groups of arbitrary depth.
+
+    Available top-level commands:
+    {commands_list}
+
+    :param command_path: space-separated command path (e.g., 'version', 'deploy notebook', 'content build add')
+    :return: dictionary with command parameter schema and execution metadata
+    """
+
+    mcp.tool(get_command_info)
 
     mcp.run()
 
