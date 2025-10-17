@@ -402,7 +402,32 @@ def version():
     click.echo(VERSION)
 
 
-@cli.command(help="Start the MCP server")
+@cli.command(
+    short_help="Start the Model Context Protocol (MCP) server.",
+    help=(
+        "Start a Model Context Protocol (MCP) server to expose rsconnect-python capabilities to AI applications "
+        "through a standardized protocol interface."
+        "\n\n"
+        "The MCP server exposes a single tool:\n\n"
+        "`get_command_info`:\n\n"
+        "  -  Provides detailed parameter schemas for any rsconnect command. "
+        "This provides context for an LLM to understand how to construct valid rsconnect "
+        "commands dynamically without hard-coded knowledge of the CLI."
+        "\n\n"
+        "System Requirements:\n\n"
+        "  - Python>=3.10\n"
+        "  - fastmcp"
+        "\n\n"
+        "The server runs in stdio mode, communicating via standard input/output streams."
+        "\n\n"
+        "Usage with popular LLM clients:\n\n"
+        "  -  [codex](https://developers.openai.com/codex/mcp/#configuration---cli)\n"
+        "  -  [claude code](https://docs.claude.com/en/docs/claude-code/mcp#option-3%3A-add-a-local-stdio-server)\n"
+        "  -  [VS Code](https://code.visualstudio.com/docs/copilot/customization/mcp-servers#_add-an-mcp-server)\n\n"
+        "The command `uvx --from rsconnect-python rsconnect mcp-server` is a simple option for use in each of "
+        "the above options."
+    ),
+)
 def mcp_server():
     try:
         from fastmcp import FastMCP
