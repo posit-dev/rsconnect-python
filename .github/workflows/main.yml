@@ -156,7 +156,6 @@ jobs:
           python -m pip install '.[test]'
       - name: Run RStudio Connect
         run: |
-          docker compose up --build -d
           pip freeze > requirements.txt
           make dev
         env:

@@ -155,10 +155,17 @@ promote-docs-in-s3:
 
 RSC_API_KEYS=vetiver-testing/rsconnect_api_keys.json
 
+# Export RSC_LICENSE so it's available to docker compose
+export RSC_LICENSE
+
 dev:
 	docker compose up -d
-	# Docker compose needs a little time to start up
-	sleep 4
+	@echo "Waiting for RStudio Connect to be ready..."
+	@until docker compose exec -T rsconnect curl -sf http://localhost:3939/__ping__ > /dev/null 2>&1; do \
+		echo "Connect not ready yet, waiting..."; \
+		sleep 5; \
+	done
+	@echo "Connect is ready!"
 	docker compose exec -T rsconnect bash < vetiver-testing/setup-rsconnect/add-users.sh
 	python vetiver-testing/setup-rsconnect/dump_api_keys.py $(RSC_API_KEYS)
 
