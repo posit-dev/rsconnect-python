@@ -156,7 +156,7 @@ promote-docs-in-s3:
 RSC_API_KEYS=vetiver-testing/rsconnect_api_keys.json
 
 dev:
-	docker compose up -d
+	docker compose up --build -d
 	# Docker compose needs a little time to start up
 	sleep 4
 	docker compose exec -T rsconnect bash < vetiver-testing/setup-rsconnect/add-users.sh
