@@ -584,7 +584,7 @@ def add(
 
         if server and ("snowflakecomputing.app" in server or snowflake_connection_name):
 
-            real_server_spcs = api.SPCSConnectServer(server, snowflake_connection_name)
+            real_server_spcs = api.SPCSConnectServer(server, api_key, snowflake_connection_name)
 
             _test_spcs_creds(real_server_spcs)
 
