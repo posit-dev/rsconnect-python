@@ -246,6 +246,7 @@ class SPCSConnectServer(AbstractRemoteServer):
     def __init__(
         self,
         url: str,
+        api_key: str,
         snowflake_connection_name: Optional[str],
         insecure: bool = False,
         ca_data: Optional[str | bytes] = None,
@@ -256,7 +257,7 @@ class SPCSConnectServer(AbstractRemoteServer):
         self.ca_data = ca_data
         # for compatibility with RSConnectClient
         self.cookie_jar = CookieJar()
-        self.api_key = None
+        self.api_key = api_key
         self.bootstrap_jwt = None
 
     def token_endpoint(self) -> str:
@@ -396,6 +397,7 @@ class RSConnectClient(HTTPServer):
         if server.snowflake_connection_name and isinstance(server, SPCSConnectServer):
             token = server.exchange_token()
             self.snowflake_authorization(token)
+            self._headers["X-RSC-Authorization"] = server.api_key
 
     def _tweak_response(self, response: HTTPResponse) -> JsonData | HTTPResponse:
         return (
