@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ??
 
+### Fixed
+
+- Snowflake SPCS (Snowpark Container Services) authentication now properly handles API keys
+  and aligns with codebase patterns for server type detection and initialization.
+
 ## [1.27.1] - 2025-08-12
 
 ### Fixed
