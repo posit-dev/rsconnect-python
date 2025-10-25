@@ -241,12 +241,17 @@ class RSConnectServer(AbstractRemoteServer):
 
 
 class SPCSConnectServer(AbstractRemoteServer):
-    """ """
+    """
+    A class to encapsulate the information needed to interact with an instance
+    of Posit Connect deployed in Snowflake SPCS (Snowpark Container Services).
+
+    SPCS deployments use Snowflake OIDC authentication combined with Connect API keys.
+    """
 
     def __init__(
         self,
         url: str,
-        api_key: str,
+        api_key: Optional[str],
         snowflake_connection_name: Optional[str],
         insecure: bool = False,
         ca_data: Optional[str | bytes] = None,
@@ -397,7 +402,8 @@ class RSConnectClient(HTTPServer):
         if server.snowflake_connection_name and isinstance(server, SPCSConnectServer):
             token = server.exchange_token()
             self.snowflake_authorization(token)
-            self._headers["X-RSC-Authorization"] = server.api_key
+            if server.api_key:
+                self._headers["X-RSC-Authorization"] = server.api_key
 
     def _tweak_response(self, response: HTTPResponse) -> JsonData | HTTPResponse:
         return (
@@ -907,12 +913,12 @@ class RSConnectExecutor:
 
         self.is_server_from_store = server_data.from_store
 
-        if api_key:
+        if snowflake_connection_name:
+            url = cast(str, url)
+            self.remote_server = SPCSConnectServer(url, api_key, snowflake_connection_name, insecure, ca_data)
+        elif api_key:
             url = cast(str, url)
             self.remote_server = RSConnectServer(url, api_key, insecure, ca_data)
-        elif snowflake_connection_name:
-            url = cast(str, url)
-            self.remote_server = SPCSConnectServer(url, snowflake_connection_name)
         elif token and secret:
             if url and ("rstudio.cloud" in url or "posit.cloud" in url):
                 account_name = cast(str, account_name)
@@ -991,8 +997,9 @@ class RSConnectExecutor:
             raise RSConnectException("remote_server must be a Connect server in SPCS")
 
         url = self.remote_server.url
+        api_key = self.remote_server.api_key
         snowflake_connection_name = self.remote_server.snowflake_connection_name
-        server = SPCSConnectServer(url, snowflake_connection_name)
+        server = SPCSConnectServer(url, api_key, snowflake_connection_name)
 
         with RSConnectClient(server) as client:
             try:

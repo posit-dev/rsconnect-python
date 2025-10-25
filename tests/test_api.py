@@ -513,22 +513,22 @@ class CloudServiceTestCase(TestCase):
 
 class SPCSConnectServerTestCase(TestCase):
     def test_init(self):
-        server = SPCSConnectServer("https://spcs.example.com", "example_connection")
+        server = SPCSConnectServer("https://spcs.example.com", "test-api-key", "example_connection")
         assert server.url == "https://spcs.example.com"
         assert server.remote_name == "Posit Connect (SPCS)"
         assert server.snowflake_connection_name == "example_connection"
-        assert server.api_key is None
+        assert server.api_key == "test-api-key"
 
     @patch("rsconnect.api.SPCSConnectServer.token_endpoint")
     def test_token_endpoint(self, mock_token_endpoint):
-        server = SPCSConnectServer("https://spcs.example.com", "example_connection")
+        server = SPCSConnectServer("https://spcs.example.com", "test-api-key", "example_connection")
         mock_token_endpoint.return_value = "https://example.snowflakecomputing.com/"
         endpoint = server.token_endpoint()
         assert endpoint == "https://example.snowflakecomputing.com/"
 
     @patch("rsconnect.api.get_parameters")
     def test_token_endpoint_with_account(self, mock_get_parameters):
-        server = SPCSConnectServer("https://spcs.example.com", "example_connection")
+        server = SPCSConnectServer("https://spcs.example.com", "test-api-key", "example_connection")
         mock_get_parameters.return_value = {"account": "test_account"}
         endpoint = server.token_endpoint()
         assert endpoint == "https://test_account.snowflakecomputing.com/"
@@ -536,14 +536,14 @@ class SPCSConnectServerTestCase(TestCase):
 
     @patch("rsconnect.api.get_parameters")
     def test_token_endpoint_with_none_params(self, mock_get_parameters):
-        server = SPCSConnectServer("https://spcs.example.com", "example_connection")
+        server = SPCSConnectServer("https://spcs.example.com", "test-api-key", "example_connection")
         mock_get_parameters.return_value = None
         with pytest.raises(RSConnectException, match="No Snowflake connection found."):
             server.token_endpoint()
 
     @patch("rsconnect.api.get_parameters")
     def test_fmt_payload(self, mock_get_parameters):
-        server = SPCSConnectServer("https://spcs.example.com", "example_connection")
+        server = SPCSConnectServer("https://spcs.example.com", "test-api-key", "example_connection")
         mock_get_parameters.return_value = {
             "account": "test_account",
             "role": "test_role",
@@ -566,7 +566,7 @@ class SPCSConnectServerTestCase(TestCase):
 
     @patch("rsconnect.api.get_parameters")
     def test_fmt_payload_with_none_params(self, mock_get_parameters):
-        server = SPCSConnectServer("https://spcs.example.com", "example_connection")
+        server = SPCSConnectServer("https://spcs.example.com", "test-api-key", "example_connection")
         mock_get_parameters.return_value = None
         with pytest.raises(RSConnectException, match="No Snowflake connection found."):
             server.fmt_payload()
@@ -575,7 +575,7 @@ class SPCSConnectServerTestCase(TestCase):
     @patch("rsconnect.api.SPCSConnectServer.token_endpoint")
     @patch("rsconnect.api.SPCSConnectServer.fmt_payload")
     def test_exchange_token_success(self, mock_fmt_payload, mock_token_endpoint, mock_http_server):
-        server = SPCSConnectServer("https://spcs.example.com", "example_connection")
+        server = SPCSConnectServer("https://spcs.example.com", "test-api-key", "example_connection")
 
         # Mock the HTTP request
         mock_server_instance = mock_http_server.return_value
@@ -609,7 +609,7 @@ class SPCSConnectServerTestCase(TestCase):
     @patch("rsconnect.api.SPCSConnectServer.token_endpoint")
     @patch("rsconnect.api.SPCSConnectServer.fmt_payload")
     def test_exchange_token_error_status(self, mock_fmt_payload, mock_token_endpoint, mock_http_server):
-        server = SPCSConnectServer("https://spcs.example.com", "example_connection")
+        server = SPCSConnectServer("https://spcs.example.com", "test-api-key", "example_connection")
 
         # Mock the HTTP request with error status
         mock_server_instance = mock_http_server.return_value
@@ -635,7 +635,7 @@ class SPCSConnectServerTestCase(TestCase):
     @patch("rsconnect.api.SPCSConnectServer.token_endpoint")
     @patch("rsconnect.api.SPCSConnectServer.fmt_payload")
     def test_exchange_token_empty_response(self, mock_fmt_payload, mock_token_endpoint, mock_http_server):
-        server = SPCSConnectServer("https://spcs.example.com", "example_connection")
+        server = SPCSConnectServer("https://spcs.example.com", "test-api-key", "example_connection")
 
         # Mock the HTTP request with empty response body
         mock_server_instance = mock_http_server.return_value
