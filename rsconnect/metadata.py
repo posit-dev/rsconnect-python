@@ -347,10 +347,10 @@ class ServerStore(DataStore[ServerDataDict]):
             "name": name,
             "url": url,
         }
-        if api_key:
+        if snowflake_connection_name:
+            target_data = dict(snowflake_connection_name=snowflake_connection_name, api_key=api_key)
+        elif api_key:
             target_data = dict(api_key=api_key, insecure=insecure, ca_cert=ca_data)
-        elif snowflake_connection_name:
-            target_data = dict(snowflake_connection_name=snowflake_connection_name)
         elif account_name:
             target_data = dict(account_name=account_name, token=token, secret=secret)
         else:
