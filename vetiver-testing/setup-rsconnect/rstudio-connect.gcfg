@@ -24,3 +24,6 @@ URL = https://p3m.dev/cran/latest
 
 [R]
 PositPackageManagerURLRewriting = force-binary
+
+[Logging]
+ServiceLog = STDOUT
