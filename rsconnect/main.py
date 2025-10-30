@@ -8,7 +8,17 @@ import textwrap
 import traceback
 from functools import wraps
 from os.path import abspath, dirname, exists, isdir, join
-from typing import Callable, ItemsView, Literal, Optional, Sequence, TypeVar, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    ItemsView,
+    Literal,
+    Optional,
+    Sequence,
+    TypeVar,
+    cast,
+)
 
 import click
 
@@ -392,6 +402,123 @@ def version():
     click.echo(VERSION)
 
 
+@cli.command(
+    short_help="Start the Model Context Protocol (MCP) server.",
+    help=(
+        "Start a Model Context Protocol (MCP) server to expose rsconnect-python capabilities to AI applications "
+        "through a standardized protocol interface."
+        "\n\n"
+        "The MCP server exposes a single tool:\n\n"
+        "`get_command_info`:\n\n"
+        "  -  Provides detailed parameter schemas for any rsconnect command. "
+        "This provides context for an LLM to understand how to construct valid rsconnect "
+        "commands dynamically without hard-coded knowledge of the CLI."
+        "\n\n"
+        "System Requirements:\n\n"
+        "  - Python>=3.10\n"
+        "  - fastmcp"
+        "\n\n"
+        "The server runs in stdio mode, communicating via standard input/output streams."
+        "\n\n"
+        "Usage with popular LLM clients:\n\n"
+        "  -  [codex](https://developers.openai.com/codex/mcp/#configuration---cli)\n"
+        "  -  [claude code](https://docs.claude.com/en/docs/claude-code/mcp#option-3%3A-add-a-local-stdio-server)\n"
+        "  -  [VS Code](https://code.visualstudio.com/docs/copilot/customization/mcp-servers#_add-an-mcp-server)\n\n"
+        "The command `uvx --from rsconnect-python rsconnect mcp-server` is a simple option for use in each of "
+        "the above options."
+    ),
+)
+def mcp_server():
+    try:
+        from fastmcp import FastMCP
+        from fastmcp.exceptions import ToolError
+    except ImportError:
+        raise RSConnectException(
+            "The fastmcp package is required for MCP server functionality. "
+            "Install it with: pip install rsconnect-python[mcp]"
+        )
+
+    mcp = FastMCP("Connect MCP")
+
+    # Discover all commands at startup
+    from .mcp_deploy_context import discover_all_commands
+
+    all_commands_info = discover_all_commands(cli)
+
+    def get_command_info(
+        command_path: str,
+    ) -> Dict[str, Any]:
+        try:
+            # split the command path into parts
+            parts = command_path.strip().split()
+            if not parts:
+                available_commands = list(all_commands_info["commands"].keys())
+                return {"error": "Command path cannot be empty", "available_commands": available_commands}
+
+            current_info = all_commands_info
+            current_path = []
+
+            for _, part in enumerate(parts):
+                # error if we find unexpected additional subcommands
+                if "commands" not in current_info:
+                    return {
+                        "error": f"'{' '.join(current_path)}' is not a command group. Unexpected part: '{part}'",
+                        "type": "command",
+                        "command_path": f"rsconnect {' '.join(current_path)}",
+                    }
+
+                # try to return useful messaging for invalid subcommands
+                if part not in current_info["commands"]:
+                    available = list(current_info["commands"].keys())
+                    path_str = " ".join(current_path) if current_path else "top level"
+                    return {"error": f"Command '{part}' not found in {path_str}", "available_commands": available}
+
+                current_info = current_info["commands"][part]
+                current_path.append(part)
+
+            # still return something useful if additional subcommands are needed
+            if "commands" in current_info:
+                return {
+                    "type": "command_group",
+                    "name": current_info.get("name", parts[-1]),
+                    "description": current_info.get("description"),
+                    "available_subcommands": list(current_info["commands"].keys()),
+                    "message": f"The '{' '.join(parts)}' command requires a subcommand.",
+                }
+            else:
+                return {
+                    "type": "command",
+                    "command_path": f"rsconnect {' '.join(parts)}",
+                    "name": current_info.get("name", parts[-1]),
+                    "description": current_info.get("description"),
+                    "parameters": current_info.get("parameters", []),
+                    "shell": "bash",
+                }
+        except Exception as e:
+            raise ToolError(f"Failed to retrieve command info: {str(e)}")
+
+    # dynamically build docstring with top level commands
+    # note: excluding mcp-server here
+    available_commands = sorted(cmd for cmd in all_commands_info["commands"].keys() if cmd != "mcp-server")
+    commands_list = "\n    ".join(f"- {cmd}" for cmd in available_commands)
+
+    get_command_info.__doc__ = f"""Get the parameter schema for any rsconnect command.
+
+    Returns information about the parameters needed to construct an rsconnect command
+    that can be executed in a bash shell. Supports nested command groups of arbitrary depth.
+
+    Available top-level commands:
+    {commands_list}
+
+    :param command_path: space-separated command path (e.g., 'version', 'deploy notebook', 'content build add')
+    :return: dictionary with command parameter schema and execution metadata
+    """
+
+    mcp.tool(get_command_info)
+
+    mcp.run()
+
+
 def _test_server_and_api(server: str, api_key: str, insecure: bool, ca_cert: str | None):
     """
     Test the specified server information to make sure it works.  If so, a
@@ -433,7 +560,7 @@ def _test_spcs_creds(server: SPCSConnectServer):
 
 @cli.command(
     short_help="Create an initial admin user to bootstrap a Connect instance.",
-    help="Creates an initial admin user to bootstrap a Connect instance. Returns the provisionend API key.",
+    help="Creates an initial admin user to bootstrap a Connect instance. Returns the provisioned API key.",
     no_args_is_help=True,
 )
 @click.option(
