@@ -74,7 +74,7 @@ class TestServerMetadata(TestCase):
 
         self.assertEqual(
             self.server_store.get_by_name("qux"),
-            dict(name="qux", url="https://example.snowflakecomputing.app", snowflake_connection_name="dev"),
+            dict(name="qux", url="https://example.snowflakecomputing.app", snowflake_connection_name="dev", api_key=None),
         )
 
     def test_remove_by_name(self):

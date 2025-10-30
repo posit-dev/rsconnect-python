@@ -584,11 +584,14 @@ def add(
 
         if server and ("snowflakecomputing.app" in server or snowflake_connection_name):
 
-            real_server_spcs = api.SPCSConnectServer(server, snowflake_connection_name)
+            server = cast(str, server)
+            api_key = cast(str, api_key)
+
+            real_server_spcs = api.SPCSConnectServer(server, api_key, snowflake_connection_name)
 
             _test_spcs_creds(real_server_spcs)
 
-            server_store.set(name, server, snowflake_connection_name=snowflake_connection_name)
+            server_store.set(name, server, api_key=api_key, snowflake_connection_name=snowflake_connection_name)
             if old_server:
                 click.echo('Updated {} credential "{}".'.format(real_server_spcs.remote_name, name))
             else:
