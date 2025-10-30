@@ -35,3 +35,6 @@ SeedUsers = true
 
 [Mount]
 BaseDir = /connect-rsconnect-mount
+
+[Logging]
+ServiceLog = STDOUT
