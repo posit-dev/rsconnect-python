@@ -195,6 +195,7 @@ jobs:
           - uses: actions/checkout@v4
             with:
               repository: rstudio/connect
+              ref: 98c9cbec68a064d87cd274c9d16aa4775de6e3b4
               path: 'test/connect-rsconnect-python'
               sparse-checkout: |
                   test/rsconnect-python
