@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ??
 
+### Added
+
+- Added `rsconnect mcp-server` command to expose rsconnect-python functionality to
+  LLM clients via the Model Context Protocol. The server provides a `get_command_info`
+  tool that returns parameter schemas for any rsconnect command, allowing LLMs
+  to more easily construct valid CLI commands.
+
 ### Fixed
 
 - Snowflake SPCS (Snowpark Container Services) authentication now properly handles API keys
