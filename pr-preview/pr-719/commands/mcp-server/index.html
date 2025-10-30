@@ -9,10 +9,8 @@
       
       
       
-        <link rel="prev" href="../add/">
+        <link rel="prev" href="../write-manifest/">
       
-      
-        <link rel="next" href="../content/">
       
       
       <link rel="icon" href="../../images/favicon.ico">
@@ -20,7 +18,7 @@
     
     
       
-        <title>bootstrap - rsconnect-python</title>
+        <title>mcp-server - rsconnect-python</title>
       
     
     
@@ -113,7 +111,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#bootstrap" class="md-skip">
+        <a href="#mcp-server" class="md-skip">
           Skip to content
         </a>
       
@@ -145,7 +143,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              bootstrap
+              mcp-server
             
           </span>
         </div>
@@ -466,19 +464,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../bootstrap/" class="md-nav__link">
         
   
   
@@ -489,7 +478,6 @@
   
 
       </a>
-      
     </li>
   
 
@@ -706,10 +694,19 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../mcp-server/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -720,6 +717,7 @@
   
 
       </a>
+      
     </li>
   
 
@@ -774,27 +772,31 @@
 
 
 
-<h1 id="bootstrap">bootstrap<a class="headerlink" href="#bootstrap" title="Permanent link">#</a></h1>
-<p>Creates an initial admin user to bootstrap a Connect instance. Returns the provisioned API key.</p>
+<h1 id="mcp-server">mcp-server<a class="headerlink" href="#mcp-server" title="Permanent link">#</a></h1>
+<p>Start a Model Context Protocol (MCP) server to expose rsconnect-python capabilities to AI applications through a standardized protocol interface.</p>
+<p>The MCP server exposes a single tool:</p>
+<p><code>get_command_info</code>:</p>
+<ul>
+<li>Provides detailed parameter schemas for any rsconnect command. This provides context for an LLM to understand how to construct valid rsconnect commands dynamically without hard-coded knowledge of the CLI.</li>
+</ul>
+<p>System Requirements:</p>
+<ul>
+<li>Python&gt;=3.10</li>
+<li>fastmcp</li>
+</ul>
+<p>The server runs in stdio mode, communicating via standard input/output streams.</p>
+<p>Usage with popular LLM clients:</p>
+<ul>
+<li><a href="https://developers.openai.com/codex/mcp/#configuration---cli">codex</a></li>
+<li><a href="https://docs.claude.com/en/docs/claude-code/mcp#option-3%3A-add-a-local-stdio-server">claude code</a></li>
+<li><a href="https://code.visualstudio.com/docs/copilot/customization/mcp-servers#_add-an-mcp-server">VS Code</a></li>
+</ul>
+<p>The command <code>uvx --from rsconnect-python rsconnect mcp-server</code> is a simple option for use in each of the above options.</p>
 <p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>bootstrap [OPTIONS]
+<div class="highlight"><pre><span></span><code>mcp-server [OPTIONS]
 </code></pre></div>
 <p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  -s, --server TEXT       The URL for the RStudio Connect server. (Also
-                          settable via CONNECT_SERVER environment variable.)
-                          [required]
-  -i, --insecure          Disable TLS certification/host validation. (Also
-                          settable via CONNECT_INSECURE environment variable.)
-  -c, --cacert FILE       The path to trusted TLS CA certificates. (Also
-                          settable via CONNECT_CA_CERTIFICATE environment
-                          variable.)
-  -j, --jwt-keypath TEXT  The path to the file containing the private key used
-                          to sign the JWT.
-  -r, --raw               Return the API key as raw output rather than a JSON
-                          object
-  -v, --verbose           Enable verbose output. Use -vv for very verbose
-                          (debug) output.
-  --help                  Show this message and exit.
+<div class="highlight"><pre><span></span><code>  --help  Show this message and exit.
 </code></pre></div>
 
 
@@ -834,7 +836,7 @@
           
             
 
-            <a href="../add/" class="md-footer__link md-footer__link--prev" rel="prev">
+            <a href="../write-manifest/" class="md-footer__link md-footer__link--prev" rel="prev">
               <div class="md-footer__button md-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
               </div>
@@ -843,7 +845,7 @@
                   <span class="md-footer__direction">
                     Previous
                   </span>
-                  add
+                  write-manifest
                 </div>
               </div>
             </a>
@@ -852,24 +854,6 @@
         
 
         <!-- Link to next page -->
-        
-          
-            
-
-            <a href="../content/" class="md-footer__link md-footer__link--next" rel="next">
-              <div class="md-footer__title">
-                <div class="md-ellipsis">
-                  <span class="md-footer__direction">
-                    Next
-                  </span>
-                  content
-                </div>
-              </div>
-              <div class="md-footer__button md-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
-              </div>
-            </a>
-            
         
       </nav>
     </div>
