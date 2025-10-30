@@ -13,8 +13,8 @@ DefaultUserRole = publisher
 
 [Python]
 Enabled = true
-Executable = /opt/python/3.12.4/bin/python
-Executable = /opt/python/3.11.9/bin/python
+Executable = /opt/python/3.12.11/bin/python
+Executable = /opt/python/3.11.13/bin/python
 
 [RPackageRepository "CRAN"]
 URL = https://p3m.dev/cran/latest
