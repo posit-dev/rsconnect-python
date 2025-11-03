@@ -98,7 +98,7 @@ class AppModes:
     PYTHON_SHINY = AppMode(15, "python-shiny", "Python Shiny Application")
     JUPYTER_VOILA = AppMode(16, "jupyter-voila", "Jupyter Voila Application")
     PYTHON_GRADIO = AppMode(17, "python-gradio", "Gradio Application")
-    PYTHON_PANEL = AppMode(18, "python-panel", "HoloViz Panel Application")
+    PYTHON_PANEL = AppMode(18, "python-panel", "Panel Application")
 
     _modes = [
         UNKNOWN,
