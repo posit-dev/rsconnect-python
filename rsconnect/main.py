@@ -2430,7 +2430,7 @@ def _write_framework_manifest(
     env_management_r: Optional[bool],
 ):
     """
-    A common function for writing manifests for APIs as well as Dash, Streamlit, and Bokeh apps.
+    A common function for writing manifests for APIs as well as Dash, Streamlit, Bokeh, and Panel apps.
 
     :param overwrite: overwrite the manifest.json, if it exists.
     :param entrypoint: the entry point for the thing being deployed.

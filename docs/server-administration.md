@@ -158,7 +158,7 @@ rsconnect content search --help
 #   -c, --cacert FILENAME           The path to trusted TLS CA certificates.
 #   --published                     Search only published content.
 #   --unpublished                   Search only unpublished content.
-#   --content-type [unknown|shiny|rmd-static|rmd-shiny|static|api|tensorflow-saved-model|jupyter-static|python-api|python-dash|python-streamlit|python-bokeh|python-fastapi|python-gradio|quarto-shiny|quarto-static]
+#   --content-type [unknown|shiny|rmd-static|rmd-shiny|static|api|tensorflow-saved-model|jupyter-static|python-api|python-dash|python-streamlit|python-bokeh|python-panel|python-fastapi|python-gradio|quarto-shiny|quarto-static]
 #                                   Filter content results by content type.
 #   --r-version VERSIONSEARCHFILTER
 #                                   Filter content results by R version.

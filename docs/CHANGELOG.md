@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tool that returns parameter schemas for any rsconnect command, allowing LLMs
   to more easily construct valid CLI commands.
 
+- support for deploying Holoviz Panel applications
+
 ### Fixed
 
 - Snowflake SPCS (Snowpark Container Services) authentication now properly handles API keys
