@@ -9,10 +9,8 @@
       
       
       
-        <link rel="prev" href="../remove/">
+        <link rel="prev" href="../write-manifest/">
       
-      
-        <link rel="next" href="../version/">
       
       
       <link rel="icon" href="../../images/favicon.ico">
@@ -20,7 +18,7 @@
     
     
       
-        <title>system - rsconnect-python</title>
+        <title>mcp-server - rsconnect-python</title>
       
     
     
@@ -113,7 +111,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#system" class="md-skip">
+        <a href="#mcp-server" class="md-skip">
           Skip to content
         </a>
       
@@ -145,7 +143,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              system
+              mcp-server
             
           </span>
         </div>
@@ -627,32 +625,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    system
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../system/" class="md-nav__link">
         
   
   
@@ -663,59 +639,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#system-caches" class="md-nav__link">
-    <span class="md-ellipsis">
-      caches
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="caches">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#system-caches-delete" class="md-nav__link">
-    <span class="md-ellipsis">
-      delete
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#system-caches-list" class="md-nav__link">
-    <span class="md-ellipsis">
-      list
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -771,10 +694,19 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../mcp-server/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -785,6 +717,7 @@
   
 
       </a>
+      
     </li>
   
 
@@ -825,47 +758,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#system-caches" class="md-nav__link">
-    <span class="md-ellipsis">
-      caches
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="caches">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#system-caches-delete" class="md-nav__link">
-    <span class="md-ellipsis">
-      delete
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#system-caches-list" class="md-nav__link">
-    <span class="md-ellipsis">
-      list
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -880,82 +772,31 @@
 
 
 
-<h1 id="system">system<a class="headerlink" href="#system" title="Permanent link">#</a></h1>
-<p>Interact with Posit Connect's system API.</p>
+<h1 id="mcp-server">mcp-server<a class="headerlink" href="#mcp-server" title="Permanent link">#</a></h1>
+<p>Start a Model Context Protocol (MCP) server to expose rsconnect-python capabilities to AI applications through a standardized protocol interface.</p>
+<p>The MCP server exposes a single tool:</p>
+<p><code>get_command_info</code>:</p>
+<ul>
+<li>Provides detailed parameter schemas for any rsconnect command. This provides context for an LLM to understand how to construct valid rsconnect commands dynamically without hard-coded knowledge of the CLI.</li>
+</ul>
+<p>System Requirements:</p>
+<ul>
+<li>Python&gt;=3.10</li>
+<li>fastmcp</li>
+</ul>
+<p>The server runs in stdio mode, communicating via standard input/output streams.</p>
+<p>Usage with popular LLM clients:</p>
+<ul>
+<li><a href="https://developers.openai.com/codex/mcp/#configuration---cli">codex</a></li>
+<li><a href="https://docs.claude.com/en/docs/claude-code/mcp#option-3%3A-add-a-local-stdio-server">claude code</a></li>
+<li><a href="https://code.visualstudio.com/docs/copilot/customization/mcp-servers#_add-an-mcp-server">VS Code</a></li>
+</ul>
+<p>The command <code>uvx --from rsconnect-python rsconnect mcp-server</code> is a simple option for use in each of the above options.</p>
 <p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>system [OPTIONS] COMMAND [ARGS]...
+<div class="highlight"><pre><span></span><code>mcp-server [OPTIONS]
 </code></pre></div>
 <p><strong>Options:</strong></p>
 <div class="highlight"><pre><span></span><code>  --help  Show this message and exit.
-</code></pre></div>
-<h2 id="system-caches">system caches<a class="headerlink" href="#system-caches" title="Permanent link">#</a></h2>
-<p>Interact with Posit Connect's system caches.</p>
-<p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>system caches [OPTIONS] COMMAND [ARGS]...
-</code></pre></div>
-<p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  --help  Show this message and exit.
-</code></pre></div>
-<h3 id="system-caches-delete">system caches delete<a class="headerlink" href="#system-caches-delete" title="Permanent link">#</a></h3>
-<p>Delete a runtime cache on a Posit Connect server.</p>
-<p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>system caches delete [OPTIONS]
-</code></pre></div>
-<p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
-                                  deploy to.
-  -s, --server TEXT               The URL for the Posit Connect server to
-                                  deploy to. (Also settable via CONNECT_SERVER
-                                  environment variable.)
-  -k, --api-key TEXT              The API key to use to authenticate with
-                                  Posit Connect. (Also settable via
-                                  CONNECT_API_KEY environment variable.)
-  -i, --insecure                  Disable TLS certification/host validation.
-                                  (Also settable via CONNECT_INSECURE
-                                  environment variable.)
-  -c, --cacert FILE               The path to trusted TLS CA certificates.
-                                  (Also settable via CONNECT_CA_CERTIFICATE
-                                  environment variable.)
-  -v, --verbose                   Enable verbose output. Use -vv for very
-                                  verbose (debug) output.
-  --snowflake-connection-name TEXT
-                                  The name of the Snowflake connection in the
-                                  configuration file
-  -l, --language TEXT             The language of the target cache.
-                                  [required]
-  -V, --version TEXT              The version of the target cache.  [required]
-  -I, --image-name TEXT           The image name of the target cache&#39;s
-                                  execution environment. Defaults to &quot;Local&quot;.
-  -d, --dry-run                   If true, verify that deletion would occur,
-                                  but do not delete.
-  --help                          Show this message and exit.
-</code></pre></div>
-<h3 id="system-caches-list">system caches list<a class="headerlink" href="#system-caches-list" title="Permanent link">#</a></h3>
-<p>List runtime caches present on a Posit Connect server.</p>
-<p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>system caches list [OPTIONS]
-</code></pre></div>
-<p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
-                                  deploy to.
-  -s, --server TEXT               The URL for the Posit Connect server to
-                                  deploy to. (Also settable via CONNECT_SERVER
-                                  environment variable.)
-  -k, --api-key TEXT              The API key to use to authenticate with
-                                  Posit Connect. (Also settable via
-                                  CONNECT_API_KEY environment variable.)
-  -i, --insecure                  Disable TLS certification/host validation.
-                                  (Also settable via CONNECT_INSECURE
-                                  environment variable.)
-  -c, --cacert FILE               The path to trusted TLS CA certificates.
-                                  (Also settable via CONNECT_CA_CERTIFICATE
-                                  environment variable.)
-  -v, --verbose                   Enable verbose output. Use -vv for very
-                                  verbose (debug) output.
-  --snowflake-connection-name TEXT
-                                  The name of the Snowflake connection in the
-                                  configuration file
-  --help                          Show this message and exit.
 </code></pre></div>
 
 
@@ -995,7 +836,7 @@
           
             
 
-            <a href="../remove/" class="md-footer__link md-footer__link--prev" rel="prev">
+            <a href="../write-manifest/" class="md-footer__link md-footer__link--prev" rel="prev">
               <div class="md-footer__button md-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
               </div>
@@ -1004,7 +845,7 @@
                   <span class="md-footer__direction">
                     Previous
                   </span>
-                  remove
+                  write-manifest
                 </div>
               </div>
             </a>
@@ -1013,24 +854,6 @@
         
 
         <!-- Link to next page -->
-        
-          
-            
-
-            <a href="../version/" class="md-footer__link md-footer__link--next" rel="next">
-              <div class="md-footer__title">
-                <div class="md-ellipsis">
-                  <span class="md-footer__direction">
-                    Next
-                  </span>
-                  version
-                </div>
-              </div>
-              <div class="md-footer__button md-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
-              </div>
-            </a>
-            
         
       </nav>
     </div>

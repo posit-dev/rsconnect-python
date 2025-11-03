@@ -16,7 +16,7 @@
       
       
       <link rel="icon" href="../images/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.21">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
     
     
       
@@ -24,7 +24,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.2a3383ac.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.84d31ad4.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
@@ -982,6 +982,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    mcp-server
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1377,9 +1400,10 @@ Manifests for static (pre-rendered) notebooks cannot be created.</p>
 <li><code>streamlit</code>: Streamlit apps</li>
 <li><code>bokeh</code>: Bokeh server apps</li>
 <li><code>gradio</code>: Gradio apps</li>
+<li><code>panel</code>: HoloViz Panel apps</li>
 </ul>
 <p>All options below apply equally to the <code>api</code>, <code>fastapi</code>, <code>dash</code>, <code>streamlit</code>,
-<code>gradio</code>, and <code>bokeh</code> sub-commands.</p>
+<code>gradio</code>, <code>bokeh</code>, and <code>panel</code> sub-commands.</p>
 <h4 id="including-extra-files_1">Including Extra Files<a class="headerlink" href="#including-extra-files_1" title="Permanent link">#</a></h4>
 <p>You can include extra files in the deployment bundle to make them available when your
 API or application is run by the Posit Connect server. Just specify them on the
@@ -1502,7 +1526,7 @@ this, use the <code>--title</code> option:</p>
 <div class="highlight"><pre><span></span><code>rsconnect deploy notebook --title &quot;My Notebook&quot; my-notebook.ipynb
 </code></pre></div>
 <p>When using <code>rsconnect deploy api</code>, <code>rsconnect deploy fastapi</code>, <code>rsconnect deploy dash</code>,
-<code>rsconnect deploy streamlit</code>, <code>rsconnect deploy bokeh</code>, or <code>rsconnect deploy gradio</code>,
+<code>rsconnect deploy streamlit</code>, <code>rsconnect deploy bokeh</code>, <code>rsconnect deploy gradio</code>, or <code>rsconnect deploy panel</code>,
 the title is derived from the directory containing the API or application.</p>
 <p>When using <code>rsconnect deploy manifest</code>, the title is derived from the primary
 filename referenced in the manifest.</p>
