@@ -1366,15 +1366,15 @@
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="write-manifest-panel">write-manifest panel<a class="headerlink" href="#write-manifest-panel" title="Permanent link">#</a></h2>
-<p>Create a manifest.json file for a HoloViz Panel Application for later deployment. This will create an environment file ("requirements.txt") if one does not exist. All files are created in the same directory as the API code.</p>
+<p>Create a manifest.json file for a Panel Application for later deployment. This will create an environment file ("requirements.txt") if one does not exist. All files are created in the same directory as the API code.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>write-manifest panel [OPTIONS] DIRECTORY [EXTRA_FILES]...
 </code></pre></div>
 <p><strong>Options:</strong></p>
 <div class="highlight"><pre><span></span><code>  -o, --overwrite                 Overwrite manifest.json, if it exists.
   -e, --entrypoint TEXT           The module and executable object which
-                                  serves as the entry point for the HoloViz
-                                  Panel Application (defaults to app)
+                                  serves as the entry point for the Panel
+                                  Application (defaults to app)
   -x, --exclude TEXT              Specify a glob pattern for ignoring files
                                   when building the bundle. Note that your
                                   shell may try to expand this which will not
