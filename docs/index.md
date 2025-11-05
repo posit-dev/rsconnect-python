@@ -3,7 +3,7 @@
 This package provides a (command-line interface) CLI for interacting
 with and deploying to Posit Connect. Many types of content supported by Posit
 Connect may be deployed by this package, including WSGI-style APIs, Dash, Streamlit,
-Gradio, Bokeh, and HoloViz Panel applications.
+Gradio, Bokeh, and Panel applications.
 
 Content types not directly supported by the CLI may also be deployed if they include a
 prepared `manifest.json` file. See ["Deploying R or Other
