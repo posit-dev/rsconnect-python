@@ -115,9 +115,10 @@ You can deploy a variety of APIs and applications using sub-commands of the
 * `streamlit`: Streamlit apps
 * `bokeh`: Bokeh server apps
 * `gradio`: Gradio apps
+* `panel`: HoloViz Panel apps
 
 All options below apply equally to the `api`, `fastapi`, `dash`, `streamlit`,
-`gradio`, and `bokeh` sub-commands.
+`gradio`, `bokeh`, and `panel` sub-commands.
 
 #### Including Extra Files
 
@@ -297,7 +298,7 @@ rsconnect deploy notebook --title "My Notebook" my-notebook.ipynb
 ```
 
 When using `rsconnect deploy api`, `rsconnect deploy fastapi`, `rsconnect deploy dash`,
-`rsconnect deploy streamlit`, `rsconnect deploy bokeh`, or `rsconnect deploy gradio`,
+`rsconnect deploy streamlit`, `rsconnect deploy bokeh`, `rsconnect deploy gradio`, or `rsconnect deploy panel`,
 the title is derived from the directory containing the API or application.
 
 When using `rsconnect deploy manifest`, the title is derived from the primary

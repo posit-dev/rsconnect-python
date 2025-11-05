@@ -98,6 +98,7 @@ class AppModes:
     PYTHON_SHINY = AppMode(15, "python-shiny", "Python Shiny Application")
     JUPYTER_VOILA = AppMode(16, "jupyter-voila", "Jupyter Voila Application")
     PYTHON_GRADIO = AppMode(17, "python-gradio", "Gradio Application")
+    PYTHON_PANEL = AppMode(18, "python-panel", "Panel Application")
 
     _modes = [
         UNKNOWN,
@@ -118,6 +119,7 @@ class AppModes:
         PYTHON_SHINY,
         JUPYTER_VOILA,
         PYTHON_GRADIO,
+        PYTHON_PANEL,
     ]
 
     Modes = Literal[
@@ -139,6 +141,7 @@ class AppModes:
         "python-shiny",
         "jupyter-voila",
         "python-gradio",
+        "python-panel",
     ]
 
     _cloud_to_connect_modes = {

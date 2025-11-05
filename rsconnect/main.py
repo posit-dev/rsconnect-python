@@ -1871,6 +1871,7 @@ generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_v
 generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
 generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0")
 generate_deploy_python(app_mode=AppModes.PYTHON_GRADIO, alias="gradio", min_version="2024.12.0")
+generate_deploy_python(app_mode=AppModes.PYTHON_PANEL, alias="panel", min_version="2025.10.0")
 
 
 @deploy.command(
@@ -2408,6 +2409,7 @@ generate_write_manifest_python(AppModes.PYTHON_FASTAPI, alias="fastapi")
 generate_write_manifest_python(AppModes.PYTHON_SHINY, alias="shiny")
 generate_write_manifest_python(AppModes.STREAMLIT_APP, alias="streamlit")
 generate_write_manifest_python(AppModes.PYTHON_GRADIO, alias="gradio")
+generate_write_manifest_python(AppModes.PYTHON_PANEL, alias="panel")
 
 
 # noinspection SpellCheckingInspection
@@ -2428,7 +2430,7 @@ def _write_framework_manifest(
     env_management_r: Optional[bool],
 ):
     """
-    A common function for writing manifests for APIs as well as Dash, Streamlit, and Bokeh apps.
+    A common function for writing manifests for APIs as well as Dash, Streamlit, Bokeh, and Panel apps.
 
     :param overwrite: overwrite the manifest.json, if it exists.
     :param entrypoint: the entry point for the thing being deployed.
