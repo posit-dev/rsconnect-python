@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - ??
 
+## [1.28.0] - 2025-11-06
+
 ### Added
 
 - Added `rsconnect mcp-server` command to expose rsconnect-python functionality to
@@ -14,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tool that returns parameter schemas for any rsconnect command, allowing LLMs
   to more easily construct valid CLI commands.
 
-- support for deploying Holoviz Panel applications
+- Added support for deploying Holoviz Panel applications.
 
 ### Fixed
 
