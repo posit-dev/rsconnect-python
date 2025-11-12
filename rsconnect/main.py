@@ -667,7 +667,7 @@ def add(
     output_params(ctx, locals().items())
 
     if not name:
-        ctx.fail('--name is required')
+        ctx.fail("--name is required")
 
     validation.validate_connection_options(
         ctx=ctx,
