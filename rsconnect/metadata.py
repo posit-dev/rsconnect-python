@@ -15,7 +15,16 @@ from datetime import datetime, timezone
 from io import BufferedWriter
 from os.path import abspath, basename, dirname, exists, join
 from threading import Lock
-from typing import TYPE_CHECKING, Callable, Dict, Generic, Mapping, Optional, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    Generic,
+    Mapping,
+    Optional,
+    TypeVar,
+    Union,
+)
 from urllib.parse import urlparse
 
 # Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
@@ -316,7 +325,7 @@ class ServerStore(DataStore[ServerDataDict]):
 
         :return: the sorted list of known servers.
         """
-        return self._get_sorted_values(lambda s: s["name"])
+        return self._get_sorted_values(lambda s: s["name"] or "")
 
     def set(
         self,
