@@ -1117,6 +1117,30 @@ See command help for further details."
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
+    def test_add_missing_name(self):
+        """Test that the add command requires --name parameter."""
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+        try:
+            runner = CliRunner()
+            result = runner.invoke(
+                cli,
+                [
+                    "add",
+                    "--server",
+                    "https://connect.example.com",
+                    "--api-key",
+                    "test-key",
+                ],
+            )
+            assert result.exit_code != 0, result.output
+            assert "--name is required" in result.output
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
     def test_env_management_callback(self):
         ctx = click.Context(cli)
 
