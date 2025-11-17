@@ -53,6 +53,15 @@ uses some of these targets during the CI for building and testing.
 Any and all proposed changes are expected to be made via [pull
 request](https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/about-pull-requests).
 
+### Testing Against Connect
+
+Prior to merging, we run tests against the dev version of Connect using the `rsconnect-python-tests-at-night` workflow
+in the Connect repository. To test a feature branch:
+
+1. Navigate to the `rsconnect-python-tests-at-night` workflow in the Connect repository
+2. Trigger it manually via workflow_dispatch
+3. Specify your `rsconnect-python` branch/ref in the dropdown
+
 ## Versioning and Releasing
 
 All version and release management is done via [annotated git tags](https://git-scm.com/docs/git-tag), as this is the

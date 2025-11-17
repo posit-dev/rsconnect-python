@@ -31,3 +31,4 @@
 <!--- If you need clarification on any of these, feel free to ask. We're here to help! -->
 - [ ] I have updated [CHANGELOG.md](../CHANGELOG.md) to cover notable changes.
 - [ ] I have updated all related GitHub issues to reflect their current state.
+- [ ] I have run the `rsconnect-python-tests-at-night` workflow in Connect against this feature branch.
