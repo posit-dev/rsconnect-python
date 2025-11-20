@@ -325,7 +325,7 @@ class ServerStore(DataStore[ServerDataDict]):
 
         :return: the sorted list of known servers.
         """
-        return self._get_sorted_values(lambda s: s["name"] or "")
+        return self._get_sorted_values(lambda s: s.get("name") or "")
 
     def set(
         self,

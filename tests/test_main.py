@@ -4,7 +4,6 @@ import shutil
 from os.path import join
 from unittest import TestCase, mock
 
-
 import click
 import httpretty
 import pytest
@@ -1111,30 +1110,6 @@ class TestMain:
                 == "-A/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io. \
 See command help for further details."
             )
-        finally:
-            if original_api_key_value:
-                os.environ["CONNECT_API_KEY"] = original_api_key_value
-            if original_server_value:
-                os.environ["CONNECT_SERVER"] = original_server_value
-
-    def test_add_missing_name(self):
-        """Test that the add command requires --name parameter."""
-        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
-        original_server_value = os.environ.pop("CONNECT_SERVER", None)
-        try:
-            runner = CliRunner()
-            result = runner.invoke(
-                cli,
-                [
-                    "add",
-                    "--server",
-                    "https://connect.example.com",
-                    "--api-key",
-                    "test-key",
-                ],
-            )
-            assert result.exit_code != 0, result.output
-            assert "--name is required" in result.output
         finally:
             if original_api_key_value:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
