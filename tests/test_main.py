@@ -4,7 +4,6 @@ import shutil
 from os.path import join
 from unittest import TestCase, mock
 
-
 import click
 import httpretty
 import pytest
