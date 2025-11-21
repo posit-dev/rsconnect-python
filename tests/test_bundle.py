@@ -79,7 +79,7 @@ class TestBundle(TestCase):
         # the test environment. Don't do this in the production code, which
         # runs in the notebook server. We need the introspection to run in
         # the kernel environment and not the notebook server environment.
-        environment = Environment.create_python_environment(directory)
+        environment = Environment.create_python_environment(directory, require_requirements_txt=False)
         with make_notebook_source_bundle(
             nb_path,
             environment,
@@ -149,7 +149,7 @@ class TestBundle(TestCase):
         # the test environment. Don't do this in the production code, which
         # runs in the notebook server. We need the introspection to run in
         # the kernel environment and not the notebook server environment.
-        environment = Environment.create_python_environment(directory)
+        environment = Environment.create_python_environment(directory, require_requirements_txt=False)
 
         with make_notebook_source_bundle(
             nb_path,
@@ -249,7 +249,7 @@ class TestBundle(TestCase):
         # input file.
         create_fake_quarto_rendered_output(temp_proj, "myquarto")
 
-        environment = Environment.create_python_environment(temp_proj)
+        environment = Environment.create_python_environment(temp_proj, require_requirements_txt=False)
 
         # mock the result of running of `quarto inspect <project_dir>`
         inspect = {
@@ -346,7 +346,7 @@ class TestBundle(TestCase):
         create_fake_quarto_rendered_output(site_dir, "index")
         create_fake_quarto_rendered_output(site_dir, "about")
 
-        environment = Environment.create_python_environment(temp_proj)
+        environment = Environment.create_python_environment(temp_proj, require_requirements_txt=False)
 
         # mock the result of running of `quarto inspect <project_dir>`
         inspect = {
@@ -448,7 +448,7 @@ class TestBundle(TestCase):
         fp.write("pandas\n")
         fp.close()
 
-        environment = Environment.create_python_environment(temp_proj)
+        environment = Environment.create_python_environment(temp_proj, require_requirements_txt=False)
 
         # mock the result of running of `quarto inspect <project_dir>`
         inspect = {
