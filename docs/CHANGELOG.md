@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `rsconnect list` now properly functions when a stored server has no nickname.
 
+### Changed
+
+- Most callers of internal, undocumented Connect APIs have been updated to use
+  documented v1 APIs.
+
 ## [1.28.0] - 2025-11-06
 
 ### Added
