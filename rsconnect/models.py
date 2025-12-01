@@ -589,6 +589,10 @@ class BuildOutputDTO(TypedDict):
     task_id: str
 
 
+class BundleMetadata(TypedDict):
+    id: str
+
+
 class ListEntryOutputDTO(TypedDict):
     language: str
     version: str
