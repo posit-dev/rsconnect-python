@@ -525,13 +525,6 @@ class VersionSearchFilterParamType(ParamType):
         self.fail("Failed to parse version filter %s" % value)
 
 
-class AppSearchResults(TypedDict):
-    total: int
-    applications: list[ContentItemV0]
-    count: int
-    continuation: int
-
-
 class TaskStatusResult(TypedDict):
     type: str
     data: object  # Don't know the structure of this type yet

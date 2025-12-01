@@ -61,7 +61,6 @@ from .metadata import AppStore, ServerStore
 from .models import (
     AppMode,
     AppModes,
-    AppSearchResults,
     BootstrapOutputDTO,
     BuildOutputDTO,
     BundleMetadata,
@@ -435,11 +434,6 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def app_search(self, filters: Optional[Mapping[str, JsonData]]) -> AppSearchResults:
-        response = cast(Union[AppSearchResults, HTTPResponse], self.get("applications", query_params=filters))
-        response = self._server.handle_bad_response(response)
-        return response
-
     def app_get(self, app_id: str) -> ContentItemV0:
         response = cast(Union[ContentItemV0, HTTPResponse], self.get("applications/%s" % app_id))
         response = self._server.handle_bad_response(response)
@@ -476,8 +470,8 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response, is_httpresponse=True)
         return response
 
-    def content_search(self) -> list[ContentItemV1]:
-        response = cast(Union[List[ContentItemV1], HTTPResponse], self.get("v1/content"))
+    def content_list(self, filters: Optional[Mapping[str, JsonData]] = None) -> list[ContentItemV1]:
+        response = cast(Union[List[ContentItemV1], HTTPResponse], self.get("v1/content", query_params=filters))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -638,7 +632,7 @@ class RSConnectClient(HTTPServer):
         return results
 
     def search_content(self) -> list[ContentItemV1]:
-        results = self.content_search()
+        results = self.content_list()
         return results
 
     def get_content(self, content_guid: str) -> ContentItemV1:
@@ -2024,74 +2018,6 @@ def emit_task_log(
         return (app_url, *result)
 
 
-def retrieve_matching_apps(
-    connect_server: Union[RSConnectServer, SPCSConnectServer],
-    filters: Optional[dict[str, str | int]] = None,
-    limit: Optional[int] = None,
-    mapping_function: Optional[Callable[[RSConnectClient, ContentItemV0], AbbreviatedAppItem | None]] = None,
-) -> list[ContentItemV0 | AbbreviatedAppItem]:
-    """
-    Retrieves all the app names that start with the given default name.  The main
-    point for this function is that it handles all the necessary paging logic.
-
-    If a mapping function is provided, it must be a callable that accepts 2
-    arguments.  The first will be an `RSConnect` client, in the event extra calls
-    per app are required.  The second will be the current app.  If the function
-    returns None, then the app will be discarded and not appear in the result.
-
-    :param connect_server: the Connect server information.
-    :param filters: the filters to use for isolating the set of desired apps.
-    :param limit: the maximum number of apps to retrieve.  If this is None,
-    then all matching apps are returned.
-    :param mapping_function: an optional function that may transform or filter
-    each app to return to something the caller wants.
-    :return: the list of existing names that start with the proposed one.
-    """
-    page_size = 100
-    result: list[ContentItemV0 | AbbreviatedAppItem] = []
-    search_filters: dict[str, str | int] = filters.copy() if filters else {}
-    search_filters["count"] = min(limit, page_size) if limit else page_size
-    total_returned = 0
-    maximum = limit
-    finished = False
-
-    with RSConnectClient(connect_server) as client:
-        while not finished:
-            response = client.app_search(search_filters)
-
-            if not maximum:
-                maximum = response["total"]
-            else:
-                maximum = min(maximum, response["total"])
-
-            applications = response["applications"]
-            returned = response["count"]
-            delta = maximum - (total_returned + returned)
-            # If more came back than we need, drop the rest.
-            if delta < 0:
-                applications = applications[: abs(delta)]
-            total_returned = total_returned + len(applications)
-
-            if mapping_function:
-                applications = [mapping_function(client, app) for app in applications]
-                # Now filter out the None values that represent the apps the
-                # function told us to drop.
-                applications = [app for app in applications if app is not None]
-
-            result.extend(applications)
-
-            if total_returned < maximum:
-                search_filters = {
-                    "start": total_returned,
-                    "count": page_size,
-                    "cont": response["continuation"],
-                }
-            else:
-                finished = True
-
-    return result
-
-
 class AbbreviatedAppItem(TypedDict):
     id: int
     name: str
@@ -2111,24 +2037,36 @@ def find_unique_name(remote_server: TargetableServer, name: str):
     :return: the name, potentially with a suffixed number to guarantee uniqueness.
     """
     if isinstance(remote_server, (RSConnectServer, SPCSConnectServer)):
-        existing_names = retrieve_matching_apps(
-            remote_server,
-            filters={"search": name},
-            mapping_function=lambda client, app: app["name"],
-        )
+        # Use v1/content API with name query parameter
+        with RSConnectClient(remote_server) as client:
+            results = client.content_list(filters={"name": name})
+
+            # If name exists, append suffix and try again
+            if len(results) > 0:
+                suffix = 1
+                test_name = "%s%d" % (name, suffix)
+                while True:
+                    results = client.content_list(filters={"name": test_name})
+                    if len(results) == 0:
+                        return test_name
+                    suffix = suffix + 1
+                    test_name = "%s%d" % (name, suffix)
+
+            return name
+
     elif isinstance(remote_server, ShinyappsServer):
         client = PositClient(remote_server)
         existing_names = client.get_applications_like_name(name)
+
+        if name in existing_names:
+            suffix = 1
+            test = "%s%d" % (name, suffix)
+            while test in existing_names:
+                suffix = suffix + 1
+                test = "%s%d" % (name, suffix)
+            name = test
+
+        return name
     else:
         # non-unique names are permitted in cloud
         return name
-
-    if name in existing_names:
-        suffix = 1
-        test = "%s%d" % (name, suffix)
-        while test in existing_names:
-            suffix = suffix + 1
-            test = "%s%d" % (name, suffix)
-        name = test
-
-    return name
