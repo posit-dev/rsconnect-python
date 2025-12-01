@@ -9,6 +9,7 @@ import binascii
 import datetime
 import hashlib
 import hmac
+import json
 import os
 import re
 import sys
@@ -55,7 +56,14 @@ from .bundle import _default_title
 from .certificates import read_certificate_file
 from .environment import fake_module_file_from_directory
 from .exception import DeploymentFailedException, RSConnectException
-from .http_support import CookieJar, HTTPResponse, HTTPServer, JsonData, append_to_path
+from .http_support import (
+    CookieJar,
+    HTTPResponse,
+    HTTPServer,
+    JsonData,
+    append_to_path,
+    create_multipart_form_data,
+)
 from .log import cls_logged, connect_logger, console_logger, logger
 from .metadata import AppStore, ServerStore
 from .models import (
@@ -76,6 +84,7 @@ from .models import (
 )
 from .snowflake import generate_jwt, get_parameters
 from .timeouts import get_task_timeout, get_task_timeout_help_message
+from .utils_package import compare_semvers
 
 if TYPE_CHECKING:
     import logging
@@ -367,6 +376,26 @@ class RSConnectClientDeployResult(TypedDict):
     title: str | None
 
 
+def server_supports_git_metadata(server_version: Optional[str]) -> bool:
+    """
+    Check if the server version supports git metadata in bundle uploads.
+
+    Git metadata support was added in Connect 2025.11.0.
+
+    :param server_version: The Connect server version string
+    :return: True if the server supports git metadata, False otherwise
+    """
+    if not server_version:
+        return False
+
+    try:
+        return compare_semvers(server_version, "2025.11.0") >= 0
+    except Exception:
+        # If we can't parse the version, assume it doesn't support it
+        logger.debug(f"Unable to parse server version: {server_version}")
+        return False
+
+
 class RSConnectClient(HTTPServer):
     def __init__(self, server: Union[RSConnectServer, SPCSConnectServer], cookies: Optional[CookieJar] = None):
         if cookies is None:
@@ -496,11 +525,34 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def content_upload_bundle(self, content_guid: str, tarball: typing.IO[bytes]) -> BundleMetadata:
-        response = cast(
-            Union[BundleMetadata, HTTPResponse], self.post("v1/content/%s/bundles" % content_guid, body=tarball)
-        )
-        response = self._server.handle_bad_response(response)
+    def content_upload_bundle(
+        self, content_guid: str, tarball: typing.IO[bytes], metadata: Optional[dict[str, str]] = None
+    ) -> BundleMetadata:
+        """
+        Upload a bundle to the server.
+
+        :param app_id: Application ID
+        :param tarball: Bundle tarball file object
+        :param metadata: Optional metadata dictionary (e.g., git metadata)
+        :return: ContentItemV0 with bundle information
+        """
+        if metadata:
+            # Use multipart form upload when metadata is provided
+            tarball_content = tarball.read()
+            fields = {
+                "archive": ("bundle.tar.gz", tarball_content, "application/x-tar"),
+                "metadata": json.dumps(metadata),
+            }
+            body, content_type = create_multipart_form_data(fields)
+            response = cast(
+                Union[BundleMetadata, HTTPResponse],
+                self.post("v1/content/%s/bundles" % content_guid, body=body, headers={"Content-Type": content_type}),
+            )
+        else:
+            response = cast(
+                Union[BundleMetadata, HTTPResponse], self.post("v1/content/%s/bundles" % content_guid, body=tarball)
+            )
+            response = self._server.handle_bad_response(response)
         return response
 
     def content_update(self, content_guid: str, updates: Mapping[str, str | None]) -> ContentItemV1:
@@ -581,6 +633,7 @@ class RSConnectClient(HTTPServer):
         tarball: IO[bytes],
         env_vars: Optional[dict[str, str]] = None,
         activate: bool = True,
+        metadata: Optional[dict[str, str]] = None,
     ) -> RSConnectClientDeployResult:
         if app_id is None:
             if app_name is None:
@@ -608,7 +661,7 @@ class RSConnectClient(HTTPServer):
             result = self._server.handle_bad_response(result)
             app["title"] = app_title
 
-        app_bundle = self.content_upload_bundle(app_guid, tarball)
+        app_bundle = self.content_upload_bundle(app_guid, tarball, metadata=metadata)
 
         task = self.content_deploy(app_guid, app_bundle["id"], activate=activate)
 
@@ -730,6 +783,7 @@ class RSConnectExecutor:
         visibility: Optional[str] = None,
         disable_env_management: Optional[bool] = None,
         env_vars: Optional[dict[str, str]] = None,
+        metadata: Optional[dict[str, str]] = None,
     ) -> None:
         self.remote_server: TargetableServer
         self.client: RSConnectClient | PositClient
@@ -743,6 +797,7 @@ class RSConnectExecutor:
         self.visibility = visibility
         self.disable_env_management = disable_env_management
         self.env_vars = env_vars
+        self.metadata = metadata
         self.app_mode: AppMode | None = None
         self.app_store: AppStore = AppStore(fake_module_file_from_directory(self.path))
         self.app_store_version: int | None = None
@@ -791,6 +846,7 @@ class RSConnectExecutor:
         visibility: Optional[str] = None,
         disable_env_management: Optional[bool] = None,
         env_vars: Optional[dict[str, str]] = None,
+        metadata: Optional[dict[str, str]] = None,
     ):
         return cls(
             ctx=ctx,
@@ -813,6 +869,7 @@ class RSConnectExecutor:
             visibility=visibility,
             disable_env_management=disable_env_management,
             env_vars=env_vars,
+            metadata=metadata,
         )
 
     def output_overlap_header(self, previous: bool) -> bool:
@@ -1075,6 +1132,7 @@ class RSConnectExecutor:
                 self.bundle,
                 self.env_vars,
                 activate=activate,
+                metadata=self.metadata,
             )
             self.deployed_info = result
             return self
