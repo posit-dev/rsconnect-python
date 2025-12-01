@@ -1250,11 +1250,9 @@ class RSConnectExecutor:
                 # to get this from the remote.
                 if isinstance(self.remote_server, RSConnectServer):
                     try:
-                        app = get_app_info(self.remote_server, app_id)
-                        # TODO: verify that this is correct. The previous code seemed
-                        # incorrect. It passed an arg to app.get(), which would have
-                        # been ignored.
-                        existing_app_mode = AppModes.get_by_ordinal(app["app_mode"], True)
+                        with RSConnectClient(self.remote_server) as client:
+                            content = client.get_content_by_id(app_id)
+                            existing_app_mode = AppModes.get_by_ordinal(content["app_mode"], True)
                     except RSConnectException as e:
                         raise RSConnectException(
                             f"{e} Try setting the --new flag to overwrite the previous deployment."
@@ -1981,18 +1979,6 @@ def get_python_info(connect_server: Union[RSConnectServer, SPCSConnectServer]):
         return result
 
 
-def get_app_info(connect_server: Union[RSConnectServer, SPCSConnectServer], app_id: str):
-    """
-    Return information about an application that has been created in Connect.
-
-    :param connect_server: the Connect server information.
-    :param app_id: the ID (numeric or GUID) of the application to get info for.
-    :return: the Python installation information from Connect.
-    """
-    with RSConnectClient(connect_server) as client:
-        return client.app_get(app_id)
-
-
 def get_posit_app_info(server: PositServer, app_id: str):
     with PositClient(server) as client:
         if isinstance(server, ShinyappsServer):
@@ -2127,20 +2113,19 @@ def override_title_search(connect_server: Union[RSConnectServer, SPCSConnectServ
     URL and dashboard URL.
     """
 
-    def map_app(app: ContentItemV0, content: ContentItemV1) -> AbbreviatedAppItem:
+    def map_app(content: ContentItemV1) -> AbbreviatedAppItem:
         """
-        Creates the abbreviated data dictionary for the specified app and content.
+        Creates the abbreviated data dictionary for the specified content.
 
-        :param app: the raw app data to start with.
-        :param content: the V1 content data with dashboard_url.
+        :param content: the V1 content data.
         :return: the abbreviated app data dictionary.
         """
         return {
-            "id": app["id"],
-            "name": app["name"],
-            "title": app["title"],
-            "app_mode": AppModes.get_by_ordinal(app["app_mode"]).name(),
-            "url": app["url"],
+            "id": int(content["id"]),  # Convert str to int for backwards compatibility
+            "name": content["name"],
+            "title": content["title"],
+            "app_mode": AppModes.get_by_ordinal(content["app_mode"]).name(),
+            "url": content["content_url"],
             "config_url": content["dashboard_url"],
         }
 
@@ -2162,7 +2147,7 @@ def override_title_search(connect_server: Union[RSConnectServer, SPCSConnectServ
         content = client.content_get(app["guid"])
         content = connect_server.handle_bad_response(content)
 
-        return map_app(app, content)
+        return map_app(content)
 
     apps = retrieve_matching_apps(
         connect_server,
@@ -2176,13 +2161,12 @@ def override_title_search(connect_server: Union[RSConnectServer, SPCSConnectServ
 
         if not found:
             try:
-                app = get_app_info(connect_server, app_id)
-                mode = AppModes.get_by_ordinal(app["app_mode"])
-                if mode in (AppModes.STATIC, AppModes.JUPYTER_NOTEBOOK):
-                    with RSConnectClient(connect_server) as client:
-                        content = client.content_get(app["guid"])
-                        content = connect_server.handle_bad_response(content)
-                        apps.append(map_app(app, content))
+                with RSConnectClient(connect_server) as client:
+                    content = client.get_content_by_id(app_id)
+                    content = connect_server.handle_bad_response(content)
+                    mode = AppModes.get_by_ordinal(content["app_mode"])
+                    if mode in (AppModes.STATIC, AppModes.JUPYTER_NOTEBOOK):
+                        apps.append(map_app(content))
             except RSConnectException:
                 logger.debug('Error getting info for previous app_id "%s", skipping.', app_id)
 
