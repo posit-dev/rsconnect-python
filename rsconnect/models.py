@@ -537,17 +537,6 @@ class TaskStatusResult(TypedDict):
     data: object  # Don't know the structure of this type yet
 
 
-class TaskStatusV0(TypedDict):
-    id: str
-    status: list[str]
-    finished: bool
-    code: int
-    error: str
-    last_status: int
-    user_id: int
-    result: TaskStatusResult | None
-
-
 # https://docs.posit.co/connect/api/#get-/v1/tasks/-id-
 class TaskStatusV1(TypedDict):
     id: str
@@ -587,6 +576,10 @@ class PyInstallation(TypedDict):
 
 class BuildOutputDTO(TypedDict):
     task_id: str
+
+
+class BundleMetadata(TypedDict):
+    id: str
 
 
 class ListEntryOutputDTO(TypedDict):

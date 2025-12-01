@@ -139,27 +139,29 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/applications",
+            "http://fake_server/__api__/v1/content",
             body=json.dumps(
                 {
-                    "id": "1234-5678-9012-3456",
+                    "id": "1234",
                     "guid": "1234-5678-9012-3456",
                     "title": "app5",
-                    "url": "http://fake_server/content/1234-5678-9012-3456",
+                    "content_url": "http://fake_server/content/1234-5678-9012-3456",
+                    "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
                 }
             ),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
         httpretty.register_uri(
-            httpretty.POST,
-            "http://fake_server/__api__/applications/1234-5678-9012-3456",
+            httpretty.PATCH,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
             body=json.dumps(
                 {
-                    "id": "1234-5678-9012-3456",
+                    "id": "1234",
                     "guid": "1234-5678-9012-3456",
                     "title": "app5",
-                    "url": "http://fake_server/apps/1234-5678-9012-3456",
+                    "content_url": "http://fake_server/content/1234-5678-9012-3456",
+                    "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
                 }
             ),
             adding_headers={"Content-Type": "application/json"},
@@ -179,10 +181,25 @@ class TestMain:
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            body=json.dumps(
+                {
+                    "id": "1234",
+                    "guid": "1234-5678-9012-3456",
+                    "title": "app5",
+                    "content_url": "http://fake_server/content/1234-5678-9012-3456",
+                    "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+                }
+            ),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
 
         httpretty.register_uri(
             httpretty.POST,
-            "http://fake_server/__api__/applications/1234-5678-9012-3456/upload",
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/bundles",
             body=json.dumps(
                 {
                     "id": "FAKE_BUNDLE_ID",

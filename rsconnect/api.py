@@ -64,6 +64,7 @@ from .models import (
     AppSearchResults,
     BootstrapOutputDTO,
     BuildOutputDTO,
+    BundleMetadata,
     ConfigureResult,
     ContentItemV0,
     ContentItemV1,
@@ -72,7 +73,6 @@ from .models import (
     ListEntryOutputDTO,
     PyInfo,
     ServerSettings,
-    TaskStatusV0,
     TaskStatusV1,
     UserRecord,
 )
@@ -377,6 +377,7 @@ class RSConnectClientDeployResult(TypedDict):
     app_id: str
     app_guid: str | None
     app_url: str
+    dashboard_url: str
     draft_url: str | None
     title: str | None
 
@@ -440,37 +441,14 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def app_create(self, name: str) -> ContentItemV0:
-        response = cast(Union[ContentItemV0, HTTPResponse], self.post("applications", body={"name": name}))
-        response = self._server.handle_bad_response(response)
-        return response
-
     def app_get(self, app_id: str) -> ContentItemV0:
         response = cast(Union[ContentItemV0, HTTPResponse], self.get("applications/%s" % app_id))
-        response = self._server.handle_bad_response(response)
-        return response
-
-    def app_upload(self, app_id: str, tarball: typing.IO[bytes]) -> ContentItemV0:
-        response = cast(Union[ContentItemV0, HTTPResponse], self.post("applications/%s/upload" % app_id, body=tarball))
-        response = self._server.handle_bad_response(response)
-        return response
-
-    def app_update(self, app_id: str, updates: Mapping[str, str | None]) -> ContentItemV0:
-        response = cast(Union[ContentItemV0, HTTPResponse], self.post("applications/%s" % app_id, body=updates))
         response = self._server.handle_bad_response(response)
         return response
 
     def app_add_environment_vars(self, app_guid: str, env_vars: list[tuple[str, str]]):
         env_body = [dict(name=kv[0], value=kv[1]) for kv in env_vars]
         return self.patch("v1/content/%s/environment" % app_guid, body=env_body)
-
-    def app_deploy(self, app_id: str, bundle_id: Optional[int] = None) -> TaskStatusV0:
-        response = cast(
-            Union[TaskStatusV0, HTTPResponse],
-            self.post("applications/%s/deploy" % app_id, body={"bundle": bundle_id}),
-        )
-        response = self._server.handle_bad_response(response)
-        return response
 
     def app_config(self, app_id: str) -> ConfigureResult:
         response = cast(Union[ConfigureResult, HTTPResponse], self.get("applications/%s/config" % app_id))
@@ -511,10 +489,27 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
+    def content_create(self, name: str) -> ContentItemV1:
+        response = cast(Union[ContentItemV1, HTTPResponse], self.post("v1/content", body={"name": name}))
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def content_upload_bundle(self, content_guid: str, tarball: typing.IO[bytes]) -> BundleMetadata:
+        response = cast(
+            Union[BundleMetadata, HTTPResponse], self.post("v1/content/%s/bundles" % content_guid, body=tarball)
+        )
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def content_update(self, content_guid: str, updates: Mapping[str, str | None]) -> ContentItemV1:
+        response = cast(Union[ContentItemV1, HTTPResponse], self.patch("v1/content/%s" % content_guid, body=updates))
+        response = self._server.handle_bad_response(response)
+        return response
+
     def content_build(
         self, content_guid: str, bundle_id: Optional[str] = None, activate: bool = True
     ) -> BuildOutputDTO:
-        body = {"bundle_id": bundle_id}
+        body: dict[str, str | bool | None] = {"bundle_id": bundle_id}
         if not activate:
             # The default behavior is to activate the app after building.
             # So we only pass the parameter if we want to deactivate it.
@@ -527,8 +522,8 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def content_deploy(self, app_guid: str, bundle_id: Optional[int] = None, activate: bool = True) -> BuildOutputDTO:
-        body = {"bundle_id": str(bundle_id)}
+    def content_deploy(self, app_guid: str, bundle_id: Optional[str] = None, activate: bool = True) -> BuildOutputDTO:
+        body: dict[str, str | bool | None] = {"bundle_id": bundle_id}
         if not activate:
             # The default behavior is to activate the app after deploying.
             # So we only pass the parameter if we want to deactivate it.
@@ -586,17 +581,23 @@ class RSConnectClient(HTTPServer):
         if app_id is None:
             if app_name is None:
                 raise RSConnectException("An app ID or name is required to deploy an app.")
-            # create an app if id is not provided
-            app = self.app_create(app_name)
-            app_id = str(app["id"])
+            # create content if id is not provided
+            app = self.content_create(app_name)
 
             # Force the title to update.
             title_is_default = False
         else:
-            # assume app exists. if it was deleted then Connect will
-            # raise an error
+            # assume content exists. if it was deleted then Connect will raise an error
             try:
-                app = self.app_get(app_id)
+                # app_id could be a numeric ID (legacy) or GUID. Try to get it as content.
+                # If it's a numeric ID, app_get will work; if GUID, content_get will work.
+                # We'll use content_get if it looks like a GUID (contains hyphens), otherwise app_get.
+                if "-" in str(app_id):
+                    app = self.content_get(app_id)
+                else:
+                    # Legacy numeric ID - get v0 content and convert to use GUID
+                    app_v0 = self.app_get(app_id)
+                    app = self.content_get(app_v0["guid"])
             except RSConnectException as e:
                 raise RSConnectException(f"{e} Try setting the --new flag to overwrite the previous deployment.") from e
 
@@ -606,24 +607,22 @@ class RSConnectClient(HTTPServer):
             result = self._server.handle_bad_response(result)
 
         if app["title"] != app_title and not title_is_default:
-            result = self.app_update(app_id, {"title": app_title})
+            result = self.content_update(app_guid, {"title": app_title})
             result = self._server.handle_bad_response(result)
             app["title"] = app_title
 
-        app_bundle = self.app_upload(app_id, tarball)
+        app_bundle = self.content_upload_bundle(app_guid, tarball)
 
         task = self.content_deploy(app_guid, app_bundle["id"], activate=activate)
 
-        # http://ADDRESS/DASHBOARD-PATH/#/apps/GUID/draft/BUNDLE_ID_TO_PREVIEW
-        # Pulling v1 content to get the full dashboard URL
-        app_v1 = self.content_get(app["guid"])
-        draft_url = app_v1["dashboard_url"] + f"/draft/{app_bundle['id']}"
+        draft_url = app["dashboard_url"] + f"/draft/{app_bundle['id']}"
 
         return {
             "task_id": task["task_id"],
-            "app_id": app_id,
+            "app_id": app["id"],
             "app_guid": app["guid"],
-            "app_url": app["url"],
+            "app_url": app["content_url"],
+            "dashboard_url": app["dashboard_url"],
             "draft_url": draft_url if not activate else None,
             "title": app["title"],
         }
@@ -1112,6 +1111,7 @@ class RSConnectExecutor:
                     self.visibility,
                 )
                 self.upload_posit_bundle(prepare_deploy_result, bundle_size, contents)
+                # type: ignore[arg-type] - PrepareDeployResult uses int, but format() accepts it
                 shinyapps_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
             else:
                 cloud_service = CloudService(self.client, self.remote_server, os.getenv("LUCID_APPLICATION_ID"))
@@ -1125,6 +1125,7 @@ class RSConnectExecutor:
                     app_store_version,
                 )
                 self.upload_posit_bundle(prepare_deploy_result, bundle_size, contents)
+                # type: ignore[arg-type] - PrepareDeployResult uses int, but format() accepts it
                 cloud_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.application_id)
 
             print("Application successfully deployed to {}".format(prepare_deploy_result.app_url))
@@ -1180,10 +1181,7 @@ class RSConnectExecutor:
             if self.deployed_info.get("draft_url"):
                 log_callback.info("\t Draft content URL: %s", self.deployed_info["draft_url"])
             else:
-                app_config = self.client.app_config(self.deployed_info["app_id"])
-                app_config = self.remote_server.handle_bad_response(app_config)
-                app_dashboard_url = app_config.get("config_url")
-                log_callback.info("\t Dashboard content URL: %s", app_dashboard_url)
+                log_callback.info("\t Dashboard content URL: %s", self.deployed_info["dashboard_url"])
                 log_callback.info("\t Direct content URL: %s", self.deployed_info["app_url"])
 
         return self
@@ -2171,7 +2169,7 @@ def override_title_search(connect_server: Union[RSConnectServer, SPCSConnectServ
         if app_mode not in (AppModes.STATIC, AppModes.JUPYTER_NOTEBOOK):
             return None
 
-        config = client.app_config(app["id"])
+        config = client.app_config(str(app["id"]))
         config = connect_server.handle_bad_response(config)
 
         return map_app(app, config)
