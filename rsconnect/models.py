@@ -602,11 +602,6 @@ class DeleteOutputDTO(TypedDict):
     task_id: str | None
 
 
-class ConfigureResult(TypedDict):
-    config_url: str
-    logs_url: str
-
-
 class UserRecord(TypedDict):
     email: str
     username: str

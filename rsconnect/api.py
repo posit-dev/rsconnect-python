@@ -65,7 +65,6 @@ from .models import (
     BootstrapOutputDTO,
     BuildOutputDTO,
     BundleMetadata,
-    ConfigureResult,
     ContentItemV0,
     ContentItemV1,
     DeleteInputDTO,
@@ -450,11 +449,6 @@ class RSConnectClient(HTTPServer):
         env_body = [dict(name=kv[0], value=kv[1]) for kv in env_vars]
         return self.patch("v1/content/%s/environment" % app_guid, body=env_body)
 
-    def app_config(self, app_id: str) -> ConfigureResult:
-        response = cast(Union[ConfigureResult, HTTPResponse], self.get("applications/%s/config" % app_id))
-        response = self._server.handle_bad_response(response)
-        return response
-
     def is_app_failed_response(self, response: HTTPResponse | JsonData) -> bool:
         return isinstance(response, HTTPResponse) and response.status >= 500
 
@@ -465,10 +459,13 @@ class RSConnectClient(HTTPServer):
         response = self._do_request(method, path, None, None, 3, {}, False)
 
         if self.is_app_failed_response(response):
+            # Get content metadata to construct logs URL
+            content = self.content_get(app_guid)
+            logs_url = content["dashboard_url"] + "/logs"
             raise RSConnectException(
                 "Could not access the deployed content. "
                 + "The app might not have started successfully."
-                + f"\n\t For more information: {self.app_config(app_guid).get('logs_url')}"
+                + f"\n\t For more information: {logs_url}"
             )
 
     def bundle_download(self, content_guid: str, bundle_id: str) -> HTTPResponse:
@@ -488,6 +485,22 @@ class RSConnectClient(HTTPServer):
         response = cast(Union[ContentItemV1, HTTPResponse], self.get("v1/content/%s" % content_guid))
         response = self._server.handle_bad_response(response)
         return response
+
+    def get_content_by_id(self, app_id: str) -> ContentItemV1:
+        """
+        Get content by ID, which can be either a numeric ID (legacy) or GUID.
+
+        :param app_id: Either a numeric ID (e.g., "1234") or GUID (e.g., "abc-def-123")
+        :return: ContentItemV1 data
+        """
+        # Check if it looks like a GUID (contains hyphens)
+        if "-" in str(app_id):
+            return self.content_get(app_id)
+        else:
+            # Legacy numeric ID - get v0 content first to get GUID
+            # TODO: deprecation warning
+            app_v0 = self.app_get(app_id)
+            return self.content_get(app_v0["guid"])
 
     def content_create(self, name: str) -> ContentItemV1:
         response = cast(Union[ContentItemV1, HTTPResponse], self.post("v1/content", body={"name": name}))
@@ -589,15 +602,8 @@ class RSConnectClient(HTTPServer):
         else:
             # assume content exists. if it was deleted then Connect will raise an error
             try:
-                # app_id could be a numeric ID (legacy) or GUID. Try to get it as content.
-                # If it's a numeric ID, app_get will work; if GUID, content_get will work.
-                # We'll use content_get if it looks like a GUID (contains hyphens), otherwise app_get.
-                if "-" in str(app_id):
-                    app = self.content_get(app_id)
-                else:
-                    # Legacy numeric ID - get v0 content and convert to use GUID
-                    app_v0 = self.app_get(app_id)
-                    app = self.content_get(app_v0["guid"])
+                # app_id could be a numeric ID (legacy) or GUID
+                app = self.get_content_by_id(app_id)
             except RSConnectException as e:
                 raise RSConnectException(f"{e} Try setting the --new flag to overwrite the previous deployment.") from e
 
@@ -1996,21 +2002,6 @@ def get_posit_app_info(server: PositServer, app_id: str):
             return response["source"]
 
 
-def get_app_config(connect_server: Union[RSConnectServer, SPCSConnectServer], app_id: str):
-    """
-    Return the configuration information for an application that has been created
-    in Connect.
-
-    :param connect_server: the Connect server information.
-    :param app_id: the ID (numeric or GUID) of the application to get the info for.
-    :return: the Python installation information from Connect.
-    """
-    with RSConnectClient(connect_server) as client:
-        result = client.app_config(app_id)
-        result = connect_server.handle_bad_response(result)
-        return result
-
-
 def emit_task_log(
     connect_server: Union[RSConnectServer, SPCSConnectServer],
     app_id: str,
@@ -2041,9 +2032,9 @@ def emit_task_log(
     with RSConnectClient(connect_server) as client:
         result = client.wait_for_task(task_id, log_callback, abort_func, timeout, poll_wait, raise_on_error)
         result = connect_server.handle_bad_response(result)
-        app_config = client.app_config(app_id)
-        connect_server.handle_bad_response(app_config)
-        app_url = app_config.get("config_url")
+        # Get content (handles both numeric IDs and GUIDs)
+        content = client.get_content_by_id(app_id)
+        app_url = content["dashboard_url"]
         return (app_url, *result)
 
 
@@ -2136,13 +2127,12 @@ def override_title_search(connect_server: Union[RSConnectServer, SPCSConnectServ
     URL and dashboard URL.
     """
 
-    def map_app(app: ContentItemV0, config: ConfigureResult) -> AbbreviatedAppItem:
+    def map_app(app: ContentItemV0, content: ContentItemV1) -> AbbreviatedAppItem:
         """
-        Creates the abbreviated data dictionary for the specified app and config
-        information.
+        Creates the abbreviated data dictionary for the specified app and content.
 
         :param app: the raw app data to start with.
-        :param config: the configuration data to use.
+        :param content: the V1 content data with dashboard_url.
         :return: the abbreviated app data dictionary.
         """
         return {
@@ -2151,7 +2141,7 @@ def override_title_search(connect_server: Union[RSConnectServer, SPCSConnectServ
             "title": app["title"],
             "app_mode": AppModes.get_by_ordinal(app["app_mode"]).name(),
             "url": app["url"],
-            "config_url": config["config_url"],
+            "config_url": content["dashboard_url"],
         }
 
     def mapping_filter(client: RSConnectClient, app: ContentItemV0) -> AbbreviatedAppItem | None:
@@ -2169,10 +2159,10 @@ def override_title_search(connect_server: Union[RSConnectServer, SPCSConnectServ
         if app_mode not in (AppModes.STATIC, AppModes.JUPYTER_NOTEBOOK):
             return None
 
-        config = client.app_config(str(app["id"]))
-        config = connect_server.handle_bad_response(config)
+        content = client.content_get(app["guid"])
+        content = connect_server.handle_bad_response(content)
 
-        return map_app(app, config)
+        return map_app(app, content)
 
     apps = retrieve_matching_apps(
         connect_server,
@@ -2189,7 +2179,10 @@ def override_title_search(connect_server: Union[RSConnectServer, SPCSConnectServ
                 app = get_app_info(connect_server, app_id)
                 mode = AppModes.get_by_ordinal(app["app_mode"])
                 if mode in (AppModes.STATIC, AppModes.JUPYTER_NOTEBOOK):
-                    apps.append(map_app(app, get_app_config(connect_server, app_id)))
+                    with RSConnectClient(connect_server) as client:
+                        content = client.content_get(app["guid"])
+                        content = connect_server.handle_bad_response(content)
+                        apps.append(map_app(app, content))
             except RSConnectException:
                 logger.debug('Error getting info for previous app_id "%s", skipping.', app_id)
 
