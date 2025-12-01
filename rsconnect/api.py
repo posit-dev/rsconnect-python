@@ -73,7 +73,6 @@ from .models import (
     ListEntryOutputDTO,
     PyInfo,
     ServerSettings,
-    TaskStatusV0,
     TaskStatusV1,
     UserRecord,
 )
@@ -378,6 +377,7 @@ class RSConnectClientDeployResult(TypedDict):
     app_id: str
     app_guid: str | None
     app_url: str
+    dashboard_url: str
     draft_url: str | None
     title: str | None
 
@@ -509,7 +509,7 @@ class RSConnectClient(HTTPServer):
     def content_build(
         self, content_guid: str, bundle_id: Optional[str] = None, activate: bool = True
     ) -> BuildOutputDTO:
-        body = {"bundle_id": bundle_id}
+        body: dict[str, str | bool | None] = {"bundle_id": bundle_id}
         if not activate:
             # The default behavior is to activate the app after building.
             # So we only pass the parameter if we want to deactivate it.
@@ -523,7 +523,7 @@ class RSConnectClient(HTTPServer):
         return response
 
     def content_deploy(self, app_guid: str, bundle_id: Optional[str] = None, activate: bool = True) -> BuildOutputDTO:
-        body = {"bundle_id": bundle_id}
+        body: dict[str, str | bool | None] = {"bundle_id": bundle_id}
         if not activate:
             # The default behavior is to activate the app after deploying.
             # So we only pass the parameter if we want to deactivate it.
@@ -1111,6 +1111,7 @@ class RSConnectExecutor:
                     self.visibility,
                 )
                 self.upload_posit_bundle(prepare_deploy_result, bundle_size, contents)
+                # type: ignore[arg-type] - PrepareDeployResult uses int, but format() accepts it
                 shinyapps_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
             else:
                 cloud_service = CloudService(self.client, self.remote_server, os.getenv("LUCID_APPLICATION_ID"))
@@ -1124,6 +1125,7 @@ class RSConnectExecutor:
                     app_store_version,
                 )
                 self.upload_posit_bundle(prepare_deploy_result, bundle_size, contents)
+                # type: ignore[arg-type] - PrepareDeployResult uses int, but format() accepts it
                 cloud_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.application_id)
 
             print("Application successfully deployed to {}".format(prepare_deploy_result.app_url))
@@ -2167,7 +2169,7 @@ def override_title_search(connect_server: Union[RSConnectServer, SPCSConnectServ
         if app_mode not in (AppModes.STATIC, AppModes.JUPYTER_NOTEBOOK):
             return None
 
-        config = client.app_config(app["id"])
+        config = client.app_config(str(app["id"]))
         config = connect_server.handle_bad_response(config)
 
         return map_app(app, config)
