@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.28.1] - 2025-12-05
 
+### Removed
+
+- Removed support for publishing to Posit Cloud. Posit Cloud no longer hosts
+  deployed content. Users should migrate to Connect Cloud or Posit Connect.
+
 ### Fixed
 
 - `rsconnect list` now properly functions when a stored server has no nickname.

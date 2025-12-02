@@ -71,18 +71,13 @@ def validate_connection_options(
     -i/--insecure or CONNECT_INSECURE
     -c/--cacert or CONNECT_CA_CERTIFICATE
     AND any of:
-    -T/--token or SHINYAPPS_TOKEN or RSCLOUD_TOKEN
-    -S/--secret or SHINYAPPS_SECRET or RSCLOUD_SECRET
+    -T/--token or SHINYAPPS_TOKEN
+    -S/--secret or SHINYAPPS_SECRET
     -A/--account or SHINYAPPS_ACCOUNT
 
-    FAILURE if specify -s/--server or CONNECT_SERVER and it includes "posit.cloud" or "rstudio.cloud"
-    and not specified all of following:
-    -T/--token or SHINYAPPS_TOKEN or RSCLOUD_TOKEN
-    -S/--secret or SHINYAPPS_SECRET or RSCLOUD_SECRET
-
     FAILURE if any of following are specified, without the rest:
-    -T/--token or SHINYAPPS_TOKEN or RSCLOUD_TOKEN
-    -S/--secret or SHINYAPPS_SECRET or RSCLOUD_SECRET
+    -T/--token or SHINYAPPS_TOKEN
+    -S/--secret or SHINYAPPS_SECRET
     -A/--account or SHINYAPPS_ACCOUNT
 
 
@@ -92,7 +87,6 @@ def validate_connection_options(
     """
     connect_options = {"-k/--api-key": api_key, "-i/--insecure": insecure, "-c/--cacert": cacert}
     shinyapps_options = {"-T/--token": token, "-S/--secret": secret, "-A/--account": account_name}
-    cloud_options = {"-T/--token": token, "-S/--secret": secret}
     spcs_options = {"--snowflake-connection-name": snowflake_connection_name}
     options_mutually_exclusive_with_name = {"-s/--server": url, **shinyapps_options}
     present_options_mutually_exclusive_with_name = _get_present_options(options_mutually_exclusive_with_name, ctx)
@@ -112,13 +106,12 @@ either via command options or environment variables. See command help for furthe
 
     present_connect_options = _get_present_options(connect_options, ctx)
     present_shinyapps_options = _get_present_options(shinyapps_options, ctx)
-    present_cloud_options = _get_present_options(cloud_options, ctx)
     present_spcs_options = _get_present_options(spcs_options, ctx)
 
     if present_connect_options and present_shinyapps_options:
         raise RSConnectException(
             f"Connect options ({', '.join(present_connect_options)}) may not be passed \
-alongside shinyapps.io or Posit Cloud options ({', '.join(present_shinyapps_options)}). \
+alongside shinyapps.io options ({', '.join(present_shinyapps_options)}). \
 See command help for further details."
         )
 
@@ -130,18 +123,12 @@ See command help for further details."
 
     if present_shinyapps_options and present_spcs_options:
         raise RSConnectException(
-            f"Shinyapps.io/Cloud options ({', '.join(present_shinyapps_options)}) may not be passed \
+            f"Shinyapps.io options ({', '.join(present_shinyapps_options)}) may not be passed \
 alongside SPCS options ({', '.join(present_spcs_options)}). \
     See command help for further details."
         )
 
-    if url and ("posit.cloud" in url or "rstudio.cloud" in url):
-        if len(present_cloud_options) != len(cloud_options):
-            raise RSConnectException(
-                "-T/--token and -S/--secret must be provided for Posit Cloud. \
-See command help for further details."
-            )
-    elif present_shinyapps_options:
+    if present_shinyapps_options:
         if len(present_shinyapps_options) != len(shinyapps_options):
             raise RSConnectException(
                 "-A/--account, -T/--token, and -S/--secret must all be provided \
