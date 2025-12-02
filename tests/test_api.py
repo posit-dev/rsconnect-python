@@ -2,7 +2,7 @@ import io
 import json
 import sys
 from unittest import TestCase
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, patch
 
 import httpretty
 import pytest
@@ -17,7 +17,6 @@ from rsconnect.api import (
     SPCSConnectServer,
 )
 from rsconnect.exception import DeploymentFailedException, RSConnectException
-from rsconnect.models import AppModes
 
 from .utils import require_api_key, require_connect
 
