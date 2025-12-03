@@ -130,10 +130,11 @@ class TestMain:
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
+        # Mock v1/content search for unique name checking
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/__api__/applications?search=app5&count=100",
-            body=open("tests/testdata/rstudio-responses/get-applications.json", "r").read(),
+            "http://fake_server/__api__/v1/content?name=app5",
+            body=json.dumps([]),  # Empty array means name is available
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )

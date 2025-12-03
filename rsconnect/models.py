@@ -525,13 +525,6 @@ class VersionSearchFilterParamType(ParamType):
         self.fail("Failed to parse version filter %s" % value)
 
 
-class AppSearchResults(TypedDict):
-    total: int
-    applications: list[ContentItemV0]
-    count: int
-    continuation: int
-
-
 class TaskStatusResult(TypedDict):
     type: str
     data: object  # Don't know the structure of this type yet
@@ -600,11 +593,6 @@ class DeleteOutputDTO(TypedDict):
     version: str
     iamge_name: str
     task_id: str | None
-
-
-class ConfigureResult(TypedDict):
-    config_url: str
-    logs_url: str
 
 
 class UserRecord(TypedDict):

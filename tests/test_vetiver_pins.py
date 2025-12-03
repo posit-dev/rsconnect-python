@@ -81,7 +81,7 @@ def test_deploy(rsc_short):
 
     # get url of where content lives
     client = RSConnectClient(connect_server)
-    dicts = client.content_search()
+    dicts = client.content_list()
     rsc_api = list(filter(lambda x: x["title"] == "testapivetiver", dicts))
     content_url = rsc_api[0].get("content_url")
 

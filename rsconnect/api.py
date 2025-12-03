@@ -61,11 +61,9 @@ from .metadata import AppStore, ServerStore
 from .models import (
     AppMode,
     AppModes,
-    AppSearchResults,
     BootstrapOutputDTO,
     BuildOutputDTO,
     BundleMetadata,
-    ConfigureResult,
     ContentItemV0,
     ContentItemV1,
     DeleteInputDTO,
@@ -436,11 +434,6 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def app_search(self, filters: Optional[Mapping[str, JsonData]]) -> AppSearchResults:
-        response = cast(Union[AppSearchResults, HTTPResponse], self.get("applications", query_params=filters))
-        response = self._server.handle_bad_response(response)
-        return response
-
     def app_get(self, app_id: str) -> ContentItemV0:
         response = cast(Union[ContentItemV0, HTTPResponse], self.get("applications/%s" % app_id))
         response = self._server.handle_bad_response(response)
@@ -449,11 +442,6 @@ class RSConnectClient(HTTPServer):
     def app_add_environment_vars(self, app_guid: str, env_vars: list[tuple[str, str]]):
         env_body = [dict(name=kv[0], value=kv[1]) for kv in env_vars]
         return self.patch("v1/content/%s/environment" % app_guid, body=env_body)
-
-    def app_config(self, app_id: str) -> ConfigureResult:
-        response = cast(Union[ConfigureResult, HTTPResponse], self.get("applications/%s/config" % app_id))
-        response = self._server.handle_bad_response(response)
-        return response
 
     def is_app_failed_response(self, response: HTTPResponse | JsonData) -> bool:
         return isinstance(response, HTTPResponse) and response.status >= 500
@@ -465,10 +453,13 @@ class RSConnectClient(HTTPServer):
         response = self._do_request(method, path, None, None, 3, {}, False)
 
         if self.is_app_failed_response(response):
+            # Get content metadata to construct logs URL
+            content = self.content_get(app_guid)
+            logs_url = content["dashboard_url"] + "/logs"
             raise RSConnectException(
                 "Could not access the deployed content. "
                 + "The app might not have started successfully."
-                + f"\n\t For more information: {self.app_config(app_guid).get('logs_url')}"
+                + f"\n\t For more information: {logs_url}"
             )
 
     def bundle_download(self, content_guid: str, bundle_id: str) -> HTTPResponse:
@@ -479,8 +470,8 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response, is_httpresponse=True)
         return response
 
-    def content_search(self) -> list[ContentItemV1]:
-        response = cast(Union[List[ContentItemV1], HTTPResponse], self.get("v1/content"))
+    def content_list(self, filters: Optional[Mapping[str, JsonData]] = None) -> list[ContentItemV1]:
+        response = cast(Union[List[ContentItemV1], HTTPResponse], self.get("v1/content", query_params=filters))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -488,6 +479,22 @@ class RSConnectClient(HTTPServer):
         response = cast(Union[ContentItemV1, HTTPResponse], self.get("v1/content/%s" % content_guid))
         response = self._server.handle_bad_response(response)
         return response
+
+    def get_content_by_id(self, app_id: str) -> ContentItemV1:
+        """
+        Get content by ID, which can be either a numeric ID (legacy) or GUID.
+
+        :param app_id: Either a numeric ID (e.g., "1234") or GUID (e.g., "abc-def-123")
+        :return: ContentItemV1 data
+        """
+        # Check if it looks like a GUID (contains hyphens)
+        if "-" in str(app_id):
+            return self.content_get(app_id)
+        else:
+            # Legacy numeric ID - get v0 content first to get GUID
+            # TODO: deprecation warning
+            app_v0 = self.app_get(app_id)
+            return self.content_get(app_v0["guid"])
 
     def content_create(self, name: str) -> ContentItemV1:
         response = cast(Union[ContentItemV1, HTTPResponse], self.post("v1/content", body={"name": name}))
@@ -589,15 +596,8 @@ class RSConnectClient(HTTPServer):
         else:
             # assume content exists. if it was deleted then Connect will raise an error
             try:
-                # app_id could be a numeric ID (legacy) or GUID. Try to get it as content.
-                # If it's a numeric ID, app_get will work; if GUID, content_get will work.
-                # We'll use content_get if it looks like a GUID (contains hyphens), otherwise app_get.
-                if "-" in str(app_id):
-                    app = self.content_get(app_id)
-                else:
-                    # Legacy numeric ID - get v0 content and convert to use GUID
-                    app_v0 = self.app_get(app_id)
-                    app = self.content_get(app_v0["guid"])
+                # app_id could be a numeric ID (legacy) or GUID
+                app = self.get_content_by_id(app_id)
             except RSConnectException as e:
                 raise RSConnectException(f"{e} Try setting the --new flag to overwrite the previous deployment.") from e
 
@@ -632,7 +632,7 @@ class RSConnectClient(HTTPServer):
         return results
 
     def search_content(self) -> list[ContentItemV1]:
-        results = self.content_search()
+        results = self.content_list()
         return results
 
     def get_content(self, content_guid: str) -> ContentItemV1:
@@ -1244,11 +1244,9 @@ class RSConnectExecutor:
                 # to get this from the remote.
                 if isinstance(self.remote_server, RSConnectServer):
                     try:
-                        app = get_app_info(self.remote_server, app_id)
-                        # TODO: verify that this is correct. The previous code seemed
-                        # incorrect. It passed an arg to app.get(), which would have
-                        # been ignored.
-                        existing_app_mode = AppModes.get_by_ordinal(app["app_mode"], True)
+                        with RSConnectClient(self.remote_server) as client:
+                            content = client.get_content_by_id(app_id)
+                            existing_app_mode = AppModes.get_by_ordinal(content["app_mode"], True)
                     except RSConnectException as e:
                         raise RSConnectException(
                             f"{e} Try setting the --new flag to overwrite the previous deployment."
@@ -1975,18 +1973,6 @@ def get_python_info(connect_server: Union[RSConnectServer, SPCSConnectServer]):
         return result
 
 
-def get_app_info(connect_server: Union[RSConnectServer, SPCSConnectServer], app_id: str):
-    """
-    Return information about an application that has been created in Connect.
-
-    :param connect_server: the Connect server information.
-    :param app_id: the ID (numeric or GUID) of the application to get info for.
-    :return: the Python installation information from Connect.
-    """
-    with RSConnectClient(connect_server) as client:
-        return client.app_get(app_id)
-
-
 def get_posit_app_info(server: PositServer, app_id: str):
     with PositClient(server) as client:
         if isinstance(server, ShinyappsServer):
@@ -1994,21 +1980,6 @@ def get_posit_app_info(server: PositServer, app_id: str):
         else:
             response = client.get_content(app_id)
             return response["source"]
-
-
-def get_app_config(connect_server: Union[RSConnectServer, SPCSConnectServer], app_id: str):
-    """
-    Return the configuration information for an application that has been created
-    in Connect.
-
-    :param connect_server: the Connect server information.
-    :param app_id: the ID (numeric or GUID) of the application to get the info for.
-    :return: the Python installation information from Connect.
-    """
-    with RSConnectClient(connect_server) as client:
-        result = client.app_config(app_id)
-        result = connect_server.handle_bad_response(result)
-        return result
 
 
 def emit_task_log(
@@ -2041,78 +2012,10 @@ def emit_task_log(
     with RSConnectClient(connect_server) as client:
         result = client.wait_for_task(task_id, log_callback, abort_func, timeout, poll_wait, raise_on_error)
         result = connect_server.handle_bad_response(result)
-        app_config = client.app_config(app_id)
-        connect_server.handle_bad_response(app_config)
-        app_url = app_config.get("config_url")
+        # Get content (handles both numeric IDs and GUIDs)
+        content = client.get_content_by_id(app_id)
+        app_url = content["dashboard_url"]
         return (app_url, *result)
-
-
-def retrieve_matching_apps(
-    connect_server: Union[RSConnectServer, SPCSConnectServer],
-    filters: Optional[dict[str, str | int]] = None,
-    limit: Optional[int] = None,
-    mapping_function: Optional[Callable[[RSConnectClient, ContentItemV0], AbbreviatedAppItem | None]] = None,
-) -> list[ContentItemV0 | AbbreviatedAppItem]:
-    """
-    Retrieves all the app names that start with the given default name.  The main
-    point for this function is that it handles all the necessary paging logic.
-
-    If a mapping function is provided, it must be a callable that accepts 2
-    arguments.  The first will be an `RSConnect` client, in the event extra calls
-    per app are required.  The second will be the current app.  If the function
-    returns None, then the app will be discarded and not appear in the result.
-
-    :param connect_server: the Connect server information.
-    :param filters: the filters to use for isolating the set of desired apps.
-    :param limit: the maximum number of apps to retrieve.  If this is None,
-    then all matching apps are returned.
-    :param mapping_function: an optional function that may transform or filter
-    each app to return to something the caller wants.
-    :return: the list of existing names that start with the proposed one.
-    """
-    page_size = 100
-    result: list[ContentItemV0 | AbbreviatedAppItem] = []
-    search_filters: dict[str, str | int] = filters.copy() if filters else {}
-    search_filters["count"] = min(limit, page_size) if limit else page_size
-    total_returned = 0
-    maximum = limit
-    finished = False
-
-    with RSConnectClient(connect_server) as client:
-        while not finished:
-            response = client.app_search(search_filters)
-
-            if not maximum:
-                maximum = response["total"]
-            else:
-                maximum = min(maximum, response["total"])
-
-            applications = response["applications"]
-            returned = response["count"]
-            delta = maximum - (total_returned + returned)
-            # If more came back than we need, drop the rest.
-            if delta < 0:
-                applications = applications[: abs(delta)]
-            total_returned = total_returned + len(applications)
-
-            if mapping_function:
-                applications = [mapping_function(client, app) for app in applications]
-                # Now filter out the None values that represent the apps the
-                # function told us to drop.
-                applications = [app for app in applications if app is not None]
-
-            result.extend(applications)
-
-            if total_returned < maximum:
-                search_filters = {
-                    "start": total_returned,
-                    "count": page_size,
-                    "cont": response["continuation"],
-                }
-            else:
-                finished = True
-
-    return result
 
 
 class AbbreviatedAppItem(TypedDict):
@@ -2122,78 +2025,6 @@ class AbbreviatedAppItem(TypedDict):
     app_mode: AppModes.Modes
     url: str
     config_url: str
-
-
-def override_title_search(connect_server: Union[RSConnectServer, SPCSConnectServer], app_id: str, app_title: str):
-    """
-    Returns a list of abbreviated app data that contains apps with a title
-    that matches the given one and/or the specific app noted by its ID.
-
-    :param connect_server: the Connect server information.
-    :param app_id: the ID of a specific app to look for, if any.
-    :param app_title: the title to search for.
-    :return: the list of matching apps, each trimmed to ID, name, title, mode
-    URL and dashboard URL.
-    """
-
-    def map_app(app: ContentItemV0, config: ConfigureResult) -> AbbreviatedAppItem:
-        """
-        Creates the abbreviated data dictionary for the specified app and config
-        information.
-
-        :param app: the raw app data to start with.
-        :param config: the configuration data to use.
-        :return: the abbreviated app data dictionary.
-        """
-        return {
-            "id": app["id"],
-            "name": app["name"],
-            "title": app["title"],
-            "app_mode": AppModes.get_by_ordinal(app["app_mode"]).name(),
-            "url": app["url"],
-            "config_url": config["config_url"],
-        }
-
-    def mapping_filter(client: RSConnectClient, app: ContentItemV0) -> AbbreviatedAppItem | None:
-        """
-        Mapping/filter function for retrieving apps.  We only keep apps
-        that have an app mode of static or Jupyter notebook.  The data
-        for the apps we keep is an abbreviated subset.
-
-        :param client: the client object to use for Posit Connect calls.
-        :param app: the current app from Connect.
-        :return: the abbreviated data for the app or None.
-        """
-        # Only keep apps that match our app modes.
-        app_mode = AppModes.get_by_ordinal(app["app_mode"])
-        if app_mode not in (AppModes.STATIC, AppModes.JUPYTER_NOTEBOOK):
-            return None
-
-        config = client.app_config(str(app["id"]))
-        config = connect_server.handle_bad_response(config)
-
-        return map_app(app, config)
-
-    apps = retrieve_matching_apps(
-        connect_server,
-        filters={"filter": "min_role:editor", "search": app_title},
-        mapping_function=mapping_filter,
-        limit=5,
-    )
-
-    if app_id:
-        found = next((app for app in apps if app["id"] == app_id), None)
-
-        if not found:
-            try:
-                app = get_app_info(connect_server, app_id)
-                mode = AppModes.get_by_ordinal(app["app_mode"])
-                if mode in (AppModes.STATIC, AppModes.JUPYTER_NOTEBOOK):
-                    apps.append(map_app(app, get_app_config(connect_server, app_id)))
-            except RSConnectException:
-                logger.debug('Error getting info for previous app_id "%s", skipping.', app_id)
-
-    return apps
 
 
 def find_unique_name(remote_server: TargetableServer, name: str):
@@ -2206,24 +2037,36 @@ def find_unique_name(remote_server: TargetableServer, name: str):
     :return: the name, potentially with a suffixed number to guarantee uniqueness.
     """
     if isinstance(remote_server, (RSConnectServer, SPCSConnectServer)):
-        existing_names = retrieve_matching_apps(
-            remote_server,
-            filters={"search": name},
-            mapping_function=lambda client, app: app["name"],
-        )
+        # Use v1/content API with name query parameter
+        with RSConnectClient(remote_server) as client:
+            results = client.content_list(filters={"name": name})
+
+            # If name exists, append suffix and try again
+            if len(results) > 0:
+                suffix = 1
+                test_name = "%s%d" % (name, suffix)
+                while True:
+                    results = client.content_list(filters={"name": test_name})
+                    if len(results) == 0:
+                        return test_name
+                    suffix = suffix + 1
+                    test_name = "%s%d" % (name, suffix)
+
+            return name
+
     elif isinstance(remote_server, ShinyappsServer):
         client = PositClient(remote_server)
         existing_names = client.get_applications_like_name(name)
+
+        if name in existing_names:
+            suffix = 1
+            test = "%s%d" % (name, suffix)
+            while test in existing_names:
+                suffix = suffix + 1
+                test = "%s%d" % (name, suffix)
+            name = test
+
+        return name
     else:
         # non-unique names are permitted in cloud
         return name
-
-    if name in existing_names:
-        suffix = 1
-        test = "%s%d" % (name, suffix)
-        while test in existing_names:
-            suffix = suffix + 1
-            test = "%s%d" % (name, suffix)
-        name = test
-
-    return name
