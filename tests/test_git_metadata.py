@@ -2,11 +2,9 @@
 Tests for git metadata detection and integration
 """
 
-import os
 import subprocess
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
 
 import pytest
 
