@@ -4,9 +4,7 @@ Git metadata detection utilities for bundle uploads
 
 from __future__ import annotations
 
-import os
 import subprocess
-from os.path import abspath, dirname, exists, join
 from typing import Optional
 from urllib.parse import urlparse
 
