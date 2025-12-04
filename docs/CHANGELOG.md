@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `rsconnect list` now properly functions when a stored server has no nickname.
+- Fixes the HTTP User-Agent string to use PascalCase formatting. HTTP requests now identify the client as `RSConnectPython/x.y.z` instead of `rsconnect-python/x.y.z`.
 
 ### Changed
 
