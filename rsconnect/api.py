@@ -380,7 +380,7 @@ def server_supports_git_metadata(server_version: Optional[str]) -> bool:
     """
     Check if the server version supports git metadata in bundle uploads.
 
-    Git metadata support was added in Connect 2025.11.0.
+    Git metadata support was added in Connect 2025.12.0.
 
     :param server_version: The Connect server version string
     :return: True if the server supports git metadata, False otherwise
@@ -389,7 +389,7 @@ def server_supports_git_metadata(server_version: Optional[str]) -> bool:
         return False
 
     try:
-        return compare_semvers(server_version, "2025.11.0") >= 0
+        return compare_semvers(server_version, "2025.11.0") > 0
     except Exception:
         # If we can't parse the version, assume it doesn't support it
         logger.debug(f"Unable to parse server version: {server_version}")
