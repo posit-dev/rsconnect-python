@@ -399,7 +399,7 @@ class RSConnectClient(HTTPServer):
         )
 
     def me(self) -> UserRecord:
-        response = cast(Union[UserRecord, HTTPResponse], self.get("me"))
+        response = cast(Union[UserRecord, HTTPResponse], self.get("v1/user"))
         response = self._server.handle_bad_response(response)
         return response
 
