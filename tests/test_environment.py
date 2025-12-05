@@ -55,6 +55,7 @@ class TestEnvironment(TestCase):
                 source="file",
             ),
             python_interpreter=sys.executable,
+            python_version_requirement=">=3.8",
         )
         self.assertEqual(expected, result)
 
@@ -276,12 +277,12 @@ def test_get_python_env_info(
 class TestEnvironmentDeprecations:
     def test_override_python_version(self):
         with mock.patch.object(rsconnect.environment.logger, "warning") as mock_warning:
-            result = Environment.create_python_environment(get_dir("pip1"), override_python_version=None)
+            result = Environment.create_python_environment(get_dir("pip1-no-version"), override_python_version=None)
         assert mock_warning.call_count == 0
         assert result.python_version_requirement is None
 
         with mock.patch.object(rsconnect.environment.logger, "warning") as mock_warning:
-            result = Environment.create_python_environment(get_dir("pip1"), override_python_version="3.8")
+            result = Environment.create_python_environment(get_dir("pip1-no-version"), override_python_version="3.8")
         assert mock_warning.call_count == 1
         mock_warning.assert_called_once_with(
             "The --override-python-version option is deprecated, "

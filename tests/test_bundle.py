@@ -132,6 +132,11 @@ class TestBundle(TestCase):
                             "package_file": "requirements.txt",
                         },
                     },
+                    "environment": {
+                        "python": {
+                            "requires": ">=3.8",
+                        },
+                    },
                     "files": {
                         "dummy.ipynb": {
                             "checksum": ipynb_hash,

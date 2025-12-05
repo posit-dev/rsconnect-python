@@ -23,6 +23,7 @@ from .utils import (
     optional_target,
     require_api_key,
     require_connect,
+    require_connect_version,
 )
 
 
@@ -88,6 +89,7 @@ class TestMain:
         assert "OK" in result.output
 
     def test_deploy(self):
+        require_connect_version("2025.03.0")
         target = optional_target(get_dir(join("pip1", "dummy.ipynb")))
         runner = CliRunner()
         args = self.create_deploy_args("notebook", target)
@@ -290,6 +292,7 @@ class TestMain:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
     # noinspection SpellCheckingInspection
+    @pytest.mark.skip(reason="Skipping R manifest test (requires R 3.5, docker containers have moved on).")
     def test_deploy_manifest(self):
         target = optional_target(get_manifest_path("shinyapp"))
         runner = CliRunner()
@@ -299,7 +302,8 @@ class TestMain:
 
     # noinspection SpellCheckingInspection
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_deploy_manifest_shinyapps(self):
+    @mock.patch("rsconnect.api.webbrowser.open_new")
+    def test_deploy_manifest_shinyapps(self, mock_open_browser):
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
 
@@ -474,7 +478,8 @@ class TestMain:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_redeploy_manifest_shinyapps(self):
+    @mock.patch("rsconnect.api.webbrowser.open_new")
+    def test_redeploy_manifest_shinyapps(self, mock_open_browser):
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
 
@@ -641,6 +646,7 @@ class TestMain:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
     def test_deploy_api(self):
+        require_connect_version("2025.03.0")
         target = optional_target(get_api_path("flask"))
         runner = CliRunner()
         args = self.create_deploy_args("api", target)
@@ -656,6 +662,7 @@ class TestMain:
         assert result.exit_code == 1, result.output
 
     def test_deploy_api_fail_no_verify(self):
+        require_connect_version("2025.03.0")
         target = optional_target(get_api_path("flask-bad"))
         runner = CliRunner()
         args = self.create_deploy_args("api", target)
