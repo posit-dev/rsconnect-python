@@ -23,6 +23,7 @@ from .utils import (
     optional_target,
     require_api_key,
     require_connect,
+    require_connect_version,
 )
 
 
@@ -88,6 +89,7 @@ class TestMain:
         assert "OK" in result.output
 
     def test_deploy(self):
+        require_connect_version("2025.03.0")
         target = optional_target(get_dir(join("pip1", "dummy.ipynb")))
         runner = CliRunner()
         args = self.create_deploy_args("notebook", target)
@@ -644,6 +646,7 @@ class TestMain:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
     def test_deploy_api(self):
+        require_connect_version("2025.03.0")
         target = optional_target(get_api_path("flask"))
         runner = CliRunner()
         args = self.create_deploy_args("api", target)
@@ -659,6 +662,7 @@ class TestMain:
         assert result.exit_code == 1, result.output
 
     def test_deploy_api_fail_no_verify(self):
+        require_connect_version("2025.03.0")
         target = optional_target(get_api_path("flask-bad"))
         runner = CliRunner()
         args = self.create_deploy_args("api", target)

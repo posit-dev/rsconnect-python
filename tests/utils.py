@@ -3,8 +3,10 @@ import os
 import jwt
 import re
 from os.path import join, dirname, exists
+from packaging import version
 
 import pytest
+from rsconnect.api import RSConnectServer, RSConnectClient
 
 
 def apply_common_args(args: list, server=None, key=None, cacert=None, insecure=False):
@@ -40,6 +42,29 @@ def require_api_key():
     if connect_api_key is None:
         pytest.skip("Set CONNECT_API_KEY to test this function.")
     return connect_api_key
+
+
+def require_connect_version(min_version: str):
+    """
+    Skip test if Connect server version is less than min_version.
+
+    Args:
+        min_version: Minimum required version (e.g., "2025.03.0")
+    """
+    connect_server = require_connect()
+    api_key = require_api_key()
+
+    server = RSConnectServer(connect_server, api_key)
+    client = RSConnectClient(server)
+
+    try:
+        settings = client.server_settings()
+        server_version = settings["version"]
+
+        if version.parse(server_version) < version.parse(min_version):
+            pytest.skip(f"Connect server {server_version} < {min_version}")
+    except Exception as e:
+        pytest.skip(f"Could not determine Connect server version: {e}")
 
 
 def get_dir(name):
