@@ -601,6 +601,7 @@ class UserRecord(TypedDict):
     first_name: str
     last_name: str
     password: str
+    user_role: str
     created_time: str
     updated_time: str
     active_time: str | None
@@ -608,3 +609,4 @@ class UserRecord(TypedDict):
     locked: bool
     guid: str
     preferences: dict[str, object]
+    privileges: list[str]
