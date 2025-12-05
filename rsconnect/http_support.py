@@ -31,7 +31,7 @@ JsonData = Union[
     Dict[str, "JsonData"],
 ]
 
-_user_agent = "rsconnect-python/%s" % VERSION
+_user_agent = "RSConnectPython/%s" % VERSION
 
 
 # noinspection PyUnusedLocal,PyUnresolvedReferences
