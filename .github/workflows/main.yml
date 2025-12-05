@@ -152,7 +152,16 @@ jobs:
           - "2022.10.0" # bionic
     name: Integration tests against Connect ${{ matrix.version }}
     env:
-      python-version: 3.13
+      # Pick an older python version because rsconnect-python sends the current
+      # local python version to Connect. If the version on the server is newer,
+      # it will bump it up, but if the version you send is newer, it will error.
+      #
+      # Alternatively, set a python version constraint in .python-version,
+      # pyproject.toml, or setup.cfg, for each of the test fixtures in these tests:
+      # FAILED tests/test_main.py::TestMain::test_deploy
+      # FAILED tests/test_main.py::TestMain::test_deploy_api
+      # FAILED tests/test_main.py::TestMain::test_deploy_api_fail_no_verify
+      python-version: 3.9
     steps:
       - uses: actions/checkout@v6
 
@@ -160,8 +169,8 @@ jobs:
         with:
           python-version: ${{ env.python-version }}
 
-      - name: Install dependencies (test and snowflake)
-        run: pip install '.[test,snowflake]'
+      - name: Install dependencies
+        run: pip install '.[test]'
 
       - run: pip freeze
 
