@@ -25,7 +25,7 @@ class TestAPI(TestCase):
     def test_executor_init(self):
         connect_server = require_connect()
         api_key = require_api_key()
-        ce = RSConnectExecutor(None, None, connect_server, api_key, True, None)
+        ce = RSConnectExecutor(url=connect_server, api_key=api_key, insecure=True)
         self.assertEqual(ce.remote_server.url, connect_server)
 
     def test_output_task_log(self):
@@ -52,7 +52,7 @@ class TestAPI(TestCase):
     def test_make_deployment_name(self):
         connect_server = require_connect()
         api_key = require_api_key()
-        ce = RSConnectExecutor(None, None, connect_server, api_key, True, None)
+        ce = RSConnectExecutor(url=connect_server, api_key=api_key, insecure=True)
         self.assertEqual(ce.make_deployment_name("title", False), "title")
         self.assertEqual(ce.make_deployment_name("Title", False), "title")
         self.assertEqual(ce.make_deployment_name("My Title", False), "my_title")
