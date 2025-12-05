@@ -68,7 +68,11 @@ All version and release management is done via [annotated git tags](https://git-
 repo metadata used by the [`setuptools_scm`](https://github.com/pypa/setuptools_scm) package to generate the version
 string provided as `rsconnect:VERSION` and output by `rsconnect version`.
 
+### Update CHANGELOG.md
+
 Before releasing, replace the `Unreleased` heading in the CHANGELOG.md with the version number and date. Update CHANGELOG.md before _EACH_ release, even beta releases, in order to avoid one commit with multiple tags (https://github.com/pypa/setuptools_scm/issues/521).
+
+### Tagging a Release
 
 To create a new release, create and push an annotated git tag:
 
