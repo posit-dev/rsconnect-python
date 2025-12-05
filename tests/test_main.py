@@ -300,7 +300,8 @@ class TestMain:
 
     # noinspection SpellCheckingInspection
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_deploy_manifest_shinyapps(self):
+    @mock.patch("rsconnect.api.webbrowser.open_new")
+    def test_deploy_manifest_shinyapps(self, mock_open_browser):
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
 
@@ -475,7 +476,8 @@ class TestMain:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_redeploy_manifest_shinyapps(self):
+    @mock.patch("rsconnect.api.webbrowser.open_new")
+    def test_redeploy_manifest_shinyapps(self, mock_open_browser):
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
 
