@@ -389,9 +389,8 @@ def cli(future: bool):
     certificate file to use for TLS.  The last two items are only relevant if the
     URL specifies the "https" protocol.
 
-    For Posit Cloud, the information needed to connect includes the auth token, auth
-    secret, and server ('posit.cloud'). For shinyapps.io, the auth token, auth secret,
-    server ('shinyapps.io'), and account are needed.
+    For shinyapps.io, the auth token, auth secret, server ('shinyapps.io'), and account
+    are needed.
     """
     global future_enabled
     future_enabled = future
@@ -684,15 +683,10 @@ def add(
     old_server = server_store.get_by_name(name)
 
     if token:
-        if server and ("rstudio.cloud" in server or "posit.cloud" in server):
-            account = cast(str, account)
-            secret = cast(str, secret)
-            real_server = api.CloudServer(server, account, token, secret)
-        else:
-            server = cast(str, server)
-            account = cast(str, account)
-            secret = cast(str, secret)
-            real_server = api.ShinyappsServer(server, account, token, secret)
+        server = cast(str, server)
+        account = cast(str, account)
+        secret = cast(str, secret)
+        real_server = api.ShinyappsServer(server, account, token, secret)
 
         _test_rstudio_creds(real_server)
 

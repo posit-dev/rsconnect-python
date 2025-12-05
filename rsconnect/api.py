@@ -200,19 +200,6 @@ class ShinyappsServer(PositServer):
         super().__init__(remote_name=remote_name, url=url, account_name=account_name, token=token, secret=secret)
 
 
-class CloudServer(PositServer):
-    """
-    A class to encapsulate the information needed to interact with an
-    instance of the Posit Cloud server.
-    """
-
-    def __init__(self, url: str, account_name: str, token: str, secret: str):
-        remote_name = "Posit Cloud"
-        if url in {"posit.cloud", "rstudio.cloud", None}:
-            url = "https://api.posit.cloud"
-        super().__init__(remote_name=remote_name, url=url, account_name=account_name, token=token, secret=secret)
-
-
 class RSConnectServer(AbstractRemoteServer):
     """
     A simple class to encapsulate the information needed to interact with an
@@ -362,7 +349,7 @@ class SPCSConnectServer(AbstractRemoteServer):
             raise RSConnectException(f"Failed to exchange Snowflake token: {str(e)}") from e
 
 
-TargetableServer = typing.Union[ShinyappsServer, RSConnectServer, CloudServer, SPCSConnectServer]
+TargetableServer = typing.Union[ShinyappsServer, RSConnectServer, SPCSConnectServer]
 
 
 class S3Server(AbstractRemoteServer):
@@ -919,13 +906,9 @@ class RSConnectExecutor:
             url = cast(str, url)
             self.remote_server = RSConnectServer(url, api_key, insecure, ca_data)
         elif token and secret:
-            if url and ("rstudio.cloud" in url or "posit.cloud" in url):
-                account_name = cast(str, account_name)
-                self.remote_server = CloudServer(url, account_name, token, secret)
-            else:
-                url = cast(str, url)
-                account_name = cast(str, account_name)
-                self.remote_server = ShinyappsServer(url, account_name, token, secret)
+            url = cast(str, url)
+            account_name = cast(str, account_name)
+            self.remote_server = ShinyappsServer(url, account_name, token, secret)
         else:
             raise RSConnectException("Unable to infer Connect server type and setup server.")
 
@@ -1018,11 +1001,7 @@ class RSConnectExecutor:
         account_name = remote_server.account_name
         token = remote_server.token
         secret = remote_server.secret
-        server = (
-            CloudServer(url, account_name, token, secret)
-            if "rstudio.cloud" in url or "posit.cloud" in url
-            else ShinyappsServer(url, account_name, token, secret)
-        )
+        server = ShinyappsServer(url, account_name, token, secret)
 
         with PositClient(server) as client:
             try:
@@ -1101,32 +1080,17 @@ class RSConnectExecutor:
             if not isinstance(self.client, PositClient):
                 raise RSConnectException("client must be a PositClient.")
 
-            if isinstance(self.remote_server, ShinyappsServer):
-                shinyapps_service = ShinyappsService(self.client, self.remote_server)
-                prepare_deploy_result = shinyapps_service.prepare_deploy(
-                    self.app_id,
-                    self.deployment_name,
-                    bundle_size,
-                    bundle_hash,
-                    self.visibility,
-                )
-                self.upload_posit_bundle(prepare_deploy_result, bundle_size, contents)
-                # type: ignore[arg-type] - PrepareDeployResult uses int, but format() accepts it
-                shinyapps_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
-            else:
-                cloud_service = CloudService(self.client, self.remote_server, os.getenv("LUCID_APPLICATION_ID"))
-                app_store_version = self.app_store_version
-                prepare_deploy_result = cloud_service.prepare_deploy(
-                    self.app_id,
-                    self.deployment_name,
-                    bundle_size,
-                    bundle_hash,
-                    self.app_mode,
-                    app_store_version,
-                )
-                self.upload_posit_bundle(prepare_deploy_result, bundle_size, contents)
-                # type: ignore[arg-type] - PrepareDeployResult uses int, but format() accepts it
-                cloud_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.application_id)
+            shinyapps_service = ShinyappsService(self.client, self.remote_server)
+            prepare_deploy_result = shinyapps_service.prepare_deploy(
+                self.app_id,
+                self.deployment_name,
+                bundle_size,
+                bundle_hash,
+                self.visibility,
+            )
+            self.upload_posit_bundle(prepare_deploy_result, bundle_size, contents)
+            # type: ignore[arg-type] - PrepareDeployResult uses int, but format() accepts it
+            shinyapps_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
 
             print("Application successfully deployed to {}".format(prepare_deploy_result.app_url))
             webbrowser.open_new(prepare_deploy_result.app_url)
@@ -1498,20 +1462,9 @@ class PositClientShinyappsBuildTaskSearchResults(TypedDict):
     tasks: list[PositClientShinyappsBuildTask]
 
 
-class PositClientCloudOutput(TypedDict):
-    id: int
-    space_id: str
-    source_id: int
-    url: str
-
-
-class PositClientCloudOutputRevision(TypedDict):
-    application_id: int
-
-
 class PositClient(HTTPServer):
     """
-    An HTTP client to call the Posit Cloud and shinyapps.io APIs.
+    An HTTP client to call the shinyapps.io API.
     """
 
     _TERMINAL_STATUSES = {"success", "failed", "error"}
@@ -1579,11 +1532,6 @@ class PositClient(HTTPServer):
         response = self._server.handle_bad_response(response, is_httpresponse=True)
         return response
 
-    def get_content(self, content_id: str) -> PositClientCloudOutput:
-        response = cast(Union[PositClientCloudOutput, HTTPResponse], self.get("/v1/content/{}".format(content_id)))
-        response = self._server.handle_bad_response(response)
-        return response
-
     def create_application(self, account_id: int, application_name: str) -> PositClientApp:
         application_data = {
             "account": account_id,
@@ -1593,32 +1541,6 @@ class PositClient(HTTPServer):
         response = cast(Union[PositClientApp, HTTPResponse], self.post("/v1/applications/", body=application_data))
         response = self._server.handle_bad_response(response)
         return response
-
-    def create_output(
-        self,
-        name: str,
-        application_type: str,
-        project_id: Optional[str] = None,
-        space_id: Optional[str] = None,
-        render_by: Optional[str] = None,
-    ) -> PositClientCloudOutput:
-        data = {"name": name, "space": space_id, "project": project_id, "application_type": application_type}
-        if render_by:
-            data["render_by"] = render_by
-        response = cast(Union[PositClientCloudOutput, HTTPResponse], self.post("/v1/outputs/", body=data))
-        response = self._server.handle_bad_response(response)
-        return response
-
-    def create_revision(self, content_id: str) -> PositClientCloudOutputRevision:
-        response = cast(
-            Union[PositClientCloudOutputRevision, HTTPResponse],
-            self.post("/v1/outputs/{}/revisions".format(content_id), body={}),
-        )
-        response = self._server.handle_bad_response(response)
-        return response
-
-    def update_output(self, output_id: int, output_data: Mapping[str, str]):
-        return self.patch("/v1/outputs/{}".format(output_id), body=output_data)
 
     def get_accounts(self) -> PositClientAccountSearchResults:
         response = cast(Union[PositClientAccountSearchResults, HTTPResponse], self.get("/v1/accounts/"))
@@ -1812,111 +1734,6 @@ class ShinyappsService:
             raise e
 
 
-class CloudService:
-    """
-    Encapsulates operations involving multiple API calls to Posit Cloud.
-    """
-
-    def __init__(
-        self,
-        cloud_client: PositClient,
-        server: CloudServer,
-        project_application_id: Optional[str],
-    ):
-        self._posit_client = cloud_client
-        self._server = server
-        self._project_application_id = project_application_id
-
-    def _get_current_project_id(self) -> str | None:
-        if self._project_application_id is not None:
-            project_application = self._posit_client.get_application(self._project_application_id)
-            return project_application["content_id"]
-        return None
-
-    def prepare_deploy(
-        self,
-        app_id: Optional[str | int],
-        app_name: str,
-        bundle_size: int,
-        bundle_hash: str,
-        app_mode: AppMode,
-        app_store_version: Optional[int],
-    ) -> PrepareDeployOutputResult:
-        application_type = "static" if app_mode in [AppModes.STATIC, AppModes.STATIC_QUARTO] else "connect"
-        logger.debug(f"application_type: {application_type}")
-
-        render_by = "server" if app_mode == AppModes.STATIC_QUARTO else None
-        logger.debug(f"render_by: {render_by}")
-
-        project_id = self._get_current_project_id()
-
-        if app_id is None:
-            # this is a deployment of a new output
-            if project_id is not None:
-                project = self._posit_client.get_content(project_id)
-                space_id = project["space_id"]
-            else:
-                project_id = None
-                space_id = None
-
-            # create the new output and associate it with the current Posit Cloud project and space
-            output = self._posit_client.create_output(
-                name=app_name,
-                application_type=application_type,
-                project_id=project_id,
-                space_id=space_id,
-                render_by=render_by,
-            )
-            app_id_int = output["source_id"]
-        else:
-            # this is a redeployment of an existing output
-            if app_store_version is not None:
-                # versioned app store files store content id in app_id
-                output = self._posit_client.get_content(app_id)
-                app_id_int = output["source_id"]
-                content_id = output["id"]
-            else:
-                # unversioned appstore files (deployed using a prior release) store application id in app_id
-                application = self._posit_client.get_application(app_id)
-                # content_id will appear on static applications as output_id
-                content_id = application.get("content_id") or application.get("output_id")
-                app_id_int = application["id"]
-                output = self._posit_client.get_content(content_id)
-
-            if application_type == "static":
-                revision = self._posit_client.create_revision(content_id)
-                app_id_int = revision["application_id"]
-
-            # associate the output with the current Posit Cloud project (if any)
-            if project_id is not None:
-                self._posit_client.update_output(output["id"], {"project": project_id})
-
-        app_url = output["url"]
-        output_id = output["id"]
-
-        bundle = self._posit_client.create_bundle(app_id_int, "application/x-tar", bundle_size, bundle_hash)
-
-        return PrepareDeployOutputResult(
-            app_id=output_id,
-            application_id=app_id_int,
-            app_url=app_url,
-            bundle_id=int(bundle["id"]),
-            presigned_url=bundle["presigned_url"],
-            presigned_checksum=bundle["presigned_checksum"],
-        )
-
-    def do_deploy(self, bundle_id: str, app_id: str):
-        self._posit_client.set_bundle_status(bundle_id, "ready")
-        deploy_task = self._posit_client.deploy_application(bundle_id, app_id)
-        try:
-            self._posit_client.wait_until_task_is_successful(deploy_task["id"])
-        except DeploymentFailedException as e:
-            logs_response = self._posit_client.get_task_logs(deploy_task["id"])
-            if len(logs_response.response_body) > 0:
-                logger.error("Build logs:\n{}".format(logs_response.response_body))
-            raise e
-
-
 def verify_server(connect_server: RSConnectServer):
     """
     Verify that the given server information represents a Connect instance that is
@@ -1975,11 +1792,7 @@ def get_python_info(connect_server: Union[RSConnectServer, SPCSConnectServer]):
 
 def get_posit_app_info(server: PositServer, app_id: str):
     with PositClient(server) as client:
-        if isinstance(server, ShinyappsServer):
-            return client.get_application(app_id)
-        else:
-            response = client.get_content(app_id)
-            return response["source"]
+        return client.get_application(app_id)
 
 
 def emit_task_log(

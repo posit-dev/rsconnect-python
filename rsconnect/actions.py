@@ -370,7 +370,7 @@ def deploy_app(
                 cookies=connect_server.cookie_jar,
             )
         )
-    elif isinstance(connect_server, api.ShinyappsServer) or isinstance(connect_server, api.CloudServer):
+    elif isinstance(connect_server, api.ShinyappsServer):
         kwargs.update(
             dict(
                 url=connect_server.url,

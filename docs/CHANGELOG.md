@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Corrected Changelog to show the correct version number of the 1.28.1 release.
 
+### Removed
+
+- Removed support for publishing to Posit Cloud. Posit Cloud no longer hosts
+  deployed content. Users should migrate to Connect Cloud or Posit Connect.
+
+
 ## [1.28.1] - 2025-12-05
 
 ### Fixed
