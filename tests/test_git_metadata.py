@@ -56,9 +56,7 @@ class TestGitDetection:
             test_file = Path(tmpdir) / "test.txt"
             test_file.write_text("test content")
             subprocess.run(["git", "add", "."], cwd=tmpdir, check=True, capture_output=True)
-            subprocess.run(
-                ["git", "commit", "-m", "Initial commit"], cwd=tmpdir, check=True, capture_output=True
-            )
+            subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=tmpdir, check=True, capture_output=True)
 
             # Add a remote
             subprocess.run(
@@ -243,12 +241,12 @@ class TestPrepareDeployMetadata:
 class TestIntegration:
     """Integration tests for the full workflow."""
 
-    def test_app_upload_signature_accepts_metadata(self):
-        """Test that app_upload accepts metadata parameter."""
+    def test_upload_bundle_signature_accepts_metadata(self):
+        """Test that upload_bundle accepts metadata parameter."""
         from inspect import signature
 
         from rsconnect.api import RSConnectClient
 
-        # Check that app_upload has metadata parameter
-        sig = signature(RSConnectClient.app_upload)
+        # Check that upload_bundle has metadata parameter
+        sig = signature(RSConnectClient.upload_bundle)
         assert "metadata" in sig.parameters

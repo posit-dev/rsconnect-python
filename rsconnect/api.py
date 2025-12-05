@@ -525,7 +525,7 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def content_upload_bundle(
+    def upload_bundle(
         self, content_guid: str, tarball: typing.IO[bytes], metadata: Optional[dict[str, str]] = None
     ) -> BundleMetadata:
         """
@@ -661,7 +661,7 @@ class RSConnectClient(HTTPServer):
             result = self._server.handle_bad_response(result)
             app["title"] = app_title
 
-        app_bundle = self.content_upload_bundle(app_guid, tarball, metadata=metadata)
+        app_bundle = self.upload_bundle(app_guid, tarball, metadata=metadata)
 
         task = self.content_deploy(app_guid, app_bundle["id"], activate=activate)
 
