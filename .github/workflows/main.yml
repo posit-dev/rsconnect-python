@@ -15,26 +15,26 @@ permissions:
   pull-requests: write
 
 jobs:
-  test:
+  test-python-versions:
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
         include:
         - os: macos-latest
-          python-version: '3.9'
+          python-version: '3.13'
         - os: windows-latest
-          python-version: '3.9'
+          python-version: '3.13'
     runs-on: ${{ matrix.os }}
     name: test (py${{ matrix.python-version }} ${{ matrix.os }})
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - uses: actions/setup-python@v4
+    - uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - run: pip install '.[test]'
@@ -52,12 +52,12 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - uses: actions/setup-python@v4
+    - uses: actions/setup-python@v6
       with:
         python-version: 3.8.x
     - run: pip install --pre '.[test]'
@@ -67,18 +67,18 @@ jobs:
     - run: make test-3.8
 
   distributions:
-    needs: test
+    needs: test-python-versions
     strategy:
       matrix:
         package_name: ["rsconnect_python", "rsconnect"]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - uses: actions/setup-python@v4
+    - uses: actions/setup-python@v6
       with:
         python-version: 3.8.x
     - name: Install uv # see scripts/temporary-rename
@@ -103,10 +103,10 @@ jobs:
       uses: pypa/gh-action-pypi-publish@release/v1
 
   docs:
-    needs: test
+    needs: test-python-versions
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0
       env:
@@ -117,7 +117,7 @@ jobs:
         python-version: 3.12
     - name: build docs
       run: make docs
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v5
       with:
         name: docs
         path: site/
@@ -136,12 +136,52 @@ jobs:
     - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
       run: make promote-docs-in-s3
 
-  test-rsconnect:
-    name: "Integration tests against latest Connect"
+  test-connect-versions:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - "release"   # special value that always points to the latest Connect release
+          - "2025.09.0" # jammy
+          - "2025.03.0" # jammy
+          - "2024.09.0" # jammy
+          - "2024.03.0" # jammy
+          - "2023.09.0" # jammy
+          - "2023.03.0" # bionic
+          - "2022.10.0" # bionic
+    name: Integration tests against Connect ${{ matrix.version }}
+    env:
+      python-version: 3.13
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.python-version }}
+
+      - name: Install dependencies (test and snowflake)
+        run: pip install '.[test,snowflake]'
+
+      - run: pip freeze
+
+      - run: rsconnect version
+
+      - name: Run integration tests
+        uses: posit-dev/with-connect@main
+        with:
+          version: ${{ matrix.version }}
+          # License file valid until 2026-12-05
+          license: ${{ secrets.CONNECT_LICENSE_FILE }}
+          command: |
+            make test-${{ env.python-version }}
+
+  test-dev-connect:
+    name: "Integration tests against dev Connect"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: 3.12.4
       - name: Install dependencies
