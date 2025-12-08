@@ -127,8 +127,8 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/__api__/me",
-            body=open("tests/testdata/rstudio-responses/get-user.json", "r").read(),
+            "http://fake_server/__api__/v1/user",
+            body=open("tests/testdata/connect-responses/me.json", "r").read(),
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
