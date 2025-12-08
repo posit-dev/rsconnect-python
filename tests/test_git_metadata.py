@@ -132,8 +132,8 @@ class TestServerVersionSupport:
         assert server_supports_git_metadata("2024.01.0") is False
         assert server_supports_git_metadata("2025.10.0") is False
 
-        # Exact version - supported
-        assert server_supports_git_metadata("2025.11.0") is True
+        # Exact version - nope
+        assert server_supports_git_metadata("2025.11.0") is False
 
         # Newer version - supported
         assert server_supports_git_metadata("2025.12.0") is True
@@ -197,7 +197,7 @@ class TestPrepareDeployMetadata:
     def test_prepare_metadata_no_metadata_flag(self, temp_git_repo):
         from rsconnect.main import prepare_deploy_metadata
 
-        result = prepare_deploy_metadata(temp_git_repo, tuple(), True, "2025.11.0")
+        result = prepare_deploy_metadata(temp_git_repo, tuple(), True, "2025.12.0")
         assert result is None
 
     def test_prepare_metadata_old_server_no_cli_overrides(self, temp_git_repo):
@@ -209,7 +209,7 @@ class TestPrepareDeployMetadata:
     def test_prepare_metadata_new_server(self, temp_git_repo):
         from rsconnect.main import prepare_deploy_metadata
 
-        result = prepare_deploy_metadata(temp_git_repo, tuple(), False, "2025.11.0")
+        result = prepare_deploy_metadata(temp_git_repo, tuple(), False, "2025.12.0")
         assert result is not None
         assert result["source"] == "git"
         assert "source_commit" in result
@@ -231,7 +231,7 @@ class TestPrepareDeployMetadata:
         from rsconnect.main import prepare_deploy_metadata
 
         # Empty value should clear the key
-        result = prepare_deploy_metadata(temp_git_repo, ("source_repo=",), False, "2025.11.0")
+        result = prepare_deploy_metadata(temp_git_repo, ("source_repo=",), False, "2.0")
         assert result is not None
         assert "source_repo" not in result  # Cleared by empty value
         assert "source" in result  # Still detected
