@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- Bundle uploads now include git metadata (source, source_repo, source_branch, source_commit)
+  when deploying from a git repository. This metadata is automatically detected and sent to
+  Posit Connect 2025.12.0 or later. Use `--metadata key=value` to provide additional metadata
+  or override detected values. Use `--no-metadata` to disable automatic detection. (#736)
+
 ## [1.28.2] - 2025-12-05
 
 ### Fixed
@@ -38,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tool that returns parameter schemas for any rsconnect command, allowing LLMs
   to more easily construct valid CLI commands.
 
-- You can now deploy Holoviz Panel applications. This requires Posit Connect release 2025.12.0
+- You can now deploy Holoviz Panel applications. This requires Posit Connect release 2025.11.0
   or later. Use `rsconnect deploy panel` to deploy, or `rsconnect write-manifest panel`
   to create a manifest file.
 
