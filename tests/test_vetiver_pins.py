@@ -7,9 +7,6 @@ import pins  # noqa
 import pandas as pd  # noqa
 import numpy as np  # noqa
 
-from pins.boards import BoardRsConnect  # noqa
-from pins.rsconnect.api import RsConnectApi  # noqa
-from pins.rsconnect.fs import RsConnectFs  # noqa
 from rsconnect.api import RSConnectServer, RSConnectClient  # noqa
 
 from .utils import require_api_key, require_connect  # noqa
@@ -17,29 +14,6 @@ from .utils import require_api_key, require_connect  # noqa
 pytestmark = pytest.mark.vetiver  # noqa
 
 os.environ["CONNECT_CONTENT_BUILD_DIR"] = "vetiver-test-build"  # noqa
-
-
-def rsc_delete_user_content(rsc):
-    guid = rsc.get_user()["guid"]
-    content = rsc.get_content(owner_guid=guid)
-    for entry in content:
-        rsc.delete_content_item(entry["guid"])
-
-
-@pytest.fixture(scope="function")
-def rsc_short():
-    # tears down content after each test
-    server_url = require_connect()
-    api_key = require_api_key()
-    rsc = RsConnectApi(server_url, api_key)
-    fs_susan = RsConnectFs(rsc)
-
-    # delete any content that might already exist
-    rsc_delete_user_content(fs_susan.api)
-
-    yield BoardRsConnect("", fs_susan, allow_pickle_read=True)  # fs_susan.ls to list content
-
-    rsc_delete_user_content(fs_susan.api)
 
 
 def test_deploy():

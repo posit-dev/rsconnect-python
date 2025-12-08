@@ -176,6 +176,26 @@ jobs:
           command: |
             make test-${{ env.python-version }}
 
+  test-vetiver:
+    name: "Vetiver integration test"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: 3.12.4
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install '.[test,vetiver-testing]'
+      - name: Run tests
+        uses: posit-dev/with-connect@main
+        with:
+          version: "release"
+          license: ${{ secrets.CONNECT_LICENSE_FILE }}
+          command: |
+            pytest -m 'vetiver'
+
   test-dev-connect:
     name: "Integration tests against dev Connect"
     runs-on: ubuntu-latest
