@@ -194,6 +194,7 @@ jobs:
           version: "release"
           license: ${{ secrets.CONNECT_LICENSE_FILE }}
           command: |
+            pip freeze > requirements.txt
             pytest -m 'vetiver'
 
   test-dev-connect:
