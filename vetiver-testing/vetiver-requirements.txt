@@ -1,6 +1,0 @@
-pandas
-numpy
-pydantic
-pytest
-pins
-vetiver

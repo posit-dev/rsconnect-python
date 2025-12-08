@@ -41,6 +41,14 @@ test = [
 ]
 snowflake = ["snowflake-cli"]
 mcp = ["fastmcp==2.12.4; python_version >= '3.10'"]
+vetiver-testing = [
+    "pandas",
+    "numpy",
+    "pydantic",
+    "pytest",
+    "pins",
+    "vetiver",
+]
 docs = [
     "mkdocs-material",
     "mkdocs-click",
