@@ -68,6 +68,7 @@ from .api import (
     RSConnectExecutor,
     RSConnectServer,
     SPCSConnectServer,
+    server_supports_git_metadata,
 )
 from .bundle import (
     default_title_from_manifest,
@@ -92,6 +93,7 @@ from .bundle import (
 )
 from .environment import Environment, fake_module_file_from_directory
 from .exception import RSConnectException
+from .git_metadata import detect_git_metadata
 from .json_web_token import (
     TokenGenerator,
     parse_client_response,
@@ -114,8 +116,6 @@ from .models import (
 from .environment import PackageInstaller
 from .shiny_express import escape_to_var_name, is_express_app
 from .utils_package import fix_starlette_requirements
-from .git_metadata import detect_git_metadata
-from .api import server_supports_git_metadata
 
 T = TypeVar("T")
 P = ParamSpec("P")
@@ -373,7 +373,7 @@ def content_args(func: Callable[P, T]) -> Callable[P, T]:
             "Include metadata key-value pair with the bundle upload. "
             "Use format: key=value. May be specified multiple times. "
             "Use key= (empty value) to clear a detected value. "
-            "Forces metadata upload even on older servers that don't officially support it. [v2025.11.0+]"
+            "Forces metadata upload even on older servers that don't officially support it. [v2025.12.0+]"
         ),
     )
     @click.option(

@@ -50,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tool that returns parameter schemas for any rsconnect command, allowing LLMs
   to more easily construct valid CLI commands.
 
-- You can now deploy Holoviz Panel applications. This requires Posit Connect release 2025.11.0
+- You can now deploy Holoviz Panel applications. This requires Posit Connect release 2025.12.0
   or later. Use `rsconnect deploy panel` to deploy, or `rsconnect write-manifest panel`
   to create a manifest file.
 
