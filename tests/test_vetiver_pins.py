@@ -33,7 +33,7 @@ def test_deploy():
     vetiver.vetiver_pin_write(board=board, model=v)
     connect_server = RSConnectServer(url=server_url, api_key=require_api_key())
 
-    vetiver.deploy_connect(
+    vetiver.deploy_rsconnect(
         connect_server=connect_server,
         board=board,
         pin_name=modelname,
