@@ -49,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Introduced `--package-manager=uv|pip` option to enforce a specific package manager
+- Introduced `--package-installer=uv|pip` option to enforce a specific package installer
   to be used when deploying content. When omitted, the server will decide.
 
 ## [1.27.1] - 2025-08-12
