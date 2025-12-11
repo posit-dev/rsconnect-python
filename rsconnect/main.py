@@ -1016,7 +1016,9 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
 @click.option(
     "--package-installer",
     type=click.Choice(["pip", "uv"]),
-    help=("Select the Python package installer for installs in the manifest. " "By default, behavior is server-driven."),
+    help=(
+        "Select the Python package installer for installs in the manifest. " "By default, behavior is server-driven."
+    ),
 )
 @click.option("--hide-all-input", is_flag=True, default=False, help="Hide all input cells when rendering output")
 @click.option(
@@ -1177,7 +1179,9 @@ def deploy_notebook(
 @click.option(
     "--package-installer",
     type=click.Choice(["pip", "uv"]),
-    help=("Select the Python package installer for installs in the manifest. " "By default, behavior is server-driven."),
+    help=(
+        "Select the Python package installer for installs in the manifest. " "By default, behavior is server-driven."
+    ),
 )
 @click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
@@ -1398,7 +1402,9 @@ def deploy_manifest(
 @click.option(
     "--package-installer",
     type=click.Choice(["pip", "uv"]),
-    help=("Select the Python package installer for installs in the manifest. " "By default, behavior is server-driven."),
+    help=(
+        "Select the Python package installer for installs in the manifest. " "By default, behavior is server-driven."
+    ),
 )
 @click.argument("file_or_directory", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument(
@@ -1771,7 +1777,8 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         "--package-installer",
         type=click.Choice(["pip", "uv"]),
         help=(
-            "Select the Python package installer for installs in the manifest. " "By default, behavior is server-driven."
+            "Select the Python package installer for installs in the manifest. "
+            "By default, behavior is server-driven."
         ),
     )
     @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
@@ -1967,7 +1974,9 @@ def write_manifest():
 @click.option(
     "--package-installer",
     type=click.Choice(["pip", "uv"]),
-    help=("Select the Python package installer for installs in the manifest. " "By default, behavior is server-driven."),
+    help=(
+        "Select the Python package installer for installs in the manifest. " "By default, behavior is server-driven."
+    ),
 )
 @click.option("--hide-all-input", is_flag=True, default=None, help="Hide all input cells when rendering output")
 @click.option("--hide-tagged-input", is_flag=True, default=None, help="Hide input code cells with the 'hide_input' tag")
@@ -2072,7 +2081,9 @@ def write_manifest_notebook(
 @click.option(
     "--package-installer",
     type=click.Choice(["pip", "uv"]),
-    help=("Select the Python package installer for installs in the manifest. " "By default, behavior is server-driven."),
+    help=(
+        "Select the Python package installer for installs in the manifest. " "By default, behavior is server-driven."
+    ),
 )
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
 @click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
@@ -2214,7 +2225,9 @@ def write_manifest_voila(
 @click.option(
     "--package-installer",
     type=click.Choice(["pip", "uv"]),
-    help=("Select the Python package installer for installs in the manifest. " "By default, behavior is server-driven."),
+    help=(
+        "Select the Python package installer for installs in the manifest. " "By default, behavior is server-driven."
+    ),
 )
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
 @click.argument("file_or_directory", type=click.Path(exists=True, dir_okay=True, file_okay=True))
@@ -2413,7 +2426,8 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
         "--package-installer",
         type=click.Choice(["pip", "uv"]),
         help=(
-            "Select the Python package installer for installs in the manifest. " "By default, behavior is server-driven."
+            "Select the Python package installer for installs in the manifest. "
+            "By default, behavior is server-driven."
         ),
     )
     @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")

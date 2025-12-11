@@ -253,6 +253,7 @@ class TestBundle(TestCase):
 
     def test_make_api_bundle_package_manager_pip(self):
         from .utils import get_api_path
+
         directory = get_api_path("stock-api-fastapi", "")
         environment = Environment.create_python_environment(directory, package_manager="pip")
         entrypoint = "app:app"
