@@ -55,6 +55,7 @@ from .actions_content import (
     build_remove_content,
     build_start,
     download_bundle,
+    download_lockfile,
     emit_build_log,
     get_content,
     search_content,
@@ -2756,6 +2757,73 @@ def content_bundle_download(
             raise RSConnectException("The output file already exists: %s" % output)
 
         result = download_bundle(ce.remote_server, guid)
+        if not isinstance(result.response_body, bytes):
+            raise RSConnectException("The response body must be bytes (not string or None).")
+        with open(output, "wb") as f:
+            f.write(result.response_body)
+
+
+@content.command(
+    name="get-lockfile",
+    short_help="Download a content item's lockfile.",
+)
+@server_args
+@spcs_args
+@click.option(
+    "--guid",
+    "-g",
+    required=True,
+    type=StrippedStringParamType(),
+    metavar="TEXT",
+    help="The GUID of a content item whose lockfile will be downloaded.",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    default="requirements.txt.lock",
+    show_default=True,
+    help="Defines the output location for the lockfile download.",
+)
+@click.option(
+    "--overwrite",
+    "-w",
+    is_flag=True,
+    help="Overwrite the output file if it already exists.",
+)
+@click.pass_context
+def content_get_lockfile(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    guid: str,
+    output: str,
+    overwrite: bool,
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect content get-lockfile` requires a Posit Connect server.")
+        if exists(output) and not overwrite:
+            raise RSConnectException("The output file already exists: %s" % output)
+
+        result = download_lockfile(ce.remote_server, guid)
         if not isinstance(result.response_body, bytes):
             raise RSConnectException("The response body must be bytes (not string or None).")
         with open(output, "wb") as f:

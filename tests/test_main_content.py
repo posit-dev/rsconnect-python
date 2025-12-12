@@ -46,6 +46,12 @@ def register_uris(connect_server: str):
             + "}",
             adding_headers={"Content-Type": "application/json"},
         )
+        httpretty.register_uri(
+            httpretty.GET,
+            f"{connect_server}/__api__/v1/content/{guid}/lockfile",
+            body="package-a==1.2.3\n",
+            adding_headers={"Content-Type": "text/plain"},
+        )
 
     httpretty.register_uri(
         httpretty.GET,
@@ -159,6 +165,52 @@ class TestContentSubcommand(unittest.TestCase):
         with tarfile.open(f"{TEMP_DIR}/bundle.tar.gz", mode="r:gz") as tgz:
             manifest = json.loads(tgz.extractfile("manifest.json").read())
             self.assertIn("metadata", manifest)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_content_get_lockfile(self):
+        register_uris(self.connect_server)
+        os.makedirs(TEMP_DIR, exist_ok=True)
+        runner = CliRunner()
+        output_path = f"{TEMP_DIR}/requirements.txt.lock"
+        args = [
+            "content",
+            "get-lockfile",
+            "-g",
+            "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+            "-o",
+            output_path,
+        ]
+        apply_common_args(args, server=self.connect_server, key=self.api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        with open(output_path) as lockfile:
+            self.assertEqual(lockfile.read(), "package-a==1.2.3\n")
+
+        args_exists = [
+            "content",
+            "get-lockfile",
+            "-g",
+            "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+            "-o",
+            output_path,
+        ]
+        apply_common_args(args_exists, server=self.connect_server, key=self.api_key)
+        result_exists = runner.invoke(cli, args_exists)
+        self.assertNotEqual(result_exists.exit_code, 0, result_exists.output)
+        self.assertIn("already exists", result_exists.output)
+
+        args_overwrite = [
+            "content",
+            "get-lockfile",
+            "-g",
+            "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+            "-o",
+            output_path,
+            "-w",
+        ]
+        apply_common_args(args_overwrite, server=self.connect_server, key=self.api_key)
+        result_overwrite = runner.invoke(cli, args_overwrite)
+        self.assertEqual(result_overwrite.exit_code, 0, result_overwrite.output)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_build(self):
