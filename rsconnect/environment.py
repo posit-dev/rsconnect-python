@@ -15,6 +15,7 @@ import subprocess
 import json
 import pathlib
 import os.path
+import enum
 
 from . import pyproject
 from .log import logger
@@ -26,7 +27,10 @@ import click
 try:
     from enum import StrEnum
 except ImportError:  # Python <3.11
-    from typing_extensions import StrEnum
+
+    class StrEnum(str, enum.Enum):
+        def __str__(self) -> str:
+            return str(self.value)
 
 
 class PackageInstaller(StrEnum):
