@@ -189,7 +189,7 @@ class Manifest:
                 self.data["metadata"]["content_category"] = "site"
 
         if environment:
-            pm_name = environment.package_manager
+            pm_name = str(environment.package_manager)
             pm_version_value = getattr(environment, pm_name, None)
             if pm_version_value is None:
                 # Fallback: use pip version if available; otherwise empty string

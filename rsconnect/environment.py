@@ -23,6 +23,16 @@ from .subprocesses.inspect_environment import EnvironmentData, MakeEnvironmentDa
 
 import click
 
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+    from typing_extensions import StrEnum
+
+
+class PackageInstaller(StrEnum):
+    PIP = "pip"
+    UV = "uv"
+
 
 class Environment:
     """A Python project environment,
@@ -104,7 +114,7 @@ class Environment:
         python: typing.Optional[str] = None,
         override_python_version: typing.Optional[str] = None,
         app_file: typing.Optional[str] = None,
-        package_manager: typing.Optional[str] = None,
+        package_manager: typing.Optional[PackageInstaller] = None,
     ) -> "Environment":
         """Given a project directory and a Python executable, return Environment information.
 
@@ -158,12 +168,14 @@ class Environment:
             environment.python = override_python_version
 
         if package_manager is not None:
-            if package_manager not in ("pip", "uv"):
-                raise RSConnectException("Unsupported package manager: %s" % package_manager)
+            try:
+                selected_package_manager = PackageInstaller(package_manager)
+            except ValueError:
+                raise RSConnectException("Unsupported package manager: %s" % package_manager) from None
             # Override the package manager name recorded by inspector
-            environment.package_manager = package_manager  # type: ignore[attr-defined]
+            environment.package_manager = selected_package_manager  # type: ignore[attr-defined]
             # Derive allow_uv from selection
-            environment.package_manager_allow_uv = True if package_manager == "uv" else False
+            environment.package_manager_allow_uv = selected_package_manager is PackageInstaller.UV
 
         if force_generate:
             _warn_on_ignored_requirements(directory, environment.filename)

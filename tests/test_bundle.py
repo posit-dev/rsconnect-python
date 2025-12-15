@@ -36,7 +36,7 @@ from rsconnect.bundle import (
     validate_entry_point,
     validate_extra_files,
 )
-from rsconnect.environment import Environment
+from rsconnect.environment import Environment, PackageInstaller
 from rsconnect.exception import RSConnectException
 from rsconnect.models import AppModes
 
@@ -235,7 +235,7 @@ class TestBundle(TestCase):
     def test_make_notebook_source_bundle_package_manager_uv(self):
         directory = get_dir("pip1")
         nb_path = join(directory, "dummy.ipynb")
-        environment = Environment.create_python_environment(directory, package_manager="uv")
+        environment = Environment.create_python_environment(directory, package_manager=PackageInstaller.UV)
 
         with make_notebook_source_bundle(
             nb_path,
@@ -255,7 +255,7 @@ class TestBundle(TestCase):
         from .utils import get_api_path
 
         directory = get_api_path("stock-api-fastapi", "")
-        environment = Environment.create_python_environment(directory, package_manager="pip")
+        environment = Environment.create_python_environment(directory, package_manager=PackageInstaller.PIP)
         entrypoint = "app:app"
 
         with make_api_bundle(

@@ -107,6 +107,7 @@ from .models import (
     VersionSearchFilter,
     VersionSearchFilterParamType,
 )
+from .environment import PackageInstaller
 from .shiny_express import escape_to_var_name, is_express_app
 from .utils_package import fix_starlette_requirements
 
@@ -1015,7 +1016,7 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
 )
 @click.option(
     "--package-installer",
-    type=click.Choice(["pip", "uv"]),
+    type=click.Choice(PackageInstaller),
     help=("Select the Python package installer for installs in the manifest. By default, behavior is server-driven."),
 )
 @click.option("--hide-all-input", is_flag=True, default=False, help="Hide all input cells when rendering output")
@@ -1057,7 +1058,7 @@ def deploy_notebook(
     env_management_r: Optional[bool],
     draft: bool,
     no_verify: bool = False,
-    package_installer: Optional[str] = None,
+    package_installer: Optional[PackageInstaller] = None,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1176,7 +1177,7 @@ def deploy_notebook(
 )
 @click.option(
     "--package-installer",
-    type=click.Choice(["pip", "uv"]),
+    type=click.Choice(PackageInstaller),
     help=("Select the Python package installer for installs in the manifest. By default, behavior is server-driven."),
 )
 @click.argument("path", type=click.Path(exists=True, dir_okay=True, file_okay=True))
@@ -1215,7 +1216,7 @@ def deploy_voila(
     no_verify: bool,
     draft: bool = False,
     connect_server: Optional[api.RSConnectServer] = None,  # TODO: This appears to be unused
-    package_installer: Optional[str] = None,
+    package_installer: Optional[PackageInstaller] = None,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1397,7 +1398,7 @@ def deploy_manifest(
 )
 @click.option(
     "--package-installer",
-    type=click.Choice(["pip", "uv"]),
+    type=click.Choice(PackageInstaller),
     help=("Select the Python package installer for installs in the manifest. By default, behavior is server-driven."),
 )
 @click.argument("file_or_directory", type=click.Path(exists=True, dir_okay=True, file_okay=True))
@@ -1434,7 +1435,7 @@ def deploy_quarto(
     env_management_r: bool,
     no_verify: bool,
     draft: bool,
-    package_installer: Optional[str],
+    package_installer: Optional[PackageInstaller],
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1769,7 +1770,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
     )
     @click.option(
         "--package-installer",
-        type=click.Choice(["pip", "uv"]),
+        type=click.Choice(PackageInstaller),
         help=(
             "Select the Python package installer for installs in the manifest. By default, behavior is server-driven."
         ),
@@ -1813,7 +1814,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         secret: Optional[str],
         no_verify: bool,
         draft: bool,
-        package_installer: Optional[str],
+        package_installer: Optional[PackageInstaller],
     ):
         set_verbosity(verbose)
         entrypoint = validate_entry_point(entrypoint, directory)
@@ -1966,7 +1967,7 @@ def write_manifest():
 )
 @click.option(
     "--package-installer",
-    type=click.Choice(["pip", "uv"]),
+    type=click.Choice(PackageInstaller),
     help=("Select the Python package installer for installs in the manifest. By default, behavior is server-driven."),
 )
 @click.option("--hide-all-input", is_flag=True, default=None, help="Hide all input cells when rendering output")
@@ -1995,7 +1996,7 @@ def write_manifest_notebook(
     env_management_r: Optional[bool],
     hide_all_input: Optional[bool] = None,
     hide_tagged_input: Optional[bool] = None,
-    package_installer: Optional[str] = None,
+    package_installer: Optional[PackageInstaller] = None,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -2071,7 +2072,7 @@ def write_manifest_notebook(
 )
 @click.option(
     "--package-installer",
-    type=click.Choice(["pip", "uv"]),
+    type=click.Choice(PackageInstaller),
     help=("Select the Python package installer for installs in the manifest. By default, behavior is server-driven."),
 )
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
@@ -2116,7 +2117,7 @@ def write_manifest_voila(
     env_management_py: Optional[bool],
     env_management_r: Optional[bool],
     multi_notebook: bool,
-    package_installer: Optional[str] = None,
+    package_installer: Optional[PackageInstaller] = None,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -2213,7 +2214,7 @@ def write_manifest_voila(
 )
 @click.option(
     "--package-installer",
-    type=click.Choice(["pip", "uv"]),
+    type=click.Choice(PackageInstaller),
     help=("Select the Python package installer for installs in the manifest. By default, behavior is server-driven."),
 )
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
@@ -2240,7 +2241,7 @@ def write_manifest_quarto(
     disable_env_management: Optional[bool],
     env_management_py: Optional[bool],
     env_management_r: Optional[bool],
-    package_installer: Optional[str],
+    package_installer: Optional[PackageInstaller],
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -2411,7 +2412,7 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
     )
     @click.option(
         "--package-installer",
-        type=click.Choice(["pip", "uv"]),
+        type=click.Choice(PackageInstaller),
         help=(
             "Select the Python package installer for installs in the manifest. By default, behavior is server-driven."
         ),
@@ -2440,7 +2441,7 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
         disable_env_management: Optional[bool],
         env_management_py: Optional[bool],
         env_management_r: Optional[bool],
-        package_installer: Optional[str],
+        package_installer: Optional[PackageInstaller],
     ):
         _write_framework_manifest(
             ctx,
@@ -2490,7 +2491,7 @@ def _write_framework_manifest(
     image: Optional[str],
     env_management_py: Optional[bool],
     env_management_r: Optional[bool],
-    package_installer: Optional[str] = None,
+    package_installer: Optional[PackageInstaller] = None,
 ):
     """
     A common function for writing manifests for APIs as well as Dash, Streamlit, Bokeh, and Panel apps.
