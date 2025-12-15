@@ -2821,8 +2821,9 @@ def content_get_lockfile(
         if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
             raise RSConnectException("`rsconnect content get-lockfile` requires a Posit Connect server.")
         if exists(output) and not overwrite:
-            raise RSConnectException("The output file already exists: %s" % output)
+            raise RSConnectException("The output file already exists: %s, maybe you want to --overwrite?" % output)
 
+        logger.info("Downloading %s for content %s" % (output, guid))
         result = download_lockfile(ce.remote_server, guid)
         if not isinstance(result.response_body, bytes):
             raise RSConnectException("The response body must be bytes (not string or None).")
