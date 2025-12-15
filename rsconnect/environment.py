@@ -23,9 +23,9 @@ from .subprocesses.inspect_environment import EnvironmentData, MakeEnvironmentDa
 
 import click
 
-if sys.version_info >= (3, 11):
+try:
     from enum import StrEnum
-else:
+except ImportError:  # Python <3.11
     from typing_extensions import StrEnum
 
 
