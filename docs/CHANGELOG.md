@@ -47,6 +47,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Snowflake SPCS (Snowpark Container Services) authentication now properly handles API keys
   and aligns with codebase patterns for server type detection and initialization.
 
+### Added
+
+- Introduced `--package-installer=uv|pip` option to enforce a specific package installer
+  to be used when deploying content. When omitted, the server will decide.
+
 ## [1.27.1] - 2025-08-12
 
 ### Fixed
