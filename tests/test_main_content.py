@@ -4,7 +4,6 @@ import shutil
 import tarfile
 import unittest
 from unittest import mock
-import re
 
 import httpretty
 from click.testing import CliRunner
