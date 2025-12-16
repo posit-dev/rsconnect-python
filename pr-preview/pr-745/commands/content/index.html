@@ -728,6 +728,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#content-venv" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        venv
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1157,6 +1168,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#content-venv" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        venv
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1520,6 +1542,38 @@
   --title-contains TEXT           Filter content results by title.
   --order-by [created|last_deployed]
                                   Order content results.
+  --help                          Show this message and exit.
+</code></pre></div>
+<h2 id="content-venv">content venv<a class="headerlink" href="#content-venv" title="Permanent link">#</a></h2>
+<p>Replicate a Python environment from Connect</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight"><pre><span></span><code>content venv [OPTIONS] ENV_PATH
+</code></pre></div>
+<p><strong>Options:</strong></p>
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  -g, --guid TEXT                 The GUID of a content item whose lockfile
+                                  will be used to build the environment. If
+                                  omitted, rsconnect will try to auto-detect
+                                  the last deployed GUID for the current
+                                  server from local deployment metadata.
   --help                          Show this message and exit.
 </code></pre></div>
 
