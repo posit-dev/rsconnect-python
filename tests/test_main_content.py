@@ -3,6 +3,8 @@ import json
 import shutil
 import tarfile
 import unittest
+from unittest import mock
+import sys
 
 import httpretty
 from click.testing import CliRunner
@@ -49,8 +51,11 @@ def register_uris(connect_server: str):
         httpretty.register_uri(
             httpretty.GET,
             f"{connect_server}/__api__/v1/content/{guid}/lockfile",
-            body="package-a==1.2.3\n",
-            adding_headers={"Content-Type": "text/plain"},
+            body="click==8.1.3\n",
+            adding_headers={
+                "Content-Type": "text/plain",
+                "Generated-By": f"connect; python={sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+            },
         )
 
     httpretty.register_uri(
@@ -184,7 +189,7 @@ class TestContentSubcommand(unittest.TestCase):
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0, result.output)
         with open(output_path) as lockfile:
-            self.assertEqual(lockfile.read(), "package-a==1.2.3\n")
+            self.assertEqual(lockfile.read(), "click==8.1.3\n", result.output)
 
         args_exists = [
             "content",
@@ -211,6 +216,42 @@ class TestContentSubcommand(unittest.TestCase):
         apply_common_args(args_overwrite, server=self.connect_server, key=self.api_key)
         result_overwrite = runner.invoke(cli, args_overwrite)
         self.assertEqual(result_overwrite.exit_code, 0, result_overwrite.output)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_content_venv(self):
+        register_uris(self.connect_server)
+        env_path = f"{TEMP_DIR}/venv"
+
+        expected_python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+
+        # Mock subprocess.run so we don't actually invoke uv; capture the calls instead
+        with mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)) as mock_run:
+            args = [
+                "content",
+                "venv",
+                "-g",
+                "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+                env_path,
+            ]
+            apply_common_args(args, server=self.connect_server, key=self.api_key)
+            result = CliRunner().invoke(cli, args)
+            self.assertEqual(result.exit_code, 0, result.output)
+
+        # Assert we made exactly two subprocess calls: uv venv, then uv pip install
+        self.assertEqual(mock_run.call_count, 2, mock_run.call_args_list)
+
+        venv_args, venv_kwargs = mock_run.call_args_list[0]
+        venv_cmd = " ".join(venv_args[0])
+        self.assertIn("uv venv", f" {venv_cmd} ")
+        self.assertIn(f"--python {expected_python_version}", venv_cmd)
+        self.assertIn(env_path, venv_cmd)
+        self.assertEqual(venv_kwargs.get("env", {}).get("UV_PYTHON_DOWNLOADS"), "auto")
+
+        pip_args, _ = mock_run.call_args_list[1]
+        pip_cmd = " ".join(pip_args[0])
+        self.assertIn("uv pip install", f" {pip_cmd} ")
+        self.assertIn(f"--python {env_path}", pip_cmd)
+        self.assertIn(" -r ", f" {pip_cmd} ")
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_build(self):

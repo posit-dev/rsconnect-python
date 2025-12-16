@@ -206,6 +206,17 @@ class HTTPResponse(object):
                 except json.decoder.JSONDecodeError:
                     self.response_body
 
+    def getheader(self, name: str) -> Optional[str]:
+        """
+        This method retrieves a specific header from the response.
+
+        :param name: the name of the header to retrieve.
+        :return: the value of the header, or None if not present.
+        """
+        if self._response is None:
+            return None
+        return self._response.getheader(name)
+
 
 class HTTPServer(object):
     """
