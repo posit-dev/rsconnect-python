@@ -4,7 +4,6 @@ import shutil
 import tarfile
 import unittest
 from unittest import mock
-import sys
 
 import httpretty
 from click.testing import CliRunner
@@ -54,7 +53,7 @@ def register_uris(connect_server: str):
             body="click==8.1.3\n",
             adding_headers={
                 "Content-Type": "text/plain",
-                "Generated-By": f"connect; python={sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+                "Generated-By": "connect; python=11.99.23",
             },
         )
 
@@ -222,8 +221,6 @@ class TestContentSubcommand(unittest.TestCase):
         register_uris(self.connect_server)
         env_path = f"{TEMP_DIR}/venv"
 
-        expected_python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
-
         # Mock subprocess.run so we don't actually invoke uv; capture the calls instead
         with mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)) as mock_run:
             args = [
@@ -243,7 +240,7 @@ class TestContentSubcommand(unittest.TestCase):
         venv_args, venv_kwargs = mock_run.call_args_list[0]
         venv_cmd = " ".join(venv_args[0])
         self.assertIn("uv venv", f" {venv_cmd} ")
-        self.assertIn(f"--python {expected_python_version}", venv_cmd)
+        self.assertIn("--python 11.99", venv_cmd)
         self.assertIn(env_path, venv_cmd)
         self.assertEqual(venv_kwargs.get("env", {}).get("UV_PYTHON_DOWNLOADS"), "auto")
 

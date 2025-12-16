@@ -2869,11 +2869,13 @@ def content_venv(
     output_params(ctx, locals().items())
     uv_path = shutil.which("uv")
     if not uv_path:
-        raise RSConnectException("uv is required for `rsconnect content venv`. make sure it's available in your PATH and try again.")
+        raise RSConnectException(
+            "uv is required for `rsconnect content venv`. make sure it's available in your PATH and try again."
+        )
 
     def _python_version_from_header(header: Optional[str]) -> str:
         header = header or ""
-        *_ , version = header.split("python=", 1)
+        *_, version = header.split("python=", 1)
         version = version.split(".")[:2]  # major.minor
         return ".".join(version)
 
@@ -2924,9 +2926,7 @@ def content_venv(
                     raise RSConnectException("uv venv failed with exit code %d" % venv_result.returncode)
 
             logger.info("Syncing environment %s" % env_path)
-            result = subprocess.run([
-                uv_path, "pip", "install", "--python", env_path, "-r", lockfile.name
-            ])
+            result = subprocess.run([uv_path, "pip", "install", "--python", env_path, "-r", lockfile.name])
             if result.returncode != 0:
                 raise RSConnectException("uv pip install failed with exit code %d" % result.returncode)
 
