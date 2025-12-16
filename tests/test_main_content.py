@@ -4,6 +4,7 @@ import shutil
 import tarfile
 import unittest
 from unittest import mock
+import re
 
 import httpretty
 from click.testing import CliRunner
@@ -239,16 +240,16 @@ class TestContentSubcommand(unittest.TestCase):
 
         venv_args, venv_kwargs = mock_run.call_args_list[0]
         venv_cmd = " ".join(venv_args[0])
-        self.assertIn("uv venv", f" {venv_cmd} ")
+        self.assertRegex(venv_cmd.lower(), r"uv(?:\.exe)?\s+venv\b")
         self.assertIn("--python 11.99", venv_cmd)
         self.assertIn(env_path, venv_cmd)
         self.assertEqual(venv_kwargs.get("env", {}).get("UV_PYTHON_DOWNLOADS"), "auto")
 
         pip_args, _ = mock_run.call_args_list[1]
         pip_cmd = " ".join(pip_args[0])
-        self.assertIn("uv pip install", f" {pip_cmd} ")
+        self.assertRegex(pip_cmd.lower(), r"uv(?:\.exe)?\s+pip\s+install\b")
         self.assertIn(f"--python {env_path}", pip_cmd)
-        self.assertIn(" -r ", f" {pip_cmd} ")
+        self.assertIn(" -r ", pip_cmd)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_build(self):
