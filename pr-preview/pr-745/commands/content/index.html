@@ -1545,7 +1545,8 @@
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="content-venv">content venv<a class="headerlink" href="#content-venv" title="Permanent link">#</a></h2>
-<p>Replicate a Python environment from Connect</p>
+<p>Create a Python virtual environment that mimics the environment of a deployed content item on Posit Connect. This will use the 'uv' tool to locally create and manage the virtual environment. If the required Python version isn't already installed, uv will download it automatically.</p>
+<p>run it from the directory of a deployed content item to auto-detect the GUID, or provide the --guid option to specify a content item explicitly.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>content venv [OPTIONS] ENV_PATH
 </code></pre></div>
