@@ -1491,10 +1491,8 @@ def deploy_quarto(
         engines = validate_quarto_engines(inspect)
 
     environment = None
-    generate_env = False
     if "jupyter" in engines:
         requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
-        generate_env = requirements_file is None
         with cli_feedback("Inspecting Python environment"):
             environment = Environment.create_python_environment(
                 base_dir,
@@ -2366,8 +2364,10 @@ def write_manifest_quarto(
             )
 
     environment = None
+    generate_env = False
     if "jupyter" in engines:
         requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
+        generate_env = requirements_file is None
         with cli_feedback("Inspecting Python environment"):
             environment = Environment.create_python_environment(
                 base_dir,

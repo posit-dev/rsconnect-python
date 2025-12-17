@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
-from datetime import date
+from datetime import date  # noqa: F401
 from typing import List
 
 import numpy as np

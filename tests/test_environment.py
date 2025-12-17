@@ -69,7 +69,9 @@ class TestEnvironment(TestCase):
             with open(custom_requirements, "w") as f:
                 f.write("foo==1.0\nbar>=2.0\nrsconnect==0.1\n")
 
-            result = Environment.create_python_environment(project_dir, requirements_file=os.path.join("alt", "custom.txt"))
+            result = Environment.create_python_environment(
+                project_dir, requirements_file=os.path.join("alt", "custom.txt")
+            )
 
             assert result.filename == "alt/custom.txt"
             assert result.contents == "foo==1.0\nbar>=2.0\n"
