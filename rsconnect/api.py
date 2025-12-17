@@ -457,6 +457,14 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response, is_httpresponse=True)
         return response
 
+    def content_lockfile(self, content_guid: str) -> HTTPResponse:
+        response = cast(
+            HTTPResponse,
+            self.get("v1/content/%s/lockfile" % content_guid, decode_response=False),
+        )
+        response = self._server.handle_bad_response(response, is_httpresponse=True)
+        return response
+
     def content_list(self, filters: Optional[Mapping[str, JsonData]] = None) -> list[ContentItemV1]:
         response = cast(Union[List[ContentItemV1], HTTPResponse], self.get("v1/content", query_params=filters))
         response = self._server.handle_bad_response(response)

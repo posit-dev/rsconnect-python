@@ -3,6 +3,7 @@ import json
 import shutil
 import tarfile
 import unittest
+from unittest import mock
 
 import httpretty
 from click.testing import CliRunner
@@ -45,6 +46,15 @@ def register_uris(connect_server: str):
             + f'"logs_url": "{connect_server}/connect/#/apps/{guid}"'
             + "}",
             adding_headers={"Content-Type": "application/json"},
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            f"{connect_server}/__api__/v1/content/{guid}/lockfile",
+            body="click==8.1.3\n",
+            adding_headers={
+                "Content-Type": "text/plain",
+                "Generated-By": "connect; python=11.99.23",
+            },
         )
 
     httpretty.register_uri(
@@ -159,6 +169,86 @@ class TestContentSubcommand(unittest.TestCase):
         with tarfile.open(f"{TEMP_DIR}/bundle.tar.gz", mode="r:gz") as tgz:
             manifest = json.loads(tgz.extractfile("manifest.json").read())
             self.assertIn("metadata", manifest)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_content_get_lockfile(self):
+        register_uris(self.connect_server)
+        os.makedirs(TEMP_DIR, exist_ok=True)
+        runner = CliRunner()
+        output_path = f"{TEMP_DIR}/requirements.txt.lock"
+        args = [
+            "content",
+            "get-lockfile",
+            "-g",
+            "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+            "-o",
+            output_path,
+        ]
+        apply_common_args(args, server=self.connect_server, key=self.api_key)
+        result = runner.invoke(cli, args)
+        self.assertEqual(result.exit_code, 0, result.output)
+        with open(output_path) as lockfile:
+            self.assertEqual(lockfile.read(), "click==8.1.3\n", result.output)
+
+        args_exists = [
+            "content",
+            "get-lockfile",
+            "-g",
+            "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+            "-o",
+            output_path,
+        ]
+        apply_common_args(args_exists, server=self.connect_server, key=self.api_key)
+        result_exists = runner.invoke(cli, args_exists)
+        self.assertNotEqual(result_exists.exit_code, 0, result_exists.output)
+        self.assertIn("already exists", result_exists.output)
+
+        args_overwrite = [
+            "content",
+            "get-lockfile",
+            "-g",
+            "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+            "-o",
+            output_path,
+            "-w",
+        ]
+        apply_common_args(args_overwrite, server=self.connect_server, key=self.api_key)
+        result_overwrite = runner.invoke(cli, args_overwrite)
+        self.assertEqual(result_overwrite.exit_code, 0, result_overwrite.output)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_content_venv(self):
+        register_uris(self.connect_server)
+        env_path = f"{TEMP_DIR}/venv"
+
+        # Mock subprocess.run so we don't actually invoke uv; capture the calls instead
+        with mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)) as mock_run:
+            args = [
+                "content",
+                "venv",
+                "-g",
+                "7d59c5c7-c4a7-4950-acc3-3943b7192bc4",
+                env_path,
+            ]
+            apply_common_args(args, server=self.connect_server, key=self.api_key)
+            result = CliRunner().invoke(cli, args)
+            self.assertEqual(result.exit_code, 0, result.output)
+
+        # Assert we made exactly two subprocess calls: uv venv, then uv pip install
+        self.assertEqual(mock_run.call_count, 2, mock_run.call_args_list)
+
+        venv_args, venv_kwargs = mock_run.call_args_list[0]
+        venv_cmd = " ".join(venv_args[0])
+        self.assertRegex(venv_cmd.lower(), r"uv(?:\.exe)?\s+venv\b")
+        self.assertIn("--python 11.99", venv_cmd)
+        self.assertIn(env_path, venv_cmd)
+        self.assertEqual(venv_kwargs.get("env", {}).get("UV_PYTHON_DOWNLOADS"), "auto")
+
+        pip_args, _ = mock_run.call_args_list[1]
+        pip_cmd = " ".join(pip_args[0])
+        self.assertRegex(pip_cmd.lower(), r"uv(?:\.exe)?\s+pip\s+install\b")
+        self.assertIn(f"--python {env_path}", pip_cmd)
+        self.assertIn(" -r ", pip_cmd)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_build(self):

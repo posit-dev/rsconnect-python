@@ -391,6 +391,11 @@ def download_bundle(connect_server: Union[RSConnectServer, SPCSConnectServer], g
         return client.download_bundle(guid_with_bundle.guid, guid_with_bundle.bundle_id)
 
 
+def download_lockfile(connect_server: Union[RSConnectServer, SPCSConnectServer], guid: str):
+    with RSConnectClient(connect_server) as client:
+        return client.content_lockfile(guid)
+
+
 def get_content(connect_server: Union[RSConnectServer, SPCSConnectServer], guid: str | list[str]):
     """
     :param guid: a single guid as a string or list of guids.

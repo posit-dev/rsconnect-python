@@ -6,6 +6,9 @@ import os
 import sys
 import textwrap
 import traceback
+import shutil
+import subprocess
+import tempfile
 from functools import wraps
 from os.path import abspath, dirname, exists, isdir, join
 from typing import (
@@ -55,6 +58,7 @@ from .actions_content import (
     build_remove_content,
     build_start,
     download_bundle,
+    download_lockfile,
     emit_build_log,
     get_content,
     search_content,
@@ -2760,6 +2764,180 @@ def content_bundle_download(
             raise RSConnectException("The response body must be bytes (not string or None).")
         with open(output, "wb") as f:
             f.write(result.response_body)
+
+
+@content.command(
+    name="get-lockfile",
+    short_help="Download a content item's lockfile.",
+)
+@server_args
+@spcs_args
+@click.option(
+    "--guid",
+    "-g",
+    required=True,
+    type=StrippedStringParamType(),
+    metavar="TEXT",
+    help="The GUID of a content item whose lockfile will be downloaded.",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    default="requirements.txt.lock",
+    show_default=True,
+    help="Defines the output location for the lockfile download.",
+)
+@click.option(
+    "--overwrite",
+    "-w",
+    is_flag=True,
+    help="Overwrite the output file if it already exists.",
+)
+@click.pass_context
+def content_get_lockfile(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    guid: str,
+    output: str,
+    overwrite: bool,
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect content get-lockfile` requires a Posit Connect server.")
+        if exists(output) and not overwrite:
+            raise RSConnectException("The output file already exists: %s, maybe you want to --overwrite?" % output)
+
+        logger.info("Downloading %s for content %s" % (output, guid))
+        result = download_lockfile(ce.remote_server, guid)
+        if not isinstance(result.response_body, bytes):
+            raise RSConnectException("The response body must be bytes (not string or None).")
+        with open(output, "wb") as f:
+            f.write(result.response_body)
+
+
+@content.command(
+    name="venv",
+    short_help="Replicate a Python environment from Connect",
+    help="Create a ENV_PATH Python virtual environment that mimics "
+    "the environment of a deployed content item on Posit Connect. "
+    "This will use the 'uv' tool to locally create and manage the virtual environment. "
+    "If the required Python version isn't already installed, uv will download it automatically."
+    "\n\n"
+    "run it from the directory of a deployed content item to auto-detect the GUID, "
+    "or provide the --guid option to specify a content item explicitly.",
+)
+@server_args
+@spcs_args
+@click.option(
+    "--guid",
+    "-g",
+    type=StrippedStringParamType(),
+    metavar="TEXT",
+    help=(
+        "The GUID of a content item whose lockfile will be used to build the environment. "
+        "If omitted, rsconnect will try to auto-detect the last deployed GUID for the current server "
+        "from local deployment metadata."
+    ),
+)
+@click.argument("env_path", metavar="ENV_PATH", type=click.Path())
+@click.pass_context
+def content_venv(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    guid: Optional[str],
+    env_path: str,
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    uv_path = shutil.which("uv")
+    if not uv_path:
+        raise RSConnectException(
+            "uv is required for `rsconnect content venv`. make sure it's available in your PATH and try again."
+        )
+
+    def _python_version_from_header(header: Optional[str]) -> str:
+        header = header or ""
+        *_, version = header.split("python=", 1)
+        version = version.split(".")[:2]  # major.minor
+        return ".".join(version)
+
+    def _guid_for_current_server(server_url: str) -> Optional[str]:
+        for candidate in _get_names_to_check(os.getcwd()):
+            deployment = AppStore(candidate).get(server_url)
+            if deployment:
+                return deployment.get("app_guid") or deployment.get("app_id")
+        return None
+
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect content venv` requires a Posit Connect server.")
+
+        guid = guid or _guid_for_current_server(ce.remote_server.url)
+        if not guid:
+            raise RSConnectException(
+                "No GUID provided and none found for this server in local deployment metadata. "
+                "Provide --guid or deploy from this directory first."
+            )
+
+        result = download_lockfile(ce.remote_server, guid)
+        if not isinstance(result.response_body, bytes):
+            raise RSConnectException("The response body must be bytes (not string or None).")
+
+        python_version = _python_version_from_header(result.getheader("Generated-By"))
+        with tempfile.NamedTemporaryFile("wb") as lockfile:
+            lockfile.write(result.response_body)
+            lockfile.flush()
+
+            if not exists(env_path):
+                uv_venv_cmd = [uv_path, "venv"]
+                if python_version:
+                    uv_venv_cmd.extend(["--python", python_version])
+                uv_venv_cmd.append(env_path)
+                venv_result = subprocess.run(uv_venv_cmd, env=dict(os.environ, UV_PYTHON_DOWNLOADS="auto"))
+                if venv_result.returncode != 0:
+                    raise RSConnectException("uv venv failed with exit code %d" % venv_result.returncode)
+
+            logger.info("Syncing environment %s" % env_path)
+            result = subprocess.run([uv_path, "pip", "install", "--python", env_path, "-r", lockfile.name])
+            if result.returncode != 0:
+                raise RSConnectException("uv pip install failed with exit code %d" % result.returncode)
+
+            logger.info("Environment ready. Activate with: source %s/bin/activate" % env_path)
 
 
 @content.group(no_args_is_help=True, help="Build content on Posit Connect. Requires Connect >= 2021.11.1")
