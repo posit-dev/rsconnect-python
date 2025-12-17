@@ -8,6 +8,7 @@ python -m rsconnect.subprocesses.inspect_environment
 """
 from __future__ import annotations
 
+import argparse
 import datetime
 import json
 import locale
@@ -60,21 +61,21 @@ class EnvironmentException(Exception):
     pass
 
 
-def detect_environment(dirname: str, force_generate: bool = False) -> EnvironmentData:
+def detect_environment(dirname: str, requirements_file: Optional[str] = "requirements.txt") -> EnvironmentData:
     """Determine the python dependencies in the environment.
 
     `pip freeze` will be used to introspect the environment.
 
     :param: dirname Directory name
-    :param: force_generate Force the generation of an environment
+    :param: requirements_file The requirements file to read. If None, generate using pip freeze.
     :return: a dictionary containing the package spec filename and contents if successful,
     or a dictionary containing `error` on failure.
     """
 
-    if force_generate:
+    if requirements_file is None:
         result = pip_freeze()
     else:
-        result = output_file(dirname, "requirements.txt", "pip") or pip_freeze()
+        result = output_file(dirname, requirements_file, "pip") or pip_freeze()
 
     if result is not None:
         result["python"] = get_python_version()
@@ -206,17 +207,24 @@ def main():
     Run `detect_environment` and dump the result as JSON.
     """
     try:
-        if len(sys.argv) < 2:
-            raise EnvironmentException("Usage: %s [-fc] DIRECTORY" % sys.argv[0])
-        # directory is always the last argument
-        directory = sys.argv[len(sys.argv) - 1]
-        flags = ""
-        force_generate = False
-        if len(sys.argv) > 2:
-            flags = sys.argv[1]
-        if "f" in flags:
-            force_generate = True
-        envinfo = detect_environment(directory, force_generate)._asdict()
+        parser = argparse.ArgumentParser(
+            description="Inspect python environment and return dependency metadata.", add_help=True
+        )
+        parser.add_argument(
+            "-r",
+            "--requirements-file",
+            dest="requirements_file",
+            default="requirements.txt",
+            help="Requirements file name (relative to the directory). Use 'none' to capture via pip freeze.",
+        )
+        parser.add_argument("directory", help="Directory to inspect.")
+        args = parser.parse_args()
+
+        requirements_file = args.requirements_file
+        if requirements_file.lower() == "none":
+            requirements_file = None
+
+        envinfo = detect_environment(args.directory, requirements_file=requirements_file)._asdict()
         if "contents" in envinfo:
             keepers = list(map(strip_ref, envinfo["contents"].split("\n")))
             keepers = [line for line in keepers if not exclude(line)]
