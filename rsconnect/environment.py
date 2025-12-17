@@ -204,9 +204,7 @@ class Environment:
         """
         python = which_python(python)
         logger.debug("Python: %s" % python)
-        environment = cls._inspect_environment(
-            python, os.path.dirname(file_name), requirements_file=requirements_file
-        )
+        environment = cls._inspect_environment(python, os.path.dirname(file_name), requirements_file=requirements_file)
         if environment.error:
             raise RSConnectException(environment.error)
         logger.debug("Python: %s" % python)
