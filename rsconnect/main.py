@@ -2838,12 +2838,12 @@ def content_get_lockfile(
     name="venv",
     short_help="Replicate a Python environment from Connect",
     help="Create a ENV_PATH Python virtual environment that mimics "
-         "the environment of a deployed content item on Posit Connect. "
-         "This will use the 'uv' tool to locally create and manage the virtual environment. "
-         "If the required Python version isn't already installed, uv will download it automatically."
-         "\n\n"
-         "run it from the directory of a deployed content item to auto-detect the GUID, "
-         "or provide the --guid option to specify a content item explicitly."
+    "the environment of a deployed content item on Posit Connect. "
+    "This will use the 'uv' tool to locally create and manage the virtual environment. "
+    "If the required Python version isn't already installed, uv will download it automatically."
+    "\n\n"
+    "run it from the directory of a deployed content item to auto-detect the GUID, "
+    "or provide the --guid option to specify a content item explicitly.",
 )
 @server_args
 @spcs_args
