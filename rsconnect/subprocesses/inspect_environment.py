@@ -229,7 +229,7 @@ def uv_export(dirname: str, lock_filename: str):
         if result.returncode != 0:
             raise EnvironmentException("Error during uv export: exited with code %d" % result.returncode)
 
-        with open(output_path) as output_file:
+        with open(output_path, mode="r", encoding="utf-8") as output_file:
             exported = output_file.read()
 
     requirements = filter_pip_freeze_output(exported)
