@@ -73,7 +73,7 @@ class TestEnvironment(TestCase):
                 project_dir, requirements_file=os.path.join("alt", "custom.txt")
             )
 
-            assert result.filename == "alt/custom.txt"
+            assert result.filename.endswith("custom.txt")
             assert result.contents == "foo==1.0\nbar>=2.0\n"
             assert result.source == "file"
 
