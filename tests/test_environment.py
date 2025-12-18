@@ -2,6 +2,7 @@ import re
 import sys
 import os
 import tempfile
+import shutil
 import subprocess
 from unittest import TestCase
 from unittest import mock
@@ -58,6 +59,23 @@ class TestEnvironment(TestCase):
             python_version_requirement=">=3.8",
         )
         self.assertEqual(expected, result)
+
+    def test_requirements_override(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_dir = os.path.join(tmpdir, "project")
+            shutil.copytree(get_dir("pip1"), project_dir)
+            os.makedirs(os.path.join(project_dir, "alt"), exist_ok=True)
+            custom_requirements = os.path.join(project_dir, "alt", "custom.txt")
+            with open(custom_requirements, "w") as f:
+                f.write("foo==1.0\nbar>=2.0\nrsconnect==0.1\n")
+
+            result = Environment.create_python_environment(
+                project_dir, requirements_file=os.path.join("alt", "custom.txt")
+            )
+
+            assert result.filename.endswith("custom.txt")
+            assert result.contents == "foo==1.0\nbar>=2.0\n"
+            assert result.source == "file"
 
     def test_pip_freeze(self):
         result = Environment.create_python_environment(get_dir("pip2"))
@@ -175,7 +193,7 @@ def test_inspect_environment_catches_type_error():
     (
         "file_name",
         "python",
-        "force_generate",
+        "requirements_file",
         "expected_python",
         "expected_environment",
     ),
@@ -183,7 +201,7 @@ def test_inspect_environment_catches_type_error():
         pytest.param(
             "path/to/file.py",
             sys.executable,
-            False,
+            "requirements.txt",
             sys.executable,
             Environment.from_dict(
                 dict(
@@ -203,7 +221,7 @@ def test_inspect_environment_catches_type_error():
         pytest.param(
             "another/file.py",
             os.path.basename(sys.executable),
-            False,
+            "requirements.txt",
             sys.executable,
             Environment.from_dict(
                 dict(
@@ -223,7 +241,7 @@ def test_inspect_environment_catches_type_error():
         pytest.param(
             "will/the/files/never/stop.py",
             "argh.py",
-            False,
+            "requirements.txt",
             "unused",
             Environment.from_dict(
                 dict(
@@ -245,7 +263,7 @@ def test_get_python_env_info(
     monkeypatch,
     file_name,
     python,
-    force_generate,
+    requirements_file,
     expected_python,
     expected_environment,
 ):
@@ -255,7 +273,7 @@ def test_get_python_env_info(
     def fake_inspect_environment(
         python,
         directory,
-        force_generate=False,
+        requirements_file="requirements.txt",
         check_output=subprocess.check_output,
     ):
         return expected_environment
@@ -266,9 +284,9 @@ def test_get_python_env_info(
 
     if expected_environment.error is not None:
         with pytest.raises(RSConnectException):
-            _ = Environment._get_python_env_info(file_name, python, force_generate=force_generate)
+            _ = Environment._get_python_env_info(file_name, python, requirements_file=requirements_file)
     else:
-        environment = Environment._get_python_env_info(file_name, python, force_generate=force_generate)
+        environment = Environment._get_python_env_info(file_name, python, requirements_file=requirements_file)
 
         assert environment.python_interpreter == expected_python
         assert environment == expected_environment

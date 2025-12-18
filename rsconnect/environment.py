@@ -114,7 +114,7 @@ class Environment:
     def create_python_environment(
         cls,
         directory: str,
-        force_generate: bool = False,
+        requirements_file: typing.Optional[str] = "requirements.txt",
         python: typing.Optional[str] = None,
         override_python_version: typing.Optional[str] = None,
         app_file: typing.Optional[str] = None,
@@ -125,8 +125,8 @@ class Environment:
         If no Python executable is provided, the current system Python executable is used.
 
         :param directory: the project directory to inspect.
-        :param force_generate: force generating "requirements.txt" to snapshot the environment
-                               packages even if it already exists.
+        :param requirements_file: requirements file name relative to the project directory. If None,
+                                  capture the environment via pip freeze.
         :param python: the Python executable of the environment to use for inspection.
         :param override_python_version: the Python version required by  the project.
         :param app_file: the main application file to use for inspection.
@@ -138,9 +138,8 @@ class Environment:
         else:
             module_file = app_file
 
-        # click.secho('    Deploying %s to server "%s"' % (directory, connect_server.url))
         _warn_on_ignored_manifest(directory)
-        _warn_if_no_requirements_file(directory)
+        _warn_if_no_requirements_file(directory, requirements_file)
         _warn_if_environment_directory(directory)
 
         python_version_requirement = pyproject.detect_python_version_requirement(directory)
@@ -163,7 +162,7 @@ class Environment:
             python_version_requirement = f"=={override_python_version}"
 
         # with cli_feedback("Inspecting Python environment"):
-        environment = cls._get_python_env_info(module_file, python, force_generate)
+        environment = cls._get_python_env_info(module_file, python, requirements_file=requirements_file)
         environment.python_version_requirement = python_version_requirement
 
         if override_python_version:
@@ -181,14 +180,17 @@ class Environment:
             # Derive allow_uv from selection
             environment.package_manager_allow_uv = selected_package_manager is PackageInstaller.UV
 
-        if force_generate:
+        if requirements_file is None:
             _warn_on_ignored_requirements(directory, environment.filename)
 
         return environment
 
     @classmethod
     def _get_python_env_info(
-        cls, file_name: str, python: typing.Optional[str], force_generate: bool = False
+        cls,
+        file_name: str,
+        python: typing.Optional[str],
+        requirements_file: typing.Optional[str] = "requirements.txt",
     ) -> "Environment":
         """
         Gathers the python and environment information relating to the specified file
@@ -196,14 +198,13 @@ class Environment:
 
         :param file_name: the primary file being deployed.
         :param python: the optional name of a Python executable.
-        :param force_generate: force generating "requirements.txt" or "environment.yml",
-        even if it already exists.
+        :param requirements_file: which requirements file to read. If None, generate via pip freeze.
         :return: information about the version of Python in use plus some environmental
         stuff.
         """
         python = which_python(python)
         logger.debug("Python: %s" % python)
-        environment = cls._inspect_environment(python, os.path.dirname(file_name), force_generate=force_generate)
+        environment = cls._inspect_environment(python, os.path.dirname(file_name), requirements_file=requirements_file)
         if environment.error:
             raise RSConnectException(environment.error)
         logger.debug("Python: %s" % python)
@@ -215,7 +216,7 @@ class Environment:
         cls,
         python: str,
         directory: str,
-        force_generate: bool = False,
+        requirements_file: typing.Optional[str] = "requirements.txt",
         check_output: typing.Callable[..., bytes] = subprocess.check_output,
     ) -> "Environment":
         """Run the environment inspector using the specified python binary.
@@ -223,13 +224,8 @@ class Environment:
         Returns a dictionary of information about the environment,
         or containing an "error" field if an error occurred.
         """
-        flags: typing.List[str] = []
-        if force_generate:
-            flags.append("f")
-
         args = [python, "-m", "rsconnect.subprocesses.inspect_environment"]
-        if flags:
-            args.append("-" + "".join(flags))
+        args.extend(["--requirements-file", requirements_file or "none"])
         args.append(directory)
 
         try:
@@ -321,17 +317,28 @@ def _warn_on_ignored_manifest(directory: str) -> None:
         )
 
 
-def _warn_if_no_requirements_file(directory: str) -> None:
+def _warn_if_no_requirements_file(directory: str, requirements_file: typing.Optional[str]) -> None:
     """
-    Checks for the existence of a file called requirements.txt in the given directory.
-    If it's not there, a warning will be printed.
+    Check that a requirements file exists, and that it lives inside the deployment directory.
 
     :param directory: the directory to check in.
+    :param requirements_file: the name of the requirements file, or None to skip the check.
     """
-    if not os.path.exists(os.path.join(directory, "requirements.txt")):
+    if requirements_file is None:
+        return
+
+    directory_path = pathlib.Path(directory)
+    requirements_file_path = directory_path / pathlib.Path(requirements_file)
+    if directory_path not in requirements_file_path.parents:
+        click.secho(
+            "    Warning: The requirements file '%s' is outside of the deployment directory.\n" % requirements_file,
+            fg="red",
+        )
+
+    if not requirements_file_path.exists():
         click.secho(
             "    Warning: Capturing the environment using 'pip freeze'.\n"
-            "             Consider creating a requirements.txt file instead.",
+            "             Consider creating a %s file instead." % requirements_file,
             fg="yellow",
         )
 

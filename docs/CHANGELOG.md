@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dependencies installed by connect to run the deployed content
 - `rsconnect content venv` command recreates a local python environment
   equal to the one used by connect to run the content.
+- Added `--requirements-file` option on deploy and write-manifest commands to
+  supply an explicit requirements file instead of detecting the environment.
 
 
 ## [1.28.2] - 2025-12-05

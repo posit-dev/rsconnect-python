@@ -382,8 +382,8 @@ def deploy_app(
 
     environment = Environment.create_python_environment(
         directory,  # pyright: ignore
-        force_generate,
-        python,
+        requirements_file="requirements.txt" if not force_generate else None,
+        python=python,
     )
 
     # At this point, kwargs has a lot of things, but we can need to prune it down to just the things that

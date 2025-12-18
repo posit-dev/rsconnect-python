@@ -1019,6 +1019,16 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     help='Force generating "requirements.txt", even if it already exists.',
 )
 @click.option(
+    "--requirements-file",
+    "-r",
+    type=click.Path(exists=True, dir_okay=False),
+    default="requirements.txt",
+    help=(
+        "Path to requirements file to record in the manifest instead of detecting the environment. "
+        "Must be inside the notebook directory. Use 'none' to capture via pip freeze."
+    ),
+)
+@click.option(
     "--package-installer",
     type=click.Choice(PackageInstaller),
     help=("Select the Python package installer for installs in the manifest. By default, behavior is server-driven."),
@@ -1050,6 +1060,7 @@ def deploy_notebook(
     python: Optional[str],
     override_python_version: Optional[str],
     force_generate: bool,
+    requirements_file: Optional[str],
     verbose: int,
     file: str,
     extra_files: tuple[str, ...],
@@ -1073,17 +1084,15 @@ def deploy_notebook(
     app_mode = AppModes.JUPYTER_NOTEBOOK if not static else AppModes.STATIC
 
     base_dir = dirname(file)
+    requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
     environment = Environment.create_python_environment(
         base_dir,
+        requirements_file=requirements_file,
         app_file=file,
-        force_generate=force_generate,
         python=python,
         override_python_version=override_python_version,
         package_manager=package_installer,
     )
-
-    if force_generate:
-        _warn_on_ignored_requirements(base_dir, environment.filename)
 
     ce = RSConnectExecutor(
         ctx=ctx,
@@ -1180,6 +1189,16 @@ def deploy_notebook(
     help='Force generating "requirements.txt", even if it already exists.',
 )
 @click.option(
+    "--requirements-file",
+    "-r",
+    type=click.Path(exists=True, dir_okay=False),
+    default="requirements.txt",
+    help=(
+        "Path to requirements file to record in the manifest instead of detecting the environment. "
+        "Must be inside the notebook directory. Use 'none' to capture via pip freeze."
+    ),
+)
+@click.option(
     "--package-installer",
     type=click.Choice(PackageInstaller),
     help=("Select the Python package installer for installs in the manifest. By default, behavior is server-driven."),
@@ -1199,6 +1218,7 @@ def deploy_voila(
     python: Optional[str],
     override_python_version: Optional[str],
     force_generate: bool,
+    requirements_file: Optional[str],
     extra_files: tuple[str, ...],
     exclude: tuple[str, ...],
     image: Optional[str],
@@ -1225,11 +1245,13 @@ def deploy_voila(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
     app_mode = AppModes.JUPYTER_VOILA
+    base_dir = path if isdir(path) else dirname(path)
+    requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
     environment = Environment.create_python_environment(
-        path if isdir(path) else dirname(path),
-        force_generate,
-        python,
-        override_python_version,
+        base_dir,
+        requirements_file=requirements_file,
+        python=python,
+        override_python_version=override_python_version,
         package_manager=package_installer,
     )
 
@@ -1256,7 +1278,7 @@ def deploy_voila(
         entrypoint,
         extra_files,
         exclude,
-        force_generate,
+        requirements_file is None,
         environment,
         image=image,
         env_management_py=env_management_py,
@@ -1401,6 +1423,16 @@ def deploy_manifest(
     help='Force generating "requirements.txt", even if it already exists.',
 )
 @click.option(
+    "--requirements-file",
+    "-r",
+    type=click.Path(exists=True, dir_okay=False),
+    default="requirements.txt",
+    help=(
+        "Path to requirements file to record in the manifest instead of detecting the environment. "
+        "Must be inside the project directory. Use 'none' to capture via pip freeze."
+    ),
+)
+@click.option(
     "--package-installer",
     type=click.Choice(PackageInstaller),
     help=("Select the Python package installer for installs in the manifest. By default, behavior is server-driven."),
@@ -1429,6 +1461,7 @@ def deploy_quarto(
     python: Optional[str],
     override_python_version: Optional[str],
     force_generate: bool,
+    requirements_file: Optional[str],
     verbose: int,
     file_or_directory: str,
     extra_files: Sequence[str],
@@ -1459,9 +1492,12 @@ def deploy_quarto(
 
     environment = None
     if "jupyter" in engines:
+        requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
         with cli_feedback("Inspecting Python environment"):
             environment = Environment.create_python_environment(
-                base_dir, force_generate=force_generate, override_python_version=override_python_version
+                base_dir,
+                requirements_file=requirements_file,
+                override_python_version=override_python_version,
             )
 
     ce = RSConnectExecutor(
@@ -1713,6 +1749,19 @@ def deploy_html(
         ce.verify_deployment()
 
 
+def resolve_requirements_file(directory: str, requirements_file: Optional[str], force_generate: bool) -> Optional[str]:
+    """
+    Determine which requirements file to use.
+
+    Returns None when pip freeze should be used (force_generate=True), otherwise returns
+    the provided path or the default "requirements.txt".
+    """
+    if force_generate:
+        _warn_on_ignored_requirements(directory, requirements_file or "requirements.txt")
+        return None
+    return requirements_file or "requirements.txt"
+
+
 def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc: Optional[str] = None):
     if desc is None:
         desc = app_mode.desc()
@@ -1773,6 +1822,15 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         help='Force generating "requirements.txt", even if it already exists.',
     )
     @click.option(
+        "--requirements-file",
+        "-r",
+        type=click.Path(exists=True, dir_okay=False),
+        help=(
+            "Path to requirements file to record in the manifest instead of detecting the environment. "
+            "Must be inside the deployment directory. Use 'none' to capture via pip freeze."
+        ),
+    )
+    @click.option(
         "--package-installer",
         type=click.Choice(PackageInstaller),
         help=(
@@ -1804,6 +1862,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         python: Optional[str],
         override_python_version: Optional[str],
         force_generate: bool,
+        requirements_file: Optional[str],
         verbose: int,
         directory: str,
         extra_files: tuple[str, ...],
@@ -1823,10 +1882,11 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         set_verbosity(verbose)
         entrypoint = validate_entry_point(entrypoint, directory)
         extra_files_list = validate_extra_files(directory, extra_files)
+        requirements_file = resolve_requirements_file(directory, requirements_file, force_generate)
         environment = Environment.create_python_environment(
             directory,
-            force_generate,
-            python,
+            requirements_file=requirements_file,
+            python=python,
             override_python_version=override_python_version,
             package_manager=package_installer,
         )
@@ -1970,6 +2030,15 @@ def write_manifest():
     help='Force generating "requirements.txt", even if it already exists.',
 )
 @click.option(
+    "--requirements-file",
+    "-r",
+    type=click.Path(exists=True, dir_okay=False),
+    help=(
+        "Path to requirements file to record in the manifest instead of detecting the environment. "
+        "Must be inside the notebook directory. Use 'none' to capture via pip freeze."
+    ),
+)
+@click.option(
     "--package-installer",
     type=click.Choice(PackageInstaller),
     help=("Select the Python package installer for installs in the manifest. By default, behavior is server-driven."),
@@ -2001,6 +2070,7 @@ def write_manifest_notebook(
     hide_all_input: Optional[bool] = None,
     hide_tagged_input: Optional[bool] = None,
     package_installer: Optional[PackageInstaller] = None,
+    requirements_file: Optional[str] = None,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -2013,16 +2083,18 @@ def write_manifest_notebook(
         if exists(manifest_path) and not overwrite:
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
+    requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
     with cli_feedback("Inspecting Python environment"):
         environment = Environment.create_python_environment(
             base_dir,
-            force_generate=force_generate,
+            requirements_file=requirements_file,
             python=python,
             override_python_version=override_python_version,
             app_file=file,
             package_manager=package_installer,
         )
 
+    generate_env = requirements_file is None
     with cli_feedback("Creating manifest.json"):
         environment_file_exists = write_notebook_manifest_json(
             file,
@@ -2036,7 +2108,7 @@ def write_manifest_notebook(
             env_management_r,
         )
 
-    if environment_file_exists and not force_generate:
+    if environment_file_exists and not generate_env:
         click.secho(
             "    Warning: %s already exists and will not be overwritten." % environment.filename,
             fg="yellow",
@@ -2073,6 +2145,15 @@ def write_manifest_notebook(
     "-g",
     is_flag=True,
     help='Force generating "requirements.txt", even if it already exists.',
+)
+@click.option(
+    "--requirements-file",
+    "-r",
+    type=click.Path(exists=True, dir_okay=False),
+    help=(
+        "Path to requirements file to record in the manifest instead of detecting the environment. "
+        "Must be inside the notebook directory. Use 'none' to capture via pip freeze."
+    ),
 )
 @click.option(
     "--package-installer",
@@ -2122,6 +2203,7 @@ def write_manifest_voila(
     env_management_r: Optional[bool],
     multi_notebook: bool,
     package_installer: Optional[PackageInstaller] = None,
+    requirements_file: Optional[str] = None,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -2132,10 +2214,11 @@ def write_manifest_voila(
         if exists(manifest_path) and not overwrite:
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
+    requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
     with cli_feedback("Inspecting Python environment"):
         environment = Environment.create_python_environment(
             base_dir,
-            force_generate=force_generate,
+            requirements_file=requirements_file,
             override_python_version=override_python_version,
             python=python,
             app_file=path,
@@ -2143,8 +2226,8 @@ def write_manifest_voila(
         )
 
     environment_file_exists = exists(join(base_dir, environment.filename))
-
-    if environment_file_exists and not force_generate:
+    generate_env = requirements_file is None
+    if environment_file_exists and not generate_env:
         click.secho(
             "    Warning: %s already exists and will not be overwritten." % environment.filename,
             fg="yellow",
@@ -2160,7 +2243,7 @@ def write_manifest_voila(
             environment,
             extra_files,
             exclude,
-            force_generate,
+            generate_env,
             image,
             env_management_py,
             env_management_r,
@@ -2217,6 +2300,15 @@ def write_manifest_voila(
     help='Force generating "requirements.txt", even if it already exists.',
 )
 @click.option(
+    "--requirements-file",
+    "-r",
+    type=click.Path(exists=True, dir_okay=False),
+    help=(
+        "Path to requirements file to record in the manifest instead of detecting the environment. "
+        "Must be inside the project directory."
+    ),
+)
+@click.option(
     "--package-installer",
     type=click.Choice(PackageInstaller),
     help=("Select the Python package installer for installs in the manifest. By default, behavior is server-driven."),
@@ -2246,6 +2338,7 @@ def write_manifest_quarto(
     env_management_py: Optional[bool],
     env_management_r: Optional[bool],
     package_installer: Optional[PackageInstaller],
+    requirements_file: Optional[str],
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -2265,20 +2358,27 @@ def write_manifest_quarto(
         logger.debug("Quarto: %s" % quarto)
         inspect = quarto_inspect(quarto, file_or_directory)
         engines = validate_quarto_engines(inspect)
+        if requirements_file and "jupyter" not in engines:
+            raise RSConnectException(
+                "--requirements-file is only supported for Quarto content using the Jupyter engine."
+            )
 
     environment = None
+    generate_env = False
     if "jupyter" in engines:
+        requirements_file = resolve_requirements_file(base_dir, requirements_file, force_generate)
+        generate_env = requirements_file is None
         with cli_feedback("Inspecting Python environment"):
             environment = Environment.create_python_environment(
                 base_dir,
-                force_generate=force_generate,
+                requirements_file=requirements_file,
                 override_python_version=override_python_version,
                 python=python,
                 package_manager=package_installer,
             )
 
         environment_file_exists = exists(join(base_dir, environment.filename))
-        if environment_file_exists and not force_generate:
+        if environment_file_exists and not generate_env:
             click.secho(
                 "    Warning: %s already exists and will not be overwritten." % environment.filename,
                 fg="yellow",
@@ -2415,6 +2515,15 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
         help='Force generating "requirements.txt", even if it already exists.',
     )
     @click.option(
+        "--requirements-file",
+        "-r",
+        type=click.Path(exists=True, dir_okay=False),
+        help=(
+            "Path to requirements file to record in the manifest instead of detecting the environment. "
+            "Must be inside the application directory. Use 'none' to capture via pip freeze."
+        ),
+    )
+    @click.option(
         "--package-installer",
         type=click.Choice(PackageInstaller),
         help=(
@@ -2446,7 +2555,9 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
         env_management_py: Optional[bool],
         env_management_r: Optional[bool],
         package_installer: Optional[PackageInstaller],
+        requirements_file: Optional[str],
     ):
+        resolved_requirements_file = resolve_requirements_file(directory, requirements_file, force_generate)
         _write_framework_manifest(
             ctx,
             overwrite,
@@ -2454,7 +2565,6 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
             exclude,
             python,
             override_python_version,
-            force_generate,
             verbose,
             directory,
             extra_files,
@@ -2463,6 +2573,7 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
             env_management_py,
             env_management_r,
             package_installer=package_installer,
+            requirements_file=resolved_requirements_file,
         )
 
     return manifest_writer
@@ -2487,7 +2598,6 @@ def _write_framework_manifest(
     exclude: tuple[str, ...],
     python: Optional[str],
     override_python_version: Optional[str],
-    force_generate: bool,
     verbose: int,
     directory: str,
     extra_files: tuple[str, ...],
@@ -2496,6 +2606,7 @@ def _write_framework_manifest(
     env_management_py: Optional[bool],
     env_management_r: Optional[bool],
     package_installer: Optional[PackageInstaller] = None,
+    requirements_file: Optional[str] = None,
 ):
     """
     A common function for writing manifests for APIs as well as Dash, Streamlit, Bokeh, and Panel apps.
@@ -2506,8 +2617,6 @@ def _write_framework_manifest(
                     the deploy.
     :param python: a path to the Python executable to use.
     :param override_python_version: Python version number Connect should use instead of the locally-installed version
-    :param force_generate: a flag to force the generation of manifest and
-                           requirements file.
     :param verbose: a flag to produce more (debugging) output.
     :param directory: the directory of the thing to deploy.
     :param extra_files: any extra files that should be included.
@@ -2528,10 +2637,11 @@ def _write_framework_manifest(
         if exists(manifest_path) and not overwrite:
             raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
 
+    resolved_requirements_file = resolve_requirements_file(directory, requirements_file, False)
     with cli_feedback("Inspecting Python environment"):
         environment = Environment.create_python_environment(
             directory,
-            force_generate=force_generate,
+            requirements_file=resolved_requirements_file,
             override_python_version=override_python_version,
             python=python,
         )
@@ -2554,7 +2664,8 @@ def _write_framework_manifest(
             env_management_r,
         )
 
-    if environment_file_exists and not force_generate:
+    generate_env = resolved_requirements_file is None
+    if environment_file_exists and not generate_env:
         click.secho(
             "    Warning: %s already exists and will not be overwritten." % environment.filename,
             fg="yellow",
