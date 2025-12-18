@@ -13,6 +13,7 @@ import datetime
 import json
 import locale
 import os
+import tempfile
 import re
 import subprocess
 import sys
@@ -74,6 +75,8 @@ def detect_environment(dirname: str, requirements_file: Optional[str] = "require
 
     if requirements_file is None:
         result = pip_freeze()
+    elif os.path.basename(requirements_file) == "uv.lock":
+        result = uv_export(dirname, requirements_file)
     else:
         result = output_file(dirname, requirements_file, "pip") or pip_freeze()
 
@@ -183,6 +186,55 @@ def pip_freeze():
         "contents": pip_stdout,
         "source": "pip_freeze",
         "package_manager": "pip",
+    }
+
+
+def uv_export(dirname: str, lock_filename: str):
+    """
+    Export requirements from a uv.lock file using `uv export`.
+    """
+    lock_path = lock_filename
+    if not os.path.isabs(lock_filename):
+        lock_path = os.path.join(dirname, lock_filename)
+
+    if not os.path.exists(lock_path):
+        raise EnvironmentException("uv.lock not found: %s" % lock_filename)
+
+    with tempfile.NamedTemporaryFile(delete=True) as tmp_file:
+        try:
+            proc = subprocess.Popen(
+                ["uv", "export", "--format", "requirements-txt", "--locked", "--output", tmp_file.name],
+                cwd=os.path.dirname(lock_path),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True,
+            )
+            stdout, stderr = proc.communicate()
+            status = proc.returncode
+        except Exception as exception:
+            raise EnvironmentException("Error during uv export: %s" % str(exception))
+
+        if status != 0:
+            msg = stderr or ("exited with code %d" % status)
+            raise EnvironmentException("Error during uv export: %s" % msg)
+
+        tmp_file.seek(0)
+        exported = tmp_file.read()
+
+    requirements = filter_pip_freeze_output(exported)
+    requirements = (
+        "# requirements.txt.lock generated from uv.lock by rsconnect-python on "
+        + str(datetime.datetime.now(datetime.timezone.utc))
+        + "\n"
+        + requirements
+    )
+
+    return {
+        "filename": "requirements.txt.lock",
+        "contents": requirements,
+        "source": "uv_lock",
+        "package_manager": "uv",
+        "pip": get_version("pip"),
     }
 
 
