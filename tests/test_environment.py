@@ -148,21 +148,21 @@ name = "aiofiles"
 version = "24.1.0"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://example.com/aiofiles-24.1.0.tar.gz", hash = "sha256:1" }
-wheels = [{ url = "https://example.com/aiofiles-24.1.0.whl", hash = "sha256:2" }]
+wheels = [{ url = "https://example.com/aiofiles-24.1.0-py3-none-any.whl", hash = "sha256:2" }]
 
 [[package]]
 name = "annotated-doc"
 version = "0.0.4"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://example.com/annotated_doc-0.0.4.tar.gz", hash = "sha256:3" }
-wheels = [{ url = "https://example.com/annotated_doc-0.0.4.whl", hash = "sha256:4" }]
+wheels = [{ url = "https://example.com/annotated_doc-0.0.4-py3-none-any.whl", hash = "sha256:4" }]
 
 [[package]]
 name = "annotated-types"
 version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://example.com/annotated_types-0.7.0.tar.gz", hash = "sha256:5" }
-wheels = [{ url = "https://example.com/annotated_types-0.7.0.whl", hash = "sha256:6" }]
+wheels = [{ url = "https://example.com/annotated_types-0.7.0-py3-none-any.whl", hash = "sha256:6" }]
 
 [[package]]
 name = "demo"
