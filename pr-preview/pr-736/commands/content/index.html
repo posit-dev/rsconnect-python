@@ -19,7 +19,7 @@
       
       
       <link rel="icon" href="../../images/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
     
     
       
@@ -27,7 +27,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.618322db.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -707,10 +707,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#content-get-lockfile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get-lockfile
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#content-search" class="md-nav__link">
     <span class="md-ellipsis">
       
         search
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#content-venv" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        venv
       
     </span>
   </a>
@@ -1125,10 +1147,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#content-get-lockfile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get-lockfile
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#content-search" class="md-nav__link">
     <span class="md-ellipsis">
       
         search
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#content-venv" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        venv
       
     </span>
   </a>
@@ -1429,6 +1473,39 @@
                                   exists.
   --help                          Show this message and exit.
 </code></pre></div>
+<h2 id="content-get-lockfile">content get-lockfile<a class="headerlink" href="#content-get-lockfile" title="Permanent link">#</a></h2>
+<p>Download a content item's lockfile.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight"><pre><span></span><code>content get-lockfile [OPTIONS]
+</code></pre></div>
+<p><strong>Options:</strong></p>
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  -g, --guid TEXT                 The GUID of a content item whose lockfile
+                                  will be downloaded.  [required]
+  -o, --output PATH               Defines the output location for the lockfile
+                                  download.  [default: requirements.txt.lock]
+  -w, --overwrite                 Overwrite the output file if it already
+                                  exists.
+  --help                          Show this message and exit.
+</code></pre></div>
 <h2 id="content-search">content search<a class="headerlink" href="#content-search" title="Permanent link">#</a></h2>
 <p>Search for content on Posit Connect.</p>
 <p><strong>Usage:</strong></p>
@@ -1465,6 +1542,39 @@
   --title-contains TEXT           Filter content results by title.
   --order-by [created|last_deployed]
                                   Order content results.
+  --help                          Show this message and exit.
+</code></pre></div>
+<h2 id="content-venv">content venv<a class="headerlink" href="#content-venv" title="Permanent link">#</a></h2>
+<p>Create a ENV_PATH Python virtual environment that mimics the environment of a deployed content item on Posit Connect. This will use the 'uv' tool to locally create and manage the virtual environment. If the required Python version isn't already installed, uv will download it automatically.</p>
+<p>run it from the directory of a deployed content item to auto-detect the GUID, or provide the --guid option to specify a content item explicitly.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight"><pre><span></span><code>content venv [OPTIONS] ENV_PATH
+</code></pre></div>
+<p><strong>Options:</strong></p>
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  -g, --guid TEXT                 The GUID of a content item whose lockfile
+                                  will be used to build the environment. If
+                                  omitted, rsconnect will try to auto-detect
+                                  the last deployed GUID for the current
+                                  server from local deployment metadata.
   --help                          Show this message and exit.
 </code></pre></div>
 
@@ -1582,10 +1692,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.expand"], "search": "../../assets/javascripts/workers/search.7a47a382.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.expand"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.e71a0d61.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>
