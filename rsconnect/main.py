@@ -1094,10 +1094,7 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     "-r",
     type=click.Path(dir_okay=False),
     default="requirements.txt",
-    help=(
-        "Path to requirements file to record in the manifest instead of detecting the environment. "
-        "Must be inside the notebook directory. Use 'none' to capture via pip freeze."
-    ),
+    help=("Path to requirements file listing the project dependencies. " "Must be inside the notebook directory."),
 )
 @click.option(
     "--package-installer",
@@ -1273,10 +1270,7 @@ def deploy_notebook(
     "-r",
     type=click.Path(dir_okay=False),
     default="requirements.txt",
-    help=(
-        "Path to requirements file to record in the manifest instead of detecting the environment. "
-        "Must be inside the notebook directory. Use 'none' to capture via pip freeze."
-    ),
+    help=("Path to requirements file listing the project dependencies. " "Must be inside the notebook directory."),
 )
 @click.option(
     "--package-installer",
@@ -1528,10 +1522,7 @@ def deploy_manifest(
     "-r",
     type=click.Path(dir_okay=False),
     default="requirements.txt",
-    help=(
-        "Path to requirements file to record in the manifest instead of detecting the environment. "
-        "Must be inside the project directory. Use 'none' to capture via pip freeze."
-    ),
+    help=("Path to requirements file listing the project dependencies. " "Must be inside the project directory."),
 )
 @click.option(
     "--package-installer",
@@ -1957,8 +1948,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         "-r",
         type=click.Path(dir_okay=False),
         help=(
-            "Path to requirements file to record in the manifest instead of detecting the environment. "
-            "Must be inside the deployment directory. Use 'none' to capture via pip freeze."
+            "Path to requirements file listing the project dependencies. " "Must be inside the deployment directory."
         ),
     )
     @click.option(
@@ -2659,10 +2649,7 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
         "--requirements-file",
         "-r",
         type=click.Path(dir_okay=False),
-        help=(
-            "Path to requirements file to record in the manifest instead of detecting the environment. "
-            "Must be inside the application directory. Use 'none' to capture via pip freeze."
-        ),
+        help="Path to requirements file listing the project dependencies. Must be inside the application directory.",
     )
     @click.option(
         "--package-installer",
