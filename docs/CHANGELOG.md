@@ -10,15 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `rsconnect content get-lockfile` command allows fetching a lockfile with the
-dependencies installed by connect to run the deployed content
+  dependencies installed by connect to run the deployed content
 - `rsconnect content venv` command recreates a local python environment
-equal to the one used by connect to run the content.
+  equal to the one used by connect to run the content.
 - Added `--requirements-file` option on deploy and write-manifest commands to
-supply an explicit requirements file instead of detecting the environment.
+  supply an explicit requirements file instead of detecting the environment.
+- `uv.lock` can now be supplied via `--requirements-file` for deploy and write-manifest.
 - Bundle uploads now include git metadata (source, source_repo, source_branch, source_commit)
   when deploying from a git repository. This metadata is automatically detected and sent to
   Posit Connect 2025.12.0 or later. Use `--metadata key=value` to provide additional metadata
   or override detected values. Use `--no-metadata` to disable automatic detection. (#736)
+  supply an explicit requirements file instead of detecting the environment.
+
 
 ## [1.28.2] - 2025-12-05
 
