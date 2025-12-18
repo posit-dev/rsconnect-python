@@ -2305,7 +2305,7 @@ def write_manifest_voila(
     type=click.Path(exists=True, dir_okay=False),
     help=(
         "Path to requirements file to record in the manifest instead of detecting the environment. "
-        "Must be inside the project directory. Use 'none' to capture via pip freeze."
+        "Must be inside the project directory."
     ),
 )
 @click.option(
@@ -2358,7 +2358,7 @@ def write_manifest_quarto(
         logger.debug("Quarto: %s" % quarto)
         inspect = quarto_inspect(quarto, file_or_directory)
         engines = validate_quarto_engines(inspect)
-        if requirements_file and requirements_file.lower() != "none" and "jupyter" not in engines:
+        if requirements_file and "jupyter" not in engines:
             raise RSConnectException(
                 "--requirements-file is only supported for Quarto content using the Jupyter engine."
             )
