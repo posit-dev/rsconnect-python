@@ -10,7 +10,12 @@ from unittest import mock
 import rsconnect.environment
 from rsconnect.exception import RSConnectException
 from rsconnect.environment import Environment, which_python
-from rsconnect.subprocesses.inspect_environment import get_python_version, get_default_locale, filter_pip_freeze_output
+from rsconnect.subprocesses.inspect_environment import (
+    detect_environment,
+    filter_pip_freeze_output,
+    get_default_locale,
+    get_python_version,
+)
 
 from .utils import get_dir
 
@@ -123,6 +128,69 @@ class TestEnvironment(TestCase):
         expected = "numpy\npandas\nnot at beginning [notice]"
 
         self.assertEqual(filtered, expected)
+
+
+def test_uv_lock_export(tmp_path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    (project_dir / "pyproject.toml").write_text(
+        "[project]\nname='demo'\nversion='0.0.0'\n"
+        "dependencies=['aiofiles==24.1.0','annotated-doc==0.0.4','annotated-types==0.7.0']\n",
+        encoding="utf-8",
+    )
+    (project_dir / "uv.lock").write_text(
+        """version = 1
+revision = 3
+requires-python = ">=3.11.3"
+
+[[package]]
+name = "aiofiles"
+version = "24.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://example.com/aiofiles-24.1.0.tar.gz", hash = "sha256:1" }
+wheels = [{ url = "https://example.com/aiofiles-24.1.0.whl", hash = "sha256:2" }]
+
+[[package]]
+name = "annotated-doc"
+version = "0.0.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://example.com/annotated_doc-0.0.4.tar.gz", hash = "sha256:3" }
+wheels = [{ url = "https://example.com/annotated_doc-0.0.4.whl", hash = "sha256:4" }]
+
+[[package]]
+name = "annotated-types"
+version = "0.7.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://example.com/annotated_types-0.7.0.tar.gz", hash = "sha256:5" }
+wheels = [{ url = "https://example.com/annotated_types-0.7.0.whl", hash = "sha256:6" }]
+
+[[package]]
+name = "demo"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "aiofiles" },
+    { name = "annotated-doc" },
+    { name = "annotated-types" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiofiles", specifier = "==24.1.0" },
+    { name = "annotated-doc", specifier = "==0.0.4" },
+    { name = "annotated-types", specifier = "==0.7.0" },
+]""",
+        encoding="utf-8",
+    )
+
+    env = detect_environment(str(project_dir), requirements_file="uv.lock")
+
+    assert env.filename == "requirements.txt.lock"
+    assert "aiofiles==24.1.0" in env.contents
+    assert "annotated-doc==0.0.4" in env.contents
+    assert "annotated-types==0.7.0" in env.contents
+    assert env.source == "uv_lock"
+    assert env.package_manager == "uv"
 
 
 class WhichPythonTestCase(TestCase):

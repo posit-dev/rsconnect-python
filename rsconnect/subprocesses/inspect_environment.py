@@ -213,6 +213,7 @@ def uv_export(dirname: str, lock_filename: str):
                     "--no-annotate",
                     "--offline",
                     "--no-header",
+                    "--no-emit-project",
                     "--output-file",
                     tmp_file.name,
                 ],
