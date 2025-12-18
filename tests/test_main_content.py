@@ -65,7 +65,7 @@ def register_uris(connect_server: str):
     )
     httpretty.register_uri(
         httpretty.GET,
-        f"{connect_server}/__api__/me",
+        f"{connect_server}/__api__/v1/user",
         body=open("tests/testdata/connect-responses/me.json", "r").read(),
         adding_headers={"Content-Type": "application/json"},
     )

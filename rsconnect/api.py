@@ -399,7 +399,7 @@ class RSConnectClient(HTTPServer):
         )
 
     def me(self) -> UserRecord:
-        response = cast(Union[UserRecord, HTTPResponse], self.get("me"))
+        response = cast(Union[UserRecord, HTTPResponse], self.get("v1/user"))
         response = self._server.handle_bad_response(response)
         return response
 
@@ -426,22 +426,22 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def app_add_environment_vars(self, app_guid: str, env_vars: list[tuple[str, str]]):
+    def add_environment_vars(self, content_guid: str, env_vars: list[tuple[str, str]]):
         env_body = [dict(name=kv[0], value=kv[1]) for kv in env_vars]
-        return self.patch("v1/content/%s/environment" % app_guid, body=env_body)
+        return self.patch("v1/content/%s/environment" % content_guid, body=env_body)
 
-    def is_app_failed_response(self, response: HTTPResponse | JsonData) -> bool:
+    def is_failed_response(self, response: HTTPResponse | JsonData) -> bool:
         return isinstance(response, HTTPResponse) and response.status >= 500
 
-    def app_access(self, app_guid: str) -> None:
+    def access_content(self, content_guid: str) -> None:
         method = "GET"
         base = dirname(self._url.path)  # remove __api__
-        path = f"{base}/content/{app_guid}/"
+        path = f"{base}/content/{content_guid}/"
         response = self._do_request(method, path, None, None, 3, {}, False)
 
-        if self.is_app_failed_response(response):
+        if self.is_failed_response(response):
             # Get content metadata to construct logs URL
-            content = self.content_get(app_guid)
+            content = self.content_get(content_guid)
             logs_url = content["dashboard_url"] + "/logs"
             raise RSConnectException(
                 "Could not access the deployed content. "
@@ -475,7 +475,7 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def get_content_by_id(self, app_id: str) -> ContentItemV1:
+    def get_content_by_id(self, id: str) -> ContentItemV1:
         """
         Get content by ID, which can be either a numeric ID (legacy) or GUID.
 
@@ -483,12 +483,12 @@ class RSConnectClient(HTTPServer):
         :return: ContentItemV1 data
         """
         # Check if it looks like a GUID (contains hyphens)
-        if "-" in str(app_id):
-            return self.content_get(app_id)
+        if "-" in str(id):
+            return self.content_get(id)
         else:
             # Legacy numeric ID - get v0 content first to get GUID
-            # TODO: deprecation warning
-            app_v0 = self.app_get(app_id)
+            app_v0 = self.app_get(id)
+            # TODO: deprecation warning here
             return self.content_get(app_v0["guid"])
 
     def content_create(self, name: str) -> ContentItemV1:
@@ -524,7 +524,9 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
-    def content_deploy(self, app_guid: str, bundle_id: Optional[str] = None, activate: bool = True) -> BuildOutputDTO:
+    def content_deploy(
+        self, content_guid: str, bundle_id: Optional[str] = None, activate: bool = True
+    ) -> BuildOutputDTO:
         body: dict[str, str | bool | None] = {"bundle_id": bundle_id}
         if not activate:
             # The default behavior is to activate the app after deploying.
@@ -533,7 +535,7 @@ class RSConnectClient(HTTPServer):
             body["activate"] = False
         response = cast(
             Union[BuildOutputDTO, HTTPResponse],
-            self.post("v1/content/%s/deploy" % app_guid, body=body),
+            self.post("v1/content/%s/deploy" % content_guid, body=body),
         )
         response = self._server.handle_bad_response(response)
         return response
@@ -598,7 +600,7 @@ class RSConnectClient(HTTPServer):
 
         app_guid = app["guid"]
         if env_vars:
-            result = self.app_add_environment_vars(app_guid, list(env_vars.items()))
+            result = self.add_environment_vars(app_guid, list(env_vars.items()))
             result = self._server.handle_bad_response(result)
 
         if app["title"] != app_title and not title_is_default:
@@ -689,10 +691,6 @@ class RSConnectClient(HTTPServer):
         """Pipe any new output through the log_callback."""
         for line in task["output"]:
             log_callback(line)
-
-
-# for backwards compatibility with rsconnect-jupyter
-RSConnect = RSConnectClient
 
 
 class ServerDetailsPython(TypedDict):
@@ -1183,7 +1181,7 @@ class RSConnectExecutor:
                 raise RSConnectException("To verify deployment, client must be a RSConnectClient.")
             deployed_info = self.deployed_info
             app_guid = deployed_info["app_guid"]
-            self.client.app_access(app_guid)
+            self.client.access_content(app_guid)
 
     @cls_logged("Validating app mode...")
     def validate_app_mode(self, app_mode: AppMode):
