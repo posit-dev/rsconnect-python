@@ -200,7 +200,8 @@ def uv_export(dirname: str, lock_filename: str):
     if not os.path.exists(lock_path):
         raise EnvironmentException("uv.lock not found: %s" % lock_filename)
 
-    with tempfile.NamedTemporaryFile(mode="w+", encoding="utf-8") as tmp_file:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_path = os.path.join(tmpdir, "requirements.txt.lock")
         try:
             result = subprocess.run(
                 [
@@ -215,7 +216,7 @@ def uv_export(dirname: str, lock_filename: str):
                     "--no-header",
                     "--no-emit-project",
                     "--output-file",
-                    tmp_file.name,
+                    output_path,
                 ],
                 cwd=os.path.dirname(lock_path),
                 stdout=sys.stderr,
@@ -228,7 +229,7 @@ def uv_export(dirname: str, lock_filename: str):
         if result.returncode != 0:
             raise EnvironmentException("Error during uv export: exited with code %d" % result.returncode)
 
-        with open(tmp_file.name) as output_file:
+        with open(output_path) as output_file:
             exported = output_file.read()
 
     requirements = filter_pip_freeze_output(exported)
