@@ -212,6 +212,7 @@ def uv_export(dirname: str, lock_filename: str):
                     "--no-hashes",
                     "--no-annotate",
                     "--offline",
+                    "--no-header",
                     "--output-file",
                     tmp_file.name,
                 ],
