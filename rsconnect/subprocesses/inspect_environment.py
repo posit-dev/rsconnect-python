@@ -234,7 +234,7 @@ def uv_export(dirname: str, lock_filename: str):
         "contents": requirements,
         "source": "uv_lock",
         "package_manager": "uv",
-        "pip": get_version("pip"),
+        "pip": None,
     }
 
 
