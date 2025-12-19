@@ -1094,7 +1094,12 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     "-r",
     type=click.Path(dir_okay=False),
     default="requirements.txt",
-    help="Path to requirements file listing the project dependencies. Must be inside the notebook directory.",
+    help=(
+        "Path to requirements file listing the project dependencies. "
+        "Any file compatible with requirements.txt format or uv.lock is accepted, "
+        "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+        "Must be inside the project directory."
+    ),
 )
 @click.option(
     "--package-installer",
@@ -1270,7 +1275,12 @@ def deploy_notebook(
     "-r",
     type=click.Path(dir_okay=False),
     default="requirements.txt",
-    help="Path to requirements file listing the project dependencies. Must be inside the notebook directory.",
+    help=(
+        "Path to requirements file listing the project dependencies. "
+        "Any file compatible with requirements.txt format or uv.lock is accepted, "
+        "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+        "Must be inside the project directory."
+    ),
 )
 @click.option(
     "--package-installer",
@@ -1522,7 +1532,12 @@ def deploy_manifest(
     "-r",
     type=click.Path(dir_okay=False),
     default="requirements.txt",
-    help="Path to requirements file listing the project dependencies. Must be inside the project directory.",
+    help=(
+        "Path to requirements file listing the project dependencies. "
+        "Any file compatible with requirements.txt format or uv.lock is accepted, "
+        "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+        "Must be inside the project directory."
+    ),
 )
 @click.option(
     "--package-installer",
@@ -1947,7 +1962,12 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         "--requirements-file",
         "-r",
         type=click.Path(dir_okay=False),
-        help="Path to requirements file listing the project dependencies. Must be inside the deployment directory.",
+        help=(
+            "Path to requirements file listing the project dependencies. "
+            "Any file compatible with requirements.txt format or uv.lock is accepted, "
+            "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+            "Must be inside the project directory."
+        ),
     )
     @click.option(
         "--package-installer",
@@ -2163,8 +2183,10 @@ def write_manifest():
     "-r",
     type=click.Path(dir_okay=False),
     help=(
-        "Path to requirements file to record in the manifest instead of detecting the environment. "
-        "Must be inside the notebook directory."
+        "Path to requirements file listing the project dependencies. "
+        "Any file compatible with requirements.txt format or uv.lock is accepted, "
+        "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+        "Must be inside the project directory."
     ),
 )
 @click.option(
@@ -2280,8 +2302,10 @@ def write_manifest_notebook(
     "-r",
     type=click.Path(exists=True, dir_okay=False),
     help=(
-        "Path to requirements file to record in the manifest instead of detecting the environment. "
-        "Must be inside the notebook directory. Use 'none' to capture via pip freeze."
+        "Path to requirements file listing the project dependencies. "
+        "Any file compatible with requirements.txt format or uv.lock is accepted, "
+        "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+        "Must be inside the project directory."
     ),
 )
 @click.option(
@@ -2433,7 +2457,9 @@ def write_manifest_voila(
     "-r",
     type=click.Path(dir_okay=False),
     help=(
-        "Path to requirements file to record in the manifest instead of detecting the environment. "
+        "Path to requirements file listing the project dependencies. "
+        "Any file compatible with requirements.txt format or uv.lock is accepted, "
+        "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
         "Must be inside the project directory."
     ),
 )
@@ -2647,7 +2673,12 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
         "--requirements-file",
         "-r",
         type=click.Path(dir_okay=False),
-        help="Path to requirements file listing the project dependencies. Must be inside the application directory.",
+        help=(
+            "Path to requirements file listing the project dependencies. "
+            "Any file compatible with requirements.txt format or uv.lock is accepted, "
+            "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+            "Must be inside the project directory."
+        ),
     )
     @click.option(
         "--package-installer",
