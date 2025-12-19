@@ -161,6 +161,53 @@ def append_to_path(uri: str, path: str):
     return uri
 
 
+def create_multipart_form_data(
+    fields: Dict[str, Union[str, Tuple[str, bytes, str]]],
+    boundary: Optional[str] = None,
+) -> Tuple[bytes, str]:
+    """
+    Create multipart/form-data body and content-type header.
+
+    :param fields: Dictionary of field names to values. Values can be:
+        - str: Plain text field value
+        - Tuple[str, bytes, str]: (filename, file_content, content_type) for file uploads
+    :param boundary: Optional boundary string. If not provided, one will be generated.
+    :return: Tuple of (body bytes, content-type header value)
+    """
+    import secrets
+
+    if boundary is None:
+        boundary = secrets.token_hex(16)
+
+    body_parts = []
+
+    for field_name, field_value in fields.items():
+        body_parts.append(f"--{boundary}".encode("utf-8"))
+
+        if isinstance(field_value, tuple):
+            # File field
+            filename, file_content, content_type = field_value
+            disposition = f'Content-Disposition: form-data; name="{field_name}"; filename="{filename}"'
+            body_parts.append(disposition.encode("utf-8"))
+            body_parts.append(f"Content-Type: {content_type}".encode("utf-8"))
+            body_parts.append(b"")
+            body_parts.append(file_content)
+        else:
+            # Plain text field
+            disposition = f'Content-Disposition: form-data; name="{field_name}"'
+            body_parts.append(disposition.encode("utf-8"))
+            body_parts.append(b"")
+            body_parts.append(field_value.encode("utf-8"))
+
+    body_parts.append(f"--{boundary}--".encode("utf-8"))
+    body_parts.append(b"")
+
+    body = b"\r\n".join(body_parts)
+    content_type = f"multipart/form-data; boundary={boundary}"
+
+    return body, content_type
+
+
 class HTTPResponse(object):
     """
     This class represents the result of executing an HTTP request.
@@ -309,8 +356,11 @@ class HTTPServer(object):
         path: str,
         query_params: Optional[Mapping[str, JsonData]] = None,
         body: str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> JsonData | HTTPResponse:
-        return self.request("POST", path, query_params, body)
+        if headers is None:
+            headers = {}
+        return self.request("POST", path, query_params, body, headers=headers)
 
     def patch(
         self,

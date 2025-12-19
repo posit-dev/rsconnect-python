@@ -68,6 +68,7 @@ from .api import (
     RSConnectExecutor,
     RSConnectServer,
     SPCSConnectServer,
+    server_supports_git_metadata,
 )
 from .bundle import (
     default_title_from_manifest,
@@ -92,6 +93,7 @@ from .bundle import (
 )
 from .environment import Environment, fake_module_file_from_directory
 from .exception import RSConnectException
+from .git_metadata import detect_git_metadata
 from .json_web_token import (
     TokenGenerator,
     parse_client_response,
@@ -271,6 +273,60 @@ def validate_env_vars(ctx: click.Context, param: click.Parameter, all_values: tu
     return vars
 
 
+def prepare_deploy_metadata(
+    directory: str,
+    metadata_overrides: tuple[str, ...],
+    no_metadata: bool,
+    server_version: Optional[str] = None,
+) -> Optional[dict[str, str]]:
+    """
+    Prepare metadata for bundle upload.
+
+    :param directory: Directory to detect git metadata from
+    :param metadata_overrides: CLI metadata overrides (key=value pairs)
+    :param no_metadata: Flag to disable all metadata
+    :param server_version: Optional server version to check support
+    :return: Metadata dict or None if metadata should not be sent
+    """
+    if no_metadata:
+        return None
+
+    # Parse CLI metadata overrides
+    cli_metadata: dict[str, str] = {}
+    force_metadata = False
+    if metadata_overrides:
+        force_metadata = True
+        for item in metadata_overrides:
+            if "=" in item:
+                key, value = item.split("=", 1)
+                if value:  # If value is not empty
+                    cli_metadata[key] = value
+                else:  # Empty value clears the key
+                    cli_metadata[key] = ""
+
+    # Auto-detect git metadata
+    detected_metadata = detect_git_metadata(directory)
+
+    # Merge: CLI overrides take precedence, then remove empty values
+    final_metadata = {**detected_metadata, **cli_metadata}
+    final_metadata = {k: v for k, v in final_metadata.items() if v}
+
+    # If no metadata collected, return None
+    if not final_metadata:
+        return None
+
+    # Check if we should send metadata based on server version
+    if force_metadata:
+        # If CLI metadata was provided, always send it
+        return final_metadata
+
+    # Otherwise, only send if server supports it
+    if server_supports_git_metadata(server_version):
+        return final_metadata
+
+    return None
+
+
 def content_args(func: Callable[P, T]) -> Callable[P, T]:
     @click.option(
         "--new",
@@ -309,6 +365,21 @@ def content_args(func: Callable[P, T]) -> Callable[P, T]:
             "Deploy the application as a draft. "
             "Previous bundle will continue to be served until the draft is published."
         ),
+    )
+    @click.option(
+        "--metadata",
+        multiple=True,
+        help=(
+            "Include metadata key-value pair with the bundle upload. "
+            "Use format: key=value. May be specified multiple times. "
+            "Use key= (empty value) to clear a detected value. "
+            "Forces metadata upload even on older servers that don't officially support it. [v2025.12.0+]"
+        ),
+    )
+    @click.option(
+        "--no-metadata",
+        is_flag=True,
+        help="Disable automatic git metadata detection and upload.",
     )
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
@@ -1074,6 +1145,8 @@ def deploy_notebook(
     draft: bool,
     no_verify: bool = False,
     package_installer: Optional[PackageInstaller] = None,
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1109,6 +1182,13 @@ def deploy_notebook(
         disable_env_management=disable_env_management,
         env_vars=env_vars,
     )
+
+    # Prepare metadata for upload
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_settings().get("version", "")
+    deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
+    ce.metadata = deploy_metadata
 
     ce.validate_server().validate_app_mode(app_mode=app_mode)
     if app_mode == AppModes.STATIC:
@@ -1241,6 +1321,8 @@ def deploy_voila(
     draft: bool = False,
     connect_server: Optional[api.RSConnectServer] = None,  # TODO: This appears to be unused
     package_installer: Optional[PackageInstaller] = None,
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1270,6 +1352,14 @@ def deploy_voila(
         disable_env_management=disable_env_management,
         env_vars=env_vars,
     )
+
+    # Prepare metadata for upload
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_settings().get("version", "")
+    base_dir = path if isdir(path) else dirname(path)
+    deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
+    ce.metadata = deploy_metadata
 
     ce.validate_server().validate_app_mode(app_mode=app_mode)
     ce.make_bundle(
@@ -1328,6 +1418,8 @@ def deploy_manifest(
     visibility: Optional[str],
     no_verify: bool,
     draft: bool,
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1354,6 +1446,15 @@ def deploy_manifest(
         visibility=visibility,
         env_vars=env_vars,
     )
+
+    # Prepare metadata for upload
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_settings().get("version", "")
+    base_dir = dirname(file_name)
+    deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
+    ce.metadata = deploy_metadata
+
     (
         ce.validate_server()
         .validate_app_mode(app_mode=app_mode)
@@ -1473,6 +1574,8 @@ def deploy_quarto(
     no_verify: bool,
     draft: bool,
     package_installer: Optional[PackageInstaller],
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1516,6 +1619,14 @@ def deploy_quarto(
         disable_env_management=disable_env_management,
         env_vars=env_vars,
     )
+
+    # Prepare metadata for upload
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_settings().get("version", "")
+    deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
+    ce.metadata = deploy_metadata
+
     (
         ce.validate_server()
         .validate_app_mode(app_mode=AppModes.STATIC_QUARTO)
@@ -1596,6 +1707,8 @@ def deploy_tensorflow(
     image: Optional[str],
     no_verify: bool,
     draft: bool,
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1617,6 +1730,14 @@ def deploy_tensorflow(
         title=title,
         env_vars=env_vars,
     )
+
+    # Prepare metadata for upload
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_settings().get("version", "")
+    deploy_metadata = prepare_deploy_metadata(directory, metadata, no_metadata, server_version)
+    ce.metadata = deploy_metadata
+
     (
         ce.validate_server()
         .validate_app_mode(app_mode=AppModes.TENSORFLOW)
@@ -1692,6 +1813,8 @@ def deploy_html(
     no_verify: bool,
     draft: bool,
     connect_server: Optional[api.RSConnectServer] = None,
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
 ):
     set_verbosity(verbose)
     output_params(ctx, locals().items())
@@ -1730,6 +1853,14 @@ def deploy_html(
             title=title,
             env_vars=env_vars,
         )
+
+    # Prepare metadata for upload
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_settings().get("version", "")
+    base_dir = path if isdir(path) else dirname(path)
+    deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
+    ce.metadata = deploy_metadata
 
     (
         ce.validate_server()
@@ -1878,6 +2009,8 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         no_verify: bool,
         draft: bool,
         package_installer: Optional[PackageInstaller],
+        metadata: tuple[str, ...],
+        no_metadata: bool,
     ):
         set_verbosity(verbose)
         entrypoint = validate_entry_point(entrypoint, directory)
@@ -1894,6 +2027,9 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         if app_mode == AppModes.PYTHON_SHINY:
             if is_express_app(entrypoint + ".py", directory):
                 entrypoint = "shiny.express.app:" + escape_to_var_name(entrypoint + ".py")
+
+        # Get server version for metadata support check
+        server_version = None
 
         ce = RSConnectExecutor(
             ctx=ctx,
@@ -1921,6 +2057,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
             # 2024.01.1 or later, this can be removed. Requires access to the
             # Connect server version, which may be hidden.
             connect_version_string = ce.client.server_settings().get("version", "")
+            server_version = connect_version_string
             if connect_version_string:
                 environment = fix_starlette_requirements(
                     environment=environment,
@@ -1932,6 +2069,10 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
                     "    Warning: Connect server version is hidden. Skipping starlette requirements check.",
                     fg="yellow",
                 )
+
+        # Prepare metadata for upload
+        deploy_metadata = prepare_deploy_metadata(directory, metadata, no_metadata, server_version)
+        ce.metadata = deploy_metadata
 
         ce.validate_server()
         ce.validate_app_mode(app_mode=app_mode)
