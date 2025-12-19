@@ -1095,8 +1095,10 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     type=click.Path(dir_okay=False),
     default="requirements.txt",
     help=(
-        "Path to requirements file to record in the manifest instead of detecting the environment. "
-        "Must be inside the notebook directory. Use 'none' to capture via pip freeze."
+        "Path to requirements file listing the project dependencies. "
+        "Any file compatible with requirements.txt format or uv.lock is accepted, "
+        "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+        "Must be inside the project directory."
     ),
 )
 @click.option(
@@ -1274,8 +1276,10 @@ def deploy_notebook(
     type=click.Path(dir_okay=False),
     default="requirements.txt",
     help=(
-        "Path to requirements file to record in the manifest instead of detecting the environment. "
-        "Must be inside the notebook directory. Use 'none' to capture via pip freeze."
+        "Path to requirements file listing the project dependencies. "
+        "Any file compatible with requirements.txt format or uv.lock is accepted, "
+        "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+        "Must be inside the project directory."
     ),
 )
 @click.option(
@@ -1529,8 +1533,10 @@ def deploy_manifest(
     type=click.Path(dir_okay=False),
     default="requirements.txt",
     help=(
-        "Path to requirements file to record in the manifest instead of detecting the environment. "
-        "Must be inside the project directory. Use 'none' to capture via pip freeze."
+        "Path to requirements file listing the project dependencies. "
+        "Any file compatible with requirements.txt format or uv.lock is accepted, "
+        "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+        "Must be inside the project directory."
     ),
 )
 @click.option(
@@ -1957,8 +1963,10 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         "-r",
         type=click.Path(dir_okay=False),
         help=(
-            "Path to requirements file to record in the manifest instead of detecting the environment. "
-            "Must be inside the deployment directory. Use 'none' to capture via pip freeze."
+            "Path to requirements file listing the project dependencies. "
+            "Any file compatible with requirements.txt format or uv.lock is accepted, "
+            "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+            "Must be inside the project directory."
         ),
     )
     @click.option(
@@ -2175,8 +2183,10 @@ def write_manifest():
     "-r",
     type=click.Path(dir_okay=False),
     help=(
-        "Path to requirements file to record in the manifest instead of detecting the environment. "
-        "Must be inside the notebook directory. Use 'none' to capture via pip freeze."
+        "Path to requirements file listing the project dependencies. "
+        "Any file compatible with requirements.txt format or uv.lock is accepted, "
+        "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+        "Must be inside the project directory."
     ),
 )
 @click.option(
@@ -2292,8 +2302,10 @@ def write_manifest_notebook(
     "-r",
     type=click.Path(exists=True, dir_okay=False),
     help=(
-        "Path to requirements file to record in the manifest instead of detecting the environment. "
-        "Must be inside the notebook directory. Use 'none' to capture via pip freeze."
+        "Path to requirements file listing the project dependencies. "
+        "Any file compatible with requirements.txt format or uv.lock is accepted, "
+        "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+        "Must be inside the project directory."
     ),
 )
 @click.option(
@@ -2445,7 +2457,9 @@ def write_manifest_voila(
     "-r",
     type=click.Path(dir_okay=False),
     help=(
-        "Path to requirements file to record in the manifest instead of detecting the environment. "
+        "Path to requirements file listing the project dependencies. "
+        "Any file compatible with requirements.txt format or uv.lock is accepted, "
+        "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
         "Must be inside the project directory."
     ),
 )
@@ -2660,8 +2674,10 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
         "-r",
         type=click.Path(dir_okay=False),
         help=(
-            "Path to requirements file to record in the manifest instead of detecting the environment. "
-            "Must be inside the application directory. Use 'none' to capture via pip freeze."
+            "Path to requirements file listing the project dependencies. "
+            "Any file compatible with requirements.txt format or uv.lock is accepted, "
+            "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
+            "Must be inside the project directory."
         ),
     )
     @click.option(
