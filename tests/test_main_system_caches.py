@@ -5,9 +5,9 @@ from os import system
 from click.testing import CliRunner
 
 from rsconnect.main import cli
+from .utils import require_connect
 
 
-CONNECT_SERVER = "http://localhost:3939"
 CONNECT_KEYS_JSON = "vetiver-testing/rsconnect_api_keys.json"
 CONNECT_CACHE_DIR = "/data/python-environments/_packages_cache"
 
@@ -64,11 +64,12 @@ class TestSystemCachesList(unittest.TestCase):
 
     # Admins can list caches
     def test_system_caches_list_admin(self):
+        connect_server = require_connect()
         api_key = get_key("admin")
         runner = CliRunner()
 
         args = ["system", "caches", "list"]
-        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
+        apply_common_args(args, server=connect_server, key=api_key)
 
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 0)
@@ -79,11 +80,12 @@ class TestSystemCachesList(unittest.TestCase):
 
     # Publishers cannot list caches
     def test_system_caches_list_publisher(self):
+        connect_server = require_connect()
         api_key = get_key("susan")
         runner = CliRunner()
 
         args = ["system", "caches", "list"]
-        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
+        apply_common_args(args, server=connect_server, key=api_key)
 
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 1)
@@ -106,11 +108,12 @@ class TestSystemCachesDelete(unittest.TestCase):
 
     # Publishers cannot delete caches
     def test_system_caches_delete_publisher(self):
+        connect_server = require_connect()
         api_key = get_key("susan")
         runner = CliRunner()
 
         args = ["system", "caches", "delete", "--language", "Python", "--version", "1.2.3", "--image-name", "Local"]
-        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
+        apply_common_args(args, server=connect_server, key=api_key)
 
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 1)
@@ -119,11 +122,12 @@ class TestSystemCachesDelete(unittest.TestCase):
 
     # Admins can delete caches that exist
     def test_system_caches_delete_admin(self):
+        connect_server = require_connect()
         api_key = get_key("admin")
         runner = CliRunner()
 
         args = ["system", "caches", "delete", "--language", "Python", "--version", "1.2.3", "--image-name", "Local"]
-        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
+        apply_common_args(args, server=connect_server, key=api_key)
 
         self.assertTrue(cache_dir_exists())
         result = runner.invoke(cli, args)
@@ -134,26 +138,27 @@ class TestSystemCachesDelete(unittest.TestCase):
 
     # --version and --language flags are required
     def test_system_caches_delete_required_flags(self):
+        connect_server = require_connect()
         api_key = get_key("admin")
         runner = CliRunner()
 
         # neither flag provided should fail
         args = ["system", "caches", "delete"]
-        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
+        apply_common_args(args, server=connect_server, key=api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 2)
         self.assertRegex(result.output, "Error: Missing option '--language' / '-l'")
 
         # only --language flag provided should fail
         args = ["system", "caches", "delete", "--language", "Python"]
-        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
+        apply_common_args(args, server=connect_server, key=api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 2)
         self.assertRegex(result.output, "Error: Missing option '--version' / '-V'")
 
         # only --version flag provided should fail
         args = ["system", "caches", "delete", "--version", "1.2.3"]
-        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
+        apply_common_args(args, server=connect_server, key=api_key)
         result = runner.invoke(cli, args)
         self.assertEqual(result.exit_code, 2)
         self.assertRegex(result.output, "Error: Missing option '--language' / '-l'")
