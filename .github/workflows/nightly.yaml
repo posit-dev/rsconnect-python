@@ -1,0 +1,233 @@
+name: nightly
+on:
+  schedule:
+    - cron: "0 09 * * *" # Runs 11 AM UTC == 2 AM PDT
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ['3.7', '3.8', '3.9', '3.10', '3.11']
+        include:
+        - os: macos-latest
+          python-version: '3.9'
+        - os: windows-latest
+          python-version: '3.9'
+    runs-on: ${{ matrix.os }}
+    name: test (py${{ matrix.python-version }} ${{ matrix.os }})
+    steps:
+    - uses: actions/checkout@v2
+    - run: git fetch --prune --unshallow
+    - uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - run: pip install -r requirements.txt
+    - run: pip freeze
+    - run: make fmt
+    - run: make lint
+    - run: python setup.py --version
+    - run: make test-${{ matrix.python-version }}
+    - if: github.event_name == 'pull_request' && matrix.python-version == '3.8'
+      uses: orgoro/coverage@v3
+      with:
+        coverageFile: coverage.xml
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+  prerelease-test:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+    - uses: actions/checkout@v2
+    - run: git fetch --prune --unshallow
+    - uses: actions/setup-python@v2
+      with:
+        python-version: 3.8.x
+    - run: pip install --pre -r requirements.txt
+    - run: pip freeze
+    - run: make fmt
+    - run: make lint
+    - run: python setup.py --version
+    - run: make mock-test-3.8
+
+  distributions:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - run: git fetch --prune --unshallow
+    - uses: actions/setup-python@v2
+      with:
+        python-version: 3.8.x
+    - run: pip install -r requirements.txt
+    - run: pip freeze
+    - run: make dist
+      id: create_dist
+    - uses: actions/upload-artifact@v2
+      with:
+        name: distributions
+        path: dist/
+    - run: pip install -vvv ${{ steps.create_dist.outputs.whl }}
+    - run: rsconnect version
+    - run: rsconnect --help
+    - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+    - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ steps.create_dist.outputs.whl }}
+        asset_name: ${{ steps.create_dist.outputs.whl_basename }}
+        asset_content_type: application/x-wheel+zip
+    - uses: aws-actions/configure-aws-credentials@v1
+      id: creds
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+        aws-region: ${{ secrets.AWS_REGION }}
+    - if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      run: make sync-latest-to-s3
+    - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      run: make sync-to-s3
+    - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_TOKEN }}
+
+  docs:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - run: git fetch --prune --unshallow
+    - uses: actions/setup-python@v2
+      with:
+        python-version: 3.8.x
+    - run: pip install -r requirements.txt
+    - run: pip freeze
+    - run: make docs
+    - uses: actions/upload-artifact@v2
+      with:
+        name: docs
+        path: docs/site/
+    - uses: aws-actions/configure-aws-credentials@v1
+      id: creds
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+        aws-region: ${{ secrets.AWS_REGION }}
+    - if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      run: make sync-latest-docs-to-s3
+    - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        role-to-assume: ${{ secrets.DOCS_AWS_ROLE }}
+        aws-region: us-east-1
+    - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      run: make promote-docs-in-s3
+
+  dispatch:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: distributions
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/github-script@v2
+      with:
+        github-token: ${{ secrets.DISPATCH_TOKEN }}
+        script: |
+          github.repos.createDispatchEvent({
+            owner: 'rstudio',
+            repo: 'rsconnect-jupyter',
+            event_type: 'rsconnect_python_latest'
+          })
+
+  test-rsconnect:
+    name: "Integration tests against latest Connect"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install -r vetiver-testing/vetiver-requirements.txt
+      - name: Run RStudio Connect
+        run: |
+          docker-compose up --build -d
+          pip freeze > requirements.txt
+          make dev
+        env:
+          RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      - name: Get logs in case of failure
+        run: |
+          docker-compose logs rsconnect
+        if: ${{ failure() }}
+
+      # NOTE: edited to run checks for python package
+      - name: Run tests
+        run: |
+          pytest tests/test_main_system_caches.py
+          pytest -m 'vetiver'
+
+  test-jupyter:
+    runs-on: ubuntu-latest
+    env:
+      CONNECT_LICENSE: ${{ secrets.RSC_LICENSE }}
+      ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+    steps:
+      - uses: actions/checkout@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: extractions/setup-just@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build Containers
+        run: |
+            just integration-testing/build
+      - name: Start Connect + rsconnect-jupyter
+        run: |
+            just integration-testing/up
+
+      - name: Run Cypress Tests
+        run: |
+            export ADMIN_API_KEY="${{ secrets.ADMIN_API_KEY }}"
+            just integration-testing/up-cypress
+
+      # Videos are captured whether the suite fails or passes
+      - name: Save videos
+        uses: actions/upload-artifact@v3
+        if: success() || failure()
+        with:
+          name: cypress-videos
+          path: integration-testing/cypress/videos
+          if-no-files-found: ignore
+          retention-days: 1
+
+      # Screenshots are only captured on failure
+      - name: Save screenshots
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: cypress-screenshots
+          path: integration-testing/cypress/screenshots
+          if-no-files-found: ignore
+          retention-days: 1
