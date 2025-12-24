@@ -610,3 +610,22 @@ class UserRecord(TypedDict):
     guid: str
     preferences: dict[str, object]
     privileges: list[str]
+
+
+class RepositoryInfo(TypedDict):
+    """Git repository configuration for content items."""
+
+    repository: str
+    branch: str
+    directory: str
+    polling: bool
+    last_error: str
+    last_known_commit: str
+
+
+class RepositoryBundleOutput(TypedDict):
+    """Output from creating a bundle from a git repository."""
+
+    bundle_id: str
+    task_id: str
+    location: dict[str, str]

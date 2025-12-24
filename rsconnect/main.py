@@ -3,12 +3,12 @@ from __future__ import annotations
 import functools
 import json
 import os
-import sys
-import textwrap
-import traceback
 import shutil
 import subprocess
+import sys
 import tempfile
+import textwrap
+import traceback
 from functools import wraps
 from os.path import abspath, dirname, exists, isdir, join
 from typing import (
@@ -91,7 +91,7 @@ from .bundle import (
     write_tensorflow_manifest_json,
     write_voila_manifest_json,
 )
-from .environment import Environment, fake_module_file_from_directory
+from .environment import Environment, PackageInstaller, fake_module_file_from_directory
 from .exception import RSConnectException
 from .git_metadata import detect_git_metadata
 from .json_web_token import (
@@ -113,7 +113,6 @@ from .models import (
     VersionSearchFilter,
     VersionSearchFilterParamType,
 )
-from .environment import PackageInstaller
 from .shiny_express import escape_to_var_name, is_express_app
 from .utils_package import fix_starlette_requirements
 
@@ -325,6 +324,23 @@ def prepare_deploy_metadata(
         return final_metadata
 
     return None
+
+
+def _generate_git_title(repository: str, subdirectory: str) -> str:
+    """Generate a title from repository URL and subdirectory.
+
+    :param repository: URL of the git repository
+    :param subdirectory: Subdirectory within the repository
+    :return: Generated title string
+    """
+    # Extract repo name from URL (e.g., "https://github.com/user/repo" -> "repo")
+    repo_name = repository.rstrip("/").split("/")[-1]
+    if repo_name.endswith(".git"):
+        repo_name = repo_name[:-4]
+
+    if subdirectory and subdirectory != "/" and subdirectory.strip("/"):
+        return f"{repo_name}/{subdirectory.strip('/')}"
+    return repo_name
 
 
 def content_args(func: Callable[P, T]) -> Callable[P, T]:
@@ -1470,6 +1486,99 @@ def deploy_manifest(
         .save_deployed_info()
         .emit_task_log()
     )
+    if not no_verify:
+        ce.verify_deployment()
+
+
+@deploy.command(
+    name="git",
+    short_help="Deploy content from a Git repository to Posit Connect.",
+    help=(
+        "Deploy content to Posit Connect directly from a remote Git repository. "
+        "The repository must contain a manifest.json file (in the root or specified subdirectory). "
+        "Connect will periodically check for updates and redeploy automatically when commits are pushed."
+        "\n\n"
+        "This command creates a new git-backed content item. To update an existing git-backed "
+        "content item, use the --app-id option with the content's GUID."
+    ),
+)
+@server_args
+@spcs_args
+@content_args
+@click.option(
+    "--repository",
+    "-r",
+    required=True,
+    help="URL of the Git repository (https:// URLs only).",
+)
+@click.option(
+    "--branch",
+    "-b",
+    default="main",
+    help="Branch to deploy from. Connect auto-deploys when commits are pushed. [default: main]",
+)
+@click.option(
+    "--subdirectory",
+    "-d",
+    default="",
+    help="Subdirectory containing manifest.json. Use path syntax (e.g., 'path/to/content').",
+)
+@click.option(
+    "--polling/--no-polling",
+    default=True,
+    help="Enable/disable automatic redeployment when commits are pushed to the repository. [default: enabled]",
+)
+@cli_exception_handler
+@click.pass_context
+def deploy_git(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    new: bool,
+    app_id: Optional[str],
+    title: Optional[str],
+    env_vars: dict[str, str],
+    no_verify: bool,
+    draft: bool,
+    metadata: tuple[str, ...],
+    no_metadata: bool,
+    repository: str,
+    branch: str,
+    subdirectory: str,
+    polling: bool,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    # Generate title if not provided
+    if not title:
+        title = _generate_git_title(repository, subdirectory)
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=title,
+        env_vars=env_vars,
+        repository=repository,
+        branch=branch,
+        subdirectory=subdirectory.strip("/") if subdirectory else "",
+        polling=polling,
+    )
+
+    ce.validate_server().deploy_git().emit_task_log()
+
     if not no_verify:
         ce.verify_deployment()
 
@@ -3206,6 +3315,204 @@ def content_venv(
                 raise RSConnectException("uv pip install failed with exit code %d" % result.returncode)
 
             logger.info("Environment ready. Activate with: source %s/bin/activate" % env_path)
+
+
+@content.group(no_args_is_help=True, help="Manage git repository configuration for content items.")
+def repository():
+    pass
+
+
+@repository.command(
+    name="show",
+    short_help="Show git repository configuration for a content item.",
+)
+@server_args
+@spcs_args
+@click.option(
+    "--guid",
+    "-g",
+    required=True,
+    type=StrippedStringParamType(),
+    metavar="GUID",
+    help="The GUID of the content item.",
+)
+@cli_exception_handler
+@click.pass_context
+def repository_show(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    guid: str,
+    verbose: int,
+):
+    """Show the git repository configuration for a content item."""
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.client, RSConnectClient):
+            raise RSConnectException("`rsconnect content repository show` requires a Posit Connect server.")
+
+        repo_info = ce.client.get_repository(guid)
+        if repo_info is None:
+            click.echo("Content item is not git-managed.", err=True)
+            ctx.exit(1)
+        else:
+            json.dump(repo_info, sys.stdout, indent=2)
+            click.echo()  # newline after JSON
+
+
+@repository.command(
+    name="delete",
+    short_help="Remove git repository configuration from a content item.",
+)
+@server_args
+@spcs_args
+@click.option(
+    "--guid",
+    "-g",
+    required=True,
+    type=StrippedStringParamType(),
+    metavar="GUID",
+    help="The GUID of the content item.",
+)
+@click.option(
+    "--force",
+    "-f",
+    is_flag=True,
+    help="Skip confirmation prompt.",
+)
+@cli_exception_handler
+@click.pass_context
+def repository_delete(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    guid: str,
+    force: bool,
+    verbose: int,
+):
+    """Remove git repository configuration from a content item.
+
+    This will stop automatic redeployment on git commits. The content item
+    will remain deployed but will no longer be git-managed.
+    """
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    if not force:
+        click.confirm(
+            f"Are you sure you want to remove git configuration from content {guid}?",
+            abort=True,
+        )
+
+    with cli_feedback("Removing git repository configuration..."):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.client, RSConnectClient):
+            raise RSConnectException("`rsconnect content repository delete` requires a Posit Connect server.")
+
+        ce.client.delete_repository(guid)
+    click.echo("Git repository configuration removed successfully.")
+
+
+@repository.command(
+    name="redeploy",
+    short_help="Trigger a new deployment from the git repository.",
+)
+@server_args
+@spcs_args
+@click.option(
+    "--guid",
+    "-g",
+    required=True,
+    type=StrippedStringParamType(),
+    metavar="GUID",
+    help="The GUID of the content item.",
+)
+@click.option(
+    "--ref",
+    "-r",
+    default=None,
+    help="Git ref to deploy from (branch, tag, or commit SHA). Uses the configured branch if not specified.",
+)
+@cli_exception_handler
+@click.pass_context
+def repository_redeploy(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    guid: str,
+    ref: Optional[str],
+    verbose: int,
+):
+    """Trigger a new deployment from the git repository.
+
+    This creates a new bundle from the git repository and deploys it.
+    Optionally specify a different ref (branch, tag, or commit) to deploy from.
+    """
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    with cli_feedback("Creating bundle from git repository..."):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.client, RSConnectClient):
+            raise RSConnectException("`rsconnect content repository redeploy` requires a Posit Connect server.")
+
+        result = ce.client.create_bundle_from_repository(guid, ref=ref)
+
+    click.echo(f"Bundle created: {result['bundle_id']}")
+    click.echo(f"Task ID: {result['task_id']}")
+
+    # Wait for the bundling task to complete, then deploy
+    click.echo("Waiting for bundle creation...")
+    _, task_status = ce.client.wait_for_task(result["task_id"], log_callback=lambda msg: logger.info(msg))
+
+    if task_status.get("error"):
+        raise RSConnectException(f"Bundle creation failed: {task_status.get('error')}")
+
+    click.echo("Deploying bundle...")
+    deploy_result = ce.client.content_deploy(guid, bundle_id=result["bundle_id"])
+
+    click.echo(f"Deployment task started: {deploy_result['task_id']}")
 
 
 @content.group(no_args_is_help=True, help="Build content on Posit Connect. Requires Connect >= 2021.11.1")

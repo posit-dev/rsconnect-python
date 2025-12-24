@@ -78,6 +78,8 @@ from .models import (
     DeleteOutputDTO,
     ListEntryOutputDTO,
     PyInfo,
+    RepositoryBundleOutput,
+    RepositoryInfo,
     ServerSettings,
     TaskStatusV1,
     UserRecord,
@@ -592,6 +594,225 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
+    def get_repository(self, content_guid: str) -> Optional[RepositoryInfo]:
+        """Get git repository configuration for a content item.
+
+        GET /v1/content/{guid}/repository
+
+        :param content_guid: The GUID of the content item
+        :return: Repository configuration if git-managed, None otherwise
+        """
+        response = self.get("v1/content/%s/repository" % content_guid)
+        if isinstance(response, HTTPResponse):
+            # 404 means not git-managed, which is not an error
+            if response.status == 404:
+                return None
+            self._server.handle_bad_response(response)
+        return cast(RepositoryInfo, response)
+
+    def set_repository(
+        self,
+        content_guid: str,
+        repository: str,
+        branch: str = "main",
+        directory: str = ".",
+        polling: bool = True,
+    ) -> RepositoryInfo:
+        """Create or overwrite git repository configuration for a content item.
+
+        PUT /v1/content/{guid}/repository
+
+        :param content_guid: The GUID of the content item
+        :param repository: URL of the git repository (https:// only)
+        :param branch: Branch to deploy from (default: main)
+        :param directory: Directory containing manifest.json (default: .)
+        :param polling: Enable auto-redeploy when commits are pushed (default: True)
+        :return: The repository configuration
+        """
+        body = {
+            "repository": repository,
+            "branch": branch,
+            "directory": directory,
+            "polling": polling,
+        }
+        response = cast(
+            Union[RepositoryInfo, HTTPResponse],
+            self.put("v1/content/%s/repository" % content_guid, body=body),
+        )
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def update_repository(
+        self,
+        content_guid: str,
+        repository: Optional[str] = None,
+        branch: Optional[str] = None,
+        directory: Optional[str] = None,
+        polling: Optional[bool] = None,
+    ) -> RepositoryInfo:
+        """Partially update git repository configuration for a content item.
+
+        PATCH /v1/content/{guid}/repository
+
+        Only fields that are provided will be updated.
+
+        :param content_guid: The GUID of the content item
+        :param repository: URL of the git repository (https:// only)
+        :param branch: Branch to deploy from
+        :param directory: Directory containing manifest.json
+        :param polling: Enable auto-redeploy when commits are pushed
+        :return: The updated repository configuration
+        """
+        body: dict[str, str | bool] = {}
+        if repository is not None:
+            body["repository"] = repository
+        if branch is not None:
+            body["branch"] = branch
+        if directory is not None:
+            body["directory"] = directory
+        if polling is not None:
+            body["polling"] = polling
+
+        response = cast(
+            Union[RepositoryInfo, HTTPResponse],
+            self.patch("v1/content/%s/repository" % content_guid, body=body),
+        )
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def delete_repository(self, content_guid: str) -> None:
+        """Remove git repository configuration from a content item.
+
+        DELETE /v1/content/{guid}/repository
+
+        :param content_guid: The GUID of the content item
+        """
+        response = self.delete("v1/content/%s/repository" % content_guid)
+        if isinstance(response, HTTPResponse):
+            self._server.handle_bad_response(response, is_httpresponse=True)
+
+    def create_bundle_from_repository(
+        self,
+        content_guid: str,
+        repository: Optional[str] = None,
+        ref: Optional[str] = None,
+        directory: Optional[str] = None,
+    ) -> RepositoryBundleOutput:
+        """Create a bundle from a git repository location.
+
+        POST /v1/content/{guid}/repository/bundle
+
+        This triggers Connect to clone the repository and create a bundle.
+        If the content item has existing git configuration, those values are used
+        as defaults; provided parameters will override them.
+
+        :param content_guid: The GUID of the content item
+        :param repository: URL of the git repository (uses existing config if not provided)
+        :param ref: Git ref to bundle from (branch, tag, or commit; uses existing branch if not provided)
+        :param directory: Directory containing manifest.json (uses existing config if not provided)
+        :return: Bundle creation result with bundle_id and task_id
+        """
+        body: dict[str, str] = {}
+        if repository is not None:
+            body["repository"] = repository
+        if ref is not None:
+            body["ref"] = ref
+        if directory is not None:
+            body["directory"] = directory
+
+        response = cast(
+            Union[RepositoryBundleOutput, HTTPResponse],
+            self.post("v1/content/%s/repository/bundle" % content_guid, body=body),
+        )
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def deploy_git(
+        self,
+        app_id: Optional[str],
+        name: str,
+        repository: str,
+        branch: str,
+        subdirectory: str,
+        title: Optional[str],
+        env_vars: Optional[dict[str, str]],
+        polling: bool = True,
+    ) -> RSConnectClientDeployResult:
+        """Deploy content from a git repository.
+
+        Creates or updates a git-backed content item in Posit Connect. Connect will clone
+        the repository and automatically redeploy when commits are pushed (if polling is enabled).
+
+        :param app_id: Existing content ID/GUID to update, or None to create new content
+        :param name: Name for the content item (used if creating new)
+        :param repository: URL of the git repository (https:// only)
+        :param branch: Branch to deploy from
+        :param subdirectory: Subdirectory containing manifest.json
+        :param title: Title for the content
+        :param env_vars: Environment variables to set
+        :param polling: Enable auto-redeploy when commits are pushed (default: True)
+        :return: Deployment result with task_id, app info, etc.
+        """
+        # Create or get existing content
+        if app_id is None:
+            app = self.content_create(name)
+        else:
+            try:
+                app = self.get_content_by_id(app_id)
+            except RSConnectException as e:
+                raise RSConnectException(
+                    f"{e} Try setting the --new flag or omit --app-id to create new content."
+                ) from e
+
+        app_guid = app["guid"]
+
+        # Map subdirectory to directory (API uses "directory" field)
+        directory = subdirectory if subdirectory else "."
+
+        # Check if content already has git configuration
+        existing_repo = self.get_repository(app_guid)
+
+        if existing_repo:
+            # Update existing git configuration using PATCH
+            self.update_repository(
+                app_guid,
+                repository=repository,
+                branch=branch,
+                directory=directory,
+                polling=polling,
+            )
+        else:
+            # Create new git configuration using PUT
+            self.set_repository(
+                app_guid,
+                repository=repository,
+                branch=branch,
+                directory=directory,
+                polling=polling,
+            )
+
+        # Update title if provided (and different from current)
+        if title and app.get("title") != title:
+            self.patch("v1/content/%s" % app_guid, body={"title": title})
+
+        # Set environment variables
+        if env_vars:
+            result = self.add_environment_vars(app_guid, list(env_vars.items()))
+            self._server.handle_bad_response(result)
+
+        # Trigger deployment (bundle_id=None uses the latest bundle from git clone)
+        task = self.content_deploy(app_guid, bundle_id=None)
+
+        return RSConnectClientDeployResult(
+            app_id=str(app["id"]),
+            app_guid=app_guid,
+            app_url=app["content_url"],
+            task_id=task["task_id"],
+            title=title or app.get("title"),
+            dashboard_url=app["dashboard_url"],
+            draft_url=None,
+        )
+
     def system_caches_runtime_list(self) -> list[ListEntryOutputDTO]:
         response = cast(Union[List[ListEntryOutputDTO], HTTPResponse], self.get("v1/system/caches/runtime"))
         response = self._server.handle_bad_response(response)
@@ -784,6 +1005,10 @@ class RSConnectExecutor:
         disable_env_management: Optional[bool] = None,
         env_vars: Optional[dict[str, str]] = None,
         metadata: Optional[dict[str, str]] = None,
+        repository: Optional[str] = None,
+        branch: Optional[str] = None,
+        subdirectory: Optional[str] = None,
+        polling: bool = True,
     ) -> None:
         self.remote_server: TargetableServer
         self.client: RSConnectClient | PositClient
@@ -804,6 +1029,12 @@ class RSConnectExecutor:
         self.api_key_is_required: bool | None = None
         self.title_is_default: bool = not title
         self.deployment_name: str | None = None
+
+        # Git deployment parameters
+        self.repository: str | None = repository
+        self.branch: str | None = branch
+        self.subdirectory: str | None = subdirectory
+        self.polling: bool = polling
 
         self.bundle: IO[bytes] | None = None
         self.deployed_info: RSConnectClientDeployResult | None = None
@@ -847,6 +1078,10 @@ class RSConnectExecutor:
         disable_env_management: Optional[bool] = None,
         env_vars: Optional[dict[str, str]] = None,
         metadata: Optional[dict[str, str]] = None,
+        repository: Optional[str] = None,
+        branch: Optional[str] = None,
+        subdirectory: Optional[str] = None,
+        polling: bool = True,
     ):
         return cls(
             ctx=ctx,
@@ -870,6 +1105,10 @@ class RSConnectExecutor:
             disable_env_management=disable_env_management,
             env_vars=env_vars,
             metadata=metadata,
+            repository=repository,
+            branch=branch,
+            subdirectory=subdirectory,
+            polling=polling,
         )
 
     def output_overlap_header(self, previous: bool) -> bool:
@@ -1168,6 +1407,49 @@ class RSConnectExecutor:
                 title=self.title,
             )
             return self
+
+    @cls_logged("Creating git-backed deployment ...")
+    def deploy_git(self):
+        """Deploy content from a remote git repository.
+
+        Creates a git-backed content item in Posit Connect. Connect will clone
+        the repository and automatically redeploy when commits are pushed.
+        """
+        if not isinstance(self.client, RSConnectClient):
+            raise RSConnectException(
+                "Git deployment is only supported for Posit Connect servers, " "not shinyapps.io or Posit Cloud."
+            )
+
+        if not self.repository:
+            raise RSConnectException("Repository URL is required for git deployment.")
+
+        # Generate a valid deployment name from the title
+        # This sanitizes characters like "/" that aren't allowed in names
+        force_unique_name = self.app_id is None
+        deployment_name = self.make_deployment_name(self.title, force_unique_name)
+
+        try:
+            result = self.client.deploy_git(
+                app_id=self.app_id,
+                name=deployment_name,
+                repository=self.repository,
+                branch=self.branch or "main",
+                subdirectory=self.subdirectory or "",
+                title=self.title,
+                env_vars=self.env_vars,
+                polling=self.polling,
+            )
+        except RSConnectException as e:
+            # Check for 404 on /repo endpoint (git not enabled)
+            if "404" in str(e) and "repo" in str(e).lower():
+                raise RSConnectException(
+                    "Git-backed deployment is not enabled on this Connect server. "
+                    "Contact your administrator to enable Git support."
+                ) from e
+            raise
+
+        self.deployed_info = result
+        return self
 
     def emit_task_log(
         self,
