@@ -1052,3 +1052,64 @@ class TestBootstrap(TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
 
         self.assertEqual(result.output.find("Error:"), -1)
+
+
+class TestDeployGit(TestCase):
+    """Tests for deploy git CLI command."""
+
+    def test_deploy_git_help(self):
+        """Test that deploy git --help works."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["deploy", "git", "--help"])
+        assert result.exit_code == 0, result.output
+        assert "Deploy content to Posit Connect directly from a remote Git repository" in result.output
+        assert "--repository" in result.output
+        assert "--branch" in result.output
+        assert "--subdirectory" in result.output
+
+    def test_deploy_git_requires_repository(self):
+        """Test that --repository is required."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["deploy", "git", "-s", "http://example.com", "-k", "key"])
+        assert result.exit_code != 0
+        assert "Missing option" in result.output or "required" in result.output.lower()
+
+
+class TestGenerateGitTitle:
+    """Tests for _generate_git_title helper function."""
+
+    def test_simple_repo_url(self):
+        from rsconnect.main import _generate_git_title
+
+        result = _generate_git_title("https://github.com/user/myrepo", "")
+        assert result == "myrepo"
+
+    def test_repo_url_with_git_suffix(self):
+        from rsconnect.main import _generate_git_title
+
+        result = _generate_git_title("https://github.com/user/myrepo.git", "")
+        assert result == "myrepo"
+
+    def test_repo_with_subdirectory(self):
+        from rsconnect.main import _generate_git_title
+
+        result = _generate_git_title("https://github.com/user/myrepo", "apps/dashboard")
+        assert result == "myrepo/apps/dashboard"
+
+    def test_repo_with_subdirectory_leading_slash(self):
+        from rsconnect.main import _generate_git_title
+
+        result = _generate_git_title("https://github.com/user/myrepo", "/apps/dashboard/")
+        assert result == "myrepo/apps/dashboard"
+
+    def test_repo_with_root_subdirectory(self):
+        from rsconnect.main import _generate_git_title
+
+        result = _generate_git_title("https://github.com/user/myrepo", "/")
+        assert result == "myrepo"
+
+    def test_repo_url_with_trailing_slash(self):
+        from rsconnect.main import _generate_git_title
+
+        result = _generate_git_title("https://github.com/user/myrepo/", "subdir")
+        assert result == "myrepo/subdir"

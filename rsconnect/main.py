@@ -3,12 +3,12 @@ from __future__ import annotations
 import functools
 import json
 import os
-import sys
-import textwrap
-import traceback
 import shutil
 import subprocess
+import sys
 import tempfile
+import textwrap
+import traceback
 from functools import wraps
 from os.path import abspath, dirname, exists, isdir, join
 from typing import (
@@ -91,7 +91,7 @@ from .bundle import (
     write_tensorflow_manifest_json,
     write_voila_manifest_json,
 )
-from .environment import Environment, fake_module_file_from_directory
+from .environment import Environment, PackageInstaller, fake_module_file_from_directory
 from .exception import RSConnectException
 from .git_metadata import detect_git_metadata
 from .json_web_token import (
@@ -113,7 +113,6 @@ from .models import (
     VersionSearchFilter,
     VersionSearchFilterParamType,
 )
-from .environment import PackageInstaller
 from .shiny_express import escape_to_var_name, is_express_app
 from .utils_package import fix_starlette_requirements
 
@@ -325,6 +324,23 @@ def prepare_deploy_metadata(
         return final_metadata
 
     return None
+
+
+def _generate_git_title(repository: str, subdirectory: str) -> str:
+    """Generate a title from repository URL and subdirectory.
+
+    :param repository: URL of the git repository
+    :param subdirectory: Subdirectory within the repository
+    :return: Generated title string
+    """
+    # Extract repo name from URL (e.g., "https://github.com/user/repo" -> "repo")
+    repo_name = repository.rstrip("/").split("/")[-1]
+    if repo_name.endswith(".git"):
+        repo_name = repo_name[:-4]
+
+    if subdirectory and subdirectory != "/" and subdirectory.strip("/"):
+        return f"{repo_name}/{subdirectory.strip('/')}"
+    return repo_name
 
 
 def content_args(func: Callable[P, T]) -> Callable[P, T]:
@@ -1470,6 +1486,92 @@ def deploy_manifest(
         .save_deployed_info()
         .emit_task_log()
     )
+    if not no_verify:
+        ce.verify_deployment()
+
+
+@deploy.command(
+    name="git",
+    short_help="Deploy content from a Git repository to Posit Connect.",
+    help=(
+        "Deploy content to Posit Connect directly from a remote Git repository. "
+        "The repository must contain a manifest.json file (in the root or specified subdirectory). "
+        "Connect will periodically check for updates and redeploy automatically when commits are pushed."
+        "\n\n"
+        "This command creates a new git-backed content item. To update an existing git-backed "
+        "content item, use the --app-id option with the content's GUID."
+    ),
+)
+@server_args
+@spcs_args
+@content_args
+@click.option(
+    "--repository",
+    "-r",
+    required=True,
+    help="URL of the Git repository (https:// URLs only).",
+)
+@click.option(
+    "--branch",
+    "-b",
+    default="main",
+    help="Branch to deploy from. Connect auto-deploys when commits are pushed. [default: main]",
+)
+@click.option(
+    "--subdirectory",
+    "-d",
+    default="",
+    help="Subdirectory containing manifest.json. Use path syntax (e.g., 'path/to/content').",
+)
+@cli_exception_handler
+@click.pass_context
+def deploy_git(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    new: bool,
+    app_id: Optional[str],
+    title: Optional[str],
+    env_vars: dict[str, str],
+    no_verify: bool,
+    draft: bool,
+    metadata: tuple[str, ...],
+    no_metadata: bool,
+    repository: str,
+    branch: str,
+    subdirectory: str,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    # Generate title if not provided
+    if not title:
+        title = _generate_git_title(repository, subdirectory)
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=title,
+        env_vars=env_vars,
+        repository=repository,
+        branch=branch,
+        subdirectory=subdirectory.strip("/") if subdirectory else "",
+    )
+
+    ce.validate_server().deploy_git().emit_task_log()
+
     if not no_verify:
         ce.verify_deployment()
 

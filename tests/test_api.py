@@ -408,3 +408,159 @@ class SPCSConnectServerTestCase(TestCase):
             RSConnectException, match="Failed to exchange Snowflake token: Token exchange returned empty response"
         ):
             server.exchange_token()
+
+
+class RSConnectClientDeployGitTestCase(TestCase):
+    """Tests for RSConnectClient.deploy_git() method."""
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_git_creates_new_content(self):
+        """Test that deploy_git creates new content when app_id is None."""
+        server = RSConnectServer("http://test-server", "api_key")
+        client = RSConnectClient(server)
+
+        # Mock content creation
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://test-server/__api__/v1/content",
+            body=json.dumps({
+                "id": 123,
+                "guid": "abc-123",
+                "name": "test-app",
+                "title": None,
+                "content_url": "http://test-server/content/abc-123/",
+                "dashboard_url": "http://test-server/connect/#/apps/abc-123",
+            }),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # Mock repository configuration
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://test-server/__api__/applications/abc-123/repo",
+            body=json.dumps({"message": "Repository configured"}),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # Mock title update
+        httpretty.register_uri(
+            httpretty.PATCH,
+            "http://test-server/__api__/v1/content/abc-123",
+            body=json.dumps({"title": "Test App"}),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # Mock content deploy
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://test-server/__api__/v1/content/abc-123/deploy",
+            body=json.dumps({"task_id": "task-456"}),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        result = client.deploy_git(
+            app_id=None,
+            name="test-app",
+            repository="https://github.com/user/repo",
+            branch="main",
+            subdirectory="",
+            title="Test App",
+            env_vars=None,
+        )
+
+        self.assertEqual(result["app_id"], "123")
+        self.assertEqual(result["app_guid"], "abc-123")
+        self.assertEqual(result["task_id"], "task-456")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_git_updates_existing_content(self):
+        """Test that deploy_git updates existing content when app_id is provided."""
+        server = RSConnectServer("http://test-server", "api_key")
+        client = RSConnectClient(server)
+
+        # Mock get existing content
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/content/abc-123",
+            body=json.dumps({
+                "id": 123,
+                "guid": "abc-123",
+                "name": "existing-app",
+                "title": "Old Title",
+                "content_url": "http://test-server/content/abc-123/",
+                "dashboard_url": "http://test-server/connect/#/apps/abc-123",
+            }),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # Mock repository configuration
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://test-server/__api__/applications/abc-123/repo",
+            body=json.dumps({"message": "Repository configured"}),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # Mock title update
+        httpretty.register_uri(
+            httpretty.PATCH,
+            "http://test-server/__api__/v1/content/abc-123",
+            body=json.dumps({"title": "New Title"}),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # Mock content deploy
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://test-server/__api__/v1/content/abc-123/deploy",
+            body=json.dumps({"task_id": "task-789"}),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        result = client.deploy_git(
+            app_id="abc-123",
+            name="existing-app",
+            repository="https://github.com/user/repo",
+            branch="feature",
+            subdirectory="app",
+            title="New Title",
+            env_vars=None,
+        )
+
+        self.assertEqual(result["app_id"], "123")
+        self.assertEqual(result["app_guid"], "abc-123")
+        self.assertEqual(result["task_id"], "task-789")
+
+
+class RSConnectExecutorDeployGitTestCase(TestCase):
+    """Tests for RSConnectExecutor.deploy_git() method."""
+
+    def test_deploy_git_rejects_non_connect_server(self):
+        """Test that deploy_git raises error for non-Connect servers."""
+        # Create an executor with a PositClient (shinyapps.io)
+        executor = Mock()
+        executor.client = Mock(spec=PositClient)
+        executor.repository = "https://github.com/user/repo"
+        executor.logger = None  # Needed for @cls_logged decorator
+
+        # Call the real deploy_git method
+        with pytest.raises(RSConnectException, match="only supported for Posit Connect"):
+            RSConnectExecutor.deploy_git(executor)
+
+    def test_deploy_git_requires_repository(self):
+        """Test that deploy_git raises error when repository is not set."""
+        executor = Mock()
+        executor.client = Mock(spec=RSConnectClient)
+        executor.repository = None
+        executor.logger = None  # Needed for @cls_logged decorator
+
+        with pytest.raises(RSConnectException, match="Repository URL is required"):
+            RSConnectExecutor.deploy_git(executor)
