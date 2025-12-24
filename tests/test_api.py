@@ -547,3 +547,425 @@ class SPCSConnectServerTestCase(TestCase):
             RSConnectException, match="Failed to exchange Snowflake token: Token exchange returned empty response"
         ):
             server.exchange_token()
+
+
+class RSConnectClientDeployGitTestCase(TestCase):
+    """Tests for RSConnectClient.deploy_git() method."""
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_git_creates_new_content(self):
+        """Test that deploy_git creates new content when app_id is None."""
+        server = RSConnectServer("http://test-server", "api_key")
+        client = RSConnectClient(server)
+
+        # Mock content creation
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://test-server/__api__/v1/content",
+            body=json.dumps({
+                "id": 123,
+                "guid": "abc-123",
+                "name": "test-app",
+                "title": None,
+                "content_url": "http://test-server/content/abc-123/",
+                "dashboard_url": "http://test-server/connect/#/apps/abc-123",
+            }),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # Mock GET repository config (404 = not git-managed yet)
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/content/abc-123/repository",
+            body=json.dumps({"code": 4, "error": "Not Found"}),
+            status=404,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # Mock PUT repository configuration (for new content)
+        httpretty.register_uri(
+            httpretty.PUT,
+            "http://test-server/__api__/v1/content/abc-123/repository",
+            body=json.dumps({
+                "repository": "https://github.com/user/repo",
+                "branch": "main",
+                "directory": ".",
+                "polling": True,
+                "last_error": "",
+                "last_known_commit": "",
+            }),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # Mock title update
+        httpretty.register_uri(
+            httpretty.PATCH,
+            "http://test-server/__api__/v1/content/abc-123",
+            body=json.dumps({"title": "Test App"}),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # Mock content deploy
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://test-server/__api__/v1/content/abc-123/deploy",
+            body=json.dumps({"task_id": "task-456"}),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        result = client.deploy_git(
+            app_id=None,
+            name="test-app",
+            repository="https://github.com/user/repo",
+            branch="main",
+            subdirectory="",
+            title="Test App",
+            env_vars=None,
+        )
+
+        self.assertEqual(result["app_id"], "123")
+        self.assertEqual(result["app_guid"], "abc-123")
+        self.assertEqual(result["task_id"], "task-456")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_git_updates_existing_content(self):
+        """Test that deploy_git updates existing git-managed content when app_id is provided."""
+        server = RSConnectServer("http://test-server", "api_key")
+        client = RSConnectClient(server)
+
+        # Mock get existing content
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/content/abc-123",
+            body=json.dumps({
+                "id": 123,
+                "guid": "abc-123",
+                "name": "existing-app",
+                "title": "Old Title",
+                "content_url": "http://test-server/content/abc-123/",
+                "dashboard_url": "http://test-server/connect/#/apps/abc-123",
+            }),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # Mock GET repository config (200 = already git-managed)
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/content/abc-123/repository",
+            body=json.dumps({
+                "repository": "https://github.com/user/repo",
+                "branch": "main",
+                "directory": ".",
+                "polling": True,
+                "last_error": "",
+                "last_known_commit": "abc123",
+            }),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # Mock PATCH repository configuration (for updating existing)
+        httpretty.register_uri(
+            httpretty.PATCH,
+            "http://test-server/__api__/v1/content/abc-123/repository",
+            body=json.dumps({
+                "repository": "https://github.com/user/repo",
+                "branch": "feature",
+                "directory": "app",
+                "polling": True,
+                "last_error": "",
+                "last_known_commit": "abc123",
+            }),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # Mock title update
+        httpretty.register_uri(
+            httpretty.PATCH,
+            "http://test-server/__api__/v1/content/abc-123",
+            body=json.dumps({"title": "New Title"}),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # Mock content deploy
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://test-server/__api__/v1/content/abc-123/deploy",
+            body=json.dumps({"task_id": "task-789"}),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        result = client.deploy_git(
+            app_id="abc-123",
+            name="existing-app",
+            repository="https://github.com/user/repo",
+            branch="feature",
+            subdirectory="app",
+            title="New Title",
+            env_vars=None,
+        )
+
+        self.assertEqual(result["app_id"], "123")
+        self.assertEqual(result["app_guid"], "abc-123")
+        self.assertEqual(result["task_id"], "task-789")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_git_with_polling_disabled(self):
+        """Test that deploy_git respects the polling parameter."""
+        server = RSConnectServer("http://test-server", "api_key")
+        client = RSConnectClient(server)
+
+        # Mock content creation
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://test-server/__api__/v1/content",
+            body=json.dumps({
+                "id": 123,
+                "guid": "abc-123",
+                "name": "test-app",
+                "title": None,
+                "content_url": "http://test-server/content/abc-123/",
+                "dashboard_url": "http://test-server/connect/#/apps/abc-123",
+            }),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # Mock GET repository config (404 = not git-managed yet)
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/content/abc-123/repository",
+            status=404,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # Mock PUT repository configuration - expect polling=False
+        def check_polling_request(request, uri, response_headers):
+            body = json.loads(request.body)
+            assert body["polling"] is False, "Expected polling to be False"
+            return [200, response_headers, json.dumps({
+                "repository": "https://github.com/user/repo",
+                "branch": "main",
+                "directory": ".",
+                "polling": False,
+                "last_error": "",
+                "last_known_commit": "",
+            })]
+
+        httpretty.register_uri(
+            httpretty.PUT,
+            "http://test-server/__api__/v1/content/abc-123/repository",
+            body=check_polling_request,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # Mock content deploy
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://test-server/__api__/v1/content/abc-123/deploy",
+            body=json.dumps({"task_id": "task-456"}),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        result = client.deploy_git(
+            app_id=None,
+            name="test-app",
+            repository="https://github.com/user/repo",
+            branch="main",
+            subdirectory="",
+            title=None,
+            env_vars=None,
+            polling=False,
+        )
+
+        self.assertEqual(result["app_guid"], "abc-123")
+
+
+class RSConnectClientRepositoryTestCase(TestCase):
+    """Tests for RSConnectClient repository management methods."""
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_get_repository_returns_config(self):
+        """Test that get_repository returns repository configuration."""
+        server = RSConnectServer("http://test-server", "api_key")
+        client = RSConnectClient(server)
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/content/abc-123/repository",
+            body=json.dumps({
+                "repository": "https://github.com/user/repo",
+                "branch": "main",
+                "directory": ".",
+                "polling": True,
+                "last_error": "",
+                "last_known_commit": "abc123",
+            }),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        result = client.get_repository("abc-123")
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result["repository"], "https://github.com/user/repo")
+        self.assertEqual(result["branch"], "main")
+        self.assertTrue(result["polling"])
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_get_repository_returns_none_for_non_git_content(self):
+        """Test that get_repository returns None for non-git-managed content."""
+        server = RSConnectServer("http://test-server", "api_key")
+        client = RSConnectClient(server)
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/content/abc-123/repository",
+            body=json.dumps({"code": 4, "error": "Not Found"}),
+            status=404,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        result = client.get_repository("abc-123")
+
+        self.assertIsNone(result)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_set_repository(self):
+        """Test that set_repository creates new repository configuration."""
+        server = RSConnectServer("http://test-server", "api_key")
+        client = RSConnectClient(server)
+
+        httpretty.register_uri(
+            httpretty.PUT,
+            "http://test-server/__api__/v1/content/abc-123/repository",
+            body=json.dumps({
+                "repository": "https://github.com/user/repo",
+                "branch": "main",
+                "directory": ".",
+                "polling": True,
+                "last_error": "",
+                "last_known_commit": "",
+            }),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        result = client.set_repository(
+            "abc-123",
+            repository="https://github.com/user/repo",
+            branch="main",
+            directory=".",
+            polling=True,
+        )
+
+        self.assertEqual(result["repository"], "https://github.com/user/repo")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_update_repository(self):
+        """Test that update_repository updates existing configuration."""
+        server = RSConnectServer("http://test-server", "api_key")
+        client = RSConnectClient(server)
+
+        httpretty.register_uri(
+            httpretty.PATCH,
+            "http://test-server/__api__/v1/content/abc-123/repository",
+            body=json.dumps({
+                "repository": "https://github.com/user/repo",
+                "branch": "feature",
+                "directory": "app",
+                "polling": False,
+                "last_error": "",
+                "last_known_commit": "abc123",
+            }),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        result = client.update_repository(
+            "abc-123",
+            branch="feature",
+            directory="app",
+            polling=False,
+        )
+
+        self.assertEqual(result["branch"], "feature")
+        self.assertEqual(result["directory"], "app")
+        self.assertFalse(result["polling"])
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_delete_repository(self):
+        """Test that delete_repository removes repository configuration."""
+        server = RSConnectServer("http://test-server", "api_key")
+        client = RSConnectClient(server)
+
+        httpretty.register_uri(
+            httpretty.DELETE,
+            "http://test-server/__api__/v1/content/abc-123/repository",
+            status=204,
+        )
+
+        # Should not raise an exception
+        client.delete_repository("abc-123")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_create_bundle_from_repository(self):
+        """Test that create_bundle_from_repository creates a bundle."""
+        server = RSConnectServer("http://test-server", "api_key")
+        client = RSConnectClient(server)
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://test-server/__api__/v1/content/abc-123/repository/bundle",
+            body=json.dumps({
+                "bundle_id": "456",
+                "task_id": "task-789",
+                "location": {
+                    "repository": "https://github.com/user/repo",
+                    "ref": "main",
+                    "directory": ".",
+                },
+            }),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        result = client.create_bundle_from_repository("abc-123", ref="main")
+
+        self.assertEqual(result["bundle_id"], "456")
+        self.assertEqual(result["task_id"], "task-789")
+
+
+class RSConnectExecutorDeployGitTestCase(TestCase):
+    """Tests for RSConnectExecutor.deploy_git() method."""
+
+    def test_deploy_git_rejects_non_connect_server(self):
+        """Test that deploy_git raises error for non-Connect servers."""
+        # Create an executor with a PositClient (shinyapps.io)
+        executor = Mock()
+        executor.client = Mock(spec=PositClient)
+        executor.repository = "https://github.com/user/repo"
+        executor.logger = None  # Needed for @cls_logged decorator
+
+        # Call the real deploy_git method
+        with pytest.raises(RSConnectException, match="only supported for Posit Connect"):
+            RSConnectExecutor.deploy_git(executor)
+
+    def test_deploy_git_requires_repository(self):
+        """Test that deploy_git raises error when repository is not set."""
+        executor = Mock()
+        executor.client = Mock(spec=RSConnectClient)
+        executor.repository = None
+        executor.logger = None  # Needed for @cls_logged decorator
+
+        with pytest.raises(RSConnectException, match="Repository URL is required"):
+            RSConnectExecutor.deploy_git(executor)
