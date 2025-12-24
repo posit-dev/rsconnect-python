@@ -83,7 +83,10 @@ extend_ignore = ["E203", "E231", "E302"]
 per-file-ignores = ["tests/test_metadata.py: E501"]
 
 [tool.setuptools]
-packages = ["rsconnect"]
+packages = [
+    "rsconnect",
+    "rsconnect.subprocesses"
+]
 
 [tool.setuptools_scm]
 write_to = "rsconnect/version.py"
