@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `rsconnect deploy git` command to create a [git-backed deployment](https://docs.posit.co/connect/user/git-backed/).
+  Use `--branch` to specify a branch (default: main) and `--subdirectory` to deploy content from a subdirectory.
 - `rsconnect content get-lockfile` command allows fetching a lockfile with the
   dependencies installed by connect to run the deployed content
 - `rsconnect content venv` command recreates a local python environment
@@ -21,7 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Posit Connect 2025.12.0 or later. Use `--metadata key=value` to provide additional metadata
   or override detected values. Use `--no-metadata` to disable automatic detection. (#736)
   supply an explicit requirements file instead of detecting the environment.
-
 
 ## [1.28.2] - 2025-12-05
 
