@@ -31,7 +31,7 @@ JsonData = Union[
     Dict[str, "JsonData"],
 ]
 
-_user_agent = "RSConnectPython/%s" % VERSION
+_user_agent = f"RSConnectPython/{VERSION}"
 
 
 # noinspection PyUnusedLocal,PyUnresolvedReferences
@@ -64,11 +64,11 @@ def _get_proxy():
     parsed = urlparse(proxyURL)
     if parsed.scheme not in ["https"]:
         warn("HTTPS_PROXY scheme is not using https")
-    redacted_url = "{}://".format(parsed.scheme)
+    redacted_url = f"{parsed.scheme}://"
     if parsed.username:
-        redacted_url += "{}:{}@".format(parsed.username, "REDACTED")
-    redacted_url += "{}:{}".format(parsed.hostname, parsed.port or 8080)
-    logger.info("Using custom proxy server {}".format(redacted_url))
+        redacted_url += f"{parsed.username}:REDACTED@"
+    redacted_url += f"{parsed.hostname}:{parsed.port or 8080}"
+    logger.info(f"Using custom proxy server {redacted_url}")
     return parsed.username, parsed.password, parsed.hostname, parsed.port or 8080
 
 
@@ -76,9 +76,9 @@ def _get_proxy_headers(*args: object, **kwargs: object):
     proxyHeaders = None
     proxyUsername, proxyPassword, _, _ = _get_proxy()
     if proxyUsername and proxyPassword:
-        credentials = "{}:{}".format(proxyUsername, proxyPassword)
+        credentials = f"{proxyUsername}:{proxyPassword}"
         credentials = base64.b64encode(credentials.encode("utf-8")).decode("utf-8")
-        proxyHeaders = {"Proxy-Authorization": "Basic {}".format(credentials)}
+        proxyHeaders = {"Proxy-Authorization": f"Basic {credentials}"}
     return proxyHeaders
 
 
@@ -293,7 +293,7 @@ class HTTPServer(object):
         self._url = urlparse(url)
 
         if self._url.scheme not in _connection_factory:
-            raise ValueError('The "%s" URL scheme is not supported.' % self._url.scheme)
+            raise ValueError(f'The "{self._url.scheme}" URL scheme is not supported.')
 
         self._disable_tls_check = disable_tls_check
         self._ca_data = ca_data
@@ -314,13 +314,13 @@ class HTTPServer(object):
         return self._headers["Authorization"]
 
     def key_authorization(self, key: str):
-        self.authorization("Key %s" % key)
+        self.authorization(f"Key {key}")
 
     def bootstrap_authorization(self, key: str):
-        self.authorization("Connect-Bootstrap %s" % key)
+        self.authorization(f"Connect-Bootstrap {key}")
 
     def snowflake_authorization(self, token: str):
-        self.authorization('Snowflake Token="%s"' % token)
+        self.authorization(f'Snowflake Token="{token}"')
 
     def _get_full_path(self, path: str):
         return append_to_path(self._url.path, path)
@@ -426,7 +426,7 @@ class HTTPServer(object):
     ) -> JsonData | HTTPResponse:
         full_uri = path
         if query_params is not None:
-            full_uri = "%s?%s" % (path, urlencode(query_params, doseq=True))
+            full_uri = f"{path}?{urlencode(query_params, doseq=True)}"
         headers = self._headers.copy()
         if self._proxy_headers:
             headers.update(self._proxy_headers)
@@ -436,12 +436,12 @@ class HTTPServer(object):
 
         try:
             if logger.is_debugging():
-                logger.debug("Request: %s %s" % (method, full_uri))
+                logger.debug(f"Request: {method} {full_uri}")
                 logger.debug("Headers:")
                 for key, value in headers.items():
-                    logger.debug("--> %s: %s" % (key, value))
+                    logger.debug(f"--> {key}: {value}")
                 logger.debug("Body:")
-                logger.debug("--> %s" % (body if body is not None else "<no body>"))
+                logger.debug(f"--> {body if body is not None else '<no body>'}")
 
             # if we weren't called under a `with` statement, we'll need to manage the
             # connection here.
@@ -461,16 +461,16 @@ class HTTPServer(object):
                     response_body = response_body.decode("utf-8").strip()
 
                 if logger.is_debugging():
-                    logger.debug("Response: %s %s" % (response.status, response.reason))
+                    logger.debug(f"Response: {response.status} {response.reason}")
                     logger.debug("Headers:")
                     for key, value in response.getheaders():
-                        logger.debug("--> %s: %s" % (key, value))
+                        logger.debug(f"--> {key}: {value}")
                     logger.debug("Body:")
                     if response.getheader("Content-Type", "").startswith("application/json"):
                         # Only print JSON responses.
                         # Otherwise we end up dumping entire web pages to the log.
                         try:
-                            logger.debug("--> %s" % response_body)
+                            logger.debug(f"--> {response_body}")
                         except json.JSONDecodeError:
                             logger.debug("--> <invalid JSON>")
                     else:
@@ -493,13 +493,13 @@ class HTTPServer(object):
                 if location.startswith("http"):
                     parsed_location = urlparse(location)
                     if parsed_location.query:
-                        next_url = "{}?{}".format(parsed_location.path, parsed_location.query)
+                        next_url = f"{parsed_location.path}?{parsed_location.query}"
                     else:
                         next_url = parsed_location.path
                 else:
                     next_url = location
 
-                logger.debug("--> Redirected to: %s" % urljoin(self._url.geturl(), location))
+                logger.debug(f"--> Redirected to: {urljoin(self._url.geturl(), location)}")
 
                 redirect_extra_headers = self.get_extra_headers(next_url, "GET", body)
                 return self._do_request(
@@ -573,13 +573,13 @@ class CookieJar(object):
                 if morsel.key not in self._keys:
                     self._keys.append(morsel.key)
                 self._content[morsel.key] = morsel.value
-                logger.debug("--> Set cookie %s: %s" % (morsel.key, morsel.value))
+                logger.debug(f"--> Set cookie {morsel.key}: {morsel.value}")
 
-        logger.debug("CookieJar contents: %s\n%s" % (self._keys, self._content))
+        logger.debug(f"CookieJar contents: {self._keys}\n{self._content}")
 
     def get_cookie_header_value(self):
-        result = "; ".join(["%s=%s" % (key, self._reference.value_encode(self._content[key])[1]) for key in self._keys])
-        logger.debug("Cookie: %s" % result)
+        result = "; ".join([f"{key}={self._reference.value_encode(self._content[key])[1]}" for key in self._keys])
+        logger.debug(f"Cookie: {result}")
         return result
 
     def as_dict(self):
