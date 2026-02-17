@@ -294,23 +294,25 @@ def is_quarto_shiny(inspect: QuartoInspectResult) -> bool:
 
     # Check formats.<format>.metadata.server.type
     formats = inspect_any.get("formats", {})
-    for format_data in formats.values():
-        if isinstance(format_data, dict):
-            metadata = format_data.get("metadata", {})
-            if isinstance(metadata, dict):
-                server = metadata.get("server", {})
-                if isinstance(server, dict) and server.get("type") == "shiny":
-                    return True
+    if isinstance(formats, dict):
+        for format_data in formats.values():
+            if isinstance(format_data, dict):
+                metadata = format_data.get("metadata", {})
+                if isinstance(metadata, dict):
+                    server = metadata.get("server", {})
+                    if isinstance(server, dict) and server.get("type") == "shiny":
+                        return True
 
     # Check fileInformation.<path>.metadata.server
     file_info = inspect_any.get("fileInformation", {})
-    for file_data in file_info.values():
-        if isinstance(file_data, dict):
-            metadata = file_data.get("metadata", {})
-            if isinstance(metadata, dict):
-                server = metadata.get("server")
-                if server == "shiny":
-                    return True
+    if isinstance(file_info, dict):
+        for file_data in file_info.values():
+            if isinstance(file_data, dict):
+                metadata = file_data.get("metadata", {})
+                if isinstance(metadata, dict):
+                    server = metadata.get("server")
+                    if server == "shiny":
+                        return True
 
     return False
 
