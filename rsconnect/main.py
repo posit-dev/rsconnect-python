@@ -42,6 +42,7 @@ from .actions import (
     cli_feedback,
     create_quarto_deployment_bundle,
     describe_manifest,
+    infer_quarto_app_mode,
     quarto_inspect,
     set_verbosity,
     test_api_key,
@@ -1598,6 +1599,7 @@ def deploy_quarto(
         logger.debug("Quarto: %s" % quarto)
         inspect = quarto_inspect(quarto, file_or_directory)
         engines = validate_quarto_engines(inspect)
+        app_mode = infer_quarto_app_mode(inspect)
 
     environment = None
     if "jupyter" in engines:
@@ -1635,13 +1637,13 @@ def deploy_quarto(
 
     (
         ce.validate_server()
-        .validate_app_mode(app_mode=AppModes.STATIC_QUARTO)
+        .validate_app_mode(app_mode=app_mode)
         .make_bundle(
             create_quarto_deployment_bundle,
             file_or_directory,
             extra_files,
             exclude,
-            AppModes.STATIC_QUARTO,
+            app_mode,
             inspect,
             environment,
             image=image,
@@ -2542,11 +2544,12 @@ def write_manifest_quarto(
             with cli_feedback("Creating %s" % environment.filename):
                 write_environment_file(environment, base_dir)
 
+    app_mode = infer_quarto_app_mode(inspect)
     with cli_feedback("Creating manifest.json"):
         write_quarto_manifest_json(
             file_or_directory,
             inspect,
-            AppModes.STATIC_QUARTO,
+            app_mode,
             environment,
             extra_files,
             exclude,
