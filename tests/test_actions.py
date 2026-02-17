@@ -61,6 +61,36 @@ class TestQuartoShinyDetection(TestCase):
         }
         self.assertFalse(is_quarto_shiny(inspect))
 
+    def test_is_quarto_shiny_wrong_server_type(self):
+        """Test that documents with wrong server type are not detected as Shiny"""
+        inspect = {
+            "quarto": {"version": "1.3.0"},
+            "engines": ["jupyter"],
+            "formats": {
+                "html": {
+                    "metadata": {
+                        "server": {"type": "other"},
+                    },
+                },
+            },
+        }
+        self.assertFalse(is_quarto_shiny(inspect))
+
+    def test_is_quarto_shiny_wrong_server_value(self):
+        """Test that documents with wrong server value in fileInformation are not detected as Shiny"""
+        inspect = {
+            "quarto": {"version": "1.3.0"},
+            "engines": ["jupyter"],
+            "fileInformation": {
+                "/path/to/app.qmd": {
+                    "metadata": {
+                        "server": "other",
+                    },
+                },
+            },
+        }
+        self.assertFalse(is_quarto_shiny(inspect))
+
     def test_infer_quarto_app_mode_shiny(self):
         """Test that Shiny documents get SHINY_QUARTO mode"""
         inspect = {
