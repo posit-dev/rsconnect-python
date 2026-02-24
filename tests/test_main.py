@@ -715,6 +715,28 @@ class TestMain:
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
+    def test_add_name_only_missing_server_and_credentials(self):
+        """Regression test: `rsconnect add -n x` should produce a validation error, not a TypeError."""
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+        try:
+            runner = CliRunner()
+            result = runner.invoke(
+                cli,
+                [
+                    "add",
+                    "--name",
+                    "some-name",
+                ],
+            )
+            assert result.exit_code == 1, result.output
+            assert "`rsconnect add` requires" in str(result.exception)
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
     def test_add_shinyapps_missing_options(self):
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)

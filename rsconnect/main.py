@@ -741,6 +741,12 @@ def add(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
 
+    if not server and not any([token, secret, account]):
+        raise RSConnectException(
+            "`rsconnect add` requires -s/--server (for Posit Connect) or -A/--account, -T/--token, "
+            "and -S/--secret (for shinyapps.io)."
+        )
+
     validation.validate_connection_options(
         ctx=ctx,
         url=server,
