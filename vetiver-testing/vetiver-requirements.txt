@@ -1,6 +1,6 @@
 pandas
 numpy
-pydantic
+pydantic<2
 pytest
 pins
 vetiver
