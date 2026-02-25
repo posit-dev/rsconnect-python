@@ -192,7 +192,7 @@ jobs:
       - name: Run tests
         uses: posit-dev/with-connect@main
         with:
-          version: "release"
+          version: "jammy"
           license: ${{ secrets.CONNECT_LICENSE_FILE }}
           command: |
             pip freeze > requirements.txt
@@ -225,6 +225,8 @@ jobs:
 
       # NOTE: edited to run checks for python package
       - name: Run tests
+        env:
+          CONNECT_SERVER: http://localhost:3939
         run: |
           pytest tests/test_main_system_caches.py
           pytest -m 'vetiver'
