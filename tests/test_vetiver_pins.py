@@ -51,6 +51,8 @@ def test_deploy():
 
     endpoint = vetiver.vetiver_endpoint(content_url + "/predict")
     response = vetiver.predict(endpoint, X_df, headers=h)
+    print(X_df)
+    print(response)
 
     assert isinstance(response, pd.DataFrame), response
     assert response.iloc[0, 0] == 44.47
