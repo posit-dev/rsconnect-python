@@ -78,7 +78,12 @@ def detect_environment(dirname: str, requirements_file: Optional[str] = "require
     elif os.path.basename(requirements_file) == "uv.lock":
         result = uv_export(dirname, requirements_file)
     else:
-        result = output_file(dirname, requirements_file, "pip") or pip_freeze()
+        result = output_file(dirname, requirements_file, "pip")
+        if result is None:
+            raise EnvironmentException(
+                "The requirements file '%s' was not found in '%s'. "
+                "Please create it or use --force-generate to use pip freeze." % (requirements_file, dirname)
+            )
 
     if result is not None:
         result["python"] = get_python_version()

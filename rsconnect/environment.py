@@ -139,11 +139,12 @@ class Environment:
             module_file = app_file
 
         _warn_on_ignored_manifest(directory)
-        _warn_if_no_requirements_file(directory, requirements_file)
         _warn_if_environment_directory(directory)
 
         python_version_requirement = pyproject.detect_python_version_requirement(directory)
         _warn_on_missing_python_version(python_version_requirement)
+
+        _check_requirements_file(directory, requirements_file)
 
         if python is not None:
             # TODO: Remove the option in a future release
@@ -317,9 +318,9 @@ def _warn_on_ignored_manifest(directory: str) -> None:
         )
 
 
-def _warn_if_no_requirements_file(directory: str, requirements_file: typing.Optional[str]) -> None:
+def _check_requirements_file(directory: str, requirements_file: typing.Optional[str]) -> None:
     """
-    Check that a requirements file exists, and that it lives inside the deployment directory.
+    Verify that a requirements file exists inside the deployment directory.
 
     :param directory: the directory to check in.
     :param requirements_file: the name of the requirements file, or None to skip the check.
@@ -336,10 +337,10 @@ def _warn_if_no_requirements_file(directory: str, requirements_file: typing.Opti
         )
 
     if not requirements_file_path.exists():
-        click.secho(
-            "    Warning: Capturing the environment using 'pip freeze'.\n"
-            "             Consider creating a %s file instead." % requirements_file,
-            fg="yellow",
+        raise RSConnectException(
+            "The requirements file '%s' does not exist in '%s'.\n"
+            "Please create the file or specify a different file with --requirements-file.\n"
+            "To use pip freeze instead, pass --force-generate." % (requirements_file, directory)
         )
 
 

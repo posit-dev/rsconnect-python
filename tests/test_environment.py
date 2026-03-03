@@ -11,6 +11,7 @@ import rsconnect.environment
 from rsconnect.exception import RSConnectException
 from rsconnect.environment import Environment, which_python
 from rsconnect.subprocesses.inspect_environment import (
+    EnvironmentException,
     detect_environment,
     filter_pip_freeze_output,
     get_default_locale,
@@ -83,7 +84,7 @@ class TestEnvironment(TestCase):
             assert result.source == "file"
 
     def test_pip_freeze(self):
-        result = Environment.create_python_environment(get_dir("pip2"))
+        result = Environment.create_python_environment(get_dir("pip2"), requirements_file=None)
 
         # these are the dependencies declared in our pyproject.toml
         self.assertIn("six", result.contents)
@@ -223,22 +224,30 @@ class WhichPythonTestCase(TestCase):
 
 class TestPythonVersionRequirements:
     def test_pyproject_toml(self):
-        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "using_pyproject"))
+        env = Environment.create_python_environment(
+            os.path.join(TESTDATA, "python-project", "using_pyproject"), requirements_file=None
+        )
         assert env.python_interpreter == sys.executable
         assert env.python_version_requirement == ">=3.8"
 
     def test_python_version(self):
-        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "using_pyversion"))
+        env = Environment.create_python_environment(
+            os.path.join(TESTDATA, "python-project", "using_pyversion"), requirements_file=None
+        )
         assert env.python_interpreter == sys.executable
         assert env.python_version_requirement == ">=3.8,<3.12"
 
     def test_all_of_them(self):
-        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "allofthem"))
+        env = Environment.create_python_environment(
+            os.path.join(TESTDATA, "python-project", "allofthem"), requirements_file=None
+        )
         assert env.python_interpreter == sys.executable
         assert env.python_version_requirement == ">=3.8,<3.12"
 
     def test_missing(self):
-        env = Environment.create_python_environment(os.path.join(TESTDATA, "python-project", "empty"))
+        env = Environment.create_python_environment(
+            os.path.join(TESTDATA, "python-project", "empty"), requirements_file=None
+        )
         assert env.python_interpreter == sys.executable
         assert env.python_version_requirement is None
 
@@ -393,3 +402,44 @@ class TestEnvironmentDeprecations:
             "Please use a .python-version file to force a specific interpreter version."
         )
         assert result.python == current_python_version
+
+
+class TestRequirementsFileRequired:
+    """When a requirements file is requested (the default), it must exist.
+    When force-generate is used (requirements_file=None), pip freeze is used regardless."""
+
+    def test_requirements_requested_and_file_exists(self):
+        """Default behavior with requirements.txt present succeeds and reads the file."""
+        result = Environment.create_python_environment(get_dir("pip1"))
+        assert result.source == "file"
+        assert result.filename == "requirements.txt"
+
+    def test_requirements_requested_and_file_missing(self):
+        """Default behavior without requirements.txt raises an error."""
+        with pytest.raises(RSConnectException, match="does not exist"):
+            Environment.create_python_environment(get_dir("pip2"))
+
+    def test_force_generate_and_file_exists(self):
+        """Force-generate ignores the existing requirements.txt and uses pip freeze."""
+        result = Environment.create_python_environment(get_dir("pip1"), requirements_file=None)
+        assert result.source == "pip_freeze"
+
+    def test_force_generate_and_file_missing(self):
+        """Force-generate works even without requirements.txt."""
+        result = Environment.create_python_environment(get_dir("pip2"), requirements_file=None)
+        assert result.source == "pip_freeze"
+
+    def test_detect_environment_requires_file(self):
+        """Subprocess-level: detect_environment errors when the file is missing."""
+        with pytest.raises(EnvironmentException, match="was not found"):
+            detect_environment(get_dir("pip2"), requirements_file="requirements.txt")
+
+    def test_detect_environment_reads_file(self):
+        """Subprocess-level: detect_environment reads the file when present."""
+        result = detect_environment(get_dir("pip1"), requirements_file="requirements.txt")
+        assert result.source == "file"
+
+    def test_detect_environment_force_generate(self):
+        """Subprocess-level: detect_environment uses pip freeze when requirements_file=None."""
+        result = detect_environment(get_dir("pip2"), requirements_file=None)
+        assert result.source == "pip_freeze"
