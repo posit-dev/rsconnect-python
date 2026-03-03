@@ -340,7 +340,7 @@ def _check_requirements_file(directory: str, requirements_file: typing.Optional[
         raise RSConnectException(
             "The requirements file '%s' does not exist in '%s'.\n"
             "Please create the file or specify a different file with --requirements-file.\n"
-            "To use pip freeze instead, pass --force-generate." % (requirements_file, directory)
+            "To have the requirements file generated using pip freeze, pass --force-generate." % (requirements_file, directory)
         )
 
 
