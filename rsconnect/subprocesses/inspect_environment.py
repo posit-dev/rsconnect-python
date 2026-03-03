@@ -74,6 +74,7 @@ def detect_environment(dirname: str, requirements_file: Optional[str] = "require
     """
 
     if requirements_file is None:
+        # --force-generate sets requirements_file to None
         result = pip_freeze()
     elif os.path.basename(requirements_file) == "uv.lock":
         result = uv_export(dirname, requirements_file)
