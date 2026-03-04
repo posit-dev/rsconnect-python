@@ -19,7 +19,7 @@
       
       
       <link rel="icon" href="../../images/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
     
     
       
@@ -718,6 +718,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#content-repository" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        repository
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="repository">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#content-repository-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#content-repository-redeploy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        redeploy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#content-repository-show" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        show
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#content-search" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1158,6 +1208,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#content-repository" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        repository
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="repository">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#content-repository-delete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        delete
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#content-repository-redeploy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        redeploy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#content-repository-show" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        show
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#content-search" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1504,6 +1604,106 @@
                                   download.  [default: requirements.txt.lock]
   -w, --overwrite                 Overwrite the output file if it already
                                   exists.
+  --help                          Show this message and exit.
+</code></pre></div>
+<h2 id="content-repository">content repository<a class="headerlink" href="#content-repository" title="Permanent link">#</a></h2>
+<p>Manage git repository configuration for content items.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight"><pre><span></span><code>content repository [OPTIONS] COMMAND [ARGS]...
+</code></pre></div>
+<p><strong>Options:</strong></p>
+<div class="highlight"><pre><span></span><code>  --help  Show this message and exit.
+</code></pre></div>
+<h3 id="content-repository-delete">content repository delete<a class="headerlink" href="#content-repository-delete" title="Permanent link">#</a></h3>
+<p>Remove git repository configuration from a content item.</p>
+<p>This will stop automatic redeployment on git commits. The content item
+will remain deployed but will no longer be git-managed.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight"><pre><span></span><code>content repository delete [OPTIONS]
+</code></pre></div>
+<p><strong>Options:</strong></p>
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  -g, --guid GUID                 The GUID of the content item.  [required]
+  -f, --force                     Skip confirmation prompt.
+  --help                          Show this message and exit.
+</code></pre></div>
+<h3 id="content-repository-redeploy">content repository redeploy<a class="headerlink" href="#content-repository-redeploy" title="Permanent link">#</a></h3>
+<p>Trigger a new deployment from the git repository.</p>
+<p>This creates a new bundle from the git repository and deploys it.
+Optionally specify a different ref (branch, tag, or commit) to deploy from.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight"><pre><span></span><code>content repository redeploy [OPTIONS]
+</code></pre></div>
+<p><strong>Options:</strong></p>
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  -g, --guid GUID                 The GUID of the content item.  [required]
+  -r, --ref TEXT                  Git ref to deploy from (branch, tag, or
+                                  commit SHA). Uses the configured branch if
+                                  not specified.
+  --help                          Show this message and exit.
+</code></pre></div>
+<h3 id="content-repository-show">content repository show<a class="headerlink" href="#content-repository-show" title="Permanent link">#</a></h3>
+<p>Show the git repository configuration for a content item.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight"><pre><span></span><code>content repository show [OPTIONS]
+</code></pre></div>
+<p><strong>Options:</strong></p>
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  -g, --guid GUID                 The GUID of the content item.  [required]
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="content-search">content search<a class="headerlink" href="#content-search" title="Permanent link">#</a></h2>
