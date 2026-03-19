@@ -128,6 +128,28 @@ class ManifestDataPythonPackageManager(TypedDict):
     allow_uv: NotRequired[bool]
 
 
+class ManifestDataNodePackageManager(TypedDict):
+    name: str
+    version: str
+    package_file: str
+
+
+class ManifestDataNode(TypedDict):
+    version: str
+    package_manager: ManifestDataNodePackageManager
+
+
+class ManifestDataPackageDescription(TypedDict):
+    name: str
+    version: str
+
+
+class ManifestDataPackage(TypedDict):
+    Source: str
+    Repository: str
+    description: ManifestDataPackageDescription
+
+
 class ManifestData(TypedDict):
     version: int
     files: dict[str, ManifestDataFile]
@@ -136,6 +158,8 @@ class ManifestData(TypedDict):
     jupyter: NotRequired[ManifestDataJupyter]
     quarto: NotRequired[ManifestDataQuarto]
     python: NotRequired[ManifestDataPython]
+    node: NotRequired[ManifestDataNode]
+    packages: NotRequired[dict[str, ManifestDataPackage]]
     environment: NotRequired[ManifestDataEnvironment]
 
 
