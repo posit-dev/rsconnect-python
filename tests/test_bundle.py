@@ -3035,13 +3035,6 @@ def _make_node_env(**overrides):
         npm_version="10.9.2",
         package_file="package.json",
         package_contents='{"dependencies": {"express": "^4.21.0"}}',
-        packages={
-            "express": {
-                "Source": "npm",
-                "Repository": "https://registry.npmjs.org/",
-                "description": {"name": "express", "version": "4.21.0"},
-            }
-        },
         has_lock_file=False,
         locale="en_US",
     )
@@ -3072,21 +3065,6 @@ class TestNodeJSManifest:
         # Checksums should be non-empty
         for f in manifest["files"].values():
             assert f["checksum"]
-
-    def test_manifest_packages(self):
-        env = _make_node_env()
-        manifest, _ = make_nodejs_manifest(_NODE_EXPRESS_DIR, "app.js", env, [], [])
-
-        assert "express" in manifest["packages"]
-        assert manifest["packages"]["express"]["Source"] == "npm"
-        assert manifest["packages"]["express"]["description"]["name"] == "express"
-        assert manifest["packages"]["express"]["description"]["version"] == "4.21.0"
-
-    def test_manifest_no_packages(self):
-        env = _make_node_env(packages={})
-        manifest, _ = make_nodejs_manifest(_NODE_EXPRESS_DIR, "app.js", env, [], [])
-
-        assert "packages" not in manifest
 
     def test_manifest_with_image(self):
         env = _make_node_env()
@@ -3236,10 +3214,3 @@ class TestNodeJSTypeScriptBundle:
     def test_ts_entrypoint_detection(self):
         ep = get_default_node_entrypoint(_NODE_TS_EXPRESS_DIR)
         assert ep == "app.ts"
-
-    def test_ts_devdependencies_excluded(self):
-        env = _make_node_env(node_version="24.14.0")
-        manifest, _ = make_nodejs_manifest(_NODE_TS_EXPRESS_DIR, "app.ts", env, [], [])
-
-        # devDependencies (@types/express) should not be in packages
-        assert "@types/express" not in manifest.get("packages", {})

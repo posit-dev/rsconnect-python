@@ -11,22 +11,19 @@ import json
 import locale
 import os
 import subprocess
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 import click
 
 from .exception import RSConnectException
 from .log import logger
 
-if TYPE_CHECKING:
-    from .bundle import ManifestDataPackage, ManifestDataPackageDescription
-
 
 class NodeEnvironment:
     """A Node.js project environment for deployment.
 
-    Captures Node.js version, npm version, package.json contents,
-    and parsed dependency metadata needed for the manifest.
+    Captures Node.js version, npm version, and package.json contents
+    needed for the manifest.
     """
 
     def __init__(
@@ -35,7 +32,6 @@ class NodeEnvironment:
         npm_version: str,
         package_file: str,
         package_contents: str,
-        packages: dict[str, ManifestDataPackage],
         has_lock_file: bool,
         locale: str,
     ):
@@ -43,7 +39,6 @@ class NodeEnvironment:
         self.npm_version = npm_version
         self.package_file = package_file
         self.package_contents = package_contents
-        self.packages = packages
         self.has_lock_file = has_lock_file
         self.locale = locale
 
@@ -71,14 +66,12 @@ class NodeEnvironment:
             package_contents = f.read()
 
         try:
-            package_data = json.loads(package_contents)
+            json.loads(package_contents)
         except json.JSONDecodeError as e:
             raise RSConnectException(f"Failed to parse package.json: {e}")
 
         node_version = _detect_version(node_executable, "--version", "Node.js")
         npm_version = _detect_version("npm", "--version", "npm")
-
-        packages = _parse_packages(package_data)
 
         has_lock_file = os.path.exists(os.path.join(directory, "package-lock.json"))
         if not has_lock_file:
@@ -94,7 +87,6 @@ class NodeEnvironment:
             npm_version=npm_version,
             package_file="package.json",
             package_contents=package_contents,
-            packages=packages,
             has_lock_file=has_lock_file,
             locale=env_locale,
         )
@@ -122,18 +114,3 @@ def _detect_version(executable: str, flag: str, label: str) -> str:
         )
     except subprocess.TimeoutExpired:
         raise RSConnectException(f"Timed out detecting {label} version.")
-
-
-def _parse_packages(package_data: dict) -> dict[str, ManifestDataPackage]:
-    """Extract production dependencies from package.json into manifest packages format."""
-    packages: dict[str, ManifestDataPackage] = {}
-    dependencies = package_data.get("dependencies", {})
-    for name, version_spec in dependencies.items():
-        version = version_spec.lstrip("^~>=<")
-        desc: ManifestDataPackageDescription = {"name": name, "version": version}
-        packages[name] = {
-            "Source": "npm",
-            "Repository": "https://registry.npmjs.org/",
-            "description": desc,
-        }
-    return packages

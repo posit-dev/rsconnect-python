@@ -5,7 +5,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from rsconnect.environment_node import NodeEnvironment, _detect_version, _parse_packages
+from rsconnect.environment_node import NodeEnvironment, _detect_version
 from rsconnect.exception import RSConnectException
 
 
@@ -35,10 +35,6 @@ class TestNodeEnvironmentCreate:
         assert env.node_version == "22.22.1"
         assert env.npm_version == "10.9.2"
         assert env.package_file == "package.json"
-        assert "express" in env.packages
-        assert env.packages["express"]["description"]["name"] == "express"
-        assert env.packages["express"]["description"]["version"] == "4.21.0"
-        assert env.packages["express"]["Source"] == "npm"
         assert not env.has_lock_file
         assert env.locale
 
@@ -129,36 +125,3 @@ class TestDetectVersion:
         mock_run.return_value = result
         with pytest.raises(RSConnectException, match="empty version"):
             _detect_version("node", "--version", "Node.js")
-
-
-class TestParsePackages:
-    def test_basic_dependencies(self):
-        data = {"dependencies": {"express": "^4.21.0", "cors": "~2.8.5"}}
-        packages = _parse_packages(data)
-        assert len(packages) == 2
-        assert packages["express"]["description"]["version"] == "4.21.0"
-        assert packages["cors"]["description"]["version"] == "2.8.5"
-
-    def test_no_dependencies(self):
-        data = {"name": "minimal"}
-        packages = _parse_packages(data)
-        assert packages == {}
-
-    def test_exact_version(self):
-        data = {"dependencies": {"lodash": "4.17.21"}}
-        packages = _parse_packages(data)
-        assert packages["lodash"]["description"]["version"] == "4.17.21"
-
-    def test_range_version(self):
-        data = {"dependencies": {"pkg": ">=1.0.0"}}
-        packages = _parse_packages(data)
-        assert packages["pkg"]["description"]["version"] == "1.0.0"
-
-    def test_dev_dependencies_excluded(self):
-        data = {
-            "dependencies": {"express": "^4.21.0"},
-            "devDependencies": {"jest": "^29.0.0"},
-        }
-        packages = _parse_packages(data)
-        assert "express" in packages
-        assert "jest" not in packages

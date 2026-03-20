@@ -141,17 +141,6 @@ class ManifestDataNode(TypedDict):
     package_manager: ManifestDataNodePackageManager
 
 
-class ManifestDataPackageDescription(TypedDict):
-    name: str
-    version: str
-
-
-class ManifestDataPackage(TypedDict):
-    Source: str
-    Repository: str
-    description: ManifestDataPackageDescription
-
-
 class ManifestData(TypedDict):
     version: int
     files: dict[str, ManifestDataFile]
@@ -161,7 +150,6 @@ class ManifestData(TypedDict):
     quarto: NotRequired[ManifestDataQuarto]
     python: NotRequired[ManifestDataPython]
     node: NotRequired[ManifestDataNode]
-    packages: NotRequired[dict[str, ManifestDataPackage]]
     environment: NotRequired[ManifestDataEnvironment]
 
 
@@ -1414,9 +1402,6 @@ def make_nodejs_manifest(
 
     if node_environment.locale:
         manifest["locale"] = node_environment.locale
-
-    if node_environment.packages:
-        manifest["packages"] = node_environment.packages
 
     if image or env_management_node is not None:
         manifest_environment: ManifestDataEnvironment = {}
