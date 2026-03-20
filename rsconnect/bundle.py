@@ -74,6 +74,7 @@ directories_ignore_list = [
     "renv/",
     "rsconnect-python/",
     "rsconnect/",
+    "node_modules/",
 ]
 directories_to_ignore = {Path(d) for d in directories_ignore_list}
 
@@ -1590,6 +1591,66 @@ def validate_entry_point(entry_point: str | None, directory: str) -> str:
 
     if len(parts) > 2:
         raise RSConnectException('Entry point is not in "module:object" format.')
+
+    return entry_point
+
+
+def get_default_node_entrypoint(directory: str | Path) -> str:
+    """
+    Determine the default entry point for a Node.js application.
+
+    Checks package.json "main" field first, then falls back to common filenames.
+
+    :param directory: the directory containing the Node.js application.
+    :return: the entry point filename (e.g., "app.js").
+    """
+    package_json_path = join(str(directory), "package.json")
+    if isfile(package_json_path):
+        with open(package_json_path, encoding="utf-8") as f:
+            try:
+                package_data = json.load(f)
+            except json.JSONDecodeError:
+                package_data = {}
+
+        # Check "main" field
+        main = package_data.get("main")
+        if main and isfile(join(str(directory), main)):
+            return main
+
+        # Check "scripts.start" for "node <file>" pattern
+        start_script = (package_data.get("scripts") or {}).get("start", "")
+        match = re.match(r"node\s+(\S+)", start_script)
+        if match:
+            start_file = match.group(1)
+            if isfile(join(str(directory), start_file)):
+                return start_file
+
+    # Fall back to common filenames
+    files = set(os.listdir(directory))
+    for candidate in ["app.js", "index.js", "server.js", "main.js", "app.ts", "index.ts", "server.ts", "main.ts"]:
+        if candidate in files:
+            return candidate
+
+    raise RSConnectException(f"Could not determine default entrypoint file in directory '{directory}'")
+
+
+def validate_node_entry_point(entry_point: str | None, directory: str) -> str:
+    """
+    Validates the entry point for a Node.js application.
+
+    If no entry point is specified, auto-detects from package.json or common filenames.
+    Validates that the entry point file exists in the directory.
+
+    :param entry_point: the entry point as specified by the user, or None for auto-detection.
+    :param directory: the directory containing the Node.js application.
+    :return: the validated entry point filename.
+    """
+    if not entry_point:
+        entry_point = get_default_node_entrypoint(directory)
+
+    entry_path = join(directory, entry_point)
+    if not isfile(entry_path):
+        raise RSConnectException(f"The entry point file '{entry_point}' does not exist in '{directory}'.")
 
     return entry_point
 
