@@ -16,6 +16,7 @@ from rsconnect.bundle import (
     _default_title_from_manifest,
     create_html_manifest,
     create_voila_manifest,
+    get_default_node_entrypoint,
     guess_deploy_dir,
     keep_manifest_specified_file,
     list_files,
@@ -24,6 +25,8 @@ from rsconnect.bundle import (
     make_html_bundle,
     make_html_manifest,
     make_manifest_bundle,
+    make_nodejs_bundle,
+    make_nodejs_manifest,
     make_notebook_html_bundle,
     make_notebook_source_bundle,
     make_quarto_manifest,
@@ -35,7 +38,9 @@ from rsconnect.bundle import (
     to_bytes,
     validate_entry_point,
     validate_extra_files,
+    validate_node_entry_point,
 )
+from rsconnect.environment_node import NodeEnvironment
 from rsconnect.environment import Environment, PackageInstaller
 from rsconnect.exception import RSConnectException
 from rsconnect.models import AppModes
@@ -3015,3 +3020,185 @@ def test_make_bundle_empty_manifest():
 def test_make_bundle_missing_file_in_manifest():
     with pytest.raises(FileNotFoundError):
         make_manifest_bundle(missing_file_manifest)
+
+
+# -- Node.js bundle and manifest tests --
+
+_NODE_EXPRESS_DIR = join(dirname(__file__), "testdata", "node-express")
+
+
+def _make_node_env(**overrides):
+    """Create a NodeEnvironment for testing."""
+    defaults = dict(
+        node_version="22.22.1",
+        npm_version="10.9.2",
+        package_file="package.json",
+        package_contents='{"dependencies": {"express": "^4.21.0"}}',
+        packages={
+            "express": {
+                "Source": "npm",
+                "Repository": "https://registry.npmjs.org/",
+                "description": {"name": "express", "version": "4.21.0"},
+            }
+        },
+        has_lock_file=False,
+        locale="en_US",
+    )
+    defaults.update(overrides)
+    return NodeEnvironment(**defaults)
+
+
+class TestNodeJSManifest:
+    def test_manifest_structure(self):
+        env = _make_node_env()
+        manifest, files = make_nodejs_manifest(_NODE_EXPRESS_DIR, "app.js", env, [], [])
+
+        assert manifest["version"] == 1
+        assert manifest["metadata"]["appmode"] == "node-api"
+        assert manifest["metadata"]["entrypoint"] == "app.js"
+        assert manifest["node"]["version"] == "22.22.1"
+        assert manifest["node"]["package_manager"]["name"] == "npm"
+        assert manifest["node"]["package_manager"]["version"] == "10.9.2"
+        assert manifest["node"]["package_manager"]["package_file"] == "package.json"
+        assert manifest["locale"] == "en_US"
+
+    def test_manifest_files(self):
+        env = _make_node_env()
+        manifest, files = make_nodejs_manifest(_NODE_EXPRESS_DIR, "app.js", env, [], [])
+
+        assert "app.js" in manifest["files"]
+        assert "package.json" in manifest["files"]
+        # Checksums should be non-empty
+        for f in manifest["files"].values():
+            assert f["checksum"]
+
+    def test_manifest_packages(self):
+        env = _make_node_env()
+        manifest, _ = make_nodejs_manifest(_NODE_EXPRESS_DIR, "app.js", env, [], [])
+
+        assert "express" in manifest["packages"]
+        assert manifest["packages"]["express"]["Source"] == "npm"
+        assert manifest["packages"]["express"]["description"]["name"] == "express"
+        assert manifest["packages"]["express"]["description"]["version"] == "4.21.0"
+
+    def test_manifest_no_packages(self):
+        env = _make_node_env(packages={})
+        manifest, _ = make_nodejs_manifest(_NODE_EXPRESS_DIR, "app.js", env, [], [])
+
+        assert "packages" not in manifest
+
+    def test_manifest_with_image(self):
+        env = _make_node_env()
+        manifest, _ = make_nodejs_manifest(_NODE_EXPRESS_DIR, "app.js", env, [], [], image="ghcr.io/test")
+
+        assert manifest["environment"]["image"] == "ghcr.io/test"
+
+    def test_manifest_with_env_management(self):
+        env = _make_node_env()
+        manifest, _ = make_nodejs_manifest(_NODE_EXPRESS_DIR, "app.js", env, [], [], env_management_node=False)
+
+        assert manifest["environment"]["environment_management"]["node"] is False
+
+    def test_manifest_excludes_node_modules(self, tmp_path):
+        # Create a dir with node_modules
+        (tmp_path / "package.json").write_text('{"dependencies":{}}')
+        (tmp_path / "app.js").write_text("// app")
+        nm = tmp_path / "node_modules" / "express"
+        nm.mkdir(parents=True)
+        (nm / "index.js").write_text("// express")
+
+        env = _make_node_env()
+        manifest, files = make_nodejs_manifest(str(tmp_path), "app.js", env, [], [])
+
+        for f in manifest["files"]:
+            assert "node_modules" not in f
+
+    def test_manifest_includes_lock_file(self, tmp_path):
+        (tmp_path / "package.json").write_text('{"dependencies":{}}')
+        (tmp_path / "package-lock.json").write_text("{}")
+        (tmp_path / "app.js").write_text("// app")
+
+        env = _make_node_env(has_lock_file=True)
+        manifest, files = make_nodejs_manifest(str(tmp_path), "app.js", env, [], [])
+
+        assert "package-lock.json" in manifest["files"]
+
+
+class TestNodeJSBundle:
+    def test_bundle_contents(self):
+        env = _make_node_env()
+        bundle_file = make_nodejs_bundle(_NODE_EXPRESS_DIR, "app.js", env, [], [])
+
+        with tarfile.open(mode="r:gz", fileobj=bundle_file) as tar:
+            names = sorted(tar.getnames())
+            assert "manifest.json" in names
+            assert "package.json" in names
+            assert "app.js" in names
+
+    def test_bundle_manifest_content(self):
+        env = _make_node_env()
+        bundle_file = make_nodejs_bundle(_NODE_EXPRESS_DIR, "app.js", env, [], [])
+
+        with tarfile.open(mode="r:gz", fileobj=bundle_file) as tar:
+            manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+            assert manifest["metadata"]["appmode"] == "node-api"
+            assert manifest["metadata"]["entrypoint"] == "app.js"
+            assert manifest["node"]["version"] == "22.22.1"
+
+    def test_bundle_excludes_node_modules(self, tmp_path):
+        (tmp_path / "package.json").write_text('{"dependencies":{}}')
+        (tmp_path / "app.js").write_text("// app")
+        nm = tmp_path / "node_modules" / "express"
+        nm.mkdir(parents=True)
+        (nm / "index.js").write_text("// express")
+
+        env = _make_node_env()
+        bundle_file = make_nodejs_bundle(str(tmp_path), "app.js", env, [], [])
+
+        with tarfile.open(mode="r:gz", fileobj=bundle_file) as tar:
+            for name in tar.getnames():
+                assert "node_modules" not in name
+
+
+class TestNodeEntryPoint:
+    def test_from_package_main(self):
+        ep = get_default_node_entrypoint(_NODE_EXPRESS_DIR)
+        assert ep == "app.js"
+
+    def test_from_scripts_start(self, tmp_path):
+        (tmp_path / "package.json").write_text(json.dumps({"scripts": {"start": "node server.js"}}))
+        (tmp_path / "server.js").write_text("// server")
+
+        ep = get_default_node_entrypoint(str(tmp_path))
+        assert ep == "server.js"
+
+    def test_fallback_common_filenames(self, tmp_path):
+        (tmp_path / "index.js").write_text("// index")
+
+        ep = get_default_node_entrypoint(str(tmp_path))
+        assert ep == "index.js"
+
+    def test_fallback_ts_files(self, tmp_path):
+        (tmp_path / "app.ts").write_text("// app")
+
+        ep = get_default_node_entrypoint(str(tmp_path))
+        assert ep == "app.ts"
+
+    def test_no_entrypoint_found(self, tmp_path):
+        (tmp_path / "package.json").write_text("{}")
+        (tmp_path / "utils.js").write_text("// utils")
+
+        with pytest.raises(RSConnectException, match="Could not determine"):
+            get_default_node_entrypoint(str(tmp_path))
+
+    def test_validate_existing_file(self):
+        ep = validate_node_entry_point("app.js", _NODE_EXPRESS_DIR)
+        assert ep == "app.js"
+
+    def test_validate_nonexistent_file(self):
+        with pytest.raises(RSConnectException, match="does not exist"):
+            validate_node_entry_point("missing.js", _NODE_EXPRESS_DIR)
+
+    def test_validate_auto_detection(self):
+        ep = validate_node_entry_point(None, _NODE_EXPRESS_DIR)
+        assert ep == "app.js"
