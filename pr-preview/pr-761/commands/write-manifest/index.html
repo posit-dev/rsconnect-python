@@ -892,6 +892,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#write-manifest-nodejs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nodejs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#write-manifest-notebook" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1106,6 +1117,17 @@
     <span class="md-ellipsis">
       
         gradio
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#write-manifest-nodejs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nodejs
       
     </span>
   </a>
@@ -1543,6 +1565,34 @@
                                   packages in the correct R environment on the
                                   Connect server.
   --help                          Show this message and exit.
+</code></pre></div>
+<h2 id="write-manifest-nodejs">write-manifest nodejs<a class="headerlink" href="#write-manifest-nodejs" title="Permanent link">#</a></h2>
+<p>Create a manifest.json file for a Node.js API for later deployment. All files are created in the same directory as the application code.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight"><pre><span></span><code>write-manifest nodejs [OPTIONS] DIRECTORY [EXTRA_FILES]...
+</code></pre></div>
+<p><strong>Options:</strong></p>
+<div class="highlight"><pre><span></span><code>  -o, --overwrite                Overwrite manifest.json, if it exists.
+  -e, --entrypoint TEXT          The JavaScript or TypeScript file that serves
+                                 as the entry point for the application (e.g.,
+                                 app.js, server.ts). Auto-detected from
+                                 package.json if not specified.
+  -x, --exclude TEXT             Specify a glob pattern for ignoring files
+                                 when building the bundle. Note that your
+                                 shell may try to expand this which will not
+                                 do what you expect. Generally, it&#39;s safest to
+                                 quote the pattern. This option may be
+                                 repeated.
+  --node PATH                    Path to the Node.js executable whose version
+                                 should be used.
+  -I, --image TEXT               Target image to be used during content build
+                                 and execution. This option is only applicable
+                                 if the Connect server is configured to use
+                                 off-host execution.
+  --disable-env-management-node  Disable Node.js environment management for
+                                 this bundle.
+  -v, --verbose                  Print detailed messages
+  --help                         Show this message and exit.
 </code></pre></div>
 <h2 id="write-manifest-notebook">write-manifest notebook<a class="headerlink" href="#write-manifest-notebook" title="Permanent link">#</a></h2>
 <p>Create a manifest.json file for a Jupyter notebook for later deployment. This will create an environment file ("requirements.txt") if one does not exist. All files are created in the same directory as the notebook file.</p>
