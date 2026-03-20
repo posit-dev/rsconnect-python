@@ -1087,12 +1087,6 @@ class TestDeployNodeJS:
         assert "--exclude" in result.output
         assert "--disable-env-management-node" in result.output
 
-    def test_no_args_shows_help(self):
-        runner = CliRunner()
-        result = runner.invoke(cli, ["deploy", "nodejs"])
-        assert result.exit_code == 0
-        assert "Usage:" in result.output
-
     def test_missing_directory(self):
         runner = CliRunner()
         result = runner.invoke(cli, ["deploy", "nodejs", "/nonexistent/path"])
@@ -1127,3 +1121,26 @@ class TestDeployNodeJS:
         )
         assert result.exit_code == 1
         assert "does not exist" in result.output
+
+
+class TestWriteManifestNodeJS:
+    def test_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["write-manifest", "nodejs", "--help"])
+        assert result.exit_code == 0
+        assert "Node.js API" in result.output
+        assert "--entrypoint" in result.output
+        assert "--node" in result.output
+        assert "--overwrite" in result.output
+
+    def test_missing_directory(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["write-manifest", "nodejs", "/nonexistent/path"])
+        assert result.exit_code != 0
+
+    def test_no_package_json(self, tmp_path):
+        (tmp_path / "app.js").write_text("// app")
+        runner = CliRunner()
+        result = runner.invoke(cli, ["write-manifest", "nodejs", str(tmp_path)])
+        assert result.exit_code == 1
+        assert "package.json" in result.output

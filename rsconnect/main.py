@@ -77,6 +77,7 @@ from .bundle import (
     make_manifest_bundle,
     make_nodejs_bundle,
     make_notebook_html_bundle,
+    write_nodejs_manifest_json,
     make_notebook_source_bundle,
     make_tensorflow_bundle,
     make_voila_bundle,
@@ -2901,6 +2902,96 @@ generate_write_manifest_python(AppModes.PYTHON_SHINY, alias="shiny")
 generate_write_manifest_python(AppModes.STREAMLIT_APP, alias="streamlit")
 generate_write_manifest_python(AppModes.PYTHON_GRADIO, alias="gradio")
 generate_write_manifest_python(AppModes.PYTHON_PANEL, alias="panel")
+
+
+# noinspection SpellCheckingInspection
+@write_manifest.command(
+    name="nodejs",
+    short_help="Create a manifest.json file for a Node.js API.",
+    help=(
+        "Create a manifest.json file for a Node.js API for later deployment. "
+        "All files are created in the same directory as the application code."
+    ),
+)
+@click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
+@click.option(
+    "--entrypoint",
+    "-e",
+    help="The JavaScript or TypeScript file that serves as the entry point for the application "
+    "(e.g., app.js, server.ts). Auto-detected from package.json if not specified.",
+)
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.option(
+    "--node",
+    type=click.Path(exists=True),
+    help="Path to the Node.js executable whose version should be used.",
+)
+@click.option(
+    "--image",
+    "-I",
+    help="Target image to be used during content build and execution. "
+    "This option is only applicable if the Connect server is configured to use off-host execution.",
+)
+@click.option(
+    "--disable-env-management-node",
+    "env_management_node",
+    is_flag=True,
+    default=None,
+    help="Disable Node.js environment management for this bundle.",
+    callback=env_management_callback,
+)
+@click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@click.pass_context
+def write_manifest_nodejs(
+    ctx: click.Context,
+    overwrite: bool,
+    entrypoint: Optional[str],
+    exclude: tuple[str, ...],
+    node: Optional[str],
+    verbose: int,
+    directory: str,
+    extra_files: tuple[str, ...],
+    image: Optional[str],
+    env_management_node: Optional[bool],
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    with cli_feedback("Checking arguments"):
+        entrypoint = validate_node_entry_point(entrypoint, directory)
+        manifest_path = join(directory, "manifest.json")
+
+        if exists(manifest_path) and not overwrite:
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+
+    with cli_feedback("Inspecting Node.js environment"):
+        node_environment = NodeEnvironment.create(directory, node_executable=node)
+
+    with cli_feedback("Creating manifest.json"):
+        write_nodejs_manifest_json(
+            directory,
+            entrypoint,
+            node_environment,
+            extra_files,
+            exclude,
+            image,
+            env_management_node,
+        )
 
 
 # noinspection SpellCheckingInspection

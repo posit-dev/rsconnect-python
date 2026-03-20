@@ -2153,6 +2153,41 @@ def write_api_manifest_json(
     return exists(join(directory, environment.filename))
 
 
+def write_nodejs_manifest_json(
+    directory: str,
+    entry_point: str,
+    node_environment: NodeEnvironment,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
+    image: Optional[str] = None,
+    env_management_node: Optional[bool] = None,
+) -> None:
+    """
+    Creates and writes a manifest.json file for a Node.js API application.
+
+    :param directory: the root directory of the Node.js application.
+    :param entry_point: the entry point file (e.g., "app.js").
+    :param node_environment: the Node.js environment information.
+    :param extra_files: any extra files that should be included in the manifest.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param image: the optional docker image for off-host execution.
+    :param env_management_node: False prevents Connect from managing the Node.js environment.
+    """
+    extra_files = validate_extra_files(directory, extra_files)
+    manifest, _ = make_nodejs_manifest(
+        directory,
+        entry_point,
+        node_environment,
+        extra_files,
+        excludes,
+        image,
+        env_management_node,
+    )
+    manifest_path = join(directory, "manifest.json")
+
+    write_manifest_json(manifest_path, manifest)
+
+
 def write_environment_file(
     environment: Environment,
     directory: str,
