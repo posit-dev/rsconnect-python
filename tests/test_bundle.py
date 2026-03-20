@@ -3025,6 +3025,7 @@ def test_make_bundle_missing_file_in_manifest():
 # -- Node.js bundle and manifest tests --
 
 _NODE_EXPRESS_DIR = join(dirname(__file__), "testdata", "node-express")
+_NODE_TS_EXPRESS_DIR = join(dirname(__file__), "testdata", "node-ts-express")
 
 
 def _make_node_env(**overrides):
@@ -3202,3 +3203,43 @@ class TestNodeEntryPoint:
     def test_validate_auto_detection(self):
         ep = validate_node_entry_point(None, _NODE_EXPRESS_DIR)
         assert ep == "app.js"
+
+
+class TestNodeJSTypeScriptBundle:
+    """Tests for TypeScript Express bundles (Node.js 24+ native type stripping)."""
+
+    def test_ts_manifest_structure(self):
+        env = _make_node_env(node_version="24.14.0")
+        manifest, files = make_nodejs_manifest(_NODE_TS_EXPRESS_DIR, "app.ts", env, [], [])
+
+        assert manifest["metadata"]["appmode"] == "node-api"
+        assert manifest["metadata"]["entrypoint"] == "app.ts"
+        assert manifest["node"]["version"] == "24.14.0"
+
+    def test_ts_manifest_files(self):
+        env = _make_node_env(node_version="24.14.0")
+        manifest, files = make_nodejs_manifest(_NODE_TS_EXPRESS_DIR, "app.ts", env, [], [])
+
+        assert "app.ts" in manifest["files"]
+        assert "package.json" in manifest["files"]
+
+    def test_ts_bundle_contents(self):
+        env = _make_node_env(node_version="24.14.0")
+        bundle_file = make_nodejs_bundle(_NODE_TS_EXPRESS_DIR, "app.ts", env, [], [])
+
+        with tarfile.open(mode="r:gz", fileobj=bundle_file) as tar:
+            names = sorted(tar.getnames())
+            assert "manifest.json" in names
+            assert "app.ts" in names
+            assert "package.json" in names
+
+    def test_ts_entrypoint_detection(self):
+        ep = get_default_node_entrypoint(_NODE_TS_EXPRESS_DIR)
+        assert ep == "app.ts"
+
+    def test_ts_devdependencies_excluded(self):
+        env = _make_node_env(node_version="24.14.0")
+        manifest, _ = make_nodejs_manifest(_NODE_TS_EXPRESS_DIR, "app.ts", env, [], [])
+
+        # devDependencies (@types/express) should not be in packages
+        assert "@types/express" not in manifest.get("packages", {})
