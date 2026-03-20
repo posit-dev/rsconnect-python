@@ -11,13 +11,15 @@ import json
 import locale
 import os
 import subprocess
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import click
 
-from .bundle import ManifestDataPackage, ManifestDataPackageDescription
 from .exception import RSConnectException
 from .log import logger
+
+if TYPE_CHECKING:
+    from .bundle import ManifestDataPackage, ManifestDataPackageDescription
 
 
 class NodeEnvironment:

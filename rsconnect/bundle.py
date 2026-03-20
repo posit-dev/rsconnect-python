@@ -53,6 +53,7 @@ else:
 import click
 
 from .environment import Environment, list_environment_dirs, is_environment_dir
+from .environment_node import NodeEnvironment
 from .exception import RSConnectException
 from .log import VERBOSE, logger
 from .models import AppMode, AppModes, GlobSet
@@ -109,7 +110,7 @@ class ManifestDataEnvironmentPython(TypedDict):
 
 class ManifestDataEnvironment(TypedDict):
     image: NotRequired[str]
-    environment_management: NotRequired[dict[Literal["python", "r"], bool]]
+    environment_management: NotRequired[dict[Literal["python", "r", "node"], bool]]
     python: NotRequired[ManifestDataEnvironmentPython]
 
 
@@ -1358,6 +1359,117 @@ def make_api_bundle(
             bundle_add_file(bundle, rel_path, directory)
 
     # rewind file pointer
+    bundle_file.seek(0)
+
+    return bundle_file
+
+
+def make_nodejs_manifest(
+    directory: str,
+    entry_point: str,
+    node_environment: NodeEnvironment,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
+    image: Optional[str] = None,
+    env_management_node: Optional[bool] = None,
+) -> tuple[ManifestData, list[str]]:
+    """
+    Makes a manifest for a Node.js API application.
+
+    :param directory: the directory containing the files to deploy.
+    :param entry_point: the main entry point file (e.g., "app.js").
+    :param node_environment: the Node.js environment information.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param image: optional docker image for off-host execution.
+    :param env_management_node: False prevents Connect from managing the Node.js environment.
+    :return: the manifest and a list of the files involved.
+    """
+    extra_files = list(extra_files or [])
+    skip = ["manifest.json"]
+    extra_files = sorted(list(set(extra_files) - set(skip)))
+
+    excludes = list(excludes) if excludes else []
+    excludes.append("manifest.json")
+    excludes.append("node_modules")
+
+    relevant_files = create_file_list(directory, extra_files, excludes)
+
+    manifest: ManifestData = {
+        "version": 1,
+        "metadata": {
+            "appmode": AppModes.NODE_API.name(),
+            "entrypoint": entry_point,
+        },
+        "node": {
+            "version": node_environment.node_version,
+            "package_manager": {
+                "name": "npm",
+                "version": node_environment.npm_version,
+                "package_file": node_environment.package_file,
+            },
+        },
+        "files": {},
+    }
+
+    if node_environment.locale:
+        manifest["locale"] = node_environment.locale
+
+    if node_environment.packages:
+        manifest["packages"] = node_environment.packages
+
+    if image or env_management_node is not None:
+        manifest_environment: ManifestDataEnvironment = {}
+        if image:
+            manifest_environment["image"] = image
+        if env_management_node is not None:
+            manifest_environment["environment_management"] = {"node": env_management_node}
+        manifest["environment"] = manifest_environment
+
+    for rel_path in relevant_files:
+        manifest_add_file(manifest, rel_path, directory)
+
+    return manifest, relevant_files
+
+
+def make_nodejs_bundle(
+    directory: str,
+    entry_point: str,
+    node_environment: NodeEnvironment,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
+    image: Optional[str] = None,
+    env_management_node: Optional[bool] = None,
+) -> typing.IO[bytes]:
+    """
+    Create a Node.js API bundle, given a directory path.
+
+    :param directory: the directory containing the files to deploy.
+    :param entry_point: the main entry point file (e.g., "app.js").
+    :param node_environment: the Node.js environment information.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param image: optional docker image for off-host execution.
+    :param env_management_node: False prevents Connect from managing the Node.js environment.
+    :return: a file-like object containing the bundle tarball.
+    """
+    manifest, relevant_files = make_nodejs_manifest(
+        directory,
+        entry_point,
+        node_environment,
+        extra_files,
+        excludes,
+        image,
+        env_management_node,
+    )
+    bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
+
+    with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
+        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
+
+        for rel_path in relevant_files:
+            bundle_add_file(bundle, rel_path, directory)
+
     bundle_file.seek(0)
 
     return bundle_file
