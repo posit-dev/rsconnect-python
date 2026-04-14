@@ -35,12 +35,17 @@ class TestNodeEnvironmentCreate:
         assert env.node_version == "22.22.1"
         assert env.npm_version == "10.9.2"
         assert env.package_file == "package.json"
-        assert not env.has_lock_file
+        assert env.has_lock_file
         assert env.locale
+
+    def test_create_no_lock_file(self, tmp_path):
+        (tmp_path / "package.json").write_text(json.dumps({"dependencies": {"express": "^4.21.0"}}))
+        (tmp_path / "app.js").write_text("// app")
+        with pytest.raises(RSConnectException, match="No package-lock.json found"):
+            NodeEnvironment.create(str(tmp_path))
 
     @patch("rsconnect.environment_node.subprocess.run", side_effect=_mock_run)
     def test_create_with_lock_file(self, mock_run, tmp_path):
-        # Copy package.json and app.js to tmp_path, then add a lock file
         pkg = tmp_path / "package.json"
         pkg.write_text(json.dumps({"dependencies": {"express": "^4.21.0"}}))
         (tmp_path / "app.js").write_text("// app")

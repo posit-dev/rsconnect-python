@@ -7,13 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-### Added
-
-- Added `rsconnect deploy nodejs` command for deploying Node.js API applications
-  (Express, Fastify, etc.) to Posit Connect. Supports JavaScript and TypeScript
-  entry points with auto-detection from package.json. Requires Posit Connect with
-## Unreleased
-
 - Added `rsconnect deploy nodejs` command for deploying Node.js API applications
   (Express, Fastify, etc.) to Posit Connect. Supports JavaScript and TypeScript
   entry points with auto-detection from package.json. Requires Posit Connect with
@@ -32,7 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   when deploying from a git repository. This metadata is automatically detected and sent to
   Posit Connect 2025.12.0 or later. Use `--metadata key=value` to provide additional metadata
   or override detected values. Use `--no-metadata` to disable automatic detection. (#736)
-  supply an explicit requirements file instead of detecting the environment.
 
 
 ## [1.28.2] - 2025-12-05

@@ -13,8 +13,6 @@ import os
 import subprocess
 from typing import Optional
 
-import click
-
 from .exception import RSConnectException
 from .log import logger
 
@@ -75,9 +73,9 @@ class NodeEnvironment:
 
         has_lock_file = os.path.exists(os.path.join(directory, "package-lock.json"))
         if not has_lock_file:
-            click.secho(
-                "    Warning: No package-lock.json found. Deployments without a lock file may not be reproducible.",
-                fg="yellow",
+            raise RSConnectException(
+                f"No package-lock.json found in '{directory}'. "
+                "Both package.json and package-lock.json are required to deploy Node.js content."
             )
 
         env_locale = locale.getlocale()[0] or "en_US"
