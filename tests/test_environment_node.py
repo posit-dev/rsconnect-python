@@ -38,7 +38,8 @@ class TestNodeEnvironmentCreate:
         assert env.has_lock_file
         assert env.locale
 
-    def test_create_no_lock_file(self, tmp_path):
+    @patch("rsconnect.environment_node.subprocess.run", side_effect=_mock_run)
+    def test_create_no_lock_file(self, mock_run, tmp_path):
         (tmp_path / "package.json").write_text(json.dumps({"dependencies": {"express": "^4.21.0"}}))
         (tmp_path / "app.js").write_text("// app")
         with pytest.raises(RSConnectException, match="No package-lock.json found"):
