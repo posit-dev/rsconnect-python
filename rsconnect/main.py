@@ -75,7 +75,9 @@ from .bundle import (
     make_api_bundle,
     make_html_bundle,
     make_manifest_bundle,
+    make_nodejs_bundle,
     make_notebook_html_bundle,
+    write_nodejs_manifest_json,
     make_notebook_source_bundle,
     make_tensorflow_bundle,
     make_voila_bundle,
@@ -84,6 +86,7 @@ from .bundle import (
     validate_extra_files,
     validate_file_is_notebook,
     validate_manifest_file,
+    validate_node_entry_point,
     write_api_manifest_json,
     write_environment_file,
     write_notebook_manifest_json,
@@ -91,6 +94,7 @@ from .bundle import (
     write_tensorflow_manifest_json,
     write_voila_manifest_json,
 )
+from .environment_node import NodeEnvironment
 from .environment import Environment, fake_module_file_from_directory
 from .exception import RSConnectException
 from .git_metadata import detect_git_metadata
@@ -2123,6 +2127,153 @@ generate_deploy_python(app_mode=AppModes.PYTHON_GRADIO, alias="gradio", min_vers
 generate_deploy_python(app_mode=AppModes.PYTHON_PANEL, alias="panel", min_version="2025.10.0")
 
 
+# noinspection SpellCheckingInspection
+@deploy.command(
+    name="nodejs",
+    short_help="Deploy a Node.js API to Posit Connect.",
+    help=(
+        "Deploy a Node.js API application to Posit Connect. "
+        'The "directory" argument must refer to an existing directory that contains '
+        "a package.json file and a JavaScript or TypeScript entry point."
+    ),
+    no_args_is_help=True,
+)
+@server_args
+@spcs_args
+@content_args
+@cloud_shinyapps_args
+@click.option(
+    "--image",
+    "-I",
+    help="Target image to be used during content build and execution. "
+    "This option is only applicable if the Connect server is configured to use off-host execution.",
+)
+@click.option(
+    "--disable-env-management-node",
+    "env_management_node",
+    is_flag=True,
+    default=None,
+    help="Disable Node.js environment management for this bundle. "
+    "Connect will not install npm packages. An administrator must install the "
+    "required packages on the Connect server.",
+    callback=env_management_callback,
+)
+@click.option(
+    "--entrypoint",
+    "-e",
+    help="The JavaScript or TypeScript file that serves as the entry point for the application "
+    "(e.g., app.js, server.ts). Auto-detected from package.json if not specified.",
+)
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.option(
+    "--node",
+    type=click.Path(exists=True),
+    help="Path to the Node.js executable whose version should be used for deployment.",
+)
+@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@shinyapps_deploy_args
+@cli_exception_handler
+@click.pass_context
+def deploy_nodejs(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    entrypoint: Optional[str],
+    exclude: tuple[str, ...],
+    new: bool,
+    app_id: Optional[str],
+    title: Optional[str],
+    node: Optional[str],
+    verbose: int,
+    directory: str,
+    extra_files: tuple[str, ...],
+    visibility: Optional[str],
+    env_vars: dict[str, str],
+    image: Optional[str],
+    env_management_node: Optional[bool],
+    account: Optional[str],
+    token: Optional[str],
+    secret: Optional[str],
+    no_verify: bool,
+    draft: bool,
+    metadata: tuple[str, ...],
+    no_metadata: bool,
+):
+    set_verbosity(verbose)
+    entrypoint = validate_node_entry_point(entrypoint, directory)
+    extra_files_list = validate_extra_files(directory, extra_files)
+    node_environment = NodeEnvironment.create(directory, node_executable=node)
+
+    app_mode = AppModes.NODE_API
+
+    server_version = None
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        account=account,
+        token=token,
+        secret=secret,
+        path=directory,
+        server=server,
+        exclude=exclude,
+        new=new,
+        app_id=app_id,
+        title=title,
+        visibility=visibility,
+        disable_env_management=None,
+        env_vars=env_vars,
+    )
+
+    if isinstance(ce.client, RSConnectClient):
+        connect_version_string = ce.client.server_settings().get("version", "")
+        server_version = connect_version_string
+
+    deploy_metadata = prepare_deploy_metadata(directory, metadata, no_metadata, server_version)
+    ce.metadata = deploy_metadata
+
+    ce.validate_server()
+    ce.validate_app_mode(app_mode=app_mode)
+    ce.make_bundle(
+        make_nodejs_bundle,
+        directory,
+        entrypoint,
+        node_environment,
+        extra_files_list,
+        exclude,
+        image=image,
+        env_management_node=env_management_node,
+    )
+    ce.deploy_bundle(activate=not draft)
+    ce.save_deployed_info()
+    ce.emit_task_log()
+
+    if not no_verify:
+        ce.verify_deployment()
+
+
 @deploy.command(
     name="other-content",
     short_help="Describe deploying other content to Posit Connect.",
@@ -2751,6 +2902,96 @@ generate_write_manifest_python(AppModes.PYTHON_SHINY, alias="shiny")
 generate_write_manifest_python(AppModes.STREAMLIT_APP, alias="streamlit")
 generate_write_manifest_python(AppModes.PYTHON_GRADIO, alias="gradio")
 generate_write_manifest_python(AppModes.PYTHON_PANEL, alias="panel")
+
+
+# noinspection SpellCheckingInspection
+@write_manifest.command(
+    name="nodejs",
+    short_help="Create a manifest.json file for a Node.js API.",
+    help=(
+        "Create a manifest.json file for a Node.js API for later deployment. "
+        "All files are created in the same directory as the application code."
+    ),
+)
+@click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
+@click.option(
+    "--entrypoint",
+    "-e",
+    help="The JavaScript or TypeScript file that serves as the entry point for the application "
+    "(e.g., app.js, server.ts). Auto-detected from package.json if not specified.",
+)
+@click.option(
+    "--exclude",
+    "-x",
+    multiple=True,
+    help=(
+        "Specify a glob pattern for ignoring files when building the bundle. Note that your shell may try "
+        "to expand this which will not do what you expect. Generally, it's safest to quote the pattern. "
+        "This option may be repeated."
+    ),
+)
+@click.option(
+    "--node",
+    type=click.Path(exists=True),
+    help="Path to the Node.js executable whose version should be used.",
+)
+@click.option(
+    "--image",
+    "-I",
+    help="Target image to be used during content build and execution. "
+    "This option is only applicable if the Connect server is configured to use off-host execution.",
+)
+@click.option(
+    "--disable-env-management-node",
+    "env_management_node",
+    is_flag=True,
+    default=None,
+    help="Disable Node.js environment management for this bundle.",
+    callback=env_management_callback,
+)
+@click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.argument(
+    "extra_files",
+    nargs=-1,
+    type=click.Path(exists=True, dir_okay=False, file_okay=True),
+)
+@click.pass_context
+def write_manifest_nodejs(
+    ctx: click.Context,
+    overwrite: bool,
+    entrypoint: Optional[str],
+    exclude: tuple[str, ...],
+    node: Optional[str],
+    verbose: int,
+    directory: str,
+    extra_files: tuple[str, ...],
+    image: Optional[str],
+    env_management_node: Optional[bool],
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    with cli_feedback("Checking arguments"):
+        entrypoint = validate_node_entry_point(entrypoint, directory)
+        manifest_path = join(directory, "manifest.json")
+
+        if exists(manifest_path) and not overwrite:
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+
+    with cli_feedback("Inspecting Node.js environment"):
+        node_environment = NodeEnvironment.create(directory, node_executable=node)
+
+    with cli_feedback("Creating manifest.json"):
+        write_nodejs_manifest_json(
+            directory,
+            entrypoint,
+            node_environment,
+            extra_files,
+            exclude,
+            image,
+            env_management_node,
+        )
 
 
 # noinspection SpellCheckingInspection

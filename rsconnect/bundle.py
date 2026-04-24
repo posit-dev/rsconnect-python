@@ -53,6 +53,7 @@ else:
 import click
 
 from .environment import Environment, list_environment_dirs, is_environment_dir
+from .environment_node import NodeEnvironment
 from .exception import RSConnectException
 from .log import VERBOSE, logger
 from .models import AppMode, AppModes, GlobSet
@@ -74,6 +75,7 @@ directories_ignore_list = [
     "renv/",
     "rsconnect-python/",
     "rsconnect/",
+    "node_modules/",
 ]
 directories_to_ignore = {Path(d) for d in directories_ignore_list}
 
@@ -108,7 +110,7 @@ class ManifestDataEnvironmentPython(TypedDict):
 
 class ManifestDataEnvironment(TypedDict):
     image: NotRequired[str]
-    environment_management: NotRequired[dict[Literal["python", "r"], bool]]
+    environment_management: NotRequired[dict[Literal["python", "r", "node"], bool]]
     python: NotRequired[ManifestDataEnvironmentPython]
 
 
@@ -128,6 +130,17 @@ class ManifestDataPythonPackageManager(TypedDict):
     allow_uv: NotRequired[bool]
 
 
+class ManifestDataNodePackageManager(TypedDict):
+    name: str
+    version: str
+    package_file: str
+
+
+class ManifestDataNode(TypedDict):
+    version: str
+    package_manager: ManifestDataNodePackageManager
+
+
 class ManifestData(TypedDict):
     version: int
     files: dict[str, ManifestDataFile]
@@ -136,6 +149,7 @@ class ManifestData(TypedDict):
     jupyter: NotRequired[ManifestDataJupyter]
     quarto: NotRequired[ManifestDataQuarto]
     python: NotRequired[ManifestDataPython]
+    node: NotRequired[ManifestDataNode]
     environment: NotRequired[ManifestDataEnvironment]
 
 
@@ -1338,6 +1352,114 @@ def make_api_bundle(
     return bundle_file
 
 
+def make_nodejs_manifest(
+    directory: str,
+    entry_point: str,
+    node_environment: NodeEnvironment,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
+    image: Optional[str] = None,
+    env_management_node: Optional[bool] = None,
+) -> tuple[ManifestData, list[str]]:
+    """
+    Makes a manifest for a Node.js API application.
+
+    :param directory: the directory containing the files to deploy.
+    :param entry_point: the main entry point file (e.g., "app.js").
+    :param node_environment: the Node.js environment information.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param image: optional docker image for off-host execution.
+    :param env_management_node: False prevents Connect from managing the Node.js environment.
+    :return: the manifest and a list of the files involved.
+    """
+    extra_files = list(extra_files or [])
+    skip = ["manifest.json"]
+    extra_files = sorted(list(set(extra_files) - set(skip)))
+
+    excludes = list(excludes) if excludes else []
+    excludes.append("manifest.json")
+    excludes.append("node_modules")
+
+    relevant_files = create_file_list(directory, extra_files, excludes)
+
+    manifest: ManifestData = {
+        "version": 1,
+        "metadata": {
+            "appmode": AppModes.NODE_API.name(),
+            "entrypoint": entry_point,
+        },
+        "node": {
+            "version": node_environment.node_version,
+            "package_manager": {
+                "name": "npm",
+                "version": node_environment.npm_version,
+                "package_file": node_environment.package_file,
+            },
+        },
+        "files": {},
+    }
+
+    if node_environment.locale:
+        manifest["locale"] = node_environment.locale
+
+    if image or env_management_node is not None:
+        manifest_environment: ManifestDataEnvironment = {}
+        if image:
+            manifest_environment["image"] = image
+        if env_management_node is not None:
+            manifest_environment["environment_management"] = {"node": env_management_node}
+        manifest["environment"] = manifest_environment
+
+    for rel_path in relevant_files:
+        manifest_add_file(manifest, rel_path, directory)
+
+    return manifest, relevant_files
+
+
+def make_nodejs_bundle(
+    directory: str,
+    entry_point: str,
+    node_environment: NodeEnvironment,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
+    image: Optional[str] = None,
+    env_management_node: Optional[bool] = None,
+) -> typing.IO[bytes]:
+    """
+    Create a Node.js API bundle, given a directory path.
+
+    :param directory: the directory containing the files to deploy.
+    :param entry_point: the main entry point file (e.g., "app.js").
+    :param node_environment: the Node.js environment information.
+    :param extra_files: a sequence of any extra files to include in the bundle.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param image: optional docker image for off-host execution.
+    :param env_management_node: False prevents Connect from managing the Node.js environment.
+    :return: a file-like object containing the bundle tarball.
+    """
+    manifest, relevant_files = make_nodejs_manifest(
+        directory,
+        entry_point,
+        node_environment,
+        extra_files,
+        excludes,
+        image,
+        env_management_node,
+    )
+    bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
+
+    with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
+        bundle_add_buffer(bundle, "manifest.json", json.dumps(manifest, indent=2))
+
+        for rel_path in relevant_files:
+            bundle_add_file(bundle, rel_path, directory)
+
+    bundle_file.seek(0)
+
+    return bundle_file
+
+
 def _create_quarto_file_list(
     directory: str,
     extra_files: Sequence[str],
@@ -1566,6 +1688,66 @@ def validate_entry_point(entry_point: str | None, directory: str) -> str:
 
     if len(parts) > 2:
         raise RSConnectException('Entry point is not in "module:object" format.')
+
+    return entry_point
+
+
+def get_default_node_entrypoint(directory: str | Path) -> str:
+    """
+    Determine the default entry point for a Node.js application.
+
+    Checks package.json "main" field first, then falls back to common filenames.
+
+    :param directory: the directory containing the Node.js application.
+    :return: the entry point filename (e.g., "app.js").
+    """
+    package_json_path = join(str(directory), "package.json")
+    if isfile(package_json_path):
+        with open(package_json_path, encoding="utf-8") as f:
+            try:
+                package_data = json.load(f)
+            except json.JSONDecodeError:
+                package_data = {}
+
+        # Check "main" field
+        main = package_data.get("main")
+        if main and isfile(join(str(directory), main)):
+            return main
+
+        # Check "scripts.start" for "node <file>" pattern
+        start_script = (package_data.get("scripts") or {}).get("start", "")
+        match = re.match(r"node\s+(\S+)", start_script)
+        if match:
+            start_file = match.group(1)
+            if isfile(join(str(directory), start_file)):
+                return start_file
+
+    # Fall back to common filenames
+    files = set(os.listdir(directory))
+    for candidate in ["app.js", "index.js", "server.js", "main.js", "app.ts", "index.ts", "server.ts", "main.ts"]:
+        if candidate in files:
+            return candidate
+
+    raise RSConnectException(f"Could not determine default entrypoint file in directory '{directory}'")
+
+
+def validate_node_entry_point(entry_point: str | None, directory: str) -> str:
+    """
+    Validates the entry point for a Node.js application.
+
+    If no entry point is specified, auto-detects from package.json or common filenames.
+    Validates that the entry point file exists in the directory.
+
+    :param entry_point: the entry point as specified by the user, or None for auto-detection.
+    :param directory: the directory containing the Node.js application.
+    :return: the validated entry point filename.
+    """
+    if not entry_point:
+        entry_point = get_default_node_entrypoint(directory)
+
+    entry_path = join(directory, entry_point)
+    if not isfile(entry_path):
+        raise RSConnectException(f"The entry point file '{entry_point}' does not exist in '{directory}'.")
 
     return entry_point
 
@@ -1954,6 +2136,41 @@ def write_api_manifest_json(
     write_manifest_json(manifest_path, manifest)
 
     return exists(join(directory, environment.filename))
+
+
+def write_nodejs_manifest_json(
+    directory: str,
+    entry_point: str,
+    node_environment: NodeEnvironment,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
+    image: Optional[str] = None,
+    env_management_node: Optional[bool] = None,
+) -> None:
+    """
+    Creates and writes a manifest.json file for a Node.js API application.
+
+    :param directory: the root directory of the Node.js application.
+    :param entry_point: the entry point file (e.g., "app.js").
+    :param node_environment: the Node.js environment information.
+    :param extra_files: any extra files that should be included in the manifest.
+    :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param image: the optional docker image for off-host execution.
+    :param env_management_node: False prevents Connect from managing the Node.js environment.
+    """
+    extra_files = validate_extra_files(directory, extra_files)
+    manifest, _ = make_nodejs_manifest(
+        directory,
+        entry_point,
+        node_environment,
+        extra_files,
+        excludes,
+        image,
+        env_management_node,
+    )
+    manifest_path = join(directory, "manifest.json")
+
+    write_manifest_json(manifest_path, manifest)
 
 
 def write_environment_file(

@@ -1074,3 +1074,73 @@ class TestBootstrap(TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
 
         self.assertEqual(result.output.find("Error:"), -1)
+
+
+class TestDeployNodeJS:
+    def test_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["deploy", "nodejs", "--help"])
+        assert result.exit_code == 0
+        assert "Node.js API" in result.output
+        assert "--entrypoint" in result.output
+        assert "--node" in result.output
+        assert "--exclude" in result.output
+        assert "--disable-env-management-node" in result.output
+
+    def test_missing_directory(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["deploy", "nodejs", "/nonexistent/path"])
+        assert result.exit_code != 0
+
+    def test_no_package_json(self, tmp_path):
+        (tmp_path / "app.js").write_text("// app")
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["deploy", "nodejs", "-s", "https://connect.example.com", "-k", "fakekey", str(tmp_path)],
+        )
+        assert result.exit_code == 1
+        assert "package.json" in result.output
+
+    def test_bad_entrypoint(self, tmp_path):
+        (tmp_path / "package.json").write_text('{"dependencies":{}}')
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "deploy",
+                "nodejs",
+                "-s",
+                "https://connect.example.com",
+                "-k",
+                "fakekey",
+                "-e",
+                "nonexistent.js",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code == 1
+        assert "does not exist" in result.output
+
+
+class TestWriteManifestNodeJS:
+    def test_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["write-manifest", "nodejs", "--help"])
+        assert result.exit_code == 0
+        assert "Node.js API" in result.output
+        assert "--entrypoint" in result.output
+        assert "--node" in result.output
+        assert "--overwrite" in result.output
+
+    def test_missing_directory(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["write-manifest", "nodejs", "/nonexistent/path"])
+        assert result.exit_code != 0
+
+    def test_no_package_json(self, tmp_path):
+        (tmp_path / "app.js").write_text("// app")
+        runner = CliRunner()
+        result = runner.invoke(cli, ["write-manifest", "nodejs", str(tmp_path)])
+        assert result.exit_code == 1
+        assert "package.json" in result.output

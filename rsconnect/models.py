@@ -99,6 +99,7 @@ class AppModes:
     JUPYTER_VOILA = AppMode(16, "jupyter-voila", "Jupyter Voila Application")
     PYTHON_GRADIO = AppMode(17, "python-gradio", "Gradio Application")
     PYTHON_PANEL = AppMode(18, "python-panel", "Panel Application")
+    NODE_API = AppMode(20, "nodejs-api", "Node.js API")
 
     _modes = [
         UNKNOWN,
@@ -120,6 +121,7 @@ class AppModes:
         JUPYTER_VOILA,
         PYTHON_GRADIO,
         PYTHON_PANEL,
+        NODE_API,
     ]
 
     Modes = Literal[
@@ -142,6 +144,7 @@ class AppModes:
         "jupyter-voila",
         "python-gradio",
         "python-panel",
+        "nodejs-api",
     ]
 
     _cloud_to_connect_modes = {
