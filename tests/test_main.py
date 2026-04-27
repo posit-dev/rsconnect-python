@@ -1081,7 +1081,7 @@ class TestDeployNodeJS:
         runner = CliRunner()
         result = runner.invoke(cli, ["deploy", "nodejs", "--help"])
         assert result.exit_code == 0
-        assert "Node.js API" in result.output
+        assert "Node.js application" in result.output
         assert "--entrypoint" in result.output
         assert "--node" in result.output
         assert "--exclude" in result.output
@@ -1128,7 +1128,7 @@ class TestWriteManifestNodeJS:
         runner = CliRunner()
         result = runner.invoke(cli, ["write-manifest", "nodejs", "--help"])
         assert result.exit_code == 0
-        assert "Node.js API" in result.output
+        assert "Node.js application" in result.output
         assert "--entrypoint" in result.output
         assert "--node" in result.output
         assert "--overwrite" in result.output

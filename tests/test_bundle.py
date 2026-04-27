@@ -3048,7 +3048,7 @@ class TestNodeJSManifest:
         manifest, files = make_nodejs_manifest(_NODE_EXPRESS_DIR, "app.js", env, [], [])
 
         assert manifest["version"] == 1
-        assert manifest["metadata"]["appmode"] == "nodejs-api"
+        assert manifest["metadata"]["appmode"] == "nodejs"
         assert manifest["metadata"]["entrypoint"] == "app.js"
         assert manifest["node"]["version"] == "22.22.1"
         assert manifest["node"]["package_manager"]["name"] == "npm"
@@ -3120,7 +3120,7 @@ class TestNodeJSBundle:
 
         with tarfile.open(mode="r:gz", fileobj=bundle_file) as tar:
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
-            assert manifest["metadata"]["appmode"] == "nodejs-api"
+            assert manifest["metadata"]["appmode"] == "nodejs"
             assert manifest["metadata"]["entrypoint"] == "app.js"
             assert manifest["node"]["version"] == "22.22.1"
 
@@ -3190,7 +3190,7 @@ class TestNodeJSTypeScriptBundle:
         env = _make_node_env(node_version="24.14.0")
         manifest, files = make_nodejs_manifest(_NODE_TS_EXPRESS_DIR, "app.ts", env, [], [])
 
-        assert manifest["metadata"]["appmode"] == "nodejs-api"
+        assert manifest["metadata"]["appmode"] == "nodejs"
         assert manifest["metadata"]["entrypoint"] == "app.ts"
         assert manifest["node"]["version"] == "24.14.0"
 

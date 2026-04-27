@@ -1362,7 +1362,7 @@ def make_nodejs_manifest(
     env_management_node: Optional[bool] = None,
 ) -> tuple[ManifestData, list[str]]:
     """
-    Makes a manifest for a Node.js API application.
+    Makes a manifest for a Node.js application.
 
     :param directory: the directory containing the files to deploy.
     :param entry_point: the main entry point file (e.g., "app.js").
@@ -1386,7 +1386,7 @@ def make_nodejs_manifest(
     manifest: ManifestData = {
         "version": 1,
         "metadata": {
-            "appmode": AppModes.NODE_API.name(),
+            "appmode": AppModes.NODE_JS.name(),
             "entrypoint": entry_point,
         },
         "node": {
@@ -1427,7 +1427,7 @@ def make_nodejs_bundle(
     env_management_node: Optional[bool] = None,
 ) -> typing.IO[bytes]:
     """
-    Create a Node.js API bundle, given a directory path.
+    Create a Node.js application bundle, given a directory path.
 
     :param directory: the directory containing the files to deploy.
     :param entry_point: the main entry point file (e.g., "app.js").
@@ -2148,7 +2148,7 @@ def write_nodejs_manifest_json(
     env_management_node: Optional[bool] = None,
 ) -> None:
     """
-    Creates and writes a manifest.json file for a Node.js API application.
+    Creates and writes a manifest.json file for a Node.js application.
 
     :param directory: the root directory of the Node.js application.
     :param entry_point: the entry point file (e.g., "app.js").
