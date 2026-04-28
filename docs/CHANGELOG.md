@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-- Added `rsconnect deploy nodejs` command for deploying Node.js API applications
+- Added `rsconnect deploy nodejs` command for deploying Node.js applications
   (Express, Fastify, etc.) to Posit Connect. Supports JavaScript and TypeScript
   entry points with auto-detection from package.json. Requires Posit Connect with
   Node.js runtime enabled.

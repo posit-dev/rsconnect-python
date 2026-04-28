@@ -2130,9 +2130,9 @@ generate_deploy_python(app_mode=AppModes.PYTHON_PANEL, alias="panel", min_versio
 # noinspection SpellCheckingInspection
 @deploy.command(
     name="nodejs",
-    short_help="Deploy a Node.js API to Posit Connect.",
+    short_help="Deploy a Node.js application to Posit Connect.",
     help=(
-        "Deploy a Node.js API application to Posit Connect. "
+        "Deploy a Node.js application to Posit Connect. "
         'The "directory" argument must refer to an existing directory that contains '
         "a package.json file and a JavaScript or TypeScript entry point."
     ),
@@ -2222,7 +2222,7 @@ def deploy_nodejs(
     extra_files_list = validate_extra_files(directory, extra_files)
     node_environment = NodeEnvironment.create(directory, node_executable=node)
 
-    app_mode = AppModes.NODE_API
+    app_mode = AppModes.NODE_JS
 
     server_version = None
 
@@ -2907,9 +2907,9 @@ generate_write_manifest_python(AppModes.PYTHON_PANEL, alias="panel")
 # noinspection SpellCheckingInspection
 @write_manifest.command(
     name="nodejs",
-    short_help="Create a manifest.json file for a Node.js API.",
+    short_help="Create a manifest.json file for a Node.js application.",
     help=(
-        "Create a manifest.json file for a Node.js API for later deployment. "
+        "Create a manifest.json file for a Node.js application for later deployment. "
         "All files are created in the same directory as the application code."
     ),
 )

@@ -99,7 +99,7 @@ class AppModes:
     JUPYTER_VOILA = AppMode(16, "jupyter-voila", "Jupyter Voila Application")
     PYTHON_GRADIO = AppMode(17, "python-gradio", "Gradio Application")
     PYTHON_PANEL = AppMode(18, "python-panel", "Panel Application")
-    NODE_API = AppMode(20, "nodejs-api", "Node.js API")
+    NODE_JS = AppMode(20, "nodejs", "Node.js application")
 
     _modes = [
         UNKNOWN,
@@ -121,7 +121,7 @@ class AppModes:
         JUPYTER_VOILA,
         PYTHON_GRADIO,
         PYTHON_PANEL,
-        NODE_API,
+        NODE_JS,
     ]
 
     Modes = Literal[
@@ -144,7 +144,7 @@ class AppModes:
         "jupyter-voila",
         "python-gradio",
         "python-panel",
-        "nodejs-api",
+        "nodejs",
     ]
 
     _cloud_to_connect_modes = {
@@ -168,9 +168,17 @@ class AppModes:
             return_unknown,
         )
 
+    # Aliases for app mode names that have been renamed in Connect. Local
+    # AppStore metadata may still contain the old name from a prior deploy;
+    # this lets resolve() succeed instead of raising on re-deploys.
+    _name_aliases = {
+        "nodejs-api": "nodejs",
+    }
+
     @classmethod
     def get_by_name(cls, name: str, return_unknown: bool = False) -> AppMode:
         """Get an AppMode by name"""
+        name = cls._name_aliases.get(name, name)
         return cls._find_by(lambda mode: mode.name() == name, "named %s" % name, return_unknown)
 
     @classmethod
