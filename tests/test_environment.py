@@ -194,6 +194,54 @@ requires-dist = [
     assert env.package_manager == "uv"
 
 
+def test_pyproject_dependencies(tmp_path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    (project_dir / "pyproject.toml").write_text(
+        "[project]\n"
+        "name = 'demo'\n"
+        "version = '0.0.0'\n"
+        "dependencies = [\n"
+        "    'aiofiles==24.1.0',\n"
+        "    'annotated-types>=0.7.0',\n"
+        "    'rsconnect-python==1.0.0',\n"
+        "]\n",
+        encoding="utf-8",
+    )
+
+    env = detect_environment(str(project_dir), requirements_file="pyproject.toml")
+
+    assert env.filename == "requirements.txt"
+    assert "aiofiles==24.1.0" in env.contents
+    assert "annotated-types>=0.7.0" in env.contents
+    # rsconnect dependency lines must be stripped, matching the behavior of output_file() and pip_freeze()
+    dep_lines = [line for line in env.contents.splitlines() if line and not line.startswith("#")]
+    assert not any("rsconnect" in line for line in dep_lines)
+    assert env.source == "pyproject_toml"
+    assert env.package_manager == "pip"
+
+
+def test_pyproject_dependencies_missing(tmp_path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+
+    with pytest.raises(EnvironmentException, match="pyproject.toml not found"):
+        detect_environment(str(project_dir), requirements_file="pyproject.toml")
+
+
+def test_pyproject_dependencies_no_project_table(tmp_path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    (project_dir / "pyproject.toml").write_text("[build-system]\nrequires = ['setuptools']\n", encoding="utf-8")
+
+    env = detect_environment(str(project_dir), requirements_file="pyproject.toml")
+
+    assert env.filename == "requirements.txt"
+    assert env.source == "pyproject_toml"
+    # Header comment is present but no dependencies are listed.
+    assert all(line.startswith("#") or line == "" for line in env.contents.splitlines())
+
+
 class WhichPythonTestCase(TestCase):
     def test_default(self):
         self.assertEqual(which_python(), sys.executable)

@@ -1106,7 +1106,7 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     default="requirements.txt",
     help=(
         "Path to requirements file listing the project dependencies. "
-        "Any file compatible with requirements.txt format or uv.lock is accepted, "
+        "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
         "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
         "Must be inside the project directory."
     ),
@@ -1287,7 +1287,7 @@ def deploy_notebook(
     default="requirements.txt",
     help=(
         "Path to requirements file listing the project dependencies. "
-        "Any file compatible with requirements.txt format or uv.lock is accepted, "
+        "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
         "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
         "Must be inside the project directory."
     ),
@@ -1544,7 +1544,7 @@ def deploy_manifest(
     default="requirements.txt",
     help=(
         "Path to requirements file listing the project dependencies. "
-        "Any file compatible with requirements.txt format or uv.lock is accepted, "
+        "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
         "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
         "Must be inside the project directory."
     ),
@@ -1974,7 +1974,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         type=click.Path(dir_okay=False),
         help=(
             "Path to requirements file listing the project dependencies. "
-            "Any file compatible with requirements.txt format or uv.lock is accepted, "
+            "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
             "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
             "Must be inside the project directory."
         ),
@@ -2341,7 +2341,7 @@ def write_manifest():
     type=click.Path(dir_okay=False),
     help=(
         "Path to requirements file listing the project dependencies. "
-        "Any file compatible with requirements.txt format or uv.lock is accepted, "
+        "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
         "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
         "Must be inside the project directory."
     ),
@@ -2460,7 +2460,7 @@ def write_manifest_notebook(
     type=click.Path(exists=True, dir_okay=False),
     help=(
         "Path to requirements file listing the project dependencies. "
-        "Any file compatible with requirements.txt format or uv.lock is accepted, "
+        "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
         "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
         "Must be inside the project directory."
     ),
@@ -2615,7 +2615,7 @@ def write_manifest_voila(
     type=click.Path(dir_okay=False),
     help=(
         "Path to requirements file listing the project dependencies. "
-        "Any file compatible with requirements.txt format or uv.lock is accepted, "
+        "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
         "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
         "Must be inside the project directory."
     ),
@@ -2832,7 +2832,7 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
         type=click.Path(dir_okay=False),
         help=(
             "Path to requirements file listing the project dependencies. "
-            "Any file compatible with requirements.txt format or uv.lock is accepted, "
+            "Any file compatible with requirements.txt format, uv.lock, or pyproject.toml is accepted, "
             "a requirements.txt.lock retrieved with 'rsconnect content get-lockfile' is also supported. "
             "Must be inside the project directory."
         ),
