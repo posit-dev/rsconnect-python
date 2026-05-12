@@ -159,3 +159,35 @@ def adapt_python_requires(
 
 class InvalidVersionConstraintError(ValueError):
     pass
+
+
+# TODO(EVO-060): Read [tool.rsconnect] from pyproject.toml.
+#                Scope: deploy-pyproject
+#                Why: SPEC §3 + §13.2 require ``rsconnect deploy pyproject``
+#                     to consume ``app_mode``, ``entrypoint``, and ``title``
+#                     from a ``[tool.rsconnect]`` table and hard-error when it
+#                     is missing or incomplete (§13.3). Putting the reader
+#                     here keeps it next to the existing pyproject helpers
+#                     (``parse_pyproject_python_requires``) which already own
+#                     the tomllib import path. The public deploy command calls
+#                     this single function to resolve its config.
+#                Done: Tests in ``tests/test_deploy_pyproject.py`` named
+#                      ``test_read_tool_rsconnect_*`` pass: valid tables
+#                      return a value with ``app_mode``/``entrypoint``/
+#                      ``title``; missing section raises a clear exception;
+#                      missing ``app_mode`` or ``entrypoint`` raises the same
+#                      clear exception carrying the minimum-valid-snippet text
+#                      required by §13.3.
+#                Non-Goals: Do not accept alternative names
+#                           (no ``.rsconnect.toml`` fallback per §1.1). Do not
+#                           infer ``app_mode`` from file extensions - §13.3
+#                           forbids inference. Do not validate the canonical
+#                           ``app_mode`` vocabulary here beyond "non-empty
+#                           string"; the deploy dispatcher owns that mapping.
+def read_tool_rsconnect(pyproject_file: pathlib.Path) -> typing.Mapping[str, str]:
+    """Placeholder for the ``[tool.rsconnect]`` reader.
+
+    Raises NotImplementedError until the evolution above lands; the ATDD tests
+    in ``tests/test_deploy_pyproject.py`` are structured around that fact.
+    """
+    raise NotImplementedError("read_tool_rsconnect is not yet implemented; see TODO(EVO-...) in rsconnect/pyproject.py")
