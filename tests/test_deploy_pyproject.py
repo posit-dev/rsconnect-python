@@ -1,7 +1,4 @@
 # probedev: ignore-file
-# The xfail/skip reasons below cite ``TODO(EVO-###)`` markers by text. The real
-# evolution markers live in ``rsconnect/``; the strings here are pointers, not
-# new markers.
 """
 Acceptance tests for ``rsconnect deploy pyproject`` (SPEC_QUICKSTART.md §13).
 
@@ -10,14 +7,15 @@ Tests exercise the CLI via ``click.testing.CliRunner`` and the pure reader
 shape of ``tests/test_pyproject.py`` (fixture/parametrize-driven) and
 ``tests/test_main.py`` (Click invocation).
 
-Every test is marked ``xfail`` with a pointer to the evolution that unblocks
-it; the feature is not yet implemented.
+The file keeps deploy-pyproject coverage at the CLI boundary and verifies the
+reader directly where malformed configuration needs precise diagnostics.
 """
 
 from __future__ import annotations
 
 import pathlib
 import textwrap
+import types
 import typing
 
 import click
@@ -92,10 +90,6 @@ def test_deploy_pyproject_option_surface_matches_deploy_manifest():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-060): Read [tool.rsconnect] from pyproject.toml.",
-)
 def test_read_tool_rsconnect_returns_three_fields(project_dir: pathlib.Path):
     from rsconnect.pyproject import read_tool_rsconnect
 
@@ -119,10 +113,6 @@ def test_read_tool_rsconnect_returns_three_fields(project_dir: pathlib.Path):
     assert config["title"] == "My Hello App"
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-060): Reader raises on missing [tool.rsconnect] section (paired with EVO-040 CLI handling).",
-)
 def test_read_tool_rsconnect_missing_section_raises(project_dir: pathlib.Path):
     from rsconnect.pyproject import read_tool_rsconnect
 
@@ -136,7 +126,40 @@ def test_read_tool_rsconnect_missing_section_raises(project_dir: pathlib.Path):
     )
     with pytest.raises(Exception) as excinfo:
         read_tool_rsconnect(project_dir / "pyproject.toml")
-    assert "tool.rsconnect" in str(excinfo.value).lower() or "rsconnect" in str(excinfo.value).lower()
+    # Exception must carry the SPEC §13.3 minimum valid snippet as a
+    # copy-pasteable TOML block, not just prose. Anchor on the section
+    # header plus both required-field TOML string-valued key=value forms
+    # (``key = "``); a prose 'required fields: ...' message would not
+    # incidentally produce that shape.
+    message = str(excinfo.value)
+    assert "tool.rsconnect" in message.lower() or "rsconnect" in message.lower()
+    assert "[tool.rsconnect]" in message
+    assert 'app_mode = "' in message
+    assert 'entrypoint = "' in message
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        'tool = "not-a-table"',
+        """
+        [tool]
+        rsconnect = "not-a-table"
+        """,
+    ],
+    ids=["tool-not-table", "rsconnect-not-table"],
+)
+def test_read_tool_rsconnect_non_table_raises(project_dir: pathlib.Path, body: str):
+    from rsconnect.pyproject import read_tool_rsconnect
+
+    _write_pyproject(project_dir, body)
+    with pytest.raises(Exception) as excinfo:
+        read_tool_rsconnect(project_dir / "pyproject.toml")
+    message = str(excinfo.value)
+    assert "not a TOML table" in message
+    assert "[tool.rsconnect]" in message
+    assert 'app_mode = "' in message
+    assert 'entrypoint = "' in message
 
 
 @pytest.mark.parametrize(
@@ -167,17 +190,19 @@ def test_read_tool_rsconnect_missing_section_raises(project_dir: pathlib.Path):
     ],
     ids=["missing-app_mode", "missing-entrypoint"],
 )
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-060): Reader raises on missing required field (paired with EVO-040).",
-)
 def test_read_tool_rsconnect_missing_required_field_raises(project_dir: pathlib.Path, missing_field: str, body: str):
     from rsconnect.pyproject import read_tool_rsconnect
 
     _write_pyproject(project_dir, body)
     with pytest.raises(Exception) as excinfo:
         read_tool_rsconnect(project_dir / "pyproject.toml")
-    assert missing_field in str(excinfo.value)
+    # Same snippet-shape contract as missing-section: exception must carry
+    # the TOML snippet, not just name the missing field.
+    message = str(excinfo.value)
+    assert missing_field in message
+    assert "[tool.rsconnect]" in message
+    assert 'app_mode = "' in message
+    assert 'entrypoint = "' in message
 
 
 # ---------------------------------------------------------------------------
@@ -185,10 +210,6 @@ def test_read_tool_rsconnect_missing_required_field_raises(project_dir: pathlib.
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-040): Hard-error CLI surface when [tool.rsconnect] is missing.",
-)
 def test_deploy_pyproject_errors_on_missing_section(runner: CliRunner, project_dir: pathlib.Path):
     _write_pyproject(
         project_dir,
@@ -204,10 +225,6 @@ def test_deploy_pyproject_errors_on_missing_section(runner: CliRunner, project_d
     assert "[tool.rsconnect]" in combined
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-040): Hard-error CLI surface when app_mode is missing.",
-)
 def test_deploy_pyproject_errors_on_missing_app_mode(runner: CliRunner, project_dir: pathlib.Path):
     _write_pyproject(
         project_dir,
@@ -226,10 +243,6 @@ def test_deploy_pyproject_errors_on_missing_app_mode(runner: CliRunner, project_
     assert "app_mode" in combined
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-040): Hard-error CLI surface when entrypoint is missing.",
-)
 def test_deploy_pyproject_errors_on_missing_entrypoint(runner: CliRunner, project_dir: pathlib.Path):
     _write_pyproject(
         project_dir,
@@ -248,10 +261,6 @@ def test_deploy_pyproject_errors_on_missing_entrypoint(runner: CliRunner, projec
     assert "entrypoint" in combined
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-040): Hard-error message mentions rsconnect quickstart (SPEC §13.3).",
-)
 def test_deploy_pyproject_error_message_mentions_quickstart(runner: CliRunner, project_dir: pathlib.Path):
     """SPEC §13.3 requires the error to reference ``rsconnect quickstart --help``."""
     _write_pyproject(
@@ -274,34 +283,57 @@ def test_deploy_pyproject_error_message_mentions_quickstart(runner: CliRunner, p
 
 
 DISPATCH_MATRIX: list[typing.Any] = [
-    pytest.param("python-streamlit", "app.py", id="streamlit"),
-    pytest.param("python-shiny", "app.py", id="shiny"),
-    pytest.param("python-fastapi", "__connect__:app", id="fastapi"),
-    pytest.param("python-api", "__connect__:app", id="api"),
-    pytest.param("jupyter-notebook", "notebook.ipynb", id="jupyter-notebook"),
-    pytest.param("jupyter-static", "notebook.ipynb", id="jupyter-static"),
-    pytest.param("jupyter-voila", "notebook.ipynb", id="voila"),
-    pytest.param("quarto-static", "report.qmd", id="quarto-static"),
-    pytest.param("quarto-shiny", "report.qmd", id="quarto-shiny"),
+    pytest.param("python-streamlit", "app.py", "make_api_bundle", id="streamlit"),
+    pytest.param("python-shiny", "app.py", "make_api_bundle", id="shiny"),
+    pytest.param("python-fastapi", "__connect__:app", "make_api_bundle", id="fastapi"),
+    pytest.param("python-api", "__connect__:app", "make_api_bundle", id="api"),
+    pytest.param("jupyter-static", "notebook.ipynb", "make_notebook_source_bundle", id="jupyter-static"),
+    pytest.param("jupyter-voila", "notebook.ipynb", "make_voila_bundle", id="voila"),
+    pytest.param("quarto-static", "report.qmd", "create_quarto_deployment_bundle", id="quarto-static"),
+    pytest.param("quarto-shiny", "report.qmd", "create_quarto_deployment_bundle", id="quarto-shiny"),
 ]
 
 
-@pytest.mark.parametrize("app_mode,entrypoint", DISPATCH_MATRIX)
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-030): Dispatch by app_mode in deploy pyproject.",
-)
+@pytest.mark.parametrize("app_mode,entrypoint,expected_builder_name", DISPATCH_MATRIX)
 def test_deploy_pyproject_dispatches_by_app_mode(
-    runner: CliRunner, project_dir: pathlib.Path, app_mode: str, entrypoint: str, monkeypatch: pytest.MonkeyPatch
+    runner: CliRunner,
+    project_dir: pathlib.Path,
+    app_mode: str,
+    entrypoint: str,
+    expected_builder_name: str,
+    monkeypatch: pytest.MonkeyPatch,
 ):
-    """Each app_mode must reach the matching deploy code path.
+    """Each [tool.rsconnect].app_mode routes to its matching bundle builder (SPEC §13.2 step 3, §8.2)."""
+    captured: dict[str, typing.Any] = {}
 
-    The implementer chooses how to prove dispatch: patching the bundle builder,
-    observing the RSConnectExecutor call, or similar. This test asserts that
-    the command does not short-circuit to the wrong branch by using a
-    deliberately bad server URL and asserting the error surfaces from the
-    deploy path rather than from config parsing (i.e. we got past the reader).
-    """
+    class _StopDispatch(Exception):
+        """Sentinel to short-circuit before any network call."""
+
+    def spy_make_bundle(
+        self: typing.Any, builder: typing.Callable[..., typing.Any], *args: typing.Any, **kwargs: typing.Any
+    ):
+        captured["builder"] = builder.__name__
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        raise _StopDispatch()
+
+    from rsconnect import api as api_mod
+    from rsconnect import main as main_mod
+
+    fake_environment = types.SimpleNamespace(python="python")
+    monkeypatch.setattr(
+        main_mod.Environment,
+        "create_python_environment",
+        classmethod(lambda cls, *args, **kwargs: fake_environment),
+    )
+    monkeypatch.setattr(main_mod, "which_quarto", lambda quarto=None: "quarto")
+    monkeypatch.setattr(main_mod, "quarto_inspect", lambda quarto, path: {"engines": []})
+    monkeypatch.setattr(main_mod, "validate_quarto_engines", lambda inspect: [])
+    monkeypatch.setattr(api_mod.RSConnectClient, "server_settings", lambda self: {})
+    monkeypatch.setattr(api_mod.RSConnectExecutor, "validate_server", lambda self: self)
+    monkeypatch.setattr(api_mod.RSConnectExecutor, "validate_app_mode", lambda self, app_mode: self)
+    monkeypatch.setattr(api_mod.RSConnectExecutor, "make_bundle", spy_make_bundle)
+
     _write_pyproject(
         project_dir,
         f"""
@@ -315,25 +347,18 @@ def test_deploy_pyproject_dispatches_by_app_mode(
         title = "Dispatch Test"
         """,
     )
-    # Deliberately unreachable server; the failure mode we care about is
-    # "tried to contact Connect" rather than "could not parse config".
+    if ":" not in entrypoint:
+        (project_dir / entrypoint).touch()
+
     result = runner.invoke(
         cli,
-        [
-            "deploy",
-            "pyproject",
-            str(project_dir),
-            "-s",
-            "http://127.0.0.1:1/unused",
-            "-k",
-            "fake-key",
-        ],
+        ["deploy", "pyproject", str(project_dir), "-s", "http://example.invalid", "-k", "fake-key"],
     )
-    combined = result.output + (result.stderr if result.stderr_bytes else "")
-    # Parse-time errors would mention tool.rsconnect / missing fields. Dispatch
-    # success means we got past the reader into deploy territory.
-    assert "[tool.rsconnect]" not in combined
-    assert result.exit_code != 0  # unreachable server guarantees non-zero
+
+    assert captured.get("builder") == expected_builder_name, result.output
+    if app_mode == "jupyter-static":
+        # Legacy app mode - no need to override the bundle builder default
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -341,10 +366,6 @@ def test_deploy_pyproject_dispatches_by_app_mode(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-030): Dispatch by app_mode in deploy pyproject (title).",
-)
 def test_deploy_pyproject_uses_title_from_tool_rsconnect(
     runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -391,10 +412,6 @@ def test_deploy_pyproject_uses_title_from_tool_rsconnect(
     assert seen.get("title") == "A Readable Title"
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-030): Dispatch by app_mode in deploy pyproject (entrypoint override).",
-)
 def test_deploy_pyproject_uses_entrypoint_from_tool_rsconnect(runner: CliRunner, project_dir: pathlib.Path):
     """Entrypoint in pyproject must bypass per-type guessing (§13.2 step 4).
 

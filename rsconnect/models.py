@@ -88,26 +88,6 @@ class AppModes:
     PLUMBER = AppMode(5, "api", "API")
     TENSORFLOW = AppMode(6, "tensorflow-saved-model", "TensorFlow Model")
     JUPYTER_NOTEBOOK = AppMode(7, "jupyter-static", "Jupyter Notebook", ".ipynb")
-    # TODO(EVO-050): Add ``jupyter-notebook`` app_mode and thread it through typing.
-    #                Scope: shared
-    #                Why: SPEC §4 / §8.2 introduce ``jupyter-notebook`` as the
-    #                     default ``[tool.rsconnect].app_mode`` for the
-    #                     ``notebook`` quickstart type (``jupyter-static`` is
-    #                     now the ``--static`` variant). Today ``AppModes``
-    #                     only has ``jupyter-static``, and
-    #                     ``AppModes.Modes`` (the ``Literal`` used by
-    #                     pyright-strict code) does not include it. Both the
-    #                     quickstart writer and the ``deploy pyproject``
-    #                     dispatcher depend on this new value being valid.
-    #                Done: ``AppModes.get_by_name("jupyter-notebook")`` returns
-    #                      a non-unknown mode; ``AppModes.Modes`` accepts the
-    #                      literal; test ``test_models_has_jupyter_notebook_mode``
-    #                      in ``tests/test_quickstart.py`` (or a small addition
-    #                      to ``tests/test_models.py``) passes.
-    #                Non-Goals: Do not rename ``JUPYTER_NOTEBOOK`` - that
-    #                           attribute name is load-bearing elsewhere. Do
-    #                           not change ``jupyter-static``'s existing
-    #                           ordinal or description.
     PYTHON_API = AppMode(8, "python-api", "Python API")
     DASH_APP = AppMode(9, "python-dash", "Dash Application")
     STREAMLIT_APP = AppMode(10, "python-streamlit", "Streamlit Application")

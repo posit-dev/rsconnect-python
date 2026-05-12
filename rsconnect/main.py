@@ -118,7 +118,7 @@ from .models import (
     VersionSearchFilter,
     VersionSearchFilterParamType,
 )
-from .pyproject import read_tool_rsconnect
+from .pyproject import InvalidPyprojectConfigError, TOMLDecodeError, read_tool_rsconnect
 from .environment import PackageInstaller
 from .shiny_express import escape_to_var_name, is_express_app
 from .utils_package import fix_starlette_requirements
@@ -1035,7 +1035,7 @@ def info(file: str):
 )
 @click.argument("app_type", metavar="TYPE")
 @click.argument("name", metavar="NAME")
-@click.option("--static", is_flag=True, help="(jupyter only) emit jupyter-static instead of jupyter-notebook.")
+@click.option("--static", is_flag=True, help="(jupyter only) emit jupyter-static app mode.")
 @click.option("--shiny", is_flag=True, help="(quarto only) emit quarto-shiny instead of quarto-static.")
 @cli_exception_handler
 def quickstart(app_type: str, name: str, static: bool, shiny: bool):
@@ -1552,55 +1552,127 @@ def deploy_pyproject(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
 
+    def quickstart_hint() -> str:
+        return "To create a new project with this section already populated, run: rsconnect quickstart --help"
+
     pyproject_path = Path(directory) / "pyproject.toml"
-    read_tool_rsconnect(pyproject_path)
-    raise NotImplementedError(
-        "deploy pyproject dispatch is not yet implemented; see TODO(EVO-...) markers in rsconnect/main.py"
+    try:
+        config = read_tool_rsconnect(pyproject_path)
+    except InvalidPyprojectConfigError as err:
+        raise RSConnectException(f"{err}\n\n{quickstart_hint()}") from err
+    except FileNotFoundError as err:
+        raise RSConnectException(f"pyproject.toml not found at {pyproject_path}.\n\n{quickstart_hint()}") from err
+    except TOMLDecodeError as err:
+        raise RSConnectException(f"pyproject.toml could not be parsed: {err}\n\n{quickstart_hint()}") from err
+
+    configured_app_mode = cast(str, config["app_mode"])
+    app_mode = AppModes.get_by_name(configured_app_mode, return_unknown=True)
+    if app_mode == AppModes.UNKNOWN:
+        raise RSConnectException(f"Unsupported app_mode '{configured_app_mode}' in [tool.rsconnect]")
+
+    entrypoint = cast(str, config["entrypoint"])
+    effective_title = cast(Optional[str], config.get("title") or title or name)
+    extra_files: tuple[str, ...] = tuple()
+    excludes: tuple[str, ...] = tuple()
+    bundle_builder: Callable[..., Any]
+    bundle_args: tuple[Any, ...]
+    bundle_kwargs: dict[str, Any] = {}
+    path = directory
+
+    if app_mode in (AppModes.STREAMLIT_APP, AppModes.PYTHON_SHINY, AppModes.PYTHON_FASTAPI, AppModes.PYTHON_API):
+        environment = Environment.create_python_environment(
+            directory,
+            requirements_file=None,
+            override_python_version=None,
+        )
+        bundle_builder = make_api_bundle
+        bundle_args = (directory, entrypoint, app_mode, environment, extra_files, excludes)
+        bundle_kwargs = {"image": None, "env_management_py": None, "env_management_r": None}
+    elif app_mode == AppModes.JUPYTER_NOTEBOOK:  # This is "jupyter-static"
+        path = str(Path(directory) / entrypoint)
+        environment = Environment.create_python_environment(
+            directory,
+            requirements_file=None,
+            override_python_version=None,
+        )
+        bundle_builder = make_notebook_source_bundle
+        # Legacy app mode - no need to override the bundle builder default
+        bundle_args = (path, environment, extra_files, False, False)
+        bundle_kwargs = {
+            "image": None,
+            "env_management_py": None,
+            "env_management_r": None,
+        }
+    elif app_mode == AppModes.JUPYTER_VOILA:
+        environment = Environment.create_python_environment(
+            directory,
+            requirements_file=None,
+            override_python_version=None,
+        )
+        bundle_builder = make_voila_bundle
+        bundle_args = (directory, entrypoint, extra_files, excludes, True, environment)
+        bundle_kwargs = {
+            "image": None,
+            "env_management_py": None,
+            "env_management_r": None,
+            "multi_notebook": False,
+        }
+    elif app_mode in (AppModes.STATIC_QUARTO, AppModes.SHINY_QUARTO):
+        path = str(Path(directory) / entrypoint)
+        with cli_feedback("Inspecting Quarto project"):
+            quarto = which_quarto(None)
+            logger.debug("Quarto: %s" % quarto)
+            inspect = quarto_inspect(quarto, path)
+            engines = validate_quarto_engines(inspect)
+
+        environment = None
+        if "jupyter" in engines:
+            with cli_feedback("Inspecting Python environment"):
+                environment = Environment.create_python_environment(
+                    directory,
+                    requirements_file=None,
+                    override_python_version=None,
+                )
+        bundle_builder = create_quarto_deployment_bundle
+        bundle_args = (path, extra_files, excludes, app_mode, inspect, environment)
+        bundle_kwargs = {"image": None, "env_management_py": None, "env_management_r": None}
+    else:
+        raise RSConnectException(f"Unsupported app_mode '{configured_app_mode}' in [tool.rsconnect]")
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        account=account,
+        token=token,
+        secret=secret,
+        path=path,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=effective_title,
+        visibility=visibility,
+        env_vars=env_vars,
     )
 
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_settings().get("version", "")
+    ce.metadata = prepare_deploy_metadata(directory, metadata, no_metadata, server_version)
 
-# TODO(EVO-030): Dispatch by app_mode in deploy pyproject.
-#                Scope: deploy-pyproject
-#                Why: SPEC §13.2 step 3-5: after reading ``[tool.rsconnect]``,
-#                     the command must route to the per-type deploy code path,
-#                     override the entrypoint with the pyproject value, and
-#                     set the Connect title from the table - bypassing the
-#                     per-type entrypoint-guessing logic that the existing
-#                     ``deploy notebook`` / ``deploy api`` / ``deploy quarto``
-#                     commands carry. Reusing the bundling/environment
-#                     resolution introduced in PR 764 is the whole reason
-#                     the companion command exists.
-#                Done: Tests
-#                      ``test_deploy_pyproject_dispatches_streamlit``,
-#                      ``test_deploy_pyproject_dispatches_fastapi``,
-#                      ``test_deploy_pyproject_dispatches_notebook_static``,
-#                      ``test_deploy_pyproject_dispatches_quarto_shiny``
-#                      (etc., one per supported app_mode) pass. Each test
-#                      asserts that the correct bundle builder is called with
-#                      the entrypoint from ``[tool.rsconnect]``.
-#                Non-Goals: Do not re-implement bundling; reuse
-#                           ``make_api_bundle``, ``make_notebook_source_bundle``,
-#                           etc. Do not invent new ``app_mode`` values; the
-#                           dispatch table is just the §8.2 vocabulary.
-
-
-# TODO(EVO-040): Hard-error when [tool.rsconnect] is missing or incomplete.
-#                Scope: deploy-pyproject
-#                Why: SPEC §13.3 forbids inference: if the section or any of
-#                     ``app_mode``/``entrypoint`` is missing, the command
-#                     must exit non-zero with a message that (a) says what
-#                     is missing, (b) quotes the minimum valid snippet, and
-#                     (c) mentions ``rsconnect quickstart --help``. This is
-#                     the most user-visible guardrail of the whole feature.
-#                Done: Tests
-#                      ``test_deploy_pyproject_errors_on_missing_section``,
-#                      ``test_deploy_pyproject_errors_on_missing_app_mode``,
-#                      ``test_deploy_pyproject_errors_on_missing_entrypoint``,
-#                      and ``test_deploy_pyproject_error_message_mentions_quickstart``
-#                      in ``tests/test_deploy_pyproject.py`` pass.
-#                Non-Goals: Do not attempt to recover by reading
-#                           ``manifest.json`` if it happens to exist; §13.3
-#                           rules out fallback entirely.
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=app_mode)
+        .make_bundle(bundle_builder, *bundle_args, **bundle_kwargs)
+        .deploy_bundle(activate=not draft)
+        .save_deployed_info()
+        .emit_task_log()
+    )
+    if not no_verify:
+        ce.verify_deployment()
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
