@@ -25,6 +25,7 @@ import stat
 import subprocess
 import sys
 import typing
+from unittest import mock
 
 import pytest
 
@@ -97,6 +98,38 @@ def test_quickstart_help_exposes_static_and_shiny_flags(runner: CliRunner):
     assert result.exit_code == 0, result.output
     assert "--static" in result.output
     assert "--shiny" in result.output
+
+
+@pytest.mark.parametrize(
+    "args,expected",
+    [
+        (
+            ["streamlit", "hello-app"],
+            {"app_type": "streamlit", "name": "hello-app", "static": False, "shiny": False},
+        ),
+        (
+            ["notebook", "--static", "hello-notebook"],
+            {"app_type": "notebook", "name": "hello-notebook", "static": True, "shiny": False},
+        ),
+        (
+            ["quarto", "--shiny", "hello-quarto"],
+            {"app_type": "quarto", "name": "hello-quarto", "static": False, "shiny": True},
+        ),
+    ],
+)
+def test_quickstart_delegates_to_run_quickstart(
+    runner: CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
+    args: typing.List[str],
+    expected: typing.Mapping[str, typing.Any],
+):
+    run_quickstart = mock.Mock()
+    monkeypatch.setattr("rsconnect.quickstart.run_quickstart", run_quickstart)
+
+    result = runner.invoke(cli, ["quickstart", *args])
+
+    assert result.exit_code == 0, result.output
+    run_quickstart.assert_called_once_with(**expected)
 
 
 # ---------------------------------------------------------------------------

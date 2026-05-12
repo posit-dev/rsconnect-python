@@ -1253,24 +1253,6 @@ def info(file: str):
             click.echo("No saved deployment information was found for %s." % file)
 
 
-# TODO(EVO-010): Register the ``rsconnect quickstart`` Click command.
-#                Scope: quickstart
-#                Why: SPEC §2 fixes the command shape
-#                     ``rsconnect quickstart <type> <name>`` with positional
-#                     (not optional) arguments, a ``--static`` flag for the
-#                     ``jupyter`` type (§2.1), and a ``--shiny`` flag for the
-#                     ``quarto`` type (§2.1). Wiring the CLI up front makes
-#                     later evolutions purely about implementation, not
-#                     command registration.
-#                Done: Tests ``test_quickstart_command_is_registered``,
-#                      ``test_quickstart_requires_type_and_name``, and the
-#                      ``--help`` assertion in ``tests/test_quickstart.py``
-#                      pass. The command delegates to
-#                      :func:`rsconnect.quickstart.run_quickstart`.
-#                Non-Goals: Do not add ``--deploy``, ``--force``, or any
-#                           interactive prompts (§1.1 / §16). Do not wire
-#                           server credential flags - quickstart does not
-#                           talk to Connect.
 @cli.command(
     name="quickstart",
     short_help="Scaffold a deployable Posit Connect project.",
