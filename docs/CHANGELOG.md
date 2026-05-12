@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- `pyproject.toml` can now be supplied via `--requirements-file` for deploy and
+  write-manifest.
+
 ## [1.29.0] - 2026-04-29
 
 - Added `rsconnect deploy nodejs` command for deploying Node.js applications
