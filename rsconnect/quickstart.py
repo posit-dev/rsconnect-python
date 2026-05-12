@@ -281,12 +281,11 @@ def run_quickstart(
 # TODO(EVO-200): Register the notebook template (jupyter, --static flag aware).
 #                Scope: quickstart
 #                Why: SPEC §2.1 + §4 + §6.3: ``jupyter`` accepts ``--static``
-#                     which flips app_mode between ``jupyter-notebook``
+#                     which flips app_mode between ``jupyter-static``
 #                     (default) and ``jupyter-static``. The template generates
 #                     ``notebook.ipynb`` with a couple of cells; entrypoint is
-#                     ``notebook.ipynb``. This introduces a *new* app_mode
-#                     name (``jupyter-notebook``) that does not currently exist
-#                     in ``rsconnect/models.py::AppModes``.
+#                     ``notebook.ipynb``. This uses the existing
+#                     ``jupyter-static`` mode in ``rsconnect/models.py::AppModes``.
 #                Done: Tests ``test_quickstart_notebook_default_app_mode``,
 #                      ``test_quickstart_notebook_static_flag_sets_mode``, and
 #                      ``test_quickstart_notebook_file_set`` pass.

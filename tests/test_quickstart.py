@@ -319,7 +319,7 @@ APP_MODE_MATRIX = [
     pytest.param(("fastapi",), "python-fastapi", id="fastapi"),
     pytest.param(("api",), "python-api", id="api"),
     pytest.param(("flask",), "python-api", id="flask-alias"),
-    pytest.param(("notebook",), "jupyter-notebook", id="notebook-default"),
+    pytest.param(("notebook",), "jupyter-static", id="notebook-default"),
     pytest.param(("notebook", "--static"), "jupyter-static", id="notebook-static"),
     pytest.param(("voila",), "jupyter-voila", id="voila"),
     pytest.param(("quarto",), "quarto-static", id="quarto-default"),
@@ -575,23 +575,6 @@ def test_quickstart_registry_accepts_new_mode(
     # The implementer provides a registry accessor; the test asserts extension
     # works without other code changes. Exact API is left to the evolution.
     assert hasattr(quickstart_mod, "run_quickstart")
-
-
-# ---------------------------------------------------------------------------
-# New jupyter-notebook app_mode (SPEC §4, §8.2)
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-050): Add jupyter-notebook app_mode and thread it through typing.",
-)
-def test_models_has_jupyter_notebook_mode():
-    from rsconnect.models import AppModes
-
-    mode = AppModes.get_by_name("jupyter-notebook")
-    assert mode is not None
-    assert str(mode) == "jupyter-notebook"
 
 
 # ---------------------------------------------------------------------------

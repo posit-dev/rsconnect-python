@@ -9,14 +9,20 @@ import configparser
 import pathlib
 import re
 import typing
+from collections.abc import Mapping
 
+from .log import logger
+
+TOMLDecodeError: type[Exception]
 try:
     import tomllib
+
+    TOMLDecodeError = tomllib.TOMLDecodeError
 except ImportError:
     # Python 3.11+ has tomllib in the standard library
     import toml as tomllib  # type: ignore[no-redef]
 
-from .log import logger
+    TOMLDecodeError = tomllib.TomlDecodeError
 
 
 PEP440_OPERATORS_REGEX = r"(===|==|!=|<=|>=|<|>|~=)"
@@ -161,33 +167,54 @@ class InvalidVersionConstraintError(ValueError):
     pass
 
 
-# TODO(EVO-060): Read [tool.rsconnect] from pyproject.toml.
-#                Scope: deploy-pyproject
-#                Why: SPEC §3 + §13.2 require ``rsconnect deploy pyproject``
-#                     to consume ``app_mode``, ``entrypoint``, and ``title``
-#                     from a ``[tool.rsconnect]`` table and hard-error when it
-#                     is missing or incomplete (§13.3). Putting the reader
-#                     here keeps it next to the existing pyproject helpers
-#                     (``parse_pyproject_python_requires``) which already own
-#                     the tomllib import path. The public deploy command calls
-#                     this single function to resolve its config.
-#                Done: Tests in ``tests/test_deploy_pyproject.py`` named
-#                      ``test_read_tool_rsconnect_*`` pass: valid tables
-#                      return a value with ``app_mode``/``entrypoint``/
-#                      ``title``; missing section raises a clear exception;
-#                      missing ``app_mode`` or ``entrypoint`` raises the same
-#                      clear exception carrying the minimum-valid-snippet text
-#                      required by §13.3.
-#                Non-Goals: Do not accept alternative names
-#                           (no ``.rsconnect.toml`` fallback per §1.1). Do not
-#                           infer ``app_mode`` from file extensions - §13.3
-#                           forbids inference. Do not validate the canonical
-#                           ``app_mode`` vocabulary here beyond "non-empty
-#                           string"; the deploy dispatcher owns that mapping.
-def read_tool_rsconnect(pyproject_file: pathlib.Path) -> typing.Mapping[str, str]:
-    """Placeholder for the ``[tool.rsconnect]`` reader.
+class InvalidPyprojectConfigError(ValueError):
+    """Raised when ``[tool.rsconnect]`` is missing or incomplete."""
 
-    Raises NotImplementedError until the evolution above lands; the ATDD tests
-    in ``tests/test_deploy_pyproject.py`` are structured around that fact.
+
+_MINIMUM_VALID_TOOL_RSCONNECT_SNIPPET = '''[tool.rsconnect]
+app_mode = "python-streamlit"
+entrypoint = "app.py"'''
+
+
+def read_tool_rsconnect(pyproject_file: pathlib.Path) -> typing.Mapping[str, typing.Any]:
+    """Read the ``[tool.rsconnect]`` deployment config from pyproject.toml.
+
+    Returns the section mapping unchanged for forward-compatible fields (SPEC
+    §3.1, §3.2). Raises ``InvalidPyprojectConfigError`` when the section is
+    missing or when required ``app_mode`` / ``entrypoint`` fields are absent or
+    not non-empty strings (SPEC §13.3).
     """
-    raise NotImplementedError("read_tool_rsconnect is not yet implemented; see TODO(EVO-...) in rsconnect/pyproject.py")
+    content = pyproject_file.read_text()
+    pyproject = tomllib.loads(content)
+
+    tool = pyproject.get("tool")
+    if tool is None:
+        raise InvalidPyprojectConfigError(
+            f"The [tool.rsconnect] section is missing. Add at least:\n\n{_MINIMUM_VALID_TOOL_RSCONNECT_SNIPPET}"
+        )
+    if not isinstance(tool, Mapping):
+        raise InvalidPyprojectConfigError(
+            f"[tool.rsconnect] is not a TOML table. Add at least:\n\n{_MINIMUM_VALID_TOOL_RSCONNECT_SNIPPET}"
+        )
+    tool = typing.cast(typing.Mapping[str, typing.Any], tool)
+
+    tool_rsconnect = tool.get("rsconnect")
+    if tool_rsconnect is None:
+        raise InvalidPyprojectConfigError(
+            f"The [tool.rsconnect] section is missing. Add at least:\n\n{_MINIMUM_VALID_TOOL_RSCONNECT_SNIPPET}"
+        )
+    if not isinstance(tool_rsconnect, Mapping):
+        raise InvalidPyprojectConfigError(
+            f"[tool.rsconnect] is not a TOML table. Add at least:\n\n{_MINIMUM_VALID_TOOL_RSCONNECT_SNIPPET}"
+        )
+    tool_rsconnect = typing.cast(typing.Mapping[str, typing.Any], tool_rsconnect)
+
+    for field in ("app_mode", "entrypoint"):
+        value = tool_rsconnect.get(field)
+        if not isinstance(value, str) or not value:
+            raise InvalidPyprojectConfigError(
+                f"The [tool.rsconnect] field {field} must be a non-empty string. Add at least:\n\n"
+                f"{_MINIMUM_VALID_TOOL_RSCONNECT_SNIPPET}"
+            )
+
+    return tool_rsconnect
