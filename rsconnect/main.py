@@ -1253,6 +1253,46 @@ def info(file: str):
             click.echo("No saved deployment information was found for %s." % file)
 
 
+# TODO(EVO-010): Register the ``rsconnect quickstart`` Click command.
+#                Scope: quickstart
+#                Why: SPEC §2 fixes the command shape
+#                     ``rsconnect quickstart <type> <name>`` with positional
+#                     (not optional) arguments, a ``--static`` flag for the
+#                     ``jupyter`` type (§2.1), and a ``--shiny`` flag for the
+#                     ``quarto`` type (§2.1). Wiring the CLI up front makes
+#                     later evolutions purely about implementation, not
+#                     command registration.
+#                Done: Tests ``test_quickstart_command_is_registered``,
+#                      ``test_quickstart_requires_type_and_name``, and the
+#                      ``--help`` assertion in ``tests/test_quickstart.py``
+#                      pass. The command delegates to
+#                      :func:`rsconnect.quickstart.run_quickstart`.
+#                Non-Goals: Do not add ``--deploy``, ``--force``, or any
+#                           interactive prompts (§1.1 / §16). Do not wire
+#                           server credential flags - quickstart does not
+#                           talk to Connect.
+@cli.command(
+    name="quickstart",
+    short_help="Scaffold a deployable Posit Connect project.",
+    help=(
+        "Create a new Posit Connect project of the given type in ./<name>/. "
+        "Writes a pyproject.toml with a [tool.rsconnect] section, creates a "
+        "uv-managed virtualenv, and prints the local-run and deploy commands. "
+        "See SPEC_QUICKSTART.md for the full contract."
+    ),
+    no_args_is_help=True,
+)
+@click.argument("app_type", metavar="TYPE")
+@click.argument("name", metavar="NAME")
+@click.option("--static", is_flag=True, help="(jupyter only) emit jupyter-static instead of jupyter-notebook.")
+@click.option("--shiny", is_flag=True, help="(quarto only) emit quarto-shiny instead of quarto-static.")
+@cli_exception_handler
+def quickstart(app_type: str, name: str, static: bool, shiny: bool):
+    from .quickstart import run_quickstart
+
+    run_quickstart(app_type=app_type, name=name, static=static, shiny=shiny)
+
+
 @cli.group(no_args_is_help=True, help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io.")
 def deploy():
     pass
@@ -1715,6 +1755,71 @@ def deploy_manifest(
     )
     if not no_verify:
         ce.verify_deployment()
+
+
+# TODO(EVO-020): Register ``rsconnect deploy pyproject <path>`` command.
+#                Scope: deploy-pyproject
+#                Why: SPEC §13.1 defines the command parallel to
+#                     ``rsconnect deploy manifest <path>``: ``<path>`` points
+#                     to a directory containing ``pyproject.toml``. The
+#                     command reads ``[tool.rsconnect]`` and dispatches to
+#                     the per-type deploy code path, reusing existing bundling
+#                     and environment resolution.
+#                Done: Tests ``test_deploy_pyproject_command_is_registered``
+#                      and ``test_deploy_pyproject_requires_path`` in
+#                      ``tests/test_deploy_pyproject.py`` pass. The command
+#                      accepts the full set of ``server_args`` / ``spcs_args``
+#                      / ``content_args`` decorators that ``deploy manifest``
+#                      accepts, so existing credential mechanisms apply.
+#                Non-Goals: Do not duplicate the per-type deploy logic here;
+#                           delegate to the dispatcher evolution below. Do
+#                           not default ``<path>`` to ``.`` silently in v1 -
+#                           keep the positional required to mirror
+#                           ``deploy manifest``.
+
+
+# TODO(EVO-030): Dispatch by app_mode in deploy pyproject.
+#                Scope: deploy-pyproject
+#                Why: SPEC §13.2 step 3-5: after reading ``[tool.rsconnect]``,
+#                     the command must route to the per-type deploy code path,
+#                     override the entrypoint with the pyproject value, and
+#                     set the Connect title from the table - bypassing the
+#                     per-type entrypoint-guessing logic that the existing
+#                     ``deploy notebook`` / ``deploy api`` / ``deploy quarto``
+#                     commands carry. Reusing the bundling/environment
+#                     resolution introduced in PR 764 is the whole reason
+#                     the companion command exists.
+#                Done: Tests
+#                      ``test_deploy_pyproject_dispatches_streamlit``,
+#                      ``test_deploy_pyproject_dispatches_fastapi``,
+#                      ``test_deploy_pyproject_dispatches_notebook_static``,
+#                      ``test_deploy_pyproject_dispatches_quarto_shiny``
+#                      (etc., one per supported app_mode) pass. Each test
+#                      asserts that the correct bundle builder is called with
+#                      the entrypoint from ``[tool.rsconnect]``.
+#                Non-Goals: Do not re-implement bundling; reuse
+#                           ``make_api_bundle``, ``make_notebook_source_bundle``,
+#                           etc. Do not invent new ``app_mode`` values; the
+#                           dispatch table is just the §8.2 vocabulary.
+
+
+# TODO(EVO-040): Hard-error when [tool.rsconnect] is missing or incomplete.
+#                Scope: deploy-pyproject
+#                Why: SPEC §13.3 forbids inference: if the section or any of
+#                     ``app_mode``/``entrypoint`` is missing, the command
+#                     must exit non-zero with a message that (a) says what
+#                     is missing, (b) quotes the minimum valid snippet, and
+#                     (c) mentions ``rsconnect quickstart --help``. This is
+#                     the most user-visible guardrail of the whole feature.
+#                Done: Tests
+#                      ``test_deploy_pyproject_errors_on_missing_section``,
+#                      ``test_deploy_pyproject_errors_on_missing_app_mode``,
+#                      ``test_deploy_pyproject_errors_on_missing_entrypoint``,
+#                      and ``test_deploy_pyproject_error_message_mentions_quickstart``
+#                      in ``tests/test_deploy_pyproject.py`` pass.
+#                Non-Goals: Do not attempt to recover by reading
+#                           ``manifest.json`` if it happens to exist; §13.3
+#                           rules out fallback entirely.
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
