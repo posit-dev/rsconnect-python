@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 from functools import wraps
 from os.path import abspath, dirname, exists, isdir, join
+from pathlib import Path
 from typing import (
     Any,
     Callable,
@@ -125,6 +126,7 @@ from .models import (
     VersionSearchFilter,
     VersionSearchFilterParamType,
 )
+from .pyproject import read_tool_rsconnect
 from .environment import PackageInstaller
 from .shiny_express import escape_to_var_name, is_express_app
 from .utils_package import fix_starlette_requirements
@@ -1739,25 +1741,55 @@ def deploy_manifest(
         ce.verify_deployment()
 
 
-# TODO(EVO-020): Register ``rsconnect deploy pyproject <path>`` command.
-#                Scope: deploy-pyproject
-#                Why: SPEC §13.1 defines the command parallel to
-#                     ``rsconnect deploy manifest <path>``: ``<path>`` points
-#                     to a directory containing ``pyproject.toml``. The
-#                     command reads ``[tool.rsconnect]`` and dispatches to
-#                     the per-type deploy code path, reusing existing bundling
-#                     and environment resolution.
-#                Done: Tests ``test_deploy_pyproject_command_is_registered``
-#                      and ``test_deploy_pyproject_requires_path`` in
-#                      ``tests/test_deploy_pyproject.py`` pass. The command
-#                      accepts the full set of ``server_args`` / ``spcs_args``
-#                      / ``content_args`` decorators that ``deploy manifest``
-#                      accepts, so existing credential mechanisms apply.
-#                Non-Goals: Do not duplicate the per-type deploy logic here;
-#                           delegate to the dispatcher evolution below. Do
-#                           not default ``<path>`` to ``.`` silently in v1 -
-#                           keep the positional required to mirror
-#                           ``deploy manifest``.
+@deploy.command(
+    name="pyproject",
+    short_help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io by pyproject.",
+    help=(
+        "Deploy content to Posit Connect, Posit Cloud, or shinyapps.io using a pyproject.toml "
+        "file. The specified directory must contain pyproject.toml. "
+        "See SPEC_QUICKSTART.md §13 for the full contract."
+    ),
+    no_args_is_help=True,
+)
+@server_args
+@spcs_args
+@content_args
+@cloud_shinyapps_args
+@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@shinyapps_deploy_args
+@cli_exception_handler
+@click.pass_context
+def deploy_pyproject(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    account: Optional[str],
+    token: Optional[str],
+    secret: Optional[str],
+    new: bool,
+    app_id: Optional[str],
+    title: Optional[str],
+    verbose: int,
+    directory: str,
+    env_vars: dict[str, str],
+    visibility: Optional[str],
+    no_verify: bool,
+    draft: bool,
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    pyproject_path = Path(directory) / "pyproject.toml"
+    read_tool_rsconnect(pyproject_path)
+    raise NotImplementedError(
+        "deploy pyproject dispatch is not yet implemented; see TODO(EVO-...) markers in rsconnect/main.py"
+    )
 
 
 # TODO(EVO-030): Dispatch by app_mode in deploy pyproject.

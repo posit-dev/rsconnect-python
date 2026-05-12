@@ -20,6 +20,7 @@ import pathlib
 import textwrap
 import typing
 
+import click
 import pytest
 from click.testing import CliRunner
 
@@ -53,10 +54,6 @@ def _write_pyproject(project: pathlib.Path, body: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-020): Register ``rsconnect deploy pyproject <path>`` command.",
-)
 def test_deploy_pyproject_command_is_registered(runner: CliRunner):
     result = runner.invoke(cli, ["deploy", "pyproject", "--help"])
     assert result.exit_code == 0, result.output
@@ -64,13 +61,30 @@ def test_deploy_pyproject_command_is_registered(runner: CliRunner):
 
 
 def test_deploy_pyproject_requires_path(runner: CliRunner):
-    """The positional <path> is required, matching ``deploy manifest <path>``.
+    """The positional directory is required (SPEC §13.1: no silent default to '.').
 
-    This passes today because the missing command also exits non-zero; once
-    EVO-020 lands the same assertion still holds for the real command.
+    Distinguishes 'command exists and demands the positional' from the prior
+    'command does not exist' state - the assertions below would behave
+    differently in those two cases.
     """
     result = runner.invoke(cli, ["deploy", "pyproject"])
     assert result.exit_code != 0
+    assert "No such command" not in result.output
+    # `no_args_is_help=True` makes Click render the usage block on missing args.
+    assert "Usage:" in result.output
+    assert "DIRECTORY" in result.output  # required positional metavar (after rename)
+    assert "[DIRECTORY]" not in result.output  # required, not optional
+
+
+def test_deploy_pyproject_option_surface_matches_deploy_manifest():
+    """``deploy pyproject`` must expose the same Click option surface as
+    ``deploy manifest`` so existing credential mechanisms (SPEC §13.1) apply
+    identically.
+    """
+    deploy_group = typing.cast(click.Group, cli.commands["deploy"])
+    manifest_options = {p.name for p in deploy_group.commands["manifest"].params if isinstance(p, click.Option)}
+    pyproject_options = {p.name for p in deploy_group.commands["pyproject"].params if isinstance(p, click.Option)}
+    assert pyproject_options == manifest_options
 
 
 # ---------------------------------------------------------------------------
