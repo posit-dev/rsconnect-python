@@ -16,26 +16,40 @@ contract.
 
 from __future__ import annotations
 
+import os
 import pathlib
+import re
+import shutil
 import typing
 
-# TODO(EVO-070): Define the public QuickstartRequest type or simple call contract.
-#                Scope: quickstart
-#                Why: Establish a single validated value that downstream phases
-#                     (pre-flight, scaffold, post-scaffold output) consume so the
-#                     capability is understandable through one public entrypoint
-#                     downward. Carrying <type>, <name>, and the type-specific
-#                     flag state (jupyter --static, quarto --shiny) as one value
-#                     keeps the CLI layer thin and the deep module self-contained.
-#                Done: A value (or plain kwargs on ``run_quickstart``) captures
-#                      the validated CLI inputs; the tests in
-#                      ``tests/test_quickstart.py`` that exercise name/type
-#                      validation via CliRunner pass for the error branches
-#                      without needing any scaffolding work.
-#                Non-Goals: Do not introduce a public ``QuickstartOptions`` /
-#                           ``QuickstartContext`` passive data bag; do not add
-#                           dependency injection; keep this tight to the real
-#                           product concept.
+from .exception import RSConnectException
+
+
+# Supported CLI ``<type>`` values per SPEC §4. ``flask`` is an alias for
+# ``api``; both share the same scaffold and ``python-api`` app mode. The
+# deferred modes from §4.1 (dash, gradio, panel, bokeh) are intentionally
+# absent. Kept as a module-level constant so error messages and future
+# template registration share one source of truth.
+SUPPORTED_APP_TYPES: typing.Tuple[str, ...] = (
+    "streamlit",
+    "shiny",
+    "fastapi",
+    "api",
+    "flask",
+    "notebook",
+    "voila",
+    "quarto",
+)
+
+
+# SPEC §2.2: lowercase ASCII letter start, only lowercase letters / digits /
+# hyphens, no trailing hyphen. The optional middle-and-end group keeps the
+# rule satisfiable by single-letter names such as ``"a"``.
+_project_name_pattern = re.compile(r"^[a-z]([a-z0-9-]*[a-z0-9])?$")
+_PROJECT_NAME_RULE = (
+    "Project name must start with a lowercase ASCII letter, contain only "
+    "lowercase letters, digits, and hyphens, and not end with a hyphen."
+)
 
 
 def run_quickstart(
@@ -53,120 +67,94 @@ def run_quickstart(
     or scaffold failure; rollback of the partially-created directory is the
     caller-visible invariant defined in SPEC §11.
 
-    This is currently a probe stub: it raises NotImplementedError so that the
-    CLI command registers and help text renders, while the ATDD test suite in
-    ``tests/test_quickstart.py`` fails in the expected way until each
-    evolution below is applied.
+    :param str app_type: one of the supported CLI types in SPEC §4.
+    :param str name: project name; must satisfy SPEC §2.2.
+    :param bool static: jupyter-only flag; selects ``jupyter-static``.
+    :param bool shiny: quarto-only flag; selects ``quarto-shiny``.
+    :param pathlib.Path cwd: override the working directory (testing hook);
+        defaults to :func:`pathlib.Path.cwd`.
     """
-    # TODO(EVO-080): Implement the quickstart pipeline.
+    cwd = (cwd or pathlib.Path.cwd()).resolve()
+
+    # SPEC §10 pre-flight order. Each helper raises ``RSConnectException``
+    # with an actionable message; nothing on disk is mutated until every
+    # check has passed.
+    _require_uv_on_path()
+    _validate_app_type(app_type)
+    _validate_project_name(name)
+    target = cwd / name
+    _require_target_does_not_exist(target)
+    _require_cwd_writable(cwd)
+
+    # TODO(EVO-080): Implement the scaffold + venv + post-output phases.
     #                Scope: quickstart
-    #                Why: This is the public entrypoint the Click command
-    #                     delegates to. Keeping the full flow visible here
-    #                     (pre-flight -> scaffold -> venv -> post-output ->
-    #                     rollback-on-failure) is the "contract before detail"
-    #                     shape the reviewer should see from this module alone.
-    #                Done: Calling ``run_quickstart`` with valid inputs creates
-    #                      the directory tree per SPEC §5/§6, writes a
-    #                      pyproject.toml per §3/§8.2, runs ``uv venv`` + ``uv
-    #                      sync``, and returns the project path. The ATDD tests
-    #                      in ``tests/test_quickstart.py`` named
-    #                      ``test_quickstart_creates_*`` pass.
+    #                Why: Pre-flight passes (SPEC §10) are landed. The
+    #                     remaining flow (template rendering, pyproject.toml
+    #                     writing, ``uv venv`` + ``uv sync``, post-scaffold
+    #                     stdout per §12, and rollback per §11) still needs
+    #                     to live behind this public entrypoint so the
+    #                     capability stays understandable through one
+    #                     module boundary.
+    #                Done: Calling ``run_quickstart`` with valid inputs
+    #                      creates the directory tree per SPEC §5/§6, writes
+    #                      a pyproject.toml per §3/§8.2, runs ``uv venv`` +
+    #                      ``uv sync``, prints the §12 lines, and returns
+    #                      the project path. The ATDD tests in
+    #                      ``tests/test_quickstart.py`` named
+    #                      ``test_quickstart_creates_*`` and
+    #                      ``test_quickstart_*_post_scaffold_output`` pass.
     #                Non-Goals: Do not implement framework-specific templates
     #                           here (that is separate per-mode evolutions);
     #                           do not implement the ``deploy pyproject``
-    #                           command (it has its own evolutions); do not add
-    #                           interactive prompts or a ``--deploy`` flag.
+    #                           command; do not add interactive prompts or a
+    #                           ``--deploy`` flag.
     raise NotImplementedError(
-        "rsconnect quickstart is not yet implemented; see SPEC_QUICKSTART.md and "
-        "TODO(EVO-...) markers in rsconnect/quickstart.py"
+        "rsconnect quickstart scaffolding is not yet implemented; "
+        "see SPEC_QUICKSTART.md and the TODO markers in rsconnect/quickstart.py"
     )
 
 
 # ---------------------------------------------------------------------------
 # Pre-flight checks (SPEC §10)
 # ---------------------------------------------------------------------------
-#
-# Below are the five ordered pre-flight checks the spec requires. They live
-# together because they are phases of one capability ("can we scaffold?") and
-# should run in the documented order before any filesystem mutation. Each
-# check has its own evolution so the implementer can land them one at a time
-# and the ATDD tests for each failure branch can graduate independently.
 
 
-# TODO(EVO-090): Pre-flight check 1 - require uv on PATH.
-#                Scope: quickstart
-#                Why: SPEC §7 and §10 make ``uv`` the sole dependency-manager
-#                     path. Detecting its absence up front gives an actionable
-#                     message before any work starts and keeps the rest of the
-#                     flow from having to re-check. The install hint is part
-#                     of the user-visible contract.
-#                Done: Tests ``test_quickstart_requires_uv_on_path`` and
-#                      ``test_quickstart_uv_missing_message_names_install`` in
-#                      ``tests/test_quickstart.py`` pass. Exit code is
-#                      non-zero; stderr names ``uv`` and the install command.
-#                Non-Goals: Do not add a fallback to ``python -m venv`` + pip.
-#                           Do not probe ``uv --version`` compatibility; mere
-#                           presence on PATH is sufficient for v1.
+def _require_uv_on_path() -> None:
+    if shutil.which("uv") is None:
+        # ``uv>=0.9.0`` is a declared dependency of rsconnect-python, so a
+        # missing ``uv`` on PATH typically means the install environment is
+        # broken. The message names both fixes a user can take.
+        raise RSConnectException(
+            "'uv' was not found on PATH. It ships with rsconnect-python; "
+            "try reinstalling (pip install --force-reinstall rsconnect-python) "
+            "or install uv manually from https://github.com/astral-sh/uv"
+        )
 
 
-# TODO(EVO-100): Pre-flight check 2 - validate <type> against supported list.
-#                Scope: quickstart
-#                Why: SPEC §2.3 + §4 enumerate the eight v1 CLI type values
-#                     (streamlit, shiny, fastapi, api, flask, notebook, voila,
-#                     quarto). Unknown types must exit with a message listing
-#                     the supported ones so the user can self-correct without
-#                     reading docs.
-#                Done: Test ``test_quickstart_unknown_type_lists_supported``
-#                      in ``tests/test_quickstart.py`` passes: the error lists
-#                      every supported CLI type, and ``flask`` is accepted as
-#                      an alias for ``api``.
-#                Non-Goals: Do not advertise the four deferred modes (dash,
-#                           gradio, panel, bokeh) - they are intentionally not
-#                           in v1 per §4.1.
+def _validate_app_type(app_type: str) -> None:
+    if app_type not in SUPPORTED_APP_TYPES:
+        supported = ", ".join(SUPPORTED_APP_TYPES)
+        raise RSConnectException(f"Unsupported project type {app_type!r}. Supported types: {supported}.")
 
 
-# TODO(EVO-110): Pre-flight check 3 - validate <name> against PEP 508 subset.
-#                Scope: quickstart
-#                Why: SPEC §2.2 restricts names to
-#                     ``^[a-z][a-z0-9-]*[a-z0-9]$`` (lowercase start, lowercase
-#                     alphanumerics and hyphens, no trailing hyphen). Enforcing
-#                     this before scaffolding prevents generating a project
-#                     whose pyproject.toml would be invalid.
-#                Done: Tests ``test_quickstart_rejects_invalid_name_*`` in
-#                      ``tests/test_quickstart.py`` pass for uppercase,
-#                      leading-digit, underscore, trailing-hyphen, and empty
-#                      name inputs. Error message states the rule verbatim.
-#                Non-Goals: Do not allow underscores (they are valid in PEP 508
-#                           but the spec narrows to hyphens for distribution
-#                           friendliness); do not normalize (no auto-lowercase).
+def _validate_project_name(name: str) -> None:
+    if not _project_name_pattern.match(name):
+        raise RSConnectException(f"Invalid project name {name!r}. {_PROJECT_NAME_RULE}")
 
 
-# TODO(EVO-120): Pre-flight check 4 - target directory must not exist.
-#                Scope: quickstart
-#                Why: SPEC §2 forbids in-place scaffolding and §10 lists this
-#                     as a fatal pre-flight check. Catching it before any
-#                     template work preserves the atomicity invariant (§11/I8)
-#                     trivially: there is nothing to roll back.
-#                Done: Test ``test_quickstart_fails_when_directory_exists`` in
-#                      ``tests/test_quickstart.py`` passes; the directory the
-#                      user already had is untouched; the error suggests a
-#                      different name or removing the existing directory.
-#                Non-Goals: Do not add a ``--force`` flag; the spec explicitly
-#                           rejects overwriting.
+def _require_target_does_not_exist(target: pathlib.Path) -> None:
+    if target.exists():
+        raise RSConnectException(
+            f"Target directory {target} already exists. Use a different name or remove the existing directory."
+        )
 
 
-# TODO(EVO-130): Pre-flight check 5 - current working directory is writable.
-#                Scope: quickstart
-#                Why: SPEC §10 step 5 requires a fail-fast permission check so
-#                     readonly-cwd users see a clear error rather than a
-#                     partial ``mkdir`` failure midway through scaffolding.
-#                Done: Test ``test_quickstart_requires_writable_cwd`` in
-#                      ``tests/test_quickstart.py`` passes by asserting a
-#                      non-zero exit and an actionable stderr when the current
-#                      directory is read-only (the test creates a readonly
-#                      temp dir and invokes the CLI from it).
-#                Non-Goals: Do not attempt fancy capability probing; a write
-#                           attempt (or ``os.access(os.W_OK)``) is sufficient.
+def _require_cwd_writable(cwd: pathlib.Path) -> None:
+    if not os.access(cwd, os.W_OK):
+        raise RSConnectException(
+            f"Current working directory {cwd} is not writable. "
+            "Change to a writable directory or adjust its permissions."
+        )
 
 
 # ---------------------------------------------------------------------------

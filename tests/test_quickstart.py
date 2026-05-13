@@ -137,10 +137,6 @@ def test_quickstart_delegates_to_run_quickstart(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-090): Pre-flight check 1 - require uv on PATH.",
-)
 def test_quickstart_requires_uv_on_path(runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
     """Pre-flight check 1: absent ``uv`` must produce a clear, actionable error."""
     monkeypatch.setenv("PATH", str(in_tmp_cwd))  # empty PATH so uv cannot be found
@@ -151,10 +147,6 @@ def test_quickstart_requires_uv_on_path(runner: CliRunner, in_tmp_cwd: pathlib.P
     assert not (in_tmp_cwd / "hello-app").exists()  # I8: no partial dir on pre-flight failure
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-090): Pre-flight check 1 - require uv on PATH (install hint).",
-)
 def test_quickstart_uv_missing_message_names_install(
     runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -167,15 +159,11 @@ def test_quickstart_uv_missing_message_names_install(
     assert re.search(r"install|astral|github\.com/astral-sh/uv", combined, re.IGNORECASE)
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-100): Pre-flight check 2 - validate <type> against supported list.",
-)
 def test_quickstart_unknown_type_lists_supported(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     result = _invoke_quickstart(runner, "nonesuch", "hello-app")
     assert result.exit_code != 0
     combined = result.output + (result.stderr if result.stderr_bytes else "")
-    for expected in ("streamlit", "shiny", "fastapi", "api", "notebook", "voila", "quarto"):
+    for expected in ("streamlit", "shiny", "fastapi", "api", "flask", "notebook", "voila", "quarto"):
         assert expected in combined, f"{expected!r} missing from error output: {combined!r}"
     assert not (in_tmp_cwd / "hello-app").exists()
 
@@ -192,20 +180,15 @@ def test_quickstart_unknown_type_lists_supported(runner: CliRunner, in_tmp_cwd: 
         "hello world",  # whitespace
     ],
 )
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-110): Pre-flight check 3 - validate <name> against PEP 508 subset.",
-)
 def test_quickstart_rejects_invalid_name(runner: CliRunner, in_tmp_cwd: pathlib.Path, bad_name: str):
     result = _invoke_quickstart(runner, "streamlit", bad_name)
     assert result.exit_code != 0
-    assert not (in_tmp_cwd / bad_name).exists()
+    # Empty-name case resolves to the cwd itself, which always exists;
+    # for every other invalid name, no partial directory may be left behind.
+    if bad_name:
+        assert not (in_tmp_cwd / bad_name).exists()
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-120): Pre-flight check 4 - target directory must not exist.",
-)
 def test_quickstart_fails_when_directory_exists(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     (in_tmp_cwd / "hello-app").mkdir()
     (in_tmp_cwd / "hello-app" / "existing-file.txt").write_text("keep me")
@@ -216,10 +199,6 @@ def test_quickstart_fails_when_directory_exists(runner: CliRunner, in_tmp_cwd: p
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="chmod read-only semantics differ on Windows")
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-130): Pre-flight check 5 - current working directory is writable.",
-)
 def test_quickstart_requires_writable_cwd(runner: CliRunner, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
     readonly = tmp_path / "readonly"
     readonly.mkdir()
@@ -231,6 +210,30 @@ def test_quickstart_requires_writable_cwd(runner: CliRunner, tmp_path: pathlib.P
         assert not (readonly / "hello-app").exists()
     finally:
         readonly.chmod(stat.S_IRWXU)
+
+
+def test_quickstart_flask_alias_passes_type_validation(runner: CliRunner, in_tmp_cwd: pathlib.Path):
+    """SPEC §4: 'flask' is accepted as an alias for 'api' at pre-flight."""
+    result = _invoke_quickstart(runner, "flask", "hello-app")
+    combined = result.output + (result.stderr if result.stderr_bytes else "")
+    # The type-validation gate does not reject 'flask'. The command still
+    # fails downstream (scaffolding is not implemented yet); that failure
+    # must not look like a type-rejection message.
+    # `flask` should NOT appear in a "supported types" error listing.
+    assert "Unsupported" not in combined and "supported types" not in combined.lower()
+
+
+def test_quickstart_preflight_order_uv_before_type(
+    runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """SPEC §10: uv-presence is checked before type validation."""
+    monkeypatch.setenv("PATH", str(in_tmp_cwd))  # uv unavailable
+    result = _invoke_quickstart(runner, "nonesuch", "hello-app")
+    assert result.exit_code != 0
+    combined = result.output + (result.stderr if result.stderr_bytes else "")
+    assert "uv" in combined.lower()
+    # If the type check had run, the message would name 'nonesuch'.
+    assert "nonesuch" not in combined.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -444,8 +447,12 @@ def test_quickstart_creates_populated_venv(runner: CliRunner, in_tmp_cwd: pathli
 # ---------------------------------------------------------------------------
 
 
+# strict=True: today this would XPASS for the wrong reason (no rollback runs
+# because the scaffold phase that would invoke the fake uv is not implemented
+# yet, so nothing is ever created to roll back). Flip to xfail-non-strict and
+# remove the decorator once the real rollback path lands.
 @pytest.mark.xfail(
-    strict=False,
+    strict=True,
     reason="TODO(EVO-250): Implement atomic rollback of ./<name>/ on any failure.",
 )
 def test_quickstart_rolls_back_directory_on_uv_failure(
@@ -535,8 +542,12 @@ def test_invariant_I1_I2_directory_and_pyproject(runner: CliRunner, in_tmp_cwd: 
         assert required in data["tool"]["rsconnect"]
 
 
+# strict=True: today this XPASSes via the directory-must-not-exist pre-flight,
+# but the test is intended to prove pipeline-level failure translation, not the
+# pre-flight short-circuit. Remove the decorator once the real pipeline path
+# raises and the message-quality assertions exercise that translation.
 @pytest.mark.xfail(
-    strict=False,
+    strict=True,
     reason=(
         "TODO(EVO-080): Invariants I9-I10 - non-zero exit and actionable "
         "stderr on failure (pipeline error translation)."
