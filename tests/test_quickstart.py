@@ -18,9 +18,11 @@ Test layout mirrors ``tests/test_main.py`` (CliRunner) and ``tests/test_pyprojec
 
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -124,7 +126,7 @@ def test_quickstart_delegates_to_run_quickstart(
     expected: typing.Mapping[str, typing.Any],
 ):
     run_quickstart = mock.Mock()
-    monkeypatch.setattr("rsconnect.quickstart.run_quickstart", run_quickstart)
+    monkeypatch.setattr("rsconnect.quickstart.quickstart.run_quickstart", run_quickstart)
 
     result = runner.invoke(cli, ["quickstart", *args])
 
@@ -337,22 +339,42 @@ def test_quickstart_app_mode_for_each_type(
 
 
 @pytest.mark.parametrize(
-    "app_type,expected_files,forbidden_files",
+    "app_type,expected_files,forbidden_files,content_sentinels",
     [
-        ("streamlit", {"app.py"}, {"__connect__.py", "__main__.py", "notebook.ipynb", "report.qmd"}),
-        ("shiny", {"app.py"}, {"__connect__.py", "__main__.py", "notebook.ipynb", "report.qmd"}),
-        ("fastapi", {"app.py", "__connect__.py", "__main__.py"}, {"notebook.ipynb", "report.qmd"}),
-        ("api", {"app.py", "__connect__.py", "__main__.py"}, {"notebook.ipynb", "report.qmd"}),
-        ("notebook", {"notebook.ipynb"}, {"app.py", "__connect__.py", "__main__.py", "report.qmd"}),
-        ("voila", {"notebook.ipynb"}, {"app.py", "__connect__.py", "__main__.py", "report.qmd"}),
-        ("quarto", {"report.qmd"}, {"app.py", "__connect__.py", "__main__.py", "notebook.ipynb"}),
+        (
+            "streamlit",
+            {"app.py"},
+            {"__connect__.py", "__main__.py", "notebook.ipynb", "report.qmd"},
+            {"app.py": "streamlit"},
+        ),
+        ("shiny", {"app.py"}, {"__connect__.py", "__main__.py", "notebook.ipynb", "report.qmd"}, {"app.py": "shiny"}),
+        (
+            "fastapi",
+            {"app.py", "__connect__.py", "__main__.py"},
+            {"notebook.ipynb", "report.qmd"},
+            {"app.py": "FastAPI"},
+        ),
+        ("api", {"app.py", "__connect__.py", "__main__.py"}, {"notebook.ipynb", "report.qmd"}, {"app.py": "Flask"}),
+        ("flask", {"app.py", "__connect__.py", "__main__.py"}, {"notebook.ipynb", "report.qmd"}, {"app.py": "Flask"}),
+        (
+            "notebook",
+            {"notebook.ipynb"},
+            {"app.py", "__connect__.py", "__main__.py", "report.qmd"},
+            {"notebook.ipynb": "cells"},
+        ),
+        (
+            "voila",
+            {"notebook.ipynb"},
+            {"app.py", "__connect__.py", "__main__.py", "report.qmd"},
+            {"notebook.ipynb": "cells"},
+        ),
+        (
+            "quarto",
+            {"report.qmd"},
+            {"app.py", "__connect__.py", "__main__.py", "notebook.ipynb"},
+            {"report.qmd": "title"},
+        ),
     ],
-)
-@pytest.mark.xfail(
-    strict=False,
-    reason=(
-        "TODO(EVO-160..220): Register the per-mode templates " "(file set covered by EVO-160..220 - one per app mode)."
-    ),
 )
 def test_quickstart_mode_file_set(
     runner: CliRunner,
@@ -360,6 +382,7 @@ def test_quickstart_mode_file_set(
     app_type: str,
     expected_files: set[str],
     forbidden_files: set[str],
+    content_sentinels: typing.Mapping[str, str],
 ):
     result = _invoke_quickstart(runner, app_type, "hello-app")
     assert result.exit_code == 0, result.output
@@ -369,12 +392,12 @@ def test_quickstart_mode_file_set(
         assert name in present, f"{name} missing; got {present}"
     for name in forbidden_files:
         assert name not in present, f"{name} unexpectedly present; SPEC §6 forbids it for {app_type}"
+    # Sentinel substrings guard against an empty/placeholder template body slipping through.
+    for filename, sentinel in content_sentinels.items():
+        body = (project / filename).read_text()
+        assert sentinel in body, f"{filename} missing sentinel {sentinel!r}; got {body!r}"
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-180): Register the fastapi template (module-style, entrypoint).",
-)
 def test_quickstart_fastapi_entrypoint_is_connect_app(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     result = _invoke_quickstart(runner, "fastapi", "hello-app")
     assert result.exit_code == 0, result.output
@@ -385,10 +408,6 @@ def test_quickstart_fastapi_entrypoint_is_connect_app(runner: CliRunner, in_tmp_
     assert "app = " in connect_py
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-180): Register the fastapi template (module-style, __main__).",
-)
 def test_quickstart_fastapi_main_runs_uvicorn(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     result = _invoke_quickstart(runner, "fastapi", "hello-app")
     assert result.exit_code == 0, result.output
@@ -396,15 +415,49 @@ def test_quickstart_fastapi_main_runs_uvicorn(runner: CliRunner, in_tmp_cwd: pat
     assert "uvicorn" in main_py
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-190): Register the api / flask template.",
-)
 def test_quickstart_api_main_runs_flask_dev_server(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     result = _invoke_quickstart(runner, "api", "hello-app")
     assert result.exit_code == 0, result.output
     main_py = (in_tmp_cwd / "hello-app" / "__main__.py").read_text()
     assert "flask" in main_py.lower() or "app.run(" in main_py
+
+
+@pytest.mark.parametrize(
+    "app_type,filename",
+    [
+        ("streamlit", "app.py"),
+        ("quarto", "report.qmd"),
+        ("notebook", "notebook.ipynb"),
+    ],
+)
+def test_quickstart_substitutes_name_in_template_body(
+    runner: CliRunner, in_tmp_cwd: pathlib.Path, app_type: str, filename: str
+):
+    """Verify ``{name}`` substitution actually runs on template content."""
+    result = _invoke_quickstart(runner, app_type, "alt-project")
+    assert result.exit_code == 0, result.output
+    body = (in_tmp_cwd / "alt-project" / filename).read_text()
+    assert "alt-project" in body, body
+
+
+def test_quickstart_notebook_is_valid_json(runner: CliRunner, in_tmp_cwd: pathlib.Path):
+    """The generated notebook.ipynb must parse as JSON after name substitution."""
+    result = _invoke_quickstart(runner, "notebook", "hello-app")
+    assert result.exit_code == 0, result.output
+    body = (in_tmp_cwd / "hello-app" / "notebook.ipynb").read_text()
+    data = json.loads(body)
+    assert data["nbformat"] >= 4
+    assert isinstance(data["cells"], list) and len(data["cells"]) >= 1
+
+
+def test_quickstart_voila_and_notebook_share_template(runner: CliRunner, in_tmp_cwd: pathlib.Path):
+    """SPEC §6.3: voila reuses the notebook template rather than duplicating it."""
+    _invoke_quickstart(runner, "notebook", "hello-app")
+    notebook_body = (in_tmp_cwd / "hello-app" / "notebook.ipynb").read_text()
+    shutil.rmtree(in_tmp_cwd / "hello-app")
+    _invoke_quickstart(runner, "voila", "hello-app")
+    voila_body = (in_tmp_cwd / "hello-app" / "notebook.ipynb").read_text()
+    assert notebook_body == voila_body
 
 
 # ---------------------------------------------------------------------------
@@ -553,7 +606,7 @@ def test_quickstart_registry_accepts_new_mode(
     working scaffold without touching the pre-flight, pyproject writer, or
     post-scaffold output modules.
     """
-    from rsconnect import quickstart as qs
+    from rsconnect.quickstart import quickstart as qs
 
     new_spec = qs.TemplateSpec(
         app_mode="python-newmode",

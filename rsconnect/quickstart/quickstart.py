@@ -19,11 +19,12 @@ from __future__ import annotations
 import dataclasses
 import os
 import pathlib
+import pkgutil
 import re
 import shutil
 import typing
 
-from .exception import RSConnectException
+from ..exception import RSConnectException
 
 
 # Supported CLI ``<type>`` values per SPEC §4. ``flask`` is an alias for
@@ -92,28 +93,27 @@ def run_quickstart(
     # impossible flag combinations only.
     spec = lookup_template(app_type, static=static, shiny=shiny)
 
-    # SPEC §5.1: create the project directory and the always-present files.
-    # Mode-specific source files, venv population, post-scaffold output, and
-    # rollback land in subsequent evolutions (see TODO(EVO-080) below).
-    target.mkdir()
-    _write_always_present_files(target, name=name, spec=spec)
+    # SPEC §5.1 + §6: create the project directory and all of its files in
+    # one filesystem-generation phase. Venv population, post-scaffold
+    # output, and rollback land in subsequent evolutions (see TODO(EVO-080)
+    # below) and plug in around this step, not inside it.
+    _scaffold(target, name=name, spec=spec)
 
-    # TODO(EVO-080): Finish the scaffold + venv + post-output phases.
+    # TODO(EVO-080): Finish the venv + post-output + rollback phases.
     #                Scope: quickstart
-    #                Why: Pre-flight (SPEC §10), directory creation, and the
-    #                     always-present files (SPEC §5.1) are landed. The
-    #                     remaining flow (mode-specific source files,
-    #                     ``uv venv`` + ``uv sync``, post-scaffold stdout per
-    #                     §12, and rollback per §11) still needs to live
-    #                     behind this public entrypoint so the capability
-    #                     stays understandable through one module boundary.
-    #                Done: Calling ``run_quickstart`` with valid inputs
-    #                      writes the per-mode source files (§6), runs
+    #                Why: Pre-flight (SPEC §10) and filesystem generation
+    #                     (SPEC §5.1 + §6, via ``_scaffold``) are landed.
+    #                     The remaining flow (``uv venv`` + ``uv sync``,
+    #                     post-scaffold stdout per §12, and rollback per
+    #                     §11) still needs to live behind this public
+    #                     entrypoint so the capability stays understandable
+    #                     through one module boundary.
+    #                Done: Calling ``run_quickstart`` with valid inputs runs
     #                      ``uv venv`` + ``uv sync``, prints the §12 lines,
     #                      and rolls back ``./<name>/`` on any failure. The
     #                      ATDD tests still marked ``xfail`` in
-    #                      ``tests/test_quickstart.py`` (per-mode file sets,
-    #                      ``creates_populated_venv``,
+    #                      ``tests/test_quickstart.py``
+    #                      (``creates_populated_venv``,
     #                      ``post_scaffold_output``,
     #                      ``rolls_back_directory_on_uv_failure``,
     #                      ``invariant_I9_I10_failure_exit_and_message``)
@@ -179,7 +179,7 @@ def _require_cwd_writable(cwd: pathlib.Path) -> None:
 # hello-world, and the source files the per-mode template materializes.
 #
 # Adding a future supported mode is a registry insertion plus dropping a
-# directory under ``rsconnect/quickstart_templates/<mode>/``; no pre-flight,
+# directory under ``rsconnect/quickstart/templates/<mode>/``; no pre-flight,
 # pyproject-writer, or post-output code needs to change.
 
 
@@ -189,8 +189,15 @@ class FileSpec:
 
     :param str name: filename relative to the project root.
     :param str template: path to the template body under
-        ``rsconnect/quickstart_templates/``, discovered via
-        :mod:`importlib.resources`.
+        ``rsconnect/quickstart/templates/``, loaded via
+        :func:`pkgutil.get_data`. Template files use the ``.tmpl`` suffix
+        to signal "needs substitution before becoming a usable artifact"
+        and to prevent accidental Python import of files that may not be
+        valid source on their own. The single token ``{name}`` in the body
+        is substituted with the project name via
+        ``str.replace("{name}", name)``; no other interpolation runs, so
+        templates carrying literal braces (e.g. ``notebook.ipynb`` JSON)
+        are unaffected.
     """
 
     name: str
@@ -214,8 +221,10 @@ class TemplateSpec:
     :param tuple dependencies: minimum runtime dependencies for the
         hello-world, written to ``[project.dependencies]``.
     :param tuple source_files: per-mode template files to materialize.
-        Empty for modes whose templates have not landed yet; populated by
-        the per-mode evolutions below.
+        Each entry's body is loaded from
+        ``rsconnect/quickstart/templates/`` and run through
+        ``str.replace("{name}", name)`` at scaffold time. Empty only for
+        modes whose templates have not landed yet.
     """
 
     app_mode: str
@@ -235,63 +244,74 @@ _REGISTRY: typing.Mapping[typing.Tuple[str, bool, bool], TemplateSpec] = {
         entrypoint="app.py",
         local_run_command=("uv", "run", "streamlit", "run", "app.py"),
         dependencies=("streamlit",),
-        source_files=(),
+        source_files=(FileSpec(name="app.py", template="streamlit/app.py.tmpl"),),
     ),
     ("shiny", False, False): TemplateSpec(
         app_mode="python-shiny",
         entrypoint="app.py",
         local_run_command=("uv", "run", "shiny", "run", "app.py"),
         dependencies=("shiny",),
-        source_files=(),
+        source_files=(FileSpec(name="app.py", template="shiny/app.py.tmpl"),),
     ),
     ("fastapi", False, False): TemplateSpec(
         app_mode="python-fastapi",
         entrypoint="__connect__:app",
         local_run_command=("uv", "run", "python", "-m", "{name}"),
         dependencies=("fastapi", "uvicorn"),
-        source_files=(),
+        source_files=(
+            FileSpec(name="app.py", template="fastapi/app.py.tmpl"),
+            FileSpec(name="__connect__.py", template="fastapi/__connect__.py.tmpl"),
+            FileSpec(name="__main__.py", template="fastapi/__main__.py.tmpl"),
+        ),
     ),
     ("api", False, False): TemplateSpec(
         app_mode="python-api",
         entrypoint="__connect__:app",
         local_run_command=("uv", "run", "python", "-m", "{name}"),
         dependencies=("flask",),
-        source_files=(),
+        source_files=(
+            FileSpec(name="app.py", template="api/app.py.tmpl"),
+            FileSpec(name="__connect__.py", template="api/__connect__.py.tmpl"),
+            FileSpec(name="__main__.py", template="api/__main__.py.tmpl"),
+        ),
     ),
+    # Both the default and --static notebook variants share one template;
+    # the registry distinguishes them only by ``app_mode`` (see SPEC §6.3).
+    # The voila entry below reuses the same template file too.
     ("notebook", False, False): TemplateSpec(
         app_mode="jupyter-static",
         entrypoint="notebook.ipynb",
         local_run_command=("uv", "run", "jupyter", "lab", "notebook.ipynb"),
         dependencies=("jupyter",),
-        source_files=(),
+        source_files=(FileSpec(name="notebook.ipynb", template="notebook/notebook.ipynb.tmpl"),),
     ),
     ("notebook", True, False): TemplateSpec(
         app_mode="jupyter-static",
         entrypoint="notebook.ipynb",
         local_run_command=("uv", "run", "jupyter", "lab", "notebook.ipynb"),
         dependencies=("jupyter",),
-        source_files=(),
+        source_files=(FileSpec(name="notebook.ipynb", template="notebook/notebook.ipynb.tmpl"),),
     ),
     ("voila", False, False): TemplateSpec(
         app_mode="jupyter-voila",
         entrypoint="notebook.ipynb",
         local_run_command=("uv", "run", "voila", "notebook.ipynb"),
         dependencies=("voila", "jupyter"),
-        source_files=(),
+        source_files=(FileSpec(name="notebook.ipynb", template="notebook/notebook.ipynb.tmpl"),),
     ),
     ("quarto", False, False): TemplateSpec(
         app_mode="quarto-static",
         entrypoint="report.qmd",
         local_run_command=("uv", "run", "quarto", "preview", "report.qmd"),
         dependencies=(),
-        source_files=(),
+        source_files=(FileSpec(name="report.qmd", template="quarto/report.qmd.tmpl"),),
     ),
     ("quarto", False, True): TemplateSpec(
         app_mode="quarto-shiny",
         entrypoint="report.qmd",
         local_run_command=("uv", "run", "quarto", "preview", "report.qmd"),
         dependencies=("shiny",),
-        source_files=(),
+        source_files=(FileSpec(name="report.qmd", template="quarto/report.qmd.tmpl"),),
     ),
 }
 
@@ -319,23 +339,34 @@ def lookup_template(app_type: str, *, static: bool = False, shiny: bool = False)
 
 
 # ---------------------------------------------------------------------------
-# Always-present files (SPEC §5.1 / §3)
+# Filesystem generation (SPEC §5.1 / §6 / §3)
 # ---------------------------------------------------------------------------
 
 
-def _write_always_present_files(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> None:
-    """Materialize the four files SPEC §5.1 requires in every scaffold.
+def _scaffold(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> None:
+    """Create the project directory and every file it should contain.
 
-    The pyproject.toml carries both ``[project]`` (name, version,
-    requires-python, dependencies) and the SPEC §3 ``[tool.rsconnect]``
-    table with exactly three keys. The README and post-scaffold output
-    share the same two commands derived from ``spec`` so the two stay in
-    sync without a separate source of truth.
+    This is the SPEC §5.1 + §6 filesystem-generation phase: the project
+    directory, the four always-present files (``pyproject.toml``,
+    ``.python-version``, ``.gitignore``, ``README.md``), and the per-mode
+    source files materialized from ``spec.source_files``. The remaining
+    scaffold scope tracked by the ``TODO`` markers below in this module
+    (``uv`` venv population, post-scaffold stdout, and rollback) plugs in
+    around this step, not inside it.
     """
+    target.mkdir()
     (target / "pyproject.toml").write_text(_render_pyproject(name=name, spec=spec), encoding="utf-8")
     (target / ".python-version").write_text(f"{_PYTHON_VERSION}\n", encoding="utf-8")
     (target / ".gitignore").write_text(_GITIGNORE_BODY, encoding="utf-8")
     (target / "README.md").write_text(_render_readme(name=name, spec=spec), encoding="utf-8")
+    for file_spec in spec.source_files:
+        # ``pkgutil.get_data`` is stdlib since Python 3.0 and works under
+        # wheel install, unlike ``importlib.resources.files`` which is 3.9+.
+        data = pkgutil.get_data("rsconnect.quickstart.templates", file_spec.template)
+        if data is None:
+            raise RSConnectException(f"Template not found: {file_spec.template}")
+        body = data.decode("utf-8").replace("{name}", name)
+        (target / file_spec.name).write_text(body, encoding="utf-8")
 
 
 # SPEC-pinned literals: kept as separate constants because they encode two
@@ -392,118 +423,6 @@ def _format_local_run(spec: TemplateSpec, *, name: str) -> str:
     # placeholder for module-style modes. Substitute once at scaffold time so
     # README and post-scaffold stdout share one rendering path.
     return " ".join(token.replace("{name}", name) for token in spec.local_run_command)
-
-
-# ---------------------------------------------------------------------------
-# Per-mode template registrations (SPEC §6 / §9)
-# ---------------------------------------------------------------------------
-#
-# Each evolution below fills the ``source_files`` tuple for one registry
-# entry above and adds the corresponding template files under
-# ``rsconnect/quickstart_templates/``. The pyproject / .python-version /
-# .gitignore / README writer above is mode-agnostic and does not change as
-# modes are added.
-
-
-# TODO(EVO-160): Register the streamlit template (script-style).
-#                Scope: quickstart
-#                Why: SPEC §4 / §6.2 / §12 define the streamlit template:
-#                     one ``app.py`` with ``st.write("Hello world")``, no
-#                     ``__connect__.py``, no ``__main__.py``; entrypoint
-#                     ``"app.py"``; local-run ``uv run streamlit run app.py``.
-#                     Land one script-style mode first so the scaffolding
-#                     framework is proven end to end.
-#                Done: Test ``test_quickstart_streamlit_file_set`` passes
-#                      (only the expected files exist) and
-#                      ``test_quickstart_streamlit_post_scaffold_output``
-#                      asserts the post-scaffold stdout quotes the documented
-#                      local-run and deploy commands verbatim.
-#                Non-Goals: Do not delegate to ``streamlit create`` - templates
-#                           are owned per §9.1.
-
-
-# TODO(EVO-170): Register the shiny template (script-style).
-#                Scope: quickstart
-#                Why: SPEC §4 / §6.2 define the Python Shiny template: a
-#                     single ``app.py`` with a Shiny Express or Core
-#                     hello-world; entrypoint ``"app.py"``; local-run
-#                     ``uv run shiny run app.py``; app_mode ``python-shiny``.
-#                Done: Test ``test_quickstart_shiny_file_set`` and
-#                      ``test_quickstart_shiny_post_scaffold_output`` pass.
-#                Non-Goals: Do not pick between Shiny Express and Core via a
-#                           flag - pick one idiomatic hello-world per §9.2
-#                           and document it.
-
-
-# TODO(EVO-180): Register the fastapi template (module-style).
-#                Scope: quickstart
-#                Why: SPEC §6.1 defines the module-style shape: ``app.py``
-#                     with a ``create_app()`` factory, ``__connect__.py``
-#                     exposing ``app = create_app()``, ``__main__.py`` that
-#                     runs uvicorn locally. Entrypoint is ``__connect__:app``;
-#                     local-run is ``uv run python -m <name>``. Landing one
-#                     module-style mode proves the shim pattern.
-#                Done: Tests ``test_quickstart_fastapi_file_set``,
-#                      ``test_quickstart_fastapi_entrypoint_is_connect_app``,
-#                      and ``test_quickstart_fastapi_main_runs_uvicorn`` pass.
-#                Non-Goals: Do not inline uvicorn as a runtime dependency in
-#                           ``app.py``; it belongs behind ``__main__.py`` so
-#                           ``app.py`` stays framework-idiomatic.
-
-
-# TODO(EVO-190): Register the api / flask template (module-style, alias-aware).
-#                Scope: quickstart
-#                Why: SPEC §4 lists ``api`` with alias ``flask``; both produce
-#                     the same scaffold and app_mode ``python-api``. Module
-#                     shape mirrors fastapi: ``app.py`` factory,
-#                     ``__connect__.py`` shim, ``__main__.py`` runs Flask's
-#                     built-in server.
-#                Done: Tests
-#                      ``test_quickstart_flask_alias_maps_to_api_mode``,
-#                      ``test_quickstart_api_file_set``, and
-#                      ``test_quickstart_api_main_runs_flask_dev_server`` pass.
-#                Non-Goals: Do not use a production WSGI server in
-#                           ``__main__.py`` - it is explicitly the dev server.
-
-
-# TODO(EVO-200): Register the notebook template (jupyter, --static flag aware).
-#                Scope: quickstart
-#                Why: SPEC §2.1 + §4 + §6.3: ``jupyter`` accepts ``--static``
-#                     which flips app_mode between ``jupyter-static``
-#                     (default) and ``jupyter-static``. The template generates
-#                     ``notebook.ipynb`` with a couple of cells; entrypoint is
-#                     ``notebook.ipynb``. This uses the existing
-#                     ``jupyter-static`` mode in ``rsconnect/models.py::AppModes``.
-#                Done: Tests ``test_quickstart_notebook_default_app_mode``,
-#                      ``test_quickstart_notebook_static_flag_sets_mode``, and
-#                      ``test_quickstart_notebook_file_set`` pass.
-#                Non-Goals: Do not render the notebook at scaffold time; the
-#                           local-run command handles rendering.
-
-
-# TODO(EVO-210): Register the voila template (jupyter-voila).
-#                Scope: quickstart
-#                Why: SPEC §4 + §6.3 + §12: voila reuses ``notebook.ipynb`` as
-#                     the entrypoint but with app_mode ``jupyter-voila`` and
-#                     local-run ``uv run voila notebook.ipynb``.
-#                Done: Tests ``test_quickstart_voila_file_set`` and
-#                      ``test_quickstart_voila_app_mode`` pass.
-#                Non-Goals: Do not duplicate the notebook template file - share
-#                           it via the template-registry layout.
-
-
-# TODO(EVO-220): Register the quarto template (--shiny flag aware).
-#                Scope: quickstart
-#                Why: SPEC §2.1 + §4 + §6.3: ``quarto`` defaults to static
-#                     (app_mode ``quarto-static``); ``--shiny`` flips to
-#                     ``quarto-shiny``. Both variants generate ``report.qmd``
-#                     with a minimal Quarto document. Local-run is
-#                     ``uv run quarto preview report.qmd`` either way.
-#                Done: Tests ``test_quickstart_quarto_default_static``,
-#                      ``test_quickstart_quarto_shiny_flag_sets_mode``, and
-#                      ``test_quickstart_quarto_file_set`` pass.
-#                Non-Goals: Do not shell out to ``quarto create-project``
-#                           (§9.1 - templates are owned).
 
 
 # TODO(EVO-240): Run ``uv venv`` + ``uv sync`` inside the scaffolded directory.

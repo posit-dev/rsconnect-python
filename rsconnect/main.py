@@ -1272,7 +1272,7 @@ def info(file: str):
 @click.option("--shiny", is_flag=True, help="(quarto only) emit quarto-shiny instead of quarto-static.")
 @cli_exception_handler
 def quickstart(app_type: str, name: str, static: bool, shiny: bool):
-    from .quickstart import run_quickstart
+    from .quickstart.quickstart import run_quickstart
 
     run_quickstart(app_type=app_type, name=name, static=static, shiny=shiny)
 
