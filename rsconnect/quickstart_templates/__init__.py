@@ -11,22 +11,28 @@ See ``rsconnect/quickstart.py`` for the public entrypoint and the evolution
 marker that defines the registry contract.
 """
 
-# TODO(EVO-270): Decide template storage format and ship the v1 templates.
+# TODO(EVO-270): Ship the per-mode template files under this package.
 #                Scope: quickstart
-#                Why: SPEC §17.5 leaves the choice open (plain copy with
-#                     string substitution, Jinja2, Tempita, ...). v1 needs one
-#                     concrete choice plus the eight supported-mode templates
-#                     (streamlit, shiny, fastapi, api/flask, notebook, voila,
-#                     quarto-static, quarto-shiny). Templates must be
-#                     discoverable at runtime (either as ``package_data`` or
-#                     via ``importlib.resources``) so they survive wheel
-#                     install.
+#                Why: The storage format is locked: stdlib ``str.format``
+#                     substitution on plain text files discovered at runtime
+#                     via :func:`importlib.resources.files`, laid out as
+#                     ``rsconnect/quickstart_templates/<mode>/<file>`` so
+#                     they survive wheel install. What remains is the
+#                     per-mode content (streamlit, shiny, fastapi, api/flask,
+#                     notebook, voila, quarto-static, quarto-shiny) referenced
+#                     by each :class:`rsconnect.quickstart.FileSpec`.
 #                Done: Every per-mode evolution in ``rsconnect/quickstart.py``
 #                      (``Register the <mode> template ...``) has its
-#                      template files materialized here; the ATDD tests in
+#                      ``source_files`` tuple populated and a matching file
+#                      laid down under this package; the ATDD tests in
 #                      ``tests/test_quickstart.py`` that assert on generated
 #                      file contents pass.
-#                Non-Goals: Do not introduce a template engine when plain
-#                           string substitution suffices; do not add build
-#                           steps; do not mix R or Node templates in (v1 is
-#                           Python-only per §16).
+#                Non-Goals: Do not introduce a template engine - stdlib
+#                           ``str.format`` is the chosen format. Do not add
+#                           build steps; do not mix R or Node templates in
+#                           (v1 is Python-only per §16).
+#                Caveat: :func:`importlib.resources.files` is Python 3.9+;
+#                        ``rsconnect-python`` advertises ``requires-python
+#                        >= 3.8``. When this marker lands, either use the
+#                        ``importlib_resources`` backport on 3.8 or coordinate
+#                        a floor bump first.
