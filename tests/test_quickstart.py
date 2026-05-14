@@ -241,22 +241,15 @@ def test_quickstart_preflight_order_uv_before_type(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-140): Create the project directory and always-present files.",
-)
 def test_quickstart_generates_always_present_files(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     result = _invoke_quickstart(runner, "streamlit", "hello-app")
     assert result.exit_code == 0, result.output
     project = in_tmp_cwd / "hello-app"
     for name in ("pyproject.toml", ".python-version", ".gitignore", "README.md"):
         assert (project / name).is_file(), f"{name} missing from {list(project.iterdir())}"
+    assert (project / ".python-version").read_text().strip() == "3.11"
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-140): Create the project directory and always-present files (gitignore).",
-)
 def test_quickstart_gitignore_covers_rsconnect_dirs(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     result = _invoke_quickstart(runner, "streamlit", "hello-app")
     assert result.exit_code == 0, result.output
@@ -265,10 +258,6 @@ def test_quickstart_gitignore_covers_rsconnect_dirs(runner: CliRunner, in_tmp_cw
         assert expected in gitignore, f"{expected} missing from .gitignore"
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-140): Invariant I6 - no manifest.json on scaffold.",
-)
 def test_quickstart_does_not_create_manifest_json(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     result = _invoke_quickstart(runner, "streamlit", "hello-app")
     assert result.exit_code == 0, result.output
@@ -280,26 +269,20 @@ def test_quickstart_does_not_create_manifest_json(runner: CliRunner, in_tmp_cwd:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-150): Write the [tool.rsconnect] table to pyproject.toml.",
-)
 def test_quickstart_pyproject_has_tool_rsconnect(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     result = _invoke_quickstart(runner, "streamlit", "hello-app")
     assert result.exit_code == 0, result.output
     data = _read_pyproject(in_tmp_cwd / "hello-app")
     assert data["project"]["name"] == "hello-app"
     assert data["project"]["version"] == "0.0.1"
+    assert data["project"]["requires-python"] == ">=3.9"
+    assert data["project"]["dependencies"] == ["streamlit"]
     tool_rsconnect = data["tool"]["rsconnect"]
     assert tool_rsconnect["app_mode"] == "python-streamlit"
     assert tool_rsconnect["entrypoint"] == "app.py"
     assert tool_rsconnect["title"] == "hello-app"
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-150): Write the [tool.rsconnect] table to pyproject.toml (no duplication).",
-)
 def test_quickstart_does_not_duplicate_deps_in_tool_rsconnect(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     """SPEC §3.2: dependencies and requires-python live in [project], not in [tool.rsconnect]."""
     result = _invoke_quickstart(runner, "streamlit", "hello-app")
@@ -331,10 +314,6 @@ APP_MODE_MATRIX = [
 
 
 @pytest.mark.parametrize("cli_args,expected_mode", APP_MODE_MATRIX)
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-150): Write the [tool.rsconnect] table to pyproject.toml (per-mode app_mode).",
-)
 def test_quickstart_app_mode_for_each_type(
     runner: CliRunner,
     in_tmp_cwd: pathlib.Path,
@@ -345,7 +324,11 @@ def test_quickstart_app_mode_for_each_type(
     args = [cli_args[0], *cli_args[1:], "hello-app"]
     result = _invoke_quickstart(runner, *args)
     assert result.exit_code == 0, result.output
-    assert _read_pyproject(in_tmp_cwd / "hello-app")["tool"]["rsconnect"]["app_mode"] == expected_mode
+    tool_rsconnect = _read_pyproject(in_tmp_cwd / "hello-app")["tool"]["rsconnect"]
+    assert tool_rsconnect["app_mode"] == expected_mode
+    if expected_mode == "python-api":
+        # Flask aliases to api: both module-style modes share entrypoint.
+        assert tool_rsconnect["entrypoint"] == "__connect__:app"
 
 
 # ---------------------------------------------------------------------------
@@ -510,10 +493,6 @@ def test_quickstart_post_scaffold_output(
     assert "rsconnect deploy pyproject hello-app" in result.output
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-260): Emit the post-scaffold confirmation and command lines (README parity).",
-)
 def test_quickstart_readme_matches_post_scaffold_output(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     result = _invoke_quickstart(runner, "streamlit", "hello-app")
     assert result.exit_code == 0, result.output
@@ -527,10 +506,6 @@ def test_quickstart_readme_matches_post_scaffold_output(runner: CliRunner, in_tm
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-080): Invariants I1-I2 - directory exists and pyproject is valid (covered by the full pipeline).",
-)
 def test_invariant_I1_I2_directory_and_pyproject(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     result = _invoke_quickstart(runner, "streamlit", "hello-app")
     assert result.exit_code == 0, result.output
@@ -546,6 +521,8 @@ def test_invariant_I1_I2_directory_and_pyproject(runner: CliRunner, in_tmp_cwd: 
 # but the test is intended to prove pipeline-level failure translation, not the
 # pre-flight short-circuit. Remove the decorator once the real pipeline path
 # raises and the message-quality assertions exercise that translation.
+# Persistent RED in CI until the TODO(EVO-080) work lands and this test is
+# rewritten to inject a pipeline-level failure (e.g., mock a uv subprocess error).
 @pytest.mark.xfail(
     strict=True,
     reason=(
@@ -566,26 +543,37 @@ def test_invariant_I9_I10_failure_exit_and_message(runner: CliRunner, in_tmp_cwd
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-230): Define the template registry layout and extension contract.",
-)
 def test_quickstart_registry_accepts_new_mode(
     runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ):
-    """A future template can be registered by inserting into the registry alone.
+    """SPEC §4.1: adding a mode is "drop a template directory plus register it."
 
-    This test is aspirational - it documents the extensibility invariant from
-    SPEC §4.1. The implementer decides the exact registry shape; what matters
-    is that inserting a ninth mode does not require touching pre-flight,
-    pyproject writing, or post-scaffold output modules.
+    The test proves the extensibility contract: inserting a new row into
+    ``_REGISTRY`` (plus a corresponding ``SUPPORTED_APP_TYPES`` entry) yields a
+    working scaffold without touching the pre-flight, pyproject writer, or
+    post-scaffold output modules.
     """
-    # Import here so the test collection does not fail before the module exists.
-    import rsconnect.quickstart as quickstart_mod  # noqa: F401
+    from rsconnect import quickstart as qs
 
-    # The implementer provides a registry accessor; the test asserts extension
-    # works without other code changes. Exact API is left to the evolution.
-    assert hasattr(quickstart_mod, "run_quickstart")
+    new_spec = qs.TemplateSpec(
+        app_mode="python-newmode",
+        entrypoint="app.py",
+        local_run_command=("uv", "run", "newtool", "app.py"),
+        dependencies=("newtool",),
+        source_files=(),
+    )
+    extended_registry = dict(qs._REGISTRY)
+    extended_registry[("newmode", False, False)] = new_spec
+    monkeypatch.setattr(qs, "_REGISTRY", extended_registry)
+    monkeypatch.setattr(qs, "SUPPORTED_APP_TYPES", qs.SUPPORTED_APP_TYPES + ("newmode",))
+
+    result = _invoke_quickstart(runner, "newmode", "hello-app")
+
+    assert result.exit_code == 0, result.output
+    data = _read_pyproject(in_tmp_cwd / "hello-app")
+    assert data["tool"]["rsconnect"]["app_mode"] == "python-newmode"
+    assert data["tool"]["rsconnect"]["entrypoint"] == "app.py"
+    assert data["project"]["dependencies"] == ["newtool"]
 
 
 # ---------------------------------------------------------------------------

@@ -16,6 +16,7 @@ contract.
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import pathlib
 import re
@@ -86,32 +87,42 @@ def run_quickstart(
     _require_target_does_not_exist(target)
     _require_cwd_writable(cwd)
 
-    # TODO(EVO-080): Implement the scaffold + venv + post-output phases.
+    # SPEC §4/§6: resolve the per-mode template once. Pre-flight already
+    # validated ``app_type``; ``lookup_template`` is defensive against
+    # impossible flag combinations only.
+    spec = lookup_template(app_type, static=static, shiny=shiny)
+
+    # SPEC §5.1: create the project directory and the always-present files.
+    # Mode-specific source files, venv population, post-scaffold output, and
+    # rollback land in subsequent evolutions (see TODO(EVO-080) below).
+    target.mkdir()
+    _write_always_present_files(target, name=name, spec=spec)
+
+    # TODO(EVO-080): Finish the scaffold + venv + post-output phases.
     #                Scope: quickstart
-    #                Why: Pre-flight passes (SPEC §10) are landed. The
-    #                     remaining flow (template rendering, pyproject.toml
-    #                     writing, ``uv venv`` + ``uv sync``, post-scaffold
-    #                     stdout per §12, and rollback per §11) still needs
-    #                     to live behind this public entrypoint so the
-    #                     capability stays understandable through one
-    #                     module boundary.
+    #                Why: Pre-flight (SPEC §10), directory creation, and the
+    #                     always-present files (SPEC §5.1) are landed. The
+    #                     remaining flow (mode-specific source files,
+    #                     ``uv venv`` + ``uv sync``, post-scaffold stdout per
+    #                     §12, and rollback per §11) still needs to live
+    #                     behind this public entrypoint so the capability
+    #                     stays understandable through one module boundary.
     #                Done: Calling ``run_quickstart`` with valid inputs
-    #                      creates the directory tree per SPEC §5/§6, writes
-    #                      a pyproject.toml per §3/§8.2, runs ``uv venv`` +
-    #                      ``uv sync``, prints the §12 lines, and returns
-    #                      the project path. The ATDD tests in
-    #                      ``tests/test_quickstart.py`` named
-    #                      ``test_quickstart_creates_*`` and
-    #                      ``test_quickstart_*_post_scaffold_output`` pass.
-    #                Non-Goals: Do not implement framework-specific templates
-    #                           here (that is separate per-mode evolutions);
-    #                           do not implement the ``deploy pyproject``
+    #                      writes the per-mode source files (§6), runs
+    #                      ``uv venv`` + ``uv sync``, prints the §12 lines,
+    #                      and rolls back ``./<name>/`` on any failure. The
+    #                      ATDD tests still marked ``xfail`` in
+    #                      ``tests/test_quickstart.py`` (per-mode file sets,
+    #                      ``creates_populated_venv``,
+    #                      ``post_scaffold_output``,
+    #                      ``rolls_back_directory_on_uv_failure``,
+    #                      ``invariant_I9_I10_failure_exit_and_message``)
+    #                      pass without ``xfail``.
+    #                Non-Goals: Do not implement the ``deploy pyproject``
     #                           command; do not add interactive prompts or a
     #                           ``--deploy`` flag.
-    raise NotImplementedError(
-        "rsconnect quickstart scaffolding is not yet implemented; "
-        "see SPEC_QUICKSTART.md and the TODO markers in rsconnect/quickstart.py"
-    )
+
+    return target
 
 
 # ---------------------------------------------------------------------------
@@ -158,51 +169,240 @@ def _require_cwd_writable(cwd: pathlib.Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Scaffolding phases (SPEC §5 / §6 / §9)
+# Template registry (SPEC §4 / §6 / §8.2 / §12)
 # ---------------------------------------------------------------------------
 #
-# After pre-flight succeeds, the scaffold phase creates the directory,
-# materializes the template for the chosen mode, writes pyproject.toml with a
-# valid [tool.rsconnect] section, seeds .python-version / .gitignore /
-# README.md, then runs uv to populate .venv/. Each of these is a separate
-# evolution so the devteam can land them in order and the ATDD suite has
-# meaningful per-evolution acceptance signals.
+# The registry is the single source of truth that ties together what each
+# supported mode produces: the canonical Connect ``app_mode`` written to
+# ``[tool.rsconnect]``, the entrypoint form per §6, the local-run command
+# documented in §12 and the README, the minimum dependencies for the
+# hello-world, and the source files the per-mode template materializes.
+#
+# Adding a future supported mode is a registry insertion plus dropping a
+# directory under ``rsconnect/quickstart_templates/<mode>/``; no pre-flight,
+# pyproject-writer, or post-output code needs to change.
 
 
-# TODO(EVO-140): Create the project directory and always-present files.
-#                Scope: quickstart
-#                Why: SPEC §5.1 fixes a uniform "always present" set -
-#                     pyproject.toml, .python-version, .gitignore, README.md -
-#                     across every mode. Landing the mode-agnostic skeleton
-#                     first makes later per-mode evolutions a pure "add source
-#                     files" change.
-#                Done: Tests
-#                      ``test_quickstart_generates_always_present_files`` and
-#                      ``test_quickstart_gitignore_covers_rsconnect_dirs`` in
-#                      ``tests/test_quickstart.py`` pass: the four files exist
-#                      with the expected baseline content (including the
-#                      rsconnect-specific ``.gitignore`` entries from §5.1).
-#                Non-Goals: Do not write mode-specific source files here; do
-#                           not run ``uv`` yet; do not generate a
-#                           ``manifest.json`` (I6).
+@dataclasses.dataclass(frozen=True)
+class FileSpec:
+    """One per-mode template file to materialize in the scaffolded project.
+
+    :param str name: filename relative to the project root.
+    :param str template: path to the template body under
+        ``rsconnect/quickstart_templates/``, discovered via
+        :mod:`importlib.resources`.
+    """
+
+    name: str
+    template: str
 
 
-# TODO(EVO-150): Write the [tool.rsconnect] table to pyproject.toml.
-#                Scope: quickstart
-#                Why: SPEC §3 makes ``[tool.rsconnect]`` the sole configuration
-#                     surface for ``deploy pyproject``. Writing ``app_mode``,
-#                     ``entrypoint``, and ``title`` with the canonical values
-#                     from §8.2 is the invariant that links quickstart output
-#                     to the companion deploy command.
-#                Done: Tests ``test_quickstart_pyproject_has_tool_rsconnect``,
-#                      ``test_quickstart_app_mode_for_<mode>``, and
-#                      ``test_quickstart_does_not_duplicate_deps_in_tool_rsconnect``
-#                      pass. The generated table contains exactly the three
-#                      required fields (no ``dependencies``, no
-#                      ``requires-python`` duplication).
-#                Non-Goals: Do not add ``[tool.rsconnect.files]`` entries;
-#                           §3.2 reserves the name for later. Do not encode
-#                           server credentials.
+@dataclasses.dataclass(frozen=True)
+class TemplateSpec:
+    """Per-resolved-mode scaffold contract.
+
+    Resolved means the ``(app_type, static, shiny)`` flag triple has already
+    been mapped to one entry; the dataclass itself does not know about CLI
+    aliases or flags.
+
+    :param str app_mode: canonical Connect app mode per SPEC §8.2.
+    :param str entrypoint: entrypoint string written to
+        ``[tool.rsconnect].entrypoint`` per SPEC §6.
+    :param tuple local_run_command: argv form of the documented local-run
+        command per SPEC §12. The literal token ``"{name}"`` (if present) is
+        substituted with the project name at scaffold time.
+    :param tuple dependencies: minimum runtime dependencies for the
+        hello-world, written to ``[project.dependencies]``.
+    :param tuple source_files: per-mode template files to materialize.
+        Empty for modes whose templates have not landed yet; populated by
+        the per-mode evolutions below.
+    """
+
+    app_mode: str
+    entrypoint: str
+    local_run_command: typing.Tuple[str, ...]
+    dependencies: typing.Tuple[str, ...]
+    source_files: typing.Tuple[FileSpec, ...]
+
+
+# Registry key: ``(resolved_type, static, shiny)``. The ``flask`` alias
+# resolves to ``api`` before lookup (see :func:`lookup_template`); the v1
+# deferred modes from SPEC §4.1 (dash, gradio, panel, bokeh) are intentionally
+# absent.
+_REGISTRY: typing.Mapping[typing.Tuple[str, bool, bool], TemplateSpec] = {
+    ("streamlit", False, False): TemplateSpec(
+        app_mode="python-streamlit",
+        entrypoint="app.py",
+        local_run_command=("uv", "run", "streamlit", "run", "app.py"),
+        dependencies=("streamlit",),
+        source_files=(),
+    ),
+    ("shiny", False, False): TemplateSpec(
+        app_mode="python-shiny",
+        entrypoint="app.py",
+        local_run_command=("uv", "run", "shiny", "run", "app.py"),
+        dependencies=("shiny",),
+        source_files=(),
+    ),
+    ("fastapi", False, False): TemplateSpec(
+        app_mode="python-fastapi",
+        entrypoint="__connect__:app",
+        local_run_command=("uv", "run", "python", "-m", "{name}"),
+        dependencies=("fastapi", "uvicorn"),
+        source_files=(),
+    ),
+    ("api", False, False): TemplateSpec(
+        app_mode="python-api",
+        entrypoint="__connect__:app",
+        local_run_command=("uv", "run", "python", "-m", "{name}"),
+        dependencies=("flask",),
+        source_files=(),
+    ),
+    ("notebook", False, False): TemplateSpec(
+        app_mode="jupyter-static",
+        entrypoint="notebook.ipynb",
+        local_run_command=("uv", "run", "jupyter", "lab", "notebook.ipynb"),
+        dependencies=("jupyter",),
+        source_files=(),
+    ),
+    ("notebook", True, False): TemplateSpec(
+        app_mode="jupyter-static",
+        entrypoint="notebook.ipynb",
+        local_run_command=("uv", "run", "jupyter", "lab", "notebook.ipynb"),
+        dependencies=("jupyter",),
+        source_files=(),
+    ),
+    ("voila", False, False): TemplateSpec(
+        app_mode="jupyter-voila",
+        entrypoint="notebook.ipynb",
+        local_run_command=("uv", "run", "voila", "notebook.ipynb"),
+        dependencies=("voila", "jupyter"),
+        source_files=(),
+    ),
+    ("quarto", False, False): TemplateSpec(
+        app_mode="quarto-static",
+        entrypoint="report.qmd",
+        local_run_command=("uv", "run", "quarto", "preview", "report.qmd"),
+        dependencies=(),
+        source_files=(),
+    ),
+    ("quarto", False, True): TemplateSpec(
+        app_mode="quarto-shiny",
+        entrypoint="report.qmd",
+        local_run_command=("uv", "run", "quarto", "preview", "report.qmd"),
+        dependencies=("shiny",),
+        source_files=(),
+    ),
+}
+
+
+def lookup_template(app_type: str, *, static: bool = False, shiny: bool = False) -> TemplateSpec:
+    """Resolve the :class:`TemplateSpec` for ``(app_type, static, shiny)``.
+
+    ``flask`` is an alias for ``api`` and shares the same scaffold; both
+    resolve to the same key. Other CLI-level flag combinations have already
+    been narrowed by pre-flight, so this lookup is defensive only.
+
+    :param str app_type: CLI ``<type>`` value per SPEC §4.
+    :param bool static: jupyter-only flag.
+    :param bool shiny: quarto-only flag.
+    """
+    resolved_type = "api" if app_type == "flask" else app_type
+    key = (resolved_type, static, shiny)
+    if key not in _REGISTRY:
+        raise RSConnectException(
+            f"No scaffold template is registered for type {app_type!r} "
+            f"with --static={static}, --shiny={shiny}. Re-run without the "
+            f"unsupported flag combination."
+        )
+    return _REGISTRY[key]
+
+
+# ---------------------------------------------------------------------------
+# Always-present files (SPEC §5.1 / §3)
+# ---------------------------------------------------------------------------
+
+
+def _write_always_present_files(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> None:
+    """Materialize the four files SPEC §5.1 requires in every scaffold.
+
+    The pyproject.toml carries both ``[project]`` (name, version,
+    requires-python, dependencies) and the SPEC §3 ``[tool.rsconnect]``
+    table with exactly three keys. The README and post-scaffold output
+    share the same two commands derived from ``spec`` so the two stay in
+    sync without a separate source of truth.
+    """
+    (target / "pyproject.toml").write_text(_render_pyproject(name=name, spec=spec), encoding="utf-8")
+    (target / ".python-version").write_text(f"{_PYTHON_VERSION}\n", encoding="utf-8")
+    (target / ".gitignore").write_text(_GITIGNORE_BODY, encoding="utf-8")
+    (target / "README.md").write_text(_render_readme(name=name, spec=spec), encoding="utf-8")
+
+
+# SPEC-pinned literals: kept as separate constants because they encode two
+# distinct concerns (the .python-version pin vs. the requires-python floor)
+# that happen to share a Python-version shape but evolve independently.
+_PYTHON_VERSION = "3.11"  # value written to .python-version
+_REQUIRES_PYTHON = ">=3.9"  # value written to [project].requires-python
+_GITIGNORE_BODY = "__pycache__/\n*.pyc\n.venv/\n*.egg-info/\nrsconnect-python/\n.env\n"
+
+
+def _render_pyproject(*, name: str, spec: TemplateSpec) -> str:
+    # Build the TOML by direct string concatenation rather than pulling in a
+    # writer dependency. SPEC §3.2 forbids duplicating ``dependencies`` or
+    # ``requires-python`` in ``[tool.rsconnect]``; the table holds exactly
+    # ``app_mode``, ``entrypoint``, and ``title``.
+    if spec.dependencies:
+        deps_block = "[\n" + "".join(f'    "{dep}",\n' for dep in spec.dependencies) + "]"
+    else:
+        deps_block = "[]"
+    return (
+        "[project]\n"
+        f'name = "{name}"\n'
+        'version = "0.0.1"\n'
+        f'requires-python = "{_REQUIRES_PYTHON}"\n'
+        f"dependencies = {deps_block}\n"
+        "\n"
+        "[tool.rsconnect]\n"
+        f'app_mode = "{spec.app_mode}"\n'
+        f'entrypoint = "{spec.entrypoint}"\n'
+        f'title = "{name}"\n'
+    )
+
+
+def _render_readme(*, name: str, spec: TemplateSpec) -> str:
+    local_run = _format_local_run(spec, name=name)
+    deploy_cmd = f"rsconnect deploy pyproject {name}"
+    return (
+        f"# {name}\n"
+        "\n"
+        "A Posit Connect project scaffolded by `rsconnect quickstart`.\n"
+        "\n"
+        "## Run locally\n"
+        "\n"
+        f"```\n{local_run}\n```\n"
+        "\n"
+        "## Deploy to Posit Connect\n"
+        "\n"
+        f"```\n{deploy_cmd}\n```\n"
+    )
+
+
+def _format_local_run(spec: TemplateSpec, *, name: str) -> str:
+    # The registry stores the local-run argv with ``"{name}"`` as a literal
+    # placeholder for module-style modes. Substitute once at scaffold time so
+    # README and post-scaffold stdout share one rendering path.
+    return " ".join(token.replace("{name}", name) for token in spec.local_run_command)
+
+
+# ---------------------------------------------------------------------------
+# Per-mode template registrations (SPEC §6 / §9)
+# ---------------------------------------------------------------------------
+#
+# Each evolution below fills the ``source_files`` tuple for one registry
+# entry above and adds the corresponding template files under
+# ``rsconnect/quickstart_templates/``. The pyproject / .python-version /
+# .gitignore / README writer above is mode-agnostic and does not change as
+# modes are added.
 
 
 # TODO(EVO-160): Register the streamlit template (script-style).
@@ -304,24 +504,6 @@ def _require_cwd_writable(cwd: pathlib.Path) -> None:
 #                      ``test_quickstart_quarto_file_set`` pass.
 #                Non-Goals: Do not shell out to ``quarto create-project``
 #                           (§9.1 - templates are owned).
-
-
-# TODO(EVO-230): Define the template registry layout and extension contract.
-#                Scope: quickstart
-#                Why: SPEC §4.1 requires adding the four deferred modes (dash,
-#                     gradio, panel, bokeh) to reduce to "drop a template
-#                     directory plus one registration line." The registry is
-#                     the shared shape - how a template declares its files,
-#                     its app_mode, its entrypoint form, and its local-run
-#                     command - so per-mode evolutions above can all plug in.
-#                Done: The per-mode evolutions above each consume the
-#                      registry; adding a hypothetical ninth mode in
-#                      ``tests/test_quickstart.py::test_quickstart_registry_accepts_new_mode``
-#                      (an in-test registry insertion) works without touching
-#                      non-registry code.
-#                Non-Goals: Do not ship the four deferred modes in v1; the
-#                           registry exists so *future* work is small, not so
-#                           this PR is big.
 
 
 # TODO(EVO-240): Run ``uv venv`` + ``uv sync`` inside the scaffolded directory.
