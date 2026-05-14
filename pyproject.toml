@@ -83,13 +83,18 @@ extend_ignore = ["E203", "E231", "E302"]
 per-file-ignores = ["tests/test_metadata.py: E501"]
 
 [tool.setuptools]
-packages = ["rsconnect"]
+packages = ["rsconnect", "rsconnect.quickstart", "rsconnect.quickstart.templates"]
 
 [tool.setuptools_scm]
 write_to = "rsconnect/version.py"
 
 [tool.setuptools.package-data]
 rsconnect = ["py.typed"]
+# Per-mode quickstart templates are shipped as package data so
+# pkgutil.get_data() can read them from a wheel install. The glob covers
+# every subdirectory (streamlit/, shiny/, fastapi/, api/, notebook/, quarto/)
+# and every extension (.py, .ipynb, .qmd) without enumerating each one.
+"rsconnect.quickstart.templates" = ["**/*"]
 
 [tool.pytest.ini_options]
 markers = ["vetiver: tests for vetiver"]
