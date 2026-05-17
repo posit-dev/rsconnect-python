@@ -1396,7 +1396,7 @@ def make_quarto_manifest(
     """
     if environment:
         extra_files = list(extra_files or [])
-    
+
     base_dir = file_or_directory
     if isdir(file_or_directory):
         # Directory as a Quarto project.
@@ -1427,13 +1427,15 @@ def make_quarto_manifest(
         # Use the common directory of the qmd and any extra files as base_dir.
         # This avoids having the subfolder appear in both base_dir and rel_path.
         all_files = [file_or_directory] + extra_files
-    
-        abs_paths = [os.path.abspath(p) for p in all_files]
-        base_dir = os.path.commonpath(abs_paths)
-    
+        base_dir = os.path.commonpath(all_files)
+
+        # Ensure base_dir is a directory, not a file
+        if os.path.isfile(base_dir):
+            base_dir = os.path.dirname(base_dir)
+
         # Store paths relative to base_dir
-        relevant_files = [os.path.relpath(p, base_dir) for p in abs_paths]
-    
+        relevant_files = [os.path.relpath(p, base_dir) for p in all_files]
+
     manifest = make_source_manifest(
         app_mode,
         environment,
@@ -1444,9 +1446,9 @@ def make_quarto_manifest(
         env_management_r,
     )
     if environment:
-        manifest_add_buffer(manifest, environment.filename, environment.contents)    
+        manifest_add_buffer(manifest, environment.filename, environment.contents)
     for rel_path in relevant_files:
-        manifest_add_file(manifest, rel_path, base_dir)  
+        manifest_add_file(manifest, rel_path, base_dir)
     return manifest, relevant_files
 
 
