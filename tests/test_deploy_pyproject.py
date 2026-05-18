@@ -38,7 +38,7 @@ def runner() -> CliRunner:
 @pytest.fixture
 def project_dir(tmp_path: pathlib.Path) -> pathlib.Path:
     """A fresh directory; tests populate ``pyproject.toml`` as they need."""
-    project = tmp_path / "hello-app"
+    project = tmp_path / "hello_app"
     project.mkdir()
     return project
 
@@ -97,7 +97,7 @@ def test_read_tool_rsconnect_returns_three_fields(project_dir: pathlib.Path):
         project_dir,
         """
         [project]
-        name = "hello-app"
+        name = "hello_app"
         version = "0.0.1"
         dependencies = ["streamlit"]
 
@@ -120,7 +120,7 @@ def test_read_tool_rsconnect_missing_section_raises(project_dir: pathlib.Path):
         project_dir,
         """
         [project]
-        name = "hello-app"
+        name = "hello_app"
         version = "0.0.1"
         """,
     )
@@ -169,7 +169,7 @@ def test_read_tool_rsconnect_non_table_raises(project_dir: pathlib.Path, body: s
             "app_mode",
             """
             [project]
-            name = "hello-app"
+            name = "hello_app"
             version = "0.0.1"
 
             [tool.rsconnect]
@@ -180,7 +180,7 @@ def test_read_tool_rsconnect_non_table_raises(project_dir: pathlib.Path, body: s
             "entrypoint",
             """
             [project]
-            name = "hello-app"
+            name = "hello_app"
             version = "0.0.1"
 
             [tool.rsconnect]
@@ -215,7 +215,7 @@ def test_deploy_pyproject_errors_on_missing_section(runner: CliRunner, project_d
         project_dir,
         """
         [project]
-        name = "hello-app"
+        name = "hello_app"
         version = "0.0.1"
         """,
     )
@@ -230,7 +230,7 @@ def test_deploy_pyproject_errors_on_missing_app_mode(runner: CliRunner, project_
         project_dir,
         """
         [project]
-        name = "hello-app"
+        name = "hello_app"
         version = "0.0.1"
 
         [tool.rsconnect]
@@ -248,7 +248,7 @@ def test_deploy_pyproject_errors_on_missing_entrypoint(runner: CliRunner, projec
         project_dir,
         """
         [project]
-        name = "hello-app"
+        name = "hello_app"
         version = "0.0.1"
 
         [tool.rsconnect]
@@ -267,7 +267,7 @@ def test_deploy_pyproject_error_message_mentions_quickstart(runner: CliRunner, p
         project_dir,
         """
         [project]
-        name = "hello-app"
+        name = "hello_app"
         version = "0.0.1"
         """,
     )
@@ -338,7 +338,7 @@ def test_deploy_pyproject_dispatches_by_app_mode(
         project_dir,
         f"""
         [project]
-        name = "hello-app"
+        name = "hello_app"
         version = "0.0.1"
 
         [tool.rsconnect]
@@ -374,7 +374,7 @@ def test_deploy_pyproject_uses_title_from_tool_rsconnect(
         project_dir,
         """
         [project]
-        name = "hello-app"
+        name = "hello_app"
         version = "0.0.1"
 
         [tool.rsconnect]
@@ -422,13 +422,13 @@ def test_deploy_pyproject_uses_entrypoint_from_tool_rsconnect(runner: CliRunner,
         project_dir,
         """
         [project]
-        name = "hello-app"
+        name = "hello_app"
         version = "0.0.1"
 
         [tool.rsconnect]
         app_mode = "python-fastapi"
         entrypoint = "custom_module:create_app"
-        title = "hello-app"
+        title = "hello_app"
         """,
     )
     (project_dir / "custom_module.py").write_text("def create_app():\n    return None\n")

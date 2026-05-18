@@ -108,6 +108,7 @@ from .json_web_token import (
 )
 from .log import VERBOSE, LogOutputFormat, logger
 from .metadata import AppStore, ServerStore
+from .quickstart import SUPPORTED_APP_TYPES
 from .models import (
     AppMode,
     AppModes,
@@ -1026,22 +1027,29 @@ def info(file: str):
     name="quickstart",
     short_help="Scaffold a deployable Posit Connect project.",
     help=(
-        "Create a new Posit Connect project of the given type in ./<name>/. "
-        "Writes a pyproject.toml with a [tool.rsconnect] section, creates a "
-        "uv-managed virtualenv, and prints the local-run and deploy commands. "
-        "See SPEC_QUICKSTART.md for the full contract."
+        "Create a new Posit Connect project of the given TYPE in ./<name>/. "
+        "Supported TYPE values: streamlit, shiny, fastapi, api, flask, "
+        "notebook, voila, quarto. Writes a pyproject.toml with a "
+        "[tool.rsconnect] section, creates a uv-managed virtualenv, and "
+        "prints the local-run and deploy commands."
     ),
     no_args_is_help=True,
 )
-@click.argument("app_type", metavar="TYPE")
+@click.argument(
+    "app_type",
+    metavar="TYPE",
+    type=click.Choice(SUPPORTED_APP_TYPES),
+)
 @click.argument("name", metavar="NAME")
-@click.option("--static", is_flag=True, help="(jupyter only) emit jupyter-static app mode.")
 @click.option("--shiny", is_flag=True, help="(quarto only) emit quarto-shiny instead of quarto-static.")
 @cli_exception_handler
-def quickstart(app_type: str, name: str, static: bool, shiny: bool):
+def quickstart(app_type: str, name: str, shiny: bool):
+    # Resolve ``run_quickstart`` through the module at call time so tests can
+    # monkeypatch ``rsconnect.quickstart.quickstart.run_quickstart`` without
+    # binding a stale reference into ``main``'s namespace at import time.
     from .quickstart.quickstart import run_quickstart
 
-    run_quickstart(app_type=app_type, name=name, static=static, shiny=shiny)
+    run_quickstart(app_type=app_type, name=name, shiny=shiny)
 
 
 @cli.group(no_args_is_help=True, help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io.")
