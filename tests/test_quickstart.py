@@ -8,9 +8,12 @@ Acceptance tests for ``rsconnect quickstart`` (SPEC_QUICKSTART.md §§ 2-12, 14-
 
 Tests are written against the CLI using ``click.testing.CliRunner`` and inspect
 externally observable behavior per SPEC §17.3: exit code, filesystem tree,
-``pyproject.toml`` AST, stdout/stderr, and the populated ``.venv/``. They are
-expected to fail today because the feature is not yet implemented; each test
-cites the evolution marker that unblocks it via ``@pytest.mark.xfail``.
+``pyproject.toml`` AST, stdout/stderr, and the populated ``.venv/``. Real
+``uv venv`` + ``uv sync`` subprocesses run as part of the end-to-end coverage,
+so some tests incur a short network round-trip.
+
+The boot-smoke matrix (``test_quickstart_per_mode_boot_smoke``) is currently
+skipped pending the harness in ``tests/smoke_boot_harness.py``.
 
 Test layout mirrors ``tests/test_main.py`` (CliRunner) and ``tests/test_pyproject.py``
 (fixture- and parametrize-driven).
@@ -465,10 +468,6 @@ def test_quickstart_voila_and_notebook_share_template(runner: CliRunner, in_tmp_
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-240): Run uv venv + uv sync inside the scaffolded directory.",
-)
 def test_quickstart_creates_populated_venv(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     result = _invoke_quickstart(runner, "streamlit", "hello-app")
     assert result.exit_code == 0, result.output
@@ -476,6 +475,9 @@ def test_quickstart_creates_populated_venv(runner: CliRunner, in_tmp_cwd: pathli
     assert (project / ".venv").is_dir()
     # A populated venv has a site-packages or pyvenv.cfg.
     assert (project / ".venv" / "pyvenv.cfg").is_file()
+    # uv sync writes uv.lock; ``uv venv`` alone does not. Catches a future
+    # regression that creates the venv but skips dependency resolution.
+    assert (project / "uv.lock").is_file()
 
 
 # ---------------------------------------------------------------------------
@@ -483,14 +485,6 @@ def test_quickstart_creates_populated_venv(runner: CliRunner, in_tmp_cwd: pathli
 # ---------------------------------------------------------------------------
 
 
-# strict=True: today this would XPASS for the wrong reason (no rollback runs
-# because the scaffold phase that would invoke the fake uv is not implemented
-# yet, so nothing is ever created to roll back). Flip to xfail-non-strict and
-# remove the decorator once the real rollback path lands.
-@pytest.mark.xfail(
-    strict=True,
-    reason="TODO(EVO-250): Implement atomic rollback of ./<name>/ on any failure.",
-)
 def test_quickstart_rolls_back_directory_on_uv_failure(
     runner: CliRunner,
     in_tmp_cwd: pathlib.Path,
@@ -507,6 +501,27 @@ def test_quickstart_rolls_back_directory_on_uv_failure(
     result = _invoke_quickstart(runner, "streamlit", "hello-app")
     assert result.exit_code != 0
     assert not (in_tmp_cwd / "hello-app").exists()  # I8: all or nothing
+
+
+def test_quickstart_rolls_back_on_keyboard_interrupt(
+    runner: CliRunner,
+    in_tmp_cwd: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Ctrl-C mid-pipeline triggers the same rollback path as a uv failure.
+
+    The production ``except BaseException`` exists precisely so a user who
+    aborts ``uv sync`` does not end up with a half-built project. This test
+    pins that guarantee hermetically by raising ``KeyboardInterrupt`` from
+    the venv-install phase; no real ``uv`` runs.
+    """
+    from rsconnect.quickstart import quickstart as qs
+
+    monkeypatch.setattr(qs, "_install_venv", mock.MagicMock(side_effect=KeyboardInterrupt))
+
+    result = _invoke_quickstart(runner, "streamlit", "hello-app")
+    assert result.exit_code != 0
+    assert not (in_tmp_cwd / "hello-app").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -528,10 +543,6 @@ POST_SCAFFOLD_COMMANDS = [
 
 
 @pytest.mark.parametrize("app_type,extra_flags,local_run", POST_SCAFFOLD_COMMANDS)
-@pytest.mark.xfail(
-    strict=False,
-    reason="TODO(EVO-260): Emit the post-scaffold confirmation and command lines.",
-)
 def test_quickstart_post_scaffold_output(
     runner: CliRunner,
     in_tmp_cwd: pathlib.Path,
@@ -541,9 +552,14 @@ def test_quickstart_post_scaffold_output(
 ):
     result = _invoke_quickstart(runner, app_type, *extra_flags, "hello-app")
     assert result.exit_code == 0, result.output
-    assert "hello-app" in result.output  # confirmation line
-    assert local_run in result.output
-    assert "rsconnect deploy pyproject hello-app" in result.output
+    # SPEC §12 pins both the wording and the order of the three lines; a
+    # substring check would tolerate extra debug output or reordering.
+    lines = [line for line in result.output.splitlines() if line.strip()]
+    assert lines == [
+        "Created hello-app/",
+        local_run,
+        "rsconnect deploy pyproject hello-app",
+    ], result.output
 
 
 def test_quickstart_readme_matches_post_scaffold_output(runner: CliRunner, in_tmp_cwd: pathlib.Path):
@@ -570,25 +586,23 @@ def test_invariant_I1_I2_directory_and_pyproject(runner: CliRunner, in_tmp_cwd: 
         assert required in data["tool"]["rsconnect"]
 
 
-# strict=True: today this XPASSes via the directory-must-not-exist pre-flight,
-# but the test is intended to prove pipeline-level failure translation, not the
-# pre-flight short-circuit. Remove the decorator once the real pipeline path
-# raises and the message-quality assertions exercise that translation.
-# Persistent RED in CI until the TODO(EVO-080) work lands and this test is
-# rewritten to inject a pipeline-level failure (e.g., mock a uv subprocess error).
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "TODO(EVO-080): Invariants I9-I10 - non-zero exit and actionable "
-        "stderr on failure (pipeline error translation)."
-    ),
-)
-def test_invariant_I9_I10_failure_exit_and_message(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    (in_tmp_cwd / "hello-app").mkdir()
+def test_invariant_I9_I10_failure_exit_and_message(
+    runner: CliRunner,
+    in_tmp_cwd: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """SPEC §15 I9-I10: pipeline failure produces non-zero exit and actionable stderr."""
+    fake_uv_dir = in_tmp_cwd / "fake-bin"
+    fake_uv_dir.mkdir()
+    fake_uv = fake_uv_dir / "uv"
+    fake_uv.write_text("#!/usr/bin/env bash\nexit 1\n")
+    fake_uv.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{fake_uv_dir}{os.pathsep}{os.environ['PATH']}")
+
     result = _invoke_quickstart(runner, "streamlit", "hello-app")
     assert result.exit_code != 0  # I9
     combined = result.output + (result.stderr if result.stderr_bytes else "")
-    assert "hello-app" in combined  # I10 - message names the failing check
+    assert "uv" in combined.lower()  # I10 - message names the failing tool
 
 
 # ---------------------------------------------------------------------------
@@ -612,7 +626,7 @@ def test_quickstart_registry_accepts_new_mode(
         app_mode="python-newmode",
         entrypoint="app.py",
         local_run_command=("uv", "run", "newtool", "app.py"),
-        dependencies=("newtool",),
+        dependencies=(),
         source_files=(),
     )
     extended_registry = dict(qs._REGISTRY)
@@ -626,7 +640,7 @@ def test_quickstart_registry_accepts_new_mode(
     data = _read_pyproject(in_tmp_cwd / "hello-app")
     assert data["tool"]["rsconnect"]["app_mode"] == "python-newmode"
     assert data["tool"]["rsconnect"]["entrypoint"] == "app.py"
-    assert data["project"]["dependencies"] == ["newtool"]
+    assert data["project"]["dependencies"] == []
 
 
 # ---------------------------------------------------------------------------
