@@ -22,7 +22,10 @@ import pathlib
 import pkgutil
 import re
 import shutil
+import subprocess
 import typing
+
+import click
 
 from ..exception import RSConnectException
 
@@ -93,35 +96,23 @@ def run_quickstart(
     # impossible flag combinations only.
     spec = lookup_template(app_type, static=static, shiny=shiny)
 
-    # SPEC §5.1 + §6: create the project directory and all of its files in
-    # one filesystem-generation phase. Venv population, post-scaffold
-    # output, and rollback land in subsequent evolutions (see TODO(EVO-080)
-    # below) and plug in around this step, not inside it.
-    _scaffold(target, name=name, spec=spec)
+    # SPEC §11 + I8: after ``mkdir`` succeeds, any failure in the rest of
+    # the pipeline must remove ``./<name>/`` so the user sees "all or
+    # nothing." ``BaseException`` catches ``KeyboardInterrupt`` too (a
+    # Ctrl-C mid-``uv sync`` is the most likely real-world failure mode).
+    target.mkdir()
+    try:
+        _scaffold(target, name=name, spec=spec)
+        _install_venv(target)
+    except BaseException:
+        shutil.rmtree(target, ignore_errors=True)
+        raise
 
-    # TODO(EVO-080): Finish the venv + post-output + rollback phases.
-    #                Scope: quickstart
-    #                Why: Pre-flight (SPEC §10) and filesystem generation
-    #                     (SPEC §5.1 + §6, via ``_scaffold``) are landed.
-    #                     The remaining flow (``uv venv`` + ``uv sync``,
-    #                     post-scaffold stdout per §12, and rollback per
-    #                     §11) still needs to live behind this public
-    #                     entrypoint so the capability stays understandable
-    #                     through one module boundary.
-    #                Done: Calling ``run_quickstart`` with valid inputs runs
-    #                      ``uv venv`` + ``uv sync``, prints the §12 lines,
-    #                      and rolls back ``./<name>/`` on any failure. The
-    #                      ATDD tests still marked ``xfail`` in
-    #                      ``tests/test_quickstart.py``
-    #                      (``creates_populated_venv``,
-    #                      ``post_scaffold_output``,
-    #                      ``rolls_back_directory_on_uv_failure``,
-    #                      ``invariant_I9_I10_failure_exit_and_message``)
-    #                      pass without ``xfail``.
-    #                Non-Goals: Do not implement the ``deploy pyproject``
-    #                           command; do not add interactive prompts or a
-    #                           ``--deploy`` flag.
-
+    # Summary runs after success - cosmetic stdout failures (e.g. a
+    # BrokenPipeError when piping to ``head``) must not invalidate the
+    # on-disk project. The README carries the same two commands, so the
+    # user can recover them even if this echo fails.
+    _emit_summary(target, name=name, spec=spec)
     return target
 
 
@@ -344,17 +335,14 @@ def lookup_template(app_type: str, *, static: bool = False, shiny: bool = False)
 
 
 def _scaffold(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> None:
-    """Create the project directory and every file it should contain.
+    """Write every file the scaffolded project should contain.
 
-    This is the SPEC §5.1 + §6 filesystem-generation phase: the project
-    directory, the four always-present files (``pyproject.toml``,
-    ``.python-version``, ``.gitignore``, ``README.md``), and the per-mode
-    source files materialized from ``spec.source_files``. The remaining
-    scaffold scope tracked by the ``TODO`` markers below in this module
-    (``uv`` venv population, post-scaffold stdout, and rollback) plugs in
-    around this step, not inside it.
+    This is the SPEC §5.1 + §6 filesystem-generation phase: the four
+    always-present files (``pyproject.toml``, ``.python-version``,
+    ``.gitignore``, ``README.md``) and the per-mode source files
+    materialized from ``spec.source_files``. The caller owns ``target``'s
+    creation and rollback, so this helper writes into an existing directory.
     """
-    target.mkdir()
     (target / "pyproject.toml").write_text(_render_pyproject(name=name, spec=spec), encoding="utf-8")
     (target / ".python-version").write_text(f"{_PYTHON_VERSION}\n", encoding="utf-8")
     (target / ".gitignore").write_text(_GITIGNORE_BODY, encoding="utf-8")
@@ -425,49 +413,43 @@ def _format_local_run(spec: TemplateSpec, *, name: str) -> str:
     return " ".join(token.replace("{name}", name) for token in spec.local_run_command)
 
 
-# TODO(EVO-240): Run ``uv venv`` + ``uv sync`` inside the scaffolded directory.
-#                Scope: quickstart
-#                Why: SPEC §5.1 / §7 / I5 require a populated ``.venv/`` so the
-#                     documented local-run command works immediately without
-#                     any extra setup step. This is what makes the project
-#                     actually "ready-to-deploy."
-#                Done: Test ``test_quickstart_creates_populated_venv`` in
-#                      ``tests/test_quickstart.py`` passes: ``.venv/`` exists
-#                      and the declared dependencies are importable from it.
-#                      Failure from ``uv`` triggers the rollback evolution.
-#                Non-Goals: Do not reimplement venv creation; shell out to
-#                           ``uv``. Do not gate on Python-version availability -
-#                           §10 delegates that to uv's own output.
+# ---------------------------------------------------------------------------
+# Venv population (SPEC §5.1 / §7 / I5)
+# ---------------------------------------------------------------------------
 
 
-# TODO(EVO-250): Implement atomic rollback of ./<name>/ on any failure.
-#                Scope: quickstart
-#                Why: SPEC §11 + I8 require that any failure after directory
-#                     creation leaves no partial project behind. Keeping this
-#                     in one place (the public entrypoint's try/finally frame)
-#                     preserves the "one deep module" shape - callers do not
-#                     have to know about rollback.
-#                Done: Test
-#                      ``test_quickstart_rolls_back_directory_on_uv_failure``
-#                      in ``tests/test_quickstart.py`` passes (a forced uv
-#                      failure leaves no ``./<name>/``). Ancestor directories
-#                      and uv cache state are untouched per §11.
-#                Non-Goals: Do not roll back uv cache writes or ancestor
-#                           directories; do not catch and swallow the error
-#                           (I9 requires non-zero exit).
+def _install_venv(target: pathlib.Path) -> None:
+    """Populate ``.venv/`` via ``uv venv`` + ``uv sync`` per SPEC §5.1 + §7.
+
+    stdout/stderr are inherited from the parent process so users see uv's
+    own progress output in real time ("Creating environment...", "Resolving
+    dependencies..."). A non-zero exit raises ``RSConnectException``, which
+    the caller translates into the SPEC §11 rollback.
+    """
+    # ``uv venv`` first so ``uv sync`` reads the freshly-created ``.venv``;
+    # if the first step fails there is no point continuing.
+    for command in (("uv", "venv"), ("uv", "sync")):
+        result = subprocess.run(list(command), cwd=target)
+        if result.returncode != 0:
+            joined = " ".join(command)
+            raise RSConnectException(
+                f"`{joined}` failed in {target} (exit code {result.returncode}). "
+                "Inspect the output above and try again."
+            )
 
 
-# TODO(EVO-260): Emit the post-scaffold confirmation and command lines.
-#                Scope: quickstart
-#                Why: SPEC §12 + I7 require three stdout lines: confirmation,
-#                     local-run command, deploy command - verbatim per the §12
-#                     table. The generated README.md must carry the same two
-#                     commands.
-#                Done: Tests ``test_quickstart_<mode>_post_scaffold_output``
-#                      (one per mode) and
-#                      ``test_quickstart_readme_matches_post_scaffold_output``
-#                      pass. The exit code is zero only when these lines have
-#                      been printed.
-#                Non-Goals: Do not colorize aggressively; do not add a
-#                           "next steps" multi-paragraph block - §12 caps the
-#                           output at three lines.
+# ---------------------------------------------------------------------------
+# Post-scaffold output (SPEC §12 / I7)
+# ---------------------------------------------------------------------------
+
+
+def _emit_summary(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> None:
+    """Print the SPEC §12 three lines: confirmation, local-run, deploy.
+
+    Uses :func:`click.echo` for consistency with the rest of the CLI; the
+    same two commands are written into the project's ``README.md`` by
+    :func:`_render_readme` so stdout and on-disk docs agree.
+    """
+    click.echo(f"Created {target.name}/")
+    click.echo(_format_local_run(spec, name=name))
+    click.echo(f"rsconnect deploy pyproject {name}")
