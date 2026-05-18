@@ -144,7 +144,7 @@ class AbstractRemoteServer:
         if isinstance(response, HTTPResponse):
             if response.exception:
                 raise RSConnectException(
-                    "Exception trying to connect to %s - %s" % (self.url, response.exception), cause=response.exception
+                    "Could not connect to %s - %s" % (self.url, response.exception), cause=response.exception
                 )
             # Sometimes an ISP will respond to an unknown server name by returning a friendly
             # search page so trap that since we know we're expecting JSON from Connect.  This

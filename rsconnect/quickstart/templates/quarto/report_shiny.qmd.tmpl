@@ -1,0 +1,18 @@
+---
+title: "{name}"
+server: shiny
+format: html
+---
+
+# Hello from {name}
+
+```{python}
+from shiny.express import ui, render, input
+
+ui.h1("Hello world")
+ui.input_slider("n", "N", 1, 100, 50)
+
+@render.text
+def show_n():
+    return f"You picked {input.n()}"
+```

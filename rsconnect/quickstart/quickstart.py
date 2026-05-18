@@ -48,12 +48,15 @@ SUPPORTED_APP_TYPES: typing.Tuple[str, ...] = (
 
 
 # SPEC §2.2: lowercase ASCII letter start, only lowercase letters / digits /
-# hyphens, no trailing hyphen. The optional middle-and-end group keeps the
-# rule satisfiable by single-letter names such as ``"a"``.
-_project_name_pattern = re.compile(r"^[a-z]([a-z0-9-]*[a-z0-9])?$")
+# underscores, no trailing underscore. Underscores (not hyphens) so the name
+# is a valid Python package identifier — fastapi/api scaffolds materialize a
+# ``<name>/<name>/__init__.py`` package, which only works with importable
+# names. The optional middle-and-end group keeps the rule satisfiable by
+# single-letter names such as ``"a"``.
+_project_name_pattern = re.compile(r"^[a-z]([a-z0-9_]*[a-z0-9])?$")
 _PROJECT_NAME_RULE = (
     "Project name must start with a lowercase ASCII letter, contain only "
-    "lowercase letters, digits, and hyphens, and not end with a hyphen."
+    "lowercase letters, digits, and underscores, and not end with an underscore."
 )
 
 
@@ -61,7 +64,6 @@ def run_quickstart(
     app_type: str,
     name: str,
     *,
-    static: bool = False,
     shiny: bool = False,
     cwd: typing.Optional[pathlib.Path] = None,
 ) -> pathlib.Path:
@@ -74,7 +76,6 @@ def run_quickstart(
 
     :param str app_type: one of the supported CLI types in SPEC §4.
     :param str name: project name; must satisfy SPEC §2.2.
-    :param bool static: jupyter-only flag; selects ``jupyter-static``.
     :param bool shiny: quarto-only flag; selects ``quarto-shiny``.
     :param pathlib.Path cwd: override the working directory (testing hook);
         defaults to :func:`pathlib.Path.cwd`.
@@ -83,9 +84,10 @@ def run_quickstart(
 
     # SPEC §10 pre-flight order. Each helper raises ``RSConnectException``
     # with an actionable message; nothing on disk is mutated until every
-    # check has passed.
+    # check has passed. Type validation now lives in Click's argument
+    # parser (see ``rsconnect/main.py``), so it has already passed before
+    # we get here.
     _require_uv_on_path()
-    _validate_app_type(app_type)
     _validate_project_name(name)
     target = cwd / name
     _require_target_does_not_exist(target)
@@ -94,7 +96,7 @@ def run_quickstart(
     # SPEC §4/§6: resolve the per-mode template once. Pre-flight already
     # validated ``app_type``; ``lookup_template`` is defensive against
     # impossible flag combinations only.
-    spec = lookup_template(app_type, static=static, shiny=shiny)
+    spec = lookup_template(app_type, shiny=shiny)
 
     # SPEC §11 + I8: after ``mkdir`` succeeds, any failure in the rest of
     # the pipeline must remove ``./<name>/`` so the user sees "all or
@@ -131,12 +133,6 @@ def _require_uv_on_path() -> None:
             "try reinstalling (pip install --force-reinstall rsconnect-python) "
             "or install uv manually from https://github.com/astral-sh/uv"
         )
-
-
-def _validate_app_type(app_type: str) -> None:
-    if app_type not in SUPPORTED_APP_TYPES:
-        supported = ", ".join(SUPPORTED_APP_TYPES)
-        raise RSConnectException(f"Unsupported project type {app_type!r}. Supported types: {supported}.")
 
 
 def _validate_project_name(name: str) -> None:
@@ -178,7 +174,10 @@ def _require_cwd_writable(cwd: pathlib.Path) -> None:
 class FileSpec:
     """One per-mode template file to materialize in the scaffolded project.
 
-    :param str name: filename relative to the project root.
+    :param str name: filename relative to the project root. The literal
+        token ``{name}`` (if present) is substituted with the project name
+        at scaffold time, which is how fastapi/api modes produce a nested
+        ``<name>/<name>/`` Python package layout.
     :param str template: path to the template body under
         ``rsconnect/quickstart/templates/``, loaded via
         :func:`pkgutil.get_data`. Template files use the ``.tmpl`` suffix
@@ -199,13 +198,15 @@ class FileSpec:
 class TemplateSpec:
     """Per-resolved-mode scaffold contract.
 
-    Resolved means the ``(app_type, static, shiny)`` flag triple has already
-    been mapped to one entry; the dataclass itself does not know about CLI
+    Resolved means the ``(app_type, shiny)`` flag pair has already been
+    mapped to one entry; the dataclass itself does not know about CLI
     aliases or flags.
 
     :param str app_mode: canonical Connect app mode per SPEC §8.2.
     :param str entrypoint: entrypoint string written to
-        ``[tool.rsconnect].entrypoint`` per SPEC §6.
+        ``[tool.rsconnect].entrypoint`` per SPEC §6. The literal token
+        ``{name}`` (if present) is substituted with the project name at
+        scaffold time so fastapi/api can name their nested package.
     :param tuple local_run_command: argv form of the documented local-run
         command per SPEC §12. The literal token ``"{name}"`` (if present) is
         substituted with the project name at scaffold time.
@@ -214,8 +215,11 @@ class TemplateSpec:
     :param tuple source_files: per-mode template files to materialize.
         Each entry's body is loaded from
         ``rsconnect/quickstart/templates/`` and run through
-        ``str.replace("{name}", name)`` at scaffold time. Empty only for
-        modes whose templates have not landed yet.
+        ``str.replace("{name}", name)`` at scaffold time.
+    :param tuple notes: optional user-facing trailing lines for the
+        post-scaffold output and README (e.g. "Quarto must be installed
+        separately"). Empty for modes whose hello-world has no external
+        tooling prerequisite.
     """
 
     app_mode: str
@@ -223,108 +227,107 @@ class TemplateSpec:
     local_run_command: typing.Tuple[str, ...]
     dependencies: typing.Tuple[str, ...]
     source_files: typing.Tuple[FileSpec, ...]
+    notes: typing.Tuple[str, ...] = ()
 
 
-# Registry key: ``(resolved_type, static, shiny)``. The ``flask`` alias
-# resolves to ``api`` before lookup (see :func:`lookup_template`); the v1
-# deferred modes from SPEC §4.1 (dash, gradio, panel, bokeh) are intentionally
-# absent.
-_REGISTRY: typing.Mapping[typing.Tuple[str, bool, bool], TemplateSpec] = {
-    ("streamlit", False, False): TemplateSpec(
+# Registry key: ``(resolved_type, shiny)``. The ``flask`` alias resolves to
+# ``api`` before lookup (see :func:`lookup_template`); the v1 deferred modes
+# from SPEC §4.1 (dash, gradio, panel, bokeh) are intentionally absent.
+_QUARTO_INSTALL_NOTE = "Quarto must be installed separately: https://quarto.org"
+
+_REGISTRY: typing.Mapping[typing.Tuple[str, bool], TemplateSpec] = {
+    ("streamlit", False): TemplateSpec(
         app_mode="python-streamlit",
         entrypoint="app.py",
         local_run_command=("uv", "run", "streamlit", "run", "app.py"),
         dependencies=("streamlit",),
         source_files=(FileSpec(name="app.py", template="streamlit/app.py.tmpl"),),
     ),
-    ("shiny", False, False): TemplateSpec(
+    ("shiny", False): TemplateSpec(
         app_mode="python-shiny",
         entrypoint="app.py",
         local_run_command=("uv", "run", "shiny", "run", "app.py"),
         dependencies=("shiny",),
         source_files=(FileSpec(name="app.py", template="shiny/app.py.tmpl"),),
     ),
-    ("fastapi", False, False): TemplateSpec(
+    # fastapi/api produce a nested ``<name>/<name>/`` package so the
+    # documented ``python -m <name>`` local-run command resolves cleanly
+    # and ``from .app import create_app`` relative imports work.
+    ("fastapi", False): TemplateSpec(
         app_mode="python-fastapi",
-        entrypoint="__connect__:app",
+        entrypoint="{name}.__connect__:app",
         local_run_command=("uv", "run", "python", "-m", "{name}"),
         dependencies=("fastapi", "uvicorn"),
         source_files=(
-            FileSpec(name="app.py", template="fastapi/app.py.tmpl"),
-            FileSpec(name="__connect__.py", template="fastapi/__connect__.py.tmpl"),
-            FileSpec(name="__main__.py", template="fastapi/__main__.py.tmpl"),
+            FileSpec(name="{name}/__init__.py", template="fastapi/__init__.py.tmpl"),
+            FileSpec(name="{name}/__main__.py", template="fastapi/__main__.py.tmpl"),
+            FileSpec(name="{name}/__connect__.py", template="fastapi/__connect__.py.tmpl"),
+            FileSpec(name="{name}/app.py", template="fastapi/app.py.tmpl"),
         ),
     ),
-    ("api", False, False): TemplateSpec(
+    ("api", False): TemplateSpec(
         app_mode="python-api",
-        entrypoint="__connect__:app",
+        entrypoint="{name}.__connect__:app",
         local_run_command=("uv", "run", "python", "-m", "{name}"),
         dependencies=("flask",),
         source_files=(
-            FileSpec(name="app.py", template="api/app.py.tmpl"),
-            FileSpec(name="__connect__.py", template="api/__connect__.py.tmpl"),
-            FileSpec(name="__main__.py", template="api/__main__.py.tmpl"),
+            FileSpec(name="{name}/__init__.py", template="api/__init__.py.tmpl"),
+            FileSpec(name="{name}/__main__.py", template="api/__main__.py.tmpl"),
+            FileSpec(name="{name}/__connect__.py", template="api/__connect__.py.tmpl"),
+            FileSpec(name="{name}/app.py", template="api/app.py.tmpl"),
         ),
     ),
-    # Both the default and --static notebook variants share one template;
-    # the registry distinguishes them only by ``app_mode`` (see SPEC §6.3).
-    # The voila entry below reuses the same template file too.
-    ("notebook", False, False): TemplateSpec(
+    # notebook and voila share the same template body; they differ only in
+    # ``app_mode`` and the documented local-run command.
+    ("notebook", False): TemplateSpec(
         app_mode="jupyter-static",
         entrypoint="notebook.ipynb",
         local_run_command=("uv", "run", "jupyter", "lab", "notebook.ipynb"),
         dependencies=("jupyter",),
         source_files=(FileSpec(name="notebook.ipynb", template="notebook/notebook.ipynb.tmpl"),),
     ),
-    ("notebook", True, False): TemplateSpec(
-        app_mode="jupyter-static",
-        entrypoint="notebook.ipynb",
-        local_run_command=("uv", "run", "jupyter", "lab", "notebook.ipynb"),
-        dependencies=("jupyter",),
-        source_files=(FileSpec(name="notebook.ipynb", template="notebook/notebook.ipynb.tmpl"),),
-    ),
-    ("voila", False, False): TemplateSpec(
+    ("voila", False): TemplateSpec(
         app_mode="jupyter-voila",
         entrypoint="notebook.ipynb",
         local_run_command=("uv", "run", "voila", "notebook.ipynb"),
         dependencies=("voila", "jupyter"),
         source_files=(FileSpec(name="notebook.ipynb", template="notebook/notebook.ipynb.tmpl"),),
     ),
-    ("quarto", False, False): TemplateSpec(
+    ("quarto", False): TemplateSpec(
         app_mode="quarto-static",
         entrypoint="report.qmd",
         local_run_command=("uv", "run", "quarto", "preview", "report.qmd"),
         dependencies=(),
         source_files=(FileSpec(name="report.qmd", template="quarto/report.qmd.tmpl"),),
+        notes=(_QUARTO_INSTALL_NOTE,),
     ),
-    ("quarto", False, True): TemplateSpec(
+    ("quarto", True): TemplateSpec(
         app_mode="quarto-shiny",
         entrypoint="report.qmd",
         local_run_command=("uv", "run", "quarto", "preview", "report.qmd"),
         dependencies=("shiny",),
-        source_files=(FileSpec(name="report.qmd", template="quarto/report.qmd.tmpl"),),
+        source_files=(FileSpec(name="report.qmd", template="quarto/report_shiny.qmd.tmpl"),),
+        notes=(_QUARTO_INSTALL_NOTE,),
     ),
 }
 
 
-def lookup_template(app_type: str, *, static: bool = False, shiny: bool = False) -> TemplateSpec:
-    """Resolve the :class:`TemplateSpec` for ``(app_type, static, shiny)``.
+def lookup_template(app_type: str, *, shiny: bool = False) -> TemplateSpec:
+    """Resolve the :class:`TemplateSpec` for ``(app_type, shiny)``.
 
     ``flask`` is an alias for ``api`` and shares the same scaffold; both
     resolve to the same key. Other CLI-level flag combinations have already
     been narrowed by pre-flight, so this lookup is defensive only.
 
     :param str app_type: CLI ``<type>`` value per SPEC §4.
-    :param bool static: jupyter-only flag.
     :param bool shiny: quarto-only flag.
     """
     resolved_type = "api" if app_type == "flask" else app_type
-    key = (resolved_type, static, shiny)
+    key = (resolved_type, shiny)
     if key not in _REGISTRY:
         raise RSConnectException(
             f"No scaffold template is registered for type {app_type!r} "
-            f"with --static={static}, --shiny={shiny}. Re-run without the "
-            f"unsupported flag combination."
+            f"with --shiny={shiny}. Re-run without the unsupported flag."
         )
     return _REGISTRY[key]
 
@@ -354,7 +357,12 @@ def _scaffold(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> None:
         if data is None:
             raise RSConnectException(f"Template not found: {file_spec.template}")
         body = data.decode("utf-8").replace("{name}", name)
-        (target / file_spec.name).write_text(body, encoding="utf-8")
+        # ``{name}`` substitution in ``file_spec.name`` plus mkdir lets the
+        # registry describe nested package layouts (fastapi/api) without
+        # special-casing them here.
+        dest = target / file_spec.name.replace("{name}", name)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(body, encoding="utf-8")
 
 
 # SPEC-pinned literals: kept as separate constants because they encode two
@@ -374,6 +382,10 @@ def _render_pyproject(*, name: str, spec: TemplateSpec) -> str:
         deps_block = "[\n" + "".join(f'    "{dep}",\n' for dep in spec.dependencies) + "]"
     else:
         deps_block = "[]"
+    # Entrypoints for fastapi/api carry a literal ``{name}`` so the
+    # documented value matches the nested package layout this scaffold
+    # produces.
+    entrypoint = spec.entrypoint.replace("{name}", name)
     return (
         "[project]\n"
         f'name = "{name}"\n'
@@ -383,7 +395,7 @@ def _render_pyproject(*, name: str, spec: TemplateSpec) -> str:
         "\n"
         "[tool.rsconnect]\n"
         f'app_mode = "{spec.app_mode}"\n'
-        f'entrypoint = "{spec.entrypoint}"\n'
+        f'entrypoint = "{entrypoint}"\n'
         f'title = "{name}"\n'
     )
 
@@ -391,7 +403,7 @@ def _render_pyproject(*, name: str, spec: TemplateSpec) -> str:
 def _render_readme(*, name: str, spec: TemplateSpec) -> str:
     local_run = _format_local_run(spec, name=name)
     deploy_cmd = f"rsconnect deploy pyproject {name}"
-    return (
+    body = (
         f"# {name}\n"
         "\n"
         "A Posit Connect project scaffolded by `rsconnect quickstart`.\n"
@@ -404,6 +416,10 @@ def _render_readme(*, name: str, spec: TemplateSpec) -> str:
         "\n"
         f"```\n{deploy_cmd}\n```\n"
     )
+    if spec.notes:
+        notes_block = "\n## Notes\n\n" + "".join(f"- {note}\n" for note in spec.notes)
+        body += notes_block
+    return body
 
 
 def _format_local_run(spec: TemplateSpec, *, name: str) -> str:
@@ -426,10 +442,16 @@ def _install_venv(target: pathlib.Path) -> None:
     dependencies..."). A non-zero exit raises ``RSConnectException``, which
     the caller translates into the SPEC §11 rollback.
     """
+    # ``VIRTUAL_ENV`` is removed because uv otherwise warns that the
+    # developer's currently-activated venv does not match the scaffolded
+    # project's ``.venv/``. The user expects uv to operate on the new
+    # project, not the shell's active environment.
+    env = os.environ.copy()
+    env.pop("VIRTUAL_ENV", None)
     # ``uv venv`` first so ``uv sync`` reads the freshly-created ``.venv``;
     # if the first step fails there is no point continuing.
     for command in (("uv", "venv"), ("uv", "sync")):
-        result = subprocess.run(list(command), cwd=target)
+        result = subprocess.run(list(command), cwd=target, env=env)
         if result.returncode != 0:
             joined = " ".join(command)
             raise RSConnectException(
@@ -444,12 +466,14 @@ def _install_venv(target: pathlib.Path) -> None:
 
 
 def _emit_summary(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> None:
-    """Print the SPEC §12 three lines: confirmation, local-run, deploy.
+    """Print the SPEC §12 confirmation, local-run, deploy, and notes lines.
 
     Uses :func:`click.echo` for consistency with the rest of the CLI; the
-    same two commands are written into the project's ``README.md`` by
+    same commands are written into the project's ``README.md`` by
     :func:`_render_readme` so stdout and on-disk docs agree.
     """
-    click.echo(f"Created {target.name}/")
-    click.echo(_format_local_run(spec, name=name))
-    click.echo(f"rsconnect deploy pyproject {name}")
+    click.echo(f"Project {target.name}/ created.")
+    click.echo(f"To run locally:  {_format_local_run(spec, name=name)}")
+    click.echo(f"To deploy:       rsconnect deploy pyproject {name}")
+    for note in spec.notes:
+        click.echo(f"Note: {note}")

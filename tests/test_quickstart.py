@@ -98,27 +98,29 @@ def test_quickstart_requires_type_and_name(runner: CliRunner, in_tmp_cwd: pathli
     assert result.exit_code != 0
 
 
-def test_quickstart_help_exposes_static_and_shiny_flags(runner: CliRunner):
+def test_quickstart_help_exposes_shiny_flag(runner: CliRunner):
     result = runner.invoke(cli, ["quickstart", "--help"])
     assert result.exit_code == 0, result.output
-    assert "--static" in result.output
     assert "--shiny" in result.output
+    # ``--static`` was the original pre-shiny flag; SPEC §4.1 replaced it
+    # with ``--shiny`` (default static), so the old flag must not resurface.
+    assert "--static" not in result.output
 
 
 @pytest.mark.parametrize(
     "args,expected",
     [
         (
-            ["streamlit", "hello-app"],
-            {"app_type": "streamlit", "name": "hello-app", "static": False, "shiny": False},
+            ["streamlit", "hello_app"],
+            {"app_type": "streamlit", "name": "hello_app", "shiny": False},
         ),
         (
-            ["notebook", "--static", "hello-notebook"],
-            {"app_type": "notebook", "name": "hello-notebook", "static": True, "shiny": False},
+            ["notebook", "hello_notebook"],
+            {"app_type": "notebook", "name": "hello_notebook", "shiny": False},
         ),
         (
-            ["quarto", "--shiny", "hello-quarto"],
-            {"app_type": "quarto", "name": "hello-quarto", "static": False, "shiny": True},
+            ["quarto", "--shiny", "hello_quarto"],
+            {"app_type": "quarto", "name": "hello_quarto", "shiny": True},
         ),
     ],
 )
@@ -145,11 +147,11 @@ def test_quickstart_delegates_to_run_quickstart(
 def test_quickstart_requires_uv_on_path(runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
     """Pre-flight check 1: absent ``uv`` must produce a clear, actionable error."""
     monkeypatch.setenv("PATH", str(in_tmp_cwd))  # empty PATH so uv cannot be found
-    result = _invoke_quickstart(runner, "streamlit", "hello-app")
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code != 0
     combined = result.output + (result.stderr if result.stderr_bytes else "")
     assert "uv" in combined.lower()
-    assert not (in_tmp_cwd / "hello-app").exists()  # I8: no partial dir on pre-flight failure
+    assert not (in_tmp_cwd / "hello_app").exists()  # I8: no partial dir on pre-flight failure
 
 
 def test_quickstart_uv_missing_message_names_install(
@@ -157,7 +159,7 @@ def test_quickstart_uv_missing_message_names_install(
 ):
     """The error message should include the recommended install command (SPEC §7)."""
     monkeypatch.setenv("PATH", str(in_tmp_cwd))
-    result = _invoke_quickstart(runner, "streamlit", "hello-app")
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
     combined = result.output + (result.stderr if result.stderr_bytes else "")
     # "install" or "astral" or the canonical install URL - any of these proves
     # the message is actionable rather than a bare "not found".
@@ -165,12 +167,12 @@ def test_quickstart_uv_missing_message_names_install(
 
 
 def test_quickstart_unknown_type_lists_supported(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    result = _invoke_quickstart(runner, "nonesuch", "hello-app")
+    result = _invoke_quickstart(runner, "nonesuch", "hello_app")
     assert result.exit_code != 0
     combined = result.output + (result.stderr if result.stderr_bytes else "")
     for expected in ("streamlit", "shiny", "fastapi", "api", "flask", "notebook", "voila", "quarto"):
         assert expected in combined, f"{expected!r} missing from error output: {combined!r}"
-    assert not (in_tmp_cwd / "hello-app").exists()
+    assert not (in_tmp_cwd / "hello_app").exists()
 
 
 @pytest.mark.parametrize(
@@ -178,9 +180,10 @@ def test_quickstart_unknown_type_lists_supported(runner: CliRunner, in_tmp_cwd: 
     [
         "Hello",  # uppercase
         "1hello",  # leading digit
-        "hello_world",  # underscore
-        "hello-",  # trailing hyphen
-        "-hello",  # leading hyphen
+        "hello-app",  # hyphen (not a valid Python identifier)
+        "hello-world",  # hyphen
+        "hello_",  # trailing underscore
+        "_hello",  # leading underscore
         "",  # empty
         "hello world",  # whitespace
     ],
@@ -195,12 +198,12 @@ def test_quickstart_rejects_invalid_name(runner: CliRunner, in_tmp_cwd: pathlib.
 
 
 def test_quickstart_fails_when_directory_exists(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    (in_tmp_cwd / "hello-app").mkdir()
-    (in_tmp_cwd / "hello-app" / "existing-file.txt").write_text("keep me")
-    result = _invoke_quickstart(runner, "streamlit", "hello-app")
+    (in_tmp_cwd / "hello_app").mkdir()
+    (in_tmp_cwd / "hello_app" / "existing-file.txt").write_text("keep me")
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code != 0
     # The pre-existing file must be untouched (SPEC §11 Atomicity).
-    assert (in_tmp_cwd / "hello-app" / "existing-file.txt").read_text() == "keep me"
+    assert (in_tmp_cwd / "hello_app" / "existing-file.txt").read_text() == "keep me"
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="chmod read-only semantics differ on Windows")
@@ -210,16 +213,16 @@ def test_quickstart_requires_writable_cwd(runner: CliRunner, tmp_path: pathlib.P
     readonly.chmod(stat.S_IRUSR | stat.S_IXUSR)
     try:
         monkeypatch.chdir(readonly)
-        result = _invoke_quickstart(runner, "streamlit", "hello-app")
+        result = _invoke_quickstart(runner, "streamlit", "hello_app")
         assert result.exit_code != 0
-        assert not (readonly / "hello-app").exists()
+        assert not (readonly / "hello_app").exists()
     finally:
         readonly.chmod(stat.S_IRWXU)
 
 
 def test_quickstart_flask_alias_passes_type_validation(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     """SPEC §4: 'flask' is accepted as an alias for 'api' at pre-flight."""
-    result = _invoke_quickstart(runner, "flask", "hello-app")
+    result = _invoke_quickstart(runner, "flask", "hello_app")
     combined = result.output + (result.stderr if result.stderr_bytes else "")
     # The type-validation gate does not reject 'flask'. The command still
     # fails downstream (scaffolding is not implemented yet); that failure
@@ -228,45 +231,32 @@ def test_quickstart_flask_alias_passes_type_validation(runner: CliRunner, in_tmp
     assert "Unsupported" not in combined and "supported types" not in combined.lower()
 
 
-def test_quickstart_preflight_order_uv_before_type(
-    runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch
-):
-    """SPEC §10: uv-presence is checked before type validation."""
-    monkeypatch.setenv("PATH", str(in_tmp_cwd))  # uv unavailable
-    result = _invoke_quickstart(runner, "nonesuch", "hello-app")
-    assert result.exit_code != 0
-    combined = result.output + (result.stderr if result.stderr_bytes else "")
-    assert "uv" in combined.lower()
-    # If the type check had run, the message would name 'nonesuch'.
-    assert "nonesuch" not in combined.lower()
-
-
 # ---------------------------------------------------------------------------
 # Always-present generated files (SPEC §5.1)
 # ---------------------------------------------------------------------------
 
 
 def test_quickstart_generates_always_present_files(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    result = _invoke_quickstart(runner, "streamlit", "hello-app")
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code == 0, result.output
-    project = in_tmp_cwd / "hello-app"
+    project = in_tmp_cwd / "hello_app"
     for name in ("pyproject.toml", ".python-version", ".gitignore", "README.md"):
         assert (project / name).is_file(), f"{name} missing from {list(project.iterdir())}"
     assert (project / ".python-version").read_text().strip() == "3.11"
 
 
 def test_quickstart_gitignore_covers_rsconnect_dirs(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    result = _invoke_quickstart(runner, "streamlit", "hello-app")
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code == 0, result.output
-    gitignore = (in_tmp_cwd / "hello-app" / ".gitignore").read_text()
+    gitignore = (in_tmp_cwd / "hello_app" / ".gitignore").read_text()
     for expected in ("__pycache__", ".venv", "rsconnect-python", ".env"):
         assert expected in gitignore, f"{expected} missing from .gitignore"
 
 
 def test_quickstart_does_not_create_manifest_json(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    result = _invoke_quickstart(runner, "streamlit", "hello-app")
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code == 0, result.output
-    assert not (in_tmp_cwd / "hello-app" / "manifest.json").exists()
+    assert not (in_tmp_cwd / "hello_app" / "manifest.json").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -275,24 +265,24 @@ def test_quickstart_does_not_create_manifest_json(runner: CliRunner, in_tmp_cwd:
 
 
 def test_quickstart_pyproject_has_tool_rsconnect(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    result = _invoke_quickstart(runner, "streamlit", "hello-app")
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code == 0, result.output
-    data = _read_pyproject(in_tmp_cwd / "hello-app")
-    assert data["project"]["name"] == "hello-app"
+    data = _read_pyproject(in_tmp_cwd / "hello_app")
+    assert data["project"]["name"] == "hello_app"
     assert data["project"]["version"] == "0.0.1"
     assert data["project"]["requires-python"] == ">=3.9"
     assert data["project"]["dependencies"] == ["streamlit"]
     tool_rsconnect = data["tool"]["rsconnect"]
     assert tool_rsconnect["app_mode"] == "python-streamlit"
     assert tool_rsconnect["entrypoint"] == "app.py"
-    assert tool_rsconnect["title"] == "hello-app"
+    assert tool_rsconnect["title"] == "hello_app"
 
 
 def test_quickstart_does_not_duplicate_deps_in_tool_rsconnect(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     """SPEC §3.2: dependencies and requires-python live in [project], not in [tool.rsconnect]."""
-    result = _invoke_quickstart(runner, "streamlit", "hello-app")
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code == 0, result.output
-    tool_rsconnect = _read_pyproject(in_tmp_cwd / "hello-app")["tool"]["rsconnect"]
+    tool_rsconnect = _read_pyproject(in_tmp_cwd / "hello_app")["tool"]["rsconnect"]
     assert "dependencies" not in tool_rsconnect
     assert "requires-python" not in tool_rsconnect
     assert "requires_python" not in tool_rsconnect
@@ -311,7 +301,6 @@ APP_MODE_MATRIX = [
     pytest.param(("api",), "python-api", id="api"),
     pytest.param(("flask",), "python-api", id="flask-alias"),
     pytest.param(("notebook",), "jupyter-static", id="notebook-default"),
-    pytest.param(("notebook", "--static"), "jupyter-static", id="notebook-static"),
     pytest.param(("voila",), "jupyter-voila", id="voila"),
     pytest.param(("quarto",), "quarto-static", id="quarto-default"),
     pytest.param(("quarto", "--shiny"), "quarto-shiny", id="quarto-shiny"),
@@ -326,14 +315,14 @@ def test_quickstart_app_mode_for_each_type(
     expected_mode: str,
 ):
     # Put flags before NAME per Click convention.
-    args = [cli_args[0], *cli_args[1:], "hello-app"]
+    args = [cli_args[0], *cli_args[1:], "hello_app"]
     result = _invoke_quickstart(runner, *args)
     assert result.exit_code == 0, result.output
-    tool_rsconnect = _read_pyproject(in_tmp_cwd / "hello-app")["tool"]["rsconnect"]
+    tool_rsconnect = _read_pyproject(in_tmp_cwd / "hello_app")["tool"]["rsconnect"]
     assert tool_rsconnect["app_mode"] == expected_mode
     if expected_mode == "python-api":
         # Flask aliases to api: both module-style modes share entrypoint.
-        assert tool_rsconnect["entrypoint"] == "__connect__:app"
+        assert tool_rsconnect["entrypoint"] == "hello_app.__connect__:app"
 
 
 # ---------------------------------------------------------------------------
@@ -341,87 +330,107 @@ def test_quickstart_app_mode_for_each_type(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "app_type,expected_files,forbidden_files,content_sentinels",
-    [
-        (
-            "streamlit",
-            {"app.py"},
-            {"__connect__.py", "__main__.py", "notebook.ipynb", "report.qmd"},
-            {"app.py": "streamlit"},
-        ),
-        ("shiny", {"app.py"}, {"__connect__.py", "__main__.py", "notebook.ipynb", "report.qmd"}, {"app.py": "shiny"}),
-        (
-            "fastapi",
-            {"app.py", "__connect__.py", "__main__.py"},
-            {"notebook.ipynb", "report.qmd"},
-            {"app.py": "FastAPI"},
-        ),
-        ("api", {"app.py", "__connect__.py", "__main__.py"}, {"notebook.ipynb", "report.qmd"}, {"app.py": "Flask"}),
-        ("flask", {"app.py", "__connect__.py", "__main__.py"}, {"notebook.ipynb", "report.qmd"}, {"app.py": "Flask"}),
-        (
-            "notebook",
-            {"notebook.ipynb"},
-            {"app.py", "__connect__.py", "__main__.py", "report.qmd"},
-            {"notebook.ipynb": "cells"},
-        ),
-        (
-            "voila",
-            {"notebook.ipynb"},
-            {"app.py", "__connect__.py", "__main__.py", "report.qmd"},
-            {"notebook.ipynb": "cells"},
-        ),
-        (
-            "quarto",
-            {"report.qmd"},
-            {"app.py", "__connect__.py", "__main__.py", "notebook.ipynb"},
-            {"report.qmd": "title"},
-        ),
-    ],
-)
+# Expected per-mode source files: ``path → content_sentinel``. Empty
+# sentinel means "must exist; body not asserted". The four always-present
+# files are tested separately by ``_ALWAYS_PRESENT``.
+EXPECTED_FILES = [
+    pytest.param("streamlit", {"app.py": "streamlit"}, id="streamlit"),
+    pytest.param("shiny", {"app.py": "shiny"}, id="shiny"),
+    pytest.param(
+        "fastapi",
+        {
+            "hello_app/__init__.py": "",
+            "hello_app/__main__.py": "uvicorn",
+            "hello_app/__connect__.py": "create_app",
+            "hello_app/app.py": "FastAPI",
+        },
+        id="fastapi",
+    ),
+    pytest.param(
+        "api",
+        {
+            "hello_app/__init__.py": "",
+            "hello_app/__main__.py": "app.run(",
+            "hello_app/__connect__.py": "create_app",
+            "hello_app/app.py": "Flask",
+        },
+        id="api",
+    ),
+    pytest.param(
+        "flask",
+        {
+            "hello_app/__init__.py": "",
+            "hello_app/__main__.py": "app.run(",
+            "hello_app/__connect__.py": "create_app",
+            "hello_app/app.py": "Flask",
+        },
+        id="flask-alias",
+    ),
+    pytest.param("notebook", {"notebook.ipynb": "cells"}, id="notebook"),
+    pytest.param("voila", {"notebook.ipynb": "cells"}, id="voila"),
+    pytest.param("quarto", {"report.qmd": "title"}, id="quarto"),
+]
+
+_ALWAYS_PRESENT = {"pyproject.toml", ".python-version", ".gitignore", "README.md"}
+_IGNORED_PARTS = {".venv", "__pycache__"}
+_IGNORED_FILES = {"uv.lock"}
+
+
+@pytest.mark.parametrize("app_type,expected_sources", EXPECTED_FILES)
 def test_quickstart_mode_file_set(
     runner: CliRunner,
     in_tmp_cwd: pathlib.Path,
     app_type: str,
-    expected_files: set[str],
-    forbidden_files: set[str],
-    content_sentinels: typing.Mapping[str, str],
+    expected_sources: typing.Mapping[str, str],
 ):
-    result = _invoke_quickstart(runner, app_type, "hello-app")
+    """Each mode writes EXACTLY the always-present files plus its expected sources."""
+    result = _invoke_quickstart(runner, app_type, "hello_app")
     assert result.exit_code == 0, result.output
-    project = in_tmp_cwd / "hello-app"
-    present = {p.name for p in project.iterdir() if p.is_file()}
-    for name in expected_files:
-        assert name in present, f"{name} missing; got {present}"
-    for name in forbidden_files:
-        assert name not in present, f"{name} unexpectedly present; SPEC §6 forbids it for {app_type}"
-    # Sentinel substrings guard against an empty/placeholder template body slipping through.
-    for filename, sentinel in content_sentinels.items():
-        body = (project / filename).read_text()
-        assert sentinel in body, f"{filename} missing sentinel {sentinel!r}; got {body!r}"
+    project = in_tmp_cwd / "hello_app"
+
+    actual: set[str] = set()
+    for p in project.rglob("*"):
+        if not p.is_file():
+            continue
+        rel = p.relative_to(project)
+        if any(part in _IGNORED_PARTS for part in rel.parts):
+            continue
+        if rel.name in _IGNORED_FILES:
+            continue
+        actual.add(str(rel))
+
+    expected = _ALWAYS_PRESENT | set(expected_sources.keys())
+    assert actual == expected, (
+        f"file set mismatch:\n" f"  extra:   {sorted(actual - expected)}\n" f"  missing: {sorted(expected - actual)}"
+    )
+
+    for path, sentinel in expected_sources.items():
+        if sentinel:
+            body = (project / path).read_text()
+            assert sentinel in body, f"{path}: missing sentinel {sentinel!r}\n{body}"
 
 
 def test_quickstart_fastapi_entrypoint_is_connect_app(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    result = _invoke_quickstart(runner, "fastapi", "hello-app")
+    result = _invoke_quickstart(runner, "fastapi", "hello_app")
     assert result.exit_code == 0, result.output
-    tool_rsconnect = _read_pyproject(in_tmp_cwd / "hello-app")["tool"]["rsconnect"]
-    assert tool_rsconnect["entrypoint"] == "__connect__:app"
-    connect_py = (in_tmp_cwd / "hello-app" / "__connect__.py").read_text()
+    tool_rsconnect = _read_pyproject(in_tmp_cwd / "hello_app")["tool"]["rsconnect"]
+    assert tool_rsconnect["entrypoint"] == "hello_app.__connect__:app"
+    connect_py = (in_tmp_cwd / "hello_app" / "hello_app" / "__connect__.py").read_text()
     assert "create_app" in connect_py
     assert "app = " in connect_py
 
 
 def test_quickstart_fastapi_main_runs_uvicorn(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    result = _invoke_quickstart(runner, "fastapi", "hello-app")
+    result = _invoke_quickstart(runner, "fastapi", "hello_app")
     assert result.exit_code == 0, result.output
-    main_py = (in_tmp_cwd / "hello-app" / "__main__.py").read_text()
+    main_py = (in_tmp_cwd / "hello_app" / "hello_app" / "__main__.py").read_text()
     assert "uvicorn" in main_py
 
 
 def test_quickstart_api_main_runs_flask_dev_server(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    result = _invoke_quickstart(runner, "api", "hello-app")
+    result = _invoke_quickstart(runner, "api", "hello_app")
     assert result.exit_code == 0, result.output
-    main_py = (in_tmp_cwd / "hello-app" / "__main__.py").read_text()
+    main_py = (in_tmp_cwd / "hello_app" / "hello_app" / "__main__.py").read_text()
     assert "flask" in main_py.lower() or "app.run(" in main_py
 
 
@@ -431,23 +440,28 @@ def test_quickstart_api_main_runs_flask_dev_server(runner: CliRunner, in_tmp_cwd
         ("streamlit", "app.py"),
         ("quarto", "report.qmd"),
         ("notebook", "notebook.ipynb"),
+        # ``fastapi`` and ``api`` materialize ``<name>/<name>/__init__.py``;
+        # asserting the body proves substitution runs on BOTH the rendered
+        # path and the file content for the nested-package layout.
+        ("fastapi", "alt_project/__init__.py"),
+        ("api", "alt_project/__init__.py"),
     ],
 )
 def test_quickstart_substitutes_name_in_template_body(
     runner: CliRunner, in_tmp_cwd: pathlib.Path, app_type: str, filename: str
 ):
     """Verify ``{name}`` substitution actually runs on template content."""
-    result = _invoke_quickstart(runner, app_type, "alt-project")
+    result = _invoke_quickstart(runner, app_type, "alt_project")
     assert result.exit_code == 0, result.output
-    body = (in_tmp_cwd / "alt-project" / filename).read_text()
-    assert "alt-project" in body, body
+    body = (in_tmp_cwd / "alt_project" / filename).read_text()
+    assert "alt_project" in body, body
 
 
 def test_quickstart_notebook_is_valid_json(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     """The generated notebook.ipynb must parse as JSON after name substitution."""
-    result = _invoke_quickstart(runner, "notebook", "hello-app")
+    result = _invoke_quickstart(runner, "notebook", "hello_app")
     assert result.exit_code == 0, result.output
-    body = (in_tmp_cwd / "hello-app" / "notebook.ipynb").read_text()
+    body = (in_tmp_cwd / "hello_app" / "notebook.ipynb").read_text()
     data = json.loads(body)
     assert data["nbformat"] >= 4
     assert isinstance(data["cells"], list) and len(data["cells"]) >= 1
@@ -455,11 +469,11 @@ def test_quickstart_notebook_is_valid_json(runner: CliRunner, in_tmp_cwd: pathli
 
 def test_quickstart_voila_and_notebook_share_template(runner: CliRunner, in_tmp_cwd: pathlib.Path):
     """SPEC §6.3: voila reuses the notebook template rather than duplicating it."""
-    _invoke_quickstart(runner, "notebook", "hello-app")
-    notebook_body = (in_tmp_cwd / "hello-app" / "notebook.ipynb").read_text()
-    shutil.rmtree(in_tmp_cwd / "hello-app")
-    _invoke_quickstart(runner, "voila", "hello-app")
-    voila_body = (in_tmp_cwd / "hello-app" / "notebook.ipynb").read_text()
+    _invoke_quickstart(runner, "notebook", "hello_app")
+    notebook_body = (in_tmp_cwd / "hello_app" / "notebook.ipynb").read_text()
+    shutil.rmtree(in_tmp_cwd / "hello_app")
+    _invoke_quickstart(runner, "voila", "hello_app")
+    voila_body = (in_tmp_cwd / "hello_app" / "notebook.ipynb").read_text()
     assert notebook_body == voila_body
 
 
@@ -468,10 +482,29 @@ def test_quickstart_voila_and_notebook_share_template(runner: CliRunner, in_tmp_
 # ---------------------------------------------------------------------------
 
 
+def test_install_venv_clears_virtual_env(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path):
+    """``uv`` must not see the developer's activated venv (avoids the venv-mismatch warning)."""
+    monkeypatch.setenv("VIRTUAL_ENV", "/some/parent/.venv")
+    captured_envs: typing.List[typing.Mapping[str, str]] = []
+
+    def fake_run(cmd, cwd, env):
+        captured_envs.append(env)
+        return mock.Mock(returncode=0)
+
+    monkeypatch.setattr("rsconnect.quickstart.quickstart.subprocess.run", fake_run)
+    from rsconnect.quickstart.quickstart import _install_venv
+
+    _install_venv(tmp_path)
+
+    assert len(captured_envs) == 2  # uv venv + uv sync
+    for env in captured_envs:
+        assert "VIRTUAL_ENV" not in env, env
+
+
 def test_quickstart_creates_populated_venv(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    result = _invoke_quickstart(runner, "streamlit", "hello-app")
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code == 0, result.output
-    project = in_tmp_cwd / "hello-app"
+    project = in_tmp_cwd / "hello_app"
     assert (project / ".venv").is_dir()
     # A populated venv has a site-packages or pyvenv.cfg.
     assert (project / ".venv" / "pyvenv.cfg").is_file()
@@ -498,9 +531,9 @@ def test_quickstart_rolls_back_directory_on_uv_failure(
     fake_uv.chmod(0o755)
     monkeypatch.setenv("PATH", f"{fake_uv_dir}{os.pathsep}{os.environ['PATH']}")
 
-    result = _invoke_quickstart(runner, "streamlit", "hello-app")
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code != 0
-    assert not (in_tmp_cwd / "hello-app").exists()  # I8: all or nothing
+    assert not (in_tmp_cwd / "hello_app").exists()  # I8: all or nothing
 
 
 def test_quickstart_rolls_back_on_keyboard_interrupt(
@@ -519,9 +552,9 @@ def test_quickstart_rolls_back_on_keyboard_interrupt(
 
     monkeypatch.setattr(qs, "_install_venv", mock.MagicMock(side_effect=KeyboardInterrupt))
 
-    result = _invoke_quickstart(runner, "streamlit", "hello-app")
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code != 0
-    assert not (in_tmp_cwd / "hello-app").exists()
+    assert not (in_tmp_cwd / "hello_app").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -530,44 +563,72 @@ def test_quickstart_rolls_back_on_keyboard_interrupt(
 
 
 POST_SCAFFOLD_COMMANDS = [
-    pytest.param("streamlit", (), "uv run streamlit run app.py", id="streamlit"),
-    pytest.param("shiny", (), "uv run shiny run app.py", id="shiny"),
-    pytest.param("fastapi", (), "uv run python -m hello-app", id="fastapi"),
-    pytest.param("api", (), "uv run python -m hello-app", id="api"),
-    pytest.param("flask", (), "uv run python -m hello-app", id="flask-alias"),
-    pytest.param("notebook", (), "uv run jupyter lab notebook.ipynb", id="notebook"),
-    pytest.param("voila", (), "uv run voila notebook.ipynb", id="voila"),
-    pytest.param("quarto", (), "uv run quarto preview report.qmd", id="quarto-default"),
-    pytest.param("quarto", ("--shiny",), "uv run quarto preview report.qmd", id="quarto-shiny"),
+    pytest.param("streamlit", (), "uv run streamlit run app.py", (), id="streamlit"),
+    pytest.param("shiny", (), "uv run shiny run app.py", (), id="shiny"),
+    pytest.param("fastapi", (), "uv run python -m hello_app", (), id="fastapi"),
+    pytest.param("api", (), "uv run python -m hello_app", (), id="api"),
+    pytest.param("flask", (), "uv run python -m hello_app", (), id="flask-alias"),
+    pytest.param("notebook", (), "uv run jupyter lab notebook.ipynb", (), id="notebook"),
+    pytest.param("voila", (), "uv run voila notebook.ipynb", (), id="voila"),
+    pytest.param(
+        "quarto",
+        (),
+        "uv run quarto preview report.qmd",
+        ("Note: Quarto must be installed separately: https://quarto.org",),
+        id="quarto-default",
+    ),
+    pytest.param(
+        "quarto",
+        ("--shiny",),
+        "uv run quarto preview report.qmd",
+        ("Note: Quarto must be installed separately: https://quarto.org",),
+        id="quarto-shiny",
+    ),
 ]
 
 
-@pytest.mark.parametrize("app_type,extra_flags,local_run", POST_SCAFFOLD_COMMANDS)
+@pytest.mark.parametrize("app_type,extra_flags,local_run,extra_lines", POST_SCAFFOLD_COMMANDS)
 def test_quickstart_post_scaffold_output(
     runner: CliRunner,
     in_tmp_cwd: pathlib.Path,
     app_type: str,
     extra_flags: tuple[str, ...],
     local_run: str,
+    extra_lines: tuple[str, ...],
 ):
-    result = _invoke_quickstart(runner, app_type, *extra_flags, "hello-app")
+    result = _invoke_quickstart(runner, app_type, *extra_flags, "hello_app")
     assert result.exit_code == 0, result.output
-    # SPEC §12 pins both the wording and the order of the three lines; a
-    # substring check would tolerate extra debug output or reordering.
+    # SPEC §12 pins the wording and order of the summary lines; a substring
+    # check would tolerate extra debug output or reordering.
     lines = [line for line in result.output.splitlines() if line.strip()]
-    assert lines == [
-        "Created hello-app/",
-        local_run,
-        "rsconnect deploy pyproject hello-app",
-    ], result.output
+    expected = [
+        "Project hello_app/ created.",
+        f"To run locally:  {local_run}",
+        "To deploy:       rsconnect deploy pyproject hello_app",
+        *extra_lines,
+    ]
+    assert lines == expected, result.output
 
 
 def test_quickstart_readme_matches_post_scaffold_output(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    result = _invoke_quickstart(runner, "streamlit", "hello-app")
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code == 0, result.output
-    readme = (in_tmp_cwd / "hello-app" / "README.md").read_text()
+    readme = (in_tmp_cwd / "hello_app" / "README.md").read_text()
+    # The README and stdout agree on the two commands the user needs.
     assert "uv run streamlit run app.py" in readme
-    assert "rsconnect deploy pyproject hello-app" in readme
+    assert "rsconnect deploy pyproject hello_app" in readme
+
+
+def test_quickstart_quarto_readme_includes_install_note(runner: CliRunner, in_tmp_cwd: pathlib.Path):
+    """SPEC §12: per-mode notes appear in both stdout and README for quarto."""
+    result = _invoke_quickstart(runner, "quarto", "hello_app")
+    assert result.exit_code == 0, result.output
+    readme = (in_tmp_cwd / "hello_app" / "README.md").read_text()
+    assert "## Notes" in readme
+    assert "Quarto must be installed separately" in readme
+    # Pin the install URL so stdout (asserted in test_quickstart_post_scaffold_output)
+    # and the on-disk README stay in agreement on the actionable link.
+    assert "https://quarto.org" in readme
 
 
 # ---------------------------------------------------------------------------
@@ -576,12 +637,12 @@ def test_quickstart_readme_matches_post_scaffold_output(runner: CliRunner, in_tm
 
 
 def test_invariant_I1_I2_directory_and_pyproject(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    result = _invoke_quickstart(runner, "streamlit", "hello-app")
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code == 0, result.output
-    project = in_tmp_cwd / "hello-app"
+    project = in_tmp_cwd / "hello_app"
     assert project.is_dir()
     data = _read_pyproject(project)
-    assert data["project"]["name"] == "hello-app"
+    assert data["project"]["name"] == "hello_app"
     for required in ("app_mode", "entrypoint", "title"):
         assert required in data["tool"]["rsconnect"]
 
@@ -599,7 +660,7 @@ def test_invariant_I9_I10_failure_exit_and_message(
     fake_uv.chmod(0o755)
     monkeypatch.setenv("PATH", f"{fake_uv_dir}{os.pathsep}{os.environ['PATH']}")
 
-    result = _invoke_quickstart(runner, "streamlit", "hello-app")
+    result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code != 0  # I9
     combined = result.output + (result.stderr if result.stderr_bytes else "")
     assert "uv" in combined.lower()  # I10 - message names the failing tool
@@ -630,14 +691,19 @@ def test_quickstart_registry_accepts_new_mode(
         source_files=(),
     )
     extended_registry = dict(qs._REGISTRY)
-    extended_registry[("newmode", False, False)] = new_spec
+    extended_registry[("newmode", False)] = new_spec
     monkeypatch.setattr(qs, "_REGISTRY", extended_registry)
+    # Click's argument type was bound at decorator time, so injecting a new
+    # supported type means widening the choice list on the live command.
+    quickstart_cmd = cli.commands["quickstart"]
+    type_param = next(p for p in quickstart_cmd.params if p.name == "app_type")
+    monkeypatch.setattr(type_param, "type", type(type_param.type)(qs.SUPPORTED_APP_TYPES + ("newmode",)))
     monkeypatch.setattr(qs, "SUPPORTED_APP_TYPES", qs.SUPPORTED_APP_TYPES + ("newmode",))
 
-    result = _invoke_quickstart(runner, "newmode", "hello-app")
+    result = _invoke_quickstart(runner, "newmode", "hello_app")
 
     assert result.exit_code == 0, result.output
-    data = _read_pyproject(in_tmp_cwd / "hello-app")
+    data = _read_pyproject(in_tmp_cwd / "hello_app")
     assert data["tool"]["rsconnect"]["app_mode"] == "python-newmode"
     assert data["tool"]["rsconnect"]["entrypoint"] == "app.py"
     assert data["project"]["dependencies"] == []
@@ -651,8 +717,8 @@ def test_quickstart_registry_accepts_new_mode(
 BOOT_SMOKE_MATRIX = [
     pytest.param("streamlit", ("streamlit", "run", "app.py"), "http", id="streamlit"),
     pytest.param("shiny", ("shiny", "run", "app.py"), "http", id="shiny"),
-    pytest.param("fastapi", ("python", "-m", "hello-app"), "http", id="fastapi"),
-    pytest.param("api", ("python", "-m", "hello-app"), "http", id="api"),
+    pytest.param("fastapi", ("python", "-m", "hello_app"), "http", id="fastapi"),
+    pytest.param("api", ("python", "-m", "hello_app"), "http", id="api"),
     pytest.param("voila", ("voila", "notebook.ipynb"), "http", id="voila"),
     pytest.param("notebook", ("jupyter", "nbconvert", "--execute", "notebook.ipynb"), "artifact", id="notebook"),
     pytest.param("quarto", ("quarto", "render", "report.qmd"), "artifact", id="quarto"),
@@ -678,9 +744,9 @@ def test_quickstart_per_mode_boot_smoke(
     modes, artifact existence for notebook/quarto - and (4) cleans up. Until
     that harness exists, the tests stay skipped.
     """
-    result = _invoke_quickstart(runner, app_type, "hello-app")
+    result = _invoke_quickstart(runner, app_type, "hello_app")
     assert result.exit_code == 0
-    proc = subprocess.Popen(["uv", "run", *local_cmd], cwd=in_tmp_cwd / "hello-app")
+    proc = subprocess.Popen(["uv", "run", *local_cmd], cwd=in_tmp_cwd / "hello_app")
     try:
         assert proc.poll() is None
     finally:
