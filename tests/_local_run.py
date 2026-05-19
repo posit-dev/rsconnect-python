@@ -67,6 +67,15 @@ def spawn(
     env = os.environ.copy()
     if extra_env:
         env.update(extra_env)
+    # stdout is captured via PIPE (kernel buffer ~64KB on Linux). On the
+    # artifact path ``wait_for_artifact`` drains it; on the HTTP path the
+    # buffer is never read until teardown, so a child that emits more than
+    # ~64KB during the readiness window would block on ``write()`` and look
+    # like a boot timeout. The current frameworks (streamlit, shiny,
+    # uvicorn, flask, voila) emit only a few hundred bytes of startup
+    # banner, so we accept the risk for the simpler ``PIPE`` shape and
+    # keep stdout available for failure dumps. If a chattier framework
+    # joins the matrix, swap to a spooled tempfile or a drain thread.
     proc = subprocess.Popen(
         ["uv", "run", *cmd],
         cwd=str(cwd),
