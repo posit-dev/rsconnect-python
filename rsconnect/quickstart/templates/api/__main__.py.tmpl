@@ -1,9 +1,13 @@
+import os
+
 from .app import create_app
 
 
 def main() -> None:
     app = create_app()
-    app.run(host="127.0.0.1", port=5000)
+    # ``or`` rather than dict default so PORT="" (common in CI scripts)
+    # still falls back to the production port instead of crashing on int("").
+    app.run(host="127.0.0.1", port=int(os.environ.get("PORT") or "5000"))
 
 
 if __name__ == "__main__":

@@ -1,8 +1,4 @@
 # probedev: ignore-file
-# The xfail/skip reasons below cite ``TODO(EVO-###)`` markers by text. The real
-# evolution markers live in ``rsconnect/`` and ``tests/smoke_boot_harness.py``;
-# the strings here are pointers, not new markers. This pragma keeps
-# ``probedev list`` focused on the real plan.
 """
 Acceptance tests for ``rsconnect quickstart`` (SPEC_QUICKSTART.md §§ 2-12, 14-15).
 
@@ -12,8 +8,10 @@ externally observable behavior per SPEC §17.3: exit code, filesystem tree,
 ``uv venv`` + ``uv sync`` subprocesses run as part of the end-to-end coverage,
 so some tests incur a short network round-trip.
 
-The boot-smoke matrix (``test_quickstart_per_mode_boot_smoke``) is currently
-skipped pending the harness in ``tests/smoke_boot_harness.py``.
+The boot-smoke matrix (``test_quickstart_per_mode_boot_smoke``) drives the
+helpers in ``tests/_local_run.py``: it scaffolds each mode, launches the
+documented local-run command under ``uv run``, and asserts readiness
+(HTTP probe for web modes; artifact existence for notebook/quarto).
 
 Test layout mirrors ``tests/test_main.py`` (CliRunner) and ``tests/test_pyproject.py``
 (fixture- and parametrize-driven).
@@ -27,7 +25,6 @@ import pathlib
 import re
 import shutil
 import stat
-import subprocess
 import sys
 import typing
 from unittest import mock
@@ -42,6 +39,7 @@ except ImportError:  # pragma: no cover - Python 3.10 fallback
 from click.testing import CliRunner
 
 from rsconnect.main import cli
+from tests import _local_run
 
 
 # ---------------------------------------------------------------------------
@@ -172,6 +170,23 @@ def test_quickstart_unknown_type_lists_supported(runner: CliRunner, in_tmp_cwd: 
     combined = result.output + (result.stderr if result.stderr_bytes else "")
     for expected in ("streamlit", "shiny", "fastapi", "api", "flask", "notebook", "voila", "quarto"):
         assert expected in combined, f"{expected!r} missing from error output: {combined!r}"
+    assert not (in_tmp_cwd / "hello_app").exists()
+
+
+@pytest.mark.parametrize("app_type", ["streamlit", "notebook", "api"])
+def test_quickstart_shiny_rejected_with_non_quarto_type(runner: CliRunner, in_tmp_cwd: pathlib.Path, app_type: str):
+    """``--shiny`` is a quarto-only flag; combining it with any other type
+    must fail before any directory is created.
+
+    Locks the two load-bearing tokens of the user-recoverable error
+    surface (the flag name and the only supported type) without pinning
+    the full sentence, so prose can drift but the contract cannot.
+    """
+    result = _invoke_quickstart(runner, app_type, "--shiny", "hello_app")
+    assert result.exit_code != 0
+    combined = result.output + (result.stderr if result.stderr_bytes else "")
+    assert "--shiny" in combined, combined
+    assert "quarto" in combined, combined
     assert not (in_tmp_cwd / "hello_app").exists()
 
 
@@ -715,39 +730,45 @@ def test_quickstart_registry_accepts_new_mode(
 
 
 BOOT_SMOKE_MATRIX = [
-    pytest.param("streamlit", ("streamlit", "run", "app.py"), "http", id="streamlit"),
-    pytest.param("shiny", ("shiny", "run", "app.py"), "http", id="shiny"),
-    pytest.param("fastapi", ("python", "-m", "hello_app"), "http", id="fastapi"),
-    pytest.param("api", ("python", "-m", "hello_app"), "http", id="api"),
-    pytest.param("voila", ("voila", "notebook.ipynb"), "http", id="voila"),
-    pytest.param("notebook", ("jupyter", "nbconvert", "--execute", "notebook.ipynb"), "artifact", id="notebook"),
-    pytest.param("quarto", ("quarto", "render", "report.qmd"), "artifact", id="quarto"),
+    pytest.param("streamlit", "http", id="streamlit"),
+    pytest.param("shiny", "http", id="shiny"),
+    pytest.param("fastapi", "http", id="fastapi"),
+    pytest.param("api", "http", id="api"),
+    pytest.param("voila", "http", id="voila"),
+    pytest.param("notebook", "artifact", id="notebook"),
+    pytest.param("quarto", "artifact", id="quarto"),
 ]
 
 
-@pytest.mark.parametrize("app_type,local_cmd,readiness", BOOT_SMOKE_MATRIX)
-@pytest.mark.skip(
-    reason="TODO(EVO-280): Per-mode boot smoke test harness (SPEC §14.1).",
-)
+@pytest.mark.skipif(sys.platform == "win32", reason="boot smoke uses POSIX process groups")
+@pytest.mark.parametrize("app_type,readiness", BOOT_SMOKE_MATRIX)
 def test_quickstart_per_mode_boot_smoke(
     runner: CliRunner,
     in_tmp_cwd: pathlib.Path,
     app_type: str,
-    local_cmd: tuple[str, ...],
     readiness: str,
 ):
-    """Boot smoke test per SPEC §14.1.
+    """Each scaffolded project boots cleanly.
 
-    Implementation note: the evolution that graduates this test must add a
-    harness that (1) runs quickstart, (2) runs the documented local-run
-    command via ``uv run ...``, (3) asserts readiness - HTTP GET for web
-    modes, artifact existence for notebook/quarto - and (4) cleans up. Until
-    that harness exists, the tests stay skipped.
+    HTTP modes bind a probe-allocated port and respond to GET ``/`` with a
+    non-5xx status; artifact modes render to a non-empty output file and
+    exit 0. Failures from a framework release (renamed flag, broken
+    default) make this test red.
     """
+    if app_type == "quarto" and shutil.which("quarto") is None:
+        pytest.skip("quarto CLI not installed")
+
     result = _invoke_quickstart(runner, app_type, "hello_app")
-    assert result.exit_code == 0
-    proc = subprocess.Popen(["uv", "run", *local_cmd], cwd=in_tmp_cwd / "hello_app")
-    try:
-        assert proc.poll() is None
-    finally:
-        proc.terminate()
+    assert result.exit_code == 0, result.output
+    project_dir = in_tmp_cwd / "hello_app"
+
+    if readiness == "http":
+        port = _local_run.find_free_port()
+        cmd, extra_env = _local_run.http_command(app_type, port)
+        with _local_run.spawn(cmd, cwd=project_dir, extra_env=extra_env) as proc:
+            _local_run.wait_for_http(port, proc=proc)
+    else:
+        cmd = _local_run.artifact_command(app_type)
+        target = _local_run.artifact_path(app_type, project_dir)
+        with _local_run.spawn(cmd, cwd=project_dir) as proc:
+            _local_run.wait_for_artifact(proc, target)

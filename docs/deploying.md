@@ -283,6 +283,52 @@ library(rsconnect)
 ?rsconnect::writeManifest
 ```
 
+### Deploying from a pyproject.toml
+
+`rsconnect deploy pyproject` reads a `[tool.rsconnect]` table from a project's
+`pyproject.toml` instead of taking the app mode and entrypoint as CLI arguments.
+It is designed as the deploy partner for projects scaffolded by
+`rsconnect quickstart`, but works with any project whose `pyproject.toml`
+contains the required keys.
+
+The `[tool.rsconnect]` table has two required keys:
+
+- `app_mode` — the Connect app mode the deployment uses. Supported values
+  are `python-streamlit`, `python-shiny`, `python-fastapi`, `python-api`,
+  `jupyter-voila`, `jupyter-static`, `quarto-static`, and `quarto-shiny`.
+- `entrypoint` — the file or importable path Connect runs. The expected form
+  depends on `app_mode`: a script filename such as `app.py` for Streamlit and
+  Shiny, a `module:object` reference such as `my_app.__connect__:app` for
+  FastAPI or WSGI APIs, a `report.qmd` for Quarto, and a `notebook.ipynb` for
+  Voila or static Jupyter content.
+
+A minimal Streamlit project looks like this:
+
+```toml
+[project]
+name = "my_app"
+version = "0.1.0"
+requires-python = ">=3.9"
+dependencies = ["streamlit"]
+
+[tool.rsconnect]
+app_mode = "python-streamlit"
+entrypoint = "app.py"
+```
+
+Projects scaffolded by `rsconnect quickstart` already contain this table.
+From the parent directory of the project, deploy it with:
+
+```bash
+rsconnect deploy pyproject my_app/
+```
+
+The directory passed to `deploy pyproject` must contain `pyproject.toml`.
+Dependencies follow the same resolution rules as the other deploy commands:
+`[project.dependencies]` from `pyproject.toml` provides the dependency
+snapshot, and `uv.lock` or `requirements.txt` may be supplied via
+`--requirements-file` when a pinned environment is needed.
+
 ### Options for All Types of Deployments
 
 These options apply to any type of content deployment.

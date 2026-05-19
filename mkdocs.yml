@@ -46,6 +46,7 @@ nav:
       - details: commands/details.md
       - info: commands/info.md
       - list: commands/list.md
+      - quickstart: commands/quickstart.md
       - remove: commands/remove.md
       - system: commands/system.md
       - version: commands/version.md

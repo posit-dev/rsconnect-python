@@ -30,11 +30,13 @@ import click
 from ..exception import RSConnectException
 
 
-# Supported CLI ``<type>`` values per SPEC §4. ``flask`` is an alias for
-# ``api``; both share the same scaffold and ``python-api`` app mode. The
-# deferred modes from §4.1 (dash, gradio, panel, bokeh) are intentionally
-# absent. Kept as a module-level constant so error messages and future
-# template registration share one source of truth.
+# Supported CLI ``<type>`` values. Each entry MUST match an existing
+# ``rsconnect deploy <type>`` subcommand: a project scaffolded by
+# ``rsconnect quickstart <type>`` must be deployable with either
+# ``rsconnect deploy <type>`` or ``rsconnect deploy pyproject``. Adding a
+# type here without a matching ``deploy`` subcommand breaks that promise.
+# ``flask`` is an alias for ``api``; both share the same scaffold and the
+# ``python-api`` app mode.
 SUPPORTED_APP_TYPES: typing.Tuple[str, ...] = (
     "streamlit",
     "shiny",
@@ -325,9 +327,11 @@ def lookup_template(app_type: str, *, shiny: bool = False) -> TemplateSpec:
     resolved_type = "api" if app_type == "flask" else app_type
     key = (resolved_type, shiny)
     if key not in _REGISTRY:
+        # The only reachable case is ``--shiny`` combined with a non-quarto
+        # type; every other (type, shiny) pair is covered by the registry.
         raise RSConnectException(
-            f"No scaffold template is registered for type {app_type!r} "
-            f"with --shiny={shiny}. Re-run without the unsupported flag."
+            f"The --shiny flag is only supported with type 'quarto', not {app_type!r}. "
+            "Re-run without --shiny, or use 'quarto' as the project type."
         )
     return _REGISTRY[key]
 
