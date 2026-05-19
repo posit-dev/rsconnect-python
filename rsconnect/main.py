@@ -1753,9 +1753,9 @@ def deploy_manifest(
     name="pyproject",
     short_help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io by pyproject.",
     help=(
-        "Deploy content to Posit Connect, Posit Cloud, or shinyapps.io using a pyproject.toml "
-        "file. The specified directory must contain pyproject.toml. "
-        "See SPEC_QUICKSTART.md §13 for the full contract."
+        "Deploy content described by a project's pyproject.toml. The given directory must contain "
+        "a pyproject.toml with a [tool.rsconnect] table specifying app_mode and entrypoint. "
+        "Designed as the deploy partner for projects scaffolded by 'rsconnect quickstart'."
     ),
     no_args_is_help=True,
 )
