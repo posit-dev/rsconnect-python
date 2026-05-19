@@ -10,8 +10,7 @@ Public entrypoint: :func:`run_quickstart`. Callers (the Click command in
 ``rsconnect/main.py``) should not need to import anything else from this
 module.
 
-See ``SPEC_QUICKSTART.md`` at the repository root for the full product
-contract.
+See ``docs/commands/quickstart.md`` for the user-facing command reference.
 """
 
 from __future__ import annotations
@@ -49,8 +48,8 @@ SUPPORTED_APP_TYPES: typing.Tuple[str, ...] = (
 )
 
 
-# SPEC §2.2: lowercase ASCII letter start, only lowercase letters / digits /
-# underscores, no trailing underscore. Underscores (not hyphens) so the name
+# Project name rule: lowercase ASCII letter start, only lowercase letters /
+# digits / underscores, no trailing underscore. Underscores (not hyphens) so the name
 # is a valid Python package identifier — fastapi/api scaffolds materialize a
 # ``<name>/<name>/__init__.py`` package, which only works with importable
 # names. The optional middle-and-end group keeps the rule satisfiable by
@@ -73,18 +72,18 @@ def run_quickstart(
 
     Returns the absolute path to the created project directory on success.
     Raises :class:`rsconnect.exception.RSConnectException` on any pre-flight
-    or scaffold failure; rollback of the partially-created directory is the
-    caller-visible invariant defined in SPEC §11.
+    or scaffold failure. On failure the partially-created directory is
+    removed so the caller sees "all or nothing."
 
-    :param str app_type: one of the supported CLI types in SPEC §4.
-    :param str name: project name; must satisfy SPEC §2.2.
+    :param str app_type: one of the supported CLI types.
+    :param str name: project name; must satisfy the project-name rule above.
     :param bool shiny: quarto-only flag; selects ``quarto-shiny``.
     :param pathlib.Path cwd: override the working directory (testing hook);
         defaults to :func:`pathlib.Path.cwd`.
     """
     cwd = (cwd or pathlib.Path.cwd()).resolve()
 
-    # SPEC §10 pre-flight order. Each helper raises ``RSConnectException``
+    # Pre-flight checks. Each helper raises ``RSConnectException``
     # with an actionable message; nothing on disk is mutated until every
     # check has passed. Type validation now lives in Click's argument
     # parser (see ``rsconnect/main.py``), so it has already passed before
@@ -95,15 +94,15 @@ def run_quickstart(
     _require_target_does_not_exist(target)
     _require_cwd_writable(cwd)
 
-    # SPEC §4/§6: resolve the per-mode template once. Pre-flight already
-    # validated ``app_type``; ``lookup_template`` is defensive against
-    # impossible flag combinations only.
+    # Resolve the per-mode template once. Pre-flight already validated
+    # ``app_type``; ``lookup_template`` is defensive against impossible
+    # flag combinations only.
     spec = lookup_template(app_type, shiny=shiny)
 
-    # SPEC §11 + I8: after ``mkdir`` succeeds, any failure in the rest of
-    # the pipeline must remove ``./<name>/`` so the user sees "all or
-    # nothing." ``BaseException`` catches ``KeyboardInterrupt`` too (a
-    # Ctrl-C mid-``uv sync`` is the most likely real-world failure mode).
+    # Atomicity: after ``mkdir`` succeeds, any failure in the rest of the
+    # pipeline must remove ``./<name>/`` so the user sees "all or nothing."
+    # ``BaseException`` catches ``KeyboardInterrupt`` too (a Ctrl-C
+    # mid-``uv sync`` is the most likely real-world failure mode).
     target.mkdir()
     try:
         _scaffold(target, name=name, spec=spec)
@@ -121,7 +120,7 @@ def run_quickstart(
 
 
 # ---------------------------------------------------------------------------
-# Pre-flight checks (SPEC §10)
+# Pre-flight checks
 # ---------------------------------------------------------------------------
 
 
@@ -158,14 +157,15 @@ def _require_cwd_writable(cwd: pathlib.Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Template registry (SPEC §4 / §6 / §8.2 / §12)
+# Template registry
 # ---------------------------------------------------------------------------
 #
 # The registry is the single source of truth that ties together what each
 # supported mode produces: the canonical Connect ``app_mode`` written to
-# ``[tool.rsconnect]``, the entrypoint form per §6, the local-run command
-# documented in §12 and the README, the minimum dependencies for the
-# hello-world, and the source files the per-mode template materializes.
+# ``[tool.rsconnect]``, the entrypoint form, the local-run command
+# documented in the post-scaffold stdout and the README, the minimum
+# dependencies for the hello-world, and the source files the per-mode
+# template materializes.
 #
 # Adding a future supported mode is a registry insertion plus dropping a
 # directory under ``rsconnect/quickstart/templates/<mode>/``; no pre-flight,
@@ -204,14 +204,14 @@ class TemplateSpec:
     mapped to one entry; the dataclass itself does not know about CLI
     aliases or flags.
 
-    :param str app_mode: canonical Connect app mode per SPEC §8.2.
+    :param str app_mode: canonical Connect app mode.
     :param str entrypoint: entrypoint string written to
-        ``[tool.rsconnect].entrypoint`` per SPEC §6. The literal token
-        ``{name}`` (if present) is substituted with the project name at
-        scaffold time so fastapi/api can name their nested package.
+        ``[tool.rsconnect].entrypoint``. The literal token ``{name}`` (if
+        present) is substituted with the project name at scaffold time so
+        fastapi/api can name their nested package.
     :param tuple local_run_command: argv form of the documented local-run
-        command per SPEC §12. The literal token ``"{name}"`` (if present) is
-        substituted with the project name at scaffold time.
+        command. The literal token ``"{name}"`` (if present) is substituted
+        with the project name at scaffold time.
     :param tuple dependencies: minimum runtime dependencies for the
         hello-world, written to ``[project.dependencies]``.
     :param tuple source_files: per-mode template files to materialize.
@@ -233,8 +233,8 @@ class TemplateSpec:
 
 
 # Registry key: ``(resolved_type, shiny)``. The ``flask`` alias resolves to
-# ``api`` before lookup (see :func:`lookup_template`); the v1 deferred modes
-# from SPEC §4.1 (dash, gradio, panel, bokeh) are intentionally absent.
+# ``api`` before lookup (see :func:`lookup_template`); deferred modes
+# (dash, gradio, panel, bokeh) are intentionally absent.
 _QUARTO_INSTALL_NOTE = "Quarto must be installed separately: https://quarto.org"
 
 _REGISTRY: typing.Mapping[typing.Tuple[str, bool], TemplateSpec] = {
@@ -321,7 +321,7 @@ def lookup_template(app_type: str, *, shiny: bool = False) -> TemplateSpec:
     resolve to the same key. Other CLI-level flag combinations have already
     been narrowed by pre-flight, so this lookup is defensive only.
 
-    :param str app_type: CLI ``<type>`` value per SPEC §4.
+    :param str app_type: CLI ``<type>`` value.
     :param bool shiny: quarto-only flag.
     """
     resolved_type = "api" if app_type == "flask" else app_type
@@ -337,15 +337,15 @@ def lookup_template(app_type: str, *, shiny: bool = False) -> TemplateSpec:
 
 
 # ---------------------------------------------------------------------------
-# Filesystem generation (SPEC §5.1 / §6 / §3)
+# Filesystem generation
 # ---------------------------------------------------------------------------
 
 
 def _scaffold(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> None:
     """Write every file the scaffolded project should contain.
 
-    This is the SPEC §5.1 + §6 filesystem-generation phase: the four
-    always-present files (``pyproject.toml``, ``.python-version``,
+    Filesystem-generation phase: the four always-present files
+    (``pyproject.toml``, ``.python-version``,
     ``.gitignore``, ``README.md``) and the per-mode source files
     materialized from ``spec.source_files``. The caller owns ``target``'s
     creation and rollback, so this helper writes into an existing directory.
@@ -369,9 +369,9 @@ def _scaffold(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> None:
         dest.write_text(body, encoding="utf-8")
 
 
-# SPEC-pinned literals: kept as separate constants because they encode two
-# distinct concerns (the .python-version pin vs. the requires-python floor)
-# that happen to share a Python-version shape but evolve independently.
+# Kept as separate constants because they encode two distinct concerns
+# (the .python-version pin vs. the requires-python floor) that happen to
+# share a Python-version shape but evolve independently.
 _PYTHON_VERSION = "3.11"  # value written to .python-version
 _REQUIRES_PYTHON = ">=3.9"  # value written to [project].requires-python
 _GITIGNORE_BODY = "__pycache__/\n*.pyc\n.venv/\n*.egg-info/\nrsconnect-python/\n.env\n"
@@ -379,9 +379,9 @@ _GITIGNORE_BODY = "__pycache__/\n*.pyc\n.venv/\n*.egg-info/\nrsconnect-python/\n
 
 def _render_pyproject(*, name: str, spec: TemplateSpec) -> str:
     # Build the TOML by direct string concatenation rather than pulling in a
-    # writer dependency. SPEC §3.2 forbids duplicating ``dependencies`` or
-    # ``requires-python`` in ``[tool.rsconnect]``; the table holds exactly
-    # ``app_mode``, ``entrypoint``, and ``title``.
+    # writer dependency. ``dependencies`` and ``requires-python`` live
+    # in ``[project]`` and must not be duplicated in ``[tool.rsconnect]``;
+    # the table holds exactly ``app_mode``, ``entrypoint``, and ``title``.
     if spec.dependencies:
         deps_block = "[\n" + "".join(f'    "{dep}",\n' for dep in spec.dependencies) + "]"
     else:
@@ -434,17 +434,17 @@ def _format_local_run(spec: TemplateSpec, *, name: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Venv population (SPEC §5.1 / §7 / I5)
+# Venv population
 # ---------------------------------------------------------------------------
 
 
 def _install_venv(target: pathlib.Path) -> None:
-    """Populate ``.venv/`` via ``uv venv`` + ``uv sync`` per SPEC §5.1 + §7.
+    """Populate ``.venv/`` via ``uv venv`` + ``uv sync``.
 
     stdout/stderr are inherited from the parent process so users see uv's
     own progress output in real time ("Creating environment...", "Resolving
     dependencies..."). A non-zero exit raises ``RSConnectException``, which
-    the caller translates into the SPEC §11 rollback.
+    the caller translates into the rollback of the partially-created project.
     """
     # ``VIRTUAL_ENV`` is removed because uv otherwise warns that the
     # developer's currently-activated venv does not match the scaffolded
@@ -465,12 +465,12 @@ def _install_venv(target: pathlib.Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Post-scaffold output (SPEC §12 / I7)
+# Post-scaffold output
 # ---------------------------------------------------------------------------
 
 
 def _emit_summary(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> None:
-    """Print the SPEC §12 confirmation, local-run, deploy, and notes lines.
+    """Print the confirmation, local-run, deploy, and notes lines.
 
     Uses :func:`click.echo` for consistency with the rest of the CLI; the
     same commands are written into the project's ``README.md`` by

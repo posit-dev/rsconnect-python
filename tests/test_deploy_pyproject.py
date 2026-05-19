@@ -1,6 +1,5 @@
-# probedev: ignore-file
 """
-Acceptance tests for ``rsconnect deploy pyproject`` (SPEC_QUICKSTART.md §13).
+Acceptance tests for ``rsconnect deploy pyproject``.
 
 Tests exercise the CLI via ``click.testing.CliRunner`` and the pure reader
 (:func:`rsconnect.pyproject.read_tool_rsconnect`) directly. They follow the
@@ -48,7 +47,7 @@ def _write_pyproject(project: pathlib.Path, body: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Command shape (SPEC §13.1)
+# Command shape
 # ---------------------------------------------------------------------------
 
 
@@ -59,7 +58,8 @@ def test_deploy_pyproject_command_is_registered(runner: CliRunner):
 
 
 def test_deploy_pyproject_requires_path(runner: CliRunner):
-    """The positional directory is required (SPEC §13.1: no silent default to '.').
+    """The positional directory is required (no silent default to '.').
+
 
     Distinguishes 'command exists and demands the positional' from the prior
     'command does not exist' state - the assertions below would behave
@@ -76,8 +76,7 @@ def test_deploy_pyproject_requires_path(runner: CliRunner):
 
 def test_deploy_pyproject_option_surface_matches_deploy_manifest():
     """``deploy pyproject`` must expose the same Click option surface as
-    ``deploy manifest`` so existing credential mechanisms (SPEC §13.1) apply
-    identically.
+    ``deploy manifest`` so existing credential mechanisms apply identically.
     """
     deploy_group = typing.cast(click.Group, cli.commands["deploy"])
     manifest_options = {p.name for p in deploy_group.commands["manifest"].params if isinstance(p, click.Option)}
@@ -86,7 +85,7 @@ def test_deploy_pyproject_option_surface_matches_deploy_manifest():
 
 
 # ---------------------------------------------------------------------------
-# [tool.rsconnect] reader (SPEC §3 / §13.2)
+# [tool.rsconnect] reader
 # ---------------------------------------------------------------------------
 
 
@@ -126,8 +125,8 @@ def test_read_tool_rsconnect_missing_section_raises(project_dir: pathlib.Path):
     )
     with pytest.raises(Exception) as excinfo:
         read_tool_rsconnect(project_dir / "pyproject.toml")
-    # Exception must carry the SPEC §13.3 minimum valid snippet as a
-    # copy-pasteable TOML block, not just prose. Anchor on the section
+    # Exception must carry the minimum valid snippet as a copy-pasteable
+    # TOML block, not just prose. Anchor on the section
     # header plus both required-field TOML string-valued key=value forms
     # (``key = "``); a prose 'required fields: ...' message would not
     # incidentally produce that shape.
@@ -206,7 +205,7 @@ def test_read_tool_rsconnect_missing_required_field_raises(project_dir: pathlib.
 
 
 # ---------------------------------------------------------------------------
-# CLI behavior on missing / invalid config (SPEC §13.3)
+# CLI behavior on missing / invalid config
 # ---------------------------------------------------------------------------
 
 
@@ -262,7 +261,7 @@ def test_deploy_pyproject_errors_on_missing_entrypoint(runner: CliRunner, projec
 
 
 def test_deploy_pyproject_error_message_mentions_quickstart(runner: CliRunner, project_dir: pathlib.Path):
-    """SPEC §13.3 requires the error to reference ``rsconnect quickstart --help``."""
+    """The error must reference ``rsconnect quickstart --help``."""
     _write_pyproject(
         project_dir,
         """
@@ -278,7 +277,7 @@ def test_deploy_pyproject_error_message_mentions_quickstart(runner: CliRunner, p
 
 
 # ---------------------------------------------------------------------------
-# Dispatch by app_mode (SPEC §13.2)
+# Dispatch by app_mode
 # ---------------------------------------------------------------------------
 
 
@@ -303,7 +302,7 @@ def test_deploy_pyproject_dispatches_by_app_mode(
     expected_builder_name: str,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    """Each [tool.rsconnect].app_mode routes to its matching bundle builder (SPEC §13.2 step 3, §8.2)."""
+    """Each ``[tool.rsconnect].app_mode`` routes to its matching bundle builder."""
     captured: dict[str, typing.Any] = {}
 
     class _StopDispatch(Exception):
@@ -362,7 +361,7 @@ def test_deploy_pyproject_dispatches_by_app_mode(
 
 
 # ---------------------------------------------------------------------------
-# Title / entrypoint override (SPEC §13.2 steps 4-5)
+# Title / entrypoint override
 # ---------------------------------------------------------------------------
 
 

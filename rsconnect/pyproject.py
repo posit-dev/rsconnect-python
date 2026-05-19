@@ -179,10 +179,10 @@ entrypoint = "app.py"'''
 def read_tool_rsconnect(pyproject_file: pathlib.Path) -> typing.Mapping[str, typing.Any]:
     """Read the ``[tool.rsconnect]`` deployment config from pyproject.toml.
 
-    Returns the section mapping unchanged for forward-compatible fields (SPEC
-    §3.1, §3.2). Raises ``InvalidPyprojectConfigError`` when the section is
+    Returns the section mapping unchanged so forward-compatible fields pass
+    through. Raises ``InvalidPyprojectConfigError`` when the section is
     missing or when required ``app_mode`` / ``entrypoint`` fields are absent or
-    not non-empty strings (SPEC §13.3).
+    not non-empty strings.
     """
     content = pyproject_file.read_text()
     pyproject = tomllib.loads(content)

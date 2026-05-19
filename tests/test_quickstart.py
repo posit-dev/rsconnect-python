@@ -1,12 +1,11 @@
-# probedev: ignore-file
 """
-Acceptance tests for ``rsconnect quickstart`` (SPEC_QUICKSTART.md §§ 2-12, 14-15).
+Acceptance tests for ``rsconnect quickstart``.
 
 Tests are written against the CLI using ``click.testing.CliRunner`` and inspect
-externally observable behavior per SPEC §17.3: exit code, filesystem tree,
-``pyproject.toml`` AST, stdout/stderr, and the populated ``.venv/``. Real
-``uv venv`` + ``uv sync`` subprocesses run as part of the end-to-end coverage,
-so some tests incur a short network round-trip.
+externally observable behavior: exit code, filesystem tree, ``pyproject.toml``
+AST, stdout/stderr, and the populated ``.venv/``. Real ``uv venv`` + ``uv sync``
+subprocesses run as part of the end-to-end coverage, so some tests incur a
+short network round-trip.
 
 The boot-smoke matrix (``test_quickstart_per_mode_boot_smoke``) drives the
 helpers in ``tests/_local_run.py``: it scaffolds each mode, launches the
@@ -72,7 +71,7 @@ def _read_pyproject(project_dir: pathlib.Path) -> typing.Mapping[str, typing.Any
 
 
 # ---------------------------------------------------------------------------
-# Command shape (SPEC §2, §2.1)
+# Command shape
 # ---------------------------------------------------------------------------
 
 
@@ -100,8 +99,8 @@ def test_quickstart_help_exposes_shiny_flag(runner: CliRunner):
     result = runner.invoke(cli, ["quickstart", "--help"])
     assert result.exit_code == 0, result.output
     assert "--shiny" in result.output
-    # ``--static`` was the original pre-shiny flag; SPEC §4.1 replaced it
-    # with ``--shiny`` (default static), so the old flag must not resurface.
+    # ``--static`` was the original pre-shiny flag, since replaced by
+    # ``--shiny`` (default static), so the old flag must not resurface.
     assert "--static" not in result.output
 
 
@@ -138,7 +137,7 @@ def test_quickstart_delegates_to_run_quickstart(
 
 
 # ---------------------------------------------------------------------------
-# Pre-flight checks (SPEC §10)
+# Pre-flight checks
 # ---------------------------------------------------------------------------
 
 
@@ -149,13 +148,13 @@ def test_quickstart_requires_uv_on_path(runner: CliRunner, in_tmp_cwd: pathlib.P
     assert result.exit_code != 0
     combined = result.output + (result.stderr if result.stderr_bytes else "")
     assert "uv" in combined.lower()
-    assert not (in_tmp_cwd / "hello_app").exists()  # I8: no partial dir on pre-flight failure
+    assert not (in_tmp_cwd / "hello_app").exists()  # no partial dir on pre-flight failure
 
 
 def test_quickstart_uv_missing_message_names_install(
     runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ):
-    """The error message should include the recommended install command (SPEC §7)."""
+    """The error message should include the recommended install command."""
     monkeypatch.setenv("PATH", str(in_tmp_cwd))
     result = _invoke_quickstart(runner, "streamlit", "hello_app")
     combined = result.output + (result.stderr if result.stderr_bytes else "")
@@ -217,7 +216,7 @@ def test_quickstart_fails_when_directory_exists(runner: CliRunner, in_tmp_cwd: p
     (in_tmp_cwd / "hello_app" / "existing-file.txt").write_text("keep me")
     result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code != 0
-    # The pre-existing file must be untouched (SPEC §11 Atomicity).
+    # The pre-existing file must be untouched (atomicity).
     assert (in_tmp_cwd / "hello_app" / "existing-file.txt").read_text() == "keep me"
 
 
@@ -236,7 +235,7 @@ def test_quickstart_requires_writable_cwd(runner: CliRunner, tmp_path: pathlib.P
 
 
 def test_quickstart_flask_alias_passes_type_validation(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    """SPEC §4: 'flask' is accepted as an alias for 'api' at pre-flight."""
+    """'flask' is accepted as an alias for 'api' at pre-flight."""
     result = _invoke_quickstart(runner, "flask", "hello_app")
     combined = result.output + (result.stderr if result.stderr_bytes else "")
     # The type-validation gate does not reject 'flask'. The command still
@@ -247,7 +246,7 @@ def test_quickstart_flask_alias_passes_type_validation(runner: CliRunner, in_tmp
 
 
 # ---------------------------------------------------------------------------
-# Always-present generated files (SPEC §5.1)
+# Always-present generated files
 # ---------------------------------------------------------------------------
 
 
@@ -275,7 +274,7 @@ def test_quickstart_does_not_create_manifest_json(runner: CliRunner, in_tmp_cwd:
 
 
 # ---------------------------------------------------------------------------
-# pyproject.toml contents (SPEC §3 + §8.2)
+# pyproject.toml contents
 # ---------------------------------------------------------------------------
 
 
@@ -294,7 +293,7 @@ def test_quickstart_pyproject_has_tool_rsconnect(runner: CliRunner, in_tmp_cwd: 
 
 
 def test_quickstart_does_not_duplicate_deps_in_tool_rsconnect(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    """SPEC §3.2: dependencies and requires-python live in [project], not in [tool.rsconnect]."""
+    """``dependencies`` and ``requires-python`` live in ``[project]``, not in ``[tool.rsconnect]``."""
     result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code == 0, result.output
     tool_rsconnect = _read_pyproject(in_tmp_cwd / "hello_app")["tool"]["rsconnect"]
@@ -305,7 +304,7 @@ def test_quickstart_does_not_duplicate_deps_in_tool_rsconnect(runner: CliRunner,
 
 
 # ---------------------------------------------------------------------------
-# Per-mode app_mode matrix (SPEC §4 / §8.2)
+# Per-mode app_mode matrix
 # ---------------------------------------------------------------------------
 
 
@@ -341,7 +340,7 @@ def test_quickstart_app_mode_for_each_type(
 
 
 # ---------------------------------------------------------------------------
-# Per-category file sets (SPEC §6)
+# Per-category file sets
 # ---------------------------------------------------------------------------
 
 
@@ -483,7 +482,7 @@ def test_quickstart_notebook_is_valid_json(runner: CliRunner, in_tmp_cwd: pathli
 
 
 def test_quickstart_voila_and_notebook_share_template(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    """SPEC §6.3: voila reuses the notebook template rather than duplicating it."""
+    """voila reuses the notebook template rather than duplicating it."""
     _invoke_quickstart(runner, "notebook", "hello_app")
     notebook_body = (in_tmp_cwd / "hello_app" / "notebook.ipynb").read_text()
     shutil.rmtree(in_tmp_cwd / "hello_app")
@@ -493,7 +492,7 @@ def test_quickstart_voila_and_notebook_share_template(runner: CliRunner, in_tmp_
 
 
 # ---------------------------------------------------------------------------
-# Venv population (SPEC §5.1, §7, I5)
+# Venv population
 # ---------------------------------------------------------------------------
 
 
@@ -529,7 +528,7 @@ def test_quickstart_creates_populated_venv(runner: CliRunner, in_tmp_cwd: pathli
 
 
 # ---------------------------------------------------------------------------
-# Atomicity on failure (SPEC §11, I8)
+# Atomicity on failure
 # ---------------------------------------------------------------------------
 
 
@@ -548,7 +547,7 @@ def test_quickstart_rolls_back_directory_on_uv_failure(
 
     result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code != 0
-    assert not (in_tmp_cwd / "hello_app").exists()  # I8: all or nothing
+    assert not (in_tmp_cwd / "hello_app").exists()  # all or nothing
 
 
 def test_quickstart_rolls_back_on_keyboard_interrupt(
@@ -573,7 +572,7 @@ def test_quickstart_rolls_back_on_keyboard_interrupt(
 
 
 # ---------------------------------------------------------------------------
-# Post-scaffold output (SPEC §12, I7)
+# Post-scaffold output
 # ---------------------------------------------------------------------------
 
 
@@ -613,8 +612,8 @@ def test_quickstart_post_scaffold_output(
 ):
     result = _invoke_quickstart(runner, app_type, *extra_flags, "hello_app")
     assert result.exit_code == 0, result.output
-    # SPEC §12 pins the wording and order of the summary lines; a substring
-    # check would tolerate extra debug output or reordering.
+    # The wording and order of the summary lines are part of the user-visible
+    # contract; a substring check would tolerate extra debug output or reordering.
     lines = [line for line in result.output.splitlines() if line.strip()]
     expected = [
         "Project hello_app/ created.",
@@ -635,7 +634,7 @@ def test_quickstart_readme_matches_post_scaffold_output(runner: CliRunner, in_tm
 
 
 def test_quickstart_quarto_readme_includes_install_note(runner: CliRunner, in_tmp_cwd: pathlib.Path):
-    """SPEC §12: per-mode notes appear in both stdout and README for quarto."""
+    """Per-mode notes appear in both stdout and README for quarto."""
     result = _invoke_quickstart(runner, "quarto", "hello_app")
     assert result.exit_code == 0, result.output
     readme = (in_tmp_cwd / "hello_app" / "README.md").read_text()
@@ -647,7 +646,7 @@ def test_quickstart_quarto_readme_includes_install_note(runner: CliRunner, in_tm
 
 
 # ---------------------------------------------------------------------------
-# Invariants (SPEC §15, I1-I10)
+# End-to-end invariants
 # ---------------------------------------------------------------------------
 
 
@@ -667,7 +666,7 @@ def test_invariant_I9_I10_failure_exit_and_message(
     in_tmp_cwd: pathlib.Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    """SPEC §15 I9-I10: pipeline failure produces non-zero exit and actionable stderr."""
+    """Pipeline failure produces non-zero exit and actionable stderr."""
     fake_uv_dir = in_tmp_cwd / "fake-bin"
     fake_uv_dir.mkdir()
     fake_uv = fake_uv_dir / "uv"
@@ -676,20 +675,20 @@ def test_invariant_I9_I10_failure_exit_and_message(
     monkeypatch.setenv("PATH", f"{fake_uv_dir}{os.pathsep}{os.environ['PATH']}")
 
     result = _invoke_quickstart(runner, "streamlit", "hello_app")
-    assert result.exit_code != 0  # I9
+    assert result.exit_code != 0
     combined = result.output + (result.stderr if result.stderr_bytes else "")
-    assert "uv" in combined.lower()  # I10 - message names the failing tool
+    assert "uv" in combined.lower()  # message names the failing tool
 
 
 # ---------------------------------------------------------------------------
-# Template registry extensibility (SPEC §4.1)
+# Template registry extensibility
 # ---------------------------------------------------------------------------
 
 
 def test_quickstart_registry_accepts_new_mode(
     runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ):
-    """SPEC §4.1: adding a mode is "drop a template directory plus register it."
+    """Adding a mode is "drop a template directory plus register it."
 
     The test proves the extensibility contract: inserting a new row into
     ``_REGISTRY`` (plus a corresponding ``SUPPORTED_APP_TYPES`` entry) yields a
@@ -725,7 +724,7 @@ def test_quickstart_registry_accepts_new_mode(
 
 
 # ---------------------------------------------------------------------------
-# Per-mode boot smoke tests (SPEC §14.1)
+# Per-mode boot smoke tests
 # ---------------------------------------------------------------------------
 
 
