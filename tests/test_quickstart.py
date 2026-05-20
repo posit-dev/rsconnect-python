@@ -19,11 +19,11 @@ Test layout mirrors ``tests/test_main.py`` (CliRunner) and ``tests/test_pyprojec
 from __future__ import annotations
 
 import json
-import os
 import pathlib
 import re
 import shutil
 import stat
+import subprocess
 import sys
 import typing
 from unittest import mock
@@ -411,7 +411,9 @@ def test_quickstart_mode_file_set(
             continue
         if rel.name in _IGNORED_FILES:
             continue
-        actual.add(str(rel))
+        # ``as_posix`` normalizes the separator so the expected set (always
+        # written with ``/``) matches on Windows where ``str(rel)`` uses ``\``.
+        actual.add(rel.as_posix())
 
     expected = _ALWAYS_PRESENT | set(expected_sources.keys())
     assert actual == expected, (
@@ -532,18 +534,26 @@ def test_quickstart_creates_populated_venv(runner: CliRunner, in_tmp_cwd: pathli
 # ---------------------------------------------------------------------------
 
 
+def _force_uv_to_fail(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make ``subprocess.run`` return ``returncode=1`` for the ``uv`` invocations
+    inside the scaffold pipeline. Cross-platform: avoids the brittle
+    "fake binary on PATH" trick which cannot execute extension-less shell
+    scripts under ``CreateProcessW`` on Windows.
+    """
+
+    def fake_run(cmd, *args, **kwargs):
+        return subprocess.CompletedProcess(args=cmd, returncode=1)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+
 def test_quickstart_rolls_back_directory_on_uv_failure(
     runner: CliRunner,
     in_tmp_cwd: pathlib.Path,
     monkeypatch: pytest.MonkeyPatch,
 ):
     """Force ``uv`` to fail and assert the project directory is removed."""
-    fake_uv_dir = in_tmp_cwd / "fake-bin"
-    fake_uv_dir.mkdir()
-    fake_uv = fake_uv_dir / "uv"
-    fake_uv.write_text("#!/usr/bin/env bash\nexit 1\n")
-    fake_uv.chmod(0o755)
-    monkeypatch.setenv("PATH", f"{fake_uv_dir}{os.pathsep}{os.environ['PATH']}")
+    _force_uv_to_fail(monkeypatch)
 
     result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code != 0
@@ -667,12 +677,7 @@ def test_invariant_I9_I10_failure_exit_and_message(
     monkeypatch: pytest.MonkeyPatch,
 ):
     """Pipeline failure produces non-zero exit and actionable stderr."""
-    fake_uv_dir = in_tmp_cwd / "fake-bin"
-    fake_uv_dir.mkdir()
-    fake_uv = fake_uv_dir / "uv"
-    fake_uv.write_text("#!/usr/bin/env bash\nexit 1\n")
-    fake_uv.chmod(0o755)
-    monkeypatch.setenv("PATH", f"{fake_uv_dir}{os.pathsep}{os.environ['PATH']}")
+    _force_uv_to_fail(monkeypatch)
 
     result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code != 0
