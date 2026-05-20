@@ -254,9 +254,11 @@ def test_quickstart_generates_always_present_files(runner: CliRunner, in_tmp_cwd
     result = _invoke_quickstart(runner, "streamlit", "hello_app")
     assert result.exit_code == 0, result.output
     project = in_tmp_cwd / "hello_app"
-    for name in ("pyproject.toml", ".python-version", ".gitignore", "README.md"):
+    for name in ("pyproject.toml", ".gitignore", "README.md"):
         assert (project / name).is_file(), f"{name} missing from {list(project.iterdir())}"
-    assert (project / ".python-version").read_text().strip() == "3.11"
+    # No separate ``.python-version`` is emitted: ``requires-python`` in
+    # ``pyproject.toml`` is the single source of truth for the Python pin.
+    assert not (project / ".python-version").exists()
 
 
 def test_quickstart_gitignore_covers_rsconnect_dirs(runner: CliRunner, in_tmp_cwd: pathlib.Path):
@@ -284,7 +286,9 @@ def test_quickstart_pyproject_has_tool_rsconnect(runner: CliRunner, in_tmp_cwd: 
     data = _read_pyproject(in_tmp_cwd / "hello_app")
     assert data["project"]["name"] == "hello_app"
     assert data["project"]["version"] == "0.0.1"
-    assert data["project"]["requires-python"] == ">=3.9"
+    # ``requires-python`` tracks the interpreter that ran ``rsconnect quickstart``.
+    expected_requires = ">={}.{}".format(*sys.version_info[:2])
+    assert data["project"]["requires-python"] == expected_requires
     assert data["project"]["dependencies"] == ["streamlit"]
     tool_rsconnect = data["tool"]["rsconnect"]
     assert tool_rsconnect["app_mode"] == "python-streamlit"
@@ -385,7 +389,7 @@ EXPECTED_FILES = [
     pytest.param("quarto", {"report.qmd": "title"}, id="quarto"),
 ]
 
-_ALWAYS_PRESENT = {"pyproject.toml", ".python-version", ".gitignore", "README.md"}
+_ALWAYS_PRESENT = {"pyproject.toml", ".gitignore", "README.md"}
 _IGNORED_PARTS = {".venv", "__pycache__"}
 _IGNORED_FILES = {"uv.lock"}
 
