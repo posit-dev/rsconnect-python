@@ -304,9 +304,11 @@ _REGISTRY: typing.Mapping[str, TemplateSpec] = {
         source_files=(FileSpec(name="report.qmd", template="quarto/report.qmd.tmpl"),),
         notes=(_QUARTO_INSTALL_NOTE,),
     ),
+    # quarto-shiny shares the README with quarto-static: same local-run
+    # command, same deploy command, same quarto-install note.
     "quarto-shiny": TemplateSpec(
         pyproject_template="quarto/pyproject_shiny.toml.tmpl",
-        readme_template="quarto/README_shiny.md.tmpl",
+        readme_template="quarto/README.md.tmpl",
         local_run_command=("uv", "run", "quarto", "preview", "report.qmd"),
         source_files=(FileSpec(name="report.qmd", template="quarto/report_shiny.qmd.tmpl"),),
         notes=(_QUARTO_INSTALL_NOTE,),
