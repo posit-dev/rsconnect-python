@@ -2110,7 +2110,18 @@ def resolve_requirements_file(directory: str, requirements_file: Optional[str], 
     return requirements_file or "requirements.txt"
 
 
-def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc: Optional[str] = None):
+def generate_deploy_python(
+    app_mode: AppMode,
+    min_version: str,
+    alias: Optional[str] = None,
+    desc: Optional[str] = None,
+):
+    # ``alias`` defaults to the mode's primary CLI alias (declared in
+    # ``AppModes._cli_aliases``); callers pass it explicitly only for
+    # secondary aliases (e.g. ``flask`` -> ``PYTHON_API`` alongside ``api``).
+    # The bidirectional ``_cli_aliases`` invariant is tested in
+    # ``tests/test_models.py``; the factory trusts it.
+    alias = alias or app_mode.cli_alias()
     if desc is None:
         desc = app_mode.desc()
 
@@ -2317,15 +2328,15 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
     return deploy_app
 
 
-generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="api", min_version="1.8.2")
-generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="flask", min_version="1.8.2", desc="Flask API")
-generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0")
-generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
-generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
-generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
-generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0")
-generate_deploy_python(app_mode=AppModes.PYTHON_GRADIO, alias="gradio", min_version="2024.12.0")
-generate_deploy_python(app_mode=AppModes.PYTHON_PANEL, alias="panel", min_version="2025.10.0")
+generate_deploy_python(app_mode=AppModes.PYTHON_API, min_version="1.8.2")
+generate_deploy_python(app_mode=AppModes.PYTHON_API, min_version="1.8.2", alias="flask", desc="Flask API")
+generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, min_version="2021.08.0")
+generate_deploy_python(app_mode=AppModes.DASH_APP, min_version="1.8.2")
+generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, min_version="1.8.4")
+generate_deploy_python(app_mode=AppModes.BOKEH_APP, min_version="1.8.4")
+generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, min_version="2022.07.0")
+generate_deploy_python(app_mode=AppModes.PYTHON_GRADIO, min_version="2024.12.0")
+generate_deploy_python(app_mode=AppModes.PYTHON_PANEL, min_version="2025.10.0")
 
 
 # noinspection SpellCheckingInspection
@@ -2977,7 +2988,13 @@ def write_manifest_tensorflow(
         )
 
 
-def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional[str] = None):
+def generate_write_manifest_python(
+    app_mode: AppMode,
+    alias: Optional[str] = None,
+    desc: Optional[str] = None,
+):
+    # See :func:`generate_deploy_python` for the alias-resolution contract.
+    alias = alias or app_mode.cli_alias()
     if desc is None:
         desc = app_mode.desc()
 
@@ -3094,15 +3111,15 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
     return manifest_writer
 
 
-generate_write_manifest_python(AppModes.BOKEH_APP, alias="bokeh")
-generate_write_manifest_python(AppModes.DASH_APP, alias="dash")
-generate_write_manifest_python(AppModes.PYTHON_API, alias="api")
+generate_write_manifest_python(AppModes.BOKEH_APP)
+generate_write_manifest_python(AppModes.DASH_APP)
+generate_write_manifest_python(AppModes.PYTHON_API)
 generate_write_manifest_python(AppModes.PYTHON_API, alias="flask", desc="Flask API")
-generate_write_manifest_python(AppModes.PYTHON_FASTAPI, alias="fastapi")
-generate_write_manifest_python(AppModes.PYTHON_SHINY, alias="shiny")
-generate_write_manifest_python(AppModes.STREAMLIT_APP, alias="streamlit")
-generate_write_manifest_python(AppModes.PYTHON_GRADIO, alias="gradio")
-generate_write_manifest_python(AppModes.PYTHON_PANEL, alias="panel")
+generate_write_manifest_python(AppModes.PYTHON_FASTAPI)
+generate_write_manifest_python(AppModes.PYTHON_SHINY)
+generate_write_manifest_python(AppModes.STREAMLIT_APP)
+generate_write_manifest_python(AppModes.PYTHON_GRADIO)
+generate_write_manifest_python(AppModes.PYTHON_PANEL)
 
 
 # noinspection SpellCheckingInspection

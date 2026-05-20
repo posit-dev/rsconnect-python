@@ -67,6 +67,19 @@ class AppMode:
     def extension(self):
         return self._ext
 
+    def cli_alias(self) -> Optional[str]:
+        """Return the primary CLI alias for this mode, or ``None`` if absent.
+
+        "Primary" is the first key declared in :data:`AppModes._cli_aliases`
+        that maps to this mode; secondary aliases (e.g. ``flask`` for
+        ``PYTHON_API``) are still resolvable via
+        :meth:`AppModes.get_by_cli_alias` but are not returned here.
+        """
+        for alias, mode in AppModes._cli_aliases.items():
+            if mode is self:
+                return alias
+        return None
+
     def __str__(self):
         return self.name()
 
