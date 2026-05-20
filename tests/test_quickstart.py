@@ -724,17 +724,23 @@ def test_quickstart_registry_accepts_new_mode(
         'entrypoint = "app.py"\n'
         'title = "$name"\n'
     )
+    new_readme_body = "# $name\n\nNew mode scaffold.\n"
+    fake_templates = {
+        "newmode/pyproject.toml.tmpl": new_pyproject_body,
+        "newmode/README.md.tmpl": new_readme_body,
+    }
     real_get_data = pkgutil.get_data
 
     def fake_get_data(package: str, resource: str):
-        if resource == "newmode/pyproject.toml.tmpl":
-            return new_pyproject_body.encode("utf-8")
+        if resource in fake_templates:
+            return fake_templates[resource].encode("utf-8")
         return real_get_data(package, resource)
 
     monkeypatch.setattr(pkgutil, "get_data", fake_get_data)
 
     new_spec = qs.TemplateSpec(
         pyproject_template="newmode/pyproject.toml.tmpl",
+        readme_template="newmode/README.md.tmpl",
         local_run_command=("uv", "run", "newtool", "app.py"),
         source_files=(),
     )

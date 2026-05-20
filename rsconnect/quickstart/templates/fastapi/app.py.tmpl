@@ -6,6 +6,6 @@ def create_app() -> FastAPI:
 
     @app.get("/")
     def hello() -> dict:
-        return {"message": "Hello from {name}!"}
+        return {"message": "Hello from $name!"}
 
     return app

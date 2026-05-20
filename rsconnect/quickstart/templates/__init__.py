@@ -8,8 +8,9 @@ mode". The package is internal to ``rsconnect.quickstart``; callers should
 not import from it directly.
 
 Template bodies are loaded at scaffold time via :func:`pkgutil.get_data`
-and run through ``str.replace("{name}", name)`` for the single supported
-substitution token. ``str.format`` is deliberately avoided so templates
-carrying literal braces (e.g. ``notebook.ipynb`` JSON) pass through
-unchanged.
+and substituted with :class:`string.Template`, which uses ``$identifier``
+syntax. The ``$``-syntax sidesteps the literal-brace concern that JSON
+templates (``notebook.ipynb.tmpl``) and TOML inline tables would raise
+under :meth:`str.format`. A literal ``$`` in any template must be escaped
+as ``$$``.
 """
