@@ -20,12 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Bumped the `click` dependency floor to `>=8.2.0`. The newer `click.Choice`
-  generic support is used by `rsconnect quickstart` to validate the project
-  type argument.
 - Added `uv>=0.9.0` as a runtime dependency. `rsconnect quickstart` invokes
   `uv venv` and `uv sync` to populate the scaffolded project's virtualenv.
   `uv` installs as a self-contained wheel from PyPI alongside `rsconnect`.
+
+- `pyproject.toml` can now be supplied via `--requirements-file` for deploy and
+  write-manifest.
 
 ## [1.29.0] - 2026-04-29
 

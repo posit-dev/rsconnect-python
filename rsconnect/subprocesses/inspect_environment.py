@@ -20,6 +20,12 @@ import sys
 from dataclasses import asdict, dataclass, replace
 from typing import Callable, Optional
 
+try:
+    import tomllib
+except ImportError:
+    # Python <3.11 doesn't have tomllib in the standard library
+    import toml as tomllib  # type: ignore[no-redef]
+
 version_re = re.compile(r"\d+\.\d+(\.\d+)?")
 exec_dir = os.path.dirname(sys.executable)
 
@@ -78,6 +84,8 @@ def detect_environment(dirname: str, requirements_file: Optional[str] = "require
         result = pip_freeze()
     elif os.path.basename(requirements_file) == "uv.lock":
         result = uv_export(dirname, requirements_file)
+    elif os.path.basename(requirements_file) == "pyproject.toml":
+        result = pyproject_dependencies(dirname, requirements_file)
     else:
         result = output_file(dirname, requirements_file, "pip")
         if result is None:
@@ -252,6 +260,47 @@ def uv_export(dirname: str, lock_filename: str):
         "source": "uv_lock",
         "package_manager": "uv",
         "pip": None,
+    }
+
+
+def pyproject_dependencies(dirname: str, pyproject_filename: str):
+    """Read project.dependencies from a pyproject.toml file as a requirements spec.
+
+    Emits a requirements.txt file listing the top-level dependencies declared
+    in ``[project].dependencies``. Unlike ``uv.lock``, the result is not a
+    fully resolved lock and Connect will perform dependency resolution at
+    deploy time.
+    """
+    pyproject_path = pyproject_filename
+    if not os.path.isabs(pyproject_filename):
+        pyproject_path = os.path.join(dirname, pyproject_filename)
+
+    if not os.path.exists(pyproject_path):
+        raise EnvironmentException(f"pyproject.toml not found: {pyproject_filename}")
+
+    try:
+        with open(pyproject_path, "r", encoding="utf-8") as f:
+            pyproject = tomllib.loads(f.read())
+    except Exception as exception:
+        raise EnvironmentException(f"Error reading {pyproject_filename}: {exception}")
+
+    project = pyproject.get("project", {})
+    dependencies: list[object] = project.get("dependencies", [])
+    if not isinstance(dependencies, list):
+        raise EnvironmentException(f"Invalid project.dependencies in {pyproject_filename}: expected a list of strings.")
+
+    requirements = filter_pip_freeze_output("\n".join(str(dep) for dep in dependencies))
+    requirements = (
+        f"# requirements.txt generated from pyproject.toml by rsconnect-python on "
+        f"{datetime.datetime.now(datetime.timezone.utc)}\n"
+        f"{requirements}"
+    )
+
+    return {
+        "filename": "requirements.txt",
+        "contents": requirements,
+        "source": "pyproject_toml",
+        "package_manager": "pip",
     }
 
 
