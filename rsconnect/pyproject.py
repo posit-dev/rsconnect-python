@@ -171,9 +171,10 @@ class InvalidPyprojectConfigError(ValueError):
     """Raised when ``[tool.rsconnect]`` is missing or incomplete."""
 
 
-_MINIMUM_VALID_TOOL_RSCONNECT_SNIPPET = '''[tool.rsconnect]
-app_mode = "python-streamlit"
-entrypoint = "app.py"'''
+_MINIMUM_VALID_TOOL_RSCONNECT_SNIPPET = """[tool.rsconnect]
+# e.g. python-streamlit, python-shiny, python-fastapi, jupyter-static, quarto-shiny
+app_mode = "<app_mode>"
+entrypoint = "<entrypoint>"  # e.g. app.py"""
 
 
 def read_tool_rsconnect(pyproject_file: pathlib.Path) -> typing.Mapping[str, typing.Any]:

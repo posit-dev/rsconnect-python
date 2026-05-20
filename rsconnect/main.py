@@ -1262,9 +1262,9 @@ def info(file: str):
     help=(
         "Create a new Posit Connect project of the given TYPE in ./<name>/. "
         "Supported TYPE values: streamlit, shiny, fastapi, api, flask, "
-        "notebook, voila, quarto. Writes a pyproject.toml with a "
-        "[tool.rsconnect] section, creates a uv-managed virtualenv, and "
-        "prints the local-run and deploy commands."
+        "notebook, voila, quarto, quarto-shiny. Writes a pyproject.toml "
+        "with a [tool.rsconnect] section, creates a uv-managed virtualenv, "
+        "and prints the local-run and deploy commands."
     ),
     no_args_is_help=True,
 )
@@ -1274,15 +1274,14 @@ def info(file: str):
     type=click.Choice(SUPPORTED_APP_TYPES),
 )
 @click.argument("name", metavar="NAME")
-@click.option("--shiny", is_flag=True, help="(quarto only) emit quarto-shiny instead of quarto-static.")
 @cli_exception_handler
-def quickstart(app_type: str, name: str, shiny: bool):
+def quickstart(app_type: str, name: str):
     # Resolve ``run_quickstart`` through the module at call time so tests can
     # monkeypatch ``rsconnect.quickstart.quickstart.run_quickstart`` without
     # binding a stale reference into ``main``'s namespace at import time.
     from .quickstart.quickstart import run_quickstart
 
-    run_quickstart(app_type=app_type, name=name, shiny=shiny)
+    run_quickstart(app_type=app_type, name=name)
 
 
 @cli.group(no_args_is_help=True, help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io.")
