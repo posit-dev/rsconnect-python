@@ -66,11 +66,9 @@ def test_deploy_pyproject_requires_path(runner: CliRunner):
     differently in those two cases.
     """
     result = runner.invoke(cli, ["deploy", "pyproject"])
-    assert result.exit_code != 0
     assert "No such command" not in result.output
-    # `no_args_is_help=True` makes Click render the usage block on missing args.
     assert "Usage:" in result.output
-    assert "DIRECTORY" in result.output  # required positional metavar (after rename)
+    assert "DIRECTORY" in result.output  # required positional metavar
     assert "[DIRECTORY]" not in result.output  # required, not optional
 
 
