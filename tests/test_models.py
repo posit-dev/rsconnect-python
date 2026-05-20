@@ -73,6 +73,34 @@ class TestModels(TestCase):
         with self.assertRaises(ValueError):
             AppModes.get_by_name(None)
 
+    def test_cli_aliases_bidirectional(self):
+        """Every CLI alias resolves to a real AppMode, and every aliased
+        mode round-trips back through ``cli_alias()``.
+
+        Owns the contract the deploy/quickstart factories trust: ``alias
+        or app_mode.cli_alias()`` will always yield a non-empty alias that
+        :meth:`AppModes.get_by_cli_alias` maps back to the same mode.
+        """
+        # Forward: every alias points at a real AppMode (catches typos and
+        # stale entries from a renamed mode).
+        for alias, mode in AppModes._cli_aliases.items():
+            self.assertIn(mode, AppModes._modes, f"alias {alias!r} points at non-mode {mode!r}")
+
+        # Reverse: for every aliased mode, ``cli_alias()`` returns SOME
+        # alias that resolves back to that mode (catches the case where a
+        # primary-alias lookup would silently return None).
+        for mode in set(AppModes._cli_aliases.values()):
+            primary = mode.cli_alias()
+            self.assertIsNotNone(primary, f"{mode!r} has aliases but cli_alias() returned None")
+            self.assertIs(
+                AppModes.get_by_cli_alias(primary),
+                mode,
+                f"{mode!r}.cli_alias() = {primary!r} does not round-trip",
+            )
+
+        # Modes without aliases (R modes, UNKNOWN, etc.) report None.
+        self.assertIsNone(AppModes.UNKNOWN.cli_alias())
+
     def test_get_by_extension(self):
         self.assertIs(AppModes.get_by_extension(".R"), AppModes.SHINY)
         self.assertIs(AppModes.get_by_extension(".bad-ext", True), AppModes.UNKNOWN)
