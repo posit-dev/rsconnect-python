@@ -116,7 +116,6 @@ from .json_web_token import (
 )
 from .log import VERBOSE, LogOutputFormat, logger
 from .metadata import AppStore, ServerStore
-from .quickstart import SUPPORTED_APP_TYPES
 from .models import (
     AppMode,
     AppModes,
@@ -1271,7 +1270,11 @@ def info(file: str):
 @click.argument(
     "app_type",
     metavar="TYPE",
-    type=click.Choice(SUPPORTED_APP_TYPES),
+    # Click accepts the full CLI alias vocabulary; ``run_quickstart``
+    # rejects aliases that map to a mode without a scaffold template with
+    # a distinct "not yet supported" error, matching the deploy CLI's
+    # vocabulary.
+    type=click.Choice(AppModes.cli_aliases()),
 )
 @click.argument("name", metavar="NAME")
 @cli_exception_handler

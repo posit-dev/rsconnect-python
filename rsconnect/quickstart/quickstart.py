@@ -29,30 +29,7 @@ import typing
 import click
 
 from ..exception import RSConnectException
-
-
-# Supported CLI ``<type>`` values. Each entry MUST match an existing
-# ``rsconnect deploy <type>`` subcommand: a project scaffolded by
-# ``rsconnect quickstart <type>`` must be deployable with either
-# ``rsconnect deploy <type>`` or ``rsconnect deploy pyproject``. Adding a
-# type here without a matching ``deploy`` subcommand breaks that promise.
-# ``flask`` is an alias for ``api``; both share the same scaffold and the
-# ``python-api`` app mode.
-# ``quarto`` selects ``quarto-static``; ``quarto-shiny`` is exposed as its
-# own CLI type so the user-visible vocabulary matches Connect's two distinct
-# app modes (``quarto-static`` and ``quarto-shiny``) rather than splitting
-# one app-mode dimension into a separate flag.
-SUPPORTED_APP_TYPES: typing.Tuple[str, ...] = (
-    "streamlit",
-    "shiny",
-    "fastapi",
-    "api",
-    "flask",
-    "notebook",
-    "voila",
-    "quarto",
-    "quarto-shiny",
-)
+from ..models import AppMode, AppModes
 
 
 # Project name rule: lowercase ASCII letter start, only lowercase letters /
@@ -240,19 +217,25 @@ class TemplateSpec:
     notes: typing.Tuple[str, ...] = ()
 
 
-# Registry key: the resolved CLI ``app_type`` (``flask`` resolves to
-# ``api`` before lookup; see :func:`lookup_template`). Deferred modes
-# (dash, gradio, panel, bokeh) are intentionally absent.
+# Registry key: the canonical :class:`AppMode` singleton. The CLI alias
+# (``streamlit``, ``flask`` etc.) is resolved through
+# :meth:`AppModes.get_by_cli_alias` before lookup, which collapses
+# many-to-one aliases (``api`` and ``flask`` both resolve to
+# ``PYTHON_API``) and centralizes the alias vocabulary in ``models.py``.
+# Modes present in :data:`AppModes._cli_aliases` but absent from this
+# registry (e.g. ``dash``, ``bokeh``, ``gradio``) are CLI-accepted but not
+# yet scaffolded by ``quickstart``; :func:`lookup_template` raises a
+# distinct "not yet supported" error for them.
 _QUARTO_INSTALL_NOTE = "Quarto must be installed separately: https://quarto.org"
 
-_REGISTRY: typing.Mapping[str, TemplateSpec] = {
-    "streamlit": TemplateSpec(
+_REGISTRY: typing.Mapping[AppMode, TemplateSpec] = {
+    AppModes.STREAMLIT_APP: TemplateSpec(
         pyproject_template="streamlit/pyproject.toml.tmpl",
         readme_template="streamlit/README.md.tmpl",
         local_run_command=("uv", "run", "streamlit", "run", "app.py"),
         source_files=(FileSpec(name="app.py", template="streamlit/app.py.tmpl"),),
     ),
-    "shiny": TemplateSpec(
+    AppModes.PYTHON_SHINY: TemplateSpec(
         pyproject_template="shiny/pyproject.toml.tmpl",
         readme_template="shiny/README.md.tmpl",
         local_run_command=("uv", "run", "shiny", "run", "app.py"),
@@ -261,7 +244,7 @@ _REGISTRY: typing.Mapping[str, TemplateSpec] = {
     # fastapi/api produce a nested ``<name>/<name>/`` package so the
     # documented ``python -m <name>`` local-run command resolves cleanly
     # and ``from .app import create_app`` relative imports work.
-    "fastapi": TemplateSpec(
+    AppModes.PYTHON_FASTAPI: TemplateSpec(
         pyproject_template="fastapi/pyproject.toml.tmpl",
         readme_template="fastapi/README.md.tmpl",
         local_run_command=("uv", "run", "python", "-m", "$name"),
@@ -272,7 +255,7 @@ _REGISTRY: typing.Mapping[str, TemplateSpec] = {
             FileSpec(name="$name/app.py", template="fastapi/app.py.tmpl"),
         ),
     ),
-    "api": TemplateSpec(
+    AppModes.PYTHON_API: TemplateSpec(
         pyproject_template="api/pyproject.toml.tmpl",
         readme_template="api/README.md.tmpl",
         local_run_command=("uv", "run", "python", "-m", "$name"),
@@ -285,19 +268,19 @@ _REGISTRY: typing.Mapping[str, TemplateSpec] = {
     ),
     # notebook and voila share the same notebook body; they differ in
     # ``pyproject_template`` (app_mode + dependencies) and local-run command.
-    "notebook": TemplateSpec(
+    AppModes.JUPYTER_NOTEBOOK: TemplateSpec(
         pyproject_template="notebook/pyproject.toml.tmpl",
         readme_template="notebook/README.md.tmpl",
         local_run_command=("uv", "run", "jupyter", "lab", "notebook.ipynb"),
         source_files=(FileSpec(name="notebook.ipynb", template="notebook/notebook.ipynb.tmpl"),),
     ),
-    "voila": TemplateSpec(
+    AppModes.JUPYTER_VOILA: TemplateSpec(
         pyproject_template="voila/pyproject.toml.tmpl",
         readme_template="voila/README.md.tmpl",
         local_run_command=("uv", "run", "voila", "notebook.ipynb"),
         source_files=(FileSpec(name="notebook.ipynb", template="notebook/notebook.ipynb.tmpl"),),
     ),
-    "quarto": TemplateSpec(
+    AppModes.STATIC_QUARTO: TemplateSpec(
         pyproject_template="quarto/pyproject.toml.tmpl",
         readme_template="quarto/README.md.tmpl",
         local_run_command=("uv", "run", "quarto", "preview", "report.qmd"),
@@ -306,7 +289,7 @@ _REGISTRY: typing.Mapping[str, TemplateSpec] = {
     ),
     # quarto-shiny shares the README with quarto-static: same local-run
     # command, same deploy command, same quarto-install note.
-    "quarto-shiny": TemplateSpec(
+    AppModes.SHINY_QUARTO: TemplateSpec(
         pyproject_template="quarto/pyproject_shiny.toml.tmpl",
         readme_template="quarto/README.md.tmpl",
         local_run_command=("uv", "run", "quarto", "preview", "report.qmd"),
@@ -316,22 +299,43 @@ _REGISTRY: typing.Mapping[str, TemplateSpec] = {
 }
 
 
-def lookup_template(app_type: str) -> TemplateSpec:
-    """Resolve the :class:`TemplateSpec` for ``app_type``.
+def _supported_aliases() -> typing.Tuple[str, ...]:
+    """CLI aliases whose :class:`AppMode` has a quickstart template.
 
-    ``flask`` is an alias for ``api`` and shares the same scaffold; both
-    resolve to the same registry entry. Other CLI-level types have already
-    been narrowed by Click's ``Choice``, so this lookup is defensive only
-    (e.g. direct API callers passing an unknown type).
+    Derived from :data:`AppModes._cli_aliases` and :data:`_REGISTRY`: an
+    alias is "supported" iff its resolved ``AppMode`` is a registry key.
+    Used only for user-facing error messages, so a small per-call traversal
+    is fine.
+    """
+    return tuple(alias for alias in AppModes.cli_aliases() if AppModes.get_by_cli_alias(alias) in _REGISTRY)
+
+
+def lookup_template(app_type: str) -> TemplateSpec:
+    """Resolve the :class:`TemplateSpec` for the CLI alias ``app_type``.
+
+    The alias is mapped to its canonical :class:`AppMode` via
+    :meth:`AppModes.get_by_cli_alias`, which collapses many-to-one aliases
+    (``api`` and ``flask`` both -> ``PYTHON_API``). Two distinct error
+    surfaces:
+
+    * Unknown alias (not in ``AppModes._cli_aliases``): the user typed
+      something Connect doesn't recognize at all.
+    * Known alias but no template (mode not in :data:`_REGISTRY`):
+      quickstart doesn't yet scaffold this mode (e.g. ``dash``, ``bokeh``).
 
     :param str app_type: CLI ``<type>`` value.
     """
-    resolved_type = "api" if app_type == "flask" else app_type
-    if resolved_type not in _REGISTRY:
+    app_mode = AppModes.get_by_cli_alias(app_type)
+    if app_mode is AppModes.UNKNOWN:
         raise RSConnectException(
-            f"Unknown project type {app_type!r}. Supported types: " + ", ".join(SUPPORTED_APP_TYPES)
+            f"Unknown project type {app_type!r}. Supported types: " + ", ".join(_supported_aliases())
         )
-    return _REGISTRY[resolved_type]
+    if app_mode not in _REGISTRY:
+        raise RSConnectException(
+            f"`rsconnect quickstart` does not yet support {app_type!r}. "
+            f"Supported types: " + ", ".join(_supported_aliases())
+        )
+    return _REGISTRY[app_mode]
 
 
 # ---------------------------------------------------------------------------
