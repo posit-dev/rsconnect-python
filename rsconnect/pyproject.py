@@ -13,7 +13,7 @@ from collections.abc import Mapping
 
 from .log import logger
 
-TOMLDecodeError: type[Exception]
+TOMLDecodeError: typing.Type[Exception]
 try:
     import tomllib
 
