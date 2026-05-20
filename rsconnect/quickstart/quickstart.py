@@ -16,6 +16,7 @@ See ``docs/commands/quickstart.md`` for the user-facing command reference.
 from __future__ import annotations
 
 import dataclasses
+import io
 import os
 import pathlib
 import pkgutil
@@ -369,12 +370,14 @@ def _load_template(path: str) -> str:
     """Read a template file from the ``rsconnect.quickstart.templates`` package.
 
     ``pkgutil.get_data`` is stdlib since Python 3.0 and works under wheel
-    install, unlike ``importlib.resources.files`` which is 3.9+.
+    install, unlike ``importlib.resources.files`` which is 3.9+. It returns
+    raw bytes, so we wrap the buffer in :class:`io.TextIOWrapper` to get the
+    same universal-newlines decoding as ``open(path, 'rt')``.
     """
     data = pkgutil.get_data("rsconnect.quickstart.templates", path)
     if data is None:
         raise RSConnectException(f"Template not found: {path}")
-    return data.decode("utf-8")
+    return io.TextIOWrapper(io.BytesIO(data), encoding="utf-8").read()
 
 
 # ``requires-python`` is the single source of truth for the scaffold's Python
