@@ -21,6 +21,7 @@ import pathlib
 import pkgutil
 import re
 import shutil
+import string
 import subprocess
 import sys
 import typing
@@ -205,16 +206,17 @@ class TemplateSpec:
     mapped to one entry; the dataclass itself does not know about CLI
     aliases or flags.
 
-    :param str app_mode: canonical Connect app mode.
-    :param str entrypoint: entrypoint string written to
-        ``[tool.rsconnect].entrypoint``. The literal token ``{name}`` (if
-        present) is substituted with the project name at scaffold time so
-        fastapi/api can name their nested package.
+    The mode's Connect identity (``app_mode``, ``entrypoint``, runtime
+    ``dependencies``) lives in ``pyproject_template`` rather than as
+    dataclass fields: that template file is the single source of truth
+    for what ends up in the generated ``pyproject.toml``.
+
+    :param str pyproject_template: path under ``rsconnect/quickstart/templates/``
+        of the per-mode ``pyproject.toml`` template. Substituted with
+        :class:`string.Template` against ``$name`` and ``$requires_python``.
     :param tuple local_run_command: argv form of the documented local-run
         command. The literal token ``"{name}"`` (if present) is substituted
         with the project name at scaffold time.
-    :param tuple dependencies: minimum runtime dependencies for the
-        hello-world, written to ``[project.dependencies]``.
     :param tuple source_files: per-mode template files to materialize.
         Each entry's body is loaded from
         ``rsconnect/quickstart/templates/`` and run through
@@ -225,10 +227,8 @@ class TemplateSpec:
         tooling prerequisite.
     """
 
-    app_mode: str
-    entrypoint: str
+    pyproject_template: str
     local_run_command: typing.Tuple[str, ...]
-    dependencies: typing.Tuple[str, ...]
     source_files: typing.Tuple[FileSpec, ...]
     notes: typing.Tuple[str, ...] = ()
 
@@ -240,27 +240,21 @@ _QUARTO_INSTALL_NOTE = "Quarto must be installed separately: https://quarto.org"
 
 _REGISTRY: typing.Mapping[typing.Tuple[str, bool], TemplateSpec] = {
     ("streamlit", False): TemplateSpec(
-        app_mode="python-streamlit",
-        entrypoint="app.py",
+        pyproject_template="streamlit/pyproject.toml.tmpl",
         local_run_command=("uv", "run", "streamlit", "run", "app.py"),
-        dependencies=("streamlit",),
         source_files=(FileSpec(name="app.py", template="streamlit/app.py.tmpl"),),
     ),
     ("shiny", False): TemplateSpec(
-        app_mode="python-shiny",
-        entrypoint="app.py",
+        pyproject_template="shiny/pyproject.toml.tmpl",
         local_run_command=("uv", "run", "shiny", "run", "app.py"),
-        dependencies=("shiny",),
         source_files=(FileSpec(name="app.py", template="shiny/app.py.tmpl"),),
     ),
     # fastapi/api produce a nested ``<name>/<name>/`` package so the
     # documented ``python -m <name>`` local-run command resolves cleanly
     # and ``from .app import create_app`` relative imports work.
     ("fastapi", False): TemplateSpec(
-        app_mode="python-fastapi",
-        entrypoint="{name}.__connect__:app",
+        pyproject_template="fastapi/pyproject.toml.tmpl",
         local_run_command=("uv", "run", "python", "-m", "{name}"),
-        dependencies=("fastapi", "uvicorn"),
         source_files=(
             FileSpec(name="{name}/__init__.py", template="fastapi/__init__.py.tmpl"),
             FileSpec(name="{name}/__main__.py", template="fastapi/__main__.py.tmpl"),
@@ -269,10 +263,8 @@ _REGISTRY: typing.Mapping[typing.Tuple[str, bool], TemplateSpec] = {
         ),
     ),
     ("api", False): TemplateSpec(
-        app_mode="python-api",
-        entrypoint="{name}.__connect__:app",
+        pyproject_template="api/pyproject.toml.tmpl",
         local_run_command=("uv", "run", "python", "-m", "{name}"),
-        dependencies=("flask",),
         source_files=(
             FileSpec(name="{name}/__init__.py", template="api/__init__.py.tmpl"),
             FileSpec(name="{name}/__main__.py", template="api/__main__.py.tmpl"),
@@ -280,35 +272,27 @@ _REGISTRY: typing.Mapping[typing.Tuple[str, bool], TemplateSpec] = {
             FileSpec(name="{name}/app.py", template="api/app.py.tmpl"),
         ),
     ),
-    # notebook and voila share the same template body; they differ only in
-    # ``app_mode`` and the documented local-run command.
+    # notebook and voila share the same notebook body; they differ in
+    # ``pyproject_template`` (app_mode + dependencies) and local-run command.
     ("notebook", False): TemplateSpec(
-        app_mode="jupyter-static",
-        entrypoint="notebook.ipynb",
+        pyproject_template="notebook/pyproject.toml.tmpl",
         local_run_command=("uv", "run", "jupyter", "lab", "notebook.ipynb"),
-        dependencies=("jupyter",),
         source_files=(FileSpec(name="notebook.ipynb", template="notebook/notebook.ipynb.tmpl"),),
     ),
     ("voila", False): TemplateSpec(
-        app_mode="jupyter-voila",
-        entrypoint="notebook.ipynb",
+        pyproject_template="voila/pyproject.toml.tmpl",
         local_run_command=("uv", "run", "voila", "notebook.ipynb"),
-        dependencies=("voila", "jupyter"),
         source_files=(FileSpec(name="notebook.ipynb", template="notebook/notebook.ipynb.tmpl"),),
     ),
     ("quarto", False): TemplateSpec(
-        app_mode="quarto-static",
-        entrypoint="report.qmd",
+        pyproject_template="quarto/pyproject.toml.tmpl",
         local_run_command=("uv", "run", "quarto", "preview", "report.qmd"),
-        dependencies=(),
         source_files=(FileSpec(name="report.qmd", template="quarto/report.qmd.tmpl"),),
         notes=(_QUARTO_INSTALL_NOTE,),
     ),
     ("quarto", True): TemplateSpec(
-        app_mode="quarto-shiny",
-        entrypoint="report.qmd",
+        pyproject_template="quarto/pyproject_shiny.toml.tmpl",
         local_run_command=("uv", "run", "quarto", "preview", "report.qmd"),
-        dependencies=("shiny",),
         source_files=(FileSpec(name="report.qmd", template="quarto/report_shiny.qmd.tmpl"),),
         notes=(_QUARTO_INSTALL_NOTE,),
     ),
@@ -376,36 +360,30 @@ def _scaffold(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> None:
 # scaffold matches the developer's working environment without committing the
 # project to any version older than what its author has actually used.
 _REQUIRES_PYTHON = ">={}.{}".format(*sys.version_info[:2])
-_GITIGNORE_BODY = "__pycache__/\n*.pyc\n.venv/\n*.egg-info/\nrsconnect-python/\n.env\n"
+
+_GITIGNORE_BODY = """\
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+rsconnect-python/
+.env
+"""
 
 
 def _render_pyproject(*, name: str, spec: TemplateSpec) -> str:
-    # Build the TOML by direct string concatenation rather than pulling in a
-    # writer dependency. ``dependencies`` and ``requires-python`` live
-    # in ``[project]`` and must not be duplicated in ``[tool.rsconnect]``;
-    # the table holds exactly ``app_mode``, ``entrypoint``, and ``title``.
-    if spec.dependencies:
-        deps_block = "[\n" + "".join(f'    "{dep}",\n' for dep in spec.dependencies) + "]"
-    else:
-        deps_block = "[]"
-    # Entrypoints for fastapi/api carry a literal ``{name}`` so the
-    # documented value matches the nested package layout this scaffold
-    # produces.
-    entrypoint = spec.entrypoint.replace("{name}", name)
-    return (
-        "[project]\n"
-        f'name = "{name}"\n'
-        'version = "0.0.1"\n'
-        f'requires-python = "{_REQUIRES_PYTHON}"\n'
-        f"dependencies = {deps_block}\n"
-        "\n"
-        "[tool.rsconnect]\n"
-        f'app_mode = "{spec.app_mode}"\n'
-        f'entrypoint = "{entrypoint}"\n'
-        f'title = "{name}"\n'
-    )
+    # The per-mode template owns the literal TOML, including ``app_mode``,
+    # ``entrypoint`` and the dependency list. Only ``$name`` (project name)
+    # and ``$requires_python`` (computed from the running interpreter) vary
+    # at scaffold time, so ``string.Template`` is enough — no writer dep
+    # and no risk of mangling literal braces in TOML inline tables.
+    data = pkgutil.get_data("rsconnect.quickstart.templates", spec.pyproject_template)
+    if data is None:
+        raise RSConnectException(f"Template not found: {spec.pyproject_template}")
+    return string.Template(data.decode("utf-8")).substitute(name=name, requires_python=_REQUIRES_PYTHON)
 
 
+# REVIEW: Same for readme, it should be a template file, also if local_run and deploy_cmd are hardcoded per project type, we can just make one README ready per project type instead of generating it.
 def _render_readme(*, name: str, spec: TemplateSpec) -> str:
     local_run = _format_local_run(spec, name=name)
     deploy_cmd = f"rsconnect deploy pyproject {name}"
