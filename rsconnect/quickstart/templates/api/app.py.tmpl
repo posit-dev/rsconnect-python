@@ -6,6 +6,6 @@ def create_app() -> Flask:
 
     @app.route("/")
     def hello() -> str:
-        return "Hello from {name}!"
+        return "Hello from $name!"
 
     return app

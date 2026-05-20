@@ -212,22 +212,26 @@ class TemplateSpec:
     for what ends up in the generated ``pyproject.toml``.
 
     :param str pyproject_template: path under ``rsconnect/quickstart/templates/``
-        of the per-mode ``pyproject.toml`` template. Substituted with
+        of the per-mode ``pyproject.toml`` template. Substituted via
         :class:`string.Template` against ``$name`` and ``$requires_python``.
+    :param str readme_template: path under ``rsconnect/quickstart/templates/``
+        of the per-mode ``README.md`` template. Substituted via
+        :class:`string.Template` against ``$name``.
     :param tuple local_run_command: argv form of the documented local-run
-        command. The literal token ``"{name}"`` (if present) is substituted
-        with the project name at scaffold time.
-    :param tuple source_files: per-mode template files to materialize.
-        Each entry's body is loaded from
-        ``rsconnect/quickstart/templates/`` and run through
-        ``str.replace("{name}", name)`` at scaffold time.
+        command, used by the post-scaffold stdout summary. Tokens containing
+        ``"$name"`` are substituted at scaffold time.
+    :param tuple source_files: per-mode template files to materialize. Each
+        entry's body and ``name`` are loaded and substituted via
+        :class:`string.Template` against ``$name``.
     :param tuple notes: optional user-facing trailing lines for the
-        post-scaffold output and README (e.g. "Quarto must be installed
+        post-scaffold stdout output (e.g. "Quarto must be installed
         separately"). Empty for modes whose hello-world has no external
-        tooling prerequisite.
+        tooling prerequisite. The README template owns its own copy of any
+        notes a user should see on disk.
     """
 
     pyproject_template: str
+    readme_template: str
     local_run_command: typing.Tuple[str, ...]
     source_files: typing.Tuple[FileSpec, ...]
     notes: typing.Tuple[str, ...] = ()
@@ -241,11 +245,13 @@ _QUARTO_INSTALL_NOTE = "Quarto must be installed separately: https://quarto.org"
 _REGISTRY: typing.Mapping[typing.Tuple[str, bool], TemplateSpec] = {
     ("streamlit", False): TemplateSpec(
         pyproject_template="streamlit/pyproject.toml.tmpl",
+        readme_template="streamlit/README.md.tmpl",
         local_run_command=("uv", "run", "streamlit", "run", "app.py"),
         source_files=(FileSpec(name="app.py", template="streamlit/app.py.tmpl"),),
     ),
     ("shiny", False): TemplateSpec(
         pyproject_template="shiny/pyproject.toml.tmpl",
+        readme_template="shiny/README.md.tmpl",
         local_run_command=("uv", "run", "shiny", "run", "app.py"),
         source_files=(FileSpec(name="app.py", template="shiny/app.py.tmpl"),),
     ),
@@ -254,44 +260,50 @@ _REGISTRY: typing.Mapping[typing.Tuple[str, bool], TemplateSpec] = {
     # and ``from .app import create_app`` relative imports work.
     ("fastapi", False): TemplateSpec(
         pyproject_template="fastapi/pyproject.toml.tmpl",
-        local_run_command=("uv", "run", "python", "-m", "{name}"),
+        readme_template="fastapi/README.md.tmpl",
+        local_run_command=("uv", "run", "python", "-m", "$name"),
         source_files=(
-            FileSpec(name="{name}/__init__.py", template="fastapi/__init__.py.tmpl"),
-            FileSpec(name="{name}/__main__.py", template="fastapi/__main__.py.tmpl"),
-            FileSpec(name="{name}/__connect__.py", template="fastapi/__connect__.py.tmpl"),
-            FileSpec(name="{name}/app.py", template="fastapi/app.py.tmpl"),
+            FileSpec(name="$name/__init__.py", template="fastapi/__init__.py.tmpl"),
+            FileSpec(name="$name/__main__.py", template="fastapi/__main__.py.tmpl"),
+            FileSpec(name="$name/__connect__.py", template="fastapi/__connect__.py.tmpl"),
+            FileSpec(name="$name/app.py", template="fastapi/app.py.tmpl"),
         ),
     ),
     ("api", False): TemplateSpec(
         pyproject_template="api/pyproject.toml.tmpl",
-        local_run_command=("uv", "run", "python", "-m", "{name}"),
+        readme_template="api/README.md.tmpl",
+        local_run_command=("uv", "run", "python", "-m", "$name"),
         source_files=(
-            FileSpec(name="{name}/__init__.py", template="api/__init__.py.tmpl"),
-            FileSpec(name="{name}/__main__.py", template="api/__main__.py.tmpl"),
-            FileSpec(name="{name}/__connect__.py", template="api/__connect__.py.tmpl"),
-            FileSpec(name="{name}/app.py", template="api/app.py.tmpl"),
+            FileSpec(name="$name/__init__.py", template="api/__init__.py.tmpl"),
+            FileSpec(name="$name/__main__.py", template="api/__main__.py.tmpl"),
+            FileSpec(name="$name/__connect__.py", template="api/__connect__.py.tmpl"),
+            FileSpec(name="$name/app.py", template="api/app.py.tmpl"),
         ),
     ),
     # notebook and voila share the same notebook body; they differ in
     # ``pyproject_template`` (app_mode + dependencies) and local-run command.
     ("notebook", False): TemplateSpec(
         pyproject_template="notebook/pyproject.toml.tmpl",
+        readme_template="notebook/README.md.tmpl",
         local_run_command=("uv", "run", "jupyter", "lab", "notebook.ipynb"),
         source_files=(FileSpec(name="notebook.ipynb", template="notebook/notebook.ipynb.tmpl"),),
     ),
     ("voila", False): TemplateSpec(
         pyproject_template="voila/pyproject.toml.tmpl",
+        readme_template="voila/README.md.tmpl",
         local_run_command=("uv", "run", "voila", "notebook.ipynb"),
         source_files=(FileSpec(name="notebook.ipynb", template="notebook/notebook.ipynb.tmpl"),),
     ),
     ("quarto", False): TemplateSpec(
         pyproject_template="quarto/pyproject.toml.tmpl",
+        readme_template="quarto/README.md.tmpl",
         local_run_command=("uv", "run", "quarto", "preview", "report.qmd"),
         source_files=(FileSpec(name="report.qmd", template="quarto/report.qmd.tmpl"),),
         notes=(_QUARTO_INSTALL_NOTE,),
     ),
     ("quarto", True): TemplateSpec(
         pyproject_template="quarto/pyproject_shiny.toml.tmpl",
+        readme_template="quarto/README_shiny.md.tmpl",
         local_run_command=("uv", "run", "quarto", "preview", "report.qmd"),
         source_files=(FileSpec(name="report.qmd", template="quarto/report_shiny.qmd.tmpl"),),
         notes=(_QUARTO_INSTALL_NOTE,),
@@ -339,18 +351,25 @@ def _scaffold(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> None:
     (target / ".gitignore").write_text(_GITIGNORE_BODY, encoding="utf-8")
     (target / "README.md").write_text(_render_readme(name=name, spec=spec), encoding="utf-8")
     for file_spec in spec.source_files:
-        # ``pkgutil.get_data`` is stdlib since Python 3.0 and works under
-        # wheel install, unlike ``importlib.resources.files`` which is 3.9+.
-        data = pkgutil.get_data("rsconnect.quickstart.templates", file_spec.template)
-        if data is None:
-            raise RSConnectException(f"Template not found: {file_spec.template}")
-        body = data.decode("utf-8").replace("{name}", name)
-        # ``{name}`` substitution in ``file_spec.name`` plus mkdir lets the
+        body = _load_template(file_spec.template)
+        # ``$name`` substitution in ``file_spec.name`` plus mkdir lets the
         # registry describe nested package layouts (fastapi/api) without
         # special-casing them here.
-        dest = target / file_spec.name.replace("{name}", name)
+        dest = target / string.Template(file_spec.name).substitute(name=name)
         dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(body, encoding="utf-8")
+        dest.write_text(string.Template(body).substitute(name=name), encoding="utf-8")
+
+
+def _load_template(path: str) -> str:
+    """Read a template file from the ``rsconnect.quickstart.templates`` package.
+
+    ``pkgutil.get_data`` is stdlib since Python 3.0 and works under wheel
+    install, unlike ``importlib.resources.files`` which is 3.9+.
+    """
+    data = pkgutil.get_data("rsconnect.quickstart.templates", path)
+    if data is None:
+        raise RSConnectException(f"Template not found: {path}")
+    return data.decode("utf-8")
 
 
 # ``requires-python`` is the single source of truth for the scaffold's Python
@@ -375,42 +394,24 @@ def _render_pyproject(*, name: str, spec: TemplateSpec) -> str:
     # The per-mode template owns the literal TOML, including ``app_mode``,
     # ``entrypoint`` and the dependency list. Only ``$name`` (project name)
     # and ``$requires_python`` (computed from the running interpreter) vary
-    # at scaffold time, so ``string.Template`` is enough — no writer dep
-    # and no risk of mangling literal braces in TOML inline tables.
-    data = pkgutil.get_data("rsconnect.quickstart.templates", spec.pyproject_template)
-    if data is None:
-        raise RSConnectException(f"Template not found: {spec.pyproject_template}")
-    return string.Template(data.decode("utf-8")).substitute(name=name, requires_python=_REQUIRES_PYTHON)
-
-
-# REVIEW: Same for readme, it should be a template file, also if local_run and deploy_cmd are hardcoded per project type, we can just make one README ready per project type instead of generating it.
-def _render_readme(*, name: str, spec: TemplateSpec) -> str:
-    local_run = _format_local_run(spec, name=name)
-    deploy_cmd = f"rsconnect deploy pyproject {name}"
-    body = (
-        f"# {name}\n"
-        "\n"
-        "A Posit Connect project scaffolded by `rsconnect quickstart`.\n"
-        "\n"
-        "## Run locally\n"
-        "\n"
-        f"```\n{local_run}\n```\n"
-        "\n"
-        "## Deploy to Posit Connect\n"
-        "\n"
-        f"```\n{deploy_cmd}\n```\n"
+    # at scaffold time.
+    return string.Template(_load_template(spec.pyproject_template)).substitute(
+        name=name, requires_python=_REQUIRES_PYTHON
     )
-    if spec.notes:
-        notes_block = "\n## Notes\n\n" + "".join(f"- {note}\n" for note in spec.notes)
-        body += notes_block
-    return body
+
+
+def _render_readme(*, name: str, spec: TemplateSpec) -> str:
+    # The per-mode template owns every literal line of the README, including
+    # the mode's local-run command, the deploy command, and any notes. Only
+    # ``$name`` varies at scaffold time.
+    return string.Template(_load_template(spec.readme_template)).substitute(name=name)
 
 
 def _format_local_run(spec: TemplateSpec, *, name: str) -> str:
-    # The registry stores the local-run argv with ``"{name}"`` as a literal
-    # placeholder for module-style modes. Substitute once at scaffold time so
-    # README and post-scaffold stdout share one rendering path.
-    return " ".join(token.replace("{name}", name) for token in spec.local_run_command)
+    # The registry stores the local-run argv with ``"$name"`` as a literal
+    # placeholder for module-style modes (fastapi/api). Substitute once
+    # here so the post-scaffold stdout line renders cleanly.
+    return " ".join(string.Template(token).substitute(name=name) for token in spec.local_run_command)
 
 
 # ---------------------------------------------------------------------------
