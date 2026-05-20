@@ -38,6 +38,10 @@ from ..exception import RSConnectException
 # type here without a matching ``deploy`` subcommand breaks that promise.
 # ``flask`` is an alias for ``api``; both share the same scaffold and the
 # ``python-api`` app mode.
+# ``quarto`` selects ``quarto-static``; ``quarto-shiny`` is exposed as its
+# own CLI type so the user-visible vocabulary matches Connect's two distinct
+# app modes (``quarto-static`` and ``quarto-shiny``) rather than splitting
+# one app-mode dimension into a separate flag.
 SUPPORTED_APP_TYPES: typing.Tuple[str, ...] = (
     "streamlit",
     "shiny",
@@ -47,6 +51,7 @@ SUPPORTED_APP_TYPES: typing.Tuple[str, ...] = (
     "notebook",
     "voila",
     "quarto",
+    "quarto-shiny",
 )
 
 
@@ -67,7 +72,6 @@ def run_quickstart(
     app_type: str,
     name: str,
     *,
-    shiny: bool = False,
     cwd: typing.Optional[pathlib.Path] = None,
 ) -> pathlib.Path:
     """Scaffold a new Connect project of ``app_type`` named ``name``.
@@ -79,7 +83,6 @@ def run_quickstart(
 
     :param str app_type: one of the supported CLI types.
     :param str name: project name; must satisfy the project-name rule above.
-    :param bool shiny: quarto-only flag; selects ``quarto-shiny``.
     :param pathlib.Path cwd: override the working directory (testing hook);
         defaults to :func:`pathlib.Path.cwd`.
     """
@@ -97,9 +100,9 @@ def run_quickstart(
     _require_cwd_writable(cwd)
 
     # Resolve the per-mode template once. Pre-flight already validated
-    # ``app_type``; ``lookup_template`` is defensive against impossible
-    # flag combinations only.
-    spec = lookup_template(app_type, shiny=shiny)
+    # ``app_type`` via Click's ``Choice``; ``lookup_template`` is defensive
+    # for direct API callers only.
+    spec = lookup_template(app_type)
 
     # Atomicity: after ``mkdir`` succeeds, any failure in the rest of the
     # pipeline must remove ``./<name>/`` so the user sees "all or nothing."
@@ -202,9 +205,9 @@ class FileSpec:
 class TemplateSpec:
     """Per-resolved-mode scaffold contract.
 
-    Resolved means the ``(app_type, shiny)`` flag pair has already been
-    mapped to one entry; the dataclass itself does not know about CLI
-    aliases or flags.
+    Resolved means the CLI ``app_type`` has already been mapped to one
+    entry; the dataclass itself does not know about CLI aliases (e.g.
+    ``flask`` -> ``api``).
 
     The mode's Connect identity (``app_mode``, ``entrypoint``, runtime
     ``dependencies``) lives in ``pyproject_template`` rather than as
@@ -237,19 +240,19 @@ class TemplateSpec:
     notes: typing.Tuple[str, ...] = ()
 
 
-# Registry key: ``(resolved_type, shiny)``. The ``flask`` alias resolves to
-# ``api`` before lookup (see :func:`lookup_template`); deferred modes
+# Registry key: the resolved CLI ``app_type`` (``flask`` resolves to
+# ``api`` before lookup; see :func:`lookup_template`). Deferred modes
 # (dash, gradio, panel, bokeh) are intentionally absent.
 _QUARTO_INSTALL_NOTE = "Quarto must be installed separately: https://quarto.org"
 
-_REGISTRY: typing.Mapping[typing.Tuple[str, bool], TemplateSpec] = {
-    ("streamlit", False): TemplateSpec(
+_REGISTRY: typing.Mapping[str, TemplateSpec] = {
+    "streamlit": TemplateSpec(
         pyproject_template="streamlit/pyproject.toml.tmpl",
         readme_template="streamlit/README.md.tmpl",
         local_run_command=("uv", "run", "streamlit", "run", "app.py"),
         source_files=(FileSpec(name="app.py", template="streamlit/app.py.tmpl"),),
     ),
-    ("shiny", False): TemplateSpec(
+    "shiny": TemplateSpec(
         pyproject_template="shiny/pyproject.toml.tmpl",
         readme_template="shiny/README.md.tmpl",
         local_run_command=("uv", "run", "shiny", "run", "app.py"),
@@ -258,7 +261,7 @@ _REGISTRY: typing.Mapping[typing.Tuple[str, bool], TemplateSpec] = {
     # fastapi/api produce a nested ``<name>/<name>/`` package so the
     # documented ``python -m <name>`` local-run command resolves cleanly
     # and ``from .app import create_app`` relative imports work.
-    ("fastapi", False): TemplateSpec(
+    "fastapi": TemplateSpec(
         pyproject_template="fastapi/pyproject.toml.tmpl",
         readme_template="fastapi/README.md.tmpl",
         local_run_command=("uv", "run", "python", "-m", "$name"),
@@ -269,7 +272,7 @@ _REGISTRY: typing.Mapping[typing.Tuple[str, bool], TemplateSpec] = {
             FileSpec(name="$name/app.py", template="fastapi/app.py.tmpl"),
         ),
     ),
-    ("api", False): TemplateSpec(
+    "api": TemplateSpec(
         pyproject_template="api/pyproject.toml.tmpl",
         readme_template="api/README.md.tmpl",
         local_run_command=("uv", "run", "python", "-m", "$name"),
@@ -282,26 +285,26 @@ _REGISTRY: typing.Mapping[typing.Tuple[str, bool], TemplateSpec] = {
     ),
     # notebook and voila share the same notebook body; they differ in
     # ``pyproject_template`` (app_mode + dependencies) and local-run command.
-    ("notebook", False): TemplateSpec(
+    "notebook": TemplateSpec(
         pyproject_template="notebook/pyproject.toml.tmpl",
         readme_template="notebook/README.md.tmpl",
         local_run_command=("uv", "run", "jupyter", "lab", "notebook.ipynb"),
         source_files=(FileSpec(name="notebook.ipynb", template="notebook/notebook.ipynb.tmpl"),),
     ),
-    ("voila", False): TemplateSpec(
+    "voila": TemplateSpec(
         pyproject_template="voila/pyproject.toml.tmpl",
         readme_template="voila/README.md.tmpl",
         local_run_command=("uv", "run", "voila", "notebook.ipynb"),
         source_files=(FileSpec(name="notebook.ipynb", template="notebook/notebook.ipynb.tmpl"),),
     ),
-    ("quarto", False): TemplateSpec(
+    "quarto": TemplateSpec(
         pyproject_template="quarto/pyproject.toml.tmpl",
         readme_template="quarto/README.md.tmpl",
         local_run_command=("uv", "run", "quarto", "preview", "report.qmd"),
         source_files=(FileSpec(name="report.qmd", template="quarto/report.qmd.tmpl"),),
         notes=(_QUARTO_INSTALL_NOTE,),
     ),
-    ("quarto", True): TemplateSpec(
+    "quarto-shiny": TemplateSpec(
         pyproject_template="quarto/pyproject_shiny.toml.tmpl",
         readme_template="quarto/README_shiny.md.tmpl",
         local_run_command=("uv", "run", "quarto", "preview", "report.qmd"),
@@ -311,26 +314,22 @@ _REGISTRY: typing.Mapping[typing.Tuple[str, bool], TemplateSpec] = {
 }
 
 
-def lookup_template(app_type: str, *, shiny: bool = False) -> TemplateSpec:
-    """Resolve the :class:`TemplateSpec` for ``(app_type, shiny)``.
+def lookup_template(app_type: str) -> TemplateSpec:
+    """Resolve the :class:`TemplateSpec` for ``app_type``.
 
     ``flask`` is an alias for ``api`` and shares the same scaffold; both
-    resolve to the same key. Other CLI-level flag combinations have already
-    been narrowed by pre-flight, so this lookup is defensive only.
+    resolve to the same registry entry. Other CLI-level types have already
+    been narrowed by Click's ``Choice``, so this lookup is defensive only
+    (e.g. direct API callers passing an unknown type).
 
     :param str app_type: CLI ``<type>`` value.
-    :param bool shiny: quarto-only flag.
     """
     resolved_type = "api" if app_type == "flask" else app_type
-    key = (resolved_type, shiny)
-    if key not in _REGISTRY:
-        # The only reachable case is ``--shiny`` combined with a non-quarto
-        # type; every other (type, shiny) pair is covered by the registry.
+    if resolved_type not in _REGISTRY:
         raise RSConnectException(
-            f"The --shiny flag is only supported with type 'quarto', not {app_type!r}. "
-            "Re-run without --shiny, or use 'quarto' as the project type."
+            f"Unknown project type {app_type!r}. Supported types: " + ", ".join(SUPPORTED_APP_TYPES)
         )
-    return _REGISTRY[key]
+    return _REGISTRY[resolved_type]
 
 
 # ---------------------------------------------------------------------------

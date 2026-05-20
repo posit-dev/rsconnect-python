@@ -95,13 +95,13 @@ def test_quickstart_requires_type_and_name(runner: CliRunner, in_tmp_cwd: pathli
     assert result.exit_code != 0
 
 
-def test_quickstart_help_exposes_shiny_flag(runner: CliRunner):
+def test_quickstart_help_lists_quarto_shiny(runner: CliRunner):
+    """``quarto-shiny`` is a first-class TYPE, not a flag on ``quarto``."""
     result = runner.invoke(cli, ["quickstart", "--help"])
     assert result.exit_code == 0, result.output
-    assert "--shiny" in result.output
-    # ``--static`` was the original pre-shiny flag, since replaced by
-    # ``--shiny`` (default static), so the old flag must not resurface.
-    assert "--static" not in result.output
+    assert "quarto-shiny" in result.output
+    # The legacy ``--shiny`` flag was removed in favor of the explicit type.
+    assert "--shiny" not in result.output
 
 
 @pytest.mark.parametrize(
@@ -109,15 +109,15 @@ def test_quickstart_help_exposes_shiny_flag(runner: CliRunner):
     [
         (
             ["streamlit", "hello_app"],
-            {"app_type": "streamlit", "name": "hello_app", "shiny": False},
+            {"app_type": "streamlit", "name": "hello_app"},
         ),
         (
             ["notebook", "hello_notebook"],
-            {"app_type": "notebook", "name": "hello_notebook", "shiny": False},
+            {"app_type": "notebook", "name": "hello_notebook"},
         ),
         (
-            ["quarto", "--shiny", "hello_quarto"],
-            {"app_type": "quarto", "name": "hello_quarto", "shiny": True},
+            ["quarto-shiny", "hello_quarto"],
+            {"app_type": "quarto-shiny", "name": "hello_quarto"},
         ),
     ],
 )
@@ -167,25 +167,8 @@ def test_quickstart_unknown_type_lists_supported(runner: CliRunner, in_tmp_cwd: 
     result = _invoke_quickstart(runner, "nonesuch", "hello_app")
     assert result.exit_code != 0
     combined = result.output + (result.stderr if result.stderr_bytes else "")
-    for expected in ("streamlit", "shiny", "fastapi", "api", "flask", "notebook", "voila", "quarto"):
+    for expected in ("streamlit", "shiny", "fastapi", "api", "flask", "notebook", "voila", "quarto", "quarto-shiny"):
         assert expected in combined, f"{expected!r} missing from error output: {combined!r}"
-    assert not (in_tmp_cwd / "hello_app").exists()
-
-
-@pytest.mark.parametrize("app_type", ["streamlit", "notebook", "api"])
-def test_quickstart_shiny_rejected_with_non_quarto_type(runner: CliRunner, in_tmp_cwd: pathlib.Path, app_type: str):
-    """``--shiny`` is a quarto-only flag; combining it with any other type
-    must fail before any directory is created.
-
-    Locks the two load-bearing tokens of the user-recoverable error
-    surface (the flag name and the only supported type) without pinning
-    the full sentence, so prose can drift but the contract cannot.
-    """
-    result = _invoke_quickstart(runner, app_type, "--shiny", "hello_app")
-    assert result.exit_code != 0
-    combined = result.output + (result.stderr if result.stderr_bytes else "")
-    assert "--shiny" in combined, combined
-    assert "quarto" in combined, combined
     assert not (in_tmp_cwd / "hello_app").exists()
 
 
@@ -321,7 +304,7 @@ APP_MODE_MATRIX = [
     pytest.param(("notebook",), "jupyter-static", id="notebook-default"),
     pytest.param(("voila",), "jupyter-voila", id="voila"),
     pytest.param(("quarto",), "quarto-static", id="quarto-default"),
-    pytest.param(("quarto", "--shiny"), "quarto-shiny", id="quarto-shiny"),
+    pytest.param(("quarto-shiny",), "quarto-shiny", id="quarto-shiny"),
 ]
 
 
@@ -606,8 +589,8 @@ POST_SCAFFOLD_COMMANDS = [
         id="quarto-default",
     ),
     pytest.param(
-        "quarto",
-        ("--shiny",),
+        "quarto-shiny",
+        (),
         "uv run quarto preview report.qmd",
         ("Note: Quarto must be installed separately: https://quarto.org",),
         id="quarto-shiny",
@@ -745,7 +728,7 @@ def test_quickstart_registry_accepts_new_mode(
         source_files=(),
     )
     extended_registry = dict(qs._REGISTRY)
-    extended_registry[("newmode", False)] = new_spec
+    extended_registry["newmode"] = new_spec
     monkeypatch.setattr(qs, "_REGISTRY", extended_registry)
     # Click's argument type was bound at decorator time, so injecting a new
     # supported type means widening the choice list on the live command.
