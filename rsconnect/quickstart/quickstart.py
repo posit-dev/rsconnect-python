@@ -22,6 +22,7 @@ import pkgutil
 import re
 import shutil
 import subprocess
+import sys
 import typing
 
 import click
@@ -344,14 +345,13 @@ def lookup_template(app_type: str, *, shiny: bool = False) -> TemplateSpec:
 def _scaffold(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> None:
     """Write every file the scaffolded project should contain.
 
-    Filesystem-generation phase: the four always-present files
-    (``pyproject.toml``, ``.python-version``,
-    ``.gitignore``, ``README.md``) and the per-mode source files
-    materialized from ``spec.source_files``. The caller owns ``target``'s
-    creation and rollback, so this helper writes into an existing directory.
+    Filesystem-generation phase: the three always-present files
+    (``pyproject.toml``, ``.gitignore``, ``README.md``) and the per-mode
+    source files materialized from ``spec.source_files``. The caller owns
+    ``target``'s creation and rollback, so this helper writes into an
+    existing directory.
     """
     (target / "pyproject.toml").write_text(_render_pyproject(name=name, spec=spec), encoding="utf-8")
-    (target / ".python-version").write_text(f"{_PYTHON_VERSION}\n", encoding="utf-8")
     (target / ".gitignore").write_text(_GITIGNORE_BODY, encoding="utf-8")
     (target / "README.md").write_text(_render_readme(name=name, spec=spec), encoding="utf-8")
     for file_spec in spec.source_files:
@@ -369,11 +369,13 @@ def _scaffold(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> None:
         dest.write_text(body, encoding="utf-8")
 
 
-# Kept as separate constants because they encode two distinct concerns
-# (the .python-version pin vs. the requires-python floor) that happen to
-# share a Python-version shape but evolve independently.
-_PYTHON_VERSION = "3.11"  # value written to .python-version
-_REQUIRES_PYTHON = ">=3.9"  # value written to [project].requires-python
+# ``requires-python`` is the single source of truth for the scaffold's Python
+# requirement: ``rsconnect deploy pyproject`` reads ``pyproject.toml``, so
+# emitting a separate ``.python-version`` pin would only duplicate this value.
+# The floor tracks the interpreter that ran ``rsconnect quickstart`` so the
+# scaffold matches the developer's working environment without committing the
+# project to any version older than what its author has actually used.
+_REQUIRES_PYTHON = ">={}.{}".format(*sys.version_info[:2])
 _GITIGNORE_BODY = "__pycache__/\n*.pyc\n.venv/\n*.egg-info/\nrsconnect-python/\n.env\n"
 
 
