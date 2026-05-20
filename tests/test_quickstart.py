@@ -704,13 +704,38 @@ def test_quickstart_registry_accepts_new_mode(
     working scaffold without touching the pre-flight, pyproject writer, or
     post-scaffold output modules.
     """
+    import pkgutil
+
     from rsconnect.quickstart import quickstart as qs
 
+    # Stand in for ``rsconnect/quickstart/templates/newmode/pyproject.toml.tmpl``:
+    # the contract is "drop a template file under the package", so we hook
+    # ``pkgutil.get_data`` to materialize the body without touching the
+    # installed package on disk.
+    new_pyproject_body = (
+        "[project]\n"
+        'name = "$name"\n'
+        'version = "0.0.1"\n'
+        'requires-python = "$requires_python"\n'
+        "dependencies = []\n"
+        "\n"
+        "[tool.rsconnect]\n"
+        'app_mode = "python-newmode"\n'
+        'entrypoint = "app.py"\n'
+        'title = "$name"\n'
+    )
+    real_get_data = pkgutil.get_data
+
+    def fake_get_data(package: str, resource: str):
+        if resource == "newmode/pyproject.toml.tmpl":
+            return new_pyproject_body.encode("utf-8")
+        return real_get_data(package, resource)
+
+    monkeypatch.setattr(pkgutil, "get_data", fake_get_data)
+
     new_spec = qs.TemplateSpec(
-        app_mode="python-newmode",
-        entrypoint="app.py",
+        pyproject_template="newmode/pyproject.toml.tmpl",
         local_run_command=("uv", "run", "newtool", "app.py"),
-        dependencies=(),
         source_files=(),
     )
     extended_registry = dict(qs._REGISTRY)

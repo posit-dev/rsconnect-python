@@ -1,0 +1,12 @@
+[project]
+name = "$name"
+version = "0.0.1"
+requires-python = "$requires_python"
+dependencies = [
+    "jupyter",
+]
+
+[tool.rsconnect]
+app_mode = "jupyter-static"
+entrypoint = "notebook.ipynb"
+title = "$name"

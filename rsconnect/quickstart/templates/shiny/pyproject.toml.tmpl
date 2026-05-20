@@ -1,0 +1,12 @@
+[project]
+name = "$name"
+version = "0.0.1"
+requires-python = "$requires_python"
+dependencies = [
+    "shiny",
+]
+
+[tool.rsconnect]
+app_mode = "python-shiny"
+entrypoint = "app.py"
+title = "$name"
