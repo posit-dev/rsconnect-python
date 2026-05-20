@@ -680,15 +680,17 @@ def test_invariant_I9_I10_failure_exit_and_message(
 def test_quickstart_registry_accepts_new_mode(
     runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ):
-    """Adding a mode is "drop a template directory plus register it."
+    """Adding a mode is "register an AppMode + alias + template directory."
 
-    The test proves the extensibility contract: inserting a new row into
-    ``_REGISTRY`` (plus a corresponding ``SUPPORTED_APP_TYPES`` entry) yields a
-    working scaffold without touching the pre-flight, pyproject writer, or
-    post-scaffold output modules.
+    The test proves the extensibility contract: registering a new
+    :class:`AppMode` + CLI alias in :class:`AppModes` and adding the
+    corresponding ``_REGISTRY`` entry yields a working scaffold without
+    touching the pre-flight, pyproject writer, or post-scaffold output
+    modules.
     """
     import pkgutil
 
+    from rsconnect.models import AppMode, AppModes
     from rsconnect.quickstart import quickstart as qs
 
     # Stand in for ``rsconnect/quickstart/templates/newmode/pyproject.toml.tmpl``:
@@ -727,15 +729,21 @@ def test_quickstart_registry_accepts_new_mode(
         local_run_command=("uv", "run", "newtool", "app.py"),
         source_files=(),
     )
+    # Mint a fresh AppMode singleton and register the alias on AppModes.
+    # An ordinal of 999 is safely outside the declared range; the registry
+    # entry only requires a hashable identity.
+    new_app_mode = AppMode(999, "python-newmode", "New Mode App")
+    extended_cli_aliases = dict(AppModes._cli_aliases)
+    extended_cli_aliases["newmode"] = new_app_mode
+    monkeypatch.setattr(AppModes, "_cli_aliases", extended_cli_aliases)
     extended_registry = dict(qs._REGISTRY)
-    extended_registry["newmode"] = new_spec
+    extended_registry[new_app_mode] = new_spec
     monkeypatch.setattr(qs, "_REGISTRY", extended_registry)
     # Click's argument type was bound at decorator time, so injecting a new
     # supported type means widening the choice list on the live command.
     quickstart_cmd = cli.commands["quickstart"]
     type_param = next(p for p in quickstart_cmd.params if p.name == "app_type")
-    monkeypatch.setattr(type_param, "type", type(type_param.type)(qs.SUPPORTED_APP_TYPES + ("newmode",)))
-    monkeypatch.setattr(qs, "SUPPORTED_APP_TYPES", qs.SUPPORTED_APP_TYPES + ("newmode",))
+    monkeypatch.setattr(type_param, "type", type(type_param.type)(AppModes.cli_aliases()))
 
     result = _invoke_quickstart(runner, "newmode", "hello_app")
 

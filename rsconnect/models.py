@@ -159,6 +159,30 @@ class AppModes:
         "bokeh": BOKEH_APP,
     }
 
+    # CLI alias vocabulary used by ``rsconnect deploy <alias>`` and
+    # ``rsconnect quickstart <alias>``. Many-to-one is allowed: ``api`` and
+    # ``flask`` both resolve to ``PYTHON_API``. NB: ``shiny`` here means
+    # ``PYTHON_SHINY``, which differs from cloud-name ``shiny`` (R Shiny in
+    # ``_cloud_to_connect_modes``); the two namespaces are independent.
+    _cli_aliases: dict[str, AppMode] = {
+        "api": PYTHON_API,
+        "flask": PYTHON_API,
+        "fastapi": PYTHON_FASTAPI,
+        "dash": DASH_APP,
+        "streamlit": STREAMLIT_APP,
+        "bokeh": BOKEH_APP,
+        "shiny": PYTHON_SHINY,
+        "gradio": PYTHON_GRADIO,
+        "panel": PYTHON_PANEL,
+        "notebook": JUPYTER_NOTEBOOK,
+        "voila": JUPYTER_VOILA,
+        "quarto": STATIC_QUARTO,
+        "quarto-shiny": SHINY_QUARTO,
+        "tensorflow": TENSORFLOW,
+        "html": STATIC,
+        "nodejs": NODE_JS,
+    }
+
     @classmethod
     def get_by_ordinal(cls, ordinal: int, return_unknown: bool = False) -> AppMode:
         """Get an AppMode by its associated ordinal (integer)"""
@@ -199,6 +223,22 @@ class AppModes:
     @classmethod
     def get_by_cloud_name(cls, name: str) -> AppMode:
         return cls._cloud_to_connect_modes.get(name, cls.UNKNOWN)
+
+    @classmethod
+    def get_by_cli_alias(cls, alias: str) -> AppMode:
+        """Resolve a CLI alias to its canonical :class:`AppMode`.
+
+        Returns :attr:`UNKNOWN` for aliases not in :data:`_cli_aliases`.
+        Subcommands that accept only a subset of modes (e.g. ``rsconnect
+        quickstart``) check membership in their own registry after resolving
+        the alias here.
+        """
+        return cls._cli_aliases.get(alias, cls.UNKNOWN)
+
+    @classmethod
+    def cli_aliases(cls) -> tuple[str, ...]:
+        """All CLI aliases declared in :data:`_cli_aliases`, in declaration order."""
+        return tuple(cls._cli_aliases.keys())
 
     @classmethod
     def _find_by(cls, predicate: Callable[[AppMode], bool], message: str, return_unknown: bool) -> AppMode:
