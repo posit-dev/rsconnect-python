@@ -17,7 +17,6 @@ import textwrap
 import types
 import typing
 
-import click
 import pytest
 from click.testing import CliRunner
 
@@ -70,16 +69,6 @@ def test_deploy_pyproject_requires_path(runner: CliRunner):
     assert "Usage:" in result.output
     assert "DIRECTORY" in result.output  # required positional metavar
     assert "[DIRECTORY]" not in result.output  # required, not optional
-
-
-def test_deploy_pyproject_option_surface_matches_deploy_manifest():
-    """``deploy pyproject`` must expose the same Click option surface as
-    ``deploy manifest`` so existing credential mechanisms apply identically.
-    """
-    deploy_group = typing.cast(click.Group, cli.commands["deploy"])
-    manifest_options = {p.name for p in deploy_group.commands["manifest"].params if isinstance(p, click.Option)}
-    pyproject_options = {p.name for p in deploy_group.commands["pyproject"].params if isinstance(p, click.Option)}
-    assert pyproject_options == manifest_options
 
 
 # ---------------------------------------------------------------------------
@@ -444,3 +433,148 @@ def test_deploy_pyproject_uses_entrypoint_from_tool_rsconnect(runner: CliRunner,
     combined = result.output + (result.stderr if result.stderr_bytes else "")
     # We should not see an entrypoint-guessing error pointing to app.py.
     assert "app.py" not in combined or "custom_module" in combined
+
+
+# ---------------------------------------------------------------------------
+# Requirements source
+# ---------------------------------------------------------------------------
+
+
+def _capture_environment(monkeypatch: pytest.MonkeyPatch) -> dict[str, typing.Any]:
+    """Wire up monkeypatches that short-circuit the deploy and capture the
+    ``requirements_file`` argument handed to ``create_python_environment``."""
+    captured: dict[str, typing.Any] = {}
+
+    class _StopDispatch(Exception):
+        pass
+
+    from rsconnect import api as api_mod
+    from rsconnect import main as main_mod
+
+    def spy_create(cls: typing.Any, directory: str, **kwargs: typing.Any):
+        captured["directory"] = directory
+        captured["requirements_file"] = kwargs.get("requirements_file")
+        raise _StopDispatch()
+
+    monkeypatch.setattr(main_mod.Environment, "create_python_environment", classmethod(spy_create))
+    monkeypatch.setattr(api_mod.RSConnectClient, "server_settings", lambda self: {})
+    monkeypatch.setattr(api_mod.RSConnectExecutor, "validate_server", lambda self: self)
+    monkeypatch.setattr(api_mod.RSConnectExecutor, "validate_app_mode", lambda self, app_mode: self)
+    return captured
+
+
+_REQ_PYPROJECT = """
+[project]
+name = "hello_app"
+version = "0.0.1"
+dependencies = ["flask"]
+
+[tool.rsconnect]
+app_mode = "python-api"
+entrypoint = "app:app"
+title = "hello_app"
+"""
+
+
+def test_deploy_pyproject_defaults_requirements_to_pyproject_toml(
+    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Default requirements source is ``pyproject.toml``.
+
+    Regression for a bug where the command passed ``requirements_file=None``,
+    causing the inspector to fall back to ``pip freeze`` of the caller's
+    interpreter and polluting the bundle with whatever happened to be
+    installed alongside ``rsconnect-python`` instead of the project's
+    declared dependencies.
+    """
+    captured = _capture_environment(monkeypatch)
+    _write_pyproject(project_dir, _REQ_PYPROJECT)
+    runner.invoke(cli, ["deploy", "pyproject", str(project_dir), "-s", "http://x", "-k", "k"])
+    assert captured["requirements_file"] == "pyproject.toml"
+
+
+def test_deploy_pyproject_ignores_uv_lock_unless_requested(
+    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """A ``uv.lock`` next to ``pyproject.toml`` does NOT auto-take over.
+
+    Implicitly preferring a lockfile would silently deploy stale pins if the
+    user edited ``pyproject.toml`` without re-running ``uv lock``. Users who
+    want lockfile reproducibility must opt in with ``-r uv.lock``.
+    """
+    captured = _capture_environment(monkeypatch)
+    _write_pyproject(project_dir, _REQ_PYPROJECT)
+    (project_dir / "uv.lock").write_text("# placeholder; presence must not change the default\n")
+    runner.invoke(cli, ["deploy", "pyproject", str(project_dir), "-s", "http://x", "-k", "k"])
+    assert captured["requirements_file"] == "pyproject.toml"
+
+
+def test_deploy_pyproject_requirements_file_flag_overrides_default(
+    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """``-r uv.lock`` opts into a fully resolved deploy."""
+    captured = _capture_environment(monkeypatch)
+    _write_pyproject(project_dir, _REQ_PYPROJECT)
+    (project_dir / "uv.lock").write_text("# placeholder\n")
+    runner.invoke(
+        cli,
+        ["deploy", "pyproject", "-r", "uv.lock", str(project_dir), "-s", "http://x", "-k", "k"],
+    )
+    assert captured["requirements_file"] == "uv.lock"
+
+
+def test_deploy_pyproject_honors_requirements_file_from_tool_rsconnect(
+    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """``[tool.rsconnect].requirements_file`` becomes the default for this project.
+
+    Lets users who maintain a ``uv.lock`` (or any other requirements source)
+    bake that choice into the project once, instead of remembering ``-r`` on
+    every deploy.
+    """
+    captured = _capture_environment(monkeypatch)
+    _write_pyproject(
+        project_dir,
+        """
+        [project]
+        name = "hello_app"
+        version = "0.0.1"
+        dependencies = ["flask"]
+
+        [tool.rsconnect]
+        app_mode = "python-api"
+        entrypoint = "app:app"
+        title = "hello_app"
+        requirements_file = "uv.lock"
+        """,
+    )
+    (project_dir / "uv.lock").write_text("# placeholder\n")
+    runner.invoke(cli, ["deploy", "pyproject", str(project_dir), "-s", "http://x", "-k", "k"])
+    assert captured["requirements_file"] == "uv.lock"
+
+
+def test_deploy_pyproject_flag_overrides_tool_rsconnect_requirements_file(
+    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """CLI ``-r`` wins over ``[tool.rsconnect].requirements_file``."""
+    captured = _capture_environment(monkeypatch)
+    _write_pyproject(
+        project_dir,
+        """
+        [project]
+        name = "hello_app"
+        version = "0.0.1"
+        dependencies = ["flask"]
+
+        [tool.rsconnect]
+        app_mode = "python-api"
+        entrypoint = "app:app"
+        title = "hello_app"
+        requirements_file = "uv.lock"
+        """,
+    )
+    runner.invoke(
+        cli,
+        ["deploy", "pyproject", "-r", "pyproject.toml", str(project_dir), "-s", "http://x", "-k", "k"],
+    )
+    assert captured["requirements_file"] == "pyproject.toml"

@@ -1765,6 +1765,18 @@ def deploy_manifest(
 @spcs_args
 @content_args
 @cloud_shinyapps_args
+@click.option(
+    "--requirements-file",
+    "-r",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help=(
+        "Path to the requirements source, relative to the project directory. "
+        "Overrides ``[tool.rsconnect].requirements_file`` in pyproject.toml; "
+        "defaults to ``pyproject.toml`` (the project's declared dependencies). "
+        "Pass ``uv.lock`` for a fully resolved deploy, or any ``requirements.txt``-compatible file."
+    ),
+)
 @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @shinyapps_deploy_args
 @cli_exception_handler
@@ -1785,6 +1797,7 @@ def deploy_pyproject(
     title: Optional[str],
     verbose: int,
     directory: str,
+    requirements_file: Optional[str],
     env_vars: dict[str, str],
     visibility: Optional[str],
     no_verify: bool,
@@ -1822,10 +1835,17 @@ def deploy_pyproject(
     bundle_kwargs: dict[str, Any] = {}
     path = directory
 
+    # Requirements source precedence: ``-r`` flag > ``[tool.rsconnect].requirements_file``
+    # > built-in default ``pyproject.toml`` (top-level deps; Connect resolves transitive).
+    # Without an explicit source the inspector would silently ``pip freeze`` the caller's
+    # interpreter — the bug ``deploy pyproject`` exists to avoid. Malformed TOML values
+    # (wrong type, missing file) are surfaced by the inspector / file existence check.
+    requirements_file = requirements_file or config.get("requirements_file") or "pyproject.toml"
+
     if app_mode in (AppModes.STREAMLIT_APP, AppModes.PYTHON_SHINY, AppModes.PYTHON_FASTAPI, AppModes.PYTHON_API):
         environment = Environment.create_python_environment(
             directory,
-            requirements_file=None,
+            requirements_file=requirements_file,
             override_python_version=None,
         )
         bundle_builder = make_api_bundle
@@ -1835,7 +1855,7 @@ def deploy_pyproject(
         path = str(Path(directory) / entrypoint)
         environment = Environment.create_python_environment(
             directory,
-            requirements_file=None,
+            requirements_file=requirements_file,
             override_python_version=None,
         )
         bundle_builder = make_notebook_source_bundle
@@ -1849,7 +1869,7 @@ def deploy_pyproject(
     elif app_mode == AppModes.JUPYTER_VOILA:
         environment = Environment.create_python_environment(
             directory,
-            requirements_file=None,
+            requirements_file=requirements_file,
             override_python_version=None,
         )
         bundle_builder = make_voila_bundle
@@ -1873,7 +1893,7 @@ def deploy_pyproject(
             with cli_feedback("Inspecting Python environment"):
                 environment = Environment.create_python_environment(
                     directory,
-                    requirements_file=None,
+                    requirements_file=requirements_file,
                     override_python_version=None,
                 )
         bundle_builder = create_quarto_deployment_bundle

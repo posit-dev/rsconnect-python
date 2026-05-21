@@ -277,6 +277,9 @@ def test_quickstart_pyproject_has_tool_rsconnect(runner: CliRunner, in_tmp_cwd: 
     assert tool_rsconnect["app_mode"] == "python-streamlit"
     assert tool_rsconnect["entrypoint"] == "app.py"
     assert tool_rsconnect["title"] == "hello_app"
+    # Scaffolded projects ship a uv.lock from ``uv sync``; default deploys
+    # use it so ``rsconnect deploy pyproject`` is reproducible out of the box.
+    assert tool_rsconnect["requirements_file"] == "uv.lock"
 
 
 def test_quickstart_does_not_duplicate_deps_in_tool_rsconnect(runner: CliRunner, in_tmp_cwd: pathlib.Path):
@@ -287,7 +290,7 @@ def test_quickstart_does_not_duplicate_deps_in_tool_rsconnect(runner: CliRunner,
     assert "dependencies" not in tool_rsconnect
     assert "requires-python" not in tool_rsconnect
     assert "requires_python" not in tool_rsconnect
-    assert set(tool_rsconnect.keys()) == {"app_mode", "entrypoint", "title"}
+    assert set(tool_rsconnect.keys()) == {"app_mode", "entrypoint", "title", "requirements_file"}
 
 
 # ---------------------------------------------------------------------------
