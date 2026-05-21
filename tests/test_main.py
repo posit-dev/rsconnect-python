@@ -43,8 +43,20 @@ def _load_json(data):
 
 class TestMain:
     def setup_method(self):
+        # Isolate from any real ``~/.rsconnect-python/`` on the host.
+        # ``teardown_method`` restores ``HOME`` so the relative path does not
+        # leak into later tests that invoke ``uv`` and would otherwise create
+        # ``<cwd>/test-home/.cache/uv/`` inside their working directory.
+        self._saved_home = os.environ.get("HOME")
         shutil.rmtree("test-home", ignore_errors=True)
         os.environ["HOME"] = "test-home"
+
+    def teardown_method(self):
+        if self._saved_home is None:
+            os.environ.pop("HOME", None)
+        else:
+            os.environ["HOME"] = self._saved_home
+        shutil.rmtree("test-home", ignore_errors=True)
 
     @staticmethod
     def optional_target(default):

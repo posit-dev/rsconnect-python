@@ -1,0 +1,13 @@
+[project]
+name = "$name"
+version = "0.0.1"
+requires-python = "$requires_python"
+dependencies = [
+    "streamlit",
+]
+
+[tool.rsconnect]
+app_mode = "python-streamlit"
+entrypoint = "app.py"
+title = "$name"
+requirements_file = "uv.lock"

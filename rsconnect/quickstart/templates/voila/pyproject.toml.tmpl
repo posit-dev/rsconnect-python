@@ -1,0 +1,14 @@
+[project]
+name = "$name"
+version = "0.0.1"
+requires-python = "$requires_python"
+dependencies = [
+    "voila",
+    "jupyter",
+]
+
+[tool.rsconnect]
+app_mode = "jupyter-voila"
+entrypoint = "notebook.ipynb"
+title = "$name"
+requirements_file = "uv.lock"
