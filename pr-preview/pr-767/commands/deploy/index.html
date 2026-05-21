@@ -2499,6 +2499,14 @@
   -S, --secret TEXT               The shinyapps.io/Posit Cloud token secret.
                                   (Also settable via SHINYAPPS_SECRET or
                                   RSCLOUD_SECRET environment variables.)
+  -r, --requirements-file FILE    Path to the requirements source, relative to
+                                  the project directory. Overrides
+                                  ``[tool.rsconnect].requirements_file`` in
+                                  pyproject.toml; defaults to
+                                  ``pyproject.toml`` (the project&#39;s declared
+                                  dependencies). Pass ``uv.lock`` for a fully
+                                  resolved deploy, or any
+                                  ``requirements.txt``-compatible file.
   -V, --visibility [public|private]
                                   The visibility of the resource being
                                   deployed. (shinyapps.io only; must be public
