@@ -274,7 +274,11 @@ class SPCSConnectServer(AbstractRemoteServer):
             raise RSConnectException("No Snowflake connection found.")
 
         authenticator = params.get("authenticator")
-        if authenticator == "SNOWFLAKE_JWT":
+        if not authenticator:
+            raise NotImplementedError("Snowflake connection does not declare an authenticator.")
+
+        authenticator = authenticator.lower()
+        if authenticator == "snowflake_jwt":
             spcs_url = urlparse(self.url)
             scope = f"session:role:{params['role']} {spcs_url.netloc}" if params.get("role") else spcs_url.netloc
             jwt = generate_jwt(self.snowflake_connection_name)

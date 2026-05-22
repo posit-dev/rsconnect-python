@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `pyproject.toml` can now be supplied via `--requirements-file` for deploy and
   write-manifest.
+- Perform case insensitive matching of the configured Snowflake connection authenticator.
 
 ## [1.29.0] - 2026-04-29
 

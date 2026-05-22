@@ -293,7 +293,7 @@ class SPCSConnectServerTestCase(TestCase):
             server.token_endpoint()
 
     @patch("rsconnect.api.get_parameters")
-    def test_fmt_payload(self, mock_get_parameters):
+    def test_fmt_payload_jwt_uppercase(self, mock_get_parameters):
         server = SPCSConnectServer("https://spcs.example.com", "test-api-key", "example_connection")
         mock_get_parameters.return_value = {
             "account": "test_account",
@@ -314,6 +314,50 @@ class SPCSConnectServerTestCase(TestCase):
 
             mock_get_parameters.assert_called_once_with("example_connection")
             mock_generate_jwt.assert_called_once_with("example_connection")
+
+    @patch("rsconnect.api.get_parameters")
+    def test_fmt_payload_jwt_lowercase(self, mock_get_parameters):
+        server = SPCSConnectServer("https://spcs.example.com", "test-api-key", "example_connection")
+        mock_get_parameters.return_value = {
+            "account": "test_account",
+            "role": "test_role",
+            "authenticator": "snowflake_jwt",
+        }
+
+        with patch("rsconnect.api.generate_jwt") as mock_generate_jwt:
+            mock_generate_jwt.return_value = "mocked_jwt"
+            payload = server.fmt_payload()
+
+            assert (
+                payload["body"]
+                == "scope=session%3Arole%3Atest_role+spcs.example.com&assertion=mocked_jwt&grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer"  # noqa
+            )
+            assert payload["headers"] == {"Content-Type": "application/x-www-form-urlencoded"}
+            assert payload["path"] == "/oauth/token"
+
+            mock_get_parameters.assert_called_once_with("example_connection")
+            mock_generate_jwt.assert_called_once_with("example_connection")
+
+    @patch("rsconnect.api.get_parameters")
+    def test_fmt_payload_with_unsupported_authenticator(self, mock_get_parameters):
+        server = SPCSConnectServer("https://spcs.example.com", "test-api-key", "example_connection")
+        mock_get_parameters.return_value = {
+            "account": "test_account",
+            "role": "test_role",
+            "authenticator": "unrecognized",
+        }
+        with pytest.raises(NotImplementedError, match="Unsupported authenticator for SPCS Connect: unrecognized"):
+            server.fmt_payload()
+
+    @patch("rsconnect.api.get_parameters")
+    def test_fmt_payload_with_no_authenticator(self, mock_get_parameters):
+        server = SPCSConnectServer("https://spcs.example.com", "test-api-key", "example_connection")
+        mock_get_parameters.return_value = {
+            "account": "test_account",
+            "role": "test_role",
+        }
+        with pytest.raises(NotImplementedError, match="Snowflake connection does not declare an authenticator."):
+            server.fmt_payload()
 
     @patch("rsconnect.api.get_parameters")
     def test_fmt_payload_with_none_params(self, mock_get_parameters):
