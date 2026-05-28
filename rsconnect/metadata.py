@@ -259,6 +259,10 @@ class ServerDataDict(TypedDict):
     account_name: NotRequired[str]
     token: NotRequired[str]
     secret: NotRequired[str]
+    oauth_client_id: NotRequired[str]
+    oauth_access_token: NotRequired[str]
+    oauth_refresh_token: NotRequired[str]
+    oauth_token_expiry: NotRequired[float]
 
 
 class ServerData:
@@ -279,6 +283,10 @@ class ServerData:
         account_name: Optional[str] = None,
         token: Optional[str] = None,
         secret: Optional[str] = None,
+        oauth_client_id: Optional[str] = None,
+        oauth_access_token: Optional[str] = None,
+        oauth_refresh_token: Optional[str] = None,
+        oauth_token_expiry: Optional[float] = None,
     ):
         self.name = name
         self.url = url
@@ -290,6 +298,10 @@ class ServerData:
         self.account_name = account_name
         self.token = token
         self.secret = secret
+        self.oauth_client_id = oauth_client_id
+        self.oauth_access_token = oauth_access_token
+        self.oauth_refresh_token = oauth_refresh_token
+        self.oauth_token_expiry = oauth_token_expiry
 
 
 class ServerStore(DataStore[ServerDataDict]):
@@ -338,6 +350,10 @@ class ServerStore(DataStore[ServerDataDict]):
         account_name: Optional[str] = None,
         token: Optional[str] = None,
         secret: Optional[str] = None,
+        oauth_client_id: Optional[str] = None,
+        oauth_access_token: Optional[str] = None,
+        oauth_refresh_token: Optional[str] = None,
+        oauth_token_expiry: Optional[float] = None,
     ):
         """
         Add (or update) information about a Connect server
@@ -351,6 +367,10 @@ class ServerStore(DataStore[ServerDataDict]):
         :param account_name: shinyapps.io account name.
         :param token: shinyapps.io token.
         :param secret: shinyapps.io secret.
+        :param oauth_client_id: OAuth client ID.
+        :param oauth_access_token: OAuth access token (fallback when keyring unavailable).
+        :param oauth_refresh_token: OAuth refresh token (fallback when keyring unavailable).
+        :param oauth_token_expiry: OAuth token expiry as unix timestamp.
         """
         common_data: ServerDataDict = {
             "name": name,
@@ -360,6 +380,14 @@ class ServerStore(DataStore[ServerDataDict]):
             target_data = dict(snowflake_connection_name=snowflake_connection_name, api_key=api_key)
         elif api_key:
             target_data = dict(api_key=api_key, insecure=insecure, ca_cert=ca_data)
+        elif oauth_client_id:
+            target_data: dict[str, object] = dict(oauth_client_id=oauth_client_id, insecure=insecure, ca_cert=ca_data)
+            if oauth_access_token:
+                target_data["oauth_access_token"] = oauth_access_token
+            if oauth_refresh_token:
+                target_data["oauth_refresh_token"] = oauth_refresh_token
+            if oauth_token_expiry is not None:
+                target_data["oauth_token_expiry"] = oauth_token_expiry
         elif account_name:
             target_data = dict(account_name=account_name, token=token, secret=secret)
         else:
@@ -382,6 +410,28 @@ class ServerStore(DataStore[ServerDataDict]):
         :param url: the Connect URL of the server to remove.
         """
         return self._remove_by_value_attr("name", "url", url)
+
+    def update_oauth_tokens(
+        self,
+        name: str,
+        access_token: Optional[str],
+        refresh_token: Optional[str],
+        expiry: Optional[float],
+    ) -> None:
+        """Update (or clear) stored OAuth token fields for an existing server entry."""
+        entry = self._get_by_key(name)
+        if entry is None:
+            return
+        updated: ServerDataDict = {**entry}  # type: ignore[misc]
+        if access_token:
+            updated["oauth_access_token"] = access_token  # type: ignore[typeddict-unknown-key]
+            updated["oauth_refresh_token"] = refresh_token  # type: ignore[typeddict-unknown-key]
+            updated["oauth_token_expiry"] = expiry  # type: ignore[typeddict-unknown-key]
+        else:
+            updated.pop("oauth_access_token", None)  # type: ignore[misc]
+            updated.pop("oauth_refresh_token", None)  # type: ignore[misc]
+            updated.pop("oauth_token_expiry", None)  # type: ignore[misc]
+        self._set(name, updated)
 
     def resolve(self, name: Optional[str], url: Optional[str]) -> ServerData:
         """
@@ -429,6 +479,10 @@ class ServerStore(DataStore[ServerDataDict]):
                 account_name=entry.get("account_name"),
                 token=entry.get("token"),
                 secret=entry.get("secret"),
+                oauth_client_id=entry.get("oauth_client_id"),
+                oauth_access_token=entry.get("oauth_access_token"),
+                oauth_refresh_token=entry.get("oauth_refresh_token"),
+                oauth_token_expiry=entry.get("oauth_token_expiry"),
             )
         else:
             return ServerData(

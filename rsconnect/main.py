@@ -848,6 +848,13 @@ def list_servers(verbose: int):
                 click.echo("    URL: %s" % server["url"])
                 if server.get("api_key"):
                     click.echo("    API key is saved")
+                if server.get("oauth_client_id"):
+                    click.echo("    OAuth Client ID: %s" % server["oauth_client_id"])
+                    from .oauth import keyring_get_tokens
+
+                    access, _ = keyring_get_tokens(server["url"])
+                    if access:
+                        click.echo("    Credentials stored in system keyring")
                 if server.get("insecure"):
                     click.echo("    Insecure mode (TLS host/certificate validation disabled)")
                 if server.get("ca_cert"):
@@ -956,6 +963,177 @@ def remove(
 
     if message:
         click.echo(message)
+
+
+@cli.command(
+    short_help="Authenticate with a Posit Connect server using OAuth.",
+    help=(
+        "Authenticate with a Posit Connect server using OAuth 2.1. "
+        "This opens a browser for interactive login (or uses --use-device-code for headless environments). "
+        "Tokens are stored in the system keyring when available, with fallback to the local credential store."
+    ),
+    no_args_is_help=True,
+)
+@click.option("--server", "-s", envvar="CONNECT_SERVER", required=True, help="The URL of the Posit Connect server.")
+@click.option("--name", "-n", help="Nickname for the server (defaults to server hostname).")
+@click.option("--insecure", "-i", envvar="CONNECT_INSECURE", is_flag=True, help="Disable TLS certificate verification.")
+@click.option(
+    "--cacert",
+    "-c",
+    envvar="CONNECT_CA_CERTIFICATE",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+    help="Path to a trusted CA certificate file for TLS.",
+)
+@click.option(
+    "--use-device-code",
+    is_flag=True,
+    default=False,
+    help="Use device code flow for headless/non-interactive environments.",
+)
+@click.option("--client-id", default=None, help="OAuth client ID (skips Dynamic Client Registration).")
+@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
+@cli_exception_handler
+def login(
+    server: str,
+    name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    use_device_code: bool,
+    client_id: Optional[str],
+    verbose: int,
+):
+    set_verbosity(verbose)
+
+    if not server.startswith("http"):
+        raise RSConnectException("Server URL must begin with http or https.")
+
+    ca_data = read_certificate_file(cacert) if cacert else None
+
+    if not name:
+        from urllib.parse import urlparse as _urlparse
+
+        name = _urlparse(server).hostname or server
+
+    from .oauth import (
+        InvalidClientError,
+        discover_oauth_metadata,
+        keyring_store_token,
+        login_with_browser,
+        login_with_device_code as _login_device,
+        register_client,
+    )
+
+    with cli_feedback("Discovering OAuth metadata"):
+        metadata = discover_oauth_metadata(server, insecure, ca_data)
+
+    # Resolve client_id: flag > stored > DCR
+    if not client_id:
+        existing = server_store.get_by_name(name) or server_store.get_by_url(server)
+        if existing:
+            stored_client_id = existing.get("oauth_client_id")
+            if stored_client_id:
+                client_id = str(stored_client_id)
+
+    if not client_id:
+        with cli_feedback("Registering OAuth client"):
+            client_id = register_client(metadata, server, insecure, ca_data)
+
+    def _do_login(cid: str) -> dict[str, Any]:
+        if use_device_code:
+            return _login_device(server, cid, metadata, insecure, ca_data)
+        else:
+            return login_with_browser(server, cid, metadata, insecure, ca_data)
+
+    try:
+        token_response = _do_login(client_id)
+    except InvalidClientError:
+        with cli_feedback("Re-registering OAuth client"):
+            client_id = register_client(metadata, server, insecure, ca_data)
+        token_response = _do_login(client_id)
+
+    access_token = str(token_response["access_token"])
+    refresh_token = str(token_response["refresh_token"]) if "refresh_token" in token_response else None
+    expires_in = token_response.get("expires_in")
+    import time
+
+    expiry = time.time() + int(expires_in) if expires_in else None
+
+    stored_in_keyring = keyring_store_token(server, access_token, refresh_token)
+
+    ca_data_str = ca_data.decode("utf-8") if isinstance(ca_data, bytes) else ca_data
+
+    if stored_in_keyring:
+        server_store.set(name, server, oauth_client_id=client_id, insecure=insecure, ca_data=ca_data_str)
+    else:
+        server_store.set(
+            name,
+            server,
+            oauth_client_id=client_id,
+            insecure=insecure,
+            ca_data=ca_data_str,
+            oauth_access_token=access_token,
+            oauth_refresh_token=refresh_token,
+            oauth_token_expiry=expiry,
+        )
+
+    click.echo('Logged in to "%s" (%s)' % (name, server))
+    if not stored_in_keyring:
+        click.secho(
+            "Note: keyring not available; credentials stored in local file (chmod 600).",
+            fg="yellow",
+        )
+
+
+@cli.command(
+    short_help="Remove stored OAuth credentials for a Posit Connect server.",
+    help=(
+        "Remove locally-stored OAuth credentials for a Posit Connect server. "
+        "One of --name or --server is required. "
+        "The server entry is preserved (for re-login without re-registration); "
+        "use 'rsconnect remove' to delete the entry entirely."
+    ),
+    no_args_is_help=True,
+)
+@click.option("--name", "-n", help="The nickname of the Posit Connect server to log out from.")
+@click.option("--server", "-s", help="The URL of the Posit Connect server to log out from.")
+@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
+@cli_exception_handler
+def logout(
+    name: Optional[str],
+    server: Optional[str],
+    verbose: int,
+):
+    set_verbosity(verbose)
+
+    if name and server:
+        raise RSConnectException("Specify only one of --name or --server.")
+    if not name and not server:
+        raise RSConnectException("Specify one of --name or --server.")
+
+    entry = None
+    if name:
+        entry = server_store.get_by_name(name)
+        if entry is None:
+            raise RSConnectException('Nickname "%s" was not found.' % name)
+    elif server:
+        entry = server_store.get_by_url(server)
+        if entry is None:
+            raise RSConnectException('Server URL "%s" was not found.' % server)
+
+    if not entry or not entry.get("oauth_client_id"):
+        raise RSConnectException(
+            "This server was not added with 'rsconnect login'. Use 'rsconnect remove' to delete it."
+        )
+
+    server_url = entry["url"]
+    entry_name = entry["name"]
+
+    from .oauth import keyring_delete_tokens
+
+    keyring_delete_tokens(server_url)
+    server_store.update_oauth_tokens(entry_name, None, None, None)
+
+    click.echo('Logged out from "%s".' % (name or server))
 
 
 def _get_names_to_check(file_or_directory: str) -> list[str]:

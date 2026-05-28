@@ -222,12 +222,18 @@ class RSConnectServer(AbstractRemoteServer):
         insecure: bool = False,
         ca_data: Optional[str | bytes] = None,
         bootstrap_jwt: Optional[str] = None,
+        oauth_access_token: Optional[str] = None,
+        oauth_client_id: Optional[str] = None,
+        server_name: Optional[str] = None,
     ):
         super().__init__(url, "Posit Connect")
         self.api_key = api_key
         self.bootstrap_jwt = bootstrap_jwt
         self.insecure = insecure
         self.ca_data = ca_data
+        self.oauth_access_token = oauth_access_token
+        self.oauth_client_id = oauth_client_id
+        self.server_name = server_name
         # This is specifically not None.
         self.cookie_jar = CookieJar()
         # for compatibility with RSconnectClient
@@ -421,6 +427,126 @@ class RSConnectClient(HTTPServer):
             self.snowflake_authorization(token)
             if server.api_key:
                 self._headers["X-RSC-Authorization"] = server.api_key
+
+        if (
+            isinstance(server, RSConnectServer)
+            and server.oauth_access_token
+            and not server.api_key
+            and not server.bootstrap_jwt
+        ):
+            self.authorization(f"Bearer {server.oauth_access_token}")
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        query_params: Optional[Mapping[str, "JsonData"]] = None,
+        body: "str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None" = None,
+        maximum_redirects: int = 5,
+        decode_response: bool = True,
+        headers: Optional[Mapping[str, str]] = None,
+    ) -> "JsonData | HTTPResponse":
+        can_retry = isinstance(self._server, RSConnectServer) and bool(self._server.oauth_client_id)
+        start_pos: "int | None" = None
+        if can_retry and hasattr(body, "read"):
+            if getattr(body, "seekable", lambda: False)():
+                start_pos = body.tell()  # type: ignore[union-attr]
+            else:
+                body = body.read()  # type: ignore[union-attr]
+        response = super().request(
+            method, path, query_params, body, maximum_redirects, decode_response, headers
+        )  # pyright: ignore[reportUnknownArgumentType]
+        if can_retry and isinstance(response, HTTPResponse) and response.status == 401:
+            if self._attempt_token_refresh():
+                if start_pos is not None:
+                    body.seek(start_pos)  # type: ignore[union-attr]
+                return super().request(
+                    method, path, query_params, body, maximum_redirects, decode_response, headers
+                )  # pyright: ignore[reportUnknownArgumentType]
+        return response
+
+    def _attempt_token_refresh(self) -> bool:
+        from .oauth import (
+            InvalidClientError,
+            discover_oauth_metadata,
+            keyring_delete_tokens,
+            keyring_get_tokens,
+            keyring_store_token,
+            refresh_access_token,
+            register_client,
+        )
+        from .metadata import ServerStore
+
+        server = cast(RSConnectServer, self._server)
+
+        _, refresh_token = keyring_get_tokens(server.url)
+        if not refresh_token:
+            store = ServerStore()
+            entry = None
+            if server.server_name:
+                entry = store.get_by_name(server.server_name)
+            if not entry:
+                entry = store.get_by_url(server.url)
+            if entry:
+                refresh_token = entry.get("oauth_refresh_token")  # type: ignore[assignment]
+        if not refresh_token:
+            return False
+
+        try:
+            metadata = discover_oauth_metadata(server.url, server.insecure, server.ca_data)
+            token_response = refresh_access_token(
+                metadata, server.oauth_client_id or "", refresh_token, server.insecure, server.ca_data
+            )
+        except InvalidClientError:
+            # Client was deleted server-side; clear stale tokens and re-register
+            keyring_delete_tokens(server.url)
+            store = ServerStore()
+            entry = None
+            if server.server_name:
+                entry = store.get_by_name(server.server_name)
+            if not entry:
+                entry = store.get_by_url(server.url)
+            if entry:
+                entry_name = str(entry.get("name", server.server_name or server.url))
+                store.update_oauth_tokens(entry_name, None, None, None)
+            try:
+                metadata = discover_oauth_metadata(server.url, server.insecure, server.ca_data)
+                new_client_id = register_client(metadata, server.url, server.insecure, server.ca_data)
+                server.oauth_client_id = new_client_id
+                if entry:
+                    entry["oauth_client_id"] = new_client_id  # type: ignore[typeddict-unknown-key]
+                    store._set(entry_name, entry)  # type: ignore[possibly-undefined]
+                logger.warning("OAuth client was re-registered; please run `rsconnect login` again.")
+            except Exception as exc:
+                logger.warning(f"OAuth client re-registration failed: {exc}. Please run `rsconnect login` again.")
+            return False
+        except Exception as exc:
+            logger.warning(f"OAuth token refresh failed: {exc}")
+            return False
+
+        new_access = token_response["access_token"]
+        new_refresh = token_response.get("refresh_token", refresh_token)
+        expires_in = token_response.get("expires_in")
+        import time
+
+        new_expiry = time.time() + expires_in if expires_in else None
+
+        self.authorization(f"Bearer {new_access}")
+        server.oauth_access_token = new_access
+
+        stored = keyring_store_token(server.url, new_access, new_refresh)
+        if not stored:
+            store = ServerStore()
+            entry = None
+            if server.server_name:
+                entry = store.get_by_name(server.server_name)
+            if not entry:
+                entry = store.get_by_url(server.url)
+            if entry:
+                entry_name = str(entry.get("name", server.server_name or server.url))
+                store.update_oauth_tokens(entry_name, new_access, new_refresh, new_expiry)
+
+        return True
 
     def _tweak_response(self, response: HTTPResponse) -> JsonData | HTTPResponse:
         return (
@@ -974,6 +1100,21 @@ class RSConnectExecutor:
             url = cast(str, url)
             account_name = cast(str, account_name)
             self.remote_server = ShinyappsServer(url, account_name, token, secret)
+        elif server_data.from_store and server_data.oauth_client_id:
+            url = cast(str, url)
+            from .oauth import keyring_get_tokens
+
+            access_token, _ = keyring_get_tokens(url)
+            oauth_access_token = access_token or server_data.oauth_access_token
+            self.remote_server = RSConnectServer(
+                url,
+                None,
+                insecure,
+                ca_data,
+                oauth_access_token=oauth_access_token,
+                oauth_client_id=server_data.oauth_client_id,
+                server_name=name or server_data.name,
+            )
         else:
             raise RSConnectException("Unable to infer Connect server type and setup server.")
 
