@@ -9,10 +9,10 @@
       
       
       
-        <link rel="prev" href="../info/">
+        <link rel="prev" href="../login/">
       
       
-        <link rel="next" href="../login/">
+        <link rel="next" href="../remove/">
       
       
         
@@ -23,7 +23,7 @@
     
     
       
-        <title>list - rsconnect-python</title>
+        <title>logout - rsconnect-python</title>
       
     
     
@@ -114,11 +114,6 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
-        
-        <a href="#list" class="md-skip">
-          Skip to content
-        </a>
-      
     </div>
     <div data-md-component="announce">
       
@@ -147,7 +142,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              list
+              logout
             
           </span>
         </div>
@@ -651,19 +646,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../list/" class="md-nav__link">
         
   
   
@@ -679,7 +665,6 @@
   
 
       </a>
-      
     </li>
   
 
@@ -717,10 +702,17 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../logout/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -736,6 +728,7 @@
   
 
       </a>
+      
     </li>
   
 
@@ -913,8 +906,6 @@
   
   
   
-    
-  
   
 </nav>
                   </div>
@@ -931,16 +922,11 @@
 
 
 
-<h1 id="list">list<a class="headerlink" href="#list" title="Permanent link">#</a></h1>
-<p>Show the stored information about each known server nickname.</p>
-<p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>list [OPTIONS]
-</code></pre></div>
-<p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  -v, --verbose  Enable verbose output. Use -vv for very verbose (debug)
-                 output.
-  --help         Show this message and exit.
-</code></pre></div>
+  <h1>logout</h1>
+
+<p>:::: mkdocs-click
+    :module: rsconnect.main
+    :command: logout</p>
 
 
 
@@ -979,7 +965,7 @@
           
             
 
-            <a href="../info/" class="md-footer__link md-footer__link--prev" rel="prev">
+            <a href="../login/" class="md-footer__link md-footer__link--prev" rel="prev">
               <div class="md-footer__button md-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
               </div>
@@ -988,7 +974,7 @@
                   <span class="md-footer__direction">
                     Previous
                   </span>
-                  info
+                  login
                 </div>
               </div>
             </a>
@@ -1001,13 +987,13 @@
           
             
 
-            <a href="../login/" class="md-footer__link md-footer__link--next" rel="next">
+            <a href="../remove/" class="md-footer__link md-footer__link--next" rel="next">
               <div class="md-footer__title">
                 <div class="md-ellipsis">
                   <span class="md-footer__direction">
                     Next
                   </span>
-                  login
+                  remove
                 </div>
               </div>
               <div class="md-footer__button md-icon">
