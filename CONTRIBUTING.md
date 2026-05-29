@@ -32,21 +32,46 @@ pip install -e '.[test]'
 
 With your venv setup and active, as described previously, running rsconnect-python using your codebase is as simple as running the `rsconnect` command from the terminal.
 
-Typical makefile targets are:
+### Linting
 
 ```bash
-# verify code formats are correct
-make fmt
-# lint the codebase
 make lint
-# run the tests (w/ python 3.8)
+```
+
+This runs black (formatting check), flake8, and pyright.
+
+> **NOTE**: pyright currently has known errors that are suppressed in the Makefile (see [#774](https://github.com/posit-dev/rsconnect-python/issues/774)). Until those are resolved, you can run just the enforced checks directly:
+>
+> ```bash
+> black --check --diff rsconnect/
+> flake8 rsconnect/
+> flake8 tests/
+> ```
+
+To auto-format code:
+
+```bash
+make fmt
+```
+
+### Testing
+
+```bash
+# run the tests
 make test
-# run the tests with all versions of python
+
+# run tests with a specific Python version
+make test-3.12
+
+# run tests across all supported Python versions
 make all-tests
 ```
 
-As another example, the [`test` job in the default GitHub Actions workflow](.github/workflows/main.yml)
-uses some of these targets during the CI for building and testing.
+The test suite includes integration tests that require a running Posit Connect server. These tests are skipped automatically unless the `CONNECT_SERVER` and `CONNECT_API_KEY` environment variables are set. If you have these variables in your environment from other work and see unexpected test failures, unset them:
+
+```bash
+unset CONNECT_SERVER CONNECT_API_KEY
+```
 
 ## Proposing Change
 
