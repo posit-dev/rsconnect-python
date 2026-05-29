@@ -114,6 +114,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#login" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -683,6 +688,8 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
+        
+      
       
       <a href="./" class="md-nav__link md-nav__link--active">
         
@@ -906,6 +913,8 @@
   
   
   
+    
+  
   
 </nav>
                   </div>
@@ -922,11 +931,23 @@
 
 
 
-  <h1>login</h1>
-
-<p>:::: mkdocs-click
-    :module: rsconnect.main
-    :command: login</p>
+<h1 id="login">login<a class="headerlink" href="#login" title="Permanent link">#</a></h1>
+<p>Authenticate with a Posit Connect server using OAuth 2.1. This opens a browser for interactive login (or uses --use-device-code for headless environments). Tokens are stored in the system keyring when available, with fallback to the local credential store.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight"><pre><span></span><code>login [OPTIONS]
+</code></pre></div>
+<p><strong>Options:</strong></p>
+<div class="highlight"><pre><span></span><code>  -s, --server TEXT  The URL of the Posit Connect server.  [required]
+  -n, --name TEXT    Nickname for the server (defaults to server hostname).
+  -i, --insecure     Disable TLS certificate verification.
+  -c, --cacert FILE  Path to a trusted CA certificate file for TLS.
+  --use-device-code  Use device code flow for headless/non-interactive
+                     environments.
+  --client-id TEXT   OAuth client ID (skips Dynamic Client Registration).
+  -v, --verbose      Enable verbose output. Use -vv for very verbose (debug)
+                     output.
+  --help             Show this message and exit.
+</code></pre></div>
 
 
 

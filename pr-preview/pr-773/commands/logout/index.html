@@ -114,6 +114,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#logout" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -711,6 +716,8 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
+        
+      
       
       <a href="./" class="md-nav__link md-nav__link--active">
         
@@ -906,6 +913,8 @@
   
   
   
+    
+  
   
 </nav>
                   </div>
@@ -922,11 +931,18 @@
 
 
 
-  <h1>logout</h1>
-
-<p>:::: mkdocs-click
-    :module: rsconnect.main
-    :command: logout</p>
+<h1 id="logout">logout<a class="headerlink" href="#logout" title="Permanent link">#</a></h1>
+<p>Remove locally-stored OAuth credentials for a Posit Connect server. One of --name or --server is required. The server entry is preserved (for re-login without re-registration); use 'rsconnect remove' to delete the entry entirely.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight"><pre><span></span><code>logout [OPTIONS]
+</code></pre></div>
+<p><strong>Options:</strong></p>
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT    The nickname of the Posit Connect server to log out from.
+  -s, --server TEXT  The URL of the Posit Connect server to log out from.
+  -v, --verbose      Enable verbose output. Use -vv for very verbose (debug)
+                     output.
+  --help             Show this message and exit.
+</code></pre></div>
 
 
 
