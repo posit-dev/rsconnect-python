@@ -45,6 +45,7 @@ nav:
       - deploy: commands/deploy.md
       - details: commands/details.md
       - info: commands/info.md
+      - integration: commands/integration.md
       - list: commands/list.md
       - login: commands/login.md
       - logout: commands/logout.md

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   write-manifest.
 - Perform case insensitive matching of the configured Snowflake connection authenticator.
 - New `login` and `logout` subcommands for authenticating to Connect via OAuth.
+- New `integration` subcommands for managing OAuth integrations.
 
 ## [1.29.0] - 2026-04-29
 
