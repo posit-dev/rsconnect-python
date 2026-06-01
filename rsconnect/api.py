@@ -77,6 +77,10 @@ from .models import (
     DeleteInputDTO,
     DeleteOutputDTO,
     ListEntryOutputDTO,
+    OAuthIntegration,
+    OAuthIntegrationInput,
+    OAuthIntegrationUpdate,
+    OAuthTemplate,
     PyInfo,
     ServerSettings,
     TaskStatusV1,
@@ -727,6 +731,40 @@ class RSConnectClient(HTTPServer):
 
     def system_caches_runtime_delete(self, target: DeleteInputDTO) -> DeleteOutputDTO:
         response = cast(Union[DeleteOutputDTO, HTTPResponse], self.delete("v1/system/caches/runtime", body=target))
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def oauth_integration_list(self) -> list[OAuthIntegration]:
+        response = cast(Union[List[OAuthIntegration], HTTPResponse], self.get("v1/oauth/integrations"))
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def oauth_integration_get(self, guid: str) -> OAuthIntegration:
+        response = cast(Union[OAuthIntegration, HTTPResponse], self.get(f"v1/oauth/integrations/{guid}"))
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def oauth_integration_create(self, body: OAuthIntegrationInput) -> OAuthIntegration:
+        response = cast(Union[OAuthIntegration, HTTPResponse], self.post("v1/oauth/integrations", body=body))
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def oauth_integration_update(self, guid: str, body: OAuthIntegrationUpdate) -> OAuthIntegration:
+        response = cast(Union[OAuthIntegration, HTTPResponse], self.patch(f"v1/oauth/integrations/{guid}", body=body))
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def oauth_integration_delete(self, guid: str) -> None:
+        response = cast(HTTPResponse, self.delete(f"v1/oauth/integrations/{guid}", decode_response=False))
+        self._server.handle_bad_response(response, is_httpresponse=True)
+
+    def oauth_template_list(self) -> list[OAuthTemplate]:
+        response = cast(Union[List[OAuthTemplate], HTTPResponse], self.get("v1/oauth/templates"))
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def oauth_template_get(self, key: str) -> OAuthTemplate:
+        response = cast(Union[OAuthTemplate, HTTPResponse], self.get(f"v1/oauth/templates/{key}"))
         response = self._server.handle_bad_response(response)
         return response
 

@@ -63,6 +63,15 @@ from .actions_content import (
     get_content,
     search_content,
 )
+from .actions_integration import (
+    create_oauth_integration,
+    delete_oauth_integration,
+    get_oauth_integration,
+    get_oauth_template,
+    list_oauth_integrations,
+    list_oauth_templates,
+    update_oauth_integration,
+)
 from .api import (
     RSConnectClient,
     RSConnectExecutor,
@@ -113,6 +122,7 @@ from .models import (
     BuildStatus,
     ContentGuidWithBundle,
     ContentGuidWithBundleParamType,
+    KeyValueParamType,
     StrippedStringParamType,
     VersionSearchFilter,
     VersionSearchFilterParamType,
@@ -4097,6 +4107,316 @@ def system_caches_delete(
             logger=None,
         ).validate_server()
         ce.delete_runtime_cache(language, version, image_name, dry_run)
+
+
+@cli.group(no_args_is_help=True, help="Manage OAuth integrations on Posit Connect.")
+def integration():
+    pass
+
+
+@integration.command(name="list", short_help="List OAuth integrations.")
+@server_args
+@spcs_args
+@cli_exception_handler
+@click.pass_context
+def integration_list(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect integration list` requires a Posit Connect server.")
+        result = list_oauth_integrations(ce.remote_server)
+        json.dump(result, sys.stdout, indent=2)
+
+
+@integration.command(name="show", short_help="Show a single OAuth integration.")
+@server_args
+@spcs_args
+@click.option("--guid", "-g", required=True, type=StrippedStringParamType(), help="The GUID of the integration.")
+@cli_exception_handler
+@click.pass_context
+def integration_show(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    guid: str,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect integration show` requires a Posit Connect server.")
+        result = get_oauth_integration(ce.remote_server, guid)
+        json.dump(result, sys.stdout, indent=2)
+
+
+@integration.command(name="add", short_help="Create a new OAuth integration.")
+@server_args
+@spcs_args
+@click.option("--template", "-t", required=True, help="The template key (e.g. 'custom').")
+@click.option("--integration-name", "-N", default=None, help="A display name for the integration.")
+@click.option("--description", "-d", default=None, help="A description for the integration.")
+@click.option(
+    "--config",
+    "-C",
+    multiple=True,
+    type=KeyValueParamType(),
+    metavar="KEY=VALUE",
+    help="A config field as key=value. Repeat for multiple fields.",
+)
+@click.option("--allow-user", multiple=True, type=StrippedStringParamType(), help="A user GUID to grant access.")
+@click.option("--allow-group", multiple=True, type=StrippedStringParamType(), help="A group GUID to grant access.")
+@cli_exception_handler
+@click.pass_context
+def integration_add(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    template: str,
+    integration_name: Optional[str],
+    description: Optional[str],
+    config: tuple[tuple[str, str], ...],
+    allow_user: tuple[str, ...],
+    allow_group: tuple[str, ...],
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect integration add` requires a Posit Connect server.")
+        config_dict: dict[str, object] = dict(config)
+        result = create_oauth_integration(
+            ce.remote_server,
+            template=template,
+            config=config_dict,
+            name=integration_name,
+            description=description,
+            user_guids=list(allow_user) if allow_user else None,
+            group_guids=list(allow_group) if allow_group else None,
+        )
+        json.dump(result, sys.stdout, indent=2)
+
+
+@integration.command(name="edit", short_help="Update an existing OAuth integration.")
+@server_args
+@spcs_args
+@click.option("--guid", "-g", required=True, type=StrippedStringParamType(), help="The GUID of the integration.")
+@click.option("--integration-name", "-N", default=None, help="A new display name for the integration.")
+@click.option("--description", "-d", default=None, help="A new description for the integration.")
+@click.option(
+    "--config",
+    "-C",
+    multiple=True,
+    type=KeyValueParamType(),
+    metavar="KEY=VALUE",
+    help="A config field as key=value. Merges with existing config. Repeat for multiple fields.",
+)
+@click.option("--allow-user", multiple=True, type=StrippedStringParamType(), help="A user GUID to grant access.")
+@click.option("--allow-group", multiple=True, type=StrippedStringParamType(), help="A group GUID to grant access.")
+@cli_exception_handler
+@click.pass_context
+def integration_edit(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    guid: str,
+    integration_name: Optional[str],
+    description: Optional[str],
+    config: tuple[tuple[str, str], ...],
+    allow_user: tuple[str, ...],
+    allow_group: tuple[str, ...],
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect integration edit` requires a Posit Connect server.")
+        config_dict: dict[str, object] | None = dict(config) if config else None
+        result = update_oauth_integration(
+            ce.remote_server,
+            guid=guid,
+            config=config_dict,
+            name=integration_name,
+            description=description,
+            user_guids=list(allow_user) if allow_user else None,
+            group_guids=list(allow_group) if allow_group else None,
+        )
+        json.dump(result, sys.stdout, indent=2)
+
+
+@integration.command(name="remove", short_help="Delete an OAuth integration.")
+@server_args
+@spcs_args
+@click.option("--guid", "-g", required=True, type=StrippedStringParamType(), help="The GUID of the integration.")
+@cli_exception_handler
+@click.pass_context
+def integration_remove(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    guid: str,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect integration remove` requires a Posit Connect server.")
+        delete_oauth_integration(ce.remote_server, guid)
+        click.echo("Deleted integration %s." % guid)
+
+
+@integration.group(name="templates", no_args_is_help=True, help="List and inspect OAuth integration templates.")
+def integration_templates():
+    pass
+
+
+@integration_templates.command(name="list", short_help="List available OAuth templates.")
+@server_args
+@spcs_args
+@cli_exception_handler
+@click.pass_context
+def integration_templates_list(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect integration templates list` requires a Posit Connect server.")
+        result = list_oauth_templates(ce.remote_server)
+        json.dump(result, sys.stdout, indent=2)
+
+
+@integration_templates.command(name="show", short_help="Show details of an OAuth template.")
+@server_args
+@spcs_args
+@click.option("--key", required=True, type=StrippedStringParamType(), help="The template key.")
+@cli_exception_handler
+@click.pass_context
+def integration_templates_show(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    key: str,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect integration templates show` requires a Posit Connect server.")
+        result = get_oauth_template(ce.remote_server, key)
+        json.dump(result, sys.stdout, indent=2)
 
 
 if __name__ == "__main__":

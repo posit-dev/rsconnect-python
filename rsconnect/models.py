@@ -621,3 +621,62 @@ class UserRecord(TypedDict):
     guid: str
     preferences: dict[str, object]
     privileges: list[str]
+
+
+class OAuthIntegrationPermission(TypedDict):
+    user_guid: str | None
+    group_guid: str | None
+
+
+class OAuthIntegration(TypedDict):
+    guid: str
+    name: str | None
+    description: str | None
+    template: str | None
+    auth_type: str | None
+    config: dict[str, object]
+    permissions: list[OAuthIntegrationPermission]
+    environment_variables: list[str]
+    created_time: str
+    updated_time: str
+
+
+class OAuthIntegrationInput(TypedDict, total=False):
+    name: str | None
+    description: str | None
+    template: str
+    config: dict[str, object]
+    permissions: list[OAuthIntegrationPermission] | None
+
+
+class OAuthIntegrationUpdate(TypedDict, total=False):
+    name: str | None
+    description: str | None
+    config: dict[str, object]
+    permissions: list[OAuthIntegrationPermission] | None
+
+
+class OAuthTemplate(TypedDict):
+    id: str
+    name: str
+    description: str
+    fields: list[object]
+    options: list[object]
+
+
+class KeyValueParamType(ParamType):
+    name = "key=value"
+
+    def convert(
+        self,
+        value: str | tuple[str, str],
+        param: Optional[click.Parameter],
+        ctx: Optional[click.Context],
+    ) -> tuple[str, str]:
+        if isinstance(value, tuple):
+            return value
+        try:
+            k, v = value.split("=", 1)
+            return (k.strip(), v.strip())
+        except ValueError:
+            self.fail(f"'{value}' is not in 'key=value' format", param, ctx)

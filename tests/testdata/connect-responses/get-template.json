@@ -1,0 +1,12 @@
+{
+  "id": "custom",
+  "name": "Custom OAuth Integration",
+  "description": "A custom OAuth 2.0 integration",
+  "fields": [
+    {"name": "client_id", "label": "Client ID", "secret": false},
+    {"name": "client_secret", "label": "Client Secret", "secret": true}
+  ],
+  "options": [
+    {"name": "use_pkce", "label": "Use PKCE", "type": "bool", "default": true}
+  ]
+}

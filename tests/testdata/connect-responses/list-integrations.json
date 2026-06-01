@@ -1,0 +1,26 @@
+[
+  {
+    "guid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "My OAuth Integration",
+    "description": "Integration for testing",
+    "template": "custom",
+    "auth_type": "Viewer",
+    "config": {"client_id": "abc123", "client_secret": "secret"},
+    "permissions": [],
+    "environment_variables": ["OAUTH_CLIENT_ID"],
+    "created_time": "2024-01-01T00:00:00Z",
+    "updated_time": "2024-01-01T00:00:00Z"
+  },
+  {
+    "guid": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "name": "Service Account Integration",
+    "description": null,
+    "template": "custom",
+    "auth_type": "Service Account",
+    "config": {"client_id": "def456"},
+    "permissions": [{"user_guid": "820f092f-d564-4ab5-819a-0f4d2f03d11e", "group_guid": null}],
+    "environment_variables": [],
+    "created_time": "2024-02-01T00:00:00Z",
+    "updated_time": "2024-02-15T00:00:00Z"
+  }
+]
