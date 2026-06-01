@@ -1523,12 +1523,10 @@ def make_quarto_manifest(
     if isdir(file_or_directory):
         # Directory as a Quarto project.
         excludes = list(excludes or []) + [".quarto"]
-
         project_config = quarto_inspection.get("config", {}).get("project", {})
         output_dir = cast(Union[str, None], project_config.get("output-dir", None))
         if output_dir:
             excludes = excludes + [output_dir]
-
         files_data = quarto_inspection.get("files", {})
         files_input_data = files_data.get("input", [])
         # files.input is a list of absolute paths to input (rendered)
@@ -1541,18 +1539,24 @@ def make_quarto_manifest(
         for each in files_input_data:
             t, _ = splitext(os.path.relpath(each, file_or_directory))
             excludes = excludes + [t + ".html", t + "_files/**/*"]
-
         # relevant files don't need to include requirements.txt file because it is
         # always added to the manifest (as a buffer) from the environment contents
         if environment:
             excludes.append(environment.filename)
-
         relevant_files = _create_quarto_file_list(base_dir, extra_files, excludes)
     else:
         # Standalone Quarto document
-        base_dir = dirname(file_or_directory)
-        file_name = basename(file_or_directory)
-        relevant_files = [file_name] + list(extra_files or [])
+        # Use the common directory of the qmd and any extra files as base_dir.
+        # This avoids having the subfolder appear in both base_dir and rel_path.
+        all_files = [file_or_directory] + extra_files
+        base_dir = os.path.commonpath(all_files)
+
+        # Ensure base_dir is a directory, not a file
+        if os.path.isfile(base_dir):
+            base_dir = os.path.dirname(base_dir)
+
+        # Store paths relative to base_dir
+        relevant_files = [os.path.relpath(p, base_dir) for p in all_files]
 
     manifest = make_source_manifest(
         app_mode,
@@ -1563,13 +1567,10 @@ def make_quarto_manifest(
         env_management_py,
         env_management_r,
     )
-
     if environment:
         manifest_add_buffer(manifest, environment.filename, environment.contents)
-
     for rel_path in relevant_files:
         manifest_add_file(manifest, rel_path, base_dir)
-
     return manifest, relevant_files
 
 

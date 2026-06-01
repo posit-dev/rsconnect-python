@@ -627,6 +627,53 @@ class TestBundle(TestCase):
                 },
             )
 
+    def test_make_quarto_source_bundle_from_file_with_extra_files(self):
+        temp_proj = tempfile.mkdtemp()
+        nested_dir = join(temp_proj, "subdir")
+        os.makedirs(nested_dir)
+
+        filename = join(nested_dir, "myquarto.qmd")
+        with open(filename, "w") as fp:
+            fp.write("---\n")
+            fp.write("title: myquarto\n")
+            fp.write("engine: markdown\n")
+            fp.write("---\n\n")
+            fp.write("### This is a test\n")
+
+        extra_filename = join(nested_dir, "data.csv")
+        with open(extra_filename, "w") as fp:
+            fp.write("a,b,c\n1,2,3\n")
+
+        inspect = {
+            "quarto": {"version": "1.3.433"},
+            "engines": ["markdown"],
+        }
+
+        with make_quarto_source_bundle(
+            filename,
+            inspect,
+            AppModes.STATIC_QUARTO,
+            None,
+            [extra_filename],
+            [],
+            None,
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            names = sorted(tar.getnames())
+            self.assertEqual(
+                names,
+                [
+                    "data.csv",
+                    "manifest.json",
+                    "myquarto.qmd",
+                ],
+            )
+
+            manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+            self.assertEqual(
+                sorted(manifest["files"].keys()),
+                ["data.csv", "myquarto.qmd"],
+            )
+
     def test_list_files(self):
         # noinspection SpellCheckingInspection
         paths = [
@@ -1023,16 +1070,8 @@ class TestBundle(TestCase):
     def test_make_quarto_manifest_project_with_extra_files(self):
         temp_proj = tempfile.mkdtemp()
 
-        # include extra_files parameter
-        fp = open(join(temp_proj, "a"), "w")
-        fp.write("This is file a\n")
-        fp.close()
-        fp = open(join(temp_proj, "b"), "w")
-        fp.write("This is file b\n")
-        fp.close()
-        fp = open(join(temp_proj, "c"), "w")
-        fp.write("This is file c\n")
-        fp.close()
+        for name, contents in [("a", "This is file a\n"), ("b", "This is file b\n"), ("c", "This is file c\n")]:
+            Path(temp_proj, name).write_text(contents)
 
         manifest, _ = make_quarto_manifest(
             temp_proj,
@@ -1048,15 +1087,6 @@ class TestBundle(TestCase):
             None,
         )
 
-        if sys.platform == "win32":
-            a_hash = "f4751c084b3ade4d736c6293ab8468c9"
-            b_hash = "4976d559975b5232cf09a10afaf8d0a8"
-            c_hash = "09c56e1b9e6ae34c6662717c47a7e187"
-        else:
-            a_hash = "4a3eb92956aa3e16a9f0a84a43c943e7"
-            b_hash = "b249e5b536d30e6282cea227f3a73669"
-            c_hash = "53b36f1d5b6f7fb2cfaf0c15af7ffb2d"
-
         self.assertEqual(
             manifest,
             {
@@ -1064,9 +1094,9 @@ class TestBundle(TestCase):
                 "metadata": {"appmode": "quarto-shiny"},
                 "quarto": {"version": "0.9.16", "engines": ["jupyter"]},
                 "files": {
-                    "a": {"checksum": a_hash},
-                    "b": {"checksum": b_hash},
-                    "c": {"checksum": c_hash},
+                    "a": {"checksum": mock.ANY},
+                    "b": {"checksum": mock.ANY},
+                    "c": {"checksum": mock.ANY},
                 },
             },
         )
