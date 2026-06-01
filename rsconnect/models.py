@@ -621,3 +621,88 @@ class UserRecord(TypedDict):
     guid: str
     preferences: dict[str, object]
     privileges: list[str]
+
+
+class EnvironmentInstallation(TypedDict):
+    version: str
+    path: str
+
+
+class EnvironmentInstallations(TypedDict):
+    installations: list[EnvironmentInstallation]
+
+
+class EnvironmentVolumeSource(TypedDict, total=False):
+    volume_type: str
+    nfs_host: str | None
+    nfs_export_path: str | None
+    pvc_name: str | None
+
+
+class EnvironmentVolumeTarget(TypedDict):
+    path: str
+    read_only: bool | None
+
+
+class EnvironmentVolumeMount(TypedDict):
+    source: EnvironmentVolumeSource
+    target: EnvironmentVolumeTarget
+
+
+class EnvironmentV1(TypedDict):
+    id: str
+    guid: str
+    created_time: str
+    updated_time: str
+    title: str | None
+    description: str | None
+    cluster_name: str
+    name: str
+    environment_type: str
+    matching: str
+    supervisor: str | None
+    managed_by: str | None
+    python: EnvironmentInstallations
+    quarto: EnvironmentInstallations
+    r: EnvironmentInstallations
+    tensorflow: EnvironmentInstallations
+    volume_mounts: list[EnvironmentVolumeMount]
+
+
+class EnvironmentCreateInput(TypedDict, total=False):
+    title: str | None
+    description: str | None
+    cluster_name: str
+    name: str
+    matching: str | None
+    supervisor: str | None
+    python: EnvironmentInstallations
+    quarto: EnvironmentInstallations
+    r: EnvironmentInstallations
+    tensorflow: EnvironmentInstallations
+    volume_mounts: list[EnvironmentVolumeMount]
+
+
+class EnvironmentUpdateInput(TypedDict, total=False):
+    title: str | None
+    description: str | None
+    matching: str | None
+    supervisor: str | None
+    python: EnvironmentInstallations
+    quarto: EnvironmentInstallations
+    r: EnvironmentInstallations
+    tensorflow: EnvironmentInstallations
+    volume_mounts: list[EnvironmentVolumeMount]
+
+
+class EnvironmentPermissionV1(TypedDict):
+    id: str
+    guid: str
+    environment_guid: str
+    user_guid: str | None
+    group_guid: str | None
+
+
+class EnvironmentPermissionInput(TypedDict, total=False):
+    user_guid: str | None
+    group_guid: str | None

@@ -76,6 +76,11 @@ from .models import (
     ContentItemV1,
     DeleteInputDTO,
     DeleteOutputDTO,
+    EnvironmentCreateInput,
+    EnvironmentPermissionInput,
+    EnvironmentPermissionV1,
+    EnvironmentUpdateInput,
+    EnvironmentV1,
     ListEntryOutputDTO,
     PyInfo,
     ServerSettings,
@@ -729,6 +734,53 @@ class RSConnectClient(HTTPServer):
         response = cast(Union[DeleteOutputDTO, HTTPResponse], self.delete("v1/system/caches/runtime", body=target))
         response = self._server.handle_bad_response(response)
         return response
+
+    def environment_list(self) -> list[EnvironmentV1]:
+        response = cast(Union[List[EnvironmentV1], HTTPResponse], self.get("v1/environments"))
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def environment_get(self, guid: str) -> EnvironmentV1:
+        response = cast(Union[EnvironmentV1, HTTPResponse], self.get(f"v1/environments/{guid}"))
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def environment_create(self, body: EnvironmentCreateInput) -> EnvironmentV1:
+        response = cast(Union[EnvironmentV1, HTTPResponse], self.post("v1/environments", body=body))
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def environment_update(self, guid: str, body: EnvironmentUpdateInput) -> EnvironmentV1:
+        response = cast(Union[EnvironmentV1, HTTPResponse], self.put(f"v1/environments/{guid}", body=body))
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def environment_delete(self, guid: str) -> None:
+        response = cast(HTTPResponse, self.delete(f"v1/environments/{guid}", decode_response=False))
+        self._server.handle_bad_response(response, is_httpresponse=True)
+
+    def environment_permission_list(self, env_guid: str) -> list[EnvironmentPermissionV1]:
+        response = cast(
+            Union[List[EnvironmentPermissionV1], HTTPResponse],
+            self.get(f"v1/environments/{env_guid}/permissions"),
+        )
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def environment_permission_add(self, env_guid: str, body: EnvironmentPermissionInput) -> EnvironmentPermissionV1:
+        response = cast(
+            Union[EnvironmentPermissionV1, HTTPResponse],
+            self.post(f"v1/environments/{env_guid}/permissions", body=body),
+        )
+        response = self._server.handle_bad_response(response)
+        return response
+
+    def environment_permission_delete(self, env_guid: str, permission_guid: str) -> None:
+        response = cast(
+            HTTPResponse,
+            self.delete(f"v1/environments/{env_guid}/permissions/{permission_guid}", decode_response=False),
+        )
+        self._server.handle_bad_response(response, is_httpresponse=True)
 
     def task_get(
         self,

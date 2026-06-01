@@ -63,6 +63,14 @@ from .actions_content import (
     get_content,
     search_content,
 )
+from .actions_environment import (
+    create_environment,
+    delete_environment,
+    get_environment,
+    list_environments,
+    update_environment,
+)
+from .models import EnvironmentInstallation, EnvironmentVolumeMount
 from .api import (
     RSConnectClient,
     RSConnectExecutor,
@@ -4144,6 +4152,379 @@ def system_caches_delete(
             logger=None,
         ).validate_server()
         ce.delete_runtime_cache(language, version, image_name, dry_run)
+
+
+def _parse_installations(values: tuple[str, ...]) -> list[EnvironmentInstallation] | None:
+    if not values:
+        return None
+    results: list[EnvironmentInstallation] = []
+    for v in values:
+        if "=" not in v:
+            raise click.BadParameter(f"Expected VERSION=PATH format, got '{v}'")
+        version, path = v.split("=", 1)
+        results.append(EnvironmentInstallation(version=version, path=path))
+    return results
+
+
+def _parse_mounts(values: tuple[str, ...]) -> list[EnvironmentVolumeMount] | None:
+    if not values:
+        return None
+    results: list[EnvironmentVolumeMount] = []
+    for v in values:
+        parts = dict(p.split("=", 1) if "=" in p else (p, "") for p in v.split(","))
+        volume_type = parts.get("type", "")
+        if not volume_type:
+            raise click.BadParameter(f"Mount must include 'type=nfs' or 'type=pvc': '{v}'")
+        target_path = parts.get("target", "")
+        if not target_path:
+            raise click.BadParameter(f"Mount must include 'target=/path': '{v}'")
+        if volume_type not in ("nfs", "pvc"):
+            raise click.BadParameter(f"Unsupported mount type '{volume_type}'. Must be 'nfs' or 'pvc'.")
+        source: dict[str, str | None] = {"volume_type": volume_type}
+        if volume_type == "nfs":
+            source["nfs_host"] = parts.get("nfs_host")
+            source["nfs_export_path"] = parts.get("nfs_export_path")
+        elif volume_type == "pvc":
+            source["pvc_name"] = parts.get("pvc_name")
+        target: dict[str, str | bool | None] = {"path": target_path}
+        read_only = "readonly" in parts or parts.get("read_only") == "true"
+        target["read_only"] = read_only if read_only else None
+        results.append({"source": source, "target": target})  # type: ignore[arg-type]
+    return results
+
+
+@cli.group(no_args_is_help=True, help="Manage execution environments on Posit Connect.")
+def environment():
+    pass
+
+
+@environment.command(name="list", short_help="List execution environments.")
+@server_args
+@spcs_args
+@cli_exception_handler
+@click.pass_context
+def environment_list(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect environment list` requires a Posit Connect server.")
+        result = list_environments(ce.remote_server)
+        if not result:
+            click.echo("No environments found.")
+        else:
+            for env in result:
+                title = env.get("title") or env.get("name") or "(untitled)"
+                click.echo("%s  %s" % (env["guid"], title))
+
+
+@environment.command(name="show", short_help="Show a single execution environment.")
+@server_args
+@spcs_args
+@click.argument("guid", type=StrippedStringParamType())
+@cli_exception_handler
+@click.pass_context
+def environment_show(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    guid: str,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect environment show` requires a Posit Connect server.")
+        result = get_environment(ce.remote_server, guid)
+        json.dump(result, sys.stdout, indent=2)
+
+
+@environment.command(name="add", short_help="Create a new execution environment.")
+@server_args
+@spcs_args
+@click.argument("image")
+@click.option("--title", "-T", default=None, help="A human-readable title for the environment.")
+@click.option("--description", "-d", default=None, help="A description for the environment.")
+@click.option(
+    "--matching",
+    "-m",
+    default=None,
+    type=click.Choice(["any", "exact", "none"]),
+    help="The image selection strategy.",
+)
+@click.option("--supervisor", default=None, help="Path to the per-image supervisor script.")
+@click.option(
+    "--python",
+    "python_installations",
+    multiple=True,
+    help="A Python installation as VERSION=PATH. Example: 3.11.6=/opt/python/3.11.6/bin/python",
+)
+@click.option(
+    "--quarto",
+    "quarto_installations",
+    multiple=True,
+    help="A Quarto installation as VERSION=PATH. Example: 1.4.555=/opt/quarto/1.4.555/bin/quarto",
+)
+@click.option(
+    "--r",
+    "r_installations",
+    multiple=True,
+    help="An R installation as VERSION=PATH. Example: 4.3.2=/opt/R/4.3.2/bin/R",
+)
+@click.option(
+    "--tensorflow",
+    "tensorflow_installations",
+    multiple=True,
+    help="A TensorFlow installation as VERSION=PATH. Example: 2.14.0=/opt/tensorflow/2.14.0",
+)
+@click.option(
+    "--mount",
+    "mounts",
+    multiple=True,
+    help=(
+        "A volume mount as comma-separated key=value pairs. Required keys: type (nfs or pvc), target. "
+        "NFS example: type=nfs,nfs_host=nas.example.com,nfs_export_path=/shared/data,target=/mnt/data. "
+        "PVC example: type=pvc,pvc_name=my-claim,target=/mnt/storage,read_only=true"
+    ),
+)
+@click.option("--allow-user", multiple=True, type=StrippedStringParamType(), help="A user GUID to grant access.")
+@click.option("--allow-group", multiple=True, type=StrippedStringParamType(), help="A group GUID to grant access.")
+@click.option("--clear-permissions", is_flag=True, default=False, help="Remove all existing permissions.")
+@cli_exception_handler
+@click.pass_context
+def environment_add(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    image: str,
+    title: Optional[str],
+    description: Optional[str],
+    matching: Optional[str],
+    supervisor: Optional[str],
+    python_installations: tuple[str, ...],
+    quarto_installations: tuple[str, ...],
+    r_installations: tuple[str, ...],
+    tensorflow_installations: tuple[str, ...],
+    mounts: tuple[str, ...],
+    allow_user: tuple[str, ...],
+    allow_group: tuple[str, ...],
+    clear_permissions: bool,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect environment add` requires a Posit Connect server.")
+        result = create_environment(
+            ce.remote_server,
+            image=image,
+            title=title,
+            description=description,
+            matching=matching,
+            supervisor=supervisor,
+            python=_parse_installations(python_installations),
+            quarto=_parse_installations(quarto_installations),
+            r=_parse_installations(r_installations),
+            tensorflow=_parse_installations(tensorflow_installations),
+            volume_mounts=_parse_mounts(mounts),
+            user_guids=list(allow_user) if (allow_user or clear_permissions) else None,
+            group_guids=list(allow_group) if (allow_group or clear_permissions) else None,
+        )
+        json.dump(result, sys.stdout, indent=2)
+
+
+@environment.command(name="edit", short_help="Update an existing execution environment.")
+@server_args
+@spcs_args
+@click.argument("guid", type=StrippedStringParamType())
+@click.option("--title", "-T", default=None, help="A new title for the environment.")
+@click.option("--description", "-d", default=None, help="A new description for the environment.")
+@click.option(
+    "--matching",
+    "-m",
+    default=None,
+    type=click.Choice(["any", "exact", "none"]),
+    help="The image selection strategy.",
+)
+@click.option("--supervisor", default=None, help="Path to the per-image supervisor script.")
+@click.option(
+    "--python",
+    "python_installations",
+    multiple=True,
+    help="A Python installation as VERSION=PATH. Example: 3.11.6=/opt/python/3.11.6/bin/python",
+)
+@click.option(
+    "--quarto",
+    "quarto_installations",
+    multiple=True,
+    help="A Quarto installation as VERSION=PATH. Example: 1.4.555=/opt/quarto/1.4.555/bin/quarto",
+)
+@click.option(
+    "--r",
+    "r_installations",
+    multiple=True,
+    help="An R installation as VERSION=PATH. Example: 4.3.2=/opt/R/4.3.2/bin/R",
+)
+@click.option(
+    "--tensorflow",
+    "tensorflow_installations",
+    multiple=True,
+    help="A TensorFlow installation as VERSION=PATH. Example: 2.14.0=/opt/tensorflow/2.14.0",
+)
+@click.option(
+    "--mount",
+    "mounts",
+    multiple=True,
+    help=(
+        "A volume mount as comma-separated key=value pairs. Required keys: type (nfs or pvc), target. "
+        "NFS example: type=nfs,nfs_host=nas.example.com,nfs_export_path=/shared/data,target=/mnt/data. "
+        "PVC example: type=pvc,pvc_name=my-claim,target=/mnt/storage,read_only=true"
+    ),
+)
+@click.option("--allow-user", multiple=True, type=StrippedStringParamType(), help="A user GUID to grant access.")
+@click.option("--allow-group", multiple=True, type=StrippedStringParamType(), help="A group GUID to grant access.")
+@click.option("--clear-permissions", is_flag=True, default=False, help="Remove all existing permissions.")
+@cli_exception_handler
+@click.pass_context
+def environment_edit(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    guid: str,
+    title: Optional[str],
+    description: Optional[str],
+    matching: Optional[str],
+    supervisor: Optional[str],
+    python_installations: tuple[str, ...],
+    quarto_installations: tuple[str, ...],
+    r_installations: tuple[str, ...],
+    tensorflow_installations: tuple[str, ...],
+    mounts: tuple[str, ...],
+    allow_user: tuple[str, ...],
+    allow_group: tuple[str, ...],
+    clear_permissions: bool,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect environment edit` requires a Posit Connect server.")
+        result = update_environment(
+            ce.remote_server,
+            guid=guid,
+            title=title,
+            description=description,
+            matching=matching,
+            supervisor=supervisor,
+            python=_parse_installations(python_installations),
+            quarto=_parse_installations(quarto_installations),
+            r=_parse_installations(r_installations),
+            tensorflow=_parse_installations(tensorflow_installations),
+            volume_mounts=_parse_mounts(mounts),
+            user_guids=list(allow_user) if (allow_user or clear_permissions) else None,
+            group_guids=list(allow_group) if (allow_group or clear_permissions) else None,
+        )
+        json.dump(result, sys.stdout, indent=2)
+
+
+@environment.command(name="remove", short_help="Delete an execution environment.")
+@server_args
+@spcs_args
+@click.argument("guid", type=StrippedStringParamType())
+@cli_exception_handler
+@click.pass_context
+def environment_remove(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    guid: str,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect environment remove` requires a Posit Connect server.")
+        delete_environment(ce.remote_server, guid)
+        click.echo("Deleted environment %s." % guid)
 
 
 if __name__ == "__main__":
