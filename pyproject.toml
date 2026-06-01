@@ -38,11 +38,18 @@ test = [
     "setuptools_scm[toml]>=3.4",
     "twine",
     "types-Flask",
-    "fastmcp==2.12.4; python_version >= '3.10'",
 ]
 keyring = ["keyring>=23.0.0"]
 snowflake = ["snowflake-cli"]
-mcp = ["fastmcp==2.12.4; python_version >= '3.10'"]
+mcp = ["fastmcp<3; python_version >= '3.10'"]
+vetiver-testing = [
+    "pandas",
+    "numpy",
+    "pydantic<2",
+    "pytest",
+    "pins",
+    "vetiver",
+]
 docs = [
     "mkdocs-material",
     "mkdocs-click",
