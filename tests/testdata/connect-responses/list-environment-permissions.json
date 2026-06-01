@@ -1,0 +1,16 @@
+[
+  {
+    "id": "1",
+    "guid": "perm-1111-2222-3333-444444444444",
+    "environment_guid": "f1e2d3c4-b5a6-7890-abcd-ef1234567890",
+    "user_guid": "820f092f-d564-4ab5-819a-0f4d2f03d11e",
+    "group_guid": null
+  },
+  {
+    "id": "2",
+    "guid": "perm-5555-6666-7777-888888888888",
+    "environment_guid": "f1e2d3c4-b5a6-7890-abcd-ef1234567890",
+    "user_guid": null,
+    "group_guid": "group-aaaa-bbbb-cccc-dddddddddddd"
+  }
+]

@@ -63,6 +63,13 @@ from .actions_content import (
     get_content,
     search_content,
 )
+from .actions_environment import (
+    create_environment,
+    delete_environment,
+    get_environment,
+    list_environments,
+    update_environment,
+)
 from .api import (
     RSConnectClient,
     RSConnectExecutor,
@@ -4097,6 +4104,243 @@ def system_caches_delete(
             logger=None,
         ).validate_server()
         ce.delete_runtime_cache(language, version, image_name, dry_run)
+
+
+@cli.group(no_args_is_help=True, help="Manage execution environments on Posit Connect.")
+def environment():
+    pass
+
+
+@environment.command(name="list", short_help="List execution environments.")
+@server_args
+@spcs_args
+@cli_exception_handler
+@click.pass_context
+def environment_list(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect environment list` requires a Posit Connect server.")
+        result = list_environments(ce.remote_server)
+        json.dump(result, sys.stdout, indent=2)
+
+
+@environment.command(name="show", short_help="Show a single execution environment.")
+@server_args
+@spcs_args
+@click.option("--guid", "-g", required=True, type=StrippedStringParamType(), help="The GUID of the environment.")
+@cli_exception_handler
+@click.pass_context
+def environment_show(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    guid: str,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect environment show` requires a Posit Connect server.")
+        result = get_environment(ce.remote_server, guid)
+        json.dump(result, sys.stdout, indent=2)
+
+
+@environment.command(name="add", short_help="Create a new execution environment.")
+@server_args
+@spcs_args
+@click.option("--image", "-I", required=True, help="The container image name (e.g. ghcr.io/rstudio/content-base:...).")
+@click.option("--title", "-T", default=None, help="A human-readable title for the environment.")
+@click.option("--description", "-d", default=None, help="A description for the environment.")
+@click.option(
+    "--matching",
+    "-m",
+    default=None,
+    type=click.Choice(["any", "exact", "none"]),
+    help="The image selection strategy.",
+)
+@click.option("--supervisor", default=None, help="Path to the per-image supervisor script.")
+@click.option("--allow-user", multiple=True, type=StrippedStringParamType(), help="A user GUID to grant access.")
+@click.option("--allow-group", multiple=True, type=StrippedStringParamType(), help="A group GUID to grant access.")
+@cli_exception_handler
+@click.pass_context
+def environment_add(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    image: str,
+    title: Optional[str],
+    description: Optional[str],
+    matching: Optional[str],
+    supervisor: Optional[str],
+    allow_user: tuple[str, ...],
+    allow_group: tuple[str, ...],
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect environment add` requires a Posit Connect server.")
+        result = create_environment(
+            ce.remote_server,
+            image=image,
+            title=title,
+            description=description,
+            matching=matching,
+            supervisor=supervisor,
+            user_guids=list(allow_user) if allow_user else None,
+            group_guids=list(allow_group) if allow_group else None,
+        )
+        json.dump(result, sys.stdout, indent=2)
+
+
+@environment.command(name="edit", short_help="Update an existing execution environment.")
+@server_args
+@spcs_args
+@click.option("--guid", "-g", required=True, type=StrippedStringParamType(), help="The GUID of the environment.")
+@click.option("--title", "-T", default=None, help="A new title for the environment.")
+@click.option("--description", "-d", default=None, help="A new description for the environment.")
+@click.option(
+    "--matching",
+    "-m",
+    default=None,
+    type=click.Choice(["any", "exact", "none"]),
+    help="The image selection strategy.",
+)
+@click.option("--supervisor", default=None, help="Path to the per-image supervisor script.")
+@click.option("--allow-user", multiple=True, type=StrippedStringParamType(), help="A user GUID to grant access.")
+@click.option("--allow-group", multiple=True, type=StrippedStringParamType(), help="A group GUID to grant access.")
+@cli_exception_handler
+@click.pass_context
+def environment_edit(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    guid: str,
+    title: Optional[str],
+    description: Optional[str],
+    matching: Optional[str],
+    supervisor: Optional[str],
+    allow_user: tuple[str, ...],
+    allow_group: tuple[str, ...],
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect environment edit` requires a Posit Connect server.")
+        result = update_environment(
+            ce.remote_server,
+            guid=guid,
+            title=title,
+            description=description,
+            matching=matching,
+            supervisor=supervisor,
+            user_guids=list(allow_user) if allow_user else None,
+            group_guids=list(allow_group) if allow_group else None,
+        )
+        json.dump(result, sys.stdout, indent=2)
+
+
+@environment.command(name="remove", short_help="Delete an execution environment.")
+@server_args
+@spcs_args
+@click.option("--guid", "-g", required=True, type=StrippedStringParamType(), help="The GUID of the environment.")
+@cli_exception_handler
+@click.pass_context
+def environment_remove(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    guid: str,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+    with cli_feedback("", stderr=True):
+        ce = RSConnectExecutor(
+            ctx=ctx,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            logger=None,
+        ).validate_server()
+        if not isinstance(ce.remote_server, (RSConnectServer, SPCSConnectServer)):
+            raise RSConnectException("`rsconnect environment remove` requires a Posit Connect server.")
+        delete_environment(ce.remote_server, guid)
+        click.echo("Deleted environment %s." % guid)
 
 
 if __name__ == "__main__":

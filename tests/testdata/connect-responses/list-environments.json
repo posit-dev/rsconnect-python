@@ -1,0 +1,40 @@
+[
+  {
+    "id": "42",
+    "guid": "f1e2d3c4-b5a6-7890-abcd-ef1234567890",
+    "created_time": "2024-01-15T10:00:00Z",
+    "updated_time": "2024-01-15T10:00:00Z",
+    "title": "Python 3.11 Base",
+    "description": "Base image with Python 3.11",
+    "cluster_name": "Kubernetes",
+    "name": "ghcr.io/rstudio/content-base:r4.4.1-py3.11.9-jammy",
+    "environment_type": "Kubernetes",
+    "matching": "any",
+    "supervisor": null,
+    "managed_by": null,
+    "python": {"installations": [{"version": "3.11.9", "path": "/opt/python/3.11.9/bin/python3"}]},
+    "quarto": {"installations": [{"version": "1.4.557", "path": "/opt/quarto/1.4.557/bin/quarto"}]},
+    "r": {"installations": [{"version": "4.4.1", "path": "/opt/R/4.4.1/bin/R"}]},
+    "tensorflow": {"installations": []},
+    "volume_mounts": []
+  },
+  {
+    "id": "43",
+    "guid": "a2b3c4d5-e6f7-8901-bcde-f12345678901",
+    "created_time": "2024-02-01T12:00:00Z",
+    "updated_time": "2024-02-01T12:00:00Z",
+    "title": "R 4.3 Only",
+    "description": null,
+    "cluster_name": "Kubernetes",
+    "name": "ghcr.io/rstudio/content-base:r4.3.3-jammy",
+    "environment_type": "Kubernetes",
+    "matching": "exact",
+    "supervisor": "/scripts/supervisor.sh",
+    "managed_by": null,
+    "python": {"installations": []},
+    "quarto": {"installations": []},
+    "r": {"installations": [{"version": "4.3.3", "path": "/opt/R/4.3.3/bin/R"}]},
+    "tensorflow": {"installations": []},
+    "volume_mounts": []
+  }
+]
