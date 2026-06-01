@@ -65,7 +65,7 @@ from .http_support import (
     create_multipart_form_data,
 )
 from .log import cls_logged, connect_logger, console_logger, logger
-from .metadata import AppStore, ServerStore
+from .metadata import AppStore, ServerData, ServerStore
 from .models import (
     AppMode,
     AppModes,
@@ -1061,7 +1061,12 @@ class RSConnectExecutor:
         if cacert and not ca_data:
             ca_data = read_certificate_file(cacert)
 
-        server_data = store.resolve(name, url)
+        # Skip default-server resolution when shinyapps credentials are explicitly
+        # provided — the user is targeting shinyapps.io, not a stored Connect server.
+        if token and secret and account_name and not name and not url:
+            server_data = ServerData(None, None, False)
+        else:
+            server_data = store.resolve(name, url)
         if server_data.from_store:
             url = server_data.url
             if self.logger:

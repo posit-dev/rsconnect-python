@@ -807,8 +807,11 @@ def add(
             _test_spcs_creds(real_server_spcs)
 
             server_store.set(
-                name, server, api_key=api_key,
-                snowflake_connection_name=snowflake_connection_name, set_as_default=set_default,
+                name,
+                server,
+                api_key=api_key,
+                snowflake_connection_name=snowflake_connection_name,
+                set_as_default=set_default,
             )
             if old_server:
                 click.echo('Updated {} credential "{}".'.format(real_server_spcs.remote_name, name))
@@ -1098,8 +1101,12 @@ def login(
 
     if stored_in_keyring:
         server_store.set(
-            name, server, oauth_client_id=client_id,
-            insecure=insecure, ca_data=ca_data_str, set_as_default=set_as_default,
+            name,
+            server,
+            oauth_client_id=client_id,
+            insecure=insecure,
+            ca_data=ca_data_str,
+            set_as_default=set_as_default,
         )
     else:
         server_store.set(
