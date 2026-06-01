@@ -728,6 +728,12 @@ def bootstrap(
 @server_args
 @spcs_args
 @cloud_shinyapps_args
+@click.option(
+    "--set-default",
+    is_flag=True,
+    default=False,
+    help="Mark this server as the default (used when -n/--name and -s/--server are not specified).",
+)
 @click.pass_context
 def add(
     ctx: click.Context,
@@ -740,6 +746,7 @@ def add(
     account: Optional[str],
     token: Optional[str],
     secret: Optional[str],
+    set_default: bool,
     verbose: int,
 ):
     set_verbosity(verbose)
@@ -782,6 +789,7 @@ def add(
             account_name=real_server.account_name,
             token=real_server.token,
             secret=real_server.secret,
+            set_as_default=set_default,
         )
         if old_server:
             click.echo('Updated {} credential "{}".'.format(real_server.remote_name, name))
@@ -798,7 +806,10 @@ def add(
 
             _test_spcs_creds(real_server_spcs)
 
-            server_store.set(name, server, api_key=api_key, snowflake_connection_name=snowflake_connection_name)
+            server_store.set(
+                name, server, api_key=api_key,
+                snowflake_connection_name=snowflake_connection_name, set_as_default=set_default,
+            )
             if old_server:
                 click.echo('Updated {} credential "{}".'.format(real_server_spcs.remote_name, name))
             else:
@@ -818,12 +829,16 @@ def add(
                 api_key=real_server_rsc.api_key,
                 insecure=real_server_rsc.insecure,
                 ca_data=real_server_rsc.ca_data,
+                set_as_default=set_default,
             )
 
             if old_server:
                 click.echo('Updated Connect server "%s" with URL %s' % (name, real_server_rsc.url))
             else:
                 click.echo('Added Connect server "%s" with URL %s' % (name, real_server_rsc.url))
+
+    if set_default:
+        click.echo('Server "%s" is now the default.' % name)
 
 
 @cli.command(
@@ -844,7 +859,8 @@ def list_servers(verbose: int):
         else:
             click.echo()
             for server in servers:
-                click.echo('Nickname: "%s"' % server["name"])
+                default_marker = " [default]" if server.get("default") else ""
+                click.echo('Nickname: "%s"%s' % (server["name"], default_marker))
                 click.echo("    URL: %s" % server["url"])
                 if server.get("api_key"):
                     click.echo("    API key is saved")
@@ -948,12 +964,19 @@ def remove(
         if name and server:
             raise RSConnectException("You must specify only one of -n/--name or -s/--server.")
 
+        removed_was_default = False
         if name:
+            entry = server_store.get_by_name(name)
+            if entry:
+                removed_was_default = bool(entry.get("default"))
             if server_store.remove_by_name(name):
                 message = 'Removed nickname "%s".' % name
             else:
                 raise RSConnectException('Nickname "%s" was not found.' % name)
         elif server:
+            entry = server_store.get_by_url(server)
+            if entry:
+                removed_was_default = bool(entry.get("default"))
             if server_store.remove_by_url(server):
                 message = 'Removed URL "%s".' % server
             else:
@@ -963,6 +986,8 @@ def remove(
 
     if message:
         click.echo(message)
+        if removed_was_default:
+            click.echo("Note: the removed server was the default. Use `rsconnect add --set-default` to set a new one.")
 
 
 @cli.command(
@@ -991,6 +1016,12 @@ def remove(
     help="Use device code flow for headless/non-interactive environments.",
 )
 @click.option("--client-id", default=None, help="OAuth client ID (skips Dynamic Client Registration).")
+@click.option(
+    "--no-set-default",
+    is_flag=True,
+    default=False,
+    help="Do not mark this server as the default after login.",
+)
 @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 @cli_exception_handler
 def login(
@@ -1000,6 +1031,7 @@ def login(
     cacert: Optional[str],
     use_device_code: bool,
     client_id: Optional[str],
+    no_set_default: bool,
     verbose: int,
 ):
     set_verbosity(verbose)
@@ -1062,8 +1094,13 @@ def login(
 
     ca_data_str = ca_data.decode("utf-8") if isinstance(ca_data, bytes) else ca_data
 
+    set_as_default = not no_set_default
+
     if stored_in_keyring:
-        server_store.set(name, server, oauth_client_id=client_id, insecure=insecure, ca_data=ca_data_str)
+        server_store.set(
+            name, server, oauth_client_id=client_id,
+            insecure=insecure, ca_data=ca_data_str, set_as_default=set_as_default,
+        )
     else:
         server_store.set(
             name,
@@ -1074,9 +1111,12 @@ def login(
             oauth_access_token=access_token,
             oauth_refresh_token=refresh_token,
             oauth_token_expiry=expiry,
+            set_as_default=set_as_default,
         )
 
     click.echo('Logged in to "%s" (%s)' % (name, server))
+    if set_as_default:
+        click.echo('Server "%s" is now the default.' % name)
     if not stored_in_keyring:
         click.secho(
             "Note: keyring not available; credentials stored in local file (chmod 600).",

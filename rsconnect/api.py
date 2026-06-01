@@ -1039,6 +1039,7 @@ class RSConnectExecutor:
         token: Optional[str] = None,
         secret: Optional[str] = None,
     ):
+        store = ServerStore()
         validation.validate_connection_options(
             ctx=ctx,
             url=url,
@@ -1050,6 +1051,7 @@ class RSConnectExecutor:
             token=token,
             secret=secret,
             name=name,
+            has_default_server=store.get_default() is not None,
         )
         # The validation.validate_connection_options() function ensures that certain
         # combinations of arguments are present; the cast() calls inside of the
@@ -1059,7 +1061,7 @@ class RSConnectExecutor:
         if cacert and not ca_data:
             ca_data = read_certificate_file(cacert)
 
-        server_data = ServerStore().resolve(name, url)
+        server_data = store.resolve(name, url)
         if server_data.from_store:
             url = server_data.url
             if self.logger:

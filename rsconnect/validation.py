@@ -46,6 +46,7 @@ def validate_connection_options(
     secret: Optional[str],
     name: Optional[str] = None,
     snowflake_connection_name: Optional[str] = None,
+    has_default_server: bool = False,
 ):
     """
     Validates provided Connect or shinyapps.io connection options and returns which target to use given the provided
@@ -98,9 +99,9 @@ def validate_connection_options(
 {', '.join(present_options_mutually_exclusive_with_name)}. See command help for further details."
         )
 
-    if not name and not url and not shinyapps_options:
+    if not name and not url and not any(shinyapps_options.values()) and not has_default_server:
         raise RSConnectException(
-            "You must specify one of -n/--name OR -s/--server OR  T/--token, -S/--secret, \
+            "You must specify one of -n/--name OR -s/--server OR -T/--token, -S/--secret, \
 either via command options or environment variables. See command help for further details."
         )
 
