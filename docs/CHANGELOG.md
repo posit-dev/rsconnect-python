@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   used automatically. `rsconnect login` sets the server as default unless
   `--no-set-default` is passed. `CONNECT_SERVER` still takes precedence.
 - New `environment` subcommand for managing execution environments on Connect.
+- New `integration` subcommand for managing OAuth integrations on Connect.
 
 ### Added
 
