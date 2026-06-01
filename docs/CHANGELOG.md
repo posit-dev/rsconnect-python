@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   write-manifest.
 - Perform case insensitive matching of the configured Snowflake connection authenticator.
 - New `login` and `logout` subcommands for authenticating to Connect via OAuth.
+- Servers can now be marked as the default with `rsconnect add --set-default`.
+  When neither `-n/--name` nor `-s/--server` is provided, the default server is
+  used automatically. `rsconnect login` sets the server as default unless
+  `--no-set-default` is passed. `CONNECT_SERVER` still takes precedence.
 
 ## [1.29.0] - 2026-04-29
 

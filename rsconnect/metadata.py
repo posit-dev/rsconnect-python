@@ -263,6 +263,7 @@ class ServerDataDict(TypedDict):
     oauth_access_token: NotRequired[str]
     oauth_refresh_token: NotRequired[str]
     oauth_token_expiry: NotRequired[float]
+    default: NotRequired[bool]
 
 
 class ServerData:
@@ -339,6 +340,27 @@ class ServerStore(DataStore[ServerDataDict]):
         """
         return self._get_sorted_values(lambda s: s.get("name") or "")
 
+    def get_default(self) -> Optional[ServerDataDict]:
+        """Return the entry marked as default, or None."""
+        for entry in self._data.values():
+            if entry.get("default"):
+                return entry
+        return None
+
+    def clear_default(self) -> None:
+        """Remove the default flag from all entries. Does not save."""
+        for entry in self._data.values():
+            entry.pop("default", None)  # type: ignore[misc]
+
+    def set_default(self, name: str) -> None:
+        """Mark the named server as the default, clearing any prior default."""
+        entry = self._get_by_key(name)
+        if entry is None:
+            raise RSConnectException('The nickname, "%s", does not exist.' % name)
+        self.clear_default()
+        entry["default"] = True  # type: ignore[typeddict-unknown-key]
+        self.save()
+
     def set(
         self,
         name: str,
@@ -354,6 +376,7 @@ class ServerStore(DataStore[ServerDataDict]):
         oauth_access_token: Optional[str] = None,
         oauth_refresh_token: Optional[str] = None,
         oauth_token_expiry: Optional[float] = None,
+        set_as_default: bool = False,
     ):
         """
         Add (or update) information about a Connect server
@@ -371,7 +394,14 @@ class ServerStore(DataStore[ServerDataDict]):
         :param oauth_access_token: OAuth access token (fallback when keyring unavailable).
         :param oauth_refresh_token: OAuth refresh token (fallback when keyring unavailable).
         :param oauth_token_expiry: OAuth token expiry as unix timestamp.
+        :param set_as_default: mark this server as the default.
         """
+        existing = self._get_by_key(name)
+        was_default = bool(existing.get("default")) if existing else False
+
+        if set_as_default:
+            self.clear_default()
+
         common_data: ServerDataDict = {
             "name": name,
             "url": url,
@@ -393,7 +423,10 @@ class ServerStore(DataStore[ServerDataDict]):
         else:
             target_data = dict(token=token, secret=secret)
 
-        self._set(name, {**common_data, **target_data})  # type: ignore
+        entry = {**common_data, **target_data}
+        if set_as_default or was_default:
+            entry["default"] = True
+        self._set(name, entry)  # type: ignore
 
     def remove_by_name(self, name: str):
         """
@@ -461,15 +494,13 @@ class ServerStore(DataStore[ServerDataDict]):
         elif url:
             entry = self.get_by_url(url)
         else:
-            # if there is a single server, default to it
-            if self.count() == 1:
+            entry = self.get_default()
+            if entry is None and self.count() == 1:
                 entry = self._get_first_value()
-            else:
-                entry = None
 
         if entry:
             return ServerData(
-                name,
+                name or entry["name"],
                 entry["url"],
                 True,
                 insecure=entry.get("insecure"),
