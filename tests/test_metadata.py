@@ -179,6 +179,72 @@ class TestServerMetadata(TestCase):
     def test_get_path(self):
         self.assertIn("servers.json", self.server_store.get_path())
 
+    def test_get_default_none(self):
+        self.assertIsNone(self.server_store.get_default())
+
+    def test_set_default(self):
+        self.server_store.set_default("foo")
+        default = self.server_store.get_default()
+        self.assertIsNotNone(default)
+        self.assertEqual(default["name"], "foo")
+
+    def test_set_default_clears_previous(self):
+        self.server_store.set_default("foo")
+        self.server_store.set_default("bar")
+        default = self.server_store.get_default()
+        self.assertEqual(default["name"], "bar")
+        foo = self.server_store.get_by_name("foo")
+        self.assertNotIn("default", foo)
+
+    def test_set_default_not_found(self):
+        from rsconnect.exception import RSConnectException
+
+        with self.assertRaises(RSConnectException):
+            self.server_store.set_default("nonexistent")
+
+    def test_set_as_default_on_add(self):
+        self.server_store.set("new_server", "http://new.local", api_key="key1", set_as_default=True)
+        default = self.server_store.get_default()
+        self.assertEqual(default["name"], "new_server")
+
+    def test_set_as_default_clears_previous_on_add(self):
+        self.server_store.set("s1", "http://s1.local", api_key="key1", set_as_default=True)
+        self.server_store.set("s2", "http://s2.local", api_key="key2", set_as_default=True)
+        default = self.server_store.get_default()
+        self.assertEqual(default["name"], "s2")
+        s1 = self.server_store.get_by_name("s1")
+        self.assertFalse(s1.get("default", False))
+
+    def test_re_add_preserves_default(self):
+        self.server_store.set("foo", "http://connect.local", api_key="newKey", set_as_default=True)
+        self.assertTrue(self.server_store.get_by_name("foo").get("default"))
+        # Re-add without set_as_default — default should be preserved
+        self.server_store.set("foo", "http://connect.local", api_key="anotherKey")
+        self.assertTrue(self.server_store.get_by_name("foo").get("default"))
+
+    def test_resolve_uses_default_server(self):
+        self.server_store.set_default("foo")
+        server_data = self.server_store.resolve(None, None)
+        self.assertTrue(server_data.from_store)
+        self.assertEqual(server_data.url, "http://connect.local")
+        self.assertEqual(server_data.api_key, "notReallyAnApiKey")
+        self.assertEqual(server_data.name, "foo")
+
+    def test_resolve_default_takes_priority_over_single_server_fallback(self):
+        # Remove all but two servers, mark one as default
+        self.server_store.remove_by_name("baz")
+        self.server_store.remove_by_name("qux")
+        self.server_store.remove_by_name("None")
+        # Now have foo and bar; mark bar as default
+        self.server_store.set_default("bar")
+        server_data = self.server_store.resolve(None, None)
+        self.assertEqual(server_data.url, "http://connect.remote")
+
+    def test_remove_default_clears_it(self):
+        self.server_store.set_default("foo")
+        self.server_store.remove_by_name("foo")
+        self.assertIsNone(self.server_store.get_default())
+
 
 class TestAppMetadata(TestCase):
     def setUp(self):

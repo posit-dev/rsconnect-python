@@ -1144,3 +1144,97 @@ class TestWriteManifestNodeJS:
         result = runner.invoke(cli, ["write-manifest", "nodejs", str(tmp_path)])
         assert result.exit_code == 1
         assert "package.json" in result.output
+
+
+class TestDefaultServer:
+    def test_list_shows_default_marker(self, tmp_path):
+        from rsconnect.metadata import ServerStore
+
+        store = ServerStore(base_dir=str(tmp_path))
+        store.set("s1", "http://s1.local", api_key="key1", set_as_default=True)
+        store.set("s2", "http://s2.local", api_key="key2")
+
+        runner = CliRunner()
+        with mock.patch("rsconnect.main.server_store", store):
+            result = runner.invoke(cli, ["list"])
+        assert result.exit_code == 0, result.output
+        assert '[default]' in result.output
+        assert 's1' in result.output
+
+    def test_list_no_default_marker(self, tmp_path):
+        from rsconnect.metadata import ServerStore
+
+        store = ServerStore(base_dir=str(tmp_path))
+        store.set("s1", "http://s1.local", api_key="key1")
+
+        runner = CliRunner()
+        with mock.patch("rsconnect.main.server_store", store):
+            result = runner.invoke(cli, ["list"])
+        assert result.exit_code == 0, result.output
+        assert '[default]' not in result.output
+
+    def test_remove_default_shows_note(self, tmp_path):
+        from rsconnect.metadata import ServerStore
+
+        store = ServerStore(base_dir=str(tmp_path))
+        store.set("s1", "http://s1.local", api_key="key1", set_as_default=True)
+        store.set("s2", "http://s2.local", api_key="key2")
+
+        runner = CliRunner()
+        with mock.patch("rsconnect.main.server_store", store):
+            result = runner.invoke(cli, ["remove", "--name", "s1"])
+        assert result.exit_code == 0, result.output
+        assert "was the default" in result.output
+
+    def test_remove_non_default_no_note(self, tmp_path):
+        from rsconnect.metadata import ServerStore
+
+        store = ServerStore(base_dir=str(tmp_path))
+        store.set("s1", "http://s1.local", api_key="key1", set_as_default=True)
+        store.set("s2", "http://s2.local", api_key="key2")
+
+        runner = CliRunner()
+        with mock.patch("rsconnect.main.server_store", store):
+            result = runner.invoke(cli, ["remove", "--name", "s2"])
+        assert result.exit_code == 0, result.output
+        assert "was the default" not in result.output
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_add_set_default(self, tmp_path):
+        from rsconnect.metadata import ServerStore
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://connect.local/__api__/server_settings",
+            body='{"version": "2024.01.0"}',
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://connect.local/__api__/v1/user",
+            body='{"username": "admin"}',
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        store = ServerStore(base_dir=str(tmp_path))
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+        try:
+            runner = CliRunner()
+            with mock.patch("rsconnect.main.server_store", store):
+                result = runner.invoke(
+                    cli,
+                    ["add", "--name", "myserver", "--server", "http://connect.local",
+                     "--api-key", "fake-key", "--set-default"],
+                )
+            assert result.exit_code == 0, result.output
+            assert "is now the default" in result.output
+            assert store.get_default() is not None
+            assert store.get_default()["name"] == "myserver"
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
