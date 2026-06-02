@@ -1125,7 +1125,7 @@
 <h2 id="environment-add">environment add<a class="headerlink" href="#environment-add" title="Permanent link">#</a></h2>
 <p>Create a new execution environment.</p>
 <p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>environment add [OPTIONS]
+<div class="highlight"><pre><span></span><code>environment add [OPTIONS] IMAGE
 </code></pre></div>
 <p><strong>Options:</strong></p>
 <div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
@@ -1147,22 +1147,26 @@
   --snowflake-connection-name TEXT
                                   The name of the Snowflake connection in the
                                   configuration file
-  -I, --image TEXT                The container image name (e.g.
-                                  ghcr.io/rstudio/content-base:...).
-                                  [required]
   -T, --title TEXT                A human-readable title for the environment.
   -d, --description TEXT          A description for the environment.
   -m, --matching [any|exact|none]
                                   The image selection strategy.
   --supervisor TEXT               Path to the per-image supervisor script.
+  --python TEXT                   A Python installation as VERSION=PATH.
+  --quarto TEXT                   A Quarto installation as VERSION=PATH.
+  --r TEXT                        An R installation as VERSION=PATH.
+  --tensorflow TEXT               A TensorFlow installation as VERSION=PATH.
+  --mount TEXT                    A volume mount as comma-separated key=value
+                                  pairs (type,target required).
   --allow-user STRIPPEDSTRING     A user GUID to grant access.
   --allow-group STRIPPEDSTRING    A group GUID to grant access.
+  --clear-permissions             Remove all existing permissions.
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="environment-edit">environment edit<a class="headerlink" href="#environment-edit" title="Permanent link">#</a></h2>
 <p>Update an existing execution environment.</p>
 <p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>environment edit [OPTIONS]
+<div class="highlight"><pre><span></span><code>environment edit [OPTIONS] GUID
 </code></pre></div>
 <p><strong>Options:</strong></p>
 <div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
@@ -1184,14 +1188,20 @@
   --snowflake-connection-name TEXT
                                   The name of the Snowflake connection in the
                                   configuration file
-  -g, --guid STRIPPEDSTRING       The GUID of the environment.  [required]
   -T, --title TEXT                A new title for the environment.
   -d, --description TEXT          A new description for the environment.
   -m, --matching [any|exact|none]
                                   The image selection strategy.
   --supervisor TEXT               Path to the per-image supervisor script.
+  --python TEXT                   A Python installation as VERSION=PATH.
+  --quarto TEXT                   A Quarto installation as VERSION=PATH.
+  --r TEXT                        An R installation as VERSION=PATH.
+  --tensorflow TEXT               A TensorFlow installation as VERSION=PATH.
+  --mount TEXT                    A volume mount as comma-separated key=value
+                                  pairs (type,target required).
   --allow-user STRIPPEDSTRING     A user GUID to grant access.
   --allow-group STRIPPEDSTRING    A group GUID to grant access.
+  --clear-permissions             Remove all existing permissions.
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="environment-list">environment list<a class="headerlink" href="#environment-list" title="Permanent link">#</a></h2>
@@ -1224,7 +1234,7 @@
 <h2 id="environment-remove">environment remove<a class="headerlink" href="#environment-remove" title="Permanent link">#</a></h2>
 <p>Delete an execution environment.</p>
 <p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>environment remove [OPTIONS]
+<div class="highlight"><pre><span></span><code>environment remove [OPTIONS] GUID
 </code></pre></div>
 <p><strong>Options:</strong></p>
 <div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
@@ -1246,13 +1256,12 @@
   --snowflake-connection-name TEXT
                                   The name of the Snowflake connection in the
                                   configuration file
-  -g, --guid STRIPPEDSTRING       The GUID of the environment.  [required]
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="environment-show">environment show<a class="headerlink" href="#environment-show" title="Permanent link">#</a></h2>
 <p>Show a single execution environment.</p>
 <p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>environment show [OPTIONS]
+<div class="highlight"><pre><span></span><code>environment show [OPTIONS] GUID
 </code></pre></div>
 <p><strong>Options:</strong></p>
 <div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
@@ -1274,7 +1283,6 @@
   --snowflake-connection-name TEXT
                                   The name of the Snowflake connection in the
                                   configuration file
-  -g, --guid STRIPPEDSTRING       The GUID of the environment.  [required]
   --help                          Show this message and exit.
 </code></pre></div>
 
