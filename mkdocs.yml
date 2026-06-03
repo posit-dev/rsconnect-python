@@ -44,6 +44,7 @@ nav:
       - content: commands/content.md
       - deploy: commands/deploy.md
       - details: commands/details.md
+      - environment: commands/environment.md
       - info: commands/info.md
       - list: commands/list.md
       - login: commands/login.md

@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   When neither `-n/--name` nor `-s/--server` is provided, the default server is
   used automatically. `rsconnect login` sets the server as default unless
   `--no-set-default` is passed. `CONNECT_SERVER` still takes precedence.
+- New `environment` subcommand for managing execution environments on Connect.
 
 ## [1.29.0] - 2026-04-29
 
