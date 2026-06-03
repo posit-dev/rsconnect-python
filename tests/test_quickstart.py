@@ -95,13 +95,29 @@ def test_quickstart_requires_type_and_name(runner: CliRunner, in_tmp_cwd: pathli
     assert result.exit_code != 0
 
 
-def test_quickstart_help_lists_quarto_shiny(runner: CliRunner):
-    """``quarto-shiny`` is a first-class TYPE, not a flag on ``quarto``."""
+def test_quickstart_help_lists_quarto(runner: CliRunner):
+    """``quarto`` is a supported TYPE; the broken ``quarto-shiny`` scaffold was removed."""
     result = runner.invoke(cli, ["quickstart", "--help"])
     assert result.exit_code == 0, result.output
-    assert "quarto-shiny" in result.output
+    assert "quarto" in result.output
+    assert "quarto-shiny" not in result.output
     # The legacy ``--shiny`` flag was removed in favor of the explicit type.
     assert "--shiny" not in result.output
+
+
+def test_quickstart_quarto_shiny_not_supported(runner: CliRunner, in_tmp_cwd: pathlib.Path):
+    """``quarto-shiny`` stays a known alias but no longer scaffolds.
+
+    The template produced an invalid doc that Connect rejected, so the
+    scaffold was removed while the alias still routes to the shared
+    "does not yet support" error rather than a hard "unknown type".
+    """
+    result = _invoke_quickstart(runner, "quarto-shiny", "hello_app")
+    assert result.exit_code != 0
+    combined = result.output + (result.stderr if result.stderr_bytes else "")
+    assert "does not yet support" in combined
+    assert "quarto-shiny" in combined
+    assert not (in_tmp_cwd / "hello_app").exists()
 
 
 @pytest.mark.parametrize(
@@ -167,7 +183,7 @@ def test_quickstart_unknown_type_lists_supported(runner: CliRunner, in_tmp_cwd: 
     result = _invoke_quickstart(runner, "nonesuch", "hello_app")
     assert result.exit_code != 0
     combined = result.output + (result.stderr if result.stderr_bytes else "")
-    for expected in ("streamlit", "shiny", "fastapi", "api", "flask", "notebook", "voila", "quarto", "quarto-shiny"):
+    for expected in ("streamlit", "shiny", "fastapi", "api", "flask", "notebook", "voila", "quarto"):
         assert expected in combined, f"{expected!r} missing from error output: {combined!r}"
     assert not (in_tmp_cwd / "hello_app").exists()
 
@@ -307,7 +323,6 @@ APP_MODE_MATRIX = [
     pytest.param(("notebook",), "jupyter-static", id="notebook-default"),
     pytest.param(("voila",), "jupyter-voila", id="voila"),
     pytest.param(("quarto",), "quarto-static", id="quarto-default"),
-    pytest.param(("quarto-shiny",), "quarto-shiny", id="quarto-shiny"),
 ]
 
 
@@ -590,13 +605,6 @@ POST_SCAFFOLD_COMMANDS = [
         "uv run quarto preview report.qmd",
         ("Note: Quarto must be installed separately: https://quarto.org",),
         id="quarto-default",
-    ),
-    pytest.param(
-        "quarto-shiny",
-        (),
-        "uv run quarto preview report.qmd",
-        ("Note: Quarto must be installed separately: https://quarto.org",),
-        id="quarto-shiny",
     ),
 ]
 

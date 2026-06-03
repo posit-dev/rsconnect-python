@@ -280,16 +280,16 @@ DISPATCH_MATRIX: list[typing.Any] = [
 ]
 
 
-@pytest.mark.parametrize("app_mode,entrypoint,expected_builder_name", DISPATCH_MATRIX)
-def test_deploy_pyproject_dispatches_by_app_mode(
-    runner: CliRunner,
-    project_dir: pathlib.Path,
-    app_mode: str,
-    entrypoint: str,
-    expected_builder_name: str,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    """Each ``[tool.rsconnect].app_mode`` routes to its matching bundle builder."""
+def _spy_make_bundle(monkeypatch: pytest.MonkeyPatch) -> dict[str, typing.Any]:
+    """Short-circuit a deploy at ``make_bundle`` and capture the dispatched call.
+
+    Records the builder name plus the positional/keyword args passed to
+    ``make_bundle`` (the bundle builder is ``args[0]`` to ``make_bundle`` and the
+    entrypoint is ``args[1]`` of the captured ``args``), then raises a sentinel so
+    no network call happens.
+
+    :param monkeypatch: pytest fixture used to stub out the deploy collaborators.
+    """
     captured: dict[str, typing.Any] = {}
 
     class _StopDispatch(Exception):
@@ -319,6 +319,20 @@ def test_deploy_pyproject_dispatches_by_app_mode(
     monkeypatch.setattr(api_mod.RSConnectExecutor, "validate_server", lambda self: self)
     monkeypatch.setattr(api_mod.RSConnectExecutor, "validate_app_mode", lambda self, app_mode: self)
     monkeypatch.setattr(api_mod.RSConnectExecutor, "make_bundle", spy_make_bundle)
+    return captured
+
+
+@pytest.mark.parametrize("app_mode,entrypoint,expected_builder_name", DISPATCH_MATRIX)
+def test_deploy_pyproject_dispatches_by_app_mode(
+    runner: CliRunner,
+    project_dir: pathlib.Path,
+    app_mode: str,
+    entrypoint: str,
+    expected_builder_name: str,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Each ``[tool.rsconnect].app_mode`` routes to its matching bundle builder."""
+    captured = _spy_make_bundle(monkeypatch)
 
     _write_pyproject(
         project_dir,
@@ -345,6 +359,47 @@ def test_deploy_pyproject_dispatches_by_app_mode(
     if app_mode == "jupyter-static":
         # Legacy app mode - no need to override the bundle builder default
         pass
+
+
+_EXPRESS_APP = "from shiny.express import ui\n\nui.h1('hi')\n"
+
+
+def test_deploy_pyproject_shiny_express_entrypoint_matches_deploy_shiny(
+    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """A Shiny Express app deployed via ``deploy pyproject`` gets the same
+    ``shiny.express.app:`` entrypoint as the dedicated ``deploy shiny`` path.
+
+    Without the rewrite Connect cannot find an application object and the app
+    crashes on boot, so both deploy paths must agree on the express form.
+    """
+    (project_dir / "app.py").write_text(_EXPRESS_APP)
+    _write_pyproject(
+        project_dir,
+        """
+        [project]
+        name = "hello_app"
+        version = "0.0.1"
+        dependencies = ["shiny"]
+
+        [tool.rsconnect]
+        app_mode = "python-shiny"
+        entrypoint = "app.py"
+        title = "Express App"
+        """,
+    )
+    server = ["-s", "http://example.invalid", "-k", "fake-key"]
+
+    captured = _spy_make_bundle(monkeypatch)
+    runner.invoke(cli, ["deploy", "shiny", str(project_dir), *server])
+    shiny_entrypoint = captured["args"][1]
+
+    captured = _spy_make_bundle(monkeypatch)
+    runner.invoke(cli, ["deploy", "pyproject", str(project_dir), *server])
+    pyproject_entrypoint = captured["args"][1]
+
+    assert shiny_entrypoint.startswith("shiny.express.app:")
+    assert pyproject_entrypoint == shiny_entrypoint
 
 
 # ---------------------------------------------------------------------------

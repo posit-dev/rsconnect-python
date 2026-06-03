@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `rsconnect quickstart` command for scaffolding a new Connect-ready project.
   Supported types: `streamlit`, `shiny`, `fastapi`, `api`, `flask`, `notebook`,
-  `voila`, `quarto`, `quarto-shiny`. Creates a uv-managed virtualenv and prints
+  `voila`, `quarto`. Creates a uv-managed virtualenv and prints
   the local-run and deploy commands.
 - `rsconnect deploy pyproject` command for deploying a project described by
   `pyproject.toml` with a `[tool.rsconnect]` table containing `app_mode` and

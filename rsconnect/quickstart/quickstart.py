@@ -68,7 +68,7 @@ def run_quickstart(
 
     # Pre-flight checks. Each helper raises ``RSConnectException``
     # with an actionable message; nothing on disk is mutated until every
-    # check has passed. Type validation now lives in Click's argument
+    # check has passed. Type validation lives in Click's argument
     # parser (see ``rsconnect/main.py``), so it has already passed before
     # we get here.
     _require_uv_on_path()
@@ -286,15 +286,6 @@ _REGISTRY: typing.Mapping[AppMode, TemplateSpec] = {
         readme_template="quarto/README.md.tmpl",
         local_run_command=("uv", "run", "quarto", "preview", "report.qmd"),
         source_files=(FileSpec(name="report.qmd", template="quarto/report.qmd.tmpl"),),
-        notes=(_QUARTO_INSTALL_NOTE,),
-    ),
-    # quarto-shiny shares the README with quarto-static: same local-run
-    # command, same deploy command, same quarto-install note.
-    AppModes.SHINY_QUARTO: TemplateSpec(
-        pyproject_template="quarto/pyproject_shiny.toml.tmpl",
-        readme_template="quarto/README.md.tmpl",
-        local_run_command=("uv", "run", "quarto", "preview", "report.qmd"),
-        source_files=(FileSpec(name="report.qmd", template="quarto/report_shiny.qmd.tmpl"),),
         notes=(_QUARTO_INSTALL_NOTE,),
     ),
 }

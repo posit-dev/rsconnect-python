@@ -91,6 +91,7 @@ from .bundle import (
     make_tensorflow_bundle,
     make_voila_bundle,
     read_manifest_app_mode,
+    resolve_shiny_express_entrypoint,
     validate_entry_point,
     validate_extra_files,
     validate_file_is_notebook,
@@ -128,7 +129,6 @@ from .models import (
 )
 from .pyproject import InvalidPyprojectConfigError, TOMLDecodeError, read_tool_rsconnect
 from .environment import PackageInstaller
-from .shiny_express import escape_to_var_name, is_express_app
 from .utils_package import fix_starlette_requirements
 
 T = TypeVar("T")
@@ -1261,7 +1261,7 @@ def info(file: str):
     help=(
         "Create a new Posit Connect project of the given TYPE in ./<name>/. "
         "Supported TYPE values: streamlit, shiny, fastapi, api, flask, "
-        "notebook, voila, quarto, quarto-shiny. Writes a pyproject.toml "
+        "notebook, voila, quarto. Writes a pyproject.toml "
         "with a [tool.rsconnect] section, creates a uv-managed virtualenv, "
         "and prints the local-run and deploy commands."
     ),
@@ -1837,12 +1837,14 @@ def deploy_pyproject(
 
     # Requirements source precedence: ``-r`` flag > ``[tool.rsconnect].requirements_file``
     # > built-in default ``pyproject.toml`` (top-level deps; Connect resolves transitive).
-    # Without an explicit source the inspector would silently ``pip freeze`` the caller's
-    # interpreter — the bug ``deploy pyproject`` exists to avoid. Malformed TOML values
-    # (wrong type, missing file) are surfaced by the inspector / file existence check.
+    # An explicit default keeps the inspector from falling back to a ``pip freeze`` of the
+    # caller's interpreter. Malformed TOML values (wrong type, missing file) are surfaced
+    # by the inspector / file existence check.
     requirements_file = requirements_file or config.get("requirements_file") or "pyproject.toml"
 
     if app_mode in (AppModes.STREAMLIT_APP, AppModes.PYTHON_SHINY, AppModes.PYTHON_FASTAPI, AppModes.PYTHON_API):
+        if app_mode == AppModes.PYTHON_SHINY:
+            entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
         environment = Environment.create_python_environment(
             directory,
             requirements_file=requirements_file,
@@ -2508,8 +2510,7 @@ def generate_deploy_python(
         )
 
         if app_mode == AppModes.PYTHON_SHINY:
-            if is_express_app(entrypoint + ".py", directory):
-                entrypoint = "shiny.express.app:" + escape_to_var_name(entrypoint + ".py")
+            entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
 
         # Get server version for metadata support check
         server_version = None
@@ -3523,8 +3524,7 @@ def _write_framework_manifest(
 
     if app_mode == AppModes.PYTHON_SHINY:
         with cli_feedback("Inspecting Shiny for Python app"):
-            if is_express_app(entrypoint + ".py", directory):
-                entrypoint = "shiny.express.app:" + escape_to_var_name(entrypoint + ".py")
+            entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
 
     with cli_feedback("Creating manifest.json"):
         environment_file_exists = write_api_manifest_json(
