@@ -1931,7 +1931,7 @@
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="deploy-git">deploy git<a class="headerlink" href="#deploy-git" title="Permanent link">#</a></h2>
-<p>Deploy content to Posit Connect directly from a remote Git repository. The repository must contain a manifest.json file (in the root or specified subdirectory). Connect will periodically check for updates and redeploy automatically when commits are pushed.</p>
+<p>Deploy content to Posit Connect directly from a remote Git repository. The repository must contain a manifest.json file (in the root or specified subdirectory). Connect will regularly poll the repository for updates.</p>
 <p>This command creates a new git-backed content item. To update an existing git-backed content item, use the --app-id option with the content's GUID.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>deploy git [OPTIONS]
@@ -1982,13 +1982,11 @@
                                   upload.
   -r, --repository TEXT           URL of the Git repository (https:// URLs
                                   only).  [required]
-  -b, --branch TEXT               Branch to deploy from. Connect auto-deploys
-                                  when commits are pushed. [default: main]
+  -b, --branch TEXT               Branch to deploy from. [default: main]
   -d, --subdirectory TEXT         Subdirectory containing manifest.json. Use
                                   path syntax (e.g., &#39;path/to/content&#39;).
-  --polling / --no-polling        Enable/disable automatic redeployment when
-                                  commits are pushed to the repository.
-                                  [default: enabled]
+  --polling / --no-polling        Enable/disable regular polling of the
+                                  repository for updates. [default: enabled]
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="deploy-gradio">deploy gradio<a class="headerlink" href="#deploy-gradio" title="Permanent link">#</a></h2>
