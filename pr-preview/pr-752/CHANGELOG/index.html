@@ -15,7 +15,7 @@
       
       
       <link rel="icon" href="../images/favicon.ico">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
@@ -678,6 +678,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../commands/login/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    login
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/logout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    logout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../commands/remove/" class="md-nav__link">
         
   
@@ -861,7 +917,18 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Unreleased">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1290-2026-04-29" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [1.29.0] - 2026-04-29
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.29.0] - 2026-04-29">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2614,6 +2681,23 @@
 <p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>,
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">#</a></h2>
+<ul>
+<li><code>pyproject.toml</code> can now be supplied via <code>--requirements-file</code> for deploy and
+  write-manifest.</li>
+<li>Perform case insensitive matching of the configured Snowflake connection authenticator.</li>
+<li>New <code>login</code> and <code>logout</code> subcommands for authenticating to Connect via OAuth.</li>
+<li>Servers can now be marked as the default with <code>rsconnect add --set-default</code>.
+  When neither <code>-n/--name</code> nor <code>-s/--server</code> is provided, the default server is
+  used automatically. <code>rsconnect login</code> sets the server as default unless
+  <code>--no-set-default</code> is passed. <code>CONNECT_SERVER</code> still takes precedence.</li>
+</ul>
+<h2 id="1290-2026-04-29">[1.29.0] - 2026-04-29<a class="headerlink" href="#1290-2026-04-29" title="Permanent link">#</a></h2>
+<ul>
+<li>Added <code>rsconnect deploy nodejs</code> command for deploying Node.js applications
+  (Express, Fastify, etc.) to Posit Connect. Supports JavaScript and TypeScript
+  entry points with auto-detection from package.json. Requires Posit Connect with
+  Node.js runtime enabled.</li>
+</ul>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">#</a></h3>
 <ul>
 <li>Added <code>rsconnect deploy git</code> command to create a <a href="https://docs.posit.co/connect/user/git-backed/">git-backed deployment</a>.
@@ -2628,8 +2712,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Bundle uploads now include git metadata (source, source_repo, source_branch, source_commit)
   when deploying from a git repository. This metadata is automatically detected and sent to
   Posit Connect 2025.12.0 or later. Use <code>--metadata key=value</code> to provide additional metadata
-  or override detected values. Use <code>--no-metadata</code> to disable automatic detection. (#736)
-  supply an explicit requirements file instead of detecting the environment.</li>
+  or override detected values. Use <code>--no-metadata</code> to disable automatic detection. (#736)</li>
 </ul>
 <h2 id="1282-2025-12-05">[1.28.2] - 2025-12-05<a class="headerlink" href="#1282-2025-12-05" title="Permanent link">#</a></h2>
 <h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">#</a></h3>

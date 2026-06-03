@@ -9,10 +9,10 @@
       
       
       
-        <link rel="prev" href="../info/">
+        <link rel="prev" href="../list/">
       
       
-        <link rel="next" href="../login/">
+        <link rel="next" href="../logout/">
       
       
         
@@ -23,7 +23,7 @@
     
     
       
-        <title>list - rsconnect-python</title>
+        <title>login - rsconnect-python</title>
       
     
     
@@ -115,7 +115,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#list" class="md-skip">
+        <a href="#login" class="md-skip">
           Skip to content
         </a>
       
@@ -147,7 +147,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              list
+              login
             
           </span>
         </div>
@@ -651,6 +651,34 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../list/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    list
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -670,35 +698,6 @@
   <span class="md-ellipsis">
     
   
-    list
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../login/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
     login
   
 
@@ -708,6 +707,7 @@
   
 
       </a>
+      
     </li>
   
 
@@ -931,15 +931,23 @@
 
 
 
-<h1 id="list">list<a class="headerlink" href="#list" title="Permanent link">#</a></h1>
-<p>Show the stored information about each known server nickname.</p>
+<h1 id="login">login<a class="headerlink" href="#login" title="Permanent link">#</a></h1>
+<p>Authenticate with a Posit Connect server using OAuth 2.1. This opens a browser for interactive login (or uses --use-device-code for headless environments). Tokens are stored in the system keyring when available, with fallback to the local credential store.</p>
 <p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>list [OPTIONS]
+<div class="highlight"><pre><span></span><code>login [OPTIONS]
 </code></pre></div>
 <p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  -v, --verbose  Enable verbose output. Use -vv for very verbose (debug)
-                 output.
-  --help         Show this message and exit.
+<div class="highlight"><pre><span></span><code>  -s, --server TEXT  The URL of the Posit Connect server.  [required]
+  -n, --name TEXT    Nickname for the server (defaults to server hostname).
+  -i, --insecure     Disable TLS certificate verification.
+  -c, --cacert FILE  Path to a trusted CA certificate file for TLS.
+  --use-device-code  Use device code flow for headless/non-interactive
+                     environments.
+  --client-id TEXT   OAuth client ID (skips Dynamic Client Registration).
+  --no-set-default   Do not mark this server as the default after login.
+  -v, --verbose      Enable verbose output. Use -vv for very verbose (debug)
+                     output.
+  --help             Show this message and exit.
 </code></pre></div>
 
 
@@ -979,7 +987,7 @@
           
             
 
-            <a href="../info/" class="md-footer__link md-footer__link--prev" rel="prev">
+            <a href="../list/" class="md-footer__link md-footer__link--prev" rel="prev">
               <div class="md-footer__button md-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
               </div>
@@ -988,7 +996,7 @@
                   <span class="md-footer__direction">
                     Previous
                   </span>
-                  info
+                  list
                 </div>
               </div>
             </a>
@@ -1001,13 +1009,13 @@
           
             
 
-            <a href="../login/" class="md-footer__link md-footer__link--next" rel="next">
+            <a href="../logout/" class="md-footer__link md-footer__link--next" rel="next">
               <div class="md-footer__title">
                 <div class="md-ellipsis">
                   <span class="md-footer__direction">
                     Next
                   </span>
-                  login
+                  logout
                 </div>
               </div>
               <div class="md-footer__button md-icon">
