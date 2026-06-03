@@ -2144,7 +2144,7 @@ def deploy_pyproject(
     help=(
         "Deploy content to Posit Connect directly from a remote Git repository. "
         "The repository must contain a manifest.json file (in the root or specified subdirectory). "
-        "Connect will periodically check for updates and redeploy automatically when commits are pushed."
+        "Connect will regularly poll the repository for updates."
         "\n\n"
         "This command creates a new git-backed content item. To update an existing git-backed "
         "content item, use the --app-id option with the content's GUID."
@@ -2163,7 +2163,7 @@ def deploy_pyproject(
     "--branch",
     "-b",
     default="main",
-    help="Branch to deploy from. Connect auto-deploys when commits are pushed. [default: main]",
+    help="Branch to deploy from. [default: main]",
 )
 @click.option(
     "--subdirectory",
@@ -2174,7 +2174,7 @@ def deploy_pyproject(
 @click.option(
     "--polling/--no-polling",
     default=True,
-    help="Enable/disable automatic redeployment when commits are pushed to the repository. [default: enabled]",
+    help="Enable/disable regular polling of the repository for updates. [default: enabled]",
 )
 @cli_exception_handler
 @click.pass_context

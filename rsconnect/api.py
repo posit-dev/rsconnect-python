@@ -763,8 +763,6 @@ class RSConnectClient(HTTPServer):
     def get_repository(self, content_guid: str) -> Optional[RepositoryInfo]:
         """Get git repository configuration for a content item.
 
-        GET /v1/content/{guid}/repository
-
         :param content_guid: The GUID of the content item
         :return: Repository configuration if git-managed, None otherwise
         """
@@ -786,13 +784,11 @@ class RSConnectClient(HTTPServer):
     ) -> RepositoryInfo:
         """Create or overwrite git repository configuration for a content item.
 
-        PUT /v1/content/{guid}/repository
-
         :param content_guid: The GUID of the content item
         :param repository: URL of the git repository (https:// only)
         :param branch: Branch to deploy from (default: main)
         :param directory: Directory containing manifest.json (default: .)
-        :param polling: Enable auto-redeploy when commits are pushed (default: True)
+        :param polling: Whether the git repository should be regularly polled (default: True)
         :return: The repository configuration
         """
         body = {
@@ -818,15 +814,13 @@ class RSConnectClient(HTTPServer):
     ) -> RepositoryInfo:
         """Partially update git repository configuration for a content item.
 
-        PATCH /v1/content/{guid}/repository
-
         Only fields that are provided will be updated.
 
         :param content_guid: The GUID of the content item
         :param repository: URL of the git repository (https:// only)
         :param branch: Branch to deploy from
         :param directory: Directory containing manifest.json
-        :param polling: Enable auto-redeploy when commits are pushed
+        :param polling: Whether the git repository should be regularly polled
         :return: The updated repository configuration
         """
         body: dict[str, str | bool] = {}
@@ -849,8 +843,6 @@ class RSConnectClient(HTTPServer):
     def delete_repository(self, content_guid: str) -> None:
         """Remove git repository configuration from a content item.
 
-        DELETE /v1/content/{guid}/repository
-
         :param content_guid: The GUID of the content item
         """
         response = self.delete("v1/content/%s/repository" % content_guid)
@@ -865,8 +857,6 @@ class RSConnectClient(HTTPServer):
         directory: Optional[str] = None,
     ) -> RepositoryBundleOutput:
         """Create a bundle from a git repository location.
-
-        POST /v1/content/{guid}/repository/bundle
 
         This triggers Connect to clone the repository and create a bundle.
         If the content item has existing git configuration, those values are used
@@ -908,7 +898,7 @@ class RSConnectClient(HTTPServer):
         """Deploy content from a git repository.
 
         Creates or updates a git-backed content item in Posit Connect. Connect will clone
-        the repository and automatically redeploy when commits are pushed (if polling is enabled).
+        the repository and regularly poll it for updates.
 
         :param app_id: Existing content ID/GUID to update, or None to create new content
         :param name: Name for the content item (used if creating new)
@@ -917,7 +907,7 @@ class RSConnectClient(HTTPServer):
         :param subdirectory: Subdirectory containing manifest.json
         :param title: Title for the content
         :param env_vars: Environment variables to set
-        :param polling: Enable auto-redeploy when commits are pushed (default: True)
+        :param polling: Whether the git repository should be regularly polled (default: True)
         :param activate: Whether to activate the deployment (False = draft mode)
         :return: Deployment result with task_id, app info, etc.
         """
@@ -1687,7 +1677,7 @@ class RSConnectExecutor:
         """Deploy content from a remote git repository.
 
         Creates a git-backed content item in Posit Connect. Connect will clone
-        the repository and automatically redeploy when commits are pushed.
+        the repository and regularly poll it for updates.
         """
         if not isinstance(self.client, RSConnectClient):
             raise RSConnectException(

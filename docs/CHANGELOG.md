@@ -66,6 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a server. The bundle is uploaded as-is and its existing `manifest.json`
   determines the content type and dependencies, making it easy to copy content
   from one server to another.
+- `rsconnect deploy git` command for creating a [git-backed deployment](https://docs.posit.co/connect/user/git-backed/).
+  Use `--branch` to specify a branch (default: main) and `--subdirectory` to deploy content from a subdirectory.
 
 ### Changed
 
@@ -103,8 +105,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `rsconnect deploy git` command to create a [git-backed deployment](https://docs.posit.co/connect/user/git-backed/).
-  Use `--branch` to specify a branch (default: main) and `--subdirectory` to deploy content from a subdirectory.
 - `rsconnect content get-lockfile` command allows fetching a lockfile with the
   dependencies installed by connect to run the deployed content
 - `rsconnect content venv` command recreates a local python environment
