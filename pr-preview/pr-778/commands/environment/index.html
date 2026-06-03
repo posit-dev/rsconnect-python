@@ -1153,11 +1153,22 @@
                                   The image selection strategy.
   --supervisor TEXT               Path to the per-image supervisor script.
   --python TEXT                   A Python installation as VERSION=PATH.
+                                  Example:
+                                  3.11.6=/opt/python/3.11.6/bin/python
   --quarto TEXT                   A Quarto installation as VERSION=PATH.
-  --r TEXT                        An R installation as VERSION=PATH.
+                                  Example:
+                                  1.4.555=/opt/quarto/1.4.555/bin/quarto
+  --r TEXT                        An R installation as VERSION=PATH. Example:
+                                  4.3.2=/opt/R/4.3.2/bin/R
   --tensorflow TEXT               A TensorFlow installation as VERSION=PATH.
+                                  Example: 2.14.0=/opt/tensorflow/2.14.0
   --mount TEXT                    A volume mount as comma-separated key=value
-                                  pairs (type,target required).
+                                  pairs. Required keys: type (nfs or pvc),
+                                  target. NFS example: type=nfs,nfs_host=nas.e
+                                  xample.com,nfs_export_path=/shared/data,targ
+                                  et=/mnt/data. PVC example:
+                                  type=pvc,pvc_name=my-
+                                  claim,target=/mnt/storage,read_only=true
   --allow-user STRIPPEDSTRING     A user GUID to grant access.
   --allow-group STRIPPEDSTRING    A group GUID to grant access.
   --clear-permissions             Remove all existing permissions.
@@ -1194,11 +1205,22 @@
                                   The image selection strategy.
   --supervisor TEXT               Path to the per-image supervisor script.
   --python TEXT                   A Python installation as VERSION=PATH.
+                                  Example:
+                                  3.11.6=/opt/python/3.11.6/bin/python
   --quarto TEXT                   A Quarto installation as VERSION=PATH.
-  --r TEXT                        An R installation as VERSION=PATH.
+                                  Example:
+                                  1.4.555=/opt/quarto/1.4.555/bin/quarto
+  --r TEXT                        An R installation as VERSION=PATH. Example:
+                                  4.3.2=/opt/R/4.3.2/bin/R
   --tensorflow TEXT               A TensorFlow installation as VERSION=PATH.
+                                  Example: 2.14.0=/opt/tensorflow/2.14.0
   --mount TEXT                    A volume mount as comma-separated key=value
-                                  pairs (type,target required).
+                                  pairs. Required keys: type (nfs or pvc),
+                                  target. NFS example: type=nfs,nfs_host=nas.e
+                                  xample.com,nfs_export_path=/shared/data,targ
+                                  et=/mnt/data. PVC example:
+                                  type=pvc,pvc_name=my-
+                                  claim,target=/mnt/storage,read_only=true
   --allow-user STRIPPEDSTRING     A user GUID to grant access.
   --allow-group STRIPPEDSTRING    A group GUID to grant access.
   --clear-permissions             Remove all existing permissions.
