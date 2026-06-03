@@ -789,6 +789,74 @@ class RSConnectClientDeployGitTestCase(TestCase):
 
         self.assertEqual(result["app_guid"], "abc-123")
 
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_git_with_draft_mode(self):
+        """Test that deploy_git passes activate=False when draft mode requested."""
+        server = RSConnectServer("http://test-server", "api_key")
+        client = RSConnectClient(server)
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://test-server/__api__/v1/content",
+            body=json.dumps({
+                "id": 123,
+                "guid": "abc-123",
+                "name": "test-app",
+                "title": None,
+                "content_url": "http://test-server/content/abc-123/",
+                "dashboard_url": "http://test-server/connect/#/apps/abc-123",
+            }),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/content/abc-123/repository",
+            status=404,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        httpretty.register_uri(
+            httpretty.PUT,
+            "http://test-server/__api__/v1/content/abc-123/repository",
+            body=json.dumps({
+                "repository": "https://github.com/user/repo",
+                "branch": "main",
+                "directory": ".",
+                "polling": True,
+                "last_error": "",
+                "last_known_commit": "",
+            }),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        def check_activate_false(request, uri, response_headers):
+            body = json.loads(request.body)
+            assert body.get("activate") is False, "Expected activate=False in request body"
+            return [200, response_headers, json.dumps({"task_id": "task-draft"})]
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://test-server/__api__/v1/content/abc-123/deploy",
+            body=check_activate_false,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        result = client.deploy_git(
+            app_id=None,
+            name="test-app",
+            repository="https://github.com/user/repo",
+            branch="main",
+            subdirectory="",
+            title=None,
+            env_vars=None,
+            activate=False,
+        )
+
+        self.assertEqual(result["task_id"], "task-draft")
+
 
 class RSConnectClientRepositoryTestCase(TestCase):
     """Tests for RSConnectClient repository management methods."""

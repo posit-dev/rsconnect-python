@@ -1796,6 +1796,23 @@ class TestDeployGit(TestCase):
         assert result.exit_code != 0
         assert "Missing option" in result.output or "required" in result.output.lower()
 
+    def test_deploy_git_rejects_new_and_app_id_together(self):
+        """Test that --new and --app-id are mutually exclusive."""
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "deploy", "git",
+                "-s", "http://example.com",
+                "-k", "key",
+                "--repository", "https://github.com/user/repo",
+                "--new",
+                "--app-id", "some-guid",
+            ],
+        )
+        assert result.exit_code != 0
+        assert "mutually exclusive" in result.output.lower()
+
 
 class TestGenerateGitTitle:
     """Tests for _generate_git_title helper function."""

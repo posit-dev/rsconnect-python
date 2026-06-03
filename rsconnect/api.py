@@ -903,6 +903,7 @@ class RSConnectClient(HTTPServer):
         title: Optional[str],
         env_vars: Optional[dict[str, str]],
         polling: bool = True,
+        activate: bool = True,
     ) -> RSConnectClientDeployResult:
         """Deploy content from a git repository.
 
@@ -917,6 +918,7 @@ class RSConnectClient(HTTPServer):
         :param title: Title for the content
         :param env_vars: Environment variables to set
         :param polling: Enable auto-redeploy when commits are pushed (default: True)
+        :param activate: Whether to activate the deployment (False = draft mode)
         :return: Deployment result with task_id, app info, etc.
         """
         # Create or get existing content
@@ -967,7 +969,7 @@ class RSConnectClient(HTTPServer):
             self._server.handle_bad_response(result)
 
         # Trigger deployment (bundle_id=None uses the latest bundle from git clone)
-        task = self.content_deploy(app_guid, bundle_id=None)
+        task = self.content_deploy(app_guid, bundle_id=None, activate=activate)
 
         return RSConnectClientDeployResult(
             app_id=str(app["id"]),
@@ -1681,7 +1683,7 @@ class RSConnectExecutor:
             return self
 
     @cls_logged("Creating git-backed deployment ...")
-    def deploy_git(self):
+    def deploy_git(self, activate: bool = True):
         """Deploy content from a remote git repository.
 
         Creates a git-backed content item in Posit Connect. Connect will clone
@@ -1710,6 +1712,7 @@ class RSConnectExecutor:
                 title=self.title,
                 env_vars=self.env_vars,
                 polling=self.polling,
+                activate=activate,
             )
         except RSConnectException as e:
             # Check for 404 on /repo endpoint (git not enabled)

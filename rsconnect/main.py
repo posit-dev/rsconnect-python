@@ -2203,6 +2203,9 @@ def deploy_git(
     set_verbosity(verbose)
     output_params(ctx, locals().items())
 
+    if new and app_id:
+        raise RSConnectException("The --new and --app-id options are mutually exclusive.")
+
     # Generate title if not provided
     if not title:
         title = _generate_git_title(repository, subdirectory)
@@ -2225,7 +2228,7 @@ def deploy_git(
         polling=polling,
     )
 
-    ce.validate_server().deploy_git().emit_task_log()
+    ce.validate_server().deploy_git(activate=not draft).emit_task_log()
 
     if not no_verify:
         ce.verify_deployment()
