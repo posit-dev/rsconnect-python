@@ -622,6 +622,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../commands/environment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../commands/info/" class="md-nav__link">
         
   
@@ -2714,7 +2742,12 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
   write-manifest.</li>
 <li>Perform case insensitive matching of the configured Snowflake connection authenticator.</li>
 <li>New <code>login</code> and <code>logout</code> subcommands for authenticating to Connect via OAuth.</li>
-<li>New <code>integration</code> subcommands for managing OAuth integrations.</li>
+<li>Servers can now be marked as the default with <code>rsconnect add --set-default</code>.
+  When neither <code>-n/--name</code> nor <code>-s/--server</code> is provided, the default server is
+  used automatically. <code>rsconnect login</code> sets the server as default unless
+  <code>--no-set-default</code> is passed. <code>CONNECT_SERVER</code> still takes precedence.</li>
+<li>New <code>environment</code> subcommand for managing execution environments on Connect.</li>
+<li>New <code>integration</code> subcommand for managing OAuth integrations on Connect.</li>
 </ul>
 <h2 id="1290-2026-04-29">[1.29.0] - 2026-04-29<a class="headerlink" href="#1290-2026-04-29" title="Permanent link">#</a></h2>
 <ul>

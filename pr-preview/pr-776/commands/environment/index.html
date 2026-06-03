@@ -9,10 +9,10 @@
       
       
       
-        <link rel="prev" href="../environment/">
+        <link rel="prev" href="../details/">
       
       
-        <link rel="next" href="../integration/">
+        <link rel="next" href="../info/">
       
       
         
@@ -23,7 +23,7 @@
     
     
       
-        <title>info - rsconnect-python</title>
+        <title>environment - rsconnect-python</title>
       
     
     
@@ -115,7 +115,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#info" class="md-skip">
+        <a href="#environment" class="md-skip">
           Skip to content
         </a>
       
@@ -147,7 +147,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              info
+              environment
             
           </span>
         </div>
@@ -623,10 +623,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../environment/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    environment
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -642,6 +669,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#environment-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-edit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        edit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-remove" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        remove
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-show" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        show
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -651,19 +753,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../info/" class="md-nav__link">
         
   
   
@@ -679,7 +772,6 @@
   
 
       </a>
-      
     </li>
   
 
@@ -972,6 +1064,69 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#environment-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-edit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        edit
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-remove" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        remove
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-show" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        show
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -987,13 +1142,198 @@
 
 
 
-<h1 id="info">info<a class="headerlink" href="#info" title="Permanent link">#</a></h1>
-<p>Display information about a deployment. For any given file, information about its deployments are saved on a per-server basis.</p>
+<h1 id="environment">environment<a class="headerlink" href="#environment" title="Permanent link">#</a></h1>
+<p>Manage execution environments on Posit Connect.</p>
 <p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>info [OPTIONS] FILE
+<div class="highlight"><pre><span></span><code>environment [OPTIONS] COMMAND [ARGS]...
 </code></pre></div>
 <p><strong>Options:</strong></p>
 <div class="highlight"><pre><span></span><code>  --help  Show this message and exit.
+</code></pre></div>
+<h2 id="environment-add">environment add<a class="headerlink" href="#environment-add" title="Permanent link">#</a></h2>
+<p>Create a new execution environment.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight"><pre><span></span><code>environment add [OPTIONS] IMAGE
+</code></pre></div>
+<p><strong>Options:</strong></p>
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  -T, --title TEXT                A human-readable title for the environment.
+  -d, --description TEXT          A description for the environment.
+  -m, --matching [any|exact|none]
+                                  The image selection strategy.
+  --supervisor TEXT               Path to the per-image supervisor script.
+  --python TEXT                   A Python installation as VERSION=PATH.
+                                  Example:
+                                  3.11.6=/opt/python/3.11.6/bin/python
+  --quarto TEXT                   A Quarto installation as VERSION=PATH.
+                                  Example:
+                                  1.4.555=/opt/quarto/1.4.555/bin/quarto
+  --r TEXT                        An R installation as VERSION=PATH. Example:
+                                  4.3.2=/opt/R/4.3.2/bin/R
+  --tensorflow TEXT               A TensorFlow installation as VERSION=PATH.
+                                  Example: 2.14.0=/opt/tensorflow/2.14.0
+  --mount TEXT                    A volume mount as comma-separated key=value
+                                  pairs. Required keys: type (nfs or pvc),
+                                  target. NFS example: type=nfs,nfs_host=nas.e
+                                  xample.com,nfs_export_path=/shared/data,targ
+                                  et=/mnt/data. PVC example:
+                                  type=pvc,pvc_name=my-
+                                  claim,target=/mnt/storage,read_only=true
+  --allow-user STRIPPEDSTRING     A user GUID to grant access.
+  --allow-group STRIPPEDSTRING    A group GUID to grant access.
+  --clear-permissions             Remove all existing permissions.
+  --help                          Show this message and exit.
+</code></pre></div>
+<h2 id="environment-edit">environment edit<a class="headerlink" href="#environment-edit" title="Permanent link">#</a></h2>
+<p>Update an existing execution environment.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight"><pre><span></span><code>environment edit [OPTIONS] GUID
+</code></pre></div>
+<p><strong>Options:</strong></p>
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  -T, --title TEXT                A new title for the environment.
+  -d, --description TEXT          A new description for the environment.
+  -m, --matching [any|exact|none]
+                                  The image selection strategy.
+  --supervisor TEXT               Path to the per-image supervisor script.
+  --python TEXT                   A Python installation as VERSION=PATH.
+                                  Example:
+                                  3.11.6=/opt/python/3.11.6/bin/python
+  --quarto TEXT                   A Quarto installation as VERSION=PATH.
+                                  Example:
+                                  1.4.555=/opt/quarto/1.4.555/bin/quarto
+  --r TEXT                        An R installation as VERSION=PATH. Example:
+                                  4.3.2=/opt/R/4.3.2/bin/R
+  --tensorflow TEXT               A TensorFlow installation as VERSION=PATH.
+                                  Example: 2.14.0=/opt/tensorflow/2.14.0
+  --mount TEXT                    A volume mount as comma-separated key=value
+                                  pairs. Required keys: type (nfs or pvc),
+                                  target. NFS example: type=nfs,nfs_host=nas.e
+                                  xample.com,nfs_export_path=/shared/data,targ
+                                  et=/mnt/data. PVC example:
+                                  type=pvc,pvc_name=my-
+                                  claim,target=/mnt/storage,read_only=true
+  --allow-user STRIPPEDSTRING     A user GUID to grant access.
+  --allow-group STRIPPEDSTRING    A group GUID to grant access.
+  --clear-permissions             Remove all existing permissions.
+  --help                          Show this message and exit.
+</code></pre></div>
+<h2 id="environment-list">environment list<a class="headerlink" href="#environment-list" title="Permanent link">#</a></h2>
+<p>List execution environments.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight"><pre><span></span><code>environment list [OPTIONS]
+</code></pre></div>
+<p><strong>Options:</strong></p>
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  --help                          Show this message and exit.
+</code></pre></div>
+<h2 id="environment-remove">environment remove<a class="headerlink" href="#environment-remove" title="Permanent link">#</a></h2>
+<p>Delete an execution environment.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight"><pre><span></span><code>environment remove [OPTIONS] GUID
+</code></pre></div>
+<p><strong>Options:</strong></p>
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  --help                          Show this message and exit.
+</code></pre></div>
+<h2 id="environment-show">environment show<a class="headerlink" href="#environment-show" title="Permanent link">#</a></h2>
+<p>Show a single execution environment.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight"><pre><span></span><code>environment show [OPTIONS] GUID
+</code></pre></div>
+<p><strong>Options:</strong></p>
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  --help                          Show this message and exit.
 </code></pre></div>
 
 
@@ -1033,7 +1373,7 @@
           
             
 
-            <a href="../environment/" class="md-footer__link md-footer__link--prev" rel="prev">
+            <a href="../details/" class="md-footer__link md-footer__link--prev" rel="prev">
               <div class="md-footer__button md-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
               </div>
@@ -1042,7 +1382,7 @@
                   <span class="md-footer__direction">
                     Previous
                   </span>
-                  environment
+                  details
                 </div>
               </div>
             </a>
@@ -1055,13 +1395,13 @@
           
             
 
-            <a href="../integration/" class="md-footer__link md-footer__link--next" rel="next">
+            <a href="../info/" class="md-footer__link md-footer__link--next" rel="next">
               <div class="md-footer__title">
                 <div class="md-ellipsis">
                   <span class="md-footer__direction">
                     Next
                   </span>
-                  integration
+                  info
                 </div>
               </div>
               <div class="md-footer__button md-icon">

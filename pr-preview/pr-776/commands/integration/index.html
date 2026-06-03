@@ -626,6 +626,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../environment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../info/" class="md-nav__link">
         
   
@@ -1238,7 +1266,7 @@
 <h2 id="integration-edit">integration edit<a class="headerlink" href="#integration-edit" title="Permanent link">#</a></h2>
 <p>Update an existing OAuth integration.</p>
 <p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>integration edit [OPTIONS]
+<div class="highlight"><pre><span></span><code>integration edit [OPTIONS] GUID
 </code></pre></div>
 <p><strong>Options:</strong></p>
 <div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
@@ -1260,7 +1288,6 @@
   --snowflake-connection-name TEXT
                                   The name of the Snowflake connection in the
                                   configuration file
-  -g, --guid STRIPPEDSTRING       The GUID of the integration.  [required]
   -N, --integration-name TEXT     A new display name for the integration.
   -d, --description TEXT          A new description for the integration.
   -C, --config KEY=VALUE          A config field as key=value. Merges with
@@ -1299,7 +1326,7 @@
 <h2 id="integration-remove">integration remove<a class="headerlink" href="#integration-remove" title="Permanent link">#</a></h2>
 <p>Delete an OAuth integration.</p>
 <p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>integration remove [OPTIONS]
+<div class="highlight"><pre><span></span><code>integration remove [OPTIONS] GUID
 </code></pre></div>
 <p><strong>Options:</strong></p>
 <div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
@@ -1321,13 +1348,12 @@
   --snowflake-connection-name TEXT
                                   The name of the Snowflake connection in the
                                   configuration file
-  -g, --guid STRIPPEDSTRING       The GUID of the integration.  [required]
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="integration-show">integration show<a class="headerlink" href="#integration-show" title="Permanent link">#</a></h2>
 <p>Show a single OAuth integration.</p>
 <p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>integration show [OPTIONS]
+<div class="highlight"><pre><span></span><code>integration show [OPTIONS] GUID
 </code></pre></div>
 <p><strong>Options:</strong></p>
 <div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
@@ -1349,7 +1375,6 @@
   --snowflake-connection-name TEXT
                                   The name of the Snowflake connection in the
                                   configuration file
-  -g, --guid STRIPPEDSTRING       The GUID of the integration.  [required]
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="integration-templates">integration templates<a class="headerlink" href="#integration-templates" title="Permanent link">#</a></h2>
