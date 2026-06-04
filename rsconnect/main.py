@@ -1277,14 +1277,27 @@ def info(file: str):
     type=click.Choice(AppModes.cli_aliases()),
 )
 @click.argument("name", metavar="NAME")
+@click.option(
+    "--python",
+    "python_version",
+    default=None,
+    metavar="VERSION",
+    help=(
+        "Python version for 'requires-python' in the generated pyproject.toml. "
+        "A bare 'major.minor' like '3.10' means any 3.10.x; a full '3.11.14' is "
+        "exact; pass an operator for full control (e.g. '>=3.11' or "
+        "'>=3.11,<3.14'). Defaults to '>=<major.minor>' of the interpreter "
+        "running rsconnect."
+    ),
+)
 @cli_exception_handler
-def quickstart(app_type: str, name: str):
+def quickstart(app_type: str, name: str, python_version: Optional[str]):
     # Resolve ``run_quickstart`` through the module at call time so tests can
     # monkeypatch ``rsconnect.quickstart.quickstart.run_quickstart`` without
     # binding a stale reference into ``main``'s namespace at import time.
     from .quickstart.quickstart import run_quickstart
 
-    run_quickstart(app_type=app_type, name=name)
+    run_quickstart(app_type=app_type, name=name, python_version=python_version)
 
 
 @cli.group(no_args_is_help=True, help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io.")

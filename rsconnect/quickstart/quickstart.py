@@ -50,6 +50,7 @@ def run_quickstart(
     app_type: str,
     name: str,
     *,
+    python_version: typing.Optional[str] = None,
     cwd: typing.Optional[pathlib.Path] = None,
 ) -> pathlib.Path:
     """Scaffold a new Connect project of ``app_type`` named ``name``.
@@ -61,6 +62,12 @@ def run_quickstart(
 
     :param str app_type: one of the supported CLI types.
     :param str name: project name; must satisfy the project-name rule above.
+    :param str python_version: optional ``requires-python`` control. A value
+        that begins with a specifier operator (e.g. ``>=3.11`` or
+        ``>=3.11,<3.14``) is used verbatim. A bare version is padded to at
+        most three segments: ``3.10`` -> ``==3.10.*`` (any 3.10.x) and
+        ``3.11.14`` -> ``==3.11.14`` (exact). Defaults to ``>=<major.minor>``
+        of the interpreter running ``rsconnect``.
     :param pathlib.Path cwd: override the working directory (testing hook);
         defaults to :func:`pathlib.Path.cwd`.
     """
@@ -82,13 +89,26 @@ def run_quickstart(
     # for direct API callers only.
     spec = lookup_template(app_type)
 
+    # ``--python`` controls ``requires-python``. A value that already starts
+    # with a specifier operator (``>=3.11``, ``>=3.11,<3.14``, ...) is used
+    # verbatim. A bare version is padded to at most three segments so the
+    # ``.*`` wildcard appears only when a patch level is omitted: ``3.10`` ->
+    # ``==3.10.*`` (any 3.10.x), ``3.11.14`` -> ``==3.11.14`` (exact).
+    # Without ``--python`` we track the running interpreter's ``major.minor``.
+    if python_version is None:
+        requires_python = _REQUIRES_PYTHON
+    elif python_version[:1] in {"=", "<", ">", "!", "~"}:
+        requires_python = python_version
+    else:
+        requires_python = "==" + ".".join((python_version.split(".") + ["*"])[:3])
+
     # Atomicity: after ``mkdir`` succeeds, any failure in the rest of the
     # pipeline must remove ``./<name>/`` so the user sees "all or nothing."
     # ``BaseException`` catches ``KeyboardInterrupt`` too (a Ctrl-C
     # mid-``uv sync`` is the most likely real-world failure mode).
     target.mkdir()
     try:
-        _scaffold(target, name=name, spec=spec)
+        _scaffold(target, name=name, spec=spec, requires_python=requires_python)
         _install_venv(target)
     except BaseException:
         shutil.rmtree(target, ignore_errors=True)
@@ -335,7 +355,7 @@ def lookup_template(app_type: str) -> TemplateSpec:
 # ---------------------------------------------------------------------------
 
 
-def _scaffold(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> None:
+def _scaffold(target: pathlib.Path, *, name: str, spec: TemplateSpec, requires_python: str) -> None:
     """Write every file the scaffolded project should contain.
 
     Filesystem-generation phase: the three always-present files
@@ -344,7 +364,9 @@ def _scaffold(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> None:
     ``target``'s creation and rollback, so this helper writes into an
     existing directory.
     """
-    (target / "pyproject.toml").write_text(_render_pyproject(name=name, spec=spec), encoding="utf-8")
+    (target / "pyproject.toml").write_text(
+        _render_pyproject(name=name, spec=spec, requires_python=requires_python), encoding="utf-8"
+    )
     (target / ".gitignore").write_text(_GITIGNORE_BODY, encoding="utf-8")
     (target / "README.md").write_text(_render_readme(name=name, spec=spec), encoding="utf-8")
     for file_spec in spec.source_files:
@@ -389,13 +411,13 @@ rsconnect-python/
 """
 
 
-def _render_pyproject(*, name: str, spec: TemplateSpec) -> str:
+def _render_pyproject(*, name: str, spec: TemplateSpec, requires_python: str) -> str:
     # The per-mode template owns the literal TOML, including ``app_mode``,
     # ``entrypoint`` and the dependency list. Only ``$name`` (project name)
-    # and ``$requires_python`` (computed from the running interpreter) vary
-    # at scaffold time.
+    # and ``$requires_python`` (from ``--python`` or the running interpreter)
+    # vary at scaffold time.
     return string.Template(_load_template(spec.pyproject_template)).substitute(
-        name=name, requires_python=_REQUIRES_PYTHON
+        name=name, requires_python=requires_python
     )
 
 
@@ -450,14 +472,15 @@ def _install_venv(target: pathlib.Path) -> None:
 
 
 def _emit_summary(target: pathlib.Path, *, name: str, spec: TemplateSpec) -> None:
-    """Print the confirmation, local-run, deploy, and notes lines.
+    """Print the confirmation, cd, local-run, deploy, and notes lines.
 
     Uses :func:`click.echo` for consistency with the rest of the CLI; the
     same commands are written into the project's ``README.md`` by
     :func:`_render_readme` so stdout and on-disk docs agree.
     """
-    click.echo(f"Project {target.name}/ created.")
+    click.echo(f"\nProject {target.name}/ created.")
+    click.echo(f"To get started:  cd {name}")
     click.echo(f"To run locally:  {_format_local_run(spec, name=name)}")
-    click.echo(f"To deploy:       rsconnect deploy pyproject {name}")
+    click.echo("To deploy:       rsconnect deploy pyproject .")
     for note in spec.notes:
         click.echo(f"Note: {note}")

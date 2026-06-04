@@ -125,15 +125,19 @@ def test_quickstart_quarto_shiny_not_supported(runner: CliRunner, in_tmp_cwd: pa
     [
         (
             ["streamlit", "hello_app"],
-            {"app_type": "streamlit", "name": "hello_app"},
+            {"app_type": "streamlit", "name": "hello_app", "python_version": None},
         ),
         (
             ["notebook", "hello_notebook"],
-            {"app_type": "notebook", "name": "hello_notebook"},
+            {"app_type": "notebook", "name": "hello_notebook", "python_version": None},
         ),
         (
             ["quarto-shiny", "hello_quarto"],
-            {"app_type": "quarto-shiny", "name": "hello_quarto"},
+            {"app_type": "quarto-shiny", "name": "hello_quarto", "python_version": None},
+        ),
+        (
+            ["streamlit", "hello_app", "--python", ">=3.11"],
+            {"app_type": "streamlit", "name": "hello_app", "python_version": ">=3.11"},
         ),
     ],
 )
@@ -307,6 +311,50 @@ def test_quickstart_does_not_duplicate_deps_in_tool_rsconnect(runner: CliRunner,
     assert "requires-python" not in tool_rsconnect
     assert "requires_python" not in tool_rsconnect
     assert set(tool_rsconnect.keys()) == {"app_mode", "entrypoint", "title", "requirements_file"}
+
+
+def test_quickstart_python_option_sets_requires_python(
+    runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """``--python`` overrides the detected interpreter version in ``requires-python``."""
+    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", lambda target: None)
+    result = _invoke_quickstart(runner, "streamlit", "--python", ">=3.10", "hello_app")
+    assert result.exit_code == 0, result.output
+    data = _read_pyproject(in_tmp_cwd / "hello_app")
+    assert data["project"]["requires-python"] == ">=3.10"
+
+
+def test_quickstart_python_option_used_verbatim(
+    runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """A value starting with an operator (incl. a range) passes through unchanged."""
+    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", lambda target: None)
+    result = _invoke_quickstart(runner, "streamlit", "--python", ">=3.11,<3.14", "hello_app")
+    assert result.exit_code == 0, result.output
+    data = _read_pyproject(in_tmp_cwd / "hello_app")
+    assert data["project"]["requires-python"] == ">=3.11,<3.14"
+
+
+def test_quickstart_python_option_bare_version_means_any_patch(
+    runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """A bare ``major.minor`` becomes ``==3.10.*`` so any 3.10.x satisfies it."""
+    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", lambda target: None)
+    result = _invoke_quickstart(runner, "streamlit", "--python", "3.10", "hello_app")
+    assert result.exit_code == 0, result.output
+    data = _read_pyproject(in_tmp_cwd / "hello_app")
+    assert data["project"]["requires-python"] == "==3.10.*"
+
+
+def test_quickstart_python_option_full_version_is_exact(
+    runner: CliRunner, in_tmp_cwd: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """A full ``major.minor.patch`` becomes ``==3.11.14`` (exact, no trailing ``.*``)."""
+    monkeypatch.setattr("rsconnect.quickstart.quickstart._install_venv", lambda target: None)
+    result = _invoke_quickstart(runner, "streamlit", "--python", "3.11.14", "hello_app")
+    assert result.exit_code == 0, result.output
+    data = _read_pyproject(in_tmp_cwd / "hello_app")
+    assert data["project"]["requires-python"] == "==3.11.14"
 
 
 # ---------------------------------------------------------------------------
@@ -625,8 +673,9 @@ def test_quickstart_post_scaffold_output(
     lines = [line for line in result.output.splitlines() if line.strip()]
     expected = [
         "Project hello_app/ created.",
+        "To get started:  cd hello_app",
         f"To run locally:  {local_run}",
-        "To deploy:       rsconnect deploy pyproject hello_app",
+        "To deploy:       rsconnect deploy pyproject .",
         *extra_lines,
     ]
     assert lines == expected, result.output
@@ -638,7 +687,7 @@ def test_quickstart_readme_matches_post_scaffold_output(runner: CliRunner, in_tm
     readme = (in_tmp_cwd / "hello_app" / "README.md").read_text()
     # The README and stdout agree on the two commands the user needs.
     assert "uv run streamlit run app.py" in readme
-    assert "rsconnect deploy pyproject hello_app" in readme
+    assert "rsconnect deploy pyproject ." in readme
 
 
 def test_quickstart_quarto_readme_includes_install_note(runner: CliRunner, in_tmp_cwd: pathlib.Path):
