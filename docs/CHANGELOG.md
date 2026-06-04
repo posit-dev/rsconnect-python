@@ -17,6 +17,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--no-set-default` is passed. `CONNECT_SERVER` still takes precedence.
 - New `environment` subcommand for managing execution environments on Connect.
 
+### Added
+
+- `rsconnect quickstart` command for scaffolding a new Connect-ready project.
+  Supported types: `streamlit`, `shiny`, `fastapi`, `api`, `flask`, `notebook`,
+  `voila`, `quarto`. Creates a uv-managed virtualenv and prints
+  the local-run and deploy commands.
+- `rsconnect deploy pyproject` command for deploying a project described by
+  `pyproject.toml` with a `[tool.rsconnect]` table containing `app_mode` and
+  `entrypoint`. Designed as the deploy partner for projects scaffolded by
+  `rsconnect quickstart` but works with any conforming `pyproject.toml`.
+
+### Changed
+
+- Bumped the `click` dependency floor to `>=8.2.0`. The newer `click.Choice`
+  generic support is used by `rsconnect quickstart` to validate the project
+  type argument.
+- Added `uv>=0.9.0` as a runtime dependency. `rsconnect quickstart` invokes
+  `uv venv` and `uv sync` to populate the scaffolded project's virtualenv.
+  `uv` installs as a self-contained wheel from PyPI alongside `rsconnect`.
+
 ## [1.29.0] - 2026-04-29
 
 - Added `rsconnect deploy nodejs` command for deploying Node.js applications

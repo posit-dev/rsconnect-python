@@ -57,6 +57,7 @@ from .environment_node import NodeEnvironment
 from .exception import RSConnectException
 from .log import VERBOSE, logger
 from .models import AppMode, AppModes, GlobSet
+from .shiny_express import escape_to_var_name, is_express_app
 
 if TYPE_CHECKING:
     from .actions import QuartoInspectResult
@@ -1182,8 +1183,12 @@ def infer_entrypoint_candidates(path: str, mimetype: str) -> list[str]:
 def guess_deploy_dir(path: str | Path, entrypoint: Optional[str]) -> str:
     if path and not exists(path):
         raise RSConnectException(f"Path {path} does not exist.")
+    # The entrypoint is a bare basename meant to be resolved relative to ``path``
+    # (the later logic does ``join(abs_path, basename(entrypoint))``). Accept it
+    # when it exists relative to the CWD or inside ``path``; only reject when neither.
     if entrypoint and not exists(entrypoint):
-        raise RSConnectException(f"Entrypoint {entrypoint} does not exist.")
+        if not (path and isfile(os.path.join(abspath(path), basename(entrypoint)))):
+            raise RSConnectException(f"Entrypoint {entrypoint} does not exist.")
     abs_path = abspath(path)
     abs_entrypoint = abspath(entrypoint) if entrypoint else None
     if not path and not entrypoint:
@@ -1222,6 +1227,26 @@ def guess_deploy_dir(path: str | Path, entrypoint: Optional[str]) -> str:
     else:
         deploy_dir = abs_path
     return deploy_dir
+
+
+def resolve_shiny_express_entrypoint(entrypoint: str, directory: str) -> str:
+    """Rewrite a Shiny entrypoint to its Shiny Express module form when needed.
+
+    Connect runs Shiny Express apps through the ``shiny.express.app:<var>``
+    module rather than a plain file, so both ``deploy shiny`` and
+    ``deploy pyproject`` must apply this rewrite to deploy a working app.
+
+    Accepts a bare module name (``"app"``) or a filename (``"app.py"``).
+    Returns the ``shiny.express.app:<escaped>`` form when the app file is a
+    Shiny Express app, otherwise returns ``entrypoint`` unchanged.
+
+    :param str entrypoint: the configured entrypoint, with or without ``.py``.
+    :param str directory: directory containing the app file.
+    """
+    app_file = entrypoint if entrypoint.lower().endswith(".py") else entrypoint + ".py"
+    if is_express_app(app_file, directory):
+        return "shiny.express.app:" + escape_to_var_name(app_file)
+    return entrypoint
 
 
 def abs_entrypoint(path: str | Path, entrypoint: str) -> str | None:

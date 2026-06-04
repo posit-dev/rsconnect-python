@@ -35,11 +35,13 @@ from rsconnect.bundle import (
     make_tensorflow_bundle,
     make_tensorflow_manifest,
     make_voila_bundle,
+    resolve_shiny_express_entrypoint,
     to_bytes,
     validate_entry_point,
     validate_extra_files,
     validate_node_entry_point,
 )
+from rsconnect.shiny_express import escape_to_var_name
 from rsconnect.environment_node import NodeEnvironment
 from rsconnect.environment import Environment, PackageInstaller
 from rsconnect.exception import RSConnectException
@@ -1299,6 +1301,17 @@ class Test_guess_deploy_dir(TestCase):
         self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_ipynb, None))
         self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_ipynb, bqplot_ipynb))
         self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_dir, bqplot_ipynb))
+
+    def test_guess_deploy_dir_bare_entrypoint_relative_to_path(self):
+        # A bare entrypoint basename that exists inside ``path`` but not in the
+        # CWD must be accepted (deploy pyproject/voila run from outside the
+        # project pass ``notebook.ipynb`` resolved relative to the directory).
+        bare_entrypoint = basename(bqplot_ipynb)
+        assert not os.path.exists(bare_entrypoint)
+        self.assertEqual(abspath(bqplot_dir), guess_deploy_dir(bqplot_dir, bare_entrypoint))
+        # A bare entrypoint that exists in neither location is still rejected.
+        with self.assertRaises(RSConnectException):
+            guess_deploy_dir(bqplot_dir, "does_not_exist.ipynb")
 
 
 @pytest.mark.parametrize(
@@ -3214,3 +3227,21 @@ class TestNodeJSTypeScriptBundle:
     def test_ts_entrypoint_detection(self):
         ep = get_default_node_entrypoint(_NODE_TS_EXPRESS_DIR)
         assert ep == "app.ts"
+
+
+def test_resolve_shiny_express_entrypoint_bare_name(tmp_path):
+    (tmp_path / "app.py").write_text("from shiny.express import ui\n")
+    resolved = resolve_shiny_express_entrypoint("app", str(tmp_path))
+    assert resolved == "shiny.express.app:" + escape_to_var_name("app.py")
+
+
+def test_resolve_shiny_express_entrypoint_normalizes_py_extension(tmp_path):
+    (tmp_path / "app.py").write_text("from shiny.express import ui\n")
+    assert resolve_shiny_express_entrypoint("app.py", str(tmp_path)) == resolve_shiny_express_entrypoint(
+        "app", str(tmp_path)
+    )
+
+
+def test_resolve_shiny_express_entrypoint_non_express_unchanged(tmp_path):
+    (tmp_path / "app.py").write_text("from shiny import App\n")
+    assert resolve_shiny_express_entrypoint("app.py", str(tmp_path)) == "app.py"

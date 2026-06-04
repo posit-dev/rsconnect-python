@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 from functools import wraps
 from os.path import abspath, dirname, exists, isdir, join
+from pathlib import Path
 from typing import (
     Any,
     Callable,
@@ -90,6 +91,7 @@ from .bundle import (
     make_tensorflow_bundle,
     make_voila_bundle,
     read_manifest_app_mode,
+    resolve_shiny_express_entrypoint,
     validate_entry_point,
     validate_extra_files,
     validate_file_is_notebook,
@@ -125,8 +127,8 @@ from .models import (
     VersionSearchFilter,
     VersionSearchFilterParamType,
 )
+from .pyproject import InvalidPyprojectConfigError, TOMLDecodeError, read_tool_rsconnect
 from .environment import PackageInstaller
-from .shiny_express import escape_to_var_name, is_express_app
 from .utils_package import fix_starlette_requirements
 
 T = TypeVar("T")
@@ -1253,6 +1255,51 @@ def info(file: str):
             click.echo("No saved deployment information was found for %s." % file)
 
 
+@cli.command(
+    name="quickstart",
+    short_help="Scaffold a deployable Posit Connect project.",
+    help=(
+        "Create a new Posit Connect project of the given TYPE in ./<name>/. "
+        "Supported TYPE values: streamlit, shiny, fastapi, api, flask, "
+        "notebook, voila, quarto. Writes a pyproject.toml "
+        "with a [tool.rsconnect] section, creates a uv-managed virtualenv, "
+        "and prints the local-run and deploy commands."
+    ),
+    no_args_is_help=True,
+)
+@click.argument(
+    "app_type",
+    metavar="TYPE",
+    # Click accepts the full CLI alias vocabulary; ``run_quickstart``
+    # rejects aliases that map to a mode without a scaffold template with
+    # a distinct "not yet supported" error, matching the deploy CLI's
+    # vocabulary.
+    type=click.Choice(AppModes.cli_aliases()),
+)
+@click.argument("name", metavar="NAME")
+@click.option(
+    "--python",
+    "python_version",
+    default=None,
+    metavar="VERSION",
+    help=(
+        "Python version for 'requires-python' in the generated pyproject.toml. "
+        "A bare 'major.minor' like '3.10' means any 3.10.x; a full '3.11.14' is "
+        "exact; pass an operator for full control (e.g. '>=3.11' or "
+        "'>=3.11,<3.14'). Defaults to '>=<major.minor>' of the interpreter "
+        "running rsconnect."
+    ),
+)
+@cli_exception_handler
+def quickstart(app_type: str, name: str, python_version: Optional[str]):
+    # Resolve ``run_quickstart`` through the module at call time so tests can
+    # monkeypatch ``rsconnect.quickstart.quickstart.run_quickstart`` without
+    # binding a stale reference into ``main``'s namespace at import time.
+    from .quickstart.quickstart import run_quickstart
+
+    run_quickstart(app_type=app_type, name=name, python_version=python_version)
+
+
 @cli.group(no_args_is_help=True, help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io.")
 def deploy():
     pass
@@ -1717,6 +1764,195 @@ def deploy_manifest(
         ce.verify_deployment()
 
 
+@deploy.command(
+    name="pyproject",
+    short_help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io by pyproject.",
+    help=(
+        "Deploy content described by a project's pyproject.toml. The given directory must contain "
+        "a pyproject.toml with a [tool.rsconnect] table specifying app_mode and entrypoint. "
+        "Designed as the deploy partner for projects scaffolded by 'rsconnect quickstart'."
+    ),
+    no_args_is_help=True,
+)
+@server_args
+@spcs_args
+@content_args
+@cloud_shinyapps_args
+@click.option(
+    "--requirements-file",
+    "-r",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help=(
+        "Path to the requirements source, relative to the project directory. "
+        "Overrides ``[tool.rsconnect].requirements_file`` in pyproject.toml; "
+        "defaults to ``pyproject.toml`` (the project's declared dependencies). "
+        "Pass ``uv.lock`` for a fully resolved deploy, or any ``requirements.txt``-compatible file."
+    ),
+)
+@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@shinyapps_deploy_args
+@cli_exception_handler
+@click.pass_context
+def deploy_pyproject(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    account: Optional[str],
+    token: Optional[str],
+    secret: Optional[str],
+    new: bool,
+    app_id: Optional[str],
+    title: Optional[str],
+    verbose: int,
+    directory: str,
+    requirements_file: Optional[str],
+    env_vars: dict[str, str],
+    visibility: Optional[str],
+    no_verify: bool,
+    draft: bool,
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    def quickstart_hint() -> str:
+        return "To create a new project with this section already populated, run: rsconnect quickstart --help"
+
+    pyproject_path = Path(directory) / "pyproject.toml"
+    try:
+        config = read_tool_rsconnect(pyproject_path)
+    except InvalidPyprojectConfigError as err:
+        raise RSConnectException(f"{err}\n\n{quickstart_hint()}") from err
+    except FileNotFoundError as err:
+        raise RSConnectException(f"pyproject.toml not found at {pyproject_path}.\n\n{quickstart_hint()}") from err
+    except TOMLDecodeError as err:
+        raise RSConnectException(f"pyproject.toml could not be parsed: {err}\n\n{quickstart_hint()}") from err
+
+    configured_app_mode = cast(str, config["app_mode"])
+    app_mode = AppModes.get_by_name(configured_app_mode, return_unknown=True)
+    if app_mode == AppModes.UNKNOWN:
+        raise RSConnectException(f"Unsupported app_mode '{configured_app_mode}' in [tool.rsconnect]")
+
+    entrypoint = cast(str, config["entrypoint"])
+    effective_title = cast(Optional[str], config.get("title") or title or name)
+    extra_files: tuple[str, ...] = tuple()
+    excludes: tuple[str, ...] = tuple()
+    bundle_builder: Callable[..., Any]
+    bundle_args: tuple[Any, ...]
+    bundle_kwargs: dict[str, Any] = {}
+    path = directory
+
+    # Requirements source precedence: ``-r`` flag > ``[tool.rsconnect].requirements_file``
+    # > built-in default ``pyproject.toml`` (top-level deps; Connect resolves transitive).
+    # An explicit default keeps the inspector from falling back to a ``pip freeze`` of the
+    # caller's interpreter. Malformed TOML values (wrong type, missing file) are surfaced
+    # by the inspector / file existence check.
+    requirements_file = requirements_file or config.get("requirements_file") or "pyproject.toml"
+
+    if app_mode in (AppModes.STREAMLIT_APP, AppModes.PYTHON_SHINY, AppModes.PYTHON_FASTAPI, AppModes.PYTHON_API):
+        if app_mode == AppModes.PYTHON_SHINY:
+            entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
+        environment = Environment.create_python_environment(
+            directory,
+            requirements_file=requirements_file,
+            override_python_version=None,
+        )
+        bundle_builder = make_api_bundle
+        bundle_args = (directory, entrypoint, app_mode, environment, extra_files, excludes)
+        bundle_kwargs = {"image": None, "env_management_py": None, "env_management_r": None}
+    elif app_mode == AppModes.JUPYTER_NOTEBOOK:  # This is "jupyter-static"
+        path = str(Path(directory) / entrypoint)
+        environment = Environment.create_python_environment(
+            directory,
+            requirements_file=requirements_file,
+            override_python_version=None,
+        )
+        bundle_builder = make_notebook_source_bundle
+        # Legacy app mode - no need to override the bundle builder default
+        bundle_args = (path, environment, extra_files, False, False)
+        bundle_kwargs = {
+            "image": None,
+            "env_management_py": None,
+            "env_management_r": None,
+        }
+    elif app_mode == AppModes.JUPYTER_VOILA:
+        environment = Environment.create_python_environment(
+            directory,
+            requirements_file=requirements_file,
+            override_python_version=None,
+        )
+        bundle_builder = make_voila_bundle
+        bundle_args = (directory, entrypoint, extra_files, excludes, True, environment)
+        bundle_kwargs = {
+            "image": None,
+            "env_management_py": None,
+            "env_management_r": None,
+            "multi_notebook": False,
+        }
+    elif app_mode in (AppModes.STATIC_QUARTO, AppModes.SHINY_QUARTO):
+        path = str(Path(directory) / entrypoint)
+        with cli_feedback("Inspecting Quarto project"):
+            quarto = which_quarto(None)
+            logger.debug("Quarto: %s" % quarto)
+            inspect = quarto_inspect(quarto, path)
+            engines = validate_quarto_engines(inspect)
+
+        environment = None
+        if "jupyter" in engines:
+            with cli_feedback("Inspecting Python environment"):
+                environment = Environment.create_python_environment(
+                    directory,
+                    requirements_file=requirements_file,
+                    override_python_version=None,
+                )
+        bundle_builder = create_quarto_deployment_bundle
+        bundle_args = (path, extra_files, excludes, app_mode, inspect, environment)
+        bundle_kwargs = {"image": None, "env_management_py": None, "env_management_r": None}
+    else:
+        raise RSConnectException(f"Unsupported app_mode '{configured_app_mode}' in [tool.rsconnect]")
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        account=account,
+        token=token,
+        secret=secret,
+        path=path,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=effective_title,
+        visibility=visibility,
+        env_vars=env_vars,
+    )
+
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_settings().get("version", "")
+    ce.metadata = prepare_deploy_metadata(directory, metadata, no_metadata, server_version)
+
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=app_mode)
+        .make_bundle(bundle_builder, *bundle_args, **bundle_kwargs)
+        .deploy_bundle(activate=not draft)
+        .save_deployed_info()
+        .emit_task_log()
+    )
+    if not no_verify:
+        ce.verify_deployment()
+
+
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="quarto",
@@ -2142,7 +2378,18 @@ def resolve_requirements_file(directory: str, requirements_file: Optional[str], 
     return requirements_file or "requirements.txt"
 
 
-def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc: Optional[str] = None):
+def generate_deploy_python(
+    app_mode: AppMode,
+    min_version: str,
+    alias: Optional[str] = None,
+    desc: Optional[str] = None,
+):
+    # ``alias`` defaults to the mode's primary CLI alias (declared in
+    # ``AppModes._cli_aliases``); callers pass it explicitly only for
+    # secondary aliases (e.g. ``flask`` -> ``PYTHON_API`` alongside ``api``).
+    # The bidirectional ``_cli_aliases`` invariant is tested in
+    # ``tests/test_models.py``; the factory trusts it.
+    alias = alias or app_mode.cli_alias()
     if desc is None:
         desc = app_mode.desc()
 
@@ -2276,8 +2523,7 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
         )
 
         if app_mode == AppModes.PYTHON_SHINY:
-            if is_express_app(entrypoint + ".py", directory):
-                entrypoint = "shiny.express.app:" + escape_to_var_name(entrypoint + ".py")
+            entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
 
         # Get server version for metadata support check
         server_version = None
@@ -2349,15 +2595,15 @@ def generate_deploy_python(app_mode: AppMode, alias: str, min_version: str, desc
     return deploy_app
 
 
-generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="api", min_version="1.8.2")
-generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="flask", min_version="1.8.2", desc="Flask API")
-generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, alias="fastapi", min_version="2021.08.0")
-generate_deploy_python(app_mode=AppModes.DASH_APP, alias="dash", min_version="1.8.2")
-generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, alias="streamlit", min_version="1.8.4")
-generate_deploy_python(app_mode=AppModes.BOKEH_APP, alias="bokeh", min_version="1.8.4")
-generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, alias="shiny", min_version="2022.07.0")
-generate_deploy_python(app_mode=AppModes.PYTHON_GRADIO, alias="gradio", min_version="2024.12.0")
-generate_deploy_python(app_mode=AppModes.PYTHON_PANEL, alias="panel", min_version="2025.10.0")
+generate_deploy_python(app_mode=AppModes.PYTHON_API, min_version="1.8.2")
+generate_deploy_python(app_mode=AppModes.PYTHON_API, min_version="1.8.2", alias="flask", desc="Flask API")
+generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, min_version="2021.08.0")
+generate_deploy_python(app_mode=AppModes.DASH_APP, min_version="1.8.2")
+generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, min_version="1.8.4")
+generate_deploy_python(app_mode=AppModes.BOKEH_APP, min_version="1.8.4")
+generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, min_version="2022.07.0")
+generate_deploy_python(app_mode=AppModes.PYTHON_GRADIO, min_version="2024.12.0")
+generate_deploy_python(app_mode=AppModes.PYTHON_PANEL, min_version="2025.10.0")
 
 
 # noinspection SpellCheckingInspection
@@ -3009,7 +3255,13 @@ def write_manifest_tensorflow(
         )
 
 
-def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional[str] = None):
+def generate_write_manifest_python(
+    app_mode: AppMode,
+    alias: Optional[str] = None,
+    desc: Optional[str] = None,
+):
+    # See :func:`generate_deploy_python` for the alias-resolution contract.
+    alias = alias or app_mode.cli_alias()
     if desc is None:
         desc = app_mode.desc()
 
@@ -3126,15 +3378,15 @@ def generate_write_manifest_python(app_mode: AppMode, alias: str, desc: Optional
     return manifest_writer
 
 
-generate_write_manifest_python(AppModes.BOKEH_APP, alias="bokeh")
-generate_write_manifest_python(AppModes.DASH_APP, alias="dash")
-generate_write_manifest_python(AppModes.PYTHON_API, alias="api")
+generate_write_manifest_python(AppModes.BOKEH_APP)
+generate_write_manifest_python(AppModes.DASH_APP)
+generate_write_manifest_python(AppModes.PYTHON_API)
 generate_write_manifest_python(AppModes.PYTHON_API, alias="flask", desc="Flask API")
-generate_write_manifest_python(AppModes.PYTHON_FASTAPI, alias="fastapi")
-generate_write_manifest_python(AppModes.PYTHON_SHINY, alias="shiny")
-generate_write_manifest_python(AppModes.STREAMLIT_APP, alias="streamlit")
-generate_write_manifest_python(AppModes.PYTHON_GRADIO, alias="gradio")
-generate_write_manifest_python(AppModes.PYTHON_PANEL, alias="panel")
+generate_write_manifest_python(AppModes.PYTHON_FASTAPI)
+generate_write_manifest_python(AppModes.PYTHON_SHINY)
+generate_write_manifest_python(AppModes.STREAMLIT_APP)
+generate_write_manifest_python(AppModes.PYTHON_GRADIO)
+generate_write_manifest_python(AppModes.PYTHON_PANEL)
 
 
 # noinspection SpellCheckingInspection
@@ -3285,8 +3537,7 @@ def _write_framework_manifest(
 
     if app_mode == AppModes.PYTHON_SHINY:
         with cli_feedback("Inspecting Shiny for Python app"):
-            if is_express_app(entrypoint + ".py", directory):
-                entrypoint = "shiny.express.app:" + escape_to_var_name(entrypoint + ".py")
+            entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
 
     with cli_feedback("Creating manifest.json"):
         environment_file_exists = write_api_manifest_json(

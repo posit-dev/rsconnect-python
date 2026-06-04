@@ -1,0 +1,13 @@
+[project]
+name = "$name"
+version = "0.0.1"
+requires-python = "$requires_python"
+dependencies = [
+    "flask",
+]
+
+[tool.rsconnect]
+app_mode = "python-api"
+entrypoint = "$name.__connect__:app"
+title = "$name"
+requirements_file = "uv.lock"
