@@ -9,10 +9,10 @@
       
       
       
-        <link rel="prev" href="../system/">
+        <link rel="prev" href="../logout/">
       
       
-        <link rel="next" href="../write-manifest/">
+        <link rel="next" href="../remove/">
       
       
         
@@ -23,7 +23,7 @@
     
     
       
-        <title>version - rsconnect-python</title>
+        <title>quickstart - rsconnect-python</title>
       
     
     
@@ -115,7 +115,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#version" class="md-skip">
+        <a href="#quickstart" class="md-skip">
           Skip to content
         </a>
       
@@ -147,7 +147,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              version
+              quickstart
             
           </span>
         </div>
@@ -791,10 +791,19 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../quickstart/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -810,6 +819,7 @@
   
 
       </a>
+      
     </li>
   
 
@@ -875,19 +885,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../version/" class="md-nav__link">
         
   
   
@@ -903,7 +904,6 @@
   
 
       </a>
-      
     </li>
   
 
@@ -1015,13 +1015,18 @@
 
 
 
-<h1 id="version">version<a class="headerlink" href="#version" title="Permanent link">#</a></h1>
-<p>Show the version of the rsconnect-python package.</p>
+<h1 id="quickstart">quickstart<a class="headerlink" href="#quickstart" title="Permanent link">#</a></h1>
+<p>Create a new Posit Connect project of the given TYPE in ./<name>/. Supported TYPE values: streamlit, shiny, fastapi, api, flask, notebook, voila, quarto. Writes a pyproject.toml with a [tool.rsconnect] section, creates a uv-managed virtualenv, and prints the local-run and deploy commands.</p>
 <p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>version [OPTIONS]
+<div class="highlight"><pre><span></span><code>quickstart [OPTIONS] TYPE NAME
 </code></pre></div>
 <p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  --help  Show this message and exit.
+<div class="highlight"><pre><span></span><code>  --python VERSION  Python version for &#39;requires-python&#39; in the generated
+                    pyproject.toml. A bare &#39;major.minor&#39; like &#39;3.10&#39; means any
+                    3.10.x; a full &#39;3.11.14&#39; is exact; pass an operator for
+                    full control (e.g. &#39;&gt;=3.11&#39; or &#39;&gt;=3.11,&lt;3.14&#39;). Defaults
+                    to &#39;&gt;=&lt;major.minor&gt;&#39; of the interpreter running rsconnect.
+  --help            Show this message and exit.
 </code></pre></div>
 
 
@@ -1061,7 +1066,7 @@
           
             
 
-            <a href="../system/" class="md-footer__link md-footer__link--prev" rel="prev">
+            <a href="../logout/" class="md-footer__link md-footer__link--prev" rel="prev">
               <div class="md-footer__button md-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
               </div>
@@ -1070,7 +1075,7 @@
                   <span class="md-footer__direction">
                     Previous
                   </span>
-                  system
+                  logout
                 </div>
               </div>
             </a>
@@ -1083,13 +1088,13 @@
           
             
 
-            <a href="../write-manifest/" class="md-footer__link md-footer__link--next" rel="next">
+            <a href="../remove/" class="md-footer__link md-footer__link--next" rel="next">
               <div class="md-footer__title">
                 <div class="md-ellipsis">
                   <span class="md-footer__direction">
                     Next
                   </span>
-                  write-manifest
+                  remove
                 </div>
               </div>
               <div class="md-footer__button md-icon">
