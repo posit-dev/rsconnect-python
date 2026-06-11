@@ -3207,9 +3207,10 @@ def write_manifest_quarto(
     help=(
         "Create a manifest.json file for later deployment, for content described by a project's "
         "pyproject.toml. The given directory must contain a pyproject.toml with a [tool.rsconnect] "
-        "table specifying app_mode and entrypoint. This will also create the environment file the "
-        'manifest references (e.g. "requirements.txt") if one does not exist. Designed as the '
-        "write-manifest partner for projects scaffolded by 'rsconnect quickstart'."
+        "table specifying app_mode and entrypoint. This will also write the environment file the "
+        'manifest references (e.g. "requirements.txt"), regenerating it on each run unless it is '
+        "itself the requirements source. Designed as the write-manifest partner for projects "
+        "scaffolded by 'rsconnect quickstart'."
     ),
     no_args_is_help=True,
 )
@@ -3365,16 +3366,14 @@ def write_manifest_pyproject(
 
     # The manifest references environment.filename (e.g. a requirements.txt
     # generated from pyproject.toml's dependencies), so that file must exist
-    # next to manifest.json or deploying from the manifest fails. Mirror the
-    # sibling write-manifest commands: write it, or warn when a file with that
-    # name already exists. Quarto with non-Jupyter engines has no environment.
+    # next to manifest.json or deploying from the manifest fails. Regenerate it
+    # on every run so deployments pick up dependency changes, but never touch
+    # the requirements source itself: it is user-managed, and the inspector
+    # strips rsconnect lines from the contents it returns. Quarto with
+    # non-Jupyter engines has no environment.
     if environment is not None:
-        if (manifest_dir / environment.filename).exists():
-            click.secho(
-                "    Warning: %s already exists and will not be overwritten." % environment.filename,
-                fg="yellow",
-            )
-        else:
+        requirements_source = (Path(directory) / target.requirements_file).resolve()
+        if requirements_source != (manifest_dir / environment.filename).resolve():
             with cli_feedback("Creating %s" % environment.filename):
                 write_environment_file(environment, str(manifest_dir))
 

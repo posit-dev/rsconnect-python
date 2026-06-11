@@ -302,19 +302,54 @@ def test_write_manifest_pyproject_writes_env_file_next_to_subdir_manifest(
         pass
 
 
-def test_write_manifest_pyproject_does_not_overwrite_existing_env_file(
+def test_write_manifest_pyproject_regenerates_stale_env_file(
     runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ):
-    """A pre-existing file named like the env file is preserved, with a warning."""
+    """A stale generated env file is rewritten so deployments ship current dependencies."""
     _fake_python_environment(monkeypatch)
     _write_pyproject(project_dir, _REQ_PYPROJECT)
-    (project_dir / "requirements.txt").write_text("hand-written\n")
+    (project_dir / "requirements.txt").write_text("stale-dependency==0.1\n")
 
     result = runner.invoke(cli, ["write-manifest", "pyproject", str(project_dir)])
 
     assert result.exit_code == 0, result.output
-    assert "requirements.txt already exists and will not be overwritten" in result.output
-    assert (project_dir / "requirements.txt").read_text() == "hand-written\n"
+    contents = (project_dir / "requirements.txt").read_text()
+    assert "stale-dependency" not in contents
+    assert "flask" in contents
+
+
+def test_write_manifest_pyproject_never_rewrites_explicit_requirements_source(
+    runner: CliRunner, project_dir: pathlib.Path
+):
+    """When requirements.txt IS the configured source, it must stay untouched.
+
+    Unmocked on purpose: the real inspector strips rsconnect lines from the
+    contents it returns, so a wrongful rewrite would corrupt the user's file.
+    """
+    _write_pyproject(
+        project_dir,
+        """
+        [project]
+        name = "hello_app"
+        version = "0.0.1"
+        dependencies = ["flask"]
+
+        [tool.rsconnect]
+        app_mode = "python-api"
+        entrypoint = "app:app"
+        requirements_file = "requirements.txt"
+        """,
+    )
+    (project_dir / "app.py").write_text("app = None\n")
+    source = "flask\nrsconnect-python==1.25.0\n"
+    (project_dir / "requirements.txt").write_text(source)
+
+    result = runner.invoke(cli, ["write-manifest", "pyproject", str(project_dir)])
+
+    assert result.exit_code == 0, result.output
+    assert (project_dir / "requirements.txt").read_text() == source
+    with make_manifest_bundle(str(project_dir / "manifest.json")):
+        pass
 
 
 def test_write_manifest_pyproject_unmocked_end_to_end(runner: CliRunner, project_dir: pathlib.Path):
