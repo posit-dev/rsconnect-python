@@ -147,7 +147,6 @@ from .pyproject import (
     UnsupportedAppModeError,
     resolve_pyproject_deploy_target,
 )
-from .environment import PackageInstaller
 from .utils_package import fix_starlette_requirements
 
 T = TypeVar("T")
