@@ -6,12 +6,14 @@ but not from setup.py due to its dynamic nature.
 """
 
 import configparser
+import dataclasses
 import pathlib
 import re
 import typing
 from collections.abc import Mapping
 
 from .log import logger
+from .models import AppMode, AppModes
 
 TOMLDecodeError: typing.Type[Exception]
 try:
@@ -171,6 +173,14 @@ class InvalidPyprojectConfigError(ValueError):
     """Raised when ``[tool.rsconnect]`` is missing or incomplete."""
 
 
+class UnsupportedAppModeError(ValueError):
+    """Raised when ``[tool.rsconnect].app_mode`` names an app mode rsconnect does not know.
+
+    Kept distinct from :class:`InvalidPyprojectConfigError` because the CLI does
+    not append the quickstart hint for this failure.
+    """
+
+
 _MINIMUM_VALID_TOOL_RSCONNECT_SNIPPET = """[tool.rsconnect]
 # e.g. python-streamlit, python-shiny, python-fastapi, jupyter-static, quarto-shiny
 app_mode = "<app_mode>"
@@ -219,3 +229,55 @@ def read_tool_rsconnect(pyproject_file: pathlib.Path) -> typing.Mapping[str, typ
             )
 
     return tool_rsconnect
+
+
+@dataclasses.dataclass(frozen=True)
+class PyprojectDeployTarget:
+    """Deployment configuration resolved from ``[tool.rsconnect]`` in pyproject.toml."""
+
+    app_mode: AppMode
+    # The app_mode string as written in pyproject.toml; may be an alias of
+    # app_mode.name() and is what error messages should quote back to the user.
+    configured_app_mode: str
+    entrypoint: str
+    requirements_file: str
+    title: typing.Optional[str]
+
+
+def resolve_pyproject_deploy_target(
+    pyproject_file: pathlib.Path,
+    requirements_file: typing.Optional[str] = None,
+    title_override: typing.Optional[str] = None,
+) -> PyprojectDeployTarget:
+    """Resolve the deployment target described by ``[tool.rsconnect]`` in pyproject.toml.
+
+    Raises ``InvalidPyprojectConfigError`` when the config is missing or
+    incomplete, and ``UnsupportedAppModeError`` when ``app_mode`` does not name
+    a known app mode.
+
+    :param pathlib.Path pyproject_file: path to the project's pyproject.toml.
+    :param typing.Optional[str] requirements_file: caller override for the
+        requirements source; wins over ``[tool.rsconnect].requirements_file``.
+    :param typing.Optional[str] title_override: fallback title used when the
+        config declares none.
+    """
+    config = read_tool_rsconnect(pyproject_file)
+
+    configured_app_mode = typing.cast(str, config["app_mode"])
+    app_mode = AppModes.get_by_name(configured_app_mode, return_unknown=True)
+    if app_mode == AppModes.UNKNOWN:
+        raise UnsupportedAppModeError(f"Unsupported app_mode '{configured_app_mode}' in [tool.rsconnect]")
+
+    # Requirements source precedence: caller override (the ``-r`` flag) >
+    # ``[tool.rsconnect].requirements_file`` > built-in default ``pyproject.toml``
+    # (top-level deps; Connect resolves transitive). An explicit default keeps the
+    # inspector from falling back to a ``pip freeze`` of the caller's interpreter.
+    # Malformed TOML values (wrong type, missing file) are surfaced by the
+    # inspector / file existence check.
+    return PyprojectDeployTarget(
+        app_mode=app_mode,
+        configured_app_mode=configured_app_mode,
+        entrypoint=typing.cast(str, config["entrypoint"]),
+        requirements_file=typing.cast(str, requirements_file or config.get("requirements_file") or "pyproject.toml"),
+        title=typing.cast(typing.Optional[str], config.get("title")) or title_override,
+    )
