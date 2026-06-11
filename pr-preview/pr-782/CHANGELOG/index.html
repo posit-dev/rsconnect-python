@@ -2815,6 +2815,10 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
   <code>pyproject.toml</code> with a <code>[tool.rsconnect]</code> table containing <code>app_mode</code> and
   <code>entrypoint</code>. Designed as the deploy partner for projects scaffolded by
   <code>rsconnect quickstart</code> but works with any conforming <code>pyproject.toml</code>.</li>
+<li><code>rsconnect write-manifest pyproject</code> command for creating a <code>manifest.json</code>
+  from a project's <code>pyproject.toml</code> with a <code>[tool.rsconnect]</code> table. Also
+  writes the environment file the manifest references (e.g. <code>requirements.txt</code>),
+  regenerating it on each run unless it is itself the requirements source.</li>
 </ul>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">#</a></h3>
 <ul>
