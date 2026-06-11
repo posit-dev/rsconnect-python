@@ -1869,7 +1869,7 @@
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="write-manifest-pyproject">write-manifest pyproject<a class="headerlink" href="#write-manifest-pyproject" title="Permanent link">#</a></h2>
-<p>Create a manifest.json file for later deployment, for content described by a project's pyproject.toml. The given directory must contain a pyproject.toml with a [tool.rsconnect] table specifying app_mode and entrypoint. This will also create the environment file the manifest references (e.g. "requirements.txt") if one does not exist. Designed as the write-manifest partner for projects scaffolded by 'rsconnect quickstart'.</p>
+<p>Create a manifest.json file for later deployment, for content described by a project's pyproject.toml. The given directory must contain a pyproject.toml with a [tool.rsconnect] table specifying app_mode and entrypoint. This will also write the environment file the manifest references (e.g. "requirements.txt"), regenerating it on each run unless it is itself the requirements source. Designed as the write-manifest partner for projects scaffolded by 'rsconnect quickstart'.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>write-manifest pyproject [OPTIONS] DIRECTORY
 </code></pre></div>
