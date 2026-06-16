@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `pyproject.toml` with a `[tool.rsconnect]` table containing `app_mode` and
   `entrypoint`. Designed as the deploy partner for projects scaffolded by
   `rsconnect quickstart` but works with any conforming `pyproject.toml`.
+- `rsconnect write-manifest pyproject` command for creating a `manifest.json`
+  from a project's `pyproject.toml` with a `[tool.rsconnect]` table. Also
+  writes the environment file the manifest references (e.g. `requirements.txt`),
+  regenerating it on each run unless it is itself the requirements source.
 
 ### Changed
 

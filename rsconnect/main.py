@@ -137,7 +137,12 @@ from .models import (
     VersionSearchFilter,
     VersionSearchFilterParamType,
 )
-from .pyproject import InvalidPyprojectConfigError, TOMLDecodeError, read_tool_rsconnect
+from .pyproject import (
+    InvalidPyprojectConfigError,
+    TOMLDecodeError,
+    UnsupportedAppModeError,
+    resolve_pyproject_deploy_target,
+)
 from .environment import PackageInstaller
 from .utils_package import fix_starlette_requirements
 
@@ -1836,7 +1841,11 @@ def deploy_pyproject(
 
     pyproject_path = Path(directory) / "pyproject.toml"
     try:
-        config = read_tool_rsconnect(pyproject_path)
+        target = resolve_pyproject_deploy_target(
+            pyproject_path, requirements_file=requirements_file, title_override=title or name
+        )
+    except UnsupportedAppModeError as err:
+        raise RSConnectException(str(err)) from err
     except InvalidPyprojectConfigError as err:
         raise RSConnectException(f"{err}\n\n{quickstart_hint()}") from err
     except FileNotFoundError as err:
@@ -1844,26 +1853,16 @@ def deploy_pyproject(
     except TOMLDecodeError as err:
         raise RSConnectException(f"pyproject.toml could not be parsed: {err}\n\n{quickstart_hint()}") from err
 
-    configured_app_mode = cast(str, config["app_mode"])
-    app_mode = AppModes.get_by_name(configured_app_mode, return_unknown=True)
-    if app_mode == AppModes.UNKNOWN:
-        raise RSConnectException(f"Unsupported app_mode '{configured_app_mode}' in [tool.rsconnect]")
-
-    entrypoint = cast(str, config["entrypoint"])
-    effective_title = cast(Optional[str], config.get("title") or title or name)
+    app_mode = target.app_mode
+    entrypoint = target.entrypoint
+    effective_title = target.title
+    requirements_file = target.requirements_file
     extra_files: tuple[str, ...] = tuple()
     excludes: tuple[str, ...] = tuple()
     bundle_builder: Callable[..., Any]
     bundle_args: tuple[Any, ...]
     bundle_kwargs: dict[str, Any] = {}
     path = directory
-
-    # Requirements source precedence: ``-r`` flag > ``[tool.rsconnect].requirements_file``
-    # > built-in default ``pyproject.toml`` (top-level deps; Connect resolves transitive).
-    # An explicit default keeps the inspector from falling back to a ``pip freeze`` of the
-    # caller's interpreter. Malformed TOML values (wrong type, missing file) are surfaced
-    # by the inspector / file existence check.
-    requirements_file = requirements_file or config.get("requirements_file") or "pyproject.toml"
 
     if app_mode in (AppModes.STREAMLIT_APP, AppModes.PYTHON_SHINY, AppModes.PYTHON_FASTAPI, AppModes.PYTHON_API):
         if app_mode == AppModes.PYTHON_SHINY:
@@ -1925,7 +1924,7 @@ def deploy_pyproject(
         bundle_args = (path, extra_files, excludes, app_mode, inspect, environment)
         bundle_kwargs = {"image": None, "env_management_py": None, "env_management_r": None}
     else:
-        raise RSConnectException(f"Unsupported app_mode '{configured_app_mode}' in [tool.rsconnect]")
+        raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in [tool.rsconnect]")
 
     ce = RSConnectExecutor(
         ctx=ctx,
@@ -3200,6 +3199,183 @@ def write_manifest_quarto(
             env_management_py,
             env_management_r,
         )
+
+
+@write_manifest.command(
+    name="pyproject",
+    short_help="Create a manifest.json file from a project's pyproject.toml.",
+    help=(
+        "Create a manifest.json file for later deployment, for content described by a project's "
+        "pyproject.toml. The given directory must contain a pyproject.toml with a [tool.rsconnect] "
+        "table specifying app_mode and entrypoint. This will also write the environment file the "
+        'manifest references (e.g. "requirements.txt"), regenerating it on each run unless it is '
+        "itself the requirements source. Designed as the write-manifest partner for projects "
+        "scaffolded by 'rsconnect quickstart'."
+    ),
+    no_args_is_help=True,
+)
+@click.option("--overwrite", "-o", is_flag=True, help="Overwrite manifest.json, if it exists.")
+@click.option(
+    "--requirements-file",
+    "-r",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help=(
+        "Path to the requirements source, relative to the project directory. "
+        "Overrides ``[tool.rsconnect].requirements_file`` in pyproject.toml; "
+        "defaults to ``pyproject.toml`` (the project's declared dependencies). "
+        "Pass ``uv.lock`` for a fully resolved manifest, or any ``requirements.txt``-compatible file."
+    ),
+)
+@click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+@click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@cli_exception_handler
+@click.pass_context
+def write_manifest_pyproject(
+    ctx: click.Context,
+    overwrite: bool,
+    requirements_file: Optional[str],
+    verbose: int,
+    directory: str,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    def quickstart_hint() -> str:
+        return "To create a new project with this section already populated, run: rsconnect quickstart --help"
+
+    pyproject_path = Path(directory) / "pyproject.toml"
+    try:
+        target = resolve_pyproject_deploy_target(pyproject_path, requirements_file=requirements_file)
+    except UnsupportedAppModeError as err:
+        raise RSConnectException(str(err)) from err
+    except InvalidPyprojectConfigError as err:
+        raise RSConnectException(f"{err}\n\n{quickstart_hint()}") from err
+    except FileNotFoundError as err:
+        raise RSConnectException(f"pyproject.toml not found at {pyproject_path}.\n\n{quickstart_hint()}") from err
+    except TOMLDecodeError as err:
+        raise RSConnectException(f"pyproject.toml could not be parsed: {err}\n\n{quickstart_hint()}") from err
+
+    app_mode = target.app_mode
+    entrypoint = target.entrypoint
+    extra_files: tuple[str, ...] = tuple()
+    excludes: tuple[str, ...] = tuple()
+
+    api_modes = (AppModes.STREAMLIT_APP, AppModes.PYTHON_SHINY, AppModes.PYTHON_FASTAPI, AppModes.PYTHON_API)
+    entrypoint_manifest_modes = (
+        AppModes.JUPYTER_NOTEBOOK,
+        AppModes.JUPYTER_VOILA,
+        AppModes.STATIC_QUARTO,
+        AppModes.SHINY_QUARTO,
+    )
+    if app_mode not in api_modes and app_mode not in entrypoint_manifest_modes:
+        raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in [tool.rsconnect]")
+
+    with cli_feedback("Checking arguments"):
+        # The bundle.py writers put manifest.json in different places: API modes
+        # write to the project root, while notebook/voila/quarto write next to
+        # the entrypoint. Guard the writer's real destination.
+        if app_mode in entrypoint_manifest_modes:
+            entry_path = Path(directory) / entrypoint
+            manifest_dir = entry_path if entry_path.is_dir() else entry_path.parent
+        else:
+            manifest_dir = Path(directory)
+        if (manifest_dir / "manifest.json").exists() and not overwrite:
+            raise RSConnectException("manifest.json already exists. Use --overwrite to overwrite.")
+
+    def inspect_python_environment() -> Environment:
+        # Deliberately not resolve_requirements_file: its default is requirements.txt,
+        # while pyproject projects default to pyproject.toml (deploy parity).
+        with cli_feedback("Inspecting Python environment"):
+            return Environment.create_python_environment(
+                directory,
+                requirements_file=target.requirements_file,
+                override_python_version=None,
+            )
+
+    environment: Optional[Environment] = None
+    if app_mode in api_modes:
+        if app_mode == AppModes.PYTHON_SHINY:
+            entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
+        environment = inspect_python_environment()
+        with cli_feedback("Creating manifest.json"):
+            write_api_manifest_json(
+                directory,
+                entrypoint,
+                environment,
+                app_mode,
+                extra_files,
+                excludes,
+                image=None,
+                env_management_py=None,
+                env_management_r=None,
+            )
+    elif app_mode == AppModes.JUPYTER_NOTEBOOK:  # This is "jupyter-static"
+        environment = inspect_python_environment()
+        with cli_feedback("Creating manifest.json"):
+            write_notebook_manifest_json(
+                str(Path(directory) / entrypoint),
+                environment,
+                app_mode,
+                extra_files,
+                None,
+                None,
+                image=None,
+                env_management_py=None,
+                env_management_r=None,
+            )
+    elif app_mode == AppModes.JUPYTER_VOILA:
+        environment = inspect_python_environment()
+        with cli_feedback("Creating manifest.json"):
+            write_voila_manifest_json(
+                directory,
+                entrypoint,
+                environment,
+                extra_files,
+                excludes,
+                True,
+                image=None,
+                env_management_py=None,
+                env_management_r=None,
+                multi_notebook=False,
+            )
+    elif app_mode in (AppModes.STATIC_QUARTO, AppModes.SHINY_QUARTO):
+        path = str(Path(directory) / entrypoint)
+        with cli_feedback("Inspecting Quarto project"):
+            quarto = which_quarto(None)
+            logger.debug("Quarto: %s" % quarto)
+            inspect = quarto_inspect(quarto, path)
+            engines = validate_quarto_engines(inspect)
+
+        if "jupyter" in engines:
+            environment = inspect_python_environment()
+        with cli_feedback("Creating manifest.json"):
+            # Same target path as deploy (directory/entrypoint), so the manifest
+            # lands in the project directory next to pyproject.toml.
+            write_quarto_manifest_json(
+                path,
+                inspect,
+                app_mode,
+                environment,
+                extra_files,
+                excludes,
+                image=None,
+                env_management_py=None,
+                env_management_r=None,
+            )
+
+    # The manifest references environment.filename (e.g. a requirements.txt
+    # generated from pyproject.toml's dependencies), so that file must exist
+    # next to manifest.json or deploying from the manifest fails. Regenerate it
+    # on every run so deployments pick up dependency changes, but never touch
+    # the requirements source itself: it is user-managed, and the inspector
+    # strips rsconnect lines from the contents it returns. Quarto with
+    # non-Jupyter engines has no environment.
+    if environment is not None:
+        requirements_source = (Path(directory) / target.requirements_file).resolve()
+        if requirements_source != (manifest_dir / environment.filename).resolve():
+            with cli_feedback("Creating %s" % environment.filename):
+                write_environment_file(environment, str(manifest_dir))
 
 
 @write_manifest.command(

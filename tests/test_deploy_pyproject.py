@@ -361,6 +361,42 @@ def test_deploy_pyproject_dispatches_by_app_mode(
         pass
 
 
+@pytest.mark.parametrize(
+    "app_mode",
+    ["no-such-mode", "python-dash", "nodejs-api"],
+    ids=["unknown", "valid-but-unhandled", "aliased"],
+)
+def test_deploy_pyproject_errors_on_unsupported_app_mode(
+    runner: CliRunner, project_dir: pathlib.Path, app_mode: str, monkeypatch: pytest.MonkeyPatch
+):
+    """Unsupported app modes fail quoting the configured string (not its canonical
+    alias target) and without the quickstart hint."""
+    _spy_make_bundle(monkeypatch)
+    _write_pyproject(
+        project_dir,
+        f"""
+        [project]
+        name = "hello_app"
+        version = "0.0.1"
+
+        [tool.rsconnect]
+        app_mode = "{app_mode}"
+        entrypoint = "app.py"
+        """,
+    )
+    (project_dir / "app.py").touch()
+
+    result = runner.invoke(
+        cli,
+        ["deploy", "pyproject", str(project_dir), "-s", "http://example.invalid", "-k", "fake-key"],
+    )
+
+    assert result.exit_code != 0
+    combined = result.output + (result.stderr if result.stderr_bytes else "")
+    assert f"Unsupported app_mode '{app_mode}' in [tool.rsconnect]" in combined
+    assert "quickstart" not in combined.lower()
+
+
 _EXPRESS_APP = "from shiny.express import ui\n\nui.h1('hi')\n"
 
 
