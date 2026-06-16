@@ -280,6 +280,58 @@ class TestBundle(TestCase):
             assert manifest["python"]["package_manager"]["name"] == "pip"
             assert manifest["python"]["package_manager"].get("allow_uv") is False
 
+    def test_make_api_bundle_injects_renv_packages(self):
+        from .utils import get_api_path
+        from rsconnect.environment_r import REnvironment
+
+        directory = get_api_path("stock-api-fastapi", "")
+        environment = Environment.create_python_environment(directory)
+        entrypoint = "app:app"
+
+        lock_dir = tempfile.mkdtemp()
+        with open(join(lock_dir, "renv.lock"), "w") as fp:
+            json.dump(
+                {
+                    "R": {
+                        "Version": "4.3.1",
+                        "Repositories": [{"Name": "CRAN", "URL": "https://cloud.r-project.org"}],
+                    },
+                    "Packages": {
+                        "R6": {"Package": "R6", "Version": "2.5.1", "Source": "Repository", "Repository": "CRAN"},
+                    },
+                },
+                fp,
+            )
+        r_environment = REnvironment.create(lock_dir)
+
+        with make_api_bundle(
+            directory,
+            entrypoint,
+            AppModes.PYTHON_FASTAPI,
+            environment,
+            extra_files=[],
+            excludes=[],
+            r_environment=r_environment,
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+            assert manifest["platform"] == "4.3.1"
+            assert manifest["packages"]["R6"]["Source"] == "CRAN"
+            assert manifest["packages"]["R6"]["Repository"] == "https://cloud.r-project.org"
+
+        # Without an R environment (e.g. no renv.lock or --exclude-renv), the
+        # manifest is unchanged: no R sections are emitted.
+        with make_api_bundle(
+            directory,
+            entrypoint,
+            AppModes.PYTHON_FASTAPI,
+            environment,
+            extra_files=[],
+            excludes=[],
+        ) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
+            assert "platform" not in manifest
+            assert "packages" not in manifest
+
     def test_default_package_manager_omits_allow_uv(self):
         directory = get_dir("pip1")
         nb_path = join(directory, "dummy.ipynb")

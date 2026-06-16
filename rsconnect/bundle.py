@@ -54,6 +54,7 @@ import click
 
 from .environment import Environment, list_environment_dirs, is_environment_dir
 from .environment_node import NodeEnvironment
+from .environment_r import REnvironment
 from .exception import RSConnectException
 from .log import VERBOSE, logger
 from .models import AppMode, AppModes, GlobSet
@@ -142,6 +143,12 @@ class ManifestDataNode(TypedDict):
     package_manager: ManifestDataNodePackageManager
 
 
+class ManifestDataRPackage(TypedDict):
+    Source: str
+    Repository: str
+    description: dict[str, str]
+
+
 class ManifestData(TypedDict):
     version: int
     files: dict[str, ManifestDataFile]
@@ -151,6 +158,8 @@ class ManifestData(TypedDict):
     quarto: NotRequired[ManifestDataQuarto]
     python: NotRequired[ManifestDataPython]
     node: NotRequired[ManifestDataNode]
+    platform: NotRequired[str]
+    packages: NotRequired[dict[str, ManifestDataRPackage]]
     environment: NotRequired[ManifestDataEnvironment]
 
 
@@ -159,6 +168,7 @@ class Manifest:
         self,
         version: Optional[int] = None,
         environment: Optional[Environment] = None,
+        r_environment: Optional[REnvironment] = None,
         app_mode: Optional[AppMode] = None,
         entrypoint: Optional[str] = None,
         quarto_inspection: Optional[QuartoInspectResult] = None,
@@ -223,6 +233,10 @@ class Manifest:
                 # add it to the manifest as environment.python.requires
                 manifest_environment = self.data.setdefault("environment", {})
                 manifest_environment["python"] = {"requires": environment.python_version_requirement}
+
+        if r_environment:
+            self.data["platform"] = r_environment.r_version
+            self.data["packages"] = cast("dict[str, ManifestDataRPackage]", r_environment.packages)
 
         if image or env_management_py is not None or env_management_r is not None:
             manifest_environment = self.data.setdefault("environment", {})
@@ -410,10 +424,12 @@ def make_source_manifest(
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
+    r_environment: Optional[REnvironment] = None,
 ) -> ManifestData:
     manifest: Manifest = Manifest(
         app_mode=app_mode,
         environment=environment,
+        r_environment=r_environment,
         entrypoint=entrypoint,
         quarto_inspection=quarto_inspection,
         image=image,
@@ -597,10 +613,13 @@ def make_notebook_source_bundle(
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
+    r_environment: Optional[REnvironment] = None,
 ) -> IO[bytes]:
     """Create a bundle containing the specified notebook and python environment.
 
     Returns a file-like object containing the bundle tarball.
+
+    :param r_environment: optional R dependencies detected from renv.lock to add to the manifest.
     """
     if extra_files is None:
         extra_files = []
@@ -615,6 +634,7 @@ def make_notebook_source_bundle(
         image,
         env_management_py,
         env_management_r,
+        r_environment,
     )
     if hide_all_input:
         if "jupyter" not in manifest:
@@ -660,12 +680,15 @@ def make_quarto_source_bundle(
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
+    r_environment: Optional[REnvironment] = None,
 ) -> typing.IO[bytes]:
     """
     Create a bundle containing the specified Quarto content and (optional)
     python environment.
 
     Returns a file-like object containing the bundle tarball.
+
+    :param r_environment: optional R dependencies detected from renv.lock to add to the manifest.
     """
     manifest, relevant_files = make_quarto_manifest(
         file_or_directory,
@@ -677,6 +700,7 @@ def make_quarto_source_bundle(
         image,
         env_management_py,
         env_management_r,
+        r_environment,
     )
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
 
@@ -881,6 +905,7 @@ def make_api_manifest(
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
+    r_environment: Optional[REnvironment] = None,
 ) -> tuple[ManifestData, list[str]]:
     """
     Makes a manifest for an API.
@@ -896,6 +921,7 @@ def make_api_manifest(
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :param env_management_r: False prevents Connect from managing the R environment for this bundle.
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param r_environment: optional R dependencies detected from renv.lock to add to the manifest.
     :return: the manifest and a list of the files involved.
     """
     if is_environment_dir(directory):
@@ -920,6 +946,7 @@ def make_api_manifest(
         image,
         env_management_py,
         env_management_r,
+        r_environment,
     )
 
     manifest_add_buffer(manifest, environment.filename, environment.contents)
@@ -1268,6 +1295,7 @@ def make_voila_bundle(
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
+    r_environment: Optional[REnvironment] = None,
     multi_notebook: bool = False,
 ) -> typing.IO[bytes]:
     """
@@ -1287,6 +1315,7 @@ def make_voila_bundle(
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :param env_management_r: False prevents Connect from managing the R environment for this bundle.
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param r_environment: optional R dependencies detected from renv.lock to add to the manifest.
     :return: a file-like object containing the bundle tarball.
     """
 
@@ -1300,6 +1329,7 @@ def make_voila_bundle(
         image=image,
         env_management_py=env_management_py,
         env_management_r=env_management_r,
+        r_environment=r_environment,
         multi_notebook=multi_notebook,
     )
 
@@ -1334,6 +1364,7 @@ def make_api_bundle(
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
+    r_environment: Optional[REnvironment] = None,
 ) -> typing.IO[bytes]:
     """
     Create an API bundle, given a directory path and a manifest.
@@ -1349,6 +1380,7 @@ def make_api_bundle(
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :param env_management_r: False prevents Connect from managing the R environment for this bundle.
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param r_environment: optional R dependencies detected from renv.lock to add to the manifest.
     :return: a file-like object containing the bundle tarball.
     """
     manifest, relevant_files = make_api_manifest(
@@ -1361,6 +1393,7 @@ def make_api_bundle(
         image,
         env_management_py,
         env_management_r,
+        r_environment,
     )
     bundle_file = tempfile.TemporaryFile(prefix="rsc_bundle")
 
@@ -1524,6 +1557,7 @@ def make_quarto_manifest(
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
+    r_environment: Optional[REnvironment] = None,
 ) -> tuple[ManifestData, list[str]]:
     """
     Makes a manifest for a Quarto project.
@@ -1539,6 +1573,7 @@ def make_quarto_manifest(
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :param env_management_r: False prevents Connect from managing the R environment for this bundle.
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param r_environment: optional R dependencies detected from renv.lock to add to the manifest.
     :return: the manifest and a list of the files involved.
     """
     if environment:
@@ -1587,6 +1622,7 @@ def make_quarto_manifest(
         image,
         env_management_py,
         env_management_r,
+        r_environment,
     )
 
     if environment:
@@ -1848,12 +1884,14 @@ def write_notebook_manifest_json(
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
+    r_environment: Optional[REnvironment] = None,
 ) -> bool:
     """
     Creates and writes a manifest.json file for the given entry point file.  If
     the application mode is not provided, an attempt will be made to resolve one
     based on the extension portion of the entry point file.
 
+    :param r_environment: optional R dependencies detected from renv.lock to add to the manifest.
     :param entry_point_file: the entry point file (Jupyter notebook, etc.) to build
     the manifest for.
     :param environment: the Python environment to start with.  This should be what's
@@ -1891,6 +1929,7 @@ def write_notebook_manifest_json(
         image,
         env_management_py,
         env_management_r,
+        r_environment,
     )
     if hide_all_input or hide_tagged_input:
         if "jupyter" not in manifest_data:
@@ -1930,6 +1969,7 @@ def create_voila_manifest(
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
+    r_environment: Optional[REnvironment] = None,
     multi_notebook: bool = False,
 ) -> Manifest:
     """
@@ -1949,6 +1989,7 @@ def create_voila_manifest(
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :param env_management_r: False prevents Connect from managing the R environment for this bundle.
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param r_environment: optional R dependencies detected from renv.lock to add to the manifest.
     :return: the manifest data structure.
     """
     if not path:
@@ -1989,6 +2030,7 @@ def create_voila_manifest(
     manifest = Manifest(
         app_mode=AppModes.JUPYTER_VOILA,
         environment=environment,
+        r_environment=r_environment,
         entrypoint=entrypoint,
         image=image,
         env_management_py=env_management_py,
@@ -2017,6 +2059,7 @@ def write_voila_manifest_json(
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
+    r_environment: Optional[REnvironment] = None,
     multi_notebook: bool = False,
 ) -> bool:
     """
@@ -2036,6 +2079,7 @@ def write_voila_manifest_json(
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :param env_management_r: False prevents Connect from managing the R environment for this bundle.
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param r_environment: optional R dependencies detected from renv.lock to add to the manifest.
     :return: whether the manifest was written.
     """
     manifest = create_voila_manifest(
@@ -2048,6 +2092,7 @@ def write_voila_manifest_json(
         image=image,
         env_management_py=env_management_py,
         env_management_r=env_management_r,
+        r_environment=r_environment,
         multi_notebook=multi_notebook,
     )
 
@@ -2123,6 +2168,7 @@ def write_api_manifest_json(
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
+    r_environment: Optional[REnvironment] = None,
 ) -> bool:
     """
     Creates and writes a manifest.json file for the given entry point file.  If
@@ -2141,6 +2187,7 @@ def write_api_manifest_json(
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :param env_management_r: False prevents Connect from managing the R environment for this bundle.
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param r_environment: optional R dependencies detected from renv.lock to add to the manifest.
     :return: whether or not the environment file (requirements.txt, environment.yml,
     etc.) that goes along with the manifest exists.
     """
@@ -2155,6 +2202,7 @@ def write_api_manifest_json(
         image,
         env_management_py,
         env_management_r,
+        r_environment,
     )
     manifest_path = join(directory, "manifest.json")
 
@@ -2249,6 +2297,7 @@ def write_quarto_manifest_json(
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
+    r_environment: Optional[REnvironment] = None,
 ) -> None:
     """
     Creates and writes a manifest.json file for the given Quarto project.
@@ -2264,6 +2313,7 @@ def write_quarto_manifest_json(
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :param env_management_r: False prevents Connect from managing the R environment for this bundle.
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param r_environment: optional R dependencies detected from renv.lock to add to the manifest.
     """
 
     manifest, _ = make_quarto_manifest(
@@ -2276,6 +2326,7 @@ def write_quarto_manifest_json(
         image,
         env_management_py,
         env_management_r,
+        r_environment,
     )
 
     base_dir = file_or_directory

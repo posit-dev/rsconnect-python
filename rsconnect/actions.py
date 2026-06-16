@@ -37,6 +37,7 @@ from .bundle import (
     read_manifest_file,
 )
 from .environment import Environment
+from .environment_r import REnvironment
 from .exception import RSConnectException
 from .log import VERBOSE, logger
 from .models import AppMode, AppModes
@@ -500,6 +501,7 @@ def create_quarto_deployment_bundle(
     image: Optional[str] = None,
     env_management_py: Optional[bool] = None,
     env_management_r: Optional[bool] = None,
+    r_environment: Optional[REnvironment] = None,
 ) -> typing.IO[bytes]:
     """
     Create an in-memory bundle, ready to deploy.
@@ -519,6 +521,7 @@ def create_quarto_deployment_bundle(
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
     :param env_management_r: False prevents Connect from managing the R environment for this bundle.
         The server administrator is responsible for installing packages in the runtime environment. Default = None.
+    :param r_environment: optional R dependencies detected from renv.lock to add to the manifest.
     :return: the bundle.
     """
     if app_mode is None:
@@ -534,6 +537,7 @@ def create_quarto_deployment_bundle(
         image,
         env_management_py,
         env_management_r,
+        r_environment,
     )
 
 

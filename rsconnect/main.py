@@ -114,6 +114,7 @@ from .bundle import (
     write_voila_manifest_json,
 )
 from .environment_node import NodeEnvironment
+from .environment_r import REnvironment
 from .environment import Environment, fake_module_file_from_directory
 from .exception import RSConnectException
 from .git_metadata import detect_git_metadata
@@ -469,6 +470,14 @@ def runtime_environment_args(func: Callable[P, T]) -> Callable[P, T]:
         "Connect will not create an environment or install packages. An administrator must install the "
         "required packages in the correct R environment on the Connect server.",
         callback=env_management_callback,
+    )
+    @click.option(
+        "--exclude-renv",
+        "exclude_renv",
+        is_flag=True,
+        default=False,
+        help="Skip renv.lock detection. R dependencies will not be added to the manifest, "
+        "even when an renv.lock file is present in the content directory.",
     )
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
@@ -1449,6 +1458,7 @@ def deploy_notebook(
     disable_env_management: Optional[bool],
     env_management_py: Optional[bool],
     env_management_r: Optional[bool],
+    exclude_renv: bool,
     draft: bool,
     no_verify: bool = False,
     package_installer: Optional[PackageInstaller] = None,
@@ -1473,6 +1483,7 @@ def deploy_notebook(
         override_python_version=override_python_version,
         package_manager=package_installer,
     )
+    r_environment = None if exclude_renv else REnvironment.create(base_dir)
 
     ce = RSConnectExecutor(
         ctx=ctx,
@@ -1517,6 +1528,7 @@ def deploy_notebook(
             image=image,
             env_management_py=env_management_py,
             env_management_r=env_management_r,
+            r_environment=r_environment,
         )
     ce.deploy_bundle(activate=not draft).save_deployed_info().emit_task_log()
     if not no_verify:
@@ -1614,6 +1626,7 @@ def deploy_voila(
     disable_env_management: Optional[bool],
     env_management_py: Optional[bool],
     env_management_r: Optional[bool],
+    exclude_renv: bool,
     title: Optional[str],
     env_vars: dict[str, str],
     verbose: int,
@@ -1645,6 +1658,7 @@ def deploy_voila(
         override_python_version=override_python_version,
         package_manager=package_installer,
     )
+    r_environment = None if exclude_renv else REnvironment.create(base_dir)
 
     ce = RSConnectExecutor(
         ctx=ctx,
@@ -1682,6 +1696,7 @@ def deploy_voila(
         image=image,
         env_management_py=env_management_py,
         env_management_r=env_management_r,
+        r_environment=r_environment,
         multi_notebook=multi_notebook,
     ).deploy_bundle(activate=not draft).save_deployed_info().emit_task_log()
     if not no_verify:
@@ -1807,6 +1822,14 @@ def deploy_manifest(
 )
 @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @shinyapps_deploy_args
+@click.option(
+    "--exclude-renv",
+    "exclude_renv",
+    is_flag=True,
+    default=False,
+    help="Skip renv.lock detection. R dependencies will not be added to the manifest, "
+    "even when an renv.lock file is present in the content directory.",
+)
 @cli_exception_handler
 @click.pass_context
 def deploy_pyproject(
@@ -1830,6 +1853,7 @@ def deploy_pyproject(
     visibility: Optional[str],
     no_verify: bool,
     draft: bool,
+    exclude_renv: bool,
     metadata: tuple[str, ...] = tuple(),
     no_metadata: bool = False,
 ):
@@ -1864,6 +1888,10 @@ def deploy_pyproject(
     bundle_kwargs: dict[str, Any] = {}
     path = directory
 
+    # renv.lock detection mirrors the dedicated deploy commands; --exclude-renv
+    # opts out, otherwise detection is driven by the lockfile's presence.
+    r_environment = None if exclude_renv else REnvironment.create(directory)
+
     if app_mode in (AppModes.STREAMLIT_APP, AppModes.PYTHON_SHINY, AppModes.PYTHON_FASTAPI, AppModes.PYTHON_API):
         if app_mode == AppModes.PYTHON_SHINY:
             entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
@@ -1874,7 +1902,12 @@ def deploy_pyproject(
         )
         bundle_builder = make_api_bundle
         bundle_args = (directory, entrypoint, app_mode, environment, extra_files, excludes)
-        bundle_kwargs = {"image": None, "env_management_py": None, "env_management_r": None}
+        bundle_kwargs = {
+            "image": None,
+            "env_management_py": None,
+            "env_management_r": None,
+            "r_environment": r_environment,
+        }
     elif app_mode == AppModes.JUPYTER_NOTEBOOK:  # This is "jupyter-static"
         path = str(Path(directory) / entrypoint)
         environment = Environment.create_python_environment(
@@ -1889,6 +1922,7 @@ def deploy_pyproject(
             "image": None,
             "env_management_py": None,
             "env_management_r": None,
+            "r_environment": r_environment,
         }
     elif app_mode == AppModes.JUPYTER_VOILA:
         environment = Environment.create_python_environment(
@@ -1902,6 +1936,7 @@ def deploy_pyproject(
             "image": None,
             "env_management_py": None,
             "env_management_r": None,
+            "r_environment": r_environment,
             "multi_notebook": False,
         }
     elif app_mode in (AppModes.STATIC_QUARTO, AppModes.SHINY_QUARTO):
@@ -1922,7 +1957,12 @@ def deploy_pyproject(
                 )
         bundle_builder = create_quarto_deployment_bundle
         bundle_args = (path, extra_files, excludes, app_mode, inspect, environment)
-        bundle_kwargs = {"image": None, "env_management_py": None, "env_management_r": None}
+        bundle_kwargs = {
+            "image": None,
+            "env_management_py": None,
+            "env_management_r": None,
+            "r_environment": r_environment,
+        }
     else:
         raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in [tool.rsconnect]")
 
@@ -2065,6 +2105,7 @@ def deploy_quarto(
     disable_env_management: bool,
     env_management_py: bool,
     env_management_r: bool,
+    exclude_renv: bool,
     no_verify: bool,
     draft: bool,
     package_installer: Optional[PackageInstaller],
@@ -2096,6 +2137,10 @@ def deploy_quarto(
                 requirements_file=requirements_file,
                 override_python_version=override_python_version,
             )
+
+    # R/Quarto content can use renv regardless of the Quarto engine, so detect it
+    # whenever a lockfile is present unless the user opted out.
+    r_environment = None if exclude_renv else REnvironment.create(base_dir)
 
     ce = RSConnectExecutor(
         ctx=ctx,
@@ -2135,6 +2180,7 @@ def deploy_quarto(
             image=image,
             env_management_py=env_management_py,
             env_management_r=env_management_r,
+            r_environment=r_environment,
         )
         .deploy_bundle(activate=not draft)
         .save_deployed_info()
@@ -2510,6 +2556,7 @@ def generate_deploy_python(
         disable_env_management: Optional[bool],
         env_management_py: Optional[bool],
         env_management_r: Optional[bool],
+        exclude_renv: bool,
         account: Optional[str],
         token: Optional[str],
         secret: Optional[str],
@@ -2530,6 +2577,7 @@ def generate_deploy_python(
             override_python_version=override_python_version,
             package_manager=package_installer,
         )
+        r_environment = None if exclude_renv else REnvironment.create(directory)
 
         if app_mode == AppModes.PYTHON_SHINY:
             entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
@@ -2593,6 +2641,7 @@ def generate_deploy_python(
             image=image,
             env_management_py=env_management_py,
             env_management_r=env_management_r,
+            r_environment=r_environment,
         )
         ce.deploy_bundle(activate=not draft)
         ce.save_deployed_info()
@@ -2863,6 +2912,7 @@ def write_manifest_notebook(
     disable_env_management: Optional[bool],
     env_management_py: Optional[bool],
     env_management_r: Optional[bool],
+    exclude_renv: bool,
     hide_all_input: Optional[bool] = None,
     hide_tagged_input: Optional[bool] = None,
     package_installer: Optional[PackageInstaller] = None,
@@ -2889,6 +2939,7 @@ def write_manifest_notebook(
             app_file=file,
             package_manager=package_installer,
         )
+    r_environment = None if exclude_renv else REnvironment.create(base_dir)
 
     generate_env = requirements_file is None
     with cli_feedback("Creating manifest.json"):
@@ -2902,6 +2953,7 @@ def write_manifest_notebook(
             image,
             env_management_py,
             env_management_r,
+            r_environment,
         )
 
     if environment_file_exists and not generate_env:
@@ -2999,6 +3051,7 @@ def write_manifest_voila(
     disable_env_management: Optional[bool],
     env_management_py: Optional[bool],
     env_management_r: Optional[bool],
+    exclude_renv: bool,
     multi_notebook: bool,
     package_installer: Optional[PackageInstaller] = None,
     requirements_file: Optional[str] = None,
@@ -3022,6 +3075,7 @@ def write_manifest_voila(
             app_file=path,
             package_manager=package_installer,
         )
+    r_environment = None if exclude_renv else REnvironment.create(base_dir)
 
     environment_file_exists = exists(join(base_dir, environment.filename))
     generate_env = requirements_file is None
@@ -3045,6 +3099,7 @@ def write_manifest_voila(
             image,
             env_management_py,
             env_management_r,
+            r_environment,
             multi_notebook,
         )
 
@@ -3137,6 +3192,7 @@ def write_manifest_quarto(
     disable_env_management: Optional[bool],
     env_management_py: Optional[bool],
     env_management_r: Optional[bool],
+    exclude_renv: bool,
     package_installer: Optional[PackageInstaller],
     requirements_file: Optional[str],
 ):
@@ -3162,6 +3218,10 @@ def write_manifest_quarto(
             raise RSConnectException(
                 "--requirements-file is only supported for Quarto content using the Jupyter engine."
             )
+
+    # R/Quarto content can use renv regardless of the Quarto engine, so detect it
+    # whenever a lockfile is present unless the user opted out.
+    r_environment = None if exclude_renv else REnvironment.create(base_dir)
 
     environment = None
     generate_env = False
@@ -3198,6 +3258,7 @@ def write_manifest_quarto(
             image,
             env_management_py,
             env_management_r,
+            r_environment,
         )
 
 
@@ -3539,6 +3600,7 @@ def generate_write_manifest_python(
         disable_env_management: Optional[bool],
         env_management_py: Optional[bool],
         env_management_r: Optional[bool],
+        exclude_renv: bool,
         package_installer: Optional[PackageInstaller],
         requirements_file: Optional[str],
     ):
@@ -3557,6 +3619,7 @@ def generate_write_manifest_python(
             image,
             env_management_py,
             env_management_r,
+            exclude_renv,
             package_installer=package_installer,
             requirements_file=resolved_requirements_file,
         )
@@ -3680,6 +3743,7 @@ def _write_framework_manifest(
     image: Optional[str],
     env_management_py: Optional[bool],
     env_management_r: Optional[bool],
+    exclude_renv: bool = False,
     package_installer: Optional[PackageInstaller] = None,
     requirements_file: Optional[str] = None,
 ):
@@ -3720,6 +3784,7 @@ def _write_framework_manifest(
             override_python_version=override_python_version,
             python=python,
         )
+    r_environment = None if exclude_renv else REnvironment.create(directory)
 
     if app_mode == AppModes.PYTHON_SHINY:
         with cli_feedback("Inspecting Shiny for Python app"):
@@ -3736,6 +3801,7 @@ def _write_framework_manifest(
             image,
             env_management_py,
             env_management_r,
+            r_environment,
         )
 
     generate_env = resolved_requirements_file is None
