@@ -198,8 +198,9 @@ def _build_description(pkg: Any, resolved_repo: str, initial: dict[str, Any]) ->
     desc = dict(initial)
 
     def set_if(key: str, value: Any) -> None:
-        if value and key not in desc:
-            desc[key] = value
+        # setdefault keeps first-write-wins; the truthy guard avoids writing null/empty fields.
+        if value:
+            desc.setdefault(key, value)
 
     for key in (
         "Hash",
@@ -274,9 +275,7 @@ def _remote_repo_url(remote_type: str, pkg_ref: str) -> str:
 
 
 def _join_list(value: Optional[Sequence[str]]) -> Optional[str]:
-    if value:
-        return ", ".join(value)
-    return None
+    return ", ".join(value) if value else None
 
 
 def _is_url(value: str) -> bool:
