@@ -1915,6 +1915,10 @@
                                 ``uv.lock`` for a fully resolved manifest, or
                                 any ``requirements.txt``-compatible file.
   -v, --verbose                 Print detailed messages
+  --exclude-renv                Skip renv.lock detection. R dependencies will
+                                not be added to the manifest, even when an
+                                renv.lock file is present (in the content
+                                directory or at RENV_PATHS_LOCKFILE).
   --help                        Show this message and exit.
 </code></pre></div>
 <h2 id="write-manifest-quarto">write-manifest quarto<a class="headerlink" href="#write-manifest-quarto" title="Permanent link">#</a></h2>
