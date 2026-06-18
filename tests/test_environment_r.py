@@ -195,3 +195,38 @@ def test_null_r_section_raises(tmp_path):
     write_lockfile(tmp_path, {"R": None, "Packages": {}})
     with pytest.raises(RSConnectException, match="renv >= 1.1.0"):
         REnvironment.create(str(tmp_path))
+
+
+MINIMAL_LOCKFILE = {
+    "R": {"Version": "4.3.1", "Repositories": [{"Name": "CRAN", "URL": "https://cloud.r-project.org"}]},
+    "Packages": {},
+}
+
+
+def test_renv_paths_lockfile_absolute_override(tmp_path, monkeypatch):
+    # RENV_PATHS_LOCKFILE points at a lockfile outside the project directory, using
+    # a non-default filename to prove the override is used verbatim.
+    lockfile = tmp_path / "elsewhere" / "custom.lock"
+    lockfile.parent.mkdir()
+    lockfile.write_text(json.dumps(MINIMAL_LOCKFILE), encoding="utf-8")
+    project = tmp_path / "project"
+    project.mkdir()
+    monkeypatch.setenv("RENV_PATHS_LOCKFILE", str(lockfile))
+
+    env = REnvironment.create(str(project))
+    assert env is not None
+    assert env.r_version == "4.3.1"
+
+
+def test_renv_paths_lockfile_trailing_slash_appends_renv_lock(tmp_path, monkeypatch):
+    # A trailing slash means "a directory"; renv.lock is appended to it.
+    lockdir = tmp_path / "locks"
+    lockdir.mkdir()
+    (lockdir / "renv.lock").write_text(json.dumps(MINIMAL_LOCKFILE), encoding="utf-8")
+    project = tmp_path / "project"
+    project.mkdir()
+    monkeypatch.setenv("RENV_PATHS_LOCKFILE", str(lockdir) + "/")
+
+    env = REnvironment.create(str(project))
+    assert env is not None
+    assert env.r_version == "4.3.1"

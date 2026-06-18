@@ -477,7 +477,7 @@ def runtime_environment_args(func: Callable[P, T]) -> Callable[P, T]:
         is_flag=True,
         default=False,
         help="Skip renv.lock detection. R dependencies will not be added to the manifest, "
-        "even when an renv.lock file is present in the content directory.",
+        "even when an renv.lock file is present (in the content directory or at RENV_PATHS_LOCKFILE).",
     )
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
@@ -1828,7 +1828,7 @@ def deploy_manifest(
     is_flag=True,
     default=False,
     help="Skip renv.lock detection. R dependencies will not be added to the manifest, "
-    "even when an renv.lock file is present in the content directory.",
+    "even when an renv.lock file is present (in the content directory or at RENV_PATHS_LOCKFILE).",
 )
 @cli_exception_handler
 @click.pass_context

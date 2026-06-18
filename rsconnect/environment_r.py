@@ -46,12 +46,13 @@ class REnvironment:
     def create(cls, directory: str) -> Optional["REnvironment"]:
         """Resolve R dependencies from an renv.lock file in a project directory.
 
-        Returns None when the directory has no renv.lock, so callers can treat
-        R detection as opt-in based on the presence of the lockfile.
+        Returns None when there is no renv.lock to resolve, so callers can treat
+        R detection as opt-in based on the presence of the lockfile. The location
+        honors RENV_PATHS_LOCKFILE and otherwise defaults to <directory>/renv.lock.
 
         :param directory: path to the project directory that may contain renv.lock.
         """
-        lockfile_path = os.path.join(directory, DEFAULT_R_PACKAGE_FILE)
+        lockfile_path = _renv_lockfile_path(directory)
         if not os.path.exists(lockfile_path):
             return None
 
@@ -88,6 +89,20 @@ class REnvironment:
             r_version=r_section.get("Version", ""),
             packages=_lockfile_to_manifest_packages(lockfile),
         )
+
+
+def _renv_lockfile_path(directory: str) -> str:
+    # Mimics renv's renv_paths_lockfile() in R/paths.R: RENV_PATHS_LOCKFILE
+    # overrides the location and is used verbatim, except a trailing slash means
+    # "a directory" so renv.lock is appended. A relative override resolves against
+    # the current working directory (matching renv), not the project directory.
+    # With no override we fall back to renv's default of <project>/renv.lock.
+    override = os.environ.get("RENV_PATHS_LOCKFILE")
+    if override:
+        if override.endswith(("/", "\\")):
+            override += DEFAULT_R_PACKAGE_FILE
+        return override
+    return os.path.join(directory, DEFAULT_R_PACKAGE_FILE)
 
 
 def _lockfile_to_manifest_packages(lockfile: Any) -> dict[str, dict[str, Any]]:
