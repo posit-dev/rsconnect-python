@@ -3289,6 +3289,14 @@ def write_manifest_quarto(
     ),
 )
 @click.option("--verbose", "-v", "verbose", is_flag=True, help="Print detailed messages")
+@click.option(
+    "--exclude-renv",
+    "exclude_renv",
+    is_flag=True,
+    default=False,
+    help="Skip renv.lock detection. R dependencies will not be added to the manifest, "
+    "even when an renv.lock file is present (in the content directory or at RENV_PATHS_LOCKFILE).",
+)
 @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @cli_exception_handler
 @click.pass_context
@@ -3297,6 +3305,7 @@ def write_manifest_pyproject(
     overwrite: bool,
     requirements_file: Optional[str],
     verbose: int,
+    exclude_renv: bool,
     directory: str,
 ):
     set_verbosity(verbose)
@@ -3321,6 +3330,10 @@ def write_manifest_pyproject(
     entrypoint = target.entrypoint
     extra_files: tuple[str, ...] = tuple()
     excludes: tuple[str, ...] = tuple()
+
+    # renv.lock detection mirrors the dedicated write-manifest commands;
+    # --exclude-renv opts out, otherwise detection is driven by the lockfile.
+    r_environment = None if exclude_renv else REnvironment.create(directory)
 
     api_modes = (AppModes.STREAMLIT_APP, AppModes.PYTHON_SHINY, AppModes.PYTHON_FASTAPI, AppModes.PYTHON_API)
     entrypoint_manifest_modes = (
@@ -3370,6 +3383,7 @@ def write_manifest_pyproject(
                 image=None,
                 env_management_py=None,
                 env_management_r=None,
+                r_environment=r_environment,
             )
     elif app_mode == AppModes.JUPYTER_NOTEBOOK:  # This is "jupyter-static"
         environment = inspect_python_environment()
@@ -3384,6 +3398,7 @@ def write_manifest_pyproject(
                 image=None,
                 env_management_py=None,
                 env_management_r=None,
+                r_environment=r_environment,
             )
     elif app_mode == AppModes.JUPYTER_VOILA:
         environment = inspect_python_environment()
@@ -3398,6 +3413,7 @@ def write_manifest_pyproject(
                 image=None,
                 env_management_py=None,
                 env_management_r=None,
+                r_environment=r_environment,
                 multi_notebook=False,
             )
     elif app_mode in (AppModes.STATIC_QUARTO, AppModes.SHINY_QUARTO):
@@ -3423,6 +3439,7 @@ def write_manifest_pyproject(
                 image=None,
                 env_management_py=None,
                 env_management_r=None,
+                r_environment=r_environment,
             )
 
     # The manifest references environment.filename (e.g. a requirements.txt
