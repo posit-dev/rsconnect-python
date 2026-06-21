@@ -93,14 +93,16 @@ class REnvironment:
 
 def _renv_lockfile_path(directory: str) -> str:
     # Mimics renv's renv_paths_lockfile() in R/paths.R: RENV_PATHS_LOCKFILE
-    # overrides the location and is used verbatim, except a trailing slash means
-    # "a directory" so renv.lock is appended. A relative override resolves against
-    # the current working directory (matching renv), not the project directory.
+    # overrides the location, except a trailing slash means "a directory" so
+    # renv.lock is appended. An absolute override is used verbatim; a relative
+    # override resolves against the project directory (matching renv).
     # With no override we fall back to renv's default of <project>/renv.lock.
     override = os.environ.get("RENV_PATHS_LOCKFILE")
     if override:
         if override.endswith(("/", "\\")):
             override += DEFAULT_R_PACKAGE_FILE
+        if not os.path.isabs(override):
+            return os.path.join(directory, override)
         return override
     return os.path.join(directory, DEFAULT_R_PACKAGE_FILE)
 

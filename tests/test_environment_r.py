@@ -230,3 +230,20 @@ def test_renv_paths_lockfile_trailing_slash_appends_renv_lock(tmp_path, monkeypa
     env = REnvironment.create(str(project))
     assert env is not None
     assert env.r_version == "4.3.1"
+
+
+def test_renv_paths_lockfile_relative_override_resolves_against_project(tmp_path, monkeypatch):
+    # A relative RENV_PATHS_LOCKFILE resolves against the project directory, not the
+    # current working directory (matching renv).
+    project = tmp_path / "project"
+    (project / "config").mkdir(parents=True)
+    (project / "config" / "custom.lock").write_text(json.dumps(MINIMAL_LOCKFILE), encoding="utf-8")
+    # Run from a different directory to prove resolution ignores the CWD.
+    workdir = tmp_path / "workdir"
+    workdir.mkdir()
+    monkeypatch.chdir(workdir)
+    monkeypatch.setenv("RENV_PATHS_LOCKFILE", join("config", "custom.lock"))
+
+    env = REnvironment.create(str(project))
+    assert env is not None
+    assert env.r_version == "4.3.1"

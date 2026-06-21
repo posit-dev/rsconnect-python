@@ -255,9 +255,9 @@ rsconnect deploy api --exclude-renv my-api/
 
 By default the lockfile is read from `renv.lock` in the content directory. The
 location can be overridden with the `RENV_PATHS_LOCKFILE` environment variable,
-matching renv's own resolution: the value is used as given (a trailing slash is
-treated as a directory, so `renv.lock` is appended), and a relative path is
-resolved against the current working directory.
+matching renv's own resolution: an absolute path is used as given (a trailing
+slash is treated as a directory, so `renv.lock` is appended), and a relative
+path is resolved against the content directory.
 
 ```bash
 RENV_PATHS_LOCKFILE=/path/to/renv.lock rsconnect deploy api my-api/
