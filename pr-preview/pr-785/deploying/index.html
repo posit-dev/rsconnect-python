@@ -1884,9 +1884,9 @@ it, use the <code>--exclude-renv</code> option:</p>
 </code></pre></div>
 <p>By default the lockfile is read from <code>renv.lock</code> in the content directory. The
 location can be overridden with the <code>RENV_PATHS_LOCKFILE</code> environment variable,
-matching renv's own resolution: the value is used as given (a trailing slash is
-treated as a directory, so <code>renv.lock</code> is appended), and a relative path is
-resolved against the current working directory.</p>
+matching renv's own resolution: an absolute path is used as given (a trailing
+slash is treated as a directory, so <code>renv.lock</code> is appended), and a relative
+path is resolved against the content directory.</p>
 <div class="highlight"><pre><span></span><code><span class="nv">RENV_PATHS_LOCKFILE</span><span class="o">=</span>/path/to/renv.lock<span class="w"> </span>rsconnect<span class="w"> </span>deploy<span class="w"> </span>api<span class="w"> </span>my-api/
 </code></pre></div>
 <blockquote>
