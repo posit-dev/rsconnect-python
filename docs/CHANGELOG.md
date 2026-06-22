@@ -50,6 +50,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `uv venv` and `uv sync` to populate the scaffolded project's virtualenv.
   `uv` installs as a self-contained wheel from PyPI alongside `rsconnect`.
 
+### Fixed
+
+- Python virtual environments (e.g. `.venv`) in a Node.js project directory are
+  now excluded from the generated `manifest.json`, matching the behavior of the
+  Python and Quarto content types.
+
 ## [1.29.0] - 2026-04-29
 
 - Added `rsconnect deploy nodejs` command for deploying Node.js applications
