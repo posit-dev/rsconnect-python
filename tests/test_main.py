@@ -1158,6 +1158,37 @@ class TestWriteManifestNodeJS:
         assert "package.json" in result.output
 
 
+class TestWriteManifestExcludeRenv:
+    def test_exclude_renv_omits_r_dependencies(self, tmp_path):
+        # A valid renv.lock is present but --exclude-renv must keep R dependencies
+        # (the manifest "platform"/"packages" keys) out of the manifest entirely.
+        content = tmp_path / "fastapi"
+        shutil.copytree(get_api_path("stock-api-fastapi", ""), str(content))
+        (content / "renv.lock").write_text(
+            json.dumps(
+                {
+                    "R": {
+                        "Version": "4.3.1",
+                        "Repositories": [{"Name": "CRAN", "URL": "https://cloud.r-project.org"}],
+                    },
+                    "Packages": {
+                        "R6": {"Package": "R6", "Version": "2.5.1", "Source": "Repository", "Repository": "CRAN"},
+                    },
+                }
+            )
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli, ["write-manifest", "fastapi", str(content), "--entrypoint", "main", "--exclude-renv"]
+        )
+        assert result.exit_code == 0, result.output
+
+        manifest = json.loads((content / "manifest.json").read_text())
+        assert "platform" not in manifest
+        assert "packages" not in manifest
+
+
 class TestDefaultServer:
     def test_list_shows_default_marker(self, tmp_path):
         from rsconnect.metadata import ServerStore

@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- R dependency detection from an `renv.lock` file. When deploying Python content
+  that also uses R (e.g. `rpy2`), rsconnect-python reads the lockfile and adds the
+  R version and packages to the manifest so Posit Connect can restore the R
+  library. The lockfile location honors the `RENV_PATHS_LOCKFILE` environment
+  variable. Use `--exclude-renv` to opt out.
 - `rsconnect quickstart` command for scaffolding a new Connect-ready project.
   Supported types: `streamlit`, `shiny`, `fastapi`, `api`, `flask`, `notebook`,
   `voila`, `quarto`. Creates a uv-managed virtualenv and prints

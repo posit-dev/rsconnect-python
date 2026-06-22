@@ -368,6 +368,55 @@ def test_write_manifest_pyproject_unmocked_end_to_end(runner: CliRunner, project
 
 
 # ---------------------------------------------------------------------------
+# renv.lock R dependencies
+# ---------------------------------------------------------------------------
+
+
+_VALID_RENV_LOCK = json.dumps(
+    {
+        "R": {"Version": "4.3.1", "Repositories": [{"Name": "CRAN", "URL": "https://cloud.r-project.org"}]},
+        "Packages": {
+            "R6": {"Package": "R6", "Version": "2.5.1", "Source": "Repository", "Repository": "CRAN"},
+        },
+    }
+)
+
+
+def test_write_manifest_pyproject_includes_r_dependencies(
+    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """A present renv.lock adds the R platform/packages to the manifest."""
+    _fake_python_environment(monkeypatch)
+    _write_pyproject(project_dir, _REQ_PYPROJECT)
+    (project_dir / "app.py").write_text("app = None\n")
+    (project_dir / "renv.lock").write_text(_VALID_RENV_LOCK)
+
+    result = runner.invoke(cli, ["write-manifest", "pyproject", str(project_dir)])
+
+    assert result.exit_code == 0, result.output
+    manifest = _read_manifest(project_dir)
+    assert manifest["platform"] == "4.3.1"
+    assert "R6" in manifest["packages"]
+
+
+def test_write_manifest_pyproject_exclude_renv_omits_r_dependencies(
+    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """--exclude-renv keeps R dependencies out even when renv.lock is present."""
+    _fake_python_environment(monkeypatch)
+    _write_pyproject(project_dir, _REQ_PYPROJECT)
+    (project_dir / "app.py").write_text("app = None\n")
+    (project_dir / "renv.lock").write_text(_VALID_RENV_LOCK)
+
+    result = runner.invoke(cli, ["write-manifest", "pyproject", "--exclude-renv", str(project_dir)])
+
+    assert result.exit_code == 0, result.output
+    manifest = _read_manifest(project_dir)
+    assert "platform" not in manifest
+    assert "packages" not in manifest
+
+
+# ---------------------------------------------------------------------------
 # Overwrite guard
 # ---------------------------------------------------------------------------
 
