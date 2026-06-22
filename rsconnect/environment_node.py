@@ -75,6 +75,7 @@ class NodeEnvironment:
         if not has_lock_file:
             raise RSConnectException(
                 f"No package-lock.json found in '{directory}'. "
+                "Connect installs Node.js dependencies with npm. "
                 "Both package.json and package-lock.json are required to deploy Node.js content."
             )
 
