@@ -2810,6 +2810,11 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 </ul>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">#</a></h3>
 <ul>
+<li>R dependency detection from an <code>renv.lock</code> file. When deploying Python content
+  that also uses R (e.g. <code>rpy2</code>), rsconnect-python reads the lockfile and adds the
+  R version and packages to the manifest so Posit Connect can restore the R
+  library. The lockfile location honors the <code>RENV_PATHS_LOCKFILE</code> environment
+  variable. Use <code>--exclude-renv</code> to opt out.</li>
 <li><code>rsconnect quickstart</code> command for scaffolding a new Connect-ready project.
   Supported types: <code>streamlit</code>, <code>shiny</code>, <code>fastapi</code>, <code>api</code>, <code>flask</code>, <code>notebook</code>,
   <code>voila</code>, <code>quarto</code>. Creates a uv-managed virtualenv and prints
