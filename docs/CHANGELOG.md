@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- The "no package-lock.json" error when deploying Node.js content now states
+  that Connect installs Node.js dependencies with npm, helping publishers who
+  build with yarn or pnpm understand why a `package-lock.json` is required.
 - `pyproject.toml` can now be supplied via `--requirements-file` for deploy and
   write-manifest.
 - Perform case insensitive matching of the configured Snowflake connection authenticator.
