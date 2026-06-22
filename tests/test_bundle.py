@@ -3167,6 +3167,21 @@ class TestNodeJSManifest:
 
         assert "package-lock.json" in manifest["files"]
 
+    def test_manifest_excludes_python_virtual_environment(self, tmp_path):
+        (tmp_path / "package.json").write_text('{"dependencies":{}}')
+        (tmp_path / "app.js").write_text("// app")
+        # Make a directory that looks like a Python virtualenv (has bin/python).
+        venv_bin = tmp_path / ".venv" / "bin"
+        venv_bin.mkdir(parents=True)
+        (venv_bin / "python").write_text("")
+        (tmp_path / ".venv" / "pyvenv.cfg").write_text("")
+
+        env = _make_node_env()
+        manifest, files = make_nodejs_manifest(str(tmp_path), "app.js", env, [], [])
+
+        for f in manifest["files"]:
+            assert ".venv" not in f
+
 
 class TestNodeJSBundle:
     def test_bundle_contents(self):

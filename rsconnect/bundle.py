@@ -1438,6 +1438,7 @@ def make_nodejs_manifest(
     excludes = list(excludes) if excludes else []
     excludes.append("manifest.json")
     excludes.append("node_modules")
+    excludes.extend(list_environment_dirs(directory))
 
     relevant_files = create_file_list(directory, extra_files, excludes)
 
