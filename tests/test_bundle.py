@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import io
 import json
 import os
 import sys
@@ -35,6 +36,10 @@ from rsconnect.bundle import (
     make_tensorflow_bundle,
     make_tensorflow_manifest,
     make_voila_bundle,
+    default_title_from_bundle,
+    open_bundle,
+    read_bundle_app_mode,
+    read_bundle_manifest,
     resolve_shiny_express_entrypoint,
     to_bytes,
     validate_entry_point,
@@ -782,6 +787,42 @@ class TestBundle(TestCase):
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
             manifest_names = sorted(filter(keep_manifest_specified_file, manifest["files"].keys()))
             self.assertEqual(tar_names, manifest_names)
+
+    def test_read_bundle_manifest(self):
+        bundle_path = join(dirname(__file__), "testdata", "bundle.tar.gz")
+        manifest, raw_manifest = read_bundle_manifest(bundle_path)
+
+        self.assertEqual(manifest["metadata"]["appmode"], "python-api")
+        # raw and parsed manifest agree
+        self.assertEqual(json.loads(raw_manifest), manifest)
+
+    def test_read_bundle_app_mode(self):
+        bundle_path = join(dirname(__file__), "testdata", "bundle.tar.gz")
+        self.assertEqual(read_bundle_app_mode(bundle_path), AppModes.PYTHON_API)
+
+    def test_default_title_from_bundle(self):
+        bundle_path = join(dirname(__file__), "testdata", "bundle.tar.gz")
+        # derived from the manifest's entrypoint (app.py)
+        self.assertEqual(default_title_from_bundle(bundle_path), "app")
+
+    def test_open_bundle(self):
+        bundle_path = join(dirname(__file__), "testdata", "bundle.tar.gz")
+        with open_bundle(bundle_path) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            self.assertIn("manifest.json", tar.getnames())
+
+    def test_read_bundle_manifest_missing_manifest(self):
+        # A tarball without a manifest.json should raise a helpful error.
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_path = join(tmp, "no_manifest.tar.gz")
+            with tarfile.open(bundle_path, mode="w:gz") as tar:
+                data = b"hello"
+                info = tarfile.TarInfo("notes.txt")
+                info.size = len(data)
+                tar.addfile(info, fileobj=io.BytesIO(data))
+
+            with self.assertRaises(RSConnectException) as ctx:
+                read_bundle_manifest(bundle_path)
+            self.assertIn("manifest.json", str(ctx.exception))
 
     def test_make_source_manifest(self):
         # Verify the optional parameters

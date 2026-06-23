@@ -843,6 +843,44 @@ def read_manifest_file(manifest_path: str | Path) -> tuple[ManifestData, str]:
     return manifest, raw_manifest
 
 
+def read_bundle_manifest(bundle_path: str | Path) -> tuple[ManifestData, str]:
+    """
+    Read the manifest.json contained in a bundle tarball without extracting the
+    whole bundle.  The content is provided as both a parsed dictionary and the
+    raw string.
+
+    :param bundle_path: the path to a bundle .tar.gz file.
+    :return: the parsed manifest data and the raw manifest content as a string.
+    """
+    with tarfile.open(name=str(bundle_path), mode="r:gz") as tar:
+        try:
+            extracted = tar.extractfile("manifest.json")
+        except KeyError:
+            extracted = None
+        if extracted is None:
+            raise RSConnectException('Bundle "%s" does not contain a manifest.json file.' % bundle_path)
+        raw_manifest = extracted.read().decode("utf-8")
+
+    manifest = json.loads(raw_manifest)
+    return manifest, raw_manifest
+
+
+def read_bundle_app_mode(bundle_path: str | Path) -> AppMode:
+    source_manifest, _ = read_bundle_manifest(bundle_path)
+    # noinspection SpellCheckingInspection
+    return AppModes.get_by_name(source_manifest["metadata"]["appmode"])
+
+
+def default_title_from_bundle(bundle_path: str | Path) -> str:
+    source_manifest, _ = read_bundle_manifest(bundle_path)
+    return _default_title_from_manifest(source_manifest, bundle_path)
+
+
+def open_bundle(bundle_path: str | Path) -> typing.IO[bytes]:
+    """Open an existing bundle tarball so it can be uploaded as-is."""
+    return open(bundle_path, "rb")
+
+
 def make_manifest_bundle(manifest_path: str | Path) -> typing.IO[bytes]:
     """Create a bundle, given a manifest.
 

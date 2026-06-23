@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `rsconnect deploy bundle` command for deploying a previously built content
+  bundle (a `.tar.gz`, such as one downloaded from a Connect server) directly to
+  a server. The bundle is uploaded as-is and its existing `manifest.json`
+  determines the content type and dependencies, making it easy to copy content
+  from one server to another.
 - R dependency detection from an `renv.lock` file. When deploying Python content
   that also uses R (e.g. `rpy2`), rsconnect-python reads the lockfile and adds the
   R version and packages to the manifest so Posit Connect can restore the R

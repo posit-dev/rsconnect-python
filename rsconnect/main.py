@@ -89,6 +89,7 @@ from .api import (
     server_supports_git_metadata,
 )
 from .bundle import (
+    default_title_from_bundle,
     default_title_from_manifest,
     make_api_bundle,
     make_html_bundle,
@@ -99,6 +100,8 @@ from .bundle import (
     make_notebook_source_bundle,
     make_tensorflow_bundle,
     make_voila_bundle,
+    open_bundle,
+    read_bundle_app_mode,
     read_manifest_app_mode,
     resolve_shiny_express_entrypoint,
     validate_entry_point,
@@ -1785,6 +1788,95 @@ def deploy_manifest(
         .make_bundle(
             make_manifest_bundle,
             file_name,
+        )
+        .deploy_bundle(activate=not draft)
+        .save_deployed_info()
+        .emit_task_log()
+    )
+    if not no_verify:
+        ce.verify_deployment()
+
+
+@deploy.command(
+    name="bundle",
+    short_help="Deploy a previously downloaded bundle to Posit Connect, Posit Cloud, or shinyapps.io.",
+    help=(
+        "Deploy a content bundle (a .tar.gz file, such as one downloaded from a Connect server) "
+        "directly to a server.  The bundle is uploaded as-is; its existing manifest.json determines "
+        "the content type and dependencies.  This is useful for copying content from one server to "
+        "another."
+    ),
+    no_args_is_help=True,
+)
+@server_args
+@spcs_args
+@content_args
+@cloud_shinyapps_args
+@click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
+@shinyapps_deploy_args
+@cli_exception_handler
+@click.pass_context
+def deploy_bundle(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    account: Optional[str],
+    token: Optional[str],
+    secret: Optional[str],
+    new: bool,
+    app_id: Optional[str],
+    title: Optional[str],
+    verbose: int,
+    file: str,
+    env_vars: dict[str, str],
+    visibility: Optional[str],
+    no_verify: bool,
+    draft: bool,
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    app_mode = read_bundle_app_mode(file)
+    title = title or default_title_from_bundle(file)
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        account=account,
+        token=token,
+        secret=secret,
+        path=file,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=title,
+        visibility=visibility,
+        env_vars=env_vars,
+    )
+
+    # Prepare metadata for upload
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_settings().get("version", "")
+    deploy_metadata = prepare_deploy_metadata(dirname(file), metadata, no_metadata, server_version)
+    ce.metadata = deploy_metadata
+
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=app_mode)
+        .make_bundle(
+            open_bundle,
+            file,
         )
         .deploy_bundle(activate=not draft)
         .save_deployed_info()

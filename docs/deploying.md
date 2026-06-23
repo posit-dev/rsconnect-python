@@ -316,6 +316,26 @@ library(rsconnect)
 ?rsconnect::writeManifest
 ```
 
+### Deploying a Downloaded Bundle
+
+If you already have a content bundle as a `.tar.gz` file—for example, one
+downloaded from a Posit Connect server—you can deploy it directly without
+unpacking it. This is handy for copying content from one server to another.
+
+```bash
+rsconnect deploy bundle /path/to/bundle.tar.gz
+```
+
+The bundle is uploaded as-is; its existing `manifest.json` determines the content
+type and dependencies. The options are the same as for `deploy manifest`; see
+`rsconnect deploy bundle --help` for details.
+
+> **Note**
+> Bundles do not contain environment variables or secrets, so any that the
+> content relied on must be set on the target server (you can pass them with
+> `-E NAME=VALUE`). Dependencies are pinned in the manifest, so the target
+> server needs a compatible Python or R version available.
+
 ### Deploying from a pyproject.toml
 
 `rsconnect deploy pyproject` reads a `[tool.rsconnect]` table from a project's
