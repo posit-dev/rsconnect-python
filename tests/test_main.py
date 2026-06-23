@@ -303,6 +303,124 @@ class TestMain:
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_bundle(self, caplog):
+        # Deploying a downloaded bundle should upload the tarball as-is (no
+        # re-bundling) and run the standard Connect deploy flow.
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+
+        bundle_path = join("tests", "testdata", "bundle.tar.gz")
+        with open(bundle_path, "rb") as f:
+            original_bundle_bytes = f.read()
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/server_settings",
+            body=json.dumps({"version": "9999.99.99"}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/user",
+            body=open("tests/testdata/connect-responses/me.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        # Unique-name check: the bundle's title defaults to "app", so the name
+        # derived from it is "app", which is available.
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/content?name=app",
+            body=json.dumps([]),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        content_body = json.dumps(
+            {
+                "id": "1234",
+                "guid": "1234-5678-9012-3456",
+                "title": "app",
+                "content_url": "http://fake_server/content/1234-5678-9012-3456",
+                "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+            }
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/v1/content",
+            body=content_body,
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.PATCH,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            body=content_body,
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            body=content_body,
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        # Capture the uploaded bundle to verify it is uploaded unchanged.
+        uploaded_bundle = []
+
+        def post_bundle_callback(request, uri, response_headers):
+            uploaded_bundle.append(request.body)
+            return [200, {"Content-Type": "application/json"}, json.dumps({"id": "FAKE_BUNDLE_ID"})]
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/bundles",
+            body=post_bundle_callback,
+        )
+
+        deploy_api_invoked = []
+
+        def post_application_deploy_callback(request, uri, response_headers):
+            parsed_request = _load_json(request.body)
+            assert parsed_request == {"bundle_id": "FAKE_BUNDLE_ID"}
+            deploy_api_invoked.append(True)
+            return [201, {"Content-Type": "application/json"}, json.dumps({"task_id": "FAKE_TASK_ID"})]
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            body=post_application_deploy_callback,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/tasks/FAKE_TASK_ID" "?wait=1",
+            body=json.dumps({"output": ["FAKE_OUTPUT"], "last": "FAKE_LAST", "finished": True, "code": 0}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        try:
+            runner = CliRunner()
+            args = apply_common_args(["deploy", "bundle", bundle_path], server="http://fake_server", key="FAKE_API_KEY")
+            args.append("--no-verify")
+            with caplog.at_level("INFO"):
+                result = runner.invoke(cli, args)
+            assert result.exit_code == 0, result.output
+            assert deploy_api_invoked == [True]
+            assert "Deployment completed successfully." in caplog.text
+            # The bundle was uploaded as-is: the original tarball bytes appear
+            # unchanged within the (chunk-encoded) upload body.
+            assert len(uploaded_bundle) == 1
+            assert original_bundle_bytes in uploaded_bundle[0]
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
     # noinspection SpellCheckingInspection
     @pytest.mark.skip(reason="Skipping R manifest test (requires R 3.5, docker containers have moved on).")
     def test_deploy_manifest(self):
@@ -1201,8 +1319,8 @@ class TestDefaultServer:
         with mock.patch("rsconnect.main.server_store", store):
             result = runner.invoke(cli, ["list"])
         assert result.exit_code == 0, result.output
-        assert '[default]' in result.output
-        assert 's1' in result.output
+        assert "[default]" in result.output
+        assert "s1" in result.output
 
     def test_list_no_default_marker(self, tmp_path):
         from rsconnect.metadata import ServerStore
@@ -1214,7 +1332,7 @@ class TestDefaultServer:
         with mock.patch("rsconnect.main.server_store", store):
             result = runner.invoke(cli, ["list"])
         assert result.exit_code == 0, result.output
-        assert '[default]' not in result.output
+        assert "[default]" not in result.output
 
     def test_remove_default_shows_note(self, tmp_path):
         from rsconnect.metadata import ServerStore
@@ -1269,8 +1387,16 @@ class TestDefaultServer:
             with mock.patch("rsconnect.main.server_store", store):
                 result = runner.invoke(
                     cli,
-                    ["add", "--name", "myserver", "--server", "http://connect.local",
-                     "--api-key", "fake-key", "--set-default"],
+                    [
+                        "add",
+                        "--name",
+                        "myserver",
+                        "--server",
+                        "http://connect.local",
+                        "--api-key",
+                        "fake-key",
+                        "--set-default",
+                    ],
                 )
             assert result.exit_code == 0, result.output
             assert "is now the default" in result.output

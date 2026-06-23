@@ -805,6 +805,30 @@ class TestBundle(TestCase):
         # derived from the manifest's entrypoint (app.py)
         self.assertEqual(default_title_from_bundle(bundle_path), "app")
 
+    @staticmethod
+    def _write_bundle(bundle_path, manifest):
+        with tarfile.open(bundle_path, mode="w:gz") as tar:
+            raw = json.dumps(manifest).encode("utf-8")
+            info = tarfile.TarInfo("manifest.json")
+            info.size = len(raw)
+            tar.addfile(info, fileobj=io.BytesIO(raw))
+
+    def test_default_title_from_bundle_module_entrypoint(self):
+        # A module-style entrypoint (e.g. "app:app") has no usable filename, so
+        # the title should fall back to the bundle's own filename rather than the
+        # directory the bundle happens to live in.
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_path = join(tmp, "my-cool-api.tar.gz")
+            self._write_bundle(bundle_path, {"metadata": {"appmode": "python-api", "entrypoint": "app:app"}})
+            self.assertEqual(default_title_from_bundle(bundle_path), "my-cool-api")
+
+    def test_default_title_from_bundle_no_entrypoint(self):
+        # No entrypoint at all: fall back to the bundle filename.
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_path = join(tmp, "report.tgz")
+            self._write_bundle(bundle_path, {"metadata": {"appmode": "static"}})
+            self.assertEqual(default_title_from_bundle(bundle_path), "report")
+
     def test_open_bundle(self):
         bundle_path = join(dirname(__file__), "testdata", "bundle.tar.gz")
         with open_bundle(bundle_path) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:

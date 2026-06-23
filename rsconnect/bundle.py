@@ -873,7 +873,35 @@ def read_bundle_app_mode(bundle_path: str | Path) -> AppMode:
 
 def default_title_from_bundle(bundle_path: str | Path) -> str:
     source_manifest, _ = read_bundle_manifest(bundle_path)
-    return _default_title_from_manifest(source_manifest, bundle_path)
+
+    # Prefer the manifest's entry point / primary file, mirroring how a manifest
+    # deployment derives its title.
+    filename = None
+    metadata = source_manifest.get("metadata")
+    if metadata:
+        # noinspection SpellCheckingInspection
+        filename = metadata.get("entrypoint") or metadata.get("primary_rmd") or metadata.get("primary_html")
+        # If the manifest is for a module-style API entry point, there is no
+        # useful filename to derive a title from.
+        if filename and _module_pattern.match(filename):
+            filename = None
+
+    # When the manifest has no usable filename, fall back to the bundle's own
+    # file name (e.g. "mycontent" from "mycontent.tar.gz") rather than the
+    # directory the bundle happens to live in, which is unrelated to the content.
+    if not filename:
+        filename = _strip_bundle_extension(basename(str(bundle_path)))
+
+    return _default_title(filename)
+
+
+def _strip_bundle_extension(name: str) -> str:
+    """Strip a trailing bundle archive extension (.tar.gz, .tgz, .tar) from a name."""
+    lowered = name.lower()
+    for suffix in (".tar.gz", ".tgz", ".tar"):
+        if lowered.endswith(suffix):
+            return name[: -len(suffix)]
+    return name
 
 
 def open_bundle(bundle_path: str | Path) -> typing.IO[bytes]:
