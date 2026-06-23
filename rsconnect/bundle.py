@@ -889,8 +889,11 @@ def default_title_from_bundle(bundle_path: str | Path) -> str:
     # When the manifest has no usable filename, fall back to the bundle's own
     # file name (e.g. "mycontent" from "mycontent.tar.gz") rather than the
     # directory the bundle happens to live in, which is unrelated to the content.
+    # The bundle name may legitimately contain dots (e.g. "my.cool.api"), so only
+    # the archive extension is stripped — formatting it directly avoids stripping
+    # a second "extension".
     if not filename:
-        filename = _strip_bundle_extension(basename(str(bundle_path)))
+        return _enforce_title_length(_strip_bundle_extension(basename(str(bundle_path))))
 
     return _default_title(filename)
 
@@ -1701,6 +1704,14 @@ def make_quarto_manifest(
     return manifest, relevant_files
 
 
+def _enforce_title_length(title: str) -> str:
+    """
+    Pad or truncate a title so it is between 3 and 1024 characters long, as
+    required by Posit Connect.
+    """
+    return title[:1024].rjust(3, "0")
+
+
 def _default_title(file_name: str | Path) -> str:
     """
     Produce a default content title from the given file path.  The result is
@@ -1713,7 +1724,7 @@ def _default_title(file_name: str | Path) -> str:
     # Make sure we have enough of a path to derive text from.
     file_name = abspath(file_name)
     # noinspection PyTypeChecker
-    return basename(file_name).rsplit(".", 1)[0][:1024].rjust(3, "0")
+    return _enforce_title_length(basename(file_name).rsplit(".", 1)[0])
 
 
 def validate_file_is_notebook(file_name: str | Path) -> None:

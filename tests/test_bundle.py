@@ -829,6 +829,14 @@ class TestBundle(TestCase):
             self._write_bundle(bundle_path, {"metadata": {"appmode": "static"}})
             self.assertEqual(default_title_from_bundle(bundle_path), "report")
 
+    def test_default_title_from_bundle_dotted_filename(self):
+        # A bundle filename with dots in the stem should keep all of them: only
+        # the archive extension is stripped, not a second "extension".
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_path = join(tmp, "my.cool.api.tar.gz")
+            self._write_bundle(bundle_path, {"metadata": {"appmode": "python-api", "entrypoint": "app:app"}})
+            self.assertEqual(default_title_from_bundle(bundle_path), "my.cool.api")
+
     def test_open_bundle(self):
         bundle_path = join(dirname(__file__), "testdata", "bundle.tar.gz")
         with open_bundle(bundle_path) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
