@@ -89,6 +89,7 @@ from .api import (
     server_supports_git_metadata,
 )
 from .bundle import (
+    default_title_from_bundle,
     default_title_from_manifest,
     make_api_bundle,
     make_html_bundle,
@@ -99,6 +100,8 @@ from .bundle import (
     make_notebook_source_bundle,
     make_tensorflow_bundle,
     make_voila_bundle,
+    open_bundle,
+    read_bundle_app_mode,
     read_manifest_app_mode,
     resolve_shiny_express_entrypoint,
     validate_entry_point,
@@ -304,7 +307,7 @@ def validate_env_vars(ctx: click.Context, param: click.Parameter, all_values: tu
 
 
 def prepare_deploy_metadata(
-    directory: str,
+    directory: Optional[str],
     metadata_overrides: tuple[str, ...],
     no_metadata: bool,
     server_version: Optional[str] = None,
@@ -312,7 +315,10 @@ def prepare_deploy_metadata(
     """
     Prepare metadata for bundle upload.
 
-    :param directory: Directory to detect git metadata from
+    :param directory: Directory to auto-detect git metadata from. Pass None to
+        skip auto-detection and send only the CLI overrides (e.g. for bundle
+        deployments, where the bundle's location on disk is unrelated to the
+        content's source).
     :param metadata_overrides: CLI metadata overrides (key=value pairs)
     :param no_metadata: Flag to disable all metadata
     :param server_version: Optional server version to check support
@@ -334,8 +340,8 @@ def prepare_deploy_metadata(
                 else:  # Empty value clears the key
                     cli_metadata[key] = ""
 
-    # Auto-detect git metadata
-    detected_metadata = detect_git_metadata(directory)
+    # Auto-detect git metadata, unless the caller opted out by passing None.
+    detected_metadata = detect_git_metadata(directory) if directory is not None else {}
 
     # Merge: CLI overrides take precedence, then remove empty values
     final_metadata = {**detected_metadata, **cli_metadata}
@@ -1785,6 +1791,96 @@ def deploy_manifest(
         .make_bundle(
             make_manifest_bundle,
             file_name,
+        )
+        .deploy_bundle(activate=not draft)
+        .save_deployed_info()
+        .emit_task_log()
+    )
+    if not no_verify:
+        ce.verify_deployment()
+
+
+@deploy.command(
+    name="bundle",
+    short_help="Deploy a previously downloaded bundle to Posit Connect, Posit Cloud, or shinyapps.io.",
+    help=(
+        "Deploy a content bundle (a .tar.gz file, such as one downloaded from a Connect server) "
+        "directly to a server.  The bundle is uploaded as-is; its existing manifest.json determines "
+        "the content type and dependencies.  This is useful for copying content from one server to "
+        "another."
+    ),
+    no_args_is_help=True,
+)
+@server_args
+@spcs_args
+@content_args
+@cloud_shinyapps_args
+@click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
+@shinyapps_deploy_args
+@cli_exception_handler
+@click.pass_context
+def deploy_bundle(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    account: Optional[str],
+    token: Optional[str],
+    secret: Optional[str],
+    new: bool,
+    app_id: Optional[str],
+    title: Optional[str],
+    verbose: int,
+    file: str,
+    env_vars: dict[str, str],
+    visibility: Optional[str],
+    no_verify: bool,
+    draft: bool,
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    app_mode = read_bundle_app_mode(file)
+    title = title or default_title_from_bundle(file)
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        account=account,
+        token=token,
+        secret=secret,
+        path=file,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=title,
+        visibility=visibility,
+        env_vars=env_vars,
+    )
+
+    # Prepare metadata for upload. Passing directory=None skips git auto-detection:
+    # the bundle's location on disk is unrelated to the content's source, so only
+    # explicit --metadata overrides are sent.
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_settings().get("version", "")
+    ce.metadata = prepare_deploy_metadata(None, metadata, no_metadata, server_version)
+
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=app_mode)
+        .make_bundle(
+            open_bundle,
+            file,
         )
         .deploy_bundle(activate=not draft)
         .save_deployed_info()

@@ -40,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from a project's `pyproject.toml` with a `[tool.rsconnect]` table. Also
   writes the environment file the manifest references (e.g. `requirements.txt`),
   regenerating it on each run unless it is itself the requirements source.
+- `rsconnect deploy bundle` command for deploying a previously built content
+  bundle (a `.tar.gz`, such as one downloaded from a Connect server) directly to
+  a server. The bundle is uploaded as-is and its existing `manifest.json`
+  determines the content type and dependencies, making it easy to copy content
+  from one server to another.
 
 ### Changed
 

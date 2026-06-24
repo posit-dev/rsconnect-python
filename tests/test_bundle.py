@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import io
 import json
 import os
 import sys
@@ -35,6 +36,10 @@ from rsconnect.bundle import (
     make_tensorflow_bundle,
     make_tensorflow_manifest,
     make_voila_bundle,
+    default_title_from_bundle,
+    open_bundle,
+    read_bundle_app_mode,
+    read_bundle_manifest,
     resolve_shiny_express_entrypoint,
     to_bytes,
     validate_entry_point,
@@ -782,6 +787,131 @@ class TestBundle(TestCase):
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
             manifest_names = sorted(filter(keep_manifest_specified_file, manifest["files"].keys()))
             self.assertEqual(tar_names, manifest_names)
+
+    def test_read_bundle_manifest(self):
+        bundle_path = join(dirname(__file__), "testdata", "bundle.tar.gz")
+        manifest = read_bundle_manifest(bundle_path)
+
+        self.assertEqual(manifest["metadata"]["appmode"], "python-api")
+
+    def test_read_bundle_app_mode(self):
+        bundle_path = join(dirname(__file__), "testdata", "bundle.tar.gz")
+        self.assertEqual(read_bundle_app_mode(bundle_path), AppModes.PYTHON_API)
+
+    def test_default_title_from_bundle(self):
+        bundle_path = join(dirname(__file__), "testdata", "bundle.tar.gz")
+        # derived from the manifest's entrypoint (app.py)
+        self.assertEqual(default_title_from_bundle(bundle_path), "app")
+
+    @staticmethod
+    def _write_bundle_files(bundle_path, files):
+        # files: mapping of archive member name -> bytes content
+        with tarfile.open(bundle_path, mode="w:gz") as tar:
+            for name, data in files.items():
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                tar.addfile(info, fileobj=io.BytesIO(data))
+
+    @classmethod
+    def _write_bundle(cls, bundle_path, manifest, manifest_name="manifest.json"):
+        cls._write_bundle_files(bundle_path, {manifest_name: json.dumps(manifest).encode("utf-8")})
+
+    def test_default_title_from_bundle_module_entrypoint(self):
+        # A module-style entrypoint (e.g. "app:app") has no usable filename, so
+        # the title should fall back to the bundle's own filename rather than the
+        # directory the bundle happens to live in.
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_path = join(tmp, "my-cool-api.tar.gz")
+            self._write_bundle(bundle_path, {"metadata": {"appmode": "python-api", "entrypoint": "app:app"}})
+            self.assertEqual(default_title_from_bundle(bundle_path), "my-cool-api")
+
+    def test_default_title_from_bundle_no_entrypoint(self):
+        # No entrypoint at all: fall back to the bundle filename.
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_path = join(tmp, "report.tar.gz")
+            self._write_bundle(bundle_path, {"metadata": {"appmode": "static"}})
+            self.assertEqual(default_title_from_bundle(bundle_path), "report")
+
+    def test_default_title_from_bundle_dotted_filename(self):
+        # A bundle filename with dots in the stem should keep all of them: only
+        # the archive extension is stripped, not a second "extension".
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_path = join(tmp, "my.cool.api.tar.gz")
+            self._write_bundle(bundle_path, {"metadata": {"appmode": "python-api", "entrypoint": "app:app"}})
+            self.assertEqual(default_title_from_bundle(bundle_path), "my.cool.api")
+
+    def test_open_bundle(self):
+        bundle_path = join(dirname(__file__), "testdata", "bundle.tar.gz")
+        with open_bundle(bundle_path) as bundle, tarfile.open(mode="r:gz", fileobj=bundle) as tar:
+            self.assertIn("manifest.json", tar.getnames())
+
+    def test_read_bundle_manifest_missing_manifest(self):
+        # A tarball without a manifest.json should raise a helpful error.
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_path = join(tmp, "no_manifest.tar.gz")
+            with tarfile.open(bundle_path, mode="w:gz") as tar:
+                data = b"hello"
+                info = tarfile.TarInfo("notes.txt")
+                info.size = len(data)
+                tar.addfile(info, fileobj=io.BytesIO(data))
+
+            with self.assertRaises(RSConnectException) as ctx:
+                read_bundle_manifest(bundle_path)
+            self.assertIn("manifest.json", str(ctx.exception))
+
+    def test_read_bundle_manifest_nested_single_dir(self):
+        # Connect collapses a bundle whose root is a single subdirectory, so a
+        # downloaded bundle may store everything under e.g. "bundle/". The
+        # manifest must still be located.
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_path = join(tmp, "nested.tar.gz")
+            self._write_bundle_files(
+                bundle_path,
+                {
+                    "bundle/manifest.json": json.dumps({"metadata": {"appmode": "python-api"}}).encode("utf-8"),
+                    "bundle/app.py": b"# app",
+                },
+            )
+            self.assertEqual(read_bundle_app_mode(bundle_path), AppModes.PYTHON_API)
+
+    def test_read_bundle_manifest_nested_multiple_levels(self):
+        # Connect collapses repeatedly, so several layers of single-directory
+        # nesting should still resolve to the manifest.
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_path = join(tmp, "deep.tar.gz")
+            self._write_bundle_files(
+                bundle_path,
+                {
+                    "outer/inner/manifest.json": json.dumps({"metadata": {"appmode": "static"}}).encode("utf-8"),
+                    "outer/inner/index.html": b"<html></html>",
+                },
+            )
+            self.assertEqual(read_bundle_app_mode(bundle_path), AppModes.STATIC)
+
+    def test_read_bundle_manifest_with_leading_dot_slash(self):
+        # tar members are sometimes prefixed with "./"; the manifest should still
+        # be found.
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_path = join(tmp, "dotslash.tar.gz")
+            self._write_bundle(bundle_path, {"metadata": {"appmode": "static"}}, manifest_name="./manifest.json")
+            self.assertEqual(read_bundle_app_mode(bundle_path), AppModes.STATIC)
+
+    def test_read_bundle_manifest_multiple_top_level_entries(self):
+        # When the root holds more than one entry, Connect does not collapse, so a
+        # nested manifest with a sibling at the top level is not deployable and we
+        # report the missing manifest rather than silently descending.
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_path = join(tmp, "ambiguous.tar.gz")
+            self._write_bundle_files(
+                bundle_path,
+                {
+                    "bundle/manifest.json": json.dumps({"metadata": {"appmode": "static"}}).encode("utf-8"),
+                    "README.md": b"# readme",
+                },
+            )
+            with self.assertRaises(RSConnectException) as ctx:
+                read_bundle_manifest(bundle_path)
+            self.assertIn("manifest.json", str(ctx.exception))
 
     def test_make_source_manifest(self):
         # Verify the optional parameters

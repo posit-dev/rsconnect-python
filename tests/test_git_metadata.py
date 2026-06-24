@@ -237,6 +237,22 @@ class TestPrepareDeployMetadata:
         assert "source" in result  # Still detected
         assert "source_commit" in result  # Still detected
 
+    def test_prepare_metadata_no_detection(self):
+        from rsconnect.main import prepare_deploy_metadata
+
+        # When no metadata is detected and no CLI overrides are given, nothing is
+        # sent even on a new server. This is what `deploy bundle` relies on to
+        # avoid attaching unrelated git metadata.
+        result = prepare_deploy_metadata(None, tuple(), False, "2025.12.0")
+        assert result is None
+
+    def test_prepare_metadata_no_detection_with_cli_overrides(self):
+        from rsconnect.main import prepare_deploy_metadata
+
+        # CLI overrides are still sent even when nothing is auto-detected.
+        result = prepare_deploy_metadata(None, ("source=manual",), False, "2025.12.0")
+        assert result == {"source": "manual"}
+
 
 class TestIntegration:
     """Integration tests for the full workflow."""
