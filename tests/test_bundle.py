@@ -790,11 +790,9 @@ class TestBundle(TestCase):
 
     def test_read_bundle_manifest(self):
         bundle_path = join(dirname(__file__), "testdata", "bundle.tar.gz")
-        manifest, raw_manifest = read_bundle_manifest(bundle_path)
+        manifest = read_bundle_manifest(bundle_path)
 
         self.assertEqual(manifest["metadata"]["appmode"], "python-api")
-        # raw and parsed manifest agree
-        self.assertEqual(json.loads(raw_manifest), manifest)
 
     def test_read_bundle_app_mode(self):
         bundle_path = join(dirname(__file__), "testdata", "bundle.tar.gz")

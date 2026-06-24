@@ -843,14 +843,13 @@ def read_manifest_file(manifest_path: str | Path) -> tuple[ManifestData, str]:
     return manifest, raw_manifest
 
 
-def read_bundle_manifest(bundle_path: str | Path) -> tuple[ManifestData, str]:
+def read_bundle_manifest(bundle_path: str | Path) -> ManifestData:
     """
-    Read the manifest.json contained in a bundle tarball without extracting the
-    whole bundle.  The content is provided as both a parsed dictionary and the
-    raw string.
+    Read and parse the manifest.json contained in a bundle tarball without
+    extracting the whole bundle.
 
     :param bundle_path: the path to a bundle .tar.gz file.
-    :return: the parsed manifest data and the raw manifest content as a string.
+    :return: the parsed manifest data.
     """
     with tarfile.open(name=str(bundle_path), mode="r:gz") as tar:
         try:
@@ -861,18 +860,17 @@ def read_bundle_manifest(bundle_path: str | Path) -> tuple[ManifestData, str]:
             raise RSConnectException('Bundle "%s" does not contain a manifest.json file.' % bundle_path)
         raw_manifest = extracted.read().decode("utf-8")
 
-    manifest = json.loads(raw_manifest)
-    return manifest, raw_manifest
+    return json.loads(raw_manifest)
 
 
 def read_bundle_app_mode(bundle_path: str | Path) -> AppMode:
-    source_manifest, _ = read_bundle_manifest(bundle_path)
+    source_manifest = read_bundle_manifest(bundle_path)
     # noinspection SpellCheckingInspection
     return AppModes.get_by_name(source_manifest["metadata"]["appmode"])
 
 
 def default_title_from_bundle(bundle_path: str | Path) -> str:
-    source_manifest, _ = read_bundle_manifest(bundle_path)
+    source_manifest = read_bundle_manifest(bundle_path)
 
     # Prefer the manifest's entry point / primary file, mirroring how a manifest
     # deployment derives its title.
