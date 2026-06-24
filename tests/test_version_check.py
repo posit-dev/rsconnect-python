@@ -21,6 +21,18 @@ from rsconnect.version_check import (
 )
 
 
+def _cli_runner() -> click.testing.CliRunner:
+    """Build a CliRunner with stdout/stderr kept separate across Click versions.
+
+    Click < 8.2 needs ``mix_stderr=False`` to expose ``result.stderr``; Click >= 8.2
+    removed the argument and always separates the streams.
+    """
+    try:
+        return click.testing.CliRunner(mix_stderr=False)
+    except TypeError:
+        return click.testing.CliRunner()
+
+
 # A throwaway deploy subcommand so we can exercise the deploy group's result
 # callback without contacting a real server.
 @deploy.command(name="_version_check_test_noop", hidden=True)
@@ -185,7 +197,7 @@ class TestCLIIntegration:
     @patch("rsconnect.version_check._is_dev_version", return_value=False)
     @patch("rsconnect.version_check._is_check_disabled", return_value=False)
     def test_warning_on_deploy_command_stderr(self, _disabled, _dev, _read):
-        runner = click.testing.CliRunner(mix_stderr=False)
+        runner = _cli_runner()
         result = runner.invoke(cli, ["deploy", "_version_check_test_noop"])
         assert result.exit_code == 0
         assert "99.0.0" not in result.output
@@ -196,7 +208,7 @@ class TestCLIIntegration:
     @patch("rsconnect.version_check._is_dev_version", return_value=False)
     @patch("rsconnect.version_check._is_check_disabled", return_value=False)
     def test_warning_on_failed_deploy_command(self, _disabled, _dev, _read):
-        runner = click.testing.CliRunner(mix_stderr=False)
+        runner = _cli_runner()
         result = runner.invoke(cli, ["deploy", "_version_check_test_fail"])
         assert result.exit_code != 0
         # The hint prints even though the deploy failed and exited non-zero.
@@ -206,7 +218,7 @@ class TestCLIIntegration:
     @patch("rsconnect.version_check._is_dev_version", return_value=False)
     @patch("rsconnect.version_check._is_check_disabled", return_value=False)
     def test_no_warning_when_current(self, _disabled, _dev, _read):
-        runner = click.testing.CliRunner(mix_stderr=False)
+        runner = _cli_runner()
         result = runner.invoke(cli, ["deploy", "_version_check_test_noop"])
         assert result.exit_code == 0
         assert "new version" not in result.stderr
@@ -216,7 +228,7 @@ class TestCLIIntegration:
     @patch("rsconnect.version_check._is_dev_version", return_value=False)
     @patch("rsconnect.version_check._is_check_disabled", return_value=False)
     def test_no_check_on_non_deploy_command(self, _disabled, _dev, _read):
-        runner = click.testing.CliRunner(mix_stderr=False)
+        runner = _cli_runner()
         result = runner.invoke(cli, ["version"])
         assert result.exit_code == 0
         assert "99.0.0" not in result.stderr
