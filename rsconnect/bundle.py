@@ -902,7 +902,15 @@ def default_title_from_bundle(bundle_path: str | Path) -> str:
 
 
 def open_bundle(bundle_path: str | Path) -> typing.IO[bytes]:
-    """Open an existing bundle tarball so it can be uploaded as-is."""
+    """Open an existing bundle tarball so it can be uploaded as-is.
+
+    This exists to plug into ``RSConnectExecutor.make_bundle``, which expects a
+    callable that returns the bundle as a file-like object (e.g.
+    ``make_manifest_bundle``, which builds a tarball). For ``deploy bundle`` we
+    already have a finished ``.tar.gz`` on disk, so the "builder" is just an
+    open() — no tarball is constructed. Routing through ``make_bundle`` keeps the
+    deployment-name setup and upload flow identical to the other deploy commands.
+    """
     return open(bundle_path, "rb")
 
 
