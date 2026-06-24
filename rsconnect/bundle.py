@@ -843,6 +843,40 @@ def read_manifest_file(manifest_path: str | Path) -> tuple[ManifestData, str]:
     return manifest, raw_manifest
 
 
+def _find_manifest_member(tar: tarfile.TarFile) -> Optional[tarfile.TarInfo]:
+    """
+    Locate the manifest.json member within a bundle tarball, mirroring the way
+    Connect collapses single-subdirectory bundles when it extracts them.
+
+    Connect repeatedly descends while the extraction root contains exactly one
+    entry and that entry is a directory, moving its contents up a level. So a
+    downloaded bundle may legitimately store manifest.json under a nested
+    directory (e.g. "bundle/manifest.json") rather than at the top level.
+
+    :return: the manifest.json member, or None if no manifest could be located.
+    """
+    file_names = {(m.name[2:] if m.name.startswith("./") else m.name): m for m in tar.getmembers() if m.isfile()}
+
+    prefix = ""
+    while True:
+        member = file_names.get(prefix + "manifest.json")
+        if member is not None:
+            return member
+
+        # Look at the entries directly under the current prefix.
+        remaining = [name[len(prefix) :] for name in file_names if name.startswith(prefix)]
+        entries = {name.split("/", 1)[0] for name in remaining}
+
+        # Only descend when this level holds exactly one entry and it is a
+        # directory (i.e. no file is named exactly that entry).
+        if len(entries) != 1:
+            return None
+        entry = next(iter(entries))
+        if entry in remaining:
+            return None
+        prefix = prefix + entry + "/"
+
+
 def read_bundle_manifest(bundle_path: str | Path) -> ManifestData:
     """
     Read and parse the manifest.json contained in a bundle tarball without
@@ -852,10 +886,8 @@ def read_bundle_manifest(bundle_path: str | Path) -> ManifestData:
     :return: the parsed manifest data.
     """
     with tarfile.open(name=str(bundle_path), mode="r:gz") as tar:
-        try:
-            extracted = tar.extractfile("manifest.json")
-        except KeyError:
-            extracted = None
+        member = _find_manifest_member(tar)
+        extracted = tar.extractfile(member) if member is not None else None
         if extracted is None:
             raise RSConnectException('Bundle "%s" does not contain a manifest.json file.' % bundle_path)
         raw_manifest = extracted.read().decode("utf-8")

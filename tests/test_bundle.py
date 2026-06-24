@@ -804,12 +804,17 @@ class TestBundle(TestCase):
         self.assertEqual(default_title_from_bundle(bundle_path), "app")
 
     @staticmethod
-    def _write_bundle(bundle_path, manifest):
+    def _write_bundle_files(bundle_path, files):
+        # files: mapping of archive member name -> bytes content
         with tarfile.open(bundle_path, mode="w:gz") as tar:
-            raw = json.dumps(manifest).encode("utf-8")
-            info = tarfile.TarInfo("manifest.json")
-            info.size = len(raw)
-            tar.addfile(info, fileobj=io.BytesIO(raw))
+            for name, data in files.items():
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                tar.addfile(info, fileobj=io.BytesIO(data))
+
+    @classmethod
+    def _write_bundle(cls, bundle_path, manifest, manifest_name="manifest.json"):
+        cls._write_bundle_files(bundle_path, {manifest_name: json.dumps(manifest).encode("utf-8")})
 
     def test_default_title_from_bundle_module_entrypoint(self):
         # A module-style entrypoint (e.g. "app:app") has no usable filename, so
@@ -850,6 +855,60 @@ class TestBundle(TestCase):
                 info.size = len(data)
                 tar.addfile(info, fileobj=io.BytesIO(data))
 
+            with self.assertRaises(RSConnectException) as ctx:
+                read_bundle_manifest(bundle_path)
+            self.assertIn("manifest.json", str(ctx.exception))
+
+    def test_read_bundle_manifest_nested_single_dir(self):
+        # Connect collapses a bundle whose root is a single subdirectory, so a
+        # downloaded bundle may store everything under e.g. "bundle/". The
+        # manifest must still be located.
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_path = join(tmp, "nested.tar.gz")
+            self._write_bundle_files(
+                bundle_path,
+                {
+                    "bundle/manifest.json": json.dumps({"metadata": {"appmode": "python-api"}}).encode("utf-8"),
+                    "bundle/app.py": b"# app",
+                },
+            )
+            self.assertEqual(read_bundle_app_mode(bundle_path), AppModes.PYTHON_API)
+
+    def test_read_bundle_manifest_nested_multiple_levels(self):
+        # Connect collapses repeatedly, so several layers of single-directory
+        # nesting should still resolve to the manifest.
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_path = join(tmp, "deep.tar.gz")
+            self._write_bundle_files(
+                bundle_path,
+                {
+                    "outer/inner/manifest.json": json.dumps({"metadata": {"appmode": "static"}}).encode("utf-8"),
+                    "outer/inner/index.html": b"<html></html>",
+                },
+            )
+            self.assertEqual(read_bundle_app_mode(bundle_path), AppModes.STATIC)
+
+    def test_read_bundle_manifest_with_leading_dot_slash(self):
+        # tar members are sometimes prefixed with "./"; the manifest should still
+        # be found.
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_path = join(tmp, "dotslash.tar.gz")
+            self._write_bundle(bundle_path, {"metadata": {"appmode": "static"}}, manifest_name="./manifest.json")
+            self.assertEqual(read_bundle_app_mode(bundle_path), AppModes.STATIC)
+
+    def test_read_bundle_manifest_multiple_top_level_entries(self):
+        # When the root holds more than one entry, Connect does not collapse, so a
+        # nested manifest with a sibling at the top level is not deployable and we
+        # report the missing manifest rather than silently descending.
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_path = join(tmp, "ambiguous.tar.gz")
+            self._write_bundle_files(
+                bundle_path,
+                {
+                    "bundle/manifest.json": json.dumps({"metadata": {"appmode": "static"}}).encode("utf-8"),
+                    "README.md": b"# readme",
+                },
+            )
             with self.assertRaises(RSConnectException) as ctx:
                 read_bundle_manifest(bundle_path)
             self.assertIn("manifest.json", str(ctx.exception))
