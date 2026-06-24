@@ -200,7 +200,9 @@ class TestCLIIntegration:
         runner = _cli_runner()
         result = runner.invoke(cli, ["deploy", "_version_check_test_noop"])
         assert result.exit_code == 0
-        assert "99.0.0" not in result.output
+        # Use stdout (not output): in Click >= 8.2 result.output is the combined
+        # stream, while stdout stays stderr-free across Click versions.
+        assert "99.0.0" not in result.stdout
         assert "99.0.0" in result.stderr
 
     @patch("rsconnect.version_check._read_cache", return_value=(True, "99.0.0"))
