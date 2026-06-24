@@ -39,6 +39,7 @@ else:
 from rsconnect.certificates import read_certificate_file
 
 from . import VERSION, api, validation
+from .version_check import BackgroundVersionCheck
 from .actions import (
     cli_feedback,
     create_quarto_deployment_bundle,
@@ -1325,8 +1326,24 @@ def quickstart(app_type: str, name: str, python_version: Optional[str]):
 
 
 @cli.group(no_args_is_help=True, help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io.")
-def deploy():
-    pass
+@click.pass_context
+def deploy(ctx: click.Context):
+    ctx.ensure_object(dict)
+    checker = BackgroundVersionCheck()
+    checker.start()
+    ctx.obj["version_checker"] = checker
+
+
+@deploy.result_callback()
+@click.pass_context
+def _print_version_warning(  # pyright: ignore[reportUnusedFunction]
+    ctx: click.Context, *args: object, **kwargs: object
+) -> None:
+    checker = ctx.obj.get("version_checker") if ctx.obj else None
+    if checker is not None:
+        message = checker.get_warning_message()
+        if message:
+            click.secho(message, fg="yellow", err=True)
 
 
 def _warn_on_ignored_manifest(directory: str):
