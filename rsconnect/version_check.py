@@ -12,13 +12,13 @@ import os
 import threading
 import time
 from http.client import HTTPSConnection
-from os.path import dirname, join
+from os.path import join
 from typing import Optional, Tuple
 
 from packaging.version import Version
 
 from . import VERSION
-from .metadata import config_dirname
+from .metadata import config_dirname, makedirs
 
 RSCONNECT_DISABLE_VERSION_CHECK = "RSCONNECT_DISABLE_VERSION_CHECK"
 _PYPI_HOST = "pypi.org"
@@ -71,7 +71,7 @@ def _write_cache(latest: Optional[str]) -> None:
     """
     try:
         path = _cache_path()
-        os.makedirs(dirname(path), exist_ok=True)
+        makedirs(path)
         with open(path, "w") as f:
             json.dump({"checked_at": time.time(), "latest": latest}, f)
     except Exception:
@@ -92,25 +92,20 @@ def _fetch_latest_version() -> Optional[str]:
         return None
     finally:
         if conn is not None:
-            try:
-                conn.close()
-            except Exception:
-                pass
+            conn.close()
 
 
 def _update_message(latest: Optional[str]) -> Optional[str]:
     """Return an upgrade warning if ``latest`` is newer than the running version."""
-    if latest is None:
-        return None
     try:
-        if Version(latest) > Version(VERSION):
+        if latest is not None and Version(latest) > Version(VERSION):
             return (
                 f"A new version of rsconnect-python is available: {latest} "
                 f"(you have {VERSION}).\n"
                 f"Upgrade with: pip install --upgrade rsconnect-python"
             )
     except Exception:
-        return None
+        pass
     return None
 
 

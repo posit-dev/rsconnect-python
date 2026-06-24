@@ -1328,22 +1328,17 @@ def quickstart(app_type: str, name: str, python_version: Optional[str]):
 @cli.group(no_args_is_help=True, help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io.")
 @click.pass_context
 def deploy(ctx: click.Context):
-    ctx.ensure_object(dict)
     checker = BackgroundVersionCheck()
     checker.start()
-    ctx.obj["version_checker"] = checker
 
-
-@deploy.result_callback()
-@click.pass_context
-def _print_version_warning(  # pyright: ignore[reportUnusedFunction]
-    ctx: click.Context, *args: object, **kwargs: object
-) -> None:
-    checker = ctx.obj.get("version_checker") if ctx.obj else None
-    if checker is not None:
+    def _print_version_warning() -> None:
         message = checker.get_warning_message()
         if message:
             click.secho(message, fg="yellow", err=True)
+
+    # Registered on the context (not as a result callback) so the hint prints on
+    # every exit path, including failed deploys that raise or call sys.exit().
+    ctx.call_on_close(_print_version_warning)
 
 
 def _warn_on_ignored_manifest(directory: str):

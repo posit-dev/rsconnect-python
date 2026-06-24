@@ -7,6 +7,8 @@ import click
 import click.testing
 import pytest
 
+from rsconnect.exception import RSConnectException
+from rsconnect.actions import cli_feedback
 from rsconnect.main import cli, deploy
 from rsconnect.version_check import (
     RSCONNECT_DISABLE_VERSION_CHECK,
@@ -24,6 +26,14 @@ from rsconnect.version_check import (
 @deploy.command(name="_version_check_test_noop", hidden=True)
 def _version_check_test_noop():
     click.echo("noop-ran")
+
+
+# A deploy subcommand that fails the way real ones do: cli_feedback catches the
+# exception and calls sys.exit(1). The upgrade hint should still print.
+@deploy.command(name="_version_check_test_fail", hidden=True)
+def _version_check_test_fail():
+    with cli_feedback(""):
+        raise RSConnectException("boom")
 
 
 class TestIsCheckDisabled:
@@ -179,6 +189,17 @@ class TestCLIIntegration:
         result = runner.invoke(cli, ["deploy", "_version_check_test_noop"])
         assert result.exit_code == 0
         assert "99.0.0" not in result.output
+        assert "99.0.0" in result.stderr
+
+    @patch("rsconnect.version_check._read_cache", return_value=(True, "99.0.0"))
+    @patch("rsconnect.version_check.VERSION", "1.0.0")
+    @patch("rsconnect.version_check._is_dev_version", return_value=False)
+    @patch("rsconnect.version_check._is_check_disabled", return_value=False)
+    def test_warning_on_failed_deploy_command(self, _disabled, _dev, _read):
+        runner = click.testing.CliRunner(mix_stderr=False)
+        result = runner.invoke(cli, ["deploy", "_version_check_test_fail"])
+        assert result.exit_code != 0
+        # The hint prints even though the deploy failed and exited non-zero.
         assert "99.0.0" in result.stderr
 
     @patch("rsconnect.version_check._read_cache", return_value=(True, None))
