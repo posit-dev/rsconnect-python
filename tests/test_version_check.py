@@ -121,10 +121,12 @@ class TestCache:
             assert _read_cache() == (False, None)
 
     def test_expired_cache(self, tmp_path):
+        # A stale entry is reported as not-fresh but still surfaces its value, so
+        # the upgrade hint can use it while a refresh runs in the background.
         path = tmp_path / "version_check.json"
         path.write_text(json.dumps({"checked_at": time.time() - 999999, "latest": "1.29.0"}))
         with patch("rsconnect.version_check._cache_path", return_value=str(path)):
-            assert _read_cache() == (False, None)
+            assert _read_cache() == (False, "1.29.0")
 
     def test_corrupt_cache(self, tmp_path):
         path = tmp_path / "version_check.json"
@@ -147,19 +149,39 @@ class TestBackgroundVersionCheck:
         assert "2.0.0" in message
 
     @patch("rsconnect.version_check._write_cache")
+    @patch("rsconnect.version_check._fetch_latest_version", return_value="3.0.0")
+    @patch("rsconnect.version_check._read_cache", return_value=(False, "2.0.0"))
+    @patch("rsconnect.version_check.VERSION", "1.0.0")
+    @patch("rsconnect.version_check._is_dev_version", return_value=False)
+    @patch("rsconnect.version_check._is_check_disabled", return_value=False)
+    def test_stale_cache_warns_from_cache_and_refreshes(self, _disabled, _dev, _read, mock_fetch, mock_write):
+        checker = BackgroundVersionCheck()
+        checker.start()
+        # The warning is driven by the stale cached value, not the fetch result,
+        # so it is available synchronously without waiting on the network.
+        assert checker._thread is not None
+        message = checker.get_warning_message()
+        assert message is not None
+        assert "2.0.0" in message
+        # The fetch only refreshes the cache for the next invocation.
+        checker._thread.join()
+        mock_fetch.assert_called_once()
+        mock_write.assert_called_once_with("3.0.0")
+
+    @patch("rsconnect.version_check._write_cache")
     @patch("rsconnect.version_check._fetch_latest_version", return_value="2.0.0")
     @patch("rsconnect.version_check._read_cache", return_value=(False, None))
     @patch("rsconnect.version_check.VERSION", "1.0.0")
     @patch("rsconnect.version_check._is_dev_version", return_value=False)
     @patch("rsconnect.version_check._is_check_disabled", return_value=False)
-    def test_stale_cache_fetches_and_writes(self, _disabled, _dev, _read, mock_fetch, mock_write):
+    def test_absent_cache_is_silent_but_refreshes(self, _disabled, _dev, _read, mock_fetch, mock_write):
         checker = BackgroundVersionCheck()
         checker.start()
+        # With no cached value there is nothing to show on this run; the fetch
+        # warms the cache so the next invocation can warn.
         assert checker._thread is not None
-        message = checker.get_warning_message()
-        assert message is not None
-        assert "2.0.0" in message
-        mock_fetch.assert_called_once()
+        assert checker.get_warning_message() is None
+        checker._thread.join()
         mock_write.assert_called_once_with("2.0.0")
 
     @patch("rsconnect.version_check._read_cache", return_value=(True, None))

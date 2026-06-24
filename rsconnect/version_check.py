@@ -24,7 +24,6 @@ RSCONNECT_DISABLE_VERSION_CHECK = "RSCONNECT_DISABLE_VERSION_CHECK"
 _PYPI_HOST = "pypi.org"
 _PYPI_PATH = "/pypi/rsconnect-python/json"
 _PYPI_TIMEOUT_SECONDS = 2
-_JOIN_TIMEOUT_SECONDS = 0.5
 _CACHE_TTL_SECONDS = 24 * 60 * 60  # Re-check PyPI at most once a day.
 _CACHE_FILENAME = "version_check.json"
 
@@ -48,17 +47,19 @@ def _cache_path() -> str:
 def _read_cache() -> Tuple[bool, Optional[str]]:
     """Return ``(is_fresh, latest)``.
 
-    ``is_fresh`` is True when a non-expired cache entry exists; ``latest`` is the
-    cached PyPI version (or None, e.g. when the last fetch failed). When the cache
-    is missing, expired, or unreadable, returns ``(False, None)``.
+    ``latest`` is the last known PyPI version recorded in the cache (or None when
+    the cache is missing/unreadable or the last fetch failed). It is returned
+    regardless of freshness so even a stale value can drive the upgrade hint while
+    a refresh runs in the background. ``is_fresh`` is True only when the entry is
+    within the TTL, signalling that no background refresh is needed.
     """
     try:
         with open(_cache_path()) as f:
             data = json.load(f)
-        if time.time() - float(data["checked_at"]) > _CACHE_TTL_SECONDS:
-            return (False, None)
         latest = data.get("latest")
-        return (True, latest if isinstance(latest, str) else None)
+        latest = latest if isinstance(latest, str) else None
+        is_fresh = time.time() - float(data["checked_at"]) <= _CACHE_TTL_SECONDS
+        return (is_fresh, latest)
     except Exception:
         return (False, None)
 
@@ -120,19 +121,20 @@ class BackgroundVersionCheck:
         if _is_check_disabled() or _is_dev_version(VERSION):
             return
         is_fresh, latest = _read_cache()
-        if is_fresh:
-            # Use the cached value directly; no network, no thread.
-            self._latest = latest
-            return
-        self._thread = threading.Thread(target=self._run, daemon=True)
-        self._thread.start()
+        # Drive the hint from the cached value, synchronously. Even a stale value
+        # is good enough to suggest an upgrade and reading it adds no latency, so
+        # the warning prints reliably on every exit path -- including commands
+        # that fail fast before any network fetch could have completed.
+        self._latest = latest
+        if not is_fresh:
+            # Refresh the cache in the background for the next invocation. This
+            # run never waits on or reads the result, so its output (and timing)
+            # are unaffected by the fetch.
+            self._thread = threading.Thread(target=self._run, daemon=True)
+            self._thread.start()
 
     def _run(self) -> None:
-        latest = _fetch_latest_version()
-        _write_cache(latest)
-        self._latest = latest
+        _write_cache(_fetch_latest_version())
 
     def get_warning_message(self) -> Optional[str]:
-        if self._thread is not None:
-            self._thread.join(timeout=_JOIN_TIMEOUT_SECONDS)
         return _update_message(self._latest)
