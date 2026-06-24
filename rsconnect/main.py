@@ -307,7 +307,7 @@ def validate_env_vars(ctx: click.Context, param: click.Parameter, all_values: tu
 
 
 def prepare_deploy_metadata(
-    detected_metadata: dict[str, str],
+    directory: Optional[str],
     metadata_overrides: tuple[str, ...],
     no_metadata: bool,
     server_version: Optional[str] = None,
@@ -315,8 +315,10 @@ def prepare_deploy_metadata(
     """
     Prepare metadata for bundle upload.
 
-    :param detected_metadata: Auto-detected metadata (e.g. git metadata). Pass an
-        empty dict to send only the CLI overrides.
+    :param directory: Directory to auto-detect git metadata from. Pass None to
+        skip auto-detection and send only the CLI overrides (e.g. for bundle
+        deployments, where the bundle's location on disk is unrelated to the
+        content's source).
     :param metadata_overrides: CLI metadata overrides (key=value pairs)
     :param no_metadata: Flag to disable all metadata
     :param server_version: Optional server version to check support
@@ -337,6 +339,9 @@ def prepare_deploy_metadata(
                     cli_metadata[key] = value
                 else:  # Empty value clears the key
                     cli_metadata[key] = ""
+
+    # Auto-detect git metadata, unless the caller opted out by passing None.
+    detected_metadata = detect_git_metadata(directory) if directory is not None else {}
 
     # Merge: CLI overrides take precedence, then remove empty values
     final_metadata = {**detected_metadata, **cli_metadata}
@@ -1506,7 +1511,7 @@ def deploy_notebook(
     server_version = None
     if isinstance(ce.client, RSConnectClient):
         server_version = ce.client.server_settings().get("version", "")
-    deploy_metadata = prepare_deploy_metadata(detect_git_metadata(base_dir), metadata, no_metadata, server_version)
+    deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
     ce.metadata = deploy_metadata
 
     ce.validate_server().validate_app_mode(app_mode=app_mode)
@@ -1682,7 +1687,7 @@ def deploy_voila(
     if isinstance(ce.client, RSConnectClient):
         server_version = ce.client.server_settings().get("version", "")
     base_dir = path if isdir(path) else dirname(path)
-    deploy_metadata = prepare_deploy_metadata(detect_git_metadata(base_dir), metadata, no_metadata, server_version)
+    deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
     ce.metadata = deploy_metadata
 
     ce.validate_server().validate_app_mode(app_mode=app_mode)
@@ -1777,7 +1782,7 @@ def deploy_manifest(
     if isinstance(ce.client, RSConnectClient):
         server_version = ce.client.server_settings().get("version", "")
     base_dir = dirname(file_name)
-    deploy_metadata = prepare_deploy_metadata(detect_git_metadata(base_dir), metadata, no_metadata, server_version)
+    deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
     ce.metadata = deploy_metadata
 
     (
@@ -1862,14 +1867,13 @@ def deploy_bundle(
         env_vars=env_vars,
     )
 
-    # Prepare metadata for upload. Git metadata is not auto-detected for bundle
-    # deployments: the bundle's location on disk is unrelated to the content's
-    # source, so only explicit --metadata overrides are sent.
+    # Prepare metadata for upload. Passing directory=None skips git auto-detection:
+    # the bundle's location on disk is unrelated to the content's source, so only
+    # explicit --metadata overrides are sent.
     server_version = None
     if isinstance(ce.client, RSConnectClient):
         server_version = ce.client.server_settings().get("version", "")
-    deploy_metadata = prepare_deploy_metadata({}, metadata, no_metadata, server_version)
-    ce.metadata = deploy_metadata
+    ce.metadata = prepare_deploy_metadata(None, metadata, no_metadata, server_version)
 
     (
         ce.validate_server()
@@ -2080,7 +2084,7 @@ def deploy_pyproject(
     server_version = None
     if isinstance(ce.client, RSConnectClient):
         server_version = ce.client.server_settings().get("version", "")
-    ce.metadata = prepare_deploy_metadata(detect_git_metadata(directory), metadata, no_metadata, server_version)
+    ce.metadata = prepare_deploy_metadata(directory, metadata, no_metadata, server_version)
 
     (
         ce.validate_server()
@@ -2255,7 +2259,7 @@ def deploy_quarto(
     server_version = None
     if isinstance(ce.client, RSConnectClient):
         server_version = ce.client.server_settings().get("version", "")
-    deploy_metadata = prepare_deploy_metadata(detect_git_metadata(base_dir), metadata, no_metadata, server_version)
+    deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
     ce.metadata = deploy_metadata
 
     (
@@ -2367,7 +2371,7 @@ def deploy_tensorflow(
     server_version = None
     if isinstance(ce.client, RSConnectClient):
         server_version = ce.client.server_settings().get("version", "")
-    deploy_metadata = prepare_deploy_metadata(detect_git_metadata(directory), metadata, no_metadata, server_version)
+    deploy_metadata = prepare_deploy_metadata(directory, metadata, no_metadata, server_version)
     ce.metadata = deploy_metadata
 
     (
@@ -2491,7 +2495,7 @@ def deploy_html(
     if isinstance(ce.client, RSConnectClient):
         server_version = ce.client.server_settings().get("version", "")
     base_dir = path if isdir(path) else dirname(path)
-    deploy_metadata = prepare_deploy_metadata(detect_git_metadata(base_dir), metadata, no_metadata, server_version)
+    deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
     ce.metadata = deploy_metadata
 
     (
@@ -2717,7 +2721,7 @@ def generate_deploy_python(
                 )
 
         # Prepare metadata for upload
-        deploy_metadata = prepare_deploy_metadata(detect_git_metadata(directory), metadata, no_metadata, server_version)
+        deploy_metadata = prepare_deploy_metadata(directory, metadata, no_metadata, server_version)
         ce.metadata = deploy_metadata
 
         ce.validate_server()
@@ -2880,7 +2884,7 @@ def deploy_nodejs(
         connect_version_string = ce.client.server_settings().get("version", "")
         server_version = connect_version_string
 
-    deploy_metadata = prepare_deploy_metadata(detect_git_metadata(directory), metadata, no_metadata, server_version)
+    deploy_metadata = prepare_deploy_metadata(directory, metadata, no_metadata, server_version)
     ce.metadata = deploy_metadata
 
     ce.validate_server()

@@ -825,7 +825,7 @@ class TestBundle(TestCase):
     def test_default_title_from_bundle_no_entrypoint(self):
         # No entrypoint at all: fall back to the bundle filename.
         with tempfile.TemporaryDirectory() as tmp:
-            bundle_path = join(tmp, "report.tgz")
+            bundle_path = join(tmp, "report.tar.gz")
             self._write_bundle(bundle_path, {"metadata": {"appmode": "static"}})
             self.assertEqual(default_title_from_bundle(bundle_path), "report")
 

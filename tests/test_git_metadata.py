@@ -197,19 +197,19 @@ class TestPrepareDeployMetadata:
     def test_prepare_metadata_no_metadata_flag(self, temp_git_repo):
         from rsconnect.main import prepare_deploy_metadata
 
-        result = prepare_deploy_metadata(detect_git_metadata(temp_git_repo), tuple(), True, "2025.12.0")
+        result = prepare_deploy_metadata(temp_git_repo, tuple(), True, "2025.12.0")
         assert result is None
 
     def test_prepare_metadata_old_server_no_cli_overrides(self, temp_git_repo):
         from rsconnect.main import prepare_deploy_metadata
 
-        result = prepare_deploy_metadata(detect_git_metadata(temp_git_repo), tuple(), False, "2024.01.0")
+        result = prepare_deploy_metadata(temp_git_repo, tuple(), False, "2024.01.0")
         assert result is None
 
     def test_prepare_metadata_new_server(self, temp_git_repo):
         from rsconnect.main import prepare_deploy_metadata
 
-        result = prepare_deploy_metadata(detect_git_metadata(temp_git_repo), tuple(), False, "2025.12.0")
+        result = prepare_deploy_metadata(temp_git_repo, tuple(), False, "2025.12.0")
         assert result is not None
         assert result["source"] == "git"
         assert "source_commit" in result
@@ -221,7 +221,7 @@ class TestPrepareDeployMetadata:
 
         # CLI overrides force metadata even on old servers
         result = prepare_deploy_metadata(
-            detect_git_metadata(temp_git_repo), ("source=custom", "custom_key=custom_value"), False, "2024.01.0"
+            temp_git_repo, ("source=custom", "custom_key=custom_value"), False, "2024.01.0"
         )
         assert result is not None
         assert result["source"] == "custom"
@@ -231,7 +231,7 @@ class TestPrepareDeployMetadata:
         from rsconnect.main import prepare_deploy_metadata
 
         # Empty value should clear the key
-        result = prepare_deploy_metadata(detect_git_metadata(temp_git_repo), ("source_repo=",), False, "2.0")
+        result = prepare_deploy_metadata(temp_git_repo, ("source_repo=",), False, "2.0")
         assert result is not None
         assert "source_repo" not in result  # Cleared by empty value
         assert "source" in result  # Still detected
@@ -243,14 +243,14 @@ class TestPrepareDeployMetadata:
         # When no metadata is detected and no CLI overrides are given, nothing is
         # sent even on a new server. This is what `deploy bundle` relies on to
         # avoid attaching unrelated git metadata.
-        result = prepare_deploy_metadata({}, tuple(), False, "2025.12.0")
+        result = prepare_deploy_metadata(None, tuple(), False, "2025.12.0")
         assert result is None
 
     def test_prepare_metadata_no_detection_with_cli_overrides(self):
         from rsconnect.main import prepare_deploy_metadata
 
         # CLI overrides are still sent even when nothing is auto-detected.
-        result = prepare_deploy_metadata({}, ("source=manual",), False, "2025.12.0")
+        result = prepare_deploy_metadata(None, ("source=manual",), False, "2025.12.0")
         assert result == {"source": "manual"}
 
 

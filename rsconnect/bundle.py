@@ -889,22 +889,16 @@ def default_title_from_bundle(bundle_path: str | Path) -> str:
     # When the manifest has no usable filename, fall back to the bundle's own
     # file name (e.g. "mycontent" from "mycontent.tar.gz") rather than the
     # directory the bundle happens to live in, which is unrelated to the content.
-    # The bundle name may legitimately contain dots (e.g. "my.cool.api"), so only
-    # the archive extension is stripped — formatting it directly avoids stripping
-    # a second "extension".
+    # Connect always produces .tar.gz bundles, and the name may legitimately
+    # contain dots (e.g. "my.cool.api"), so only the .tar.gz extension is stripped
+    # rather than splitting off a second "extension".
     if not filename:
-        return _enforce_title_length(_strip_bundle_extension(basename(str(bundle_path))))
+        name = basename(str(bundle_path))
+        if name.lower().endswith(".tar.gz"):
+            name = name[: -len(".tar.gz")]
+        return _enforce_title_length(name)
 
     return _default_title(filename)
-
-
-def _strip_bundle_extension(name: str) -> str:
-    """Strip a trailing bundle archive extension (.tar.gz, .tgz, .tar) from a name."""
-    lowered = name.lower()
-    for suffix in (".tar.gz", ".tgz", ".tar"):
-        if lowered.endswith(suffix):
-            return name[: -len(suffix)]
-    return name
 
 
 def open_bundle(bundle_path: str | Path) -> typing.IO[bytes]:
