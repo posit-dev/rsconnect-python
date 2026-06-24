@@ -2821,11 +2821,6 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 </ul>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">#</a></h3>
 <ul>
-<li><code>rsconnect deploy bundle</code> command for deploying a previously built content
-  bundle (a <code>.tar.gz</code>, such as one downloaded from a Connect server) directly to
-  a server. The bundle is uploaded as-is and its existing <code>manifest.json</code>
-  determines the content type and dependencies, making it easy to copy content
-  from one server to another.</li>
 <li>R dependency detection from an <code>renv.lock</code> file. When deploying Python content
   that also uses R (e.g. <code>rpy2</code>), rsconnect-python reads the lockfile and adds the
   R version and packages to the manifest so Posit Connect can restore the R
@@ -2843,6 +2838,11 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
   from a project's <code>pyproject.toml</code> with a <code>[tool.rsconnect]</code> table. Also
   writes the environment file the manifest references (e.g. <code>requirements.txt</code>),
   regenerating it on each run unless it is itself the requirements source.</li>
+<li><code>rsconnect deploy bundle</code> command for deploying a previously built content
+  bundle (a <code>.tar.gz</code>, such as one downloaded from a Connect server) directly to
+  a server. The bundle is uploaded as-is and its existing <code>manifest.json</code>
+  determines the content type and dependencies, making it easy to copy content
+  from one server to another.</li>
 </ul>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">#</a></h3>
 <ul>
