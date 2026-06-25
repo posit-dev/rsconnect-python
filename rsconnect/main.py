@@ -1042,7 +1042,8 @@ def remove(
     ),
     no_args_is_help=True,
 )
-@click.option("--server", "-s", envvar="CONNECT_SERVER", required=True, help="The URL of the Posit Connect server.")
+@click.argument("server_arg", metavar="SERVER", required=False)
+@click.option("--server", "-s", envvar="CONNECT_SERVER", help="The URL of the Posit Connect server.")
 @click.option("--name", "-n", help="Nickname for the server (defaults to server hostname).")
 @click.option("--insecure", "-i", envvar="CONNECT_INSECURE", is_flag=True, help="Disable TLS certificate verification.")
 @click.option(
@@ -1068,7 +1069,8 @@ def remove(
 @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 @cli_exception_handler
 def login(
-    server: str,
+    server_arg: Optional[str],
+    server: Optional[str],
     name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
@@ -1078,6 +1080,17 @@ def login(
     verbose: int,
 ):
     set_verbosity(verbose)
+
+    # Only treat --server as conflicting with the positional argument when it
+    # was given explicitly on the command line. A value sourced from the
+    # CONNECT_SERVER environment variable should not block the positional form.
+    server_source = validation.get_parameter_source_name_from_ctx("server", click.get_current_context())
+    server_from_option = server_source == "COMMANDLINE"
+    if server_arg and server and server_from_option:
+        raise RSConnectException("You must specify only one of SERVER or -s/--server.")
+    server = server_arg or server
+    if not server:
+        raise RSConnectException("You must specify the server as a SERVER argument or with -s/--server.")
 
     if not server.startswith("http"):
         raise RSConnectException("Server URL must begin with http or https.")
@@ -1175,27 +1188,33 @@ def login(
     short_help="Remove stored OAuth credentials for a Posit Connect server.",
     help=(
         "Remove locally-stored OAuth credentials for a Posit Connect server. "
-        "One of --name or --server is required. "
+        "The server is identified by a positional SERVER argument, -s/--server, or -n/--name. "
         "The server entry is preserved (for re-login without re-registration); "
         "use 'rsconnect remove' to delete the entry entirely."
     ),
     no_args_is_help=True,
 )
+@click.argument("server_arg", metavar="SERVER", required=False)
 @click.option("--name", "-n", help="The nickname of the Posit Connect server to log out from.")
 @click.option("--server", "-s", help="The URL of the Posit Connect server to log out from.")
 @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 @cli_exception_handler
 def logout(
+    server_arg: Optional[str],
     name: Optional[str],
     server: Optional[str],
     verbose: int,
 ):
     set_verbosity(verbose)
 
+    if server_arg and server:
+        raise RSConnectException("Specify only one of SERVER or -s/--server.")
+    server = server_arg or server
+
     if name and server:
-        raise RSConnectException("Specify only one of --name or --server.")
+        raise RSConnectException("Specify only one of --name, --server, or SERVER.")
     if not name and not server:
-        raise RSConnectException("Specify one of --name or --server.")
+        raise RSConnectException("Specify one of --name, --server, or SERVER.")
 
     entry = None
     if name:

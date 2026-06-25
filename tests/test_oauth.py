@@ -433,6 +433,71 @@ class TestLoginCommand:
         assert result.exit_code == 0, result.output
         assert "Logged in" in result.output
 
+    @patch("rsconnect.oauth.keyring_store_token", return_value=True)
+    @patch("rsconnect.oauth.login_with_browser")
+    @patch("rsconnect.oauth.register_client", return_value="new-client-id")
+    @patch("rsconnect.oauth.discover_oauth_metadata")
+    def test_login_positional_server(
+        self,
+        mock_discover: MagicMock,
+        mock_register: MagicMock,
+        mock_login: MagicMock,
+        mock_keyring: MagicMock,
+    ):
+        from click.testing import CliRunner
+
+        from rsconnect.main import cli
+
+        mock_discover.return_value = FAKE_METADATA
+        mock_login.return_value = {"access_token": "at-1", "refresh_token": "rt-1", "expires_in": 3600}
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["login", FAKE_URL, "--name", "test-server"])
+
+        assert result.exit_code == 0, result.output
+        assert "Logged in" in result.output
+
+    @patch("rsconnect.oauth.keyring_store_token", return_value=True)
+    @patch("rsconnect.oauth.login_with_browser")
+    @patch("rsconnect.oauth.register_client", return_value="new-client-id")
+    @patch("rsconnect.oauth.discover_oauth_metadata")
+    def test_login_positional_server_overrides_connect_server_env(
+        self,
+        mock_discover: MagicMock,
+        mock_register: MagicMock,
+        mock_login: MagicMock,
+        mock_keyring: MagicMock,
+    ):
+        from click.testing import CliRunner
+
+        from rsconnect.main import cli
+
+        mock_discover.return_value = FAKE_METADATA
+        mock_login.return_value = {"access_token": "at-1", "refresh_token": "rt-1", "expires_in": 3600}
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["login", FAKE_URL, "--name", "test-server"],
+            env={"CONNECT_SERVER": "https://env-server.example.com"},
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "Logged in" in result.output
+        # The positional argument should win over the CONNECT_SERVER envvar.
+        assert mock_discover.call_args.args[0] == FAKE_URL
+
+    def test_login_positional_and_option_server_conflict(self):
+        from click.testing import CliRunner
+
+        from rsconnect.main import cli
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["login", FAKE_URL, "--server", FAKE_URL])
+
+        assert result.exit_code != 0
+        assert "only one of SERVER" in result.output
+
     def test_login_missing_server(self):
         from click.testing import CliRunner
 
@@ -474,6 +539,26 @@ class TestLoginCommand:
 
         runner = CliRunner()
         result = runner.invoke(cli, ["logout", "--name", "myserver"])
+
+        assert result.exit_code == 0, result.output
+        mock_keyring_del.assert_called_once()
+
+    @patch("rsconnect.oauth.keyring_delete_tokens")
+    @patch("rsconnect.main.server_store")
+    def test_logout_positional_server(self, mock_store: MagicMock, mock_keyring_del: MagicMock):
+        from click.testing import CliRunner
+
+        from rsconnect.main import cli
+
+        mock_store.get_by_url.return_value = {
+            "name": "myserver",
+            "url": FAKE_URL,
+            "oauth_client_id": "client-123",
+        }
+        mock_store.update_oauth_tokens = MagicMock()
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["logout", FAKE_URL])
 
         assert result.exit_code == 0, result.output
         mock_keyring_del.assert_called_once()
