@@ -1563,7 +1563,7 @@ def deploy_notebook(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="voila",
-    short_help="Deploy Jupyter notebook in Voila mode to Posit Connect [v2023.03.0+].",
+    short_help="Deploy Jupyter notebook in Voila mode to Posit Connect.",
     help=("Deploy a Jupyter notebook in Voila mode to Posit Connect."),
     no_args_is_help=True,
 )
@@ -2120,11 +2120,11 @@ def deploy_pyproject(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="quarto",
-    short_help="Deploy Quarto content to Posit Connect [v2021.08.0+] or Posit Cloud.",
+    short_help="Deploy Quarto content to Posit Connect or Posit Cloud.",
     help=(
         "Deploy a Quarto document or project to Posit Connect or Posit Cloud. Should the content use the Quarto "
         'Jupyter engine, an environment file ("requirements.txt") is created and included in the deployment if one '
-        "does not already exist. Requires Posit Connect 2021.08.0 or later."
+        "does not already exist."
         "\n\n"
         "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
     ),
@@ -2550,7 +2550,7 @@ def resolve_requirements_file(directory: str, requirements_file: Optional[str], 
 
 def generate_deploy_python(
     app_mode: AppMode,
-    min_version: str,
+    min_version: Optional[str] = None,
     alias: Optional[str] = None,
     desc: Optional[str] = None,
 ):
@@ -2563,12 +2563,15 @@ def generate_deploy_python(
     if desc is None:
         desc = app_mode.desc()
 
+    # Only surface a minimum Connect version indicator for recent (2024+) versions.
+    version_note = " [v{version}+]".format(version=min_version) if min_version else ""
+
     # noinspection SpellCheckingInspection
     @deploy.command(
         name=alias,
-        short_help="Deploy a {desc} to Posit Connect [v{version}+], Posit Cloud, or shinyapps.io.".format(
+        short_help="Deploy a {desc} to Posit Connect{version_note}, Posit Cloud, or shinyapps.io.".format(
             desc=desc,
-            version=min_version,
+            version_note=version_note,
         ),
         help=(
             "Deploy a {desc} module to Posit Connect, Posit Cloud, or shinyapps.io (if supported by the platform). "
@@ -2768,13 +2771,13 @@ def generate_deploy_python(
     return deploy_app
 
 
-generate_deploy_python(app_mode=AppModes.PYTHON_API, min_version="1.8.2")
-generate_deploy_python(app_mode=AppModes.PYTHON_API, min_version="1.8.2", alias="flask", desc="Flask API")
-generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, min_version="2021.08.0")
-generate_deploy_python(app_mode=AppModes.DASH_APP, min_version="1.8.2")
-generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, min_version="1.8.4")
-generate_deploy_python(app_mode=AppModes.BOKEH_APP, min_version="1.8.4")
-generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, min_version="2022.07.0")
+generate_deploy_python(app_mode=AppModes.PYTHON_API)
+generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="flask", desc="Flask API")
+generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI)
+generate_deploy_python(app_mode=AppModes.DASH_APP)
+generate_deploy_python(app_mode=AppModes.STREAMLIT_APP)
+generate_deploy_python(app_mode=AppModes.BOKEH_APP)
+generate_deploy_python(app_mode=AppModes.PYTHON_SHINY)
 generate_deploy_python(app_mode=AppModes.PYTHON_GRADIO, min_version="2024.12.0")
 generate_deploy_python(app_mode=AppModes.PYTHON_PANEL, min_version="2025.10.0")
 
@@ -3227,7 +3230,7 @@ def write_manifest_voila(
         "deployment. Should the content use the Quarto Jupyter engine, "
         'an environment file ("requirements.txt") is created if one does '
         "not already exist. All files are created in the same directory "
-        "as the project. Requires Posit Connect 2021.08.0 or later."
+        "as the project."
         "\n\n"
         "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
     ),
@@ -4323,7 +4326,7 @@ def content_venv(
             logger.info("Environment ready. Activate with: source %s/bin/activate" % env_path)
 
 
-@content.group(no_args_is_help=True, help="Build content on Posit Connect. Requires Connect >= 2021.11.1")
+@content.group(no_args_is_help=True, help="Build content on Posit Connect.")
 def build():
     pass
 
