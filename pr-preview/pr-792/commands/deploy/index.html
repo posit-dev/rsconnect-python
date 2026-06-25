@@ -652,6 +652,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#deploy-bundle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        bundle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#deploy-dash" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1264,6 +1275,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#deploy-bundle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        bundle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#deploy-dash" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1686,6 +1708,70 @@
   --package-installer [PIP|UV]    Select the Python package installer for
                                   installs in the manifest. By default,
                                   behavior is server-driven.
+  -V, --visibility [public|private]
+                                  The visibility of the resource being
+                                  deployed. (shinyapps.io only; must be public
+                                  (default) or private)
+  --help                          Show this message and exit.
+</code></pre></div>
+<h2 id="deploy-bundle">deploy bundle<a class="headerlink" href="#deploy-bundle" title="Permanent link">#</a></h2>
+<p>Deploy a content bundle (a .tar.gz file, such as one downloaded from a Connect server) directly to a server.  The bundle is uploaded as-is; its existing manifest.json determines the content type and dependencies.  This is useful for copying content from one server to another.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight"><pre><span></span><code>deploy bundle [OPTIONS] FILE
+</code></pre></div>
+<p><strong>Options:</strong></p>
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  -N, --new                       Force a new deployment, even if there is
+                                  saved metadata from a previous deployment.
+                                  Cannot be used with --app-id.
+  -a, --app-id TEXT               Existing app ID or GUID to replace. Cannot
+                                  be used with --new.
+  -t, --title TEXT                Title of the content (default is the same as
+                                  the filename).
+  -E, --environment TEXT          Set an environment variable. Specify a value
+                                  with NAME=VALUE, or just NAME to use the
+                                  value from the local environment. May be
+                                  specified multiple times. [v1.8.6+]
+  --no-verify                     Don&#39;t access the deployed content to verify
+                                  that it started correctly.
+  --draft                         Deploy the application as a draft. Previous
+                                  bundle will continue to be served until the
+                                  draft is published.
+  --metadata TEXT                 Include metadata key-value pair with the
+                                  bundle upload. Use format: key=value. May be
+                                  specified multiple times. Use key= (empty
+                                  value) to clear a detected value. Forces
+                                  metadata upload even on older servers that
+                                  don&#39;t officially support it. [v2025.12.0+]
+  --no-metadata                   Disable automatic git metadata detection and
+                                  upload.
+  -A, --account TEXT              The shinyapps.io/Posit Cloud account name.
+                                  (Also settable via SHINYAPPS_ACCOUNT
+                                  environment variable.)
+  -T, --token TEXT                The shinyapps.io/Posit Cloud token. (Also
+                                  settable via SHINYAPPS_TOKEN or
+                                  RSCLOUD_TOKEN environment variables.)
+  -S, --secret TEXT               The shinyapps.io/Posit Cloud token secret.
+                                  (Also settable via SHINYAPPS_SECRET or
+                                  RSCLOUD_SECRET environment variables.)
   -V, --visibility [public|private]
                                   The visibility of the resource being
                                   deployed. (shinyapps.io only; must be public

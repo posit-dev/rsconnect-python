@@ -545,6 +545,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#deploying-a-downloaded-bundle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deploying a Downloaded Bundle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#deploying-from-a-pyprojecttoml" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1515,6 +1526,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#deploying-a-downloaded-bundle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deploying a Downloaded Bundle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#deploying-from-a-pyprojecttoml" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1929,6 +1951,22 @@ IDE to create the manifest. See the help for the <code>rsconnect::writeManifest<
 <span class="nf">library</span><span class="p">(</span><span class="n">rsconnect</span><span class="p">)</span>
 <span class="o">?</span><span class="n">rsconnect</span><span class="o">::</span><span class="n">writeManifest</span>
 </code></pre></div>
+<h3 id="deploying-a-downloaded-bundle">Deploying a Downloaded Bundle<a class="headerlink" href="#deploying-a-downloaded-bundle" title="Permanent link">#</a></h3>
+<p>If you already have a content bundle as a <code>.tar.gz</code> file—for example, one
+downloaded from a Posit Connect server—you can deploy it directly without
+unpacking it. This is handy for copying content from one server to another.</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>bundle<span class="w"> </span>/path/to/bundle.tar.gz
+</code></pre></div>
+<p>The bundle is uploaded as-is; its existing <code>manifest.json</code> determines the content
+type and dependencies. The options are the same as for <code>deploy manifest</code>; see
+<code>rsconnect deploy bundle --help</code> for details.</p>
+<blockquote>
+<p><strong>Note</strong>
+Bundles do not contain environment variables or secrets, so any that the
+content relied on must be set on the target server (you can pass them with
+<code>-E NAME=VALUE</code>). Dependencies are pinned in the manifest, so the target
+server needs a compatible Python or R version available.</p>
+</blockquote>
 <h3 id="deploying-from-a-pyprojecttoml">Deploying from a pyproject.toml<a class="headerlink" href="#deploying-from-a-pyprojecttoml" title="Permanent link">#</a></h3>
 <p><code>rsconnect deploy pyproject</code> reads a <code>[tool.rsconnect]</code> table from a project's
 <code>pyproject.toml</code> instead of taking the app mode and entrypoint as CLI arguments.
