@@ -15,6 +15,7 @@ from rsconnect.api import (
     ShinyappsServer,
     ShinyappsService,
     SPCSConnectServer,
+    verify_api_key,
 )
 from rsconnect.exception import DeploymentFailedException, RSConnectException
 
@@ -98,6 +99,100 @@ class TestSystemRuntimeCachesAPI(TestCase):
         )
         result = ce.runtime_caches
         self.assertDictEqual(result, mocked_response)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_verify_api_key_user(self):
+        ce = RSConnectExecutor(None, None, "http://test-server/", "api_key")
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/user",
+            body=json.dumps({"username": "alice"}),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+        # Returns the executor without raising for a regular user.
+        self.assertIs(ce.verify_api_key(), ce)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_verify_api_key_service_principal(self):
+        # A service principal (e.g. for trusted publishing) authenticates but is not a
+        # user, so v1/user returns 403 / code 22. The credential is still valid, so
+        # verification should succeed instead of raising.
+        ce = RSConnectExecutor(None, None, "http://test-server/", "api_key")
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/user",
+            body=json.dumps({"code": 22, "error": "You don't have permission to perform this operation."}),
+            status=403,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+        self.assertIs(ce.verify_api_key(), ce)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_verify_api_key_invalid(self):
+        ce = RSConnectExecutor(None, None, "http://test-server/", "api_key")
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/user",
+            body=json.dumps({"code": 30, "error": "Invalid login."}),
+            status=401,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+        with self.assertRaises(RSConnectException) as cm:
+            ce.verify_api_key()
+        self.assertIn("not valid", str(cm.exception))
+
+    def test_verify_api_key_connection_error(self):
+        # A transport-layer failure yields an HTTPResponse with no status/reason, only
+        # an exception. Verification should surface a clean RSConnectException rather
+        # than an AttributeError from reading the missing status.
+        from rsconnect.http_support import HTTPResponse
+
+        ce = RSConnectExecutor(None, None, "http://test-server/", "api_key")
+        failed_response = HTTPResponse("http://test-server/__api__/v1/user", exception=OSError("connection refused"))
+        with patch.object(RSConnectClient, "get", return_value=failed_response):
+            with self.assertRaises(RSConnectException) as cm:
+                ce.verify_api_key()
+        self.assertIn("connection refused", str(cm.exception))
+
+    # The deprecated module-level verify_api_key() is reached via actions.test_api_key()
+    # during `rsconnect add`, so it must accept the same credentials as the executor path.
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_module_verify_api_key_user(self):
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/user",
+            body=json.dumps({"username": "alice"}),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(verify_api_key(RSConnectServer("http://test-server", "api_key")), "alice")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_module_verify_api_key_service_principal(self):
+        # A service principal authenticates but is not a user (403 / code 22); the
+        # credential is valid, so this returns an empty username instead of raising.
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/user",
+            body=json.dumps({"code": 22, "error": "You don't have permission to perform this operation."}),
+            status=403,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(verify_api_key(RSConnectServer("http://test-server", "api_key")), "")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_module_verify_api_key_invalid(self):
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/user",
+            body=json.dumps({"code": 30, "error": "Invalid login."}),
+            status=401,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+        with self.assertRaises(RSConnectException) as cm:
+            verify_api_key(RSConnectServer("http://test-server", "api_key"))
+        self.assertIn("not valid", str(cm.exception))
 
     # RSConnectExecutor.delete_runtime_cache() dry run returns expected request
     # RSConnectExecutor.delete_runtime_cache() dry run prints expected messages
