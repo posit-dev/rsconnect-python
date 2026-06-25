@@ -248,21 +248,21 @@ def cloud_shinyapps_args(func: Callable[P, T]) -> Callable[P, T]:
         "--account",
         "-A",
         envvar=["SHINYAPPS_ACCOUNT"],
-        help="The shinyapps.io/Posit Cloud account name. (Also settable via \
+        help="The shinyapps.io account name. (Also settable via \
 SHINYAPPS_ACCOUNT environment variable.)",
     )
     @click.option(
         "--token",
         "-T",
         envvar=["SHINYAPPS_TOKEN", "RSCLOUD_TOKEN"],
-        help="The shinyapps.io/Posit Cloud token. (Also settable via \
+        help="The shinyapps.io token. (Also settable via \
 SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment variables.)",
     )
     @click.option(
         "--secret",
         "-S",
         envvar=["SHINYAPPS_SECRET", "RSCLOUD_SECRET"],
-        help="The shinyapps.io/Posit Cloud token secret. \
+        help="The shinyapps.io token secret. \
 (Also settable via SHINYAPPS_SECRET or RSCLOUD_SECRET environment variables.)",
     )
     @functools.wraps(func)
@@ -497,7 +497,7 @@ def runtime_environment_args(func: Callable[P, T]) -> Callable[P, T]:
 def cli(future: bool):
     """
     This command line tool may be used to deploy various types of content to Posit
-    Connect, Posit Cloud, and shinyapps.io.
+    Connect and shinyapps.io.
 
     The tool supports the notion of a simple nickname that represents the
     information needed to interact with a deployment target.  Use the add, list and
@@ -757,7 +757,7 @@ def bootstrap(
 
 # noinspection SpellCheckingInspection
 @cli.command(
-    short_help="Define a nickname for a Posit Connect, Posit Cloud, or shinyapps.io server and credential.",
+    short_help="Define a nickname for a Posit Connect or shinyapps.io server and credential.",
     help=(
         "Associate a simple nickname with the information needed to interact with a deployment target. "
         "Specifying an existing nickname will cause its stored information to be replaced by what is given "
@@ -1349,7 +1349,7 @@ def quickstart(app_type: str, name: str, python_version: Optional[str]):
     run_quickstart(app_type=app_type, name=name, python_version=python_version)
 
 
-@cli.group(no_args_is_help=True, help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io.")
+@cli.group(no_args_is_help=True, help="Deploy content to Posit Connect or shinyapps.io.")
 def deploy():
     pass
 
@@ -1731,9 +1731,9 @@ def deploy_voila(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="manifest",
-    short_help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io by manifest.",
+    short_help="Deploy content to Posit Connect or shinyapps.io by manifest.",
     help=(
-        "Deploy content to Posit Connect, Posit Cloud, or shinyapps.io using an existing manifest.json "
+        "Deploy content to Posit Connect or shinyapps.io using an existing manifest.json "
         'file.  The specified file must either be named "manifest.json" or '
         'refer to a directory that contains a file named "manifest.json".'
     ),
@@ -1821,7 +1821,7 @@ def deploy_manifest(
 
 @deploy.command(
     name="bundle",
-    short_help="Deploy a previously downloaded bundle to Posit Connect, Posit Cloud, or shinyapps.io.",
+    short_help="Deploy a previously downloaded bundle to Posit Connect or shinyapps.io.",
     help=(
         "Deploy a content bundle (a .tar.gz file, such as one downloaded from a Connect server) "
         "directly to a server.  The bundle is uploaded as-is; its existing manifest.json determines "
@@ -1911,7 +1911,7 @@ def deploy_bundle(
 
 @deploy.command(
     name="pyproject",
-    short_help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io by pyproject.",
+    short_help="Deploy content to Posit Connect or shinyapps.io by pyproject.",
     help=(
         "Deploy content described by a project's pyproject.toml. The given directory must contain "
         "a pyproject.toml with a [tool.rsconnect] table specifying app_mode and entrypoint. "
@@ -2120,9 +2120,9 @@ def deploy_pyproject(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="quarto",
-    short_help="Deploy Quarto content to Posit Connect or Posit Cloud.",
+    short_help="Deploy Quarto content to Posit Connect.",
     help=(
-        "Deploy a Quarto document or project to Posit Connect or Posit Cloud. Should the content use the Quarto "
+        "Deploy a Quarto document or project to Posit Connect. Should the content use the Quarto "
         'Jupyter engine, an environment file ("requirements.txt") is created and included in the deployment if one '
         "does not already exist."
         "\n\n"
@@ -2414,8 +2414,8 @@ def deploy_tensorflow(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="html",
-    short_help="Deploy html content to Posit Connect or Posit Cloud.",
-    help=("Deploy an html file, or directory of html files with entrypoint, to Posit Connect or Posit Cloud."),
+    short_help="Deploy html content to Posit Connect.",
+    help=("Deploy an html file, or directory of html files with entrypoint, to Posit Connect."),
     no_args_is_help=True,
 )
 @server_args
@@ -2569,12 +2569,12 @@ def generate_deploy_python(
     # noinspection SpellCheckingInspection
     @deploy.command(
         name=alias,
-        short_help="Deploy a {desc} to Posit Connect{version_note}, Posit Cloud, or shinyapps.io.".format(
+        short_help="Deploy a {desc} to Posit Connect{version_note} or shinyapps.io.".format(
             desc=desc,
             version_note=version_note,
         ),
         help=(
-            "Deploy a {desc} module to Posit Connect, Posit Cloud, or shinyapps.io (if supported by the platform). "
+            "Deploy a {desc} module to Posit Connect or shinyapps.io (if supported by the platform). "
             'The "directory" argument must refer to an existing directory that contains the application code.'
         ).format(desc=desc),
         no_args_is_help=True,

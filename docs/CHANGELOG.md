@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed minimum Connect version indicators from CLI help for versions older
   than 2024 (e.g. `[v2021.08.0+]`), since those releases are no longer relevant.
   Indicators for 2024 and newer versions are retained.
+- Removed references to Posit Cloud from command help and docstrings, as
+  publishing to Posit Cloud is no longer supported.
 
 ### Added
 

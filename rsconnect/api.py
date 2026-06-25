@@ -195,7 +195,7 @@ class AbstractRemoteServer:
 
 class PositServer(AbstractRemoteServer):
     """
-    A class used to represent the server of the shinyapps.io and Posit Cloud APIs.
+    A class used to represent the server of the shinyapps.io API.
     """
 
     def __init__(self, remote_name: str, url: str, account_name: str, token: str, secret: str):
