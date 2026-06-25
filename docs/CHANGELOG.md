@@ -7,9 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-- Removed minimum Connect version indicators from CLI help for versions older
-  than 2024 (e.g. `[v2021.08.0+]`), since those releases are no longer relevant.
-  Indicators for 2024 and newer versions are retained.
 - The "no package-lock.json" error when deploying Node.js content now states
   that Connect installs Node.js dependencies with npm, helping publishers who
   build with yarn or pnpm understand why a `package-lock.json` is required.
@@ -23,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--no-set-default` is passed. `CONNECT_SERVER` still takes precedence.
 - New `environment` subcommand for managing execution environments on Connect.
 - New `integration` subcommand for managing OAuth integrations on Connect.
+- Removed minimum Connect version indicators from CLI help for versions older
+  than 2024 (e.g. `[v2021.08.0+]`), since those releases are no longer relevant.
+  Indicators for 2024 and newer versions are retained.
 
 ### Added
 
