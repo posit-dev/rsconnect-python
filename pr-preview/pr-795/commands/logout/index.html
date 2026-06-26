@@ -1016,9 +1016,9 @@
 
 
 <h1 id="logout">logout<a class="headerlink" href="#logout" title="Permanent link">#</a></h1>
-<p>Remove locally-stored OAuth credentials for a Posit Connect server. One of --name or --server is required. The server entry is preserved (for re-login without re-registration); use 'rsconnect remove' to delete the entry entirely.</p>
+<p>Remove locally-stored OAuth credentials for a Posit Connect server. The server is identified by a positional SERVER argument, -s/--server, or -n/--name. The server entry is preserved (for re-login without re-registration); use 'rsconnect remove' to delete the entry entirely.</p>
 <p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>logout [OPTIONS]
+<div class="highlight"><pre><span></span><code>logout [OPTIONS] SERVER
 </code></pre></div>
 <p><strong>Options:</strong></p>
 <div class="highlight"><pre><span></span><code>  -n, --name TEXT    The nickname of the Posit Connect server to log out from.
