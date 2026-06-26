@@ -195,7 +195,7 @@ class AbstractRemoteServer:
 
 class PositServer(AbstractRemoteServer):
     """
-    A class used to represent the server of the shinyapps.io and Posit Cloud APIs.
+    A class used to represent the server of the shinyapps.io API.
     """
 
     def __init__(self, remote_name: str, url: str, account_name: str, token: str, secret: str):
@@ -1554,23 +1554,13 @@ class RSConnectExecutor:
     def verify_api_key(self, server: Optional[RSConnectServer] = None):
         """
         Verify that an API Key may be used to authenticate with the given Posit Connect server.
-        If the API key verifies, we return the username of the associated user.
         """
         if not server:
             server = self.remote_server
         if isinstance(server, ShinyappsServer):
             raise RSConnectException("Shinnyapps server does not use an API key.")
         with RSConnectClient(server) as client:
-            result = client.me()
-            if isinstance(result, HTTPResponse):
-                if (
-                    result.json_data
-                    and isinstance(result.json_data, dict)
-                    and "code" in result.json_data
-                    and result.json_data["code"] == 30
-                ):
-                    raise RSConnectException("The specified API key is not valid.")
-                raise RSConnectException("Could not verify the API key: %s %s" % (result.status, result.reason))
+            verify_api_key_response(client)
         return self
 
     @property
@@ -2053,27 +2043,50 @@ def verify_server(connect_server: RSConnectServer):
         raise RSConnectException("There is an SSL/TLS configuration problem: %s" % ssl_error)
 
 
+def verify_api_key_response(client: RSConnectClient) -> Optional[UserRecord]:
+    """
+    Issue GET v1/user and interpret the response for the purpose of API key verification.
+
+    :param client: a client configured with the credential to verify.
+    :return: the user record on success, or None for a valid credential that has no
+        associated user (a service principal or machine identity, for example one used
+        for trusted publishing).
+    :raises RSConnectException: if the credential is invalid or the request otherwise fails.
+    """
+    # Use the raw response rather than client.me(), which would raise a generic error
+    # and discard the error code we need to distinguish the verification-specific cases
+    # below. Everything else (success, connection errors, other HTTP errors) is left to
+    # the standard handle_bad_response handler.
+    result = client.get("v1/user")
+    if isinstance(result, HTTPResponse) and not result.exception:
+        json_data = result.json_data if isinstance(result.json_data, dict) else {}
+        code = json_data.get("code")
+        # A service principal or machine identity authenticates successfully but has no
+        # associated user, so the v1/user endpoint rejects it with a 403 and error code
+        # 22. That code is unambiguous on this endpoint -- a genuinely invalid credential
+        # is rejected at the auth layer with code 30 instead -- so the credential is valid
+        # and we treat it as verified. This distinction only holds for v1/user, which is
+        # why it lives here rather than in handle_bad_response.
+        if result.status == 403 and code == 22:
+            return None
+        if code == 30:
+            raise RSConnectException("The specified API key is not valid.")
+    return cast(UserRecord, client._server.handle_bad_response(result))
+
+
 def verify_api_key(connect_server: RSConnectServer) -> str:
     """
     Verify that an API Key may be used to authenticate with the given Posit Connect server.
     If the API key verifies, we return the username of the associated user.
 
     :param connect_server: the Connect server information, including the API key to test.
-    :return: the username of the user to whom the API key belongs.
+    :return: the username of the user to whom the API key belongs, or an empty string for a
+        valid credential with no associated user (a service principal or machine identity).
     """
     warn("This method has been moved and will be deprecated.", DeprecationWarning, stacklevel=2)
     with RSConnectClient(connect_server) as client:
-        result = client.me()
-        if isinstance(result, HTTPResponse):
-            if (
-                result.json_data
-                and isinstance(result.json_data, dict)
-                and "code" in result.json_data
-                and result.json_data["code"] == 30
-            ):
-                raise RSConnectException("The specified API key is not valid.")
-            raise RSConnectException("Could not verify the API key: %s %s" % (result.status, result.reason))
-        return result["username"]
+        user = verify_api_key_response(client)
+    return user["username"] if user else ""
 
 
 def get_python_info(connect_server: Union[RSConnectServer, SPCSConnectServer]):

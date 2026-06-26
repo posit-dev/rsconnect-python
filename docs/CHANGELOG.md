@@ -18,12 +18,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   write-manifest.
 - Perform case insensitive matching of the configured Snowflake connection authenticator.
 - New `login` and `logout` subcommands for authenticating to Connect via OAuth.
+  `login` opens a browser interactively (or uses `--use-device-code` for
+  headless environments). Alternatively, `--identity-token` (or
+  `--identity-token-file`, and the `CONNECT_IDENTITY_TOKEN` /
+  `CONNECT_IDENTITY_TOKEN_FILE` environment variables) exchanges an OIDC
+  identity token, such as a GitHub Actions OIDC token, for a short-lived
+  Connect API key. In all cases the resulting credential is saved for the
+  server.
 - Servers can now be marked as the default with `rsconnect add --set-default`.
   When neither `-n/--name` nor `-s/--server` is provided, the default server is
   used automatically. `rsconnect login` sets the server as default unless
   `--no-set-default` is passed. `CONNECT_SERVER` still takes precedence.
 - New `environment` subcommand for managing execution environments on Connect.
 - New `integration` subcommand for managing OAuth integrations on Connect.
+- Removed minimum Connect version indicators from CLI help for versions older
+  than 2024 (e.g. `[v2021.08.0+]`), since those releases are no longer supported.
+  Indicators for 2024 and newer versions are retained.
+- Removed references to Posit Cloud from command help and docstrings, as
+  publishing to Posit Cloud is no longer supported.
 
 ### Added
 
@@ -44,6 +56,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from a project's `pyproject.toml` with a `[tool.rsconnect]` table. Also
   writes the environment file the manifest references (e.g. `requirements.txt`),
   regenerating it on each run unless it is itself the requirements source.
+- `rsconnect deploy bundle` command for deploying a previously built content
+  bundle (a `.tar.gz`, such as one downloaded from a Connect server) directly to
+  a server. The bundle is uploaded as-is and its existing `manifest.json`
+  determines the content type and dependencies, making it easy to copy content
+  from one server to another.
 
 ### Changed
 

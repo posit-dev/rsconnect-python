@@ -15,7 +15,7 @@ import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer as _HTTPServer
 from typing import Any, Dict, Optional, Tuple, cast
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import click
 
@@ -450,6 +450,113 @@ def refresh_access_token(
         raise RSConnectException("Token refresh returned an unexpected response.")
 
     return data
+
+
+_TOKEN_EXCHANGE_GRANT = "urn:ietf:params:oauth:grant-type:token-exchange"
+_ID_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:id_token"
+_ACCESS_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:access_token"
+
+
+def exchange_token_for_api_key(
+    url: str,
+    subject_token: str,
+    insecure: bool = False,
+    ca_data: Optional[str | bytes] = None,
+) -> str:
+    """Exchange an OIDC identity token for a short-lived Connect API key (RFC 8693).
+
+    This performs an OAuth token exchange against Connect's token endpoint.
+    Connect verifies the OIDC ``subject_token`` and, if it matches a service
+    principal that has been granted access (e.g. via trusted publishing or
+    identity federation), mints an ephemeral API key.
+
+    The server's OAuth metadata is discovered first; this both confirms that the
+    server supports token exchange (rather than discovering that via a failed
+    request) and yields the correct token endpoint, honoring any path prefix.
+
+    Returns the API key. Raises RSConnectException with an actionable message
+    when the exchange is unsupported or fails.
+    """
+    metadata = discover_oauth_metadata(url, insecure, ca_data)
+
+    grant_types = metadata.get("grant_types_supported")
+    if isinstance(grant_types, list) and _TOKEN_EXCHANGE_GRANT not in grant_types:
+        raise RSConnectException(
+            f"The server at {url} does not support OIDC token exchange. "
+            "It may need to be upgraded, or you can authenticate with an API key instead."
+        )
+
+    token_endpoint = str(metadata["token_endpoint"])
+    parsed = urlparse(token_endpoint)
+    base = f"{parsed.scheme}://{parsed.netloc}"
+    # Preserve the full request target (path, params, and query) from the
+    # discovered endpoint, not just the path.
+    request_target = urlunparse(("", "", parsed.path, parsed.params, parsed.query, ""))
+
+    body = urlencode(
+        {
+            "grant_type": _TOKEN_EXCHANGE_GRANT,
+            "subject_token_type": _ID_TOKEN_TYPE,
+            "requested_token_type": _ACCESS_TOKEN_TYPE,
+            "subject_token": subject_token,
+        }
+    ).encode("utf-8")
+
+    server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
+    with server:
+        response = server.request(
+            "POST",
+            request_target,
+            body=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+    if not isinstance(response, HTTPResponse):
+        raise RSConnectException("Unexpected response from the OIDC token exchange.")
+
+    if response.exception:
+        raise RSConnectException("Could not connect to %s - %s" % (url, response.exception), cause=response.exception)
+
+    status = response.status
+    data = response.json_data if isinstance(response.json_data, dict) else {}
+
+    if status and 200 <= status < 300:
+        api_key = data.get("access_token")
+        if not api_key:
+            raise RSConnectException("Connect returned a successful token exchange but no API key (access_token).")
+        return str(api_key)
+
+    raise _token_exchange_error(status, data)
+
+
+def _token_exchange_error(status: Optional[int], data: dict[str, Any]) -> RSConnectException:
+    """Translate a failed token-exchange response into an actionable exception."""
+    error = str(data.get("error", "")) if data else ""
+    description = str(data.get("error_description", "")) if data else ""
+
+    if status == 400 and error == "invalid_grant":
+        lowered = description.lower()
+        if "ambiguous" in lowered:
+            return RSConnectException(
+                f"The identity token matched more than one service principal on Connect ({description}). "
+                "Resolve the duplicate access grants on the server, or authenticate with an API key."
+            )
+        if "verif" in lowered:
+            return RSConnectException(
+                f"Connect could not verify the identity token ({description}). "
+                "Check the server clock and the OIDC issuer configuration, or authenticate with an API key."
+            )
+        return RSConnectException(
+            f"Connect did not grant access for this identity token ({description or 'no match'}). "
+            "Confirm access has been configured for the target content and that the token's "
+            "audience matches it, or authenticate with an API key."
+        )
+
+    detail = error
+    if description:
+        detail = f"{error}: {description}" if error else description
+    suffix = f" ({detail})" if detail else ""
+    return RSConnectException(f"OIDC token exchange failed (HTTP {status}){suffix}.")
 
 
 # ---------------------------------------------------------------------------

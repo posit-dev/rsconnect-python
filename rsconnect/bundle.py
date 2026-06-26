@@ -843,6 +843,107 @@ def read_manifest_file(manifest_path: str | Path) -> tuple[ManifestData, str]:
     return manifest, raw_manifest
 
 
+def _find_manifest_member(tar: tarfile.TarFile) -> Optional[tarfile.TarInfo]:
+    """
+    Locate the manifest.json member within a bundle tarball, mirroring the way
+    Connect collapses single-subdirectory bundles when it extracts them.
+
+    Connect repeatedly descends while the extraction root contains exactly one
+    entry and that entry is a directory, moving its contents up a level. So a
+    downloaded bundle may legitimately store manifest.json under a nested
+    directory (e.g. "bundle/manifest.json") rather than at the top level.
+
+    :return: the manifest.json member, or None if no manifest could be located.
+    """
+    file_names = {(m.name[2:] if m.name.startswith("./") else m.name): m for m in tar.getmembers() if m.isfile()}
+
+    prefix = ""
+    while True:
+        member = file_names.get(prefix + "manifest.json")
+        if member is not None:
+            return member
+
+        # Look at the entries directly under the current prefix.
+        remaining = [name[len(prefix) :] for name in file_names if name.startswith(prefix)]
+        entries = {name.split("/", 1)[0] for name in remaining}
+
+        # Only descend when this level holds exactly one entry and it is a
+        # directory (i.e. no file is named exactly that entry).
+        if len(entries) != 1:
+            return None
+        entry = next(iter(entries))
+        if entry in remaining:
+            return None
+        prefix = prefix + entry + "/"
+
+
+def read_bundle_manifest(bundle_path: str | Path) -> ManifestData:
+    """
+    Read and parse the manifest.json contained in a bundle tarball without
+    extracting the whole bundle.
+
+    :param bundle_path: the path to a bundle .tar.gz file.
+    :return: the parsed manifest data.
+    """
+    with tarfile.open(name=str(bundle_path), mode="r:gz") as tar:
+        member = _find_manifest_member(tar)
+        extracted = tar.extractfile(member) if member is not None else None
+        if extracted is None:
+            raise RSConnectException('Bundle "%s" does not contain a manifest.json file.' % bundle_path)
+        raw_manifest = extracted.read().decode("utf-8")
+
+    return json.loads(raw_manifest)
+
+
+def read_bundle_app_mode(bundle_path: str | Path) -> AppMode:
+    source_manifest = read_bundle_manifest(bundle_path)
+    # noinspection SpellCheckingInspection
+    return AppModes.get_by_name(source_manifest["metadata"]["appmode"])
+
+
+def default_title_from_bundle(bundle_path: str | Path) -> str:
+    source_manifest = read_bundle_manifest(bundle_path)
+
+    # Prefer the manifest's entry point / primary file, mirroring how a manifest
+    # deployment derives its title.
+    filename = None
+    metadata = source_manifest.get("metadata")
+    if metadata:
+        # noinspection SpellCheckingInspection
+        filename = metadata.get("entrypoint") or metadata.get("primary_rmd") or metadata.get("primary_html")
+        # If the manifest is for a module-style API entry point, there is no
+        # useful filename to derive a title from.
+        if filename and _module_pattern.match(filename):
+            filename = None
+
+    # When the manifest has no usable filename, fall back to the bundle's own
+    # file name (e.g. "mycontent" from "mycontent.tar.gz") rather than the
+    # directory the bundle happens to live in, which is unrelated to the content.
+    # Connect always produces .tar.gz bundles, and the name may legitimately
+    # contain dots (e.g. "my.cool.api"), so only the .tar.gz extension is stripped
+    # rather than splitting off a second "extension".
+    if not filename:
+        name = basename(str(bundle_path))
+        if name.lower().endswith(".tar.gz"):
+            name = name[: -len(".tar.gz")]
+        return _enforce_title_length(name)
+
+    return _default_title(filename)
+
+
+def open_bundle(bundle_path: str | Path) -> typing.IO[bytes]:
+    """Open an existing bundle tarball so it can be uploaded as-is.
+
+    This exists to plug into ``RSConnectExecutor.make_bundle``, which expects a
+    callable that returns the bundle as a file-like object (e.g.
+    ``make_manifest_bundle``, which builds a tarball). For ``deploy bundle`` we
+    already have a finished ``.tar.gz`` on disk, so the "builder" is just an
+    open() — no tarball is constructed. Routing through ``make_bundle`` keeps the
+    deployment-name setup and upload flow identical to the other deploy commands.
+    """
+    return open(bundle_path, "rb")
+
+
 def make_manifest_bundle(manifest_path: str | Path) -> typing.IO[bytes]:
     """Create a bundle, given a manifest.
 
@@ -1635,6 +1736,14 @@ def make_quarto_manifest(
     return manifest, relevant_files
 
 
+def _enforce_title_length(title: str) -> str:
+    """
+    Pad or truncate a title so it is between 3 and 1024 characters long, as
+    required by Posit Connect.
+    """
+    return title[:1024].rjust(3, "0")
+
+
 def _default_title(file_name: str | Path) -> str:
     """
     Produce a default content title from the given file path.  The result is
@@ -1647,7 +1756,7 @@ def _default_title(file_name: str | Path) -> str:
     # Make sure we have enough of a path to derive text from.
     file_name = abspath(file_name)
     # noinspection PyTypeChecker
-    return basename(file_name).rsplit(".", 1)[0][:1024].rjust(3, "0")
+    return _enforce_title_length(basename(file_name).rsplit(".", 1)[0])
 
 
 def validate_file_is_notebook(file_name: str | Path) -> None:

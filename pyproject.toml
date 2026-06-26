@@ -31,7 +31,6 @@ test = [
     "flake8",
     "httpretty",
     "ipykernel",
-    "mistune<3.3; python_version=='3.8'",  # 3.3+ uses re.Pattern[str], invalid on 3.8
     "nbconvert",
     "pyright",
     "pytest-cov",

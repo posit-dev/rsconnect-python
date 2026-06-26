@@ -215,9 +215,6 @@ of the available search flags.
 
 ### Content Build
 
-> **Note**
-> The `rsconnect content build` subcommand requires Posit Connect >= 2021.11.1
-
 Posit Connect caches R and Python packages in the configured
 [`Server.DataDir`](https://docs.posit.co/connect/admin/appendix/configuration/#Server.DataDir).
 Under certain circumstances (examples below), these package caches can become stale
@@ -249,7 +246,7 @@ The following are some common scenarios where performing a content build might b
 rsconnect content build --help
 Usage: rsconnect content build [OPTIONS] COMMAND [ARGS]...
 
-  Build content on Posit Connect. Requires Connect >= 2021.11.1
+  Build content on Posit Connect.
 
 Options:
   --help  Show this message and exit.

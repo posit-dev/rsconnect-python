@@ -819,20 +819,13 @@ def test_quickstart_registry_accepts_new_mode(
 # ---------------------------------------------------------------------------
 
 
-# nbconvert pulls mistune>=3.3, which uses re.Pattern[str] and is broken on
-# Python 3.8; skip the jupyter-based scaffolds there.
-_PY38_NBCONVERT_SKIP = pytest.mark.skipif(
-    sys.version_info < (3, 9),
-    reason="nbconvert pulls mistune>=3.3 which is broken on Python 3.8",
-)
-
 BOOT_SMOKE_MATRIX = [
     pytest.param("streamlit", "http", id="streamlit"),
     pytest.param("shiny", "http", id="shiny"),
     pytest.param("fastapi", "http", id="fastapi"),
     pytest.param("api", "http", id="api"),
-    pytest.param("voila", "http", id="voila", marks=_PY38_NBCONVERT_SKIP),
-    pytest.param("notebook", "artifact", id="notebook", marks=_PY38_NBCONVERT_SKIP),
+    pytest.param("voila", "http", id="voila"),
+    pytest.param("notebook", "artifact", id="notebook"),
     pytest.param("quarto", "artifact", id="quarto"),
 ]
 

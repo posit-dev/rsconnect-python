@@ -90,6 +90,7 @@ from .api import (
     server_supports_git_metadata,
 )
 from .bundle import (
+    default_title_from_bundle,
     default_title_from_manifest,
     make_api_bundle,
     make_html_bundle,
@@ -100,6 +101,8 @@ from .bundle import (
     make_notebook_source_bundle,
     make_tensorflow_bundle,
     make_voila_bundle,
+    open_bundle,
+    read_bundle_app_mode,
     read_manifest_app_mode,
     resolve_shiny_express_entrypoint,
     validate_entry_point,
@@ -246,21 +249,21 @@ def cloud_shinyapps_args(func: Callable[P, T]) -> Callable[P, T]:
         "--account",
         "-A",
         envvar=["SHINYAPPS_ACCOUNT"],
-        help="The shinyapps.io/Posit Cloud account name. (Also settable via \
+        help="The shinyapps.io account name. (Also settable via \
 SHINYAPPS_ACCOUNT environment variable.)",
     )
     @click.option(
         "--token",
         "-T",
         envvar=["SHINYAPPS_TOKEN", "RSCLOUD_TOKEN"],
-        help="The shinyapps.io/Posit Cloud token. (Also settable via \
+        help="The shinyapps.io token. (Also settable via \
 SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment variables.)",
     )
     @click.option(
         "--secret",
         "-S",
         envvar=["SHINYAPPS_SECRET", "RSCLOUD_SECRET"],
-        help="The shinyapps.io/Posit Cloud token secret. \
+        help="The shinyapps.io token secret. \
 (Also settable via SHINYAPPS_SECRET or RSCLOUD_SECRET environment variables.)",
     )
     @functools.wraps(func)
@@ -305,7 +308,7 @@ def validate_env_vars(ctx: click.Context, param: click.Parameter, all_values: tu
 
 
 def prepare_deploy_metadata(
-    directory: str,
+    directory: Optional[str],
     metadata_overrides: tuple[str, ...],
     no_metadata: bool,
     server_version: Optional[str] = None,
@@ -313,7 +316,10 @@ def prepare_deploy_metadata(
     """
     Prepare metadata for bundle upload.
 
-    :param directory: Directory to detect git metadata from
+    :param directory: Directory to auto-detect git metadata from. Pass None to
+        skip auto-detection and send only the CLI overrides (e.g. for bundle
+        deployments, where the bundle's location on disk is unrelated to the
+        content's source).
     :param metadata_overrides: CLI metadata overrides (key=value pairs)
     :param no_metadata: Flag to disable all metadata
     :param server_version: Optional server version to check support
@@ -335,8 +341,8 @@ def prepare_deploy_metadata(
                 else:  # Empty value clears the key
                     cli_metadata[key] = ""
 
-    # Auto-detect git metadata
-    detected_metadata = detect_git_metadata(directory)
+    # Auto-detect git metadata, unless the caller opted out by passing None.
+    detected_metadata = detect_git_metadata(directory) if directory is not None else {}
 
     # Merge: CLI overrides take precedence, then remove empty values
     final_metadata = {**detected_metadata, **cli_metadata}
@@ -492,7 +498,7 @@ def runtime_environment_args(func: Callable[P, T]) -> Callable[P, T]:
 def cli(future: bool):
     """
     This command line tool may be used to deploy various types of content to Posit
-    Connect, Posit Cloud, and shinyapps.io.
+    Connect and shinyapps.io.
 
     The tool supports the notion of a simple nickname that represents the
     information needed to interact with a deployment target.  Use the add, list and
@@ -752,7 +758,7 @@ def bootstrap(
 
 # noinspection SpellCheckingInspection
 @cli.command(
-    short_help="Define a nickname for a Posit Connect, Posit Cloud, or shinyapps.io server and credential.",
+    short_help="Define a nickname for a Posit Connect or shinyapps.io server and credential.",
     help=(
         "Associate a simple nickname with the information needed to interact with a deployment target. "
         "Specifying an existing nickname will cause its stored information to be replaced by what is given "
@@ -1028,16 +1034,81 @@ def remove(
             click.echo("Note: the removed server was the default. Use `rsconnect add --set-default` to set a new one.")
 
 
+def _resolve_identity_token(identity_token: Optional[str], identity_token_file: Optional[str]) -> Optional[str]:
+    """Resolve the identity token from the flag/env var or a file.
+
+    Returns the token string, or None if neither source was provided (in which
+    case the caller falls back to interactive OAuth login).
+    """
+    if identity_token is not None and identity_token_file is not None:
+        raise RSConnectException("You must specify only one of --identity-token or --identity-token-file.")
+
+    if identity_token_file is not None:
+        with open(identity_token_file, "r") as f:
+            token = f.read()
+    elif identity_token is not None:
+        token = sys.stdin.read() if identity_token == "-" else identity_token
+    else:
+        return None
+
+    token = token.strip()
+    if not token:
+        raise RSConnectException("The identity token is empty.")
+    return token
+
+
+def _login_with_token_exchange(
+    server: str,
+    name: str,
+    subject_token: str,
+    insecure: bool,
+    ca_data: Optional[str | bytes],
+    no_set_default: bool,
+) -> None:
+    """Exchange an identity token for a Connect API key and store it as the server credential."""
+    from .oauth import exchange_token_for_api_key
+
+    with cli_feedback("Exchanging identity token for an API key"):
+        api_key = exchange_token_for_api_key(server, subject_token, insecure, ca_data)
+
+    # Validate the minted key and normalize the server URL before saving.
+    with cli_feedback("Checking %s" % server):
+        real_server, _ = test_server(api.RSConnectServer(server, api_key, insecure, ca_data))
+    real_server.api_key = api_key
+    with cli_feedback("Checking API key"):
+        test_api_key(real_server)
+
+    ca_data_str = ca_data.decode("utf-8") if isinstance(ca_data, bytes) else ca_data
+    set_as_default = not no_set_default
+
+    server_store.set(
+        name,
+        real_server.url,
+        api_key=real_server.api_key,
+        insecure=insecure,
+        ca_data=ca_data_str,
+        set_as_default=set_as_default,
+    )
+
+    click.echo('Logged in to "%s" (%s) via identity token exchange.' % (name, real_server.url))
+    if set_as_default:
+        click.echo('Server "%s" is now the default.' % name)
+
+
 @cli.command(
     short_help="Authenticate with a Posit Connect server using OAuth.",
     help=(
         "Authenticate with a Posit Connect server using OAuth 2.1. "
         "This opens a browser for interactive login (or uses --use-device-code for headless environments). "
-        "Tokens are stored in the system keyring when available, with fallback to the local credential store."
+        "Tokens are stored in the system keyring when available, with fallback to the local credential store.\n\n"
+        "Alternatively, pass --identity-token (or --identity-token-file) with an OIDC identity token, such as a "
+        "GitHub Actions OIDC token, to exchange it for a short-lived Connect API key without interactive login. "
+        "The resulting API key is saved as the server credential."
     ),
     no_args_is_help=True,
 )
-@click.option("--server", "-s", envvar="CONNECT_SERVER", required=True, help="The URL of the Posit Connect server.")
+@click.argument("server_arg", metavar="SERVER", required=False)
+@click.option("--server", "-s", envvar="CONNECT_SERVER", help="The URL of the Posit Connect server.")
 @click.option("--name", "-n", help="Nickname for the server (defaults to server hostname).")
 @click.option("--insecure", "-i", envvar="CONNECT_INSECURE", is_flag=True, help="Disable TLS certificate verification.")
 @click.option(
@@ -1046,6 +1117,27 @@ def remove(
     envvar="CONNECT_CA_CERTIFICATE",
     type=click.Path(exists=True, file_okay=True, dir_okay=False),
     help="Path to a trusted CA certificate file for TLS.",
+)
+@click.option(
+    "--identity-token",
+    envvar="CONNECT_IDENTITY_TOKEN",
+    default=None,
+    help=(
+        "An OIDC identity token to exchange for a Connect API key (RFC 8693), instead of interactive "
+        "OAuth login. Use '-' to read the token from stdin. May also be set via the CONNECT_IDENTITY_TOKEN "
+        "environment variable."
+    ),
+)
+@click.option(
+    "--identity-token-file",
+    envvar="CONNECT_IDENTITY_TOKEN_FILE",
+    default=None,
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+    help=(
+        "Path to a file containing an OIDC identity token to exchange for a Connect API key. "
+        "May also be set via the CONNECT_IDENTITY_TOKEN_FILE environment variable. Prefer this over "
+        "--identity-token to avoid exposing the token in process arguments or CI/CD logs."
+    ),
 )
 @click.option(
     "--use-device-code",
@@ -1063,16 +1155,30 @@ def remove(
 @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 @cli_exception_handler
 def login(
-    server: str,
+    server_arg: Optional[str],
+    server: Optional[str],
     name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
+    identity_token: Optional[str],
+    identity_token_file: Optional[str],
     use_device_code: bool,
     client_id: Optional[str],
     no_set_default: bool,
     verbose: int,
 ):
     set_verbosity(verbose)
+
+    # Only treat --server as conflicting with the positional argument when it
+    # was given explicitly on the command line. A value sourced from the
+    # CONNECT_SERVER environment variable should not block the positional form.
+    server_source = validation.get_parameter_source_name_from_ctx("server", click.get_current_context())
+    server_from_option = server_source == "COMMANDLINE"
+    if server_arg and server and server_from_option:
+        raise RSConnectException("You must specify only one of SERVER or -s/--server.")
+    server = server_arg or server
+    if not server:
+        raise RSConnectException("You must specify the server as a SERVER argument or with -s/--server.")
 
     if not server.startswith("http"):
         raise RSConnectException("Server URL must begin with http or https.")
@@ -1083,6 +1189,11 @@ def login(
         from urllib.parse import urlparse as _urlparse
 
         name = _urlparse(server).hostname or server
+
+    subject_token = _resolve_identity_token(identity_token, identity_token_file)
+    if subject_token is not None:
+        _login_with_token_exchange(server, name, subject_token, insecure, ca_data, no_set_default)
+        return
 
     from .oauth import (
         InvalidClientError,
@@ -1170,27 +1281,33 @@ def login(
     short_help="Remove stored OAuth credentials for a Posit Connect server.",
     help=(
         "Remove locally-stored OAuth credentials for a Posit Connect server. "
-        "One of --name or --server is required. "
+        "The server is identified by a positional SERVER argument, -s/--server, or -n/--name. "
         "The server entry is preserved (for re-login without re-registration); "
         "use 'rsconnect remove' to delete the entry entirely."
     ),
     no_args_is_help=True,
 )
+@click.argument("server_arg", metavar="SERVER", required=False)
 @click.option("--name", "-n", help="The nickname of the Posit Connect server to log out from.")
 @click.option("--server", "-s", help="The URL of the Posit Connect server to log out from.")
 @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 @cli_exception_handler
 def logout(
+    server_arg: Optional[str],
     name: Optional[str],
     server: Optional[str],
     verbose: int,
 ):
     set_verbosity(verbose)
 
+    if server_arg and server:
+        raise RSConnectException("Specify only one of SERVER or -s/--server.")
+    server = server_arg or server
+
     if name and server:
-        raise RSConnectException("Specify only one of --name or --server.")
+        raise RSConnectException("Specify only one of --name, --server, or SERVER.")
     if not name and not server:
-        raise RSConnectException("Specify one of --name or --server.")
+        raise RSConnectException("Specify one of --name, --server, or SERVER.")
 
     entry = None
     if name:
@@ -1325,7 +1442,7 @@ def quickstart(app_type: str, name: str, python_version: Optional[str]):
     run_quickstart(app_type=app_type, name=name, python_version=python_version)
 
 
-@cli.group(no_args_is_help=True, help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io.")
+@cli.group(no_args_is_help=True, help="Deploy content to Posit Connect or shinyapps.io.")
 @click.pass_context
 def deploy(ctx: click.Context):
     checker = BackgroundVersionCheck()
@@ -1550,7 +1667,7 @@ def deploy_notebook(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="voila",
-    short_help="Deploy Jupyter notebook in Voila mode to Posit Connect [v2023.03.0+].",
+    short_help="Deploy Jupyter notebook in Voila mode to Posit Connect.",
     help=("Deploy a Jupyter notebook in Voila mode to Posit Connect."),
     no_args_is_help=True,
 )
@@ -1718,9 +1835,9 @@ def deploy_voila(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="manifest",
-    short_help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io by manifest.",
+    short_help="Deploy content to Posit Connect or shinyapps.io by manifest.",
     help=(
-        "Deploy content to Posit Connect, Posit Cloud, or shinyapps.io using an existing manifest.json "
+        "Deploy content to Posit Connect or shinyapps.io using an existing manifest.json "
         'file.  The specified file must either be named "manifest.json" or '
         'refer to a directory that contains a file named "manifest.json".'
     ),
@@ -1807,8 +1924,98 @@ def deploy_manifest(
 
 
 @deploy.command(
+    name="bundle",
+    short_help="Deploy a previously downloaded bundle to Posit Connect or shinyapps.io.",
+    help=(
+        "Deploy a content bundle (a .tar.gz file, such as one downloaded from a Connect server) "
+        "directly to a server.  The bundle is uploaded as-is; its existing manifest.json determines "
+        "the content type and dependencies.  This is useful for copying content from one server to "
+        "another."
+    ),
+    no_args_is_help=True,
+)
+@server_args
+@spcs_args
+@content_args
+@cloud_shinyapps_args
+@click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
+@shinyapps_deploy_args
+@cli_exception_handler
+@click.pass_context
+def deploy_bundle(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    account: Optional[str],
+    token: Optional[str],
+    secret: Optional[str],
+    new: bool,
+    app_id: Optional[str],
+    title: Optional[str],
+    verbose: int,
+    file: str,
+    env_vars: dict[str, str],
+    visibility: Optional[str],
+    no_verify: bool,
+    draft: bool,
+    metadata: tuple[str, ...] = tuple(),
+    no_metadata: bool = False,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    app_mode = read_bundle_app_mode(file)
+    title = title or default_title_from_bundle(file)
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        account=account,
+        token=token,
+        secret=secret,
+        path=file,
+        server=server,
+        new=new,
+        app_id=app_id,
+        title=title,
+        visibility=visibility,
+        env_vars=env_vars,
+    )
+
+    # Prepare metadata for upload. Passing directory=None skips git auto-detection:
+    # the bundle's location on disk is unrelated to the content's source, so only
+    # explicit --metadata overrides are sent.
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_settings().get("version", "")
+    ce.metadata = prepare_deploy_metadata(None, metadata, no_metadata, server_version)
+
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=app_mode)
+        .make_bundle(
+            open_bundle,
+            file,
+        )
+        .deploy_bundle(activate=not draft)
+        .save_deployed_info()
+        .emit_task_log()
+    )
+    if not no_verify:
+        ce.verify_deployment()
+
+
+@deploy.command(
     name="pyproject",
-    short_help="Deploy content to Posit Connect, Posit Cloud, or shinyapps.io by pyproject.",
+    short_help="Deploy content to Posit Connect or shinyapps.io by pyproject.",
     help=(
         "Deploy content described by a project's pyproject.toml. The given directory must contain "
         "a pyproject.toml with a [tool.rsconnect] table specifying app_mode and entrypoint. "
@@ -2017,11 +2224,11 @@ def deploy_pyproject(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="quarto",
-    short_help="Deploy Quarto content to Posit Connect [v2021.08.0+] or Posit Cloud.",
+    short_help="Deploy Quarto content to Posit Connect.",
     help=(
-        "Deploy a Quarto document or project to Posit Connect or Posit Cloud. Should the content use the Quarto "
+        "Deploy a Quarto document or project to Posit Connect. Should the content use the Quarto "
         'Jupyter engine, an environment file ("requirements.txt") is created and included in the deployment if one '
-        "does not already exist. Requires Posit Connect 2021.08.0 or later."
+        "does not already exist."
         "\n\n"
         "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
     ),
@@ -2311,8 +2518,8 @@ def deploy_tensorflow(
 # noinspection SpellCheckingInspection,DuplicatedCode
 @deploy.command(
     name="html",
-    short_help="Deploy html content to Posit Connect or Posit Cloud.",
-    help=("Deploy an html file, or directory of html files with entrypoint, to Posit Connect or Posit Cloud."),
+    short_help="Deploy html content to Posit Connect.",
+    help=("Deploy an html file, or directory of html files with entrypoint, to Posit Connect."),
     no_args_is_help=True,
 )
 @server_args
@@ -2447,7 +2654,7 @@ def resolve_requirements_file(directory: str, requirements_file: Optional[str], 
 
 def generate_deploy_python(
     app_mode: AppMode,
-    min_version: str,
+    min_version: Optional[str] = None,
     alias: Optional[str] = None,
     desc: Optional[str] = None,
 ):
@@ -2460,15 +2667,18 @@ def generate_deploy_python(
     if desc is None:
         desc = app_mode.desc()
 
+    # Only surface a minimum Connect version indicator for recent (2024+) versions.
+    version_note = " [v{version}+]".format(version=min_version) if min_version else ""
+
     # noinspection SpellCheckingInspection
     @deploy.command(
         name=alias,
-        short_help="Deploy a {desc} to Posit Connect [v{version}+], Posit Cloud, or shinyapps.io.".format(
+        short_help="Deploy a {desc} to Posit Connect{version_note} or shinyapps.io.".format(
             desc=desc,
-            version=min_version,
+            version_note=version_note,
         ),
         help=(
-            "Deploy a {desc} module to Posit Connect, Posit Cloud, or shinyapps.io (if supported by the platform). "
+            "Deploy a {desc} module to Posit Connect or shinyapps.io (if supported by the platform). "
             'The "directory" argument must refer to an existing directory that contains the application code.'
         ).format(desc=desc),
         no_args_is_help=True,
@@ -2665,13 +2875,13 @@ def generate_deploy_python(
     return deploy_app
 
 
-generate_deploy_python(app_mode=AppModes.PYTHON_API, min_version="1.8.2")
-generate_deploy_python(app_mode=AppModes.PYTHON_API, min_version="1.8.2", alias="flask", desc="Flask API")
-generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI, min_version="2021.08.0")
-generate_deploy_python(app_mode=AppModes.DASH_APP, min_version="1.8.2")
-generate_deploy_python(app_mode=AppModes.STREAMLIT_APP, min_version="1.8.4")
-generate_deploy_python(app_mode=AppModes.BOKEH_APP, min_version="1.8.4")
-generate_deploy_python(app_mode=AppModes.PYTHON_SHINY, min_version="2022.07.0")
+generate_deploy_python(app_mode=AppModes.PYTHON_API)
+generate_deploy_python(app_mode=AppModes.PYTHON_API, alias="flask", desc="Flask API")
+generate_deploy_python(app_mode=AppModes.PYTHON_FASTAPI)
+generate_deploy_python(app_mode=AppModes.DASH_APP)
+generate_deploy_python(app_mode=AppModes.STREAMLIT_APP)
+generate_deploy_python(app_mode=AppModes.BOKEH_APP)
+generate_deploy_python(app_mode=AppModes.PYTHON_SHINY)
 generate_deploy_python(app_mode=AppModes.PYTHON_GRADIO, min_version="2024.12.0")
 generate_deploy_python(app_mode=AppModes.PYTHON_PANEL, min_version="2025.10.0")
 
@@ -3124,7 +3334,7 @@ def write_manifest_voila(
         "deployment. Should the content use the Quarto Jupyter engine, "
         'an environment file ("requirements.txt") is created if one does '
         "not already exist. All files are created in the same directory "
-        "as the project. Requires Posit Connect 2021.08.0 or later."
+        "as the project."
         "\n\n"
         "FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project."
     ),
@@ -4220,7 +4430,7 @@ def content_venv(
             logger.info("Environment ready. Activate with: source %s/bin/activate" % env_path)
 
 
-@content.group(no_args_is_help=True, help="Build content on Posit Connect. Requires Connect >= 2021.11.1")
+@content.group(no_args_is_help=True, help="Build content on Posit Connect.")
 def build():
     pass
 
