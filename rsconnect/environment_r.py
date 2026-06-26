@@ -291,8 +291,9 @@ def _remote_repo_url(remote_type: str, pkg_ref: str) -> str:
     return f"{host}{pkg_ref}" if host else ""
 
 
-def _join_list(value: Optional[Sequence[str]]) -> Optional[str]:
-    return ", ".join(value) if value else None
+def _join_list(value: Optional[Sequence[Optional[str]]]) -> Optional[str]:
+    items = [v for v in value if v is not None] if value else []
+    return ", ".join(items) if items else None
 
 
 def _is_url(value: str) -> bool:

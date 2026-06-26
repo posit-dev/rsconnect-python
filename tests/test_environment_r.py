@@ -197,6 +197,38 @@ def test_null_r_section_raises(tmp_path):
         REnvironment.create(str(tmp_path))
 
 
+def test_null_entries_in_linking_fields_are_tolerated(tmp_path):
+    # rpy2 and similar packages can produce renv.lock entries like
+    # "LinkingTo": [null], which caused _join_list to raise TypeError
+    # because str.join rejects None elements.
+    write_lockfile(
+        tmp_path,
+        {
+            "R": {"Version": "4.3.1", "Repositories": [{"Name": "CRAN", "URL": "https://cloud.r-project.org"}]},
+            "Packages": {
+                "rpy2": {
+                    "Package": "rpy2",
+                    "Version": "1.0.0",
+                    "Source": "Repository",
+                    "Repository": "CRAN",
+                    "Imports": ["R6", None],
+                    "Suggests": [None],
+                    "LinkingTo": [None],
+                },
+            },
+        },
+    )
+
+    env = REnvironment.create(str(tmp_path))
+    assert env is not None
+    description = env.packages["rpy2"]["description"]
+    # Null entries are dropped; non-null strings are kept.
+    assert description.get("Imports") == "R6"
+    # Fields that are all-null collapse to absent rather than empty.
+    assert "Suggests" not in description
+    assert "LinkingTo" not in description
+
+
 MINIMAL_LOCKFILE = {
     "R": {"Version": "4.3.1", "Repositories": [{"Name": "CRAN", "URL": "https://cloud.r-project.org"}]},
     "Packages": {},
