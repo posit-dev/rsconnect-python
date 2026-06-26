@@ -15,6 +15,7 @@ from rsconnect.oauth import (
     _exchange_code_for_token,
     _poll_for_device_token,
     discover_oauth_metadata,
+    exchange_token_for_api_key,
     generate_pkce_pair,
     keyring_delete_tokens,
     keyring_get_tokens,
@@ -114,6 +115,100 @@ class TestTokenExchange:
             _exchange_code_for_token(
                 FAKE_METADATA, "bad-client", "auth-code", "verifier", "http://127.0.0.1:8080/callback"
             )
+
+
+class TestExchangeTokenForApiKey:
+    @staticmethod
+    def _set_metadata(mock_http_server: MagicMock, metadata: Any = FAKE_METADATA) -> None:
+        # exchange_token_for_api_key discovers OAuth metadata (server.get) before
+        # POSTing the token exchange (server.request).
+        mock_http_server.get.return_value = _make_response(200, metadata)
+
+    def test_success(self, mock_http_server: MagicMock):
+        self._set_metadata(mock_http_server)
+        mock_http_server.request.return_value = _make_response(200, {"access_token": "minted-key"})
+        result = exchange_token_for_api_key(FAKE_URL, "oidc-token")
+        assert result == "minted-key"
+        # RFC 8693 token-exchange request shape.
+        body = mock_http_server.request.call_args.kwargs["body"]
+        assert b"grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Atoken-exchange" in body
+        assert b"subject_token=oidc-token" in body
+
+    def test_uses_discovered_token_endpoint_with_prefix(self, mock_http_server: MagicMock):
+        # The token endpoint (including any path prefix) comes from discovery.
+        metadata = {**FAKE_METADATA, "token_endpoint": "https://host.example.com/connect/oauth/v1/token"}
+        self._set_metadata(mock_http_server, metadata)
+        mock_http_server.request.return_value = _make_response(200, {"access_token": "minted-key"})
+        result = exchange_token_for_api_key("https://host.example.com/connect", "oidc-token")
+        assert result == "minted-key"
+        assert mock_http_server.request.call_args.args[1] == "/connect/oauth/v1/token"
+
+    def test_preserves_token_endpoint_query(self, mock_http_server: MagicMock):
+        # A discovered token endpoint with a query component must be posted to verbatim.
+        metadata = {**FAKE_METADATA, "token_endpoint": "https://host.example.com/connect/oauth/v1/token?tenant=acme"}
+        self._set_metadata(mock_http_server, metadata)
+        mock_http_server.request.return_value = _make_response(200, {"access_token": "minted-key"})
+        result = exchange_token_for_api_key("https://host.example.com/connect", "oidc-token")
+        assert result == "minted-key"
+        assert mock_http_server.request.call_args.args[1] == "/connect/oauth/v1/token?tenant=acme"
+
+    def test_grant_type_not_supported(self, mock_http_server: MagicMock):
+        # Preflight: the server advertises grants but not token exchange.
+        metadata = {**FAKE_METADATA, "grant_types_supported": ["authorization_code", "refresh_token"]}
+        self._set_metadata(mock_http_server, metadata)
+        with pytest.raises(RSConnectException, match="does not support OIDC token exchange"):
+            exchange_token_for_api_key(FAKE_URL, "oidc-token")
+        mock_http_server.request.assert_not_called()
+
+    def test_server_not_supporting_oauth(self, mock_http_server: MagicMock):
+        # Discovery itself fails (e.g. server too old or OAuth disabled).
+        mock_http_server.get.return_value = _make_response(404, None)
+        with pytest.raises(RSConnectException, match="does not support OAuth"):
+            exchange_token_for_api_key(FAKE_URL, "oidc-token")
+
+    def test_success_no_access_token(self, mock_http_server: MagicMock):
+        self._set_metadata(mock_http_server)
+        mock_http_server.request.return_value = _make_response(200, {"something_else": "x"})
+        with pytest.raises(RSConnectException, match="no API key"):
+            exchange_token_for_api_key(FAKE_URL, "oidc-token")
+
+    def test_connection_exception(self, mock_http_server: MagicMock):
+        # A network/TLS failure returns an exception response with no .status.
+        self._set_metadata(mock_http_server)
+        error_response = HTTPResponse("", exception=OSError("connection refused"))
+        mock_http_server.request.return_value = error_response
+        with pytest.raises(RSConnectException, match="Could not connect to"):
+            exchange_token_for_api_key(FAKE_URL, "oidc-token")
+
+    def test_no_access_granted(self, mock_http_server: MagicMock):
+        self._set_metadata(mock_http_server)
+        mock_http_server.request.return_value = _make_response(
+            400, {"error": "invalid_grant", "error_description": "no service principal found"}
+        )
+        with pytest.raises(RSConnectException, match="did not grant access"):
+            exchange_token_for_api_key(FAKE_URL, "oidc-token")
+
+    def test_ambiguous_match(self, mock_http_server: MagicMock):
+        self._set_metadata(mock_http_server)
+        mock_http_server.request.return_value = _make_response(
+            400, {"error": "invalid_grant", "error_description": "ambiguous match"}
+        )
+        with pytest.raises(RSConnectException, match="more than one service principal"):
+            exchange_token_for_api_key(FAKE_URL, "oidc-token")
+
+    def test_verification_failure(self, mock_http_server: MagicMock):
+        self._set_metadata(mock_http_server)
+        mock_http_server.request.return_value = _make_response(
+            400, {"error": "invalid_grant", "error_description": "could not verify token signature"}
+        )
+        with pytest.raises(RSConnectException, match="could not verify the identity token"):
+            exchange_token_for_api_key(FAKE_URL, "oidc-token")
+
+    def test_generic_failure(self, mock_http_server: MagicMock):
+        self._set_metadata(mock_http_server)
+        mock_http_server.request.return_value = _make_response(500, {"error": "boom", "error_description": "kaboom"})
+        with pytest.raises(RSConnectException, match="HTTP 500"):
+            exchange_token_for_api_key(FAKE_URL, "oidc-token")
 
 
 class TestDeviceCodeFlow:
@@ -486,6 +581,153 @@ class TestLoginCommand:
         assert "Logged in" in result.output
         # The positional argument should win over the CONNECT_SERVER envvar.
         assert mock_discover.call_args.args[0] == FAKE_URL
+
+    @patch("rsconnect.main.server_store")
+    @patch("rsconnect.main.test_api_key")
+    @patch("rsconnect.main.test_server")
+    @patch("rsconnect.oauth.exchange_token_for_api_key", return_value="minted-key")
+    def test_login_with_identity_token(
+        self,
+        mock_exchange: MagicMock,
+        mock_test_server: MagicMock,
+        mock_test_api_key: MagicMock,
+        mock_store: MagicMock,
+    ):
+        from click.testing import CliRunner
+
+        from rsconnect.api import RSConnectServer
+        from rsconnect.main import cli
+
+        real_server = RSConnectServer(FAKE_URL, "minted-key")
+        mock_test_server.return_value = (real_server, None)
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["login", FAKE_URL, "--name", "ci-server", "--identity-token", "oidc-token"])
+
+        assert result.exit_code == 0, result.output
+        assert "via identity token exchange" in result.output
+        mock_exchange.assert_called_once()
+        assert mock_exchange.call_args.args[1] == "oidc-token"
+        # The minted key is stored as the server's API key.
+        assert mock_store.set.call_args.kwargs["api_key"] == "minted-key"
+
+    @patch("rsconnect.main.server_store")
+    @patch("rsconnect.main.test_api_key")
+    @patch("rsconnect.main.test_server")
+    @patch("rsconnect.oauth.exchange_token_for_api_key", return_value="minted-key")
+    def test_login_with_identity_token_env_var(
+        self,
+        mock_exchange: MagicMock,
+        mock_test_server: MagicMock,
+        mock_test_api_key: MagicMock,
+        mock_store: MagicMock,
+    ):
+        from click.testing import CliRunner
+
+        from rsconnect.api import RSConnectServer
+        from rsconnect.main import cli
+
+        real_server = RSConnectServer(FAKE_URL, "minted-key")
+        mock_test_server.return_value = (real_server, None)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["login", FAKE_URL, "--name", "ci-server"],
+            env={"CONNECT_IDENTITY_TOKEN": "oidc-from-env"},
+        )
+
+        assert result.exit_code == 0, result.output
+        assert mock_exchange.call_args.args[1] == "oidc-from-env"
+
+    @patch("rsconnect.main.server_store")
+    @patch("rsconnect.main.test_api_key")
+    @patch("rsconnect.main.test_server")
+    @patch("rsconnect.oauth.exchange_token_for_api_key", return_value="minted-key")
+    def test_login_with_identity_token_file(
+        self,
+        mock_exchange: MagicMock,
+        mock_test_server: MagicMock,
+        mock_test_api_key: MagicMock,
+        mock_store: MagicMock,
+        tmp_path: Any,
+    ):
+        from click.testing import CliRunner
+
+        from rsconnect.api import RSConnectServer
+        from rsconnect.main import cli
+
+        real_server = RSConnectServer(FAKE_URL, "minted-key")
+        mock_test_server.return_value = (real_server, None)
+
+        token_file = tmp_path / "token.jwt"
+        token_file.write_text("oidc-from-file\n")
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["login", FAKE_URL, "--name", "ci-server", "--identity-token-file", str(token_file)],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert mock_exchange.call_args.args[1] == "oidc-from-file"
+
+    @patch("rsconnect.main.server_store")
+    @patch("rsconnect.main.test_api_key")
+    @patch("rsconnect.main.test_server")
+    @patch("rsconnect.oauth.exchange_token_for_api_key", return_value="minted-key")
+    def test_login_with_identity_token_from_stdin(
+        self,
+        mock_exchange: MagicMock,
+        mock_test_server: MagicMock,
+        mock_test_api_key: MagicMock,
+        mock_store: MagicMock,
+    ):
+        from click.testing import CliRunner
+
+        from rsconnect.api import RSConnectServer
+        from rsconnect.main import cli
+
+        real_server = RSConnectServer(FAKE_URL, "minted-key")
+        mock_test_server.return_value = (real_server, None)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["login", FAKE_URL, "--name", "ci-server", "--identity-token", "-"],
+            input="oidc-from-stdin\n",
+        )
+
+        assert result.exit_code == 0, result.output
+        assert mock_exchange.call_args.args[1] == "oidc-from-stdin"
+
+    def test_login_with_empty_identity_token(self):
+        from click.testing import CliRunner
+
+        from rsconnect.main import cli
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["login", FAKE_URL, "--identity-token", "   "])
+
+        assert result.exit_code != 0
+        assert "identity token is empty" in result.output
+
+    def test_login_with_conflicting_identity_token_sources(self, tmp_path: Any):
+        from click.testing import CliRunner
+
+        from rsconnect.main import cli
+
+        token_file = tmp_path / "token.jwt"
+        token_file.write_text("oidc-from-file\n")
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["login", FAKE_URL, "--identity-token", "oidc-token", "--identity-token-file", str(token_file)],
+        )
+
+        assert result.exit_code != 0
+        assert "only one of --identity-token" in result.output
 
     def test_login_positional_and_option_server_conflict(self):
         from click.testing import CliRunner

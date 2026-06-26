@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   write-manifest.
 - Perform case insensitive matching of the configured Snowflake connection authenticator.
 - New `login` and `logout` subcommands for authenticating to Connect via OAuth.
+  `login` opens a browser interactively (or uses `--use-device-code` for
+  headless environments). Alternatively, `--identity-token` (or
+  `--identity-token-file`, and the `CONNECT_IDENTITY_TOKEN` /
+  `CONNECT_IDENTITY_TOKEN_FILE` environment variables) exchanges an OIDC
+  identity token, such as a GitHub Actions OIDC token, for a short-lived
+  Connect API key. In all cases the resulting credential is saved for the
+  server.
 - Servers can now be marked as the default with `rsconnect add --set-default`.
   When neither `-n/--name` nor `-s/--server` is provided, the default server is
   used automatically. `rsconnect login` sets the server as default unless
