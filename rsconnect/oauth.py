@@ -497,6 +497,9 @@ def exchange_token_for_api_key(
     if not isinstance(response, HTTPResponse):
         raise RSConnectException("Unexpected response from the OIDC token exchange.")
 
+    if response.exception:
+        raise RSConnectException("Could not connect to %s - %s" % (url, response.exception), cause=response.exception)
+
     status = response.status
     data = response.json_data if isinstance(response.json_data, dict) else {}
 

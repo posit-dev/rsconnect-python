@@ -148,6 +148,13 @@ class TestExchangeTokenForApiKey:
         with pytest.raises(RSConnectException, match="no API key"):
             exchange_token_for_api_key(FAKE_URL, "oidc-token")
 
+    def test_connection_exception(self, mock_http_server: MagicMock):
+        # A network/TLS failure returns an exception response with no .status.
+        error_response = HTTPResponse("", exception=OSError("connection refused"))
+        mock_http_server.request.return_value = error_response
+        with pytest.raises(RSConnectException, match="Could not connect to"):
+            exchange_token_for_api_key(FAKE_URL, "oidc-token")
+
     def test_server_too_old_404(self, mock_http_server: MagicMock):
         mock_http_server.request.return_value = _make_response(404, None)
         with pytest.raises(RSConnectException, match="too old to support trusted publishing"):
