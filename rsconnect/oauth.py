@@ -15,7 +15,7 @@ import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer as _HTTPServer
 from typing import Any, Dict, Optional, Tuple, cast
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import click
 
@@ -489,7 +489,9 @@ def exchange_token_for_api_key(
     token_endpoint = str(metadata["token_endpoint"])
     parsed = urlparse(token_endpoint)
     base = f"{parsed.scheme}://{parsed.netloc}"
-    path = parsed.path
+    # Preserve the full request target (path, params, and query) from the
+    # discovered endpoint, not just the path.
+    request_target = urlunparse(("", "", parsed.path, parsed.params, parsed.query, ""))
 
     body = urlencode(
         {
@@ -504,7 +506,7 @@ def exchange_token_for_api_key(
     with server:
         response = server.request(
             "POST",
-            path,
+            request_target,
             body=body,
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )

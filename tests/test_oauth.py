@@ -143,6 +143,15 @@ class TestExchangeTokenForApiKey:
         assert result == "minted-key"
         assert mock_http_server.request.call_args.args[1] == "/connect/oauth/v1/token"
 
+    def test_preserves_token_endpoint_query(self, mock_http_server: MagicMock):
+        # A discovered token endpoint with a query component must be posted to verbatim.
+        metadata = {**FAKE_METADATA, "token_endpoint": "https://host.example.com/connect/oauth/v1/token?tenant=acme"}
+        self._set_metadata(mock_http_server, metadata)
+        mock_http_server.request.return_value = _make_response(200, {"access_token": "minted-key"})
+        result = exchange_token_for_api_key("https://host.example.com/connect", "oidc-token")
+        assert result == "minted-key"
+        assert mock_http_server.request.call_args.args[1] == "/connect/oauth/v1/token?tenant=acme"
+
     def test_grant_type_not_supported(self, mock_http_server: MagicMock):
         # Preflight: the server advertises grants but not token exchange.
         metadata = {**FAKE_METADATA, "grant_types_supported": ["authorization_code", "refresh_token"]}
