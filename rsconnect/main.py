@@ -39,6 +39,7 @@ else:
 from rsconnect.certificates import read_certificate_file
 
 from . import VERSION, api, validation
+from .version_check import BackgroundVersionCheck
 from .actions import (
     cli_feedback,
     create_quarto_deployment_bundle,
@@ -1442,8 +1443,19 @@ def quickstart(app_type: str, name: str, python_version: Optional[str]):
 
 
 @cli.group(no_args_is_help=True, help="Deploy content to Posit Connect or shinyapps.io.")
-def deploy():
-    pass
+@click.pass_context
+def deploy(ctx: click.Context):
+    checker = BackgroundVersionCheck()
+    checker.start()
+
+    def _print_version_warning() -> None:
+        message = checker.get_warning_message()
+        if message:
+            click.secho(message, fg="yellow", err=True)
+
+    # Registered on the context (not as a result callback) so the hint prints on
+    # every exit path, including failed deploys that raise or call sys.exit().
+    ctx.call_on_close(_print_version_warning)
 
 
 def _warn_on_ignored_manifest(directory: str):

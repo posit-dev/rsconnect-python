@@ -14,6 +14,7 @@ dependencies = [
     "semver>=2.0.0,<4.0.0",
     "pyjwt>=2.4.0",
     "click>=8.0.0",
+    "packaging>=20.0",
     "toml>=0.10; python_version < '3.11'",
 ]
 

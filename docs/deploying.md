@@ -452,6 +452,21 @@ is uploaded and deployed. If the deployment fails, the new environment variables
 will still take effect.
 
 
+### Update notifications
+
+When you run a `rsconnect deploy` command, rsconnect-python checks PyPI for a
+newer release and prints an upgrade hint to stderr if one is available. The
+result is cached for 24 hours, so most deployments make no extra network
+request, and the check never blocks or fails a deployment.
+
+To disable the check entirely, set the `RSCONNECT_DISABLE_VERSION_CHECK`
+environment variable to `1` (or `true`/`yes`):
+
+```bash
+export RSCONNECT_DISABLE_VERSION_CHECK=1
+```
+
+
 ### Updating a Deployment
 
 If you deploy a file again to the same server, `rsconnect` will update the previous

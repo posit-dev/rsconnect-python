@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- `rsconnect deploy` commands now check PyPI once a day for a newer release of
+  rsconnect-python and print an upgrade hint to stderr when one is available.
+  The result is cached so most invocations make no network request. Set
+  `RSCONNECT_DISABLE_VERSION_CHECK=1` to turn the check off entirely.
 - The "no package-lock.json" error when deploying Node.js content now states
   that Connect installs Node.js dependencies with npm, helping publishers who
   build with yarn or pnpm understand why a `package-lock.json` is required.
