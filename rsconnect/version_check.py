@@ -1,8 +1,11 @@
 """Background version update check against PyPI.
 
-Checked only on deploy commands. The latest known version from PyPI is cached on
-disk and refreshed at most once per :data:`_CACHE_TTL_SECONDS`, so the common case
-adds no network traffic and no latency.
+Checked only on deploy commands. The latest known version is cached on disk and
+refreshed at most once per :data:`_CACHE_TTL_SECONDS` in a background thread, so a
+warm cache adds no network traffic and no latency and prints on every exit path
+(including fast failures). Only a cold cache -- the first run, or an ephemeral
+environment where the cache never persists -- waits briefly on the fetch so it can
+still warn.
 """
 
 from __future__ import annotations
@@ -121,20 +124,31 @@ class BackgroundVersionCheck:
         if _is_check_disabled() or _is_dev_version(VERSION):
             return
         is_fresh, latest = _read_cache()
-        # Drive the hint from the cached value, synchronously. Even a stale value
-        # is good enough to suggest an upgrade and reading it adds no latency, so
-        # the warning prints reliably on every exit path -- including commands
-        # that fail fast before any network fetch could have completed.
+        # Seed the hint from the cached value (even a stale one is good enough to
+        # suggest an upgrade), so a warm cache prints instantly on every exit path
+        # -- including commands that fail fast.
         self._latest = latest
         if not is_fresh:
-            # Refresh the cache in the background for the next invocation. This
-            # run never waits on or reads the result, so its output (and timing)
-            # are unaffected by the fetch.
+            # Refresh in the background so the fetch overlaps the command's own
+            # work. A warm or stale cache never waits on this; only a cold cache
+            # waits briefly at exit -- see get_warning_message.
             self._thread = threading.Thread(target=self._run, daemon=True)
             self._thread.start()
 
     def _run(self) -> None:
-        _write_cache(_fetch_latest_version())
+        latest = _fetch_latest_version()
+        _write_cache(latest)
+        # Adopt a successful result so a cold-cache run can warn this time, but
+        # never overwrite a usable cached value with a failed (None) refresh.
+        if latest is not None:
+            self._latest = latest
 
     def get_warning_message(self) -> Optional[str]:
+        # With no cached value yet (a cold cache: first run, or an ephemeral
+        # environment where the cache never persists), give the in-flight fetch a
+        # bounded chance to finish so this run can still warn. The bound is the
+        # fetch's own time budget -- a slower network just means no hint this run.
+        # A warm or stale cache already has a value here and never waits.
+        if self._latest is None and self._thread is not None:
+            self._thread.join(timeout=_PYPI_TIMEOUT_SECONDS)
         return _update_message(self._latest)

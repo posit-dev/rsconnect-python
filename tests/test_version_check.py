@@ -1,5 +1,6 @@
 import json
 import os
+import threading
 import time
 from unittest.mock import patch
 
@@ -157,13 +158,14 @@ class TestBackgroundVersionCheck:
     def test_stale_cache_warns_from_cache_and_refreshes(self, _disabled, _dev, _read, mock_fetch, mock_write):
         checker = BackgroundVersionCheck()
         checker.start()
-        # The warning is driven by the stale cached value, not the fetch result,
-        # so it is available synchronously without waiting on the network.
+        # A stale cached value is enough to warn synchronously, so the message is
+        # available without waiting on the network (it names either the stale
+        # 2.0.0 or the freshly fetched 3.0.0, depending on thread timing -- both
+        # are newer than the running version, so either is a valid hint).
         assert checker._thread is not None
         message = checker.get_warning_message()
         assert message is not None
-        assert "2.0.0" in message
-        # The fetch only refreshes the cache for the next invocation.
+        # The fetch also refreshes the cache for the next invocation.
         checker._thread.join()
         mock_fetch.assert_called_once()
         mock_write.assert_called_once_with("3.0.0")
@@ -174,13 +176,16 @@ class TestBackgroundVersionCheck:
     @patch("rsconnect.version_check.VERSION", "1.0.0")
     @patch("rsconnect.version_check._is_dev_version", return_value=False)
     @patch("rsconnect.version_check._is_check_disabled", return_value=False)
-    def test_absent_cache_is_silent_but_refreshes(self, _disabled, _dev, _read, mock_fetch, mock_write):
+    def test_absent_cache_blocks_briefly_and_warns(self, _disabled, _dev, _read, mock_fetch, mock_write):
         checker = BackgroundVersionCheck()
         checker.start()
-        # With no cached value there is nothing to show on this run; the fetch
-        # warms the cache so the next invocation can warn.
+        # With no cached value, the in-flight fetch is given a bounded chance to
+        # finish so even a cold cache (first run, or an ephemeral environment)
+        # can still warn this run -- not just refresh for the next one.
         assert checker._thread is not None
-        assert checker.get_warning_message() is None
+        message = checker.get_warning_message()
+        assert message is not None
+        assert "2.0.0" in message
         checker._thread.join()
         mock_write.assert_called_once_with("2.0.0")
 
@@ -191,6 +196,36 @@ class TestBackgroundVersionCheck:
         checker = BackgroundVersionCheck()
         checker.start()
         assert checker.get_warning_message() is None
+
+    @patch("rsconnect.version_check._PYPI_TIMEOUT_SECONDS", 0.2)
+    @patch("rsconnect.version_check._write_cache")
+    @patch("rsconnect.version_check._read_cache", return_value=(False, None))
+    @patch("rsconnect.version_check._is_dev_version", return_value=False)
+    @patch("rsconnect.version_check._is_check_disabled", return_value=False)
+    def test_hung_fetch_does_not_block_beyond_timeout(self, _disabled, _dev, _read, _write):
+        # A fetch that never returns (network black hole) must not hang the CLI:
+        # the cold-cache wait is bounded by _PYPI_TIMEOUT_SECONDS, after which the
+        # run proceeds with no hint and the daemon thread is left behind.
+        release = threading.Event()
+
+        def hung_fetch():
+            release.wait(timeout=30)  # Far longer than the join timeout.
+            return "99.0.0"
+
+        try:
+            with patch("rsconnect.version_check._fetch_latest_version", side_effect=hung_fetch):
+                checker = BackgroundVersionCheck()
+                checker.start()
+                assert checker._thread is not None
+                assert checker._thread.daemon  # Never blocks interpreter exit.
+                start = time.monotonic()
+                message = checker.get_warning_message()
+                elapsed = time.monotonic() - start
+            # Returned promptly (well under the 30s fetch) with no hint this run.
+            assert message is None
+            assert elapsed < 5
+        finally:
+            release.set()  # Let the background thread unwind.
 
     @patch("rsconnect.version_check._read_cache")
     @patch("rsconnect.version_check._is_dev_version", return_value=True)
@@ -236,6 +271,28 @@ class TestCLIIntegration:
         result = runner.invoke(cli, ["deploy", "_version_check_test_fail"])
         assert result.exit_code != 0
         # The hint prints even though the deploy failed and exited non-zero.
+        assert "99.0.0" in result.stderr
+
+    @patch("rsconnect.version_check._write_cache")
+    @patch("rsconnect.version_check._read_cache", return_value=(False, None))
+    @patch("rsconnect.version_check.VERSION", "1.0.0")
+    @patch("rsconnect.version_check._is_dev_version", return_value=False)
+    @patch("rsconnect.version_check._is_check_disabled", return_value=False)
+    def test_warning_on_failed_deploy_with_cold_cache(self, _disabled, _dev, _read, _write):
+        # The original regression: a fast failure (missing requirements.txt, etc.)
+        # with no cache. The deploy raises and exits almost instantly, so a fetch
+        # with any real latency would lose the race -- the warning only prints
+        # because get_warning_message blocks briefly on the cold cache. The slow
+        # fetch below makes that race deterministic: without the blocking join the
+        # thread couldn't have set the version in time.
+        def slow_fetch():
+            time.sleep(0.3)
+            return "99.0.0"
+
+        runner = _cli_runner()
+        with patch("rsconnect.version_check._fetch_latest_version", side_effect=slow_fetch):
+            result = runner.invoke(cli, ["deploy", "_version_check_test_fail"])
+        assert result.exit_code != 0
         assert "99.0.0" in result.stderr
 
     @patch("rsconnect.version_check._read_cache", return_value=(True, None))
