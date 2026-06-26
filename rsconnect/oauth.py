@@ -474,9 +474,6 @@ def exchange_token_for_api_key(
     Returns the API key. Raises RSConnectException with an actionable message
     when the exchange fails.
     """
-    parsed = urlparse(url)
-    base = f"{parsed.scheme}://{parsed.netloc}"
-
     body = urlencode(
         {
             "grant_type": _TOKEN_EXCHANGE_GRANT,
@@ -486,7 +483,9 @@ def exchange_token_for_api_key(
         }
     ).encode("utf-8")
 
-    server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
+    # Pass the full server URL (not just scheme://netloc) so HTTPServer appends
+    # the token-exchange path relative to any configured path prefix.
+    server = HTTPServer(url, disable_tls_check=insecure, ca_data=ca_data)
     with server:
         response = server.request(
             "POST",

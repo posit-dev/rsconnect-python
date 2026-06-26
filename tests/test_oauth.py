@@ -127,6 +127,22 @@ class TestExchangeTokenForApiKey:
         assert b"grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Atoken-exchange" in body
         assert b"subject_token=oidc-token" in body
 
+    def test_preserves_path_prefix(self):
+        # Servers behind a path prefix must keep that prefix on the token endpoint.
+        with patch("rsconnect.oauth.HTTPServer") as mock_cls:
+            mock_server = MagicMock()
+            mock_cls.return_value = mock_server
+            mock_server.__enter__ = MagicMock(return_value=mock_server)
+            mock_server.__exit__ = MagicMock(return_value=False)
+            mock_server.request.return_value = _make_response(200, {"access_token": "minted-key"})
+
+            result = exchange_token_for_api_key("https://host.example.com/connect", "oidc-token")
+
+        assert result == "minted-key"
+        # HTTPServer is given the full prefixed URL so it appends relative to it.
+        assert mock_cls.call_args.args[0] == "https://host.example.com/connect"
+        assert mock_server.request.call_args.args[1] == "/oauth/v1/token"
+
     def test_success_no_access_token(self, mock_http_server: MagicMock):
         mock_http_server.request.return_value = _make_response(200, {"something_else": "x"})
         with pytest.raises(RSConnectException, match="no API key"):
