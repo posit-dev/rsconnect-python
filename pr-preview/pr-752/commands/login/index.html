@@ -1018,10 +1018,10 @@
 <h1 id="login">login<a class="headerlink" href="#login" title="Permanent link">#</a></h1>
 <p>Authenticate with a Posit Connect server using OAuth 2.1. This opens a browser for interactive login (or uses --use-device-code for headless environments). Tokens are stored in the system keyring when available, with fallback to the local credential store.</p>
 <p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>login [OPTIONS]
+<div class="highlight"><pre><span></span><code>login [OPTIONS] SERVER
 </code></pre></div>
 <p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  -s, --server TEXT  The URL of the Posit Connect server.  [required]
+<div class="highlight"><pre><span></span><code>  -s, --server TEXT  The URL of the Posit Connect server.
   -n, --name TEXT    Nickname for the server (defaults to server hostname).
   -i, --insecure     Disable TLS certificate verification.
   -c, --cacert FILE  Path to a trusted CA certificate file for TLS.
