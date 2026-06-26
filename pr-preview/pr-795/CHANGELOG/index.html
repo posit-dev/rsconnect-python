@@ -2815,13 +2815,25 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>pyproject.toml</code> can now be supplied via <code>--requirements-file</code> for deploy and
   write-manifest.</li>
 <li>Perform case insensitive matching of the configured Snowflake connection authenticator.</li>
-<li>New <code>login</code> and <code>logout</code> subcommands for authenticating to Connect via OAuth.</li>
+<li>New <code>login</code> and <code>logout</code> subcommands for authenticating to Connect via OAuth.
+  <code>login</code> opens a browser interactively (or uses <code>--use-device-code</code> for
+  headless environments). Alternatively, <code>--identity-token</code> (or
+  <code>--identity-token-file</code>, and the <code>CONNECT_IDENTITY_TOKEN</code> /
+  <code>CONNECT_IDENTITY_TOKEN_FILE</code> environment variables) exchanges an OIDC
+  identity token, such as a GitHub Actions OIDC token, for a short-lived
+  Connect API key. In all cases the resulting credential is saved for the
+  server.</li>
 <li>Servers can now be marked as the default with <code>rsconnect add --set-default</code>.
   When neither <code>-n/--name</code> nor <code>-s/--server</code> is provided, the default server is
   used automatically. <code>rsconnect login</code> sets the server as default unless
   <code>--no-set-default</code> is passed. <code>CONNECT_SERVER</code> still takes precedence.</li>
 <li>New <code>environment</code> subcommand for managing execution environments on Connect.</li>
 <li>New <code>integration</code> subcommand for managing OAuth integrations on Connect.</li>
+<li>Removed minimum Connect version indicators from CLI help for versions older
+  than 2024 (e.g. <code>[v2021.08.0+]</code>), since those releases are no longer supported.
+  Indicators for 2024 and newer versions are retained.</li>
+<li>Removed references to Posit Cloud from command help and docstrings, as
+  publishing to Posit Cloud is no longer supported.</li>
 </ul>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">#</a></h3>
 <ul>

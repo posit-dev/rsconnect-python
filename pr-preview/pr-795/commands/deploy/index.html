@@ -1479,7 +1479,7 @@
 
 
 <h1 id="deploy">deploy<a class="headerlink" href="#deploy" title="Permanent link">#</a></h1>
-<p>Deploy content to Posit Connect, Posit Cloud, or shinyapps.io.</p>
+<p>Deploy content to Posit Connect or shinyapps.io.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>deploy [OPTIONS] COMMAND [ARGS]...
 </code></pre></div>
@@ -1487,7 +1487,7 @@
 <div class="highlight"><pre><span></span><code>  --help  Show this message and exit.
 </code></pre></div>
 <h2 id="deploy-api">deploy api<a class="headerlink" href="#deploy-api" title="Permanent link">#</a></h2>
-<p>Deploy a Python API module to Posit Connect, Posit Cloud, or shinyapps.io (if supported by the platform). The "directory" argument must refer to an existing directory that contains the application code.</p>
+<p>Deploy a Python API module to Posit Connect or shinyapps.io (if supported by the platform). The "directory" argument must refer to an existing directory that contains the application code.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>deploy api [OPTIONS] DIRECTORY [EXTRA_FILES]...
 </code></pre></div>
@@ -1535,14 +1535,14 @@
                                   don&#39;t officially support it. [v2025.12.0+]
   --no-metadata                   Disable automatic git metadata detection and
                                   upload.
-  -A, --account TEXT              The shinyapps.io/Posit Cloud account name.
-                                  (Also settable via SHINYAPPS_ACCOUNT
-                                  environment variable.)
-  -T, --token TEXT                The shinyapps.io/Posit Cloud token. (Also
-                                  settable via SHINYAPPS_TOKEN or
-                                  RSCLOUD_TOKEN environment variables.)
-  -S, --secret TEXT               The shinyapps.io/Posit Cloud token secret.
-                                  (Also settable via SHINYAPPS_SECRET or
+  -A, --account TEXT              The shinyapps.io account name. (Also
+                                  settable via SHINYAPPS_ACCOUNT environment
+                                  variable.)
+  -T, --token TEXT                The shinyapps.io token. (Also settable via
+                                  SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment
+                                  variables.)
+  -S, --secret TEXT               The shinyapps.io token secret. (Also
+                                  settable via SHINYAPPS_SECRET or
                                   RSCLOUD_SECRET environment variables.)
   -I, --image TEXT                Target image to be used during content build
                                   and execution. This option is only
@@ -1601,7 +1601,7 @@
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="deploy-bokeh">deploy bokeh<a class="headerlink" href="#deploy-bokeh" title="Permanent link">#</a></h2>
-<p>Deploy a Bokeh Application module to Posit Connect, Posit Cloud, or shinyapps.io (if supported by the platform). The "directory" argument must refer to an existing directory that contains the application code.</p>
+<p>Deploy a Bokeh Application module to Posit Connect or shinyapps.io (if supported by the platform). The "directory" argument must refer to an existing directory that contains the application code.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>deploy bokeh [OPTIONS] DIRECTORY [EXTRA_FILES]...
 </code></pre></div>
@@ -1649,14 +1649,14 @@
                                   don&#39;t officially support it. [v2025.12.0+]
   --no-metadata                   Disable automatic git metadata detection and
                                   upload.
-  -A, --account TEXT              The shinyapps.io/Posit Cloud account name.
-                                  (Also settable via SHINYAPPS_ACCOUNT
-                                  environment variable.)
-  -T, --token TEXT                The shinyapps.io/Posit Cloud token. (Also
-                                  settable via SHINYAPPS_TOKEN or
-                                  RSCLOUD_TOKEN environment variables.)
-  -S, --secret TEXT               The shinyapps.io/Posit Cloud token secret.
-                                  (Also settable via SHINYAPPS_SECRET or
+  -A, --account TEXT              The shinyapps.io account name. (Also
+                                  settable via SHINYAPPS_ACCOUNT environment
+                                  variable.)
+  -T, --token TEXT                The shinyapps.io token. (Also settable via
+                                  SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment
+                                  variables.)
+  -S, --secret TEXT               The shinyapps.io token secret. (Also
+                                  settable via SHINYAPPS_SECRET or
                                   RSCLOUD_SECRET environment variables.)
   -I, --image TEXT                Target image to be used during content build
                                   and execution. This option is only
@@ -1763,14 +1763,14 @@
                                   don&#39;t officially support it. [v2025.12.0+]
   --no-metadata                   Disable automatic git metadata detection and
                                   upload.
-  -A, --account TEXT              The shinyapps.io/Posit Cloud account name.
-                                  (Also settable via SHINYAPPS_ACCOUNT
-                                  environment variable.)
-  -T, --token TEXT                The shinyapps.io/Posit Cloud token. (Also
-                                  settable via SHINYAPPS_TOKEN or
-                                  RSCLOUD_TOKEN environment variables.)
-  -S, --secret TEXT               The shinyapps.io/Posit Cloud token secret.
-                                  (Also settable via SHINYAPPS_SECRET or
+  -A, --account TEXT              The shinyapps.io account name. (Also
+                                  settable via SHINYAPPS_ACCOUNT environment
+                                  variable.)
+  -T, --token TEXT                The shinyapps.io token. (Also settable via
+                                  SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment
+                                  variables.)
+  -S, --secret TEXT               The shinyapps.io token secret. (Also
+                                  settable via SHINYAPPS_SECRET or
                                   RSCLOUD_SECRET environment variables.)
   -V, --visibility [public|private]
                                   The visibility of the resource being
@@ -1779,7 +1779,7 @@
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="deploy-dash">deploy dash<a class="headerlink" href="#deploy-dash" title="Permanent link">#</a></h2>
-<p>Deploy a Dash Application module to Posit Connect, Posit Cloud, or shinyapps.io (if supported by the platform). The "directory" argument must refer to an existing directory that contains the application code.</p>
+<p>Deploy a Dash Application module to Posit Connect or shinyapps.io (if supported by the platform). The "directory" argument must refer to an existing directory that contains the application code.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>deploy dash [OPTIONS] DIRECTORY [EXTRA_FILES]...
 </code></pre></div>
@@ -1827,14 +1827,14 @@
                                   don&#39;t officially support it. [v2025.12.0+]
   --no-metadata                   Disable automatic git metadata detection and
                                   upload.
-  -A, --account TEXT              The shinyapps.io/Posit Cloud account name.
-                                  (Also settable via SHINYAPPS_ACCOUNT
-                                  environment variable.)
-  -T, --token TEXT                The shinyapps.io/Posit Cloud token. (Also
-                                  settable via SHINYAPPS_TOKEN or
-                                  RSCLOUD_TOKEN environment variables.)
-  -S, --secret TEXT               The shinyapps.io/Posit Cloud token secret.
-                                  (Also settable via SHINYAPPS_SECRET or
+  -A, --account TEXT              The shinyapps.io account name. (Also
+                                  settable via SHINYAPPS_ACCOUNT environment
+                                  variable.)
+  -T, --token TEXT                The shinyapps.io token. (Also settable via
+                                  SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment
+                                  variables.)
+  -S, --secret TEXT               The shinyapps.io token secret. (Also
+                                  settable via SHINYAPPS_SECRET or
                                   RSCLOUD_SECRET environment variables.)
   -I, --image TEXT                Target image to be used during content build
                                   and execution. This option is only
@@ -1893,7 +1893,7 @@
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="deploy-fastapi">deploy fastapi<a class="headerlink" href="#deploy-fastapi" title="Permanent link">#</a></h2>
-<p>Deploy a Python FastAPI module to Posit Connect, Posit Cloud, or shinyapps.io (if supported by the platform). The "directory" argument must refer to an existing directory that contains the application code.</p>
+<p>Deploy a Python FastAPI module to Posit Connect or shinyapps.io (if supported by the platform). The "directory" argument must refer to an existing directory that contains the application code.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>deploy fastapi [OPTIONS] DIRECTORY [EXTRA_FILES]...
 </code></pre></div>
@@ -1941,14 +1941,14 @@
                                   don&#39;t officially support it. [v2025.12.0+]
   --no-metadata                   Disable automatic git metadata detection and
                                   upload.
-  -A, --account TEXT              The shinyapps.io/Posit Cloud account name.
-                                  (Also settable via SHINYAPPS_ACCOUNT
-                                  environment variable.)
-  -T, --token TEXT                The shinyapps.io/Posit Cloud token. (Also
-                                  settable via SHINYAPPS_TOKEN or
-                                  RSCLOUD_TOKEN environment variables.)
-  -S, --secret TEXT               The shinyapps.io/Posit Cloud token secret.
-                                  (Also settable via SHINYAPPS_SECRET or
+  -A, --account TEXT              The shinyapps.io account name. (Also
+                                  settable via SHINYAPPS_ACCOUNT environment
+                                  variable.)
+  -T, --token TEXT                The shinyapps.io token. (Also settable via
+                                  SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment
+                                  variables.)
+  -S, --secret TEXT               The shinyapps.io token secret. (Also
+                                  settable via SHINYAPPS_SECRET or
                                   RSCLOUD_SECRET environment variables.)
   -I, --image TEXT                Target image to be used during content build
                                   and execution. This option is only
@@ -2007,7 +2007,7 @@
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="deploy-flask">deploy flask<a class="headerlink" href="#deploy-flask" title="Permanent link">#</a></h2>
-<p>Deploy a Flask API module to Posit Connect, Posit Cloud, or shinyapps.io (if supported by the platform). The "directory" argument must refer to an existing directory that contains the application code.</p>
+<p>Deploy a Flask API module to Posit Connect or shinyapps.io (if supported by the platform). The "directory" argument must refer to an existing directory that contains the application code.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>deploy flask [OPTIONS] DIRECTORY [EXTRA_FILES]...
 </code></pre></div>
@@ -2055,14 +2055,14 @@
                                   don&#39;t officially support it. [v2025.12.0+]
   --no-metadata                   Disable automatic git metadata detection and
                                   upload.
-  -A, --account TEXT              The shinyapps.io/Posit Cloud account name.
-                                  (Also settable via SHINYAPPS_ACCOUNT
-                                  environment variable.)
-  -T, --token TEXT                The shinyapps.io/Posit Cloud token. (Also
-                                  settable via SHINYAPPS_TOKEN or
-                                  RSCLOUD_TOKEN environment variables.)
-  -S, --secret TEXT               The shinyapps.io/Posit Cloud token secret.
-                                  (Also settable via SHINYAPPS_SECRET or
+  -A, --account TEXT              The shinyapps.io account name. (Also
+                                  settable via SHINYAPPS_ACCOUNT environment
+                                  variable.)
+  -T, --token TEXT                The shinyapps.io token. (Also settable via
+                                  SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment
+                                  variables.)
+  -S, --secret TEXT               The shinyapps.io token secret. (Also
+                                  settable via SHINYAPPS_SECRET or
                                   RSCLOUD_SECRET environment variables.)
   -I, --image TEXT                Target image to be used during content build
                                   and execution. This option is only
@@ -2121,7 +2121,7 @@
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="deploy-gradio">deploy gradio<a class="headerlink" href="#deploy-gradio" title="Permanent link">#</a></h2>
-<p>Deploy a Gradio Application module to Posit Connect, Posit Cloud, or shinyapps.io (if supported by the platform). The "directory" argument must refer to an existing directory that contains the application code.</p>
+<p>Deploy a Gradio Application module to Posit Connect or shinyapps.io (if supported by the platform). The "directory" argument must refer to an existing directory that contains the application code.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>deploy gradio [OPTIONS] DIRECTORY [EXTRA_FILES]...
 </code></pre></div>
@@ -2169,14 +2169,14 @@
                                   don&#39;t officially support it. [v2025.12.0+]
   --no-metadata                   Disable automatic git metadata detection and
                                   upload.
-  -A, --account TEXT              The shinyapps.io/Posit Cloud account name.
-                                  (Also settable via SHINYAPPS_ACCOUNT
-                                  environment variable.)
-  -T, --token TEXT                The shinyapps.io/Posit Cloud token. (Also
-                                  settable via SHINYAPPS_TOKEN or
-                                  RSCLOUD_TOKEN environment variables.)
-  -S, --secret TEXT               The shinyapps.io/Posit Cloud token secret.
-                                  (Also settable via SHINYAPPS_SECRET or
+  -A, --account TEXT              The shinyapps.io account name. (Also
+                                  settable via SHINYAPPS_ACCOUNT environment
+                                  variable.)
+  -T, --token TEXT                The shinyapps.io token. (Also settable via
+                                  SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment
+                                  variables.)
+  -S, --secret TEXT               The shinyapps.io token secret. (Also
+                                  settable via SHINYAPPS_SECRET or
                                   RSCLOUD_SECRET environment variables.)
   -I, --image TEXT                Target image to be used during content build
                                   and execution. This option is only
@@ -2235,7 +2235,7 @@
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="deploy-html">deploy html<a class="headerlink" href="#deploy-html" title="Permanent link">#</a></h2>
-<p>Deploy an html file, or directory of html files with entrypoint, to Posit Connect or Posit Cloud.</p>
+<p>Deploy an html file, or directory of html files with entrypoint, to Posit Connect.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>deploy html [OPTIONS] PATH [EXTRA_FILES]...
 </code></pre></div>
@@ -2283,14 +2283,14 @@
                                   don&#39;t officially support it. [v2025.12.0+]
   --no-metadata                   Disable automatic git metadata detection and
                                   upload.
-  -A, --account TEXT              The shinyapps.io/Posit Cloud account name.
-                                  (Also settable via SHINYAPPS_ACCOUNT
-                                  environment variable.)
-  -T, --token TEXT                The shinyapps.io/Posit Cloud token. (Also
-                                  settable via SHINYAPPS_TOKEN or
-                                  RSCLOUD_TOKEN environment variables.)
-  -S, --secret TEXT               The shinyapps.io/Posit Cloud token secret.
-                                  (Also settable via SHINYAPPS_SECRET or
+  -A, --account TEXT              The shinyapps.io account name. (Also
+                                  settable via SHINYAPPS_ACCOUNT environment
+                                  variable.)
+  -T, --token TEXT                The shinyapps.io token. (Also settable via
+                                  SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment
+                                  variables.)
+  -S, --secret TEXT               The shinyapps.io token secret. (Also
+                                  settable via SHINYAPPS_SECRET or
                                   RSCLOUD_SECRET environment variables.)
   -e, --entrypoint TEXT           The name of the html file that is the
                                   landing page.
@@ -2303,7 +2303,7 @@
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="deploy-manifest">deploy manifest<a class="headerlink" href="#deploy-manifest" title="Permanent link">#</a></h2>
-<p>Deploy content to Posit Connect, Posit Cloud, or shinyapps.io using an existing manifest.json file.  The specified file must either be named "manifest.json" or refer to a directory that contains a file named "manifest.json".</p>
+<p>Deploy content to Posit Connect or shinyapps.io using an existing manifest.json file.  The specified file must either be named "manifest.json" or refer to a directory that contains a file named "manifest.json".</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>deploy manifest [OPTIONS] FILE
 </code></pre></div>
@@ -2351,14 +2351,14 @@
                                   don&#39;t officially support it. [v2025.12.0+]
   --no-metadata                   Disable automatic git metadata detection and
                                   upload.
-  -A, --account TEXT              The shinyapps.io/Posit Cloud account name.
-                                  (Also settable via SHINYAPPS_ACCOUNT
-                                  environment variable.)
-  -T, --token TEXT                The shinyapps.io/Posit Cloud token. (Also
-                                  settable via SHINYAPPS_TOKEN or
-                                  RSCLOUD_TOKEN environment variables.)
-  -S, --secret TEXT               The shinyapps.io/Posit Cloud token secret.
-                                  (Also settable via SHINYAPPS_SECRET or
+  -A, --account TEXT              The shinyapps.io account name. (Also
+                                  settable via SHINYAPPS_ACCOUNT environment
+                                  variable.)
+  -T, --token TEXT                The shinyapps.io token. (Also settable via
+                                  SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment
+                                  variables.)
+  -S, --secret TEXT               The shinyapps.io token secret. (Also
+                                  settable via SHINYAPPS_SECRET or
                                   RSCLOUD_SECRET environment variables.)
   -V, --visibility [public|private]
                                   The visibility of the resource being
@@ -2415,14 +2415,14 @@
                                   don&#39;t officially support it. [v2025.12.0+]
   --no-metadata                   Disable automatic git metadata detection and
                                   upload.
-  -A, --account TEXT              The shinyapps.io/Posit Cloud account name.
-                                  (Also settable via SHINYAPPS_ACCOUNT
-                                  environment variable.)
-  -T, --token TEXT                The shinyapps.io/Posit Cloud token. (Also
-                                  settable via SHINYAPPS_TOKEN or
-                                  RSCLOUD_TOKEN environment variables.)
-  -S, --secret TEXT               The shinyapps.io/Posit Cloud token secret.
-                                  (Also settable via SHINYAPPS_SECRET or
+  -A, --account TEXT              The shinyapps.io account name. (Also
+                                  settable via SHINYAPPS_ACCOUNT environment
+                                  variable.)
+  -T, --token TEXT                The shinyapps.io token. (Also settable via
+                                  SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment
+                                  variables.)
+  -S, --secret TEXT               The shinyapps.io token secret. (Also
+                                  settable via SHINYAPPS_SECRET or
                                   RSCLOUD_SECRET environment variables.)
   -I, --image TEXT                Target image to be used during content build
                                   and execution. This option is only
@@ -2558,7 +2558,7 @@
 <div class="highlight"><pre><span></span><code>  --help  Show this message and exit.
 </code></pre></div>
 <h2 id="deploy-panel">deploy panel<a class="headerlink" href="#deploy-panel" title="Permanent link">#</a></h2>
-<p>Deploy a Panel Application module to Posit Connect, Posit Cloud, or shinyapps.io (if supported by the platform). The "directory" argument must refer to an existing directory that contains the application code.</p>
+<p>Deploy a Panel Application module to Posit Connect or shinyapps.io (if supported by the platform). The "directory" argument must refer to an existing directory that contains the application code.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>deploy panel [OPTIONS] DIRECTORY [EXTRA_FILES]...
 </code></pre></div>
@@ -2606,14 +2606,14 @@
                                   don&#39;t officially support it. [v2025.12.0+]
   --no-metadata                   Disable automatic git metadata detection and
                                   upload.
-  -A, --account TEXT              The shinyapps.io/Posit Cloud account name.
-                                  (Also settable via SHINYAPPS_ACCOUNT
-                                  environment variable.)
-  -T, --token TEXT                The shinyapps.io/Posit Cloud token. (Also
-                                  settable via SHINYAPPS_TOKEN or
-                                  RSCLOUD_TOKEN environment variables.)
-  -S, --secret TEXT               The shinyapps.io/Posit Cloud token secret.
-                                  (Also settable via SHINYAPPS_SECRET or
+  -A, --account TEXT              The shinyapps.io account name. (Also
+                                  settable via SHINYAPPS_ACCOUNT environment
+                                  variable.)
+  -T, --token TEXT                The shinyapps.io token. (Also settable via
+                                  SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment
+                                  variables.)
+  -S, --secret TEXT               The shinyapps.io token secret. (Also
+                                  settable via SHINYAPPS_SECRET or
                                   RSCLOUD_SECRET environment variables.)
   -I, --image TEXT                Target image to be used during content build
                                   and execution. This option is only
@@ -2720,14 +2720,14 @@
                                   don&#39;t officially support it. [v2025.12.0+]
   --no-metadata                   Disable automatic git metadata detection and
                                   upload.
-  -A, --account TEXT              The shinyapps.io/Posit Cloud account name.
-                                  (Also settable via SHINYAPPS_ACCOUNT
-                                  environment variable.)
-  -T, --token TEXT                The shinyapps.io/Posit Cloud token. (Also
-                                  settable via SHINYAPPS_TOKEN or
-                                  RSCLOUD_TOKEN environment variables.)
-  -S, --secret TEXT               The shinyapps.io/Posit Cloud token secret.
-                                  (Also settable via SHINYAPPS_SECRET or
+  -A, --account TEXT              The shinyapps.io account name. (Also
+                                  settable via SHINYAPPS_ACCOUNT environment
+                                  variable.)
+  -T, --token TEXT                The shinyapps.io token. (Also settable via
+                                  SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment
+                                  variables.)
+  -S, --secret TEXT               The shinyapps.io token secret. (Also
+                                  settable via SHINYAPPS_SECRET or
                                   RSCLOUD_SECRET environment variables.)
   -r, --requirements-file FILE    Path to the requirements source, relative to
                                   the project directory. Overrides
@@ -2748,7 +2748,7 @@
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="deploy-quarto">deploy quarto<a class="headerlink" href="#deploy-quarto" title="Permanent link">#</a></h2>
-<p>Deploy a Quarto document or project to Posit Connect or Posit Cloud. Should the content use the Quarto Jupyter engine, an environment file ("requirements.txt") is created and included in the deployment if one does not already exist. Requires Posit Connect 2021.08.0 or later.</p>
+<p>Deploy a Quarto document or project to Posit Connect. Should the content use the Quarto Jupyter engine, an environment file ("requirements.txt") is created and included in the deployment if one does not already exist.</p>
 <p>FILE_OR_DIRECTORY is the path to a single-file Quarto document or the directory containing a Quarto project.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>deploy quarto [OPTIONS] FILE_OR_DIRECTORY [EXTRA_FILES]...
@@ -2848,7 +2848,7 @@
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="deploy-shiny">deploy shiny<a class="headerlink" href="#deploy-shiny" title="Permanent link">#</a></h2>
-<p>Deploy a Python Shiny Application module to Posit Connect, Posit Cloud, or shinyapps.io (if supported by the platform). The "directory" argument must refer to an existing directory that contains the application code.</p>
+<p>Deploy a Python Shiny Application module to Posit Connect or shinyapps.io (if supported by the platform). The "directory" argument must refer to an existing directory that contains the application code.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>deploy shiny [OPTIONS] DIRECTORY [EXTRA_FILES]...
 </code></pre></div>
@@ -2896,14 +2896,14 @@
                                   don&#39;t officially support it. [v2025.12.0+]
   --no-metadata                   Disable automatic git metadata detection and
                                   upload.
-  -A, --account TEXT              The shinyapps.io/Posit Cloud account name.
-                                  (Also settable via SHINYAPPS_ACCOUNT
-                                  environment variable.)
-  -T, --token TEXT                The shinyapps.io/Posit Cloud token. (Also
-                                  settable via SHINYAPPS_TOKEN or
-                                  RSCLOUD_TOKEN environment variables.)
-  -S, --secret TEXT               The shinyapps.io/Posit Cloud token secret.
-                                  (Also settable via SHINYAPPS_SECRET or
+  -A, --account TEXT              The shinyapps.io account name. (Also
+                                  settable via SHINYAPPS_ACCOUNT environment
+                                  variable.)
+  -T, --token TEXT                The shinyapps.io token. (Also settable via
+                                  SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment
+                                  variables.)
+  -S, --secret TEXT               The shinyapps.io token secret. (Also
+                                  settable via SHINYAPPS_SECRET or
                                   RSCLOUD_SECRET environment variables.)
   -I, --image TEXT                Target image to be used during content build
                                   and execution. This option is only
@@ -2962,7 +2962,7 @@
   --help                          Show this message and exit.
 </code></pre></div>
 <h2 id="deploy-streamlit">deploy streamlit<a class="headerlink" href="#deploy-streamlit" title="Permanent link">#</a></h2>
-<p>Deploy a Streamlit Application module to Posit Connect, Posit Cloud, or shinyapps.io (if supported by the platform). The "directory" argument must refer to an existing directory that contains the application code.</p>
+<p>Deploy a Streamlit Application module to Posit Connect or shinyapps.io (if supported by the platform). The "directory" argument must refer to an existing directory that contains the application code.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>deploy streamlit [OPTIONS] DIRECTORY [EXTRA_FILES]...
 </code></pre></div>
@@ -3010,14 +3010,14 @@
                                   don&#39;t officially support it. [v2025.12.0+]
   --no-metadata                   Disable automatic git metadata detection and
                                   upload.
-  -A, --account TEXT              The shinyapps.io/Posit Cloud account name.
-                                  (Also settable via SHINYAPPS_ACCOUNT
-                                  environment variable.)
-  -T, --token TEXT                The shinyapps.io/Posit Cloud token. (Also
-                                  settable via SHINYAPPS_TOKEN or
-                                  RSCLOUD_TOKEN environment variables.)
-  -S, --secret TEXT               The shinyapps.io/Posit Cloud token secret.
-                                  (Also settable via SHINYAPPS_SECRET or
+  -A, --account TEXT              The shinyapps.io account name. (Also
+                                  settable via SHINYAPPS_ACCOUNT environment
+                                  variable.)
+  -T, --token TEXT                The shinyapps.io token. (Also settable via
+                                  SHINYAPPS_TOKEN or RSCLOUD_TOKEN environment
+                                  variables.)
+  -S, --secret TEXT               The shinyapps.io token secret. (Also
+                                  settable via SHINYAPPS_SECRET or
                                   RSCLOUD_SECRET environment variables.)
   -I, --image TEXT                Target image to be used during content build
                                   and execution. This option is only
