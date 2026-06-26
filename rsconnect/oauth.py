@@ -452,6 +452,108 @@ def refresh_access_token(
     return data
 
 
+_TOKEN_EXCHANGE_GRANT = "urn:ietf:params:oauth:grant-type:token-exchange"
+_ID_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:id_token"
+_ACCESS_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:access_token"
+
+
+def exchange_token_for_api_key(
+    url: str,
+    subject_token: str,
+    insecure: bool = False,
+    ca_data: Optional[str | bytes] = None,
+) -> str:
+    """Exchange an OIDC token for a short-lived Connect API key (RFC 8693).
+
+    This performs the trusted-publishing token exchange against Connect's OAuth
+    token endpoint (``POST /oauth/v1/token``). Connect verifies the OIDC
+    ``subject_token`` and, if it matches a service principal that a content owner
+    has bound as a "trusted publisher", mints an ephemeral API key scoped to that
+    content.
+
+    Returns the API key. Raises RSConnectException with an actionable message
+    when the exchange fails.
+    """
+    parsed = urlparse(url)
+    base = f"{parsed.scheme}://{parsed.netloc}"
+
+    body = urlencode(
+        {
+            "grant_type": _TOKEN_EXCHANGE_GRANT,
+            "subject_token_type": _ID_TOKEN_TYPE,
+            "requested_token_type": _ACCESS_TOKEN_TYPE,
+            "subject_token": subject_token,
+        }
+    ).encode("utf-8")
+
+    server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
+    with server:
+        response = server.request(
+            "POST",
+            "/oauth/v1/token",
+            body=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+    if not isinstance(response, HTTPResponse):
+        raise RSConnectException("Unexpected response from the OIDC token exchange.")
+
+    status = response.status
+    data = response.json_data if isinstance(response.json_data, dict) else {}
+
+    if status and 200 <= status < 300:
+        api_key = data.get("access_token")
+        if not api_key:
+            raise RSConnectException("Connect returned a successful token exchange but no API key (access_token).")
+        return str(api_key)
+
+    raise _token_exchange_error(status, data)
+
+
+def _token_exchange_error(status: Optional[int], data: dict[str, Any]) -> RSConnectException:
+    """Translate a failed token-exchange response into an actionable exception."""
+    error = str(data.get("error", "")) if data else ""
+    description = str(data.get("error_description", "")) if data else ""
+
+    if status == 404:
+        return RSConnectException(
+            "This Connect server has no OIDC token-exchange endpoint (/oauth/v1/token). "
+            "It is likely too old to support trusted publishing; upgrade Connect, or "
+            "authenticate with an API key instead."
+        )
+
+    if status == 400 and error == "unsupported_grant_type":
+        return RSConnectException(
+            "This Connect server's OAuth service does not support token exchange, so it is "
+            "likely too old to support trusted publishing. Upgrade Connect, or authenticate "
+            "with an API key instead."
+        )
+
+    if status == 400 and error == "invalid_grant":
+        lowered = description.lower()
+        if "ambiguous" in lowered:
+            return RSConnectException(
+                f"The OIDC token matched more than one trusted publisher on Connect ({description}). "
+                "Resolve the duplicate trusted publishers on the server, or authenticate with an API key."
+            )
+        if "verif" in lowered:
+            return RSConnectException(
+                f"Connect could not verify the OIDC token ({description}). "
+                "Check the server clock and the OIDC issuer configuration, or authenticate with an API key."
+            )
+        return RSConnectException(
+            f"Connect did not recognize this token as a trusted publisher ({description or 'no match'}). "
+            "Confirm a trusted publisher has been configured for the target content and that the token's "
+            "audience matches it, or authenticate with an API key."
+        )
+
+    detail = error
+    if description:
+        detail = f"{error}: {description}" if error else description
+    suffix = f" ({detail})" if detail else ""
+    return RSConnectException(f"OIDC token exchange failed (HTTP {status}){suffix}.")
+
+
 # ---------------------------------------------------------------------------
 # Keyring integration
 # ---------------------------------------------------------------------------
