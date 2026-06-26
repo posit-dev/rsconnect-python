@@ -1033,25 +1033,41 @@ def remove(
             click.echo("Note: the removed server was the default. Use `rsconnect add --set-default` to set a new one.")
 
 
+def _resolve_identity_token(identity_token: Optional[str], identity_token_file: Optional[str]) -> Optional[str]:
+    """Resolve the identity token from the flag/env var or a file.
+
+    Returns the token string, or None if neither source was provided (in which
+    case the caller falls back to interactive OAuth login).
+    """
+    if identity_token is not None and identity_token_file is not None:
+        raise RSConnectException("You must specify only one of --identity-token or --identity-token-file.")
+
+    if identity_token_file is not None:
+        with open(identity_token_file, "r") as f:
+            token = f.read()
+    elif identity_token is not None:
+        token = sys.stdin.read() if identity_token == "-" else identity_token
+    else:
+        return None
+
+    token = token.strip()
+    if not token:
+        raise RSConnectException("The identity token is empty.")
+    return token
+
+
 def _login_with_token_exchange(
     server: str,
     name: str,
-    token: str,
+    subject_token: str,
     insecure: bool,
     ca_data: Optional[str | bytes],
     no_set_default: bool,
 ) -> None:
-    """Exchange an OIDC token for a Connect API key and store it as the server credential."""
+    """Exchange an identity token for a Connect API key and store it as the server credential."""
     from .oauth import exchange_token_for_api_key
 
-    subject_token = token
-    if subject_token == "-":
-        subject_token = sys.stdin.read()
-    subject_token = subject_token.strip()
-    if not subject_token:
-        raise RSConnectException("No OIDC token was provided to --token.")
-
-    with cli_feedback("Exchanging OIDC token for an API key"):
+    with cli_feedback("Exchanging identity token for an API key"):
         api_key = exchange_token_for_api_key(server, subject_token, insecure, ca_data)
 
     # Validate the minted key and normalize the server URL before saving.
@@ -1073,7 +1089,7 @@ def _login_with_token_exchange(
         set_as_default=set_as_default,
     )
 
-    click.echo('Logged in to "%s" (%s) via OIDC token exchange.' % (name, real_server.url))
+    click.echo('Logged in to "%s" (%s) via identity token exchange.' % (name, real_server.url))
     if set_as_default:
         click.echo('Server "%s" is now the default.' % name)
 
@@ -1084,9 +1100,9 @@ def _login_with_token_exchange(
         "Authenticate with a Posit Connect server using OAuth 2.1. "
         "This opens a browser for interactive login (or uses --use-device-code for headless environments). "
         "Tokens are stored in the system keyring when available, with fallback to the local credential store.\n\n"
-        "Alternatively, pass --token with an OIDC token (e.g. a GitHub Actions OIDC token) to exchange it "
-        "for a short-lived Connect API key via Connect's trusted-publishing token exchange. The resulting "
-        "API key is saved as the server credential."
+        "Alternatively, pass --identity-token (or --identity-token-file) with an OIDC identity token, such as a "
+        "GitHub Actions OIDC token, to exchange it for a short-lived Connect API key without interactive login. "
+        "The resulting API key is saved as the server credential."
     ),
     no_args_is_help=True,
 )
@@ -1102,11 +1118,24 @@ def _login_with_token_exchange(
     help="Path to a trusted CA certificate file for TLS.",
 )
 @click.option(
-    "--token",
+    "--identity-token",
+    envvar="CONNECT_IDENTITY_TOKEN",
     default=None,
     help=(
-        "An OIDC token to exchange for a Connect API key via trusted-publishing token exchange "
-        "(RFC 8693), instead of interactive OAuth login. Use '-' to read the token from stdin."
+        "An OIDC identity token to exchange for a Connect API key (RFC 8693), instead of interactive "
+        "OAuth login. Use '-' to read the token from stdin. May also be set via the CONNECT_IDENTITY_TOKEN "
+        "environment variable."
+    ),
+)
+@click.option(
+    "--identity-token-file",
+    envvar="CONNECT_IDENTITY_TOKEN_FILE",
+    default=None,
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+    help=(
+        "Path to a file containing an OIDC identity token to exchange for a Connect API key. "
+        "May also be set via the CONNECT_IDENTITY_TOKEN_FILE environment variable. Prefer this over "
+        "--identity-token to avoid exposing the token in process arguments or CI/CD logs."
     ),
 )
 @click.option(
@@ -1130,7 +1159,8 @@ def login(
     name: Optional[str],
     insecure: bool,
     cacert: Optional[str],
-    token: Optional[str],
+    identity_token: Optional[str],
+    identity_token_file: Optional[str],
     use_device_code: bool,
     client_id: Optional[str],
     no_set_default: bool,
@@ -1159,8 +1189,9 @@ def login(
 
         name = _urlparse(server).hostname or server
 
-    if token is not None:
-        _login_with_token_exchange(server, name, token, insecure, ca_data, no_set_default)
+    subject_token = _resolve_identity_token(identity_token, identity_token_file)
+    if subject_token is not None:
+        _login_with_token_exchange(server, name, subject_token, insecure, ca_data, no_set_default)
         return
 
     from .oauth import (

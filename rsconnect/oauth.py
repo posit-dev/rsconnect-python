@@ -463,17 +463,34 @@ def exchange_token_for_api_key(
     insecure: bool = False,
     ca_data: Optional[str | bytes] = None,
 ) -> str:
-    """Exchange an OIDC token for a short-lived Connect API key (RFC 8693).
+    """Exchange an OIDC identity token for a short-lived Connect API key (RFC 8693).
 
-    This performs the trusted-publishing token exchange against Connect's OAuth
-    token endpoint (``POST /oauth/v1/token``). Connect verifies the OIDC
-    ``subject_token`` and, if it matches a service principal that a content owner
-    has bound as a "trusted publisher", mints an ephemeral API key scoped to that
-    content.
+    This performs an OAuth token exchange against Connect's token endpoint.
+    Connect verifies the OIDC ``subject_token`` and, if it matches a service
+    principal that has been granted access (e.g. via trusted publishing or
+    identity federation), mints an ephemeral API key.
+
+    The server's OAuth metadata is discovered first; this both confirms that the
+    server supports token exchange (rather than discovering that via a failed
+    request) and yields the correct token endpoint, honoring any path prefix.
 
     Returns the API key. Raises RSConnectException with an actionable message
-    when the exchange fails.
+    when the exchange is unsupported or fails.
     """
+    metadata = discover_oauth_metadata(url, insecure, ca_data)
+
+    grant_types = metadata.get("grant_types_supported")
+    if isinstance(grant_types, list) and _TOKEN_EXCHANGE_GRANT not in grant_types:
+        raise RSConnectException(
+            f"The server at {url} does not support OIDC token exchange. "
+            "It may need to be upgraded, or you can authenticate with an API key instead."
+        )
+
+    token_endpoint = str(metadata["token_endpoint"])
+    parsed = urlparse(token_endpoint)
+    base = f"{parsed.scheme}://{parsed.netloc}"
+    path = parsed.path
+
     body = urlencode(
         {
             "grant_type": _TOKEN_EXCHANGE_GRANT,
@@ -483,13 +500,11 @@ def exchange_token_for_api_key(
         }
     ).encode("utf-8")
 
-    # Pass the full server URL (not just scheme://netloc) so HTTPServer appends
-    # the token-exchange path relative to any configured path prefix.
-    server = HTTPServer(url, disable_tls_check=insecure, ca_data=ca_data)
+    server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
     with server:
         response = server.request(
             "POST",
-            "/oauth/v1/token",
+            path,
             body=body,
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
@@ -517,35 +532,21 @@ def _token_exchange_error(status: Optional[int], data: dict[str, Any]) -> RSConn
     error = str(data.get("error", "")) if data else ""
     description = str(data.get("error_description", "")) if data else ""
 
-    if status == 404:
-        return RSConnectException(
-            "This Connect server has no OIDC token-exchange endpoint (/oauth/v1/token). "
-            "It is likely too old to support trusted publishing; upgrade Connect, or "
-            "authenticate with an API key instead."
-        )
-
-    if status == 400 and error == "unsupported_grant_type":
-        return RSConnectException(
-            "This Connect server's OAuth service does not support token exchange, so it is "
-            "likely too old to support trusted publishing. Upgrade Connect, or authenticate "
-            "with an API key instead."
-        )
-
     if status == 400 and error == "invalid_grant":
         lowered = description.lower()
         if "ambiguous" in lowered:
             return RSConnectException(
-                f"The OIDC token matched more than one trusted publisher on Connect ({description}). "
-                "Resolve the duplicate trusted publishers on the server, or authenticate with an API key."
+                f"The identity token matched more than one service principal on Connect ({description}). "
+                "Resolve the duplicate access grants on the server, or authenticate with an API key."
             )
         if "verif" in lowered:
             return RSConnectException(
-                f"Connect could not verify the OIDC token ({description}). "
+                f"Connect could not verify the identity token ({description}). "
                 "Check the server clock and the OIDC issuer configuration, or authenticate with an API key."
             )
         return RSConnectException(
-            f"Connect did not recognize this token as a trusted publisher ({description or 'no match'}). "
-            "Confirm a trusted publisher has been configured for the target content and that the token's "
+            f"Connect did not grant access for this identity token ({description or 'no match'}). "
+            "Confirm access has been configured for the target content and that the token's "
             "audience matches it, or authenticate with an API key."
         )
 
