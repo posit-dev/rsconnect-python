@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import shutil
 from os.path import join
 from unittest import TestCase, mock
@@ -10,6 +11,7 @@ import pytest
 from click.testing import CliRunner
 
 from rsconnect import VERSION
+from rsconnect.api import RSConnectClient, RSConnectServer
 from rsconnect.json_web_token import SECRET_KEY_ENV
 from rsconnect.main import cli, env_management_callback
 
@@ -920,6 +922,66 @@ class TestMain:
         args.extend(["--no-verify", "-e", "badapp"])
         result = runner.invoke(cli, args)
         assert result.exit_code == 0, result.output
+
+    @staticmethod
+    def _deployed_content_guid(caplog):
+        # The deploy flow logs "Direct content URL: <server>/content/<guid>".
+        match = re.search(r"/content/([0-9a-fA-F-]+)", caplog.text)
+        assert match is not None, "Could not find deployed content URL in:\n" + caplog.text
+        return match.group(1)
+
+    def test_default_deploy_does_not_activate_broken_bundle(self, caplog):
+        # #769: the default flow deploys a draft, verifies it, and only then activates
+        # it. A broken redeploy must fail AND leave the previously-active (working)
+        # bundle serving. Without verify-before-activate, the broken bundle is activated
+        # before verification, so the active bundle becomes the broken one.
+        require_connect_version("2025.03.0")
+        client = RSConnectClient(RSConnectServer(require_connect(), require_api_key()))
+        runner = CliRunner()
+
+        # 1. Deploy a working app. It is verified and becomes the active bundle.
+        with caplog.at_level("INFO"):
+            good = runner.invoke(cli, self.create_deploy_args("api", get_api_path("flask")))
+        assert good.exit_code == 0, good.output
+        guid = self._deployed_content_guid(caplog)
+        good_bundle_id = client.content_get(guid)["bundle_id"]
+        assert good_bundle_id is not None
+
+        # 2. Redeploy a broken app to the SAME content with the default flow.
+        bad_args = self.create_deploy_args("api", get_api_path("flask-bad"))
+        bad_args.extend(["-e", "badapp", "--app-id", guid])
+        bad = runner.invoke(cli, bad_args)
+
+        # The command fails because the draft bundle does not start...
+        assert bad.exit_code == 1, bad.output
+        # ...and crucially, the active bundle is still the working one.
+        assert client.content_get(guid)["bundle_id"] == good_bundle_id
+
+    def test_draft_deploy_verifies_the_draft_not_the_active_bundle(self, caplog):
+        # #768: with --draft, verification must target the draft bundle, not the
+        # currently-active content. Deploying a broken draft over a working active
+        # bundle must fail. Without the fix, --draft verified the still-good active
+        # content and reported success.
+        require_connect_version("2025.03.0")
+        client = RSConnectClient(RSConnectServer(require_connect(), require_api_key()))
+        runner = CliRunner()
+
+        # 1. Deploy a working app; it becomes the active bundle.
+        with caplog.at_level("INFO"):
+            good = runner.invoke(cli, self.create_deploy_args("api", get_api_path("flask")))
+        assert good.exit_code == 0, good.output
+        guid = self._deployed_content_guid(caplog)
+        good_bundle_id = client.content_get(guid)["bundle_id"]
+
+        # 2. Deploy a broken app as a draft to the same content.
+        draft_args = self.create_deploy_args("api", get_api_path("flask-bad"))
+        draft_args.extend(["-e", "badapp", "--app-id", guid, "--draft"])
+        draft = runner.invoke(cli, draft_args)
+
+        # Verification of the broken draft fails...
+        assert draft.exit_code == 1, draft.output
+        # ...and the draft was never activated, so the active bundle is unchanged.
+        assert client.content_get(guid)["bundle_id"] == good_bundle_id
 
     def test_add_connect(self):
         connect_server = require_connect()
