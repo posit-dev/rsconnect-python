@@ -632,6 +632,59 @@ class RSConnectClientDeployGitTestCase(TestCase):
         self.assertEqual(result["task_id"], "task-456")
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_git_reports_unsupported_server(self):
+        """A 404 from the repository endpoint surfaces a git-not-enabled message."""
+        server = RSConnectServer("http://test-server", "api_key")
+        client = RSConnectClient(server)
+
+        # Mock content creation
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://test-server/__api__/v1/content",
+            body=json.dumps({
+                "id": 123,
+                "guid": "abc-123",
+                "name": "test-app",
+                "title": None,
+                "content_url": "http://test-server/content/abc-123/",
+                "dashboard_url": "http://test-server/connect/#/apps/abc-123",
+            }),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # GET repository config 404s (swallowed by get_repository -> not git-managed)
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/content/abc-123/repository",
+            body=json.dumps({"code": 4, "error": "Not Found"}),
+            status=404,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        # PUT repository config 404s: the endpoint is not available on this server.
+        httpretty.register_uri(
+            httpretty.PUT,
+            "http://test-server/__api__/v1/content/abc-123/repository",
+            body=json.dumps({"code": 4, "error": "Not Found"}),
+            status=404,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        with self.assertRaises(RSConnectException) as ctx:
+            client.deploy_git(
+                app_id=None,
+                name="test-app",
+                repository="https://github.com/user/repo",
+                branch="main",
+                subdirectory="",
+                title="Test App",
+                env_vars=None,
+            )
+
+        self.assertIn("not enabled", str(ctx.exception))
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_deploy_git_updates_existing_content(self):
         """Test that deploy_git updates existing git-managed content when app_id is provided."""
         server = RSConnectServer("http://test-server", "api_key")

@@ -167,7 +167,7 @@ class AbstractRemoteServer:
                         response.full_uri,
                         response.json_data["error"],
                     )
-                    raise RSConnectException(error)
+                    raise RSConnectException(error, status=response.status)
                 if response.status < 200 or response.status > 299:
                     raise RSConnectException(
                         "Received an unexpected response from %s (calling %s): %s %s"
@@ -176,7 +176,8 @@ class AbstractRemoteServer:
                             response.full_uri,
                             response.status,
                             response.reason,
-                        )
+                        ),
+                        status=response.status,
                     )
                 if not is_httpresponse:
                     # If we got here, it was a 2xx response that contained JSON and did not
@@ -930,24 +931,34 @@ class RSConnectClient(HTTPServer):
         # Check if content already has git configuration
         existing_repo = self.get_repository(app_guid)
 
-        if existing_repo:
-            # Update existing git configuration using PATCH
-            self.update_repository(
-                app_guid,
-                repository=repository,
-                branch=branch,
-                directory=directory,
-                polling=polling,
-            )
-        else:
-            # Create new git configuration using PUT
-            self.set_repository(
-                app_guid,
-                repository=repository,
-                branch=branch,
-                directory=directory,
-                polling=polling,
-            )
+        try:
+            if existing_repo:
+                # Update existing git configuration using PATCH
+                self.update_repository(
+                    app_guid,
+                    repository=repository,
+                    branch=branch,
+                    directory=directory,
+                    polling=polling,
+                )
+            else:
+                # Create new git configuration using PUT
+                self.set_repository(
+                    app_guid,
+                    repository=repository,
+                    branch=branch,
+                    directory=directory,
+                    polling=polling,
+                )
+        except RSConnectException as e:
+            # A 404 from the repository endpoint means git-backed deployment is
+            # not available on this Connect server.
+            if e.status == 404:
+                raise RSConnectException(
+                    "Git-backed deployment is not enabled on this Connect server. "
+                    "Contact your administrator to enable Git support."
+                ) from e
+            raise
 
         # Update title if provided (and different from current)
         if title and app.get("title") != title:
@@ -1692,26 +1703,17 @@ class RSConnectExecutor:
         force_unique_name = self.app_id is None
         deployment_name = self.make_deployment_name(self.title, force_unique_name)
 
-        try:
-            result = self.client.deploy_git(
-                app_id=self.app_id,
-                name=deployment_name,
-                repository=self.repository,
-                branch=self.branch or "main",
-                subdirectory=self.subdirectory or "",
-                title=self.title,
-                env_vars=self.env_vars,
-                polling=self.polling,
-                activate=activate,
-            )
-        except RSConnectException as e:
-            # Check for 404 on /repo endpoint (git not enabled)
-            if "404" in str(e) and "repo" in str(e).lower():
-                raise RSConnectException(
-                    "Git-backed deployment is not enabled on this Connect server. "
-                    "Contact your administrator to enable Git support."
-                ) from e
-            raise
+        result = self.client.deploy_git(
+            app_id=self.app_id,
+            name=deployment_name,
+            repository=self.repository,
+            branch=self.branch or "main",
+            subdirectory=self.subdirectory or "",
+            title=self.title,
+            env_vars=self.env_vars,
+            polling=self.polling,
+            activate=activate,
+        )
 
         self.deployed_info = result
         return self

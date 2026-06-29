@@ -379,7 +379,37 @@ def _generate_git_title(repository: str, subdirectory: str) -> str:
     return repo_name
 
 
-def content_args(func: Callable[P, T]) -> Callable[P, T]:
+def metadata_args(func: Callable[P, T]) -> Callable[P, T]:
+    """Options controlling git metadata attached to a bundle upload.
+
+    Only meaningful for commands that upload a local bundle. Commands that hand
+    Connect a repository to clone (e.g. ``deploy git``) do not upload a bundle,
+    so they should not advertise these flags.
+    """
+
+    @click.option(
+        "--metadata",
+        multiple=True,
+        help=(
+            "Include metadata key-value pair with the bundle upload. "
+            "Use format: key=value. May be specified multiple times. "
+            "Use key= (empty value) to clear a detected value. "
+            "Forces metadata upload even on older servers that don't officially support it. [v2025.12.0+]"
+        ),
+    )
+    @click.option(
+        "--no-metadata",
+        is_flag=True,
+        help="Disable automatic git metadata detection and upload.",
+    )
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def publish_args(func: Callable[P, T]) -> Callable[P, T]:
     @click.option(
         "--new",
         "-N",
@@ -421,26 +451,15 @@ def content_args(func: Callable[P, T]) -> Callable[P, T]:
             "The previous bundle will continue to be served until the draft is published."
         ),
     )
-    @click.option(
-        "--metadata",
-        multiple=True,
-        help=(
-            "Include metadata key-value pair with the bundle upload. "
-            "Use format: key=value. May be specified multiple times. "
-            "Use key= (empty value) to clear a detected value. "
-            "Forces metadata upload even on older servers that don't officially support it. [v2025.12.0+]"
-        ),
-    )
-    @click.option(
-        "--no-metadata",
-        is_flag=True,
-        help="Disable automatic git metadata detection and upload.",
-    )
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
         return func(*args, **kwargs)
 
     return wrapper
+
+
+def content_args(func: Callable[P, T]) -> Callable[P, T]:
+    return publish_args(metadata_args(func))
 
 
 # This callback handles the "shorthand" --disable-env-management option.
@@ -2151,7 +2170,7 @@ def deploy_pyproject(
 )
 @server_args
 @spcs_args
-@content_args
+@publish_args
 @click.option(
     "--repository",
     "-r",
@@ -2192,8 +2211,6 @@ def deploy_git(
     env_vars: dict[str, str],
     no_verify: bool,
     draft: bool,
-    metadata: tuple[str, ...],
-    no_metadata: bool,
     repository: str,
     branch: str,
     subdirectory: str,
