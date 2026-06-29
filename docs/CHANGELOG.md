@@ -7,10 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-- Removed the experimental `rsconnect mcp-server` command. Modern coding agents
-  are already able to discover and invoke command-line tools directly, so the
-  command is no longer needed. The optional `mcp` install extra has also been
-  removed.
 - `rsconnect deploy` commands now check PyPI once a day for a newer release of
   rsconnect-python and print an upgrade hint to stderr when one is available.
   The result is cached so most invocations make no network request. Set
@@ -35,11 +31,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--no-set-default` is passed. `CONNECT_SERVER` still takes precedence.
 - New `environment` subcommand for managing execution environments on Connect.
 - New `integration` subcommand for managing OAuth integrations on Connect.
-- Removed minimum Connect version indicators from CLI help for versions older
-  than 2024 (e.g. `[v2021.08.0+]`), since those releases are no longer supported.
-  Indicators for 2024 and newer versions are retained.
-- Removed references to Posit Cloud from command help and docstrings, as
-  publishing to Posit Cloud is no longer supported.
 
 ### Added
 
@@ -74,6 +65,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `uv>=0.9.0` as a runtime dependency. `rsconnect quickstart` invokes
   `uv venv` and `uv sync` to populate the scaffolded project's virtualenv.
   `uv` installs as a self-contained wheel from PyPI alongside `rsconnect`.
+
+### Removed
+
+- Removed the experimental `rsconnect mcp-server` command. Modern coding agents
+  are already able to discover and invoke command-line tools directly, so the
+  command is no longer needed. The optional `mcp` install extra has also been
+  removed.
+- Removed minimum Connect version indicators from CLI help for versions older
+  than 2024 (e.g. `[v2021.08.0+]`), since those releases are no longer supported.
+  Indicators for 2024 and newer versions are retained.
+- Removed references to Posit Cloud from command help and docstrings, as
+  publishing to Posit Cloud is no longer supported.
 
 ### Fixed
 
