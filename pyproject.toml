@@ -39,11 +39,9 @@ test = [
     "setuptools_scm[toml]>=3.4",
     "twine",
     "types-Flask",
-    "fastmcp==2.12.4; python_version >= '3.10'",
 ]
 keyring = ["keyring>=23.0.0"]
 snowflake = ["snowflake-cli"]
-mcp = ["fastmcp==2.12.4; python_version >= '3.10'"]
 docs = [
     "mkdocs-material",
     "mkdocs-click",

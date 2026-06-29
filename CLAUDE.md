@@ -207,8 +207,3 @@ The app mode determines how Connect runs the content. Manifests must specify the
 - Special deployment path for Snowflake Snowpark
 - `SPCSConnectServer` class for Snowflake-specific authentication
 - JWT generation in `snowflake.py`
-
-### MCP (Model Context Protocol)
-- Optional MCP support for deploying MCP servers (Python 3.10+)
-- Uses `fastmcp` library when available
-- See `mcp_deploy_context.py` for deployment context handling
