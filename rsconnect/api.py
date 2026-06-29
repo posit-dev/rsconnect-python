@@ -390,6 +390,7 @@ class RSConnectClientDeployResult(TypedDict):
     app_url: str
     dashboard_url: str
     draft_url: str | None
+    bundle_id: str | None
     title: str | None
 
 
@@ -599,10 +600,16 @@ class RSConnectClient(HTTPServer):
     def is_failed_response(self, response: HTTPResponse | JsonData) -> bool:
         return isinstance(response, HTTPResponse) and response.status >= 500
 
-    def access_content(self, content_guid: str) -> None:
+    def access_content(self, content_guid: str, bundle_id: Optional[str] = None) -> None:
         method = "GET"
         base = dirname(self._url.path)  # remove __api__
-        path = f"{base}/content/{content_guid}/"
+        if bundle_id is not None:
+            # Access a specific (e.g. draft, not-yet-activated) bundle's preview URL.
+            # Connect spins the process up cold to serve this, so a successful response
+            # confirms the bundle actually runs without touching the active bundle.
+            path = f"{base}/content/{content_guid}/_bundle{bundle_id}/"
+        else:
+            path = f"{base}/content/{content_guid}/"
         response = self._do_request(method, path, None, None, 3, {}, False)
 
         if self.is_failed_response(response):
@@ -892,6 +899,7 @@ class RSConnectClient(HTTPServer):
             "app_url": app["content_url"],
             "dashboard_url": app["dashboard_url"],
             "draft_url": draft_url if not activate else None,
+            "bundle_id": app_bundle["id"],
             "title": app["title"],
         }
 
@@ -1405,6 +1413,7 @@ class RSConnectExecutor:
                 app_guid=None,
                 task_id=None,
                 draft_url=None,
+                bundle_id=None,
                 title=self.title,
             )
             return self
@@ -1479,7 +1488,34 @@ class RSConnectExecutor:
                 raise RSConnectException("To verify deployment, client must be a RSConnectClient.")
             deployed_info = self.deployed_info
             app_guid = deployed_info["app_guid"]
-            self.client.access_content(app_guid)
+            # If the bundle was deployed as a draft (not activated), verify the draft
+            # bundle's preview URL rather than the currently-active content. Otherwise a
+            # broken draft would be masked by a previously-working active bundle.
+            bundle_id = deployed_info.get("bundle_id") if deployed_info.get("draft_url") else None
+            self.client.access_content(app_guid, bundle_id=bundle_id)
+        return self
+
+    @cls_logged("Activating deployed content...")
+    def activate_deployment(self):
+        """Activate the bundle deployed as a draft, e.g. after verifying it runs.
+
+        This re-issues the deploy request for the same bundle with ``activate=True``,
+        which is what the "Activate Draft" button in the Connect UI does.
+        """
+        if isinstance(self.remote_server, (RSConnectServer, SPCSConnectServer)):
+            if not isinstance(self.client, RSConnectClient):
+                raise RSConnectException("To activate deployment, client must be a RSConnectClient.")
+            deployed_info = self.deployed_info
+            app_guid = deployed_info["app_guid"]
+            bundle_id = deployed_info["bundle_id"]
+            if app_guid is None or bundle_id is None:
+                raise RSConnectException("An app GUID and bundle ID are required to activate a deployment.")
+            task = self.client.content_deploy(app_guid, bundle_id, activate=True)
+            # Update deployed_info so a subsequent emit_task_log() waits on the activation
+            # task and reports the live content URLs instead of the draft URL.
+            deployed_info["task_id"] = task["task_id"]
+            deployed_info["draft_url"] = None
+        return self
 
     @cls_logged("Validating app mode...")
     def validate_app_mode(self, app_mode: AppMode):
