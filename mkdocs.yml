@@ -55,7 +55,6 @@ nav:
       - system: commands/system.md
       - version: commands/version.md
       - write-manifest: commands/write-manifest.md
-      - mcp-server: commands/mcp-server.md
 
 
 theme:
