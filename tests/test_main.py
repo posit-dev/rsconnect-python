@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import shutil
 from os.path import join
 from unittest import TestCase, mock
@@ -10,6 +11,7 @@ import pytest
 from click.testing import CliRunner
 
 from rsconnect import VERSION
+from rsconnect.api import RSConnectClient, RSConnectServer
 from rsconnect.json_web_token import SECRET_KEY_ENV
 from rsconnect.main import cli, env_management_callback
 
@@ -297,6 +299,309 @@ class TestMain:
                 assert f"Direct content URL: {expected_content_url}" in caplog.text
             else:
                 assert f"Draft content URL: {expected_draft_url}" in caplog.text
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_verify_before_activate(self, caplog):
+        # Without --draft or --no-verify, the default flow deploys the bundle as a
+        # draft (activate=false), verifies the draft bundle's preview URL, and only
+        # then activates it. The active bundle should never receive an unverified build.
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/server_settings",
+            body=json.dumps({"version": "9999.99.99"}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/user",
+            body=open("tests/testdata/connect-responses/me.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/content?name=app5",
+            body=json.dumps([]),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        content_body = json.dumps(
+            {
+                "id": "1234",
+                "guid": "1234-5678-9012-3456",
+                "title": "app5",
+                "content_url": "http://fake_server/content/1234-5678-9012-3456",
+                "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+            }
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/v1/content",
+            body=content_body,
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            body=content_body,
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/bundles",
+            body=json.dumps({"id": "FAKE_BUNDLE_ID"}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        # Record the body of each deploy call so we can assert the draft-then-activate
+        # ordering.
+        deploy_bodies = []
+
+        def post_application_deploy_callback(request, uri, response_headers):
+            deploy_bodies.append(_load_json(request.body))
+            return [201, {"Content-Type": "application/json"}, json.dumps({"task_id": "FAKE_TASK_ID"})]
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            body=post_application_deploy_callback,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/tasks/FAKE_TASK_ID" "?wait=1",
+            body=json.dumps({"output": ["FAKE_OUTPUT"], "last": "FAKE_LAST", "finished": True, "code": 0}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        # The verify step accesses the draft bundle's preview URL. A 200 confirms it runs.
+        verify_invoked = []
+
+        def get_bundle_preview_callback(request, uri, response_headers):
+            verify_invoked.append(uri)
+            return [200, {"Content-Type": "text/html"}, "<html></html>"]
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/content/1234-5678-9012-3456/_bundleFAKE_BUNDLE_ID/",
+            body=get_bundle_preview_callback,
+        )
+
+        try:
+            runner = CliRunner()
+            args = apply_common_args(
+                ["deploy", "manifest", get_manifest_path("pyshiny_with_manifest", "")],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            with mock.patch(
+                "rsconnect.api.RSConnectExecutor.validate_app_mode",
+                new=lambda self_, *args, **kwargs: self_,
+            ), caplog.at_level("INFO"):
+                result = runner.invoke(cli, args)
+            assert result.exit_code == 0, result.output
+            # First deploy is a draft, then verify, then a second deploy that activates it.
+            assert deploy_bodies == [
+                {"bundle_id": "FAKE_BUNDLE_ID", "activate": False},
+                {"bundle_id": "FAKE_BUNDLE_ID"},
+            ]
+            assert len(verify_invoked) == 1
+            assert "Verifying deployed content..." in caplog.text
+            assert "Activating deployed content..." in caplog.text
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_verify_before_activate_unsupported_server(self, caplog):
+        # Servers older than 2025.06.0 reject the "activate" field, so we must not deploy
+        # a draft. Instead we deploy + activate in one step (no "activate" field sent) and
+        # verify the active content, as before draft support existed.
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/server_settings",
+            body=json.dumps({"version": "2025.03.0"}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/user",
+            body=open("tests/testdata/connect-responses/me.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/content?name=app5",
+            body=json.dumps([]),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        content_body = json.dumps(
+            {
+                "id": "1234",
+                "guid": "1234-5678-9012-3456",
+                "title": "app5",
+                "content_url": "http://fake_server/content/1234-5678-9012-3456",
+                "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+            }
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/v1/content",
+            body=content_body,
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            body=content_body,
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/bundles",
+            body=json.dumps({"id": "FAKE_BUNDLE_ID"}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        deploy_bodies = []
+
+        def post_application_deploy_callback(request, uri, response_headers):
+            deploy_bodies.append(_load_json(request.body))
+            return [201, {"Content-Type": "application/json"}, json.dumps({"task_id": "FAKE_TASK_ID"})]
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            body=post_application_deploy_callback,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/tasks/FAKE_TASK_ID" "?wait=1",
+            body=json.dumps({"output": ["FAKE_OUTPUT"], "last": "FAKE_LAST", "finished": True, "code": 0}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        # On an old server the verify step hits the *active* content URL, not a draft.
+        verify_invoked = []
+
+        def get_active_content_callback(request, uri, response_headers):
+            verify_invoked.append(uri)
+            return [200, {"Content-Type": "text/html"}, "<html></html>"]
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/content/1234-5678-9012-3456/",
+            body=get_active_content_callback,
+        )
+
+        try:
+            runner = CliRunner()
+            args = apply_common_args(
+                ["deploy", "manifest", get_manifest_path("pyshiny_with_manifest", "")],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            with mock.patch(
+                "rsconnect.api.RSConnectExecutor.validate_app_mode",
+                new=lambda self_, *args, **kwargs: self_,
+            ), caplog.at_level("INFO"):
+                result = runner.invoke(cli, args)
+            assert result.exit_code == 0, result.output
+            # A single deploy that activates immediately: no "activate" field is sent,
+            # and there is no second (activation) deploy call.
+            assert deploy_bodies == [{"bundle_id": "FAKE_BUNDLE_ID"}]
+            # The active content was verified, and nothing was separately activated.
+            assert len(verify_invoked) == 1
+            assert "Verifying deployed content..." in caplog.text
+            assert "Activating deployed content..." not in caplog.text
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_draft_unsupported_server(self):
+        # --draft cannot be honored on servers that reject the "activate" field, and
+        # silently activating would be the opposite of the user's intent, so the deploy
+        # fails with a clear error instead of sending an unsupported request.
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/server_settings",
+            body=json.dumps({"version": "2025.03.0"}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/user",
+            body=open("tests/testdata/connect-responses/me.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/content?name=app5",
+            body=json.dumps([]),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        # The deploy endpoint must never be called: we should fail before sending it.
+        deploy_invoked = []
+
+        def post_application_deploy_callback(request, uri, response_headers):
+            deploy_invoked.append(uri)
+            return [201, {"Content-Type": "application/json"}, json.dumps({"task_id": "FAKE_TASK_ID"})]
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            body=post_application_deploy_callback,
+        )
+
+        try:
+            runner = CliRunner()
+            args = apply_common_args(
+                ["deploy", "manifest", "--draft", get_manifest_path("pyshiny_with_manifest", "")],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            with mock.patch(
+                "rsconnect.api.RSConnectExecutor.validate_app_mode",
+                new=lambda self_, *args, **kwargs: self_,
+            ):
+                result = runner.invoke(cli, args)
+            assert result.exit_code != 0
+            assert "Deploying as a draft requires Posit Connect 2025.06.0 or later." in result.output
+            assert deploy_invoked == []
         finally:
             if original_api_key_value:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
@@ -799,6 +1104,68 @@ class TestMain:
         args.extend(["--no-verify", "-e", "badapp"])
         result = runner.invoke(cli, args)
         assert result.exit_code == 0, result.output
+
+    @staticmethod
+    def _deployed_content_guid(caplog):
+        # The deploy flow logs "Direct content URL: <server>/content/<guid>".
+        match = re.search(r"/content/([0-9a-fA-F-]+)", caplog.text)
+        assert match is not None, "Could not find deployed content URL in:\n" + caplog.text
+        return match.group(1)
+
+    def test_default_deploy_does_not_activate_broken_bundle(self, caplog):
+        # #769: the default flow deploys a draft, verifies it, and only then activates
+        # it. A broken redeploy must fail AND leave the previously-active (working)
+        # bundle serving. Without verify-before-activate, the broken bundle is activated
+        # before verification, so the active bundle becomes the broken one.
+        # Draft deploys (the activate field) require Connect 2025.06.0+.
+        require_connect_version("2025.06.0")
+        client = RSConnectClient(RSConnectServer(require_connect(), require_api_key()))
+        runner = CliRunner()
+
+        # 1. Deploy a working app. It is verified and becomes the active bundle.
+        with caplog.at_level("INFO"):
+            good = runner.invoke(cli, self.create_deploy_args("api", get_api_path("flask")))
+        assert good.exit_code == 0, good.output
+        guid = self._deployed_content_guid(caplog)
+        good_bundle_id = client.content_get(guid)["bundle_id"]
+        assert good_bundle_id is not None
+
+        # 2. Redeploy a broken app to the SAME content with the default flow.
+        bad_args = self.create_deploy_args("api", get_api_path("flask-bad"))
+        bad_args.extend(["-e", "badapp", "--app-id", guid])
+        bad = runner.invoke(cli, bad_args)
+
+        # The command fails because the draft bundle does not start...
+        assert bad.exit_code == 1, bad.output
+        # ...and crucially, the active bundle is still the working one.
+        assert client.content_get(guid)["bundle_id"] == good_bundle_id
+
+    def test_draft_deploy_verifies_the_draft_not_the_active_bundle(self, caplog):
+        # #768: with --draft, verification must target the draft bundle, not the
+        # currently-active content. Deploying a broken draft over a working active
+        # bundle must fail. Without the fix, --draft verified the still-good active
+        # content and reported success.
+        # Draft deploys (the activate field) require Connect 2025.06.0+.
+        require_connect_version("2025.06.0")
+        client = RSConnectClient(RSConnectServer(require_connect(), require_api_key()))
+        runner = CliRunner()
+
+        # 1. Deploy a working app; it becomes the active bundle.
+        with caplog.at_level("INFO"):
+            good = runner.invoke(cli, self.create_deploy_args("api", get_api_path("flask")))
+        assert good.exit_code == 0, good.output
+        guid = self._deployed_content_guid(caplog)
+        good_bundle_id = client.content_get(guid)["bundle_id"]
+
+        # 2. Deploy a broken app as a draft to the same content.
+        draft_args = self.create_deploy_args("api", get_api_path("flask-bad"))
+        draft_args.extend(["-e", "badapp", "--app-id", guid, "--draft"])
+        draft = runner.invoke(cli, draft_args)
+
+        # Verification of the broken draft fails...
+        assert draft.exit_code == 1, draft.output
+        # ...and the draft was never activated, so the active bundle is unchanged.
+        assert client.content_get(guid)["bundle_id"] == good_bundle_id
 
     def test_add_connect(self):
         connect_server = require_connect()
