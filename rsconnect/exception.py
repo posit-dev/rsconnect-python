@@ -4,10 +4,11 @@ from typing import Optional
 
 
 class RSConnectException(Exception):
-    def __init__(self, message: str, cause: Optional[Exception] = None):
+    def __init__(self, message: str, cause: Optional[Exception] = None, status: Optional[int] = None):
         super(RSConnectException, self).__init__(message)
         self.message = message
         self.cause = cause
+        self.status = status
 
 
 class DeploymentFailedException(RSConnectException):

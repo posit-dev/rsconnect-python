@@ -818,3 +818,18 @@ class KeyValueParamType(ParamType):
             return (k.strip(), v.strip())
         except ValueError:
             self.fail(f"'{value}' is not in 'key=value' format", param, ctx)
+
+
+class RepositoryInfo(TypedDict):
+    repository: str
+    branch: str
+    directory: str
+    polling: bool
+    last_error: str
+    last_known_commit: str
+
+
+class RepositoryBundleOutput(TypedDict):
+    bundle_id: str
+    task_id: str
+    location: dict[str, str]

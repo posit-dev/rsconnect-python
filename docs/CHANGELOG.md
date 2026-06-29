@@ -66,6 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a server. The bundle is uploaded as-is and its existing `manifest.json`
   determines the content type and dependencies, making it easy to copy content
   from one server to another.
+- `rsconnect deploy git` command for creating a [git-backed deployment](https://docs.posit.co/connect/user/git-backed/).
+  Use `--branch` to specify a branch (default: main) and `--subdirectory` to deploy content from a subdirectory.
 
 ### Changed
 
@@ -114,7 +116,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   when deploying from a git repository. This metadata is automatically detected and sent to
   Posit Connect 2025.12.0 or later. Use `--metadata key=value` to provide additional metadata
   or override detected values. Use `--no-metadata` to disable automatic detection. (#736)
-
 
 ## [1.28.2] - 2025-12-05
 
