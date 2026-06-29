@@ -602,14 +602,13 @@ class RSConnectClient(HTTPServer):
 
     def access_content(self, content_guid: str, bundle_id: Optional[str] = None) -> None:
         method = "GET"
-        base = dirname(self._url.path)  # remove __api__
-        if bundle_id is not None:
-            # Access a specific (e.g. draft, not-yet-activated) bundle's preview URL.
-            # Connect spins the process up cold to serve this, so a successful response
-            # confirms the bundle actually runs without touching the active bundle.
-            path = f"{base}/content/{content_guid}/_bundle{bundle_id}/"
-        else:
-            path = f"{base}/content/{content_guid}/"
+        base = dirname(self._url.path).rstrip("/")  # strip "__api__" and any trailing slash
+        # Access a specific (e.g. draft, not-yet-activated) bundle's preview URL when a
+        # bundle id is given. Connect spins the process up cold to serve this, so a
+        # successful response confirms the bundle actually runs without touching the
+        # active bundle.
+        suffix = f"_bundle{bundle_id}/" if bundle_id is not None else ""
+        path = f"{base}/content/{content_guid}/{suffix}"
         response = self._do_request(method, path, None, None, 3, {}, False)
 
         if self.is_failed_response(response):

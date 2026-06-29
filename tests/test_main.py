@@ -391,11 +391,9 @@ class TestMain:
             verify_invoked.append(uri)
             return [200, {"Content-Type": "text/html"}, "<html></html>"]
 
-        # access_content joins onto the server root, which yields a leading "//" that
-        # Connect normalizes; register the URL exactly as the client emits it.
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server//content/1234-5678-9012-3456/_bundleFAKE_BUNDLE_ID/",
+            "http://fake_server/content/1234-5678-9012-3456/_bundleFAKE_BUNDLE_ID/",
             body=get_bundle_preview_callback,
         )
 
