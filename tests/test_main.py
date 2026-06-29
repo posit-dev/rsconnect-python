@@ -545,6 +545,70 @@ class TestMain:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_draft_unsupported_server(self):
+        # --draft cannot be honored on servers that reject the "activate" field, and
+        # silently activating would be the opposite of the user's intent, so the deploy
+        # fails with a clear error instead of sending an unsupported request.
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/server_settings",
+            body=json.dumps({"version": "2025.03.0"}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/user",
+            body=open("tests/testdata/connect-responses/me.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/content?name=app5",
+            body=json.dumps([]),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        # The deploy endpoint must never be called: we should fail before sending it.
+        deploy_invoked = []
+
+        def post_application_deploy_callback(request, uri, response_headers):
+            deploy_invoked.append(uri)
+            return [201, {"Content-Type": "application/json"}, json.dumps({"task_id": "FAKE_TASK_ID"})]
+
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            body=post_application_deploy_callback,
+        )
+
+        try:
+            runner = CliRunner()
+            args = apply_common_args(
+                ["deploy", "manifest", "--draft", get_manifest_path("pyshiny_with_manifest", "")],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            with mock.patch(
+                "rsconnect.api.RSConnectExecutor.validate_app_mode",
+                new=lambda self_, *args, **kwargs: self_,
+            ):
+                result = runner.invoke(cli, args)
+            assert result.exit_code != 0
+            assert "Deploying as a draft requires Posit Connect 2025.06.0 or later." in result.output
+            assert deploy_invoked == []
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_deploy_bundle(self, caplog):
         # Deploying a downloaded bundle should upload the tarball as-is (no
         # re-bundling) and run the standard Connect deploy flow.

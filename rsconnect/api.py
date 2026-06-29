@@ -1528,6 +1528,10 @@ class RSConnectExecutor:
         With ``--no-verify`` we activate immediately.
         """
         if draft:
+            if not self.supports_verify_before_activate:
+                # We can't honor --draft without the activate field: silently activating
+                # would be the opposite of what the user asked for, so fail loudly.
+                raise RSConnectException("Deploying as a draft requires Posit Connect 2025.06.0 or later.")
             return True
         if no_verify:
             return False
