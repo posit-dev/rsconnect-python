@@ -414,6 +414,29 @@ def server_supports_git_metadata(server_version: Optional[str]) -> bool:
         return False
 
 
+def server_supports_draft_deploy(server_version: Optional[str]) -> bool:
+    """
+    Check if the server supports deploying a bundle as a draft and activating it
+    separately, i.e. the ``activate`` field on the content deploy/build endpoints.
+
+    Older servers reject the unknown field, so we must not send it to them.
+
+    Draft deploys were added in Connect 2025.06.0.
+
+    :param server_version: The Connect server version string
+    :return: True if the server supports draft deploys, False otherwise
+    """
+    if not server_version:
+        return False
+
+    try:
+        return compare_semvers(server_version, "2025.06.0") >= 0
+    except Exception:
+        # If we can't parse the version, assume it doesn't support it
+        logger.debug(f"Unable to parse server version: {server_version}")
+        return False
+
+
 class RSConnectClient(HTTPServer):
     def __init__(self, server: Union[RSConnectServer, SPCSConnectServer], cookies: Optional[CookieJar] = None):
         if cookies is None:
@@ -1032,6 +1055,7 @@ class RSConnectExecutor:
 
         self.bundle: IO[bytes] | None = None
         self.deployed_info: RSConnectClientDeployResult | None = None
+        self._draft_deploy_supported: bool | None = None
 
         self.logger: logging.Logger | None = logger
         self.ctx = ctx
@@ -1479,6 +1503,35 @@ class RSConnectExecutor:
         )
 
         return self
+
+    @property
+    def supports_verify_before_activate(self) -> bool:
+        """Whether the target server supports deploying a bundle as a draft and
+        activating it separately. shinyapps.io / Posit Cloud and pre-2025.06.0 Connect
+        do not, so for those we deploy and activate in one step and verify the active
+        content instead."""
+        if not isinstance(self.client, RSConnectClient):
+            return False
+        if self._draft_deploy_supported is None:
+            try:
+                server_version = self.client.server_settings().get("version", "")
+            except Exception:
+                server_version = None
+            self._draft_deploy_supported = server_supports_draft_deploy(server_version)
+        return self._draft_deploy_supported
+
+    def should_deploy_as_draft(self, draft: bool, no_verify: bool) -> bool:
+        """Whether the bundle should be deployed without activating it.
+
+        An explicit ``--draft`` always deploys a draft. Otherwise we deploy a draft only
+        when we are going to verify it before activating, which requires server support.
+        With ``--no-verify`` we activate immediately.
+        """
+        if draft:
+            return True
+        if no_verify:
+            return False
+        return self.supports_verify_before_activate
 
     @cls_logged("Verifying deployed content...")
     def verify_deployment(self):

@@ -1544,11 +1544,11 @@ def deploy_notebook(
             env_management_r=env_management_r,
             r_environment=r_environment,
         )
-    ce.deploy_bundle(activate=not draft and no_verify).save_deployed_info().emit_task_log()
+    ce.deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify)).save_deployed_info().emit_task_log()
     if not no_verify:
         ce.verify_deployment()
-        if not draft:
-            # Verification of the draft bundle succeeded, so activate it.
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
 
 
@@ -1715,11 +1715,11 @@ def deploy_voila(
         env_management_r=env_management_r,
         r_environment=r_environment,
         multi_notebook=multi_notebook,
-    ).deploy_bundle(activate=not draft and no_verify).save_deployed_info().emit_task_log()
+    ).deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify)).save_deployed_info().emit_task_log()
     if not no_verify:
         ce.verify_deployment()
-        if not draft:
-            # Verification of the draft bundle succeeded, so activate it.
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
 
 
@@ -1806,14 +1806,14 @@ def deploy_manifest(
             make_manifest_bundle,
             file_name,
         )
-        .deploy_bundle(activate=not draft and no_verify)
+        .deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify))
         .save_deployed_info()
         .emit_task_log()
     )
     if not no_verify:
         ce.verify_deployment()
-        if not draft:
-            # Verification of the draft bundle succeeded, so activate it.
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
 
 
@@ -1899,14 +1899,14 @@ def deploy_bundle(
             open_bundle,
             file,
         )
-        .deploy_bundle(activate=not draft and no_verify)
+        .deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify))
         .save_deployed_info()
         .emit_task_log()
     )
     if not no_verify:
         ce.verify_deployment()
-        if not draft:
-            # Verification of the draft bundle succeeded, so activate it.
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
 
 
@@ -2110,14 +2110,14 @@ def deploy_pyproject(
         ce.validate_server()
         .validate_app_mode(app_mode=app_mode)
         .make_bundle(bundle_builder, *bundle_args, **bundle_kwargs)
-        .deploy_bundle(activate=not draft and no_verify)
+        .deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify))
         .save_deployed_info()
         .emit_task_log()
     )
     if not no_verify:
         ce.verify_deployment()
-        if not draft:
-            # Verification of the draft bundle succeeded, so activate it.
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
 
 
@@ -2301,14 +2301,14 @@ def deploy_quarto(
             env_management_r=env_management_r,
             r_environment=r_environment,
         )
-        .deploy_bundle(activate=not draft and no_verify)
+        .deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify))
         .save_deployed_info()
         .emit_task_log()
     )
     if not no_verify:
         ce.verify_deployment()
-        if not draft:
-            # Verification of the draft bundle succeeded, so activate it.
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
 
 
@@ -2410,14 +2410,14 @@ def deploy_tensorflow(
             exclude,
             image=image,
         )
-        .deploy_bundle(activate=not draft and no_verify)
+        .deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify))
         .save_deployed_info()
         .emit_task_log()
     )
     if not no_verify:
         ce.verify_deployment()
-        if not draft:
-            # Verification of the draft bundle succeeded, so activate it.
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
 
 
@@ -2537,14 +2537,14 @@ def deploy_html(
             extra_files,
             exclude,
         )
-        .deploy_bundle(activate=not draft and no_verify)
+        .deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify))
         .save_deployed_info()
         .emit_task_log()
     )
     if not no_verify:
         ce.verify_deployment()
-        if not draft:
-            # Verification of the draft bundle succeeded, so activate it.
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
 
 
@@ -2774,14 +2774,14 @@ def generate_deploy_python(
             env_management_r=env_management_r,
             r_environment=r_environment,
         )
-        ce.deploy_bundle(activate=not draft and no_verify)
+        ce.deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify))
         ce.save_deployed_info()
         ce.emit_task_log()
 
         if not no_verify:
             ce.verify_deployment()
-            if not draft:
-                # Verification of the draft bundle succeeded, so activate it.
+            if not draft and ce.supports_verify_before_activate:
+                # The draft bundle verified successfully, so activate it.
                 ce.activate_deployment().emit_task_log()
 
     return deploy_app
@@ -2937,14 +2937,14 @@ def deploy_nodejs(
         image=image,
         env_management_node=env_management_node,
     )
-    ce.deploy_bundle(activate=not draft and no_verify)
+    ce.deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify))
     ce.save_deployed_info()
     ce.emit_task_log()
 
     if not no_verify:
         ce.verify_deployment()
-        if not draft:
-            # Verification of the draft bundle succeeded, so activate it.
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
 
 
