@@ -2811,7 +2811,10 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
   the bundle is left as a draft and the previously-active bundle keeps serving,
   so a broken build never becomes the active version. <code>--draft</code> still deploys
   without activating (and now verifies the draft rather than the active
-  content), and <code>--no-verify</code> skips verification and activates immediately.</li>
+  content), and <code>--no-verify</code> skips verification and activates immediately.
+  Draft deploys require Connect 2025.06.0 or later; against older servers the
+  bundle is deployed and activated in one step and the active content is
+  verified, as before.</li>
 <li><code>rsconnect deploy</code> commands now check PyPI once a day for a newer release of
   rsconnect-python and print an upgrade hint to stderr when one is available.
   The result is cached so most invocations make no network request. Set
