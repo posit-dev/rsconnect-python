@@ -1194,34 +1194,6 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../mcp-server/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    mcp-server
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -1545,8 +1517,11 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
@@ -1659,8 +1634,11 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
@@ -1773,8 +1751,11 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
@@ -1837,8 +1818,11 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
@@ -1951,8 +1935,11 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
@@ -2065,8 +2052,11 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
@@ -2180,18 +2170,13 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
-  --metadata TEXT                 Include metadata key-value pair with the
-                                  bundle upload. Use format: key=value. May be
-                                  specified multiple times. Use key= (empty
-                                  value) to clear a detected value. Forces
-                                  metadata upload even on older servers that
-                                  don&#39;t officially support it. [v2025.12.0+]
-  --no-metadata                   Disable automatic git metadata detection and
-                                  upload.
   -r, --repository TEXT           URL of the Git repository (https:// URLs
                                   only).  [required]
   -b, --branch TEXT               Branch to deploy from. [default: main]
@@ -2238,8 +2223,11 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
@@ -2352,8 +2340,11 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
@@ -2420,8 +2411,11 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
@@ -2484,8 +2478,11 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
@@ -2568,8 +2565,11 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
@@ -2675,8 +2675,11 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
@@ -2789,8 +2792,11 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
@@ -2866,8 +2872,11 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
@@ -2965,8 +2974,11 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
@@ -3079,8 +3091,11 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
@@ -3194,8 +3209,11 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
@@ -3255,8 +3273,11 @@
                                   value from the local environment. May be
                                   specified multiple times. [v1.8.6+]
   --no-verify                     Don&#39;t access the deployed content to verify
-                                  that it started correctly.
-  --draft                         Deploy the application as a draft. Previous
+                                  that it started correctly. Implies
+                                  activating the new bundle immediately rather
+                                  than verifying it first.
+  --draft                         Deploy the application as a draft and verify
+                                  it, but do not activate it. The previous
                                   bundle will continue to be served until the
                                   draft is published.
   --metadata TEXT                 Include metadata key-value pair with the
