@@ -617,6 +617,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#update-notifications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Update notifications
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#updating-a-deployment" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1598,6 +1609,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#update-notifications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Update notifications
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#updating-a-deployment" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2050,6 +2072,15 @@ variables will remain unchanged.</p>
 <p>Environment variables are set on the content item before the content bundle
 is uploaded and deployed. If the deployment fails, the new environment variables
 will still take effect.</p>
+<h3 id="update-notifications">Update notifications<a class="headerlink" href="#update-notifications" title="Permanent link">#</a></h3>
+<p>When you run a <code>rsconnect deploy</code> command, rsconnect-python checks PyPI for a
+newer release and prints an upgrade hint to stderr if one is available. The
+result is cached for 24 hours, so most deployments make no extra network
+request, and the check never blocks or fails a deployment.</p>
+<p>To disable the check entirely, set the <code>RSCONNECT_DISABLE_VERSION_CHECK</code>
+environment variable to <code>1</code> (or <code>true</code>/<code>yes</code>):</p>
+<div class="highlight"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">RSCONNECT_DISABLE_VERSION_CHECK</span><span class="o">=</span><span class="m">1</span>
+</code></pre></div>
 <h3 id="updating-a-deployment">Updating a Deployment<a class="headerlink" href="#updating-a-deployment" title="Permanent link">#</a></h3>
 <p>If you deploy a file again to the same server, <code>rsconnect</code> will update the previous
 deployment. This means that you can keep running <code>rsconnect deploy notebook my-notebook.ipynb</code>
