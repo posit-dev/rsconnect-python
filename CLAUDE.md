@@ -10,65 +10,57 @@ rsconnect-python is the Posit Connect command-line interface for deploying Pytho
 
 ### Environment Setup
 ```bash
-# Create and activate virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
+# Install the project plus dev tooling
+# `uv` provisions the interpreter and resolves the `test` dependency group
+uv sync --group test
 
-# Install in editable mode with dev dependencies
-pip install -e '.[test]'
+# Run the CLI from your working tree
+uv run rsconnect version
 ```
 
 ### Testing
 ```bash
-# Run tests with Python 3.8 (default)
-make test
+# Run tests with the default Python (3.13)
+just test
 
-# Run tests with specific Python version
-make test-3.12
+# Run tests with a specific Python version (uv fetches it if needed)
+just test 3.12
 
-# Run tests across all Python versions (3.8-3.12)
-make all-tests
+# Run tests across all supported Python versions
+just all-tests
 
 # Run single test file
-pytest tests/test_bundle.py
+uv run pytest tests/test_bundle.py
 
 # Run single test
-pytest tests/test_bundle.py::test_function_name
-
-# Run tests with verbose coverage
-./scripts/runtests  # Uses pytest with coverage
+uv run pytest tests/test_bundle.py::test_function_name
 ```
 
 ### Linting and Formatting
 ```bash
-# Format code with black
-make fmt
+# Auto-format and apply fixes
+just fmt
 
-# Run all linters (black, flake8, pyright)
-make lint
-
-# Run individual linters
-black --check --diff rsconnect/
-flake8 rsconnect/
-pyright rsconnect/
+# Run all linters (ruff format --check, ruff check, pyright)
+just lint
 ```
 
 ### Documentation
 ```bash
 # Build documentation
-make docs
+just docs
 
 # Serve documentation locally (with live reload)
-make docs-serve
+just docs-serve
 ```
 
 ### Building Distribution
 ```bash
 # Build wheel distribution
-make dist
+just dist
 
 # Install built package
-make install
+just install
 ```
 
 ## Code Architecture
@@ -142,7 +134,7 @@ The app mode determines how Connect runs the content. Manifests must specify the
 - Mock HTTP responses with `httpretty` decorators
 - Use temporary directories for file operations
 - Test fixtures in `tests/testdata/` for sample content
-- `test_metadata.py` has special flake8 exclusion for E501 (line length)
+- `test_metadata.py` has long lines that exceed the default line length limit
 
 ### CI/CD
 - GitHub Actions workflow in `.github/workflows/main.yml`
@@ -153,9 +145,9 @@ The app mode determines how Connect runs the content. Manifests must specify the
 ## Code Style
 
 ### Python Standards
-- Black formatting (120 char line length)
-- Flake8 with specific ignores for Black compatibility (E203, E231, E302)
-- Strict type checking with Pyright
+- `ruff format` for formatting (120 char line length)
+- `ruff check` for linting (enforced in CI)
+- Pyright for type checking (advisory; does not fail `just lint`)
 - Python 3.8+ compatibility (use `typing_extensions` for newer types)
 
 ### Type Annotations
@@ -190,11 +182,12 @@ The app mode determines how Connect runs the content. Manifests must specify the
 
 ## Releasing
 
-- Version managed by `setuptools_scm` based on git tags
-- Update CHANGELOG.md before each release (even betas)
-- Create annotated tag: `git tag -a 1.2.3 -m 'Release 1.2.3'`
-- Push tag triggers GitHub Actions workflow for PyPI publishing
-- Pre-releases must follow PEP 440 format
+- Version is a static field in `pyproject.toml`, managed with `uv version`.
+- `main` carries a `.dev` version (e.g. `1.29.1.dev0`).
+- Update CHANGELOG.md before each release (even betas).
+- Cut a release: `uv version --bump stable`, commit, `git tag -a 1.2.3 -m 'Release 1.2.3'`, push the tag.
+- The `distributions` CI job asserts the tag matches the `pyproject.toml` version, then builds and publishes to PyPI.
+- After releasing, bump `main` back to the next `.dev` version with `uv version <next>.dev0`.
 
 ## Special Integrations
 
