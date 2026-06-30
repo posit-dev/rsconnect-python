@@ -60,7 +60,7 @@ module-root = ""
 
 [tool.ruff]
 line-length = 120
-extend-exclude = ["my-shiny-app", "rsconnect-build", "rsconnect-build-test", "integration", "vetiver-testing", "tests/testdata"]
+extend-exclude = ["my-shiny-app", "rsconnect-build", "rsconnect-build-test", "integration", "tests/testdata"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W"]
@@ -71,7 +71,7 @@ per-file-ignores = { "tests/test_metadata.py" = ["E501"] }
 omit = ["tests/*"]
 
 [tool.pytest.ini_options]
-markers = ["vetiver: tests for vetiver"]
+markers = []
 addopts = """
     --ignore=tests/testdata
 """
