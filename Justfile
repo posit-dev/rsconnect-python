@@ -60,18 +60,6 @@ clean-stores:
     set -euo pipefail
     find . -type d \( -name "rsconnect-python" -o -name "rsconnect_python-*" \) -exec rm -rf {} +
 
-# Start a local Connect server for development (Docker; not replaced by uv)
-dev:
-    docker compose up -d
-    sleep 30
-    docker compose exec -T rsconnect bash < vetiver-testing/setup-rsconnect/add-users.sh
-    uv run python vetiver-testing/setup-rsconnect/dump_api_keys.py vetiver-testing/rsconnect_api_keys.json
-
-# Stop the local Connect server
-dev-stop:
-    docker compose down
-    rm -f vetiver-testing/rsconnect_api_keys.json
-
 # Sync latest docs to S3 (CI)
 sync-latest-docs-to-s3:
     aws s3 sync --acl bucket-owner-full-control --cache-control max-age=0 site/ s3://rstudio-connect-downloads/connect/rsconnect-python/latest/docs/
