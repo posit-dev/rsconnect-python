@@ -1,0 +1,1413 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../images/favicon.ico">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>rsconnect-python: drop vetiver test baggage — Implementation Plan - rsconnect-python</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Open Sans";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../docs/css/custom.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+<!-- Google Analytics 4 (G-XXXXXXXXXX) -->
+<script>
+    /* Use GA when hosted by our public docs site, not when installed. */
+    if (location.href.indexOf("docs.posit.co") >= 0) {
+        window.dataLayer = window.dataLayer || []
+        function gtag() { dataLayer.push(arguments) }
+        /* Set up integration and send page view */
+        gtag("js", new Date())
+        gtag("config", "")
+
+        /* Register virtual event handlers */
+        document.addEventListener("DOMContentLoaded", function () {
+            if (document.forms.search) {
+                var query = document.forms.search.query
+                query.addEventListener("blur", function () {
+                    if (this.value) {
+                        gtag("event", "search", { search_term: this.value })
+                    }
+                })
+            }
+
+            /* Send page view on location change */
+            if (typeof location$ !== "undefined")
+                location$.subscribe(function (url) {
+                    gtag("config", "", {
+                        page_path: url.pathname
+                    })
+                })
+        })
+        /* Create script tag */
+        var script = document.createElement("script")
+        script.async = true
+        script.src = "https://www.googletagmanager.com/gtag/js?id="
+
+        /* Inject script tag */
+        var container = document.getElementsByTagName("head")[0]
+        var firstChild = container.firstChild
+        container.insertBefore(script, firstChild)
+    }
+</script>
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#rsconnect-python-drop-vetiver-test-baggage-implementation-plan" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="header.title">
+    <a href="../../.." title="rsconnect-python" class="md-header__button md-logo" aria-label="rsconnect-python">
+      
+  <img src="../../../images/iconPositConnect.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            rsconnect-python
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              rsconnect-python: drop vetiver test baggage — Implementation Plan
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="md-header__options">
+      
+    </div>
+        <!-- Color palette -->
+        
+        <form class="md-header__option" data-md-component="palette">
+          
+            
+            
+            <input
+              class="md-option"
+              data-md-color-media="(prefers-color-scheme)"
+              data-md-color-scheme=""
+              data-md-color-primary="white"
+              data-md-color-accent="blue"
+              type="radio"
+              name="__palette"
+              id="__palette_1"
+            />
+            
+              <label
+                class="md-header__button md-icon"
+                title="Switch to light mode"
+                for="__palette_3"
+                hidden
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+              </label>
+            
+          
+            
+            
+            <input
+              class="md-option"
+              data-md-color-media=""
+              data-md-color-scheme="default"
+              data-md-color-primary="white"
+              data-md-color-accent=""
+              type="radio"
+              name="__palette"
+              id="__palette_2"
+            />
+            
+              <label
+                class="md-header__button md-icon"
+                title="Switch to dark mode"
+                for="__palette_1"
+                hidden
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+              </label>
+            
+          
+            
+            
+            <input
+              class="md-option"
+              data-md-color-media=""
+              data-md-color-scheme="slate"
+              data-md-color-primary="black"
+              data-md-color-accent=""
+              type="radio"
+              name="__palette"
+              id="__palette_3"
+            />
+            
+              <label
+                class="md-header__button md-icon"
+                title="Switch to light mode"
+                for="__palette_2"
+                hidden
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+              </label>
+            
+          
+        </form>
+      
+    <div class="md-flex__cell md-flex__cell--shrink left-nav">
+      <ul class="md-tabs__list">
+        <li class="md-tabs__item"><a href="../../../CHANGELOG/" title="Release Notes" class="md-tabs__link md-source">Release Notes</a></li>
+        <li class="md-tabs__item"><a href="https://support.posit.co/hc/en-us" title="Posit Support" class="md-tabs__link md-source">Help</a></li>
+      </ul>
+    </div>
+    
+    
+  </nav>
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="rsconnect-python" class="md-nav__button md-logo" aria-label="rsconnect-python" data-md-component="logo">
+      
+  <img src="../../../images/iconPositConnect.svg" alt="logo">
+
+    </a>
+    rsconnect-python
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../programmatic-provisioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Programmatic Provisioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploying/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploying Content
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../server-administration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Administration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_1" id="__nav_5_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    rsconnect
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    rsconnect
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../commands/add/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    add
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../commands/bootstrap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bootstrap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../commands/content/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    content
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../commands/deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    deploy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../commands/details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    details
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../commands/environment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../commands/info/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    info
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../commands/integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../commands/list/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    list
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../commands/login/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    login
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../commands/logout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    logout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../commands/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../commands/remove/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    remove
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../commands/system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    system
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../commands/version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    version
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../commands/write-manifest/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    write-manifest
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#global-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global Constraints
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Global Constraints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#task-1-rewrite-test_main_system_cachespy-as-an-httpretty-mocked-unit-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 1: Rewrite test_main_system_caches.py as an httpretty-mocked unit test
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-2-remove-the-vetiver-marker-plumbing-and-the-vetiver-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 2: Remove the --vetiver marker plumbing and the vetiver test
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-3-remove-the-test-dev-connect-ci-job" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 3: Remove the test-dev-connect CI job
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-4-delete-the-bespoke-vetiver-harness-vetiver-testing-docker-compose-justfile-dev-recipes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 4: Delete the bespoke vetiver harness (vetiver-testing, docker-compose, Justfile dev recipes)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-5-relabel-the-actionspy-compatibility-shim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 5: Relabel the actions.py compatibility shim
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-no-live-connect-no-with-connect-for-rsconnect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why no live Connect / no with-connect for rsconnect
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#self-review-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-Review notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="rsconnect-python-drop-vetiver-test-baggage-implementation-plan">rsconnect-python: drop vetiver test baggage — Implementation Plan<a class="headerlink" href="#rsconnect-python-drop-vetiver-test-baggage-implementation-plan" title="Permanent link">#</a></h1>
+<blockquote>
+<p><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+</blockquote>
+<p><strong>Goal:</strong> Remove all vetiver-specific test code from rsconnect-python, convert its own <code>system caches</code> integration test to an offline <code>httpretty</code>-mocked unit test (no live Connect), drop the now-empty <code>test-dev-connect</code> CI job and the bespoke Connect harness, and relabel the <code>deploy_python_fastapi</code> compatibility shim instead of removing it.</p>
+<p><strong>Architecture:</strong> rsconnect's <code>system caches list/delete</code> CLI commands are thin wrappers over <code>GET</code>/<code>DELETE v1/system/caches/runtime</code>. Connect's <em>permission enforcement</em> on that endpoint (admin allowed; publisher/viewer/anon → 403) is already fully covered upstream in <code>connect/test/api/tests/test_system_caches_runtime.py</code>, so rsconnect does not need a live Connect or a second user to re-test it. Instead rsconnect tests its own CLI layer — command wiring, required-flag validation, output formatting, and error surfacing — with <code>httpretty</code>, the repo's established HTTP-mocking approach. This removes rsconnect's need for <code>with-connect</code> entirely.</p>
+<p><strong>Tech Stack:</strong> Python, pytest, Click (<code>CliRunner</code>), httpretty.</p>
+<h2 id="global-constraints">Global Constraints<a class="headerlink" href="#global-constraints" title="Permanent link">#</a></h2>
+<ul>
+<li><strong>No live Connect / no <code>with-connect</code> for rsconnect.</strong> Every test in this plan runs offline; the plan is executable without a license or Docker.</li>
+<li>The <code>system caches</code> CLI hits <code>v1/system/caches/runtime</code> (<code>rsconnect/api.py:982-988</code>); mocks must target that path. The CLI builds an <code>RSConnectExecutor(...).validate_server()</code> first, so the mock must also satisfy server validation — mirror the httpretty server setup already used in <code>tests/test_main_content.py</code> / <code>tests/test_main_integration.py</code>.</li>
+<li>Connect permission enforcement is relied upon from upstream <code>connect/test/api/tests/test_system_caches_runtime.py</code> (already covers all four roles for these endpoints). Do not re-test enforcement against a live server here.</li>
+<li>The <code>actions.py</code> shim (<code>deploy_python_fastapi</code> → <code>deploy_app</code> → <code>validate_*</code>, lines ~281–442) is <strong>kept</strong>. Do not delete it. Do not alter the active <code>validate_*</code> in <code>bundle.py</code>.</li>
+<li>This branch is based on <code>uv-tooling-modernization</code> (its exact-block edits target that branch's <code>Justfile</code>/<code>main.yml</code>/<code>conftest.py</code>), not <code>main</code>.</li>
+<li>Keep CI green at every commit: rewrite <code>test_main_system_caches.py</code> (Task 1) and remove the job that depended on the old harness (Task 3) <strong>before</strong> deleting <code>vetiver-testing/</code> (Task 4).</li>
+</ul>
+<hr />
+<h3 id="task-1-rewrite-test_main_system_cachespy-as-an-httpretty-mocked-unit-test">Task 1: Rewrite <code>test_main_system_caches.py</code> as an httpretty-mocked unit test<a class="headerlink" href="#task-1-rewrite-test_main_system_cachespy-as-an-httpretty-mocked-unit-test" title="Permanent link">#</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>tests/test_main_system_caches.py</code> (full rewrite — remove all live-Connect/docker/JSON-key machinery)</p>
+<p><strong>Interfaces:</strong>
+- Consumes: nothing external (fully mocked).
+- Produces: an offline test module that runs in the default <code>pytest ./tests/</code> suite (no marker, no skip guard).</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 1: Study the existing CLI-against-mocked-Connect pattern</strong></li>
+</ul>
+<p>Read <code>tests/test_main_content.py</code> (and <code>tests/test_main_integration.py</code>) for how a <code>CliRunner().invoke(cli, ...)</code> flow is run against an <code>httpretty</code>-mocked Connect, specifically how server validation is satisfied (the endpoints <code>RSConnectExecutor.validate_server()</code> calls — typically the server settings + current-user/verify endpoints). Reuse that exact setup so the executor validates without a real server. Identify the helper or the set of <code>register_uri</code> calls needed and report them in your report.</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 2: Write the mocked tests</strong></li>
+</ul>
+<p>Replace the entire contents of <code>tests/test_main_system_caches.py</code>. Keep the four behaviors the old test covered, now mocked (no <code>admin</code>/<code>susan</code> users, no docker, no JSON keys). Use the repo's <code>@httpretty.activate(verbose=True, allow_net_connect=False)</code> style and <code>CliRunner</code>. The endpoint is <code>v1/system/caches/runtime</code>.</p>
+<p>Cover:
+1. <strong><code>list</code> happy path</strong> — register <code>GET v1/system/caches/runtime</code> returning a caches payload (e.g. <code>{"caches": [{"language": "Python", "version": "1.2.3", "image_name": "Local"}]}</code>); invoke <code>system caches list</code>; assert exit 0 and that stdout JSON matches.
+2. <strong><code>delete</code> happy path</strong> — register <code>DELETE v1/system/caches/runtime</code> returning success; invoke <code>system caches delete --language Python --version 1.2.3 --image-name Local</code>; assert exit 0.
+3. <strong>required-flag validation</strong> — invoke <code>system caches delete</code> with no flags (and with only <code>--language</code>); assert exit code 2 and the <code>Missing option '--language' / '-l'</code> / <code>--version</code> messages. (No server interaction occurs; flag parsing fails first — these may not even need httpretty.)
+4. <strong>permission surfacing</strong> — register the cache endpoint to return <code>403</code> with Connect's permission-denied body; invoke the command; assert exit code 1 and that the output contains the permission-denied message. This replaces the old live "publisher is denied" assertion: it verifies the CLI <em>surfaces</em> a 403, while Connect's actual enforcement is covered upstream.</p>
+<p>Mirror <code>tests/test_main_content.py</code> for the server-validation <code>register_uri</code> calls and for <code>apply_common_args</code>-style <code>-s</code>/<code>-k</code>/<code>--insecure</code> argument wiring (keep a local <code>apply_common_args</code> helper or inline the args).</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 3: Run the test offline</strong></li>
+</ul>
+<p>Run: <code>uv run pytest tests/test_main_system_caches.py -v</code>
+Expected: all cases PASS with no network access (httpretty <code>allow_net_connect=False</code>) and no Docker.</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 4: Confirm it is collected by the default suite</strong></li>
+</ul>
+<p>Run: <code>uv run pytest --collect-only -q tests/test_main_system_caches.py</code>
+Expected: the new tests are collected with no special marker or <code>--vetiver</code>/live-Connect skip. (It will now run as part of <code>scripts/runtests</code> on every PR.)</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 5: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>tests/test_main_system_caches.py
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;test: cover system caches CLI with httpretty mocks instead of a live Connect&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-2-remove-the-vetiver-marker-plumbing-and-the-vetiver-test">Task 2: Remove the <code>--vetiver</code> marker plumbing and the vetiver test<a class="headerlink" href="#task-2-remove-the-vetiver-marker-plumbing-and-the-vetiver-test" title="Permanent link">#</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>conftest.py</code>
+- Delete: <code>tests/test_vetiver_pins.py</code>
+- Modify: <code>pyproject.toml</code> (markers + ruff exclude)</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 1: Remove the vetiver option/marker logic from <code>conftest.py</code></strong></li>
+</ul>
+<p>Delete these three functions from <code>conftest.py</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">pytest_addoption</span><span class="p">(</span><span class="n">parser</span><span class="p">):</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">addoption</span><span class="p">(</span><span class="s2">&quot;--vetiver&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;run vetiver tests&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">pytest_configure</span><span class="p">(</span><span class="n">config</span><span class="p">):</span>
+    <span class="n">config</span><span class="o">.</span><span class="n">addinivalue_line</span><span class="p">(</span><span class="s2">&quot;markers&quot;</span><span class="p">,</span> <span class="s2">&quot;vetiver: test for vetiver interaction&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">pytest_collection_modifyitems</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">items</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">getoption</span><span class="p">(</span><span class="s2">&quot;--vetiver&quot;</span><span class="p">):</span>
+        <span class="k">return</span>
+    <span class="n">skip_vetiver</span> <span class="o">=</span> <span class="n">pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">skip</span><span class="p">(</span><span class="n">reason</span><span class="o">=</span><span class="s2">&quot;need --vetiver option to run&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s2">&quot;vetiver&quot;</span> <span class="ow">in</span> <span class="n">item</span><span class="o">.</span><span class="n">keywords</span><span class="p">:</span>
+            <span class="n">item</span><span class="o">.</span><span class="n">add_marker</span><span class="p">(</span><span class="n">skip_vetiver</span><span class="p">)</span>
+</code></pre></div>
+<p>The remaining <code>conftest.py</code> keeps the <code>CONNECT_CONTENT_BUILD_DIR</code> setup. The <code>import pytest</code> line is now unused — remove it too.</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 2: Delete the vetiver integration test</strong></li>
+</ul>
+<p>Run: <code>git rm tests/test_vetiver_pins.py</code></p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 3: Remove the <code>vetiver</code> marker and the <code>vetiver-testing</code> ruff exclude from <code>pyproject.toml</code></strong></li>
+</ul>
+<p>Change line ~74:</p>
+<div class="highlight"><pre><span></span><code><span class="n">markers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;vetiver: tests for vetiver&quot;</span><span class="p">]</span>
+</code></pre></div>
+<p>to an empty list if it becomes empty:</p>
+<div class="highlight"><pre><span></span><code><span class="n">markers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[]</span>
+</code></pre></div>
+<p>And in the ruff <code>extend-exclude</code> (line ~63), drop <code>"vetiver-testing"</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="n">extend-exclude</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;my-shiny-app&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;rsconnect-build&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;rsconnect-build-test&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;integration&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;tests/testdata&quot;</span><span class="p">]</span>
+</code></pre></div>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 4: Verify collection has no orphaned marker references</strong></li>
+</ul>
+<p>Run: <code>uv run pytest --collect-only -q 2&gt;&amp;1 | tail -5</code>
+Expected: collection succeeds with no <code>PytestUnknownMarkWarning: vetiver</code> and no error about a missing <code>--vetiver</code> option.</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 5: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>conftest.py<span class="w"> </span>pyproject.toml
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;test: drop --vetiver marker plumbing and test_vetiver_pins&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-3-remove-the-test-dev-connect-ci-job">Task 3: Remove the <code>test-dev-connect</code> CI job<a class="headerlink" href="#task-3-remove-the-test-dev-connect-ci-job" title="Permanent link">#</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>.github/workflows/main.yml</code> (delete the <code>test-dev-connect</code> job, lines ~183–211)</p>
+<p>The job existed only to run the vetiver test and the old live <code>test_main_system_caches.py</code>. With the vetiver test deleted (Task 2) and system caches now an offline unit test that runs in the normal suite (Task 1), the job has nothing left to do.</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 1: Delete the entire <code>test-dev-connect</code> job</strong></li>
+</ul>
+<p>Remove the job block (from <code>test-dev-connect:</code> through its final <code>uv run --no-sync pytest --vetiver -m 'vetiver'</code> line). Do not add a replacement. The mocked <code>test_main_system_caches.py</code> now runs in the standard test job via <code>scripts/runtests</code>.</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 2: Confirm no other job references the deleted job or the harness</strong></li>
+</ul>
+<p>Run: <code>grep -n "test-dev-connect\|vetiver\|just dev\|docker compose" .github/workflows/main.yml</code>
+Expected: no hits (or only unrelated ones you can explain). Confirm no <code>needs:</code> in another job points at <code>test-dev-connect</code>.</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 3: Lint the workflow YAML</strong></li>
+</ul>
+<p>Run: <code>python -c "import yaml; yaml.safe_load(open('.github/workflows/main.yml'))"</code>
+Expected: no output (valid YAML).</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 4: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>.github/workflows/main.yml
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;ci: drop test-dev-connect job (system caches now mocked, vetiver test removed)&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-4-delete-the-bespoke-vetiver-harness-vetiver-testing-docker-compose-justfile-dev-recipes">Task 4: Delete the bespoke vetiver harness (vetiver-testing, docker-compose, Justfile dev recipes)<a class="headerlink" href="#task-4-delete-the-bespoke-vetiver-harness-vetiver-testing-docker-compose-justfile-dev-recipes" title="Permanent link">#</a></h3>
+<p><strong>Files:</strong>
+- Delete: <code>vetiver-testing/</code> (entire directory)
+- Delete: <code>docker-compose.yml</code> (root)
+- Modify: <code>Justfile</code> (remove <code>dev</code> and <code>dev-stop</code> recipes)</p>
+<p>With no live Connect test remaining in rsconnect, none of this has a consumer.</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 1: Confirm nothing still references these paths</strong></li>
+</ul>
+<p>Run:
+<div class="highlight"><pre><span></span><code>grep<span class="w"> </span>-rn<span class="w"> </span><span class="s2">&quot;vetiver-testing\|rsconnect_api_keys\|docker compose\|docker-compose&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--include<span class="o">=</span><span class="s1">&#39;*.py&#39;</span><span class="w"> </span>--include<span class="o">=</span><span class="s1">&#39;*.yml&#39;</span><span class="w"> </span>--include<span class="o">=</span><span class="s1">&#39;*.yaml&#39;</span><span class="w"> </span>Justfile<span class="w"> </span>conftest.py<span class="w"> </span>.<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-v<span class="w"> </span><span class="s1">&#39;docs/superpowers&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-v<span class="w"> </span><span class="s1">&#39;integration-testing/&#39;</span>
+</code></pre></div>
+Expected: no hits outside <code>docs/superpowers/</code> and the unrelated <code>integration-testing/</code> tree.</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 2: Remove the <code>dev</code> and <code>dev-stop</code> recipes from <code>Justfile</code></strong></li>
+</ul>
+<p>Delete these two recipes:</p>
+<div class="highlight"><pre><span></span><code># Start a local Connect server for development (Docker; not replaced by uv)
+dev:
+    docker compose up -d
+    sleep 30
+    docker compose exec -T rsconnect bash &lt; vetiver-testing/setup-rsconnect/add-users.sh
+    uv run python vetiver-testing/setup-rsconnect/dump_api_keys.py vetiver-testing/rsconnect_api_keys.json
+
+# Stop the local Connect server
+dev-stop:
+    docker compose down
+    rm -f vetiver-testing/rsconnect_api_keys.json
+</code></pre></div>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 3: Delete the directories</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>rm<span class="w"> </span>-r<span class="w"> </span>vetiver-testing
+git<span class="w"> </span>rm<span class="w"> </span>docker-compose.yml
+</code></pre></div>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 4: Verify the unit suite and <code>just</code> recipes are intact</strong></li>
+</ul>
+<p>Run: <code>just --list</code>
+Expected: lists recipes with no <code>dev</code>/<code>dev-stop</code>, no parse error.</p>
+<p>Run: <code>uv run pytest -q</code>
+Expected: PASS (the full offline suite, now including the mocked <code>test_main_system_caches.py</code>).</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 5: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>-A
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;chore: remove vetiver test harness and root docker-compose&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-5-relabel-the-actionspy-compatibility-shim">Task 5: Relabel the <code>actions.py</code> compatibility shim<a class="headerlink" href="#task-5-relabel-the-actionspy-compatibility-shim" title="Permanent link">#</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>rsconnect/actions.py</code> (comment block markers at lines ~281–285 and ~441–442; optional <code>validate_*</code> swap)</p>
+<p><strong>Interfaces:</strong>
+- Produces: no behavior change for callers; <code>deploy_python_fastapi</code>/<code>deploy_app</code> remain importable with identical signatures.</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 1: Rewrite the opening block comment</strong></li>
+</ul>
+<p>Replace lines ~281–285:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># START: The following deprecated functions are here only for the vetiver-python</span>
+<span class="c1"># package.</span>
+<span class="c1"># Some the code in this section has `pyright: ignore` comments, because this</span>
+<span class="c1"># deprecated code which will be removed in the future.</span>
+<span class="c1"># ===============================================================================</span>
+</code></pre></div>
+<p>with:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># START: Compatibility entry point used by the vetiver-python package.</span>
+<span class="c1"># vetiver&#39;s `deploy_connect` calls `deploy_python_fastapi` (below), which routes</span>
+<span class="c1"># through `deploy_app` and the local `validate_*` helpers. This is a supported</span>
+<span class="c1"># shim; keep these signatures stable. The `pyright: ignore` comments remain</span>
+<span class="c1"># because the kwargs-forwarding style predates strict typing.</span>
+<span class="c1"># ===============================================================================</span>
+</code></pre></div>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 2: Rewrite the closing block comment</strong></li>
+</ul>
+<p>Replace lines ~441–442:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># ===============================================================================</span>
+<span class="c1"># END deprecated functions for the vetiver-python package</span>
+<span class="c1"># ===============================================================================</span>
+</code></pre></div>
+<p>with:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># ===============================================================================</span>
+<span class="c1"># END compatibility entry point for the vetiver-python package</span>
+<span class="c1"># ===============================================================================</span>
+</code></pre></div>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 3 (optional cleanup): Stop emitting spurious deprecation warnings on vetiver deploys</strong></li>
+</ul>
+<p><code>deploy_app</code> calls the local <code>validate_entry_point</code>/<code>validate_extra_files</code>, which each emit a <code>DeprecationWarning</code>. Point it at the active <code>bundle.py</code> versions instead. At the top of <code>actions.py</code>, confirm/add:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">.bundle</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_entry_point</span> <span class="k">as</span> <span class="n">_validate_entry_point</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.bundle</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_extra_files</span> <span class="k">as</span> <span class="n">_validate_extra_files</span>
+</code></pre></div>
+<p>Then in <code>deploy_app</code> change lines ~361–362:</p>
+<div class="highlight"><pre><span></span><code>    <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;entry_point&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">entry_point</span> <span class="o">=</span> <span class="n">validate_entry_point</span><span class="p">(</span><span class="n">entry_point</span><span class="p">,</span> <span class="n">directory</span><span class="p">)</span>  <span class="c1"># pyright: ignore</span>
+    <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;extra_files&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">extra_files</span> <span class="o">=</span> <span class="n">validate_extra_files</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">extra_files</span><span class="p">)</span>  <span class="c1"># pyright: ignore</span>
+</code></pre></div>
+<p>to:</p>
+<div class="highlight"><pre><span></span><code>    <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;entry_point&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">entry_point</span> <span class="o">=</span> <span class="n">_validate_entry_point</span><span class="p">(</span><span class="n">entry_point</span><span class="p">,</span> <span class="n">directory</span><span class="p">)</span>  <span class="c1"># pyright: ignore</span>
+    <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;extra_files&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">extra_files</span> <span class="o">=</span> <span class="n">_validate_extra_files</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">extra_files</span><span class="p">)</span>  <span class="c1"># pyright: ignore</span>
+</code></pre></div>
+<p>Confirm the <code>bundle.py</code> signatures match: <code>validate_entry_point(entry_point, directory)</code> and <code>validate_extra_files(directory, extra_files)</code>. If <code>bundle.py</code>'s <code>validate_extra_files</code> requires an extra <code>use_abspath</code> argument, pass its default explicitly.</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 4: Verify the shim still imports and lints</strong></li>
+</ul>
+<p><div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from rsconnect.actions import deploy_python_fastapi, deploy_app; print(&#39;ok&#39;)&quot;</span>
+just<span class="w"> </span>lint
+</code></pre></div>
+Expected: prints <code>ok</code>; <code>just lint</code> passes.</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <strong>Step 5: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>rsconnect/actions.py
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;docs: relabel deploy_python_fastapi as supported vetiver compat shim&quot;</span>
+</code></pre></div>
+<hr />
+<h2 id="why-no-live-connect-no-with-connect-for-rsconnect">Why no live Connect / no with-connect for rsconnect<a class="headerlink" href="#why-no-live-connect-no-with-connect-for-rsconnect" title="Permanent link">#</a></h2>
+<p>The earlier draft of this plan kept a live Connect test (with a gcfg + <code>useradd</code> + key-mint helper) to exercise the publisher-denied path. Investigation showed that path re-tests <em>Connect's</em> permission enforcement, which is already covered upstream in <code>connect/test/api/tests/test_system_caches_runtime.py</code> for all four roles on the same <code>v1/system/caches/runtime</code> endpoint. rsconnect's job is to test its CLI wiring, which <code>httpretty</code> mocks do offline. This deletes the spike, the gcfg/helper, and the with-connect CI job, and moves system-caches coverage into the default per-PR suite. (vetiver-python, by contrast, genuinely deploys a model and serves predictions, so it keeps a live <code>with-connect</code> test — see rstudio/vetiver-python#242.)</p>
+<h2 id="self-review-notes">Self-Review notes<a class="headerlink" href="#self-review-notes" title="Permanent link">#</a></h2>
+<ul>
+<li>Every task is offline and locally verifiable (no license/Docker).</li>
+<li>Task 1 preserves the CLI behaviors the old test covered (list, delete, required-flag validation, 403 surfacing) via mocks; real enforcement is covered upstream.</li>
+<li>Ordering keeps CI green: system-caches rewritten (Task 1) and the dependent job removed (Task 3) before the harness is deleted (Task 4).</li>
+<li>The shim is relabeled, never removed (Task 5); <code>bundle.py</code> validate functions untouched except as an explicit import in the optional cleanup.</li>
+<li>No external action pin, no with-connect dependency anywhere in this plan.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        
+
+<!-- Application footer -->
+<footer class="md-footer">
+
+  <!-- Link to previous and/or next page -->
+  
+
+  <!-- Further information -->
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+
+      <!-- Copyright and theme information -->
+      <div class="md-footer-copyright">
+        
+          <div class="md-footer-copyright__highlight">
+            Copyright &#169; <script type="text/javascript">
+              document.write(new Date().getFullYear());
+            </script>
+            Posit Software, PBC. All Rights Reserved
+          </div>
+        
+        <!-- powered by
+        <a href="https://www.mkdocs.org">MkDocs</a>
+        and
+        <a href="https://squidfunk.github.io/mkdocs-material/">
+          Material for MkDocs</a> -->
+      </div>
+      <a href="https://posit.co/" class="nav-link" target="_blank">
+        <img src="/images/posit-logo-fullcolor-TM.svg" alt="Posit" title="Posit">
+      </a>
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.expand"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
