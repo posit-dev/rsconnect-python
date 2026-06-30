@@ -1689,7 +1689,7 @@ class RSConnectExecutor:
         """
         if not isinstance(self.client, RSConnectClient):
             raise RSConnectException(
-                "Git deployment is only supported for Posit Connect servers, " "not shinyapps.io or Posit Cloud."
+                "Git deployment is only supported for Posit Connect servers, not shinyapps.io or Posit Cloud."
             )
 
         if not self.repository:

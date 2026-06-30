@@ -378,7 +378,7 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/__api__/v1/tasks/FAKE_TASK_ID" "?wait=1",
+            "http://fake_server/__api__/v1/tasks/FAKE_TASK_ID?wait=1",
             body=json.dumps({"output": ["FAKE_OUTPUT"], "last": "FAKE_LAST", "finished": True, "code": 0}),
             adding_headers={"Content-Type": "application/json"},
             status=200,
@@ -497,7 +497,7 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/__api__/v1/tasks/FAKE_TASK_ID" "?wait=1",
+            "http://fake_server/__api__/v1/tasks/FAKE_TASK_ID?wait=1",
             body=json.dumps({"output": ["FAKE_OUTPUT"], "last": "FAKE_LAST", "finished": True, "code": 0}),
             adding_headers={"Content-Type": "application/json"},
             status=200,
@@ -1800,12 +1800,17 @@ class TestDeployGit(TestCase):
         result = runner.invoke(
             cli,
             [
-                "deploy", "git",
-                "-s", "http://example.com",
-                "-k", "key",
-                "--repository", "https://github.com/user/repo",
+                "deploy",
+                "git",
+                "-s",
+                "http://example.com",
+                "-k",
+                "key",
+                "--repository",
+                "https://github.com/user/repo",
                 "--new",
-                "--app-id", "some-guid",
+                "--app-id",
+                "some-guid",
             ],
         )
         assert result.exit_code != 0
