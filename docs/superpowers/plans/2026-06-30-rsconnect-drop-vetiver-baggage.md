@@ -1,249 +1,69 @@
-# rsconnect-python: drop vetiver test baggage, adopt with-connect — Implementation Plan
+# rsconnect-python: drop vetiver test baggage — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Remove all *vetiver-specific* test code from rsconnect-python, re-home its own `system caches` integration test onto `posit-dev/with-connect`, and relabel the `deploy_python_fastapi` compatibility shim instead of removing it.
+**Goal:** Remove all vetiver-specific test code from rsconnect-python, convert its own `system caches` integration test to an offline `httpretty`-mocked unit test (no live Connect), drop the now-empty `test-dev-connect` CI job and the bespoke Connect harness, and relabel the `deploy_python_fastapi` compatibility shim instead of removing it.
 
-**Architecture:** `with-connect` boots a licensed Connect container and (in start-only mode) yields an admin API key + the container id. rsconnect's only Connect integration test (`test_main_system_caches.py`) asserts an admin can list/delete caches and a **non-admin publisher is denied (403)**, so it genuinely needs two privilege levels. Since Connect has no public "admin mints another user's key" endpoint, we keep a **minimal** Connect test bootstrap — a password-auth `gcfg` passed via the Action's `config-file` input, a `useradd` of one publisher inside the container, and a small helper that mints that publisher's key via Connect's signup/session flow. This replaces the old `docker-compose` + multi-user `vetiver-testing/` harness with `with-connect` + a slim, de-vetivered config. The vetiver↔Connect tests move entirely to the vetiver repo.
+**Architecture:** rsconnect's `system caches list/delete` CLI commands are thin wrappers over `GET`/`DELETE v1/system/caches/runtime`. Connect's *permission enforcement* on that endpoint (admin allowed; publisher/viewer/anon → 403) is already fully covered upstream in `connect/test/api/tests/test_system_caches_runtime.py`, so rsconnect does not need a live Connect or a second user to re-test it. Instead rsconnect tests its own CLI layer — command wiring, required-flag validation, output formatting, and error surfacing — with `httpretty`, the repo's established HTTP-mocking approach. This removes rsconnect's need for `with-connect` entirely.
 
-**Tech Stack:** Python, pytest, Click, Docker, `uv`, GitHub Actions, `just`.
+**Tech Stack:** Python, pytest, Click (`CliRunner`), httpretty.
 
 ## Global Constraints
 
-- Pin `with-connect` to commit `0783dabdd24e360e985a4588ce1239c3dc31c542` (no release tags exist yet). Verify at execution time with `gh api repos/posit-dev/with-connect/commits/main -q .sha`.
-- **Confirmed `with-connect` Action API** (verified against `action.yml@main`): inputs include `license`, `version`, `config-file`, `env`, `command`, `stop`; in **start-only** mode (no `command`) it sets outputs `CONNECT_SERVER`, `CONNECT_API_KEY`, `CONTAINER_ID`. The `system caches` job uses start-only mode and runs `pytest` as a normal `uv run` step (so the "`pytest` not found inside a wrapped `with-connect -- pytest`" gotcha does not apply here).
-- The container runs via plain `docker` (no `docker compose`). Cache-dir setup uses `docker exec <CONTAINER_ID> ...`, not `docker compose exec`.
+- **No live Connect / no `with-connect` for rsconnect.** Every test in this plan runs offline; the plan is executable without a license or Docker.
+- The `system caches` CLI hits `v1/system/caches/runtime` (`rsconnect/api.py:982-988`); mocks must target that path. The CLI builds an `RSConnectExecutor(...).validate_server()` first, so the mock must also satisfy server validation — mirror the httpretty server setup already used in `tests/test_main_content.py` / `tests/test_main_integration.py`.
+- Connect permission enforcement is relied upon from upstream `connect/test/api/tests/test_system_caches_runtime.py` (already covers all four roles for these endpoints). Do not re-test enforcement against a live server here.
 - The `actions.py` shim (`deploy_python_fastapi` → `deploy_app` → `validate_*`, lines ~281–442) is **kept**. Do not delete it. Do not alter the active `validate_*` in `bundle.py`.
-- `pins` is **not** a dependency of rsconnect-python. The old key-mint used `pins.rsconnect.api._HackyConnect`. The publisher-key helper here should prefer a small self-contained raw-HTTP reproduction; only if that proves too fiddly, add `pins` as a **test-only** dependency (Task 1 decides).
-- A valid `rstudio-connect.lic` must be present in the repo root for local runs; CI passes it via the `RSC_LICENSE` secret.
-- Keep CI green at every commit: re-home `test_main_system_caches.py` and stand up its new CI job (Tasks 1–3) **before** deleting `vetiver-testing/` (Task 5).
+- This branch is based on `uv-tooling-modernization` (its exact-block edits target that branch's `Justfile`/`main.yml`/`conftest.py`), not `main`.
+- Keep CI green at every commit: rewrite `test_main_system_caches.py` (Task 1) and remove the job that depended on the old harness (Task 3) **before** deleting `vetiver-testing/` (Task 4).
 
 ---
 
-### Task 1: Spike — gcfg + JWT-bootstrap coexistence and publisher-key minting
-
-Discovery task (no production commit). Resolve, against a live `with-connect` Connect, the exact mechanism the dependent tasks consume. Record findings in the task notes; Tasks 2–3 are written against them.
+### Task 1: Rewrite `test_main_system_caches.py` as an httpretty-mocked unit test
 
 **Files:**
-- Create (temporary, for the spike only): `scratch/` artifacts you delete at the end. A candidate `tests/connect/rstudio-connect.gcfg` you iterate on (kept if it works — see Task 2).
-
-Base the candidate gcfg on the old `vetiver-testing/setup-rsconnect/rstudio-connect.gcfg` but **drop the `[Python]` section** (its image-specific executable paths won't match the with-connect image, and the system-caches test runs no Python content). Keep PAM auth and `DefaultUserRole = publisher`:
-
-```ini
-[Server]
-DataDir = /data
-Address = http://localhost:3939
-
-[HTTP]
-Listen = :3939
-
-[Authentication]
-Provider = pam
-
-[Authorization]
-DefaultUserRole = publisher
-
-[Logging]
-ServiceLog = STDOUT
-```
-
-- [ ] **Step 1: Confirm with-connect's JWT bootstrap coexists with the PAM gcfg**
-
-Start Connect with the candidate config (start-only). Use the CLI's `--config` (the CLI equivalent of the Action's `config-file`):
-```bash
-eval "$(uvx --from git+https://github.com/posit-dev/with-connect@0783dabdd24e360e985a4588ce1239c3dc31c542 with-connect --config tests/connect/rstudio-connect.gcfg)"
-echo "server=$CONNECT_SERVER key set=${CONNECT_API_KEY:+yes}"
-CID=$(docker ps --format '{{.ID}}' --filter status=running | head -1); echo "container=$CID"
-curl -fsS -H "Authorization: Key $CONNECT_API_KEY" "$CONNECT_SERVER/__api__/v1/user" && echo OK
-```
-Expected: with-connect still bootstraps an admin key (its JWT bootstrap is provider-independent) and the admin `GET /v1/user` returns 200. If bootstrap fails under PAM auth, record that — it means the gcfg must also keep whatever provider with-connect's default uses; iterate the gcfg minimally until both bootstrap and PAM login work.
-
-- [ ] **Step 2: Create the publisher PAM user inside the container**
-
-```bash
-docker exec -u root "$CID" bash -lc 'useradd -m -s /bin/bash susan && echo "susan:susan" | chpasswd && id susan'
-```
-Expected: prints `uid=...(susan)`. (If `-u root` or `useradd` is unavailable on the with-connect image, record the correct path — e.g. a different base image user or a pre-seeded user via the gcfg.)
-
-- [ ] **Step 3: Mint susan's API key (the crux)**
-
-First try a **raw-HTTP** reproduction of the old `_HackyConnect` flow (login as susan via the password provider, then create an API key through the session), e.g. probing:
-```bash
-# Inspect the login + key-create endpoints the web UI uses:
-curl -i -X POST "$CONNECT_SERVER/__login__" -H 'Content-Type: application/json' -d '{"username":"susan","password":"susan"}'
-# then, with the returned session cookie, POST to the api-keys creation endpoint
-```
-Record the exact endpoints, payloads, and cookie handling that yield a working publisher key (verify by calling `GET /v1/user` with it and seeing a non-admin role). If reproducing the session/login flow proves too fiddly to be maintainable, fall back to adding `pins` as a **test-only** dependency and reusing `pins.rsconnect.api._HackyConnect` (which the old `dump_api_keys.py` used). Decide and record which approach Task 2 will implement.
-
-- [ ] **Step 4: Confirm cache-dir manipulation via `docker exec`**
-
-```bash
-docker exec -u rstudio-connect "$CID" mkdir -p /data/python-environments/_packages_cache/pip/1.2.3
-docker exec -u rstudio-connect "$CID" sh -c '[ -d /data/python-environments/_packages_cache/pip/1.2.3 ] && echo CACHE_OK'
-```
-Expected: prints `CACHE_OK`. Record the correct exec user if `rstudio-connect` is wrong for this image.
-
-- [ ] **Step 5: Tear down**
-
-```bash
-uvx --from git+https://github.com/posit-dev/with-connect@0783dabdd24e360e985a4588ce1239c3dc31c542 with-connect --stop "$CID"
-```
-Keep the working `tests/connect/rstudio-connect.gcfg`; delete any other scratch. **No production commit** — write the resolved mechanism (gcfg contents, useradd command, exact key-mint approach, exec user) into the task notes for Tasks 2–3.
-
----
-
-### Task 2: Re-home `test_main_system_caches.py` onto env creds + a publisher fixture
-
-**Files:**
-- Modify: `tests/test_main_system_caches.py`
-- Create: `tests/connect/rstudio-connect.gcfg` (the validated gcfg from Task 1)
-- Create: `tests/connect/bootstrap.py` (publisher useradd + key-mint helper), OR add `pins` as a test-only dep in `pyproject.toml` if Task 1 chose that fallback.
+- Modify: `tests/test_main_system_caches.py` (full rewrite — remove all live-Connect/docker/JSON-key machinery)
 
 **Interfaces:**
-- Consumes (from env): `CONNECT_SERVER`, `CONNECT_API_KEY` (admin), `CONNECT_CONTAINER` (container id).
-- Consumes (from Task 1): the validated gcfg, the useradd command, and the exact publisher-key-mint mechanism + exec user.
-- Produces: a `publisher_key` fixture; no dependency on `vetiver-testing/rsconnect_api_keys.json` or `docker compose`.
+- Consumes: nothing external (fully mocked).
+- Produces: an offline test module that runs in the default `pytest ./tests/` suite (no marker, no skip guard).
 
-- [ ] **Step 1: Add the key-mint helper**
+- [ ] **Step 1: Study the existing CLI-against-mocked-Connect pattern**
 
-Create `tests/connect/bootstrap.py` implementing `make_publisher_key(server_url, container_id) -> str` using the EXACT mechanism Task 1 validated: `docker exec` the `useradd` for `susan`, then mint and return her API key (raw-HTTP session flow, or `_HackyConnect` if that was the chosen fallback). Keep it small and self-contained.
+Read `tests/test_main_content.py` (and `tests/test_main_integration.py`) for how a `CliRunner().invoke(cli, ...)` flow is run against an `httpretty`-mocked Connect, specifically how server validation is satisfied (the endpoints `RSConnectExecutor.validate_server()` calls — typically the server settings + current-user/verify endpoints). Reuse that exact setup so the executor validates without a real server. Identify the helper or the set of `register_uri` calls needed and report them in your report.
 
-- [ ] **Step 2: Rewrite the module header of `tests/test_main_system_caches.py`**
+- [ ] **Step 2: Write the mocked tests**
 
-Replace lines 1–47 (imports through `apply_common_args`) with creds-from-env + `docker exec <CONTAINER_ID>` cache commands + the publisher fixture wiring:
+Replace the entire contents of `tests/test_main_system_caches.py`. Keep the four behaviors the old test covered, now mocked (no `admin`/`susan` users, no docker, no JSON keys). Use the repo's `@httpretty.activate(verbose=True, allow_net_connect=False)` style and `CliRunner`. The endpoint is `v1/system/caches/runtime`.
 
-```python
-import os
-import unittest
-from os import system
+Cover:
+1. **`list` happy path** — register `GET v1/system/caches/runtime` returning a caches payload (e.g. `{"caches": [{"language": "Python", "version": "1.2.3", "image_name": "Local"}]}`); invoke `system caches list`; assert exit 0 and that stdout JSON matches.
+2. **`delete` happy path** — register `DELETE v1/system/caches/runtime` returning success; invoke `system caches delete --language Python --version 1.2.3 --image-name Local`; assert exit 0.
+3. **required-flag validation** — invoke `system caches delete` with no flags (and with only `--language`); assert exit code 2 and the `Missing option '--language' / '-l'` / `--version` messages. (No server interaction occurs; flag parsing fails first — these may not even need httpretty.)
+4. **permission surfacing** — register the cache endpoint to return `403` with Connect's permission-denied body; invoke the command; assert exit code 1 and that the output contains the permission-denied message. This replaces the old live "publisher is denied" assertion: it verifies the CLI *surfaces* a 403, while Connect's actual enforcement is covered upstream.
 
-from click.testing import CliRunner
+Mirror `tests/test_main_content.py` for the server-validation `register_uri` calls and for `apply_common_args`-style `-s`/`-k`/`--insecure` argument wiring (keep a local `apply_common_args` helper or inline the args).
 
-from rsconnect.main import cli
-from tests.connect.bootstrap import make_publisher_key
+- [ ] **Step 3: Run the test offline**
 
-CONNECT_SERVER = os.environ.get("CONNECT_SERVER", "http://localhost:3939")
-ADMIN_KEY = os.environ.get("CONNECT_API_KEY")
-CONTAINER = os.environ.get("CONNECT_CONTAINER", "")
-CONNECT_CACHE_DIR = "/data/python-environments/_packages_cache"
+Run: `uv run pytest tests/test_main_system_caches.py -v`
+Expected: all cases PASS with no network access (httpretty `allow_net_connect=False`) and no Docker.
 
-_EXEC = f"docker exec -u rstudio-connect {CONTAINER}"
-ADD_CACHE_COMMAND = f"{_EXEC} mkdir -p {CONNECT_CACHE_DIR}/pip/1.2.3"
-RM_CACHE_COMMAND = f"{_EXEC} rm -Rf {CONNECT_CACHE_DIR}/pip/1.2.3"
-CACHE_EXISTS_COMMAND = f"{_EXEC} sh -c '[ -d {CONNECT_CACHE_DIR}/pip/1.2.3 ]'"
+- [ ] **Step 4: Confirm it is collected by the default suite**
 
-
-def rsconnect_service_running():
-    if not CONTAINER:
-        return False
-    return system(f"docker inspect -f '{{{{.State.Running}}}}' {CONTAINER}") == 0
-
-
-def cache_dir_exists():
-    return system(CACHE_EXISTS_COMMAND) == 0
-
-
-PUBLISHER_KEY = (
-    make_publisher_key(CONNECT_SERVER, CONTAINER) if (ADMIN_KEY and CONTAINER) else None
-)
-
-
-def apply_common_args(args: list, server=None, key=None, insecure=True):
-    if server:
-        args.extend(["-s", server])
-    if key:
-        args.extend(["-k", key])
-    if insecure:
-        args.extend(["--insecure"])
-```
-
-> Use `-u rstudio-connect`/exec user exactly as Task 1 confirmed. If Task 1 found minting must happen lazily (not at import), move the `make_publisher_key` call into a module-scoped pytest fixture instead of a module constant.
-
-- [ ] **Step 3: Swap the key lookups in the test bodies**
-
-Replace each `get_key("admin")` with `ADMIN_KEY` and each `get_key("susan")` with `PUBLISHER_KEY` (lines ~67, 82, 109, 122, 137). Delete the old `get_key`, `CONNECT_KEYS_JSON`, and `SERVICE_RUNNING_COMMAND`.
-
-- [ ] **Step 4: Verify locally under with-connect start-only mode**
-
-```bash
-eval "$(uvx --from git+https://github.com/posit-dev/with-connect@0783dabdd24e360e985a4588ce1239c3dc31c542 with-connect --config tests/connect/rstudio-connect.gcfg)"
-export CONNECT_CONTAINER="$(docker ps --format '{{.ID}}' --filter status=running | head -1)"
-uv run --no-sync pytest tests/test_main_system_caches.py -v
-uvx --from git+https://github.com/posit-dev/with-connect@0783dabdd24e360e985a4588ce1239c3dc31c542 with-connect --stop "$CONNECT_CONTAINER"
-```
-Expected: PASS — admin list/delete exit 0; publisher list/delete exit 1 with "You don't have permission to perform this operation."
+Run: `uv run pytest --collect-only -q tests/test_main_system_caches.py`
+Expected: the new tests are collected with no special marker or `--vetiver`/live-Connect skip. (It will now run as part of `scripts/runtests` on every PR.)
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add tests/test_main_system_caches.py tests/connect/rstudio-connect.gcfg tests/connect/bootstrap.py
-git commit -m "test: run system-caches integration test via with-connect with a slim publisher bootstrap"
+git add tests/test_main_system_caches.py
+git commit -m "test: cover system caches CLI with httpretty mocks instead of a live Connect"
 ```
 
 ---
 
-### Task 3: Replace the `test-dev-connect` CI job with an rsconnect-own with-connect job
-
-**Files:**
-- Modify: `.github/workflows/main.yml` (the `test-dev-connect` job, lines ~183–211)
-
-**Interfaces:**
-- Consumes: `secrets.RSC_LICENSE`; the refactored `test_main_system_caches.py` + `tests/connect/` from Task 2.
-- Produces: a job running only rsconnect's own integration test, no vetiver install, no `docker compose`/`just dev`.
-
-- [ ] **Step 1: Replace the entire `test-dev-connect` job**
-
-```yaml
-  test-system-caches:
-    name: "Integration tests against dev Connect"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v6
-        with:
-          version: ">=0.9.0"
-      - name: Install dependencies
-        run: uv sync --python 3.12 --group test
-      - name: Start Connect
-        id: connect
-        uses: posit-dev/with-connect@0783dabdd24e360e985a4588ce1239c3dc31c542
-        with:
-          license: ${{ secrets.RSC_LICENSE }}
-          config-file: tests/connect/rstudio-connect.gcfg
-      - name: Run system caches tests
-        run: uv run --no-sync pytest tests/test_main_system_caches.py
-        env:
-          CONNECT_SERVER: ${{ steps.connect.outputs.CONNECT_SERVER }}
-          CONNECT_API_KEY: ${{ steps.connect.outputs.CONNECT_API_KEY }}
-          CONNECT_CONTAINER: ${{ steps.connect.outputs.CONTAINER_ID }}
-      - name: Get logs on failure
-        if: ${{ failure() }}
-        run: docker logs ${{ steps.connect.outputs.CONTAINER_ID }}
-      - name: Stop Connect
-        if: always()
-        uses: posit-dev/with-connect@0783dabdd24e360e985a4588ce1239c3dc31c542
-        with:
-          license: ${{ secrets.RSC_LICENSE }}
-          stop: ${{ steps.connect.outputs.CONTAINER_ID }}
-```
-
-> The publisher `useradd` runs inside `make_publisher_key` (Task 2) via `docker exec`, so no separate CI step is needed for it. If Task 1 found `useradd` must run as a distinct step (e.g. timing/permissions), add a `docker exec` step between Start and the test, using `${{ steps.connect.outputs.CONTAINER_ID }}`.
-
-- [ ] **Step 2: Lint the workflow YAML**
-
-Run: `python -c "import yaml; yaml.safe_load(open('.github/workflows/main.yml'))"`
-Expected: no output (valid YAML).
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add .github/workflows/main.yml
-git commit -m "ci: run system-caches integration test via with-connect; drop vetiver job"
-```
-
----
-
-### Task 4: Remove the `--vetiver` marker plumbing and the vetiver test
+### Task 2: Remove the `--vetiver` marker plumbing and the vetiver test
 
 **Files:**
 - Modify: `conftest.py`
@@ -312,14 +132,44 @@ git commit -m "test: drop --vetiver marker plumbing and test_vetiver_pins"
 
 ---
 
-### Task 5: Delete the bespoke vetiver harness (vetiver-testing, docker-compose, Justfile dev recipes)
+### Task 3: Remove the `test-dev-connect` CI job
+
+**Files:**
+- Modify: `.github/workflows/main.yml` (delete the `test-dev-connect` job, lines ~183–211)
+
+The job existed only to run the vetiver test and the old live `test_main_system_caches.py`. With the vetiver test deleted (Task 2) and system caches now an offline unit test that runs in the normal suite (Task 1), the job has nothing left to do.
+
+- [ ] **Step 1: Delete the entire `test-dev-connect` job**
+
+Remove the job block (from `  test-dev-connect:` through its final `uv run --no-sync pytest --vetiver -m 'vetiver'` line). Do not add a replacement. The mocked `test_main_system_caches.py` now runs in the standard test job via `scripts/runtests`.
+
+- [ ] **Step 2: Confirm no other job references the deleted job or the harness**
+
+Run: `grep -n "test-dev-connect\|vetiver\|just dev\|docker compose" .github/workflows/main.yml`
+Expected: no hits (or only unrelated ones you can explain). Confirm no `needs:` in another job points at `test-dev-connect`.
+
+- [ ] **Step 3: Lint the workflow YAML**
+
+Run: `python -c "import yaml; yaml.safe_load(open('.github/workflows/main.yml'))"`
+Expected: no output (valid YAML).
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add .github/workflows/main.yml
+git commit -m "ci: drop test-dev-connect job (system caches now mocked, vetiver test removed)"
+```
+
+---
+
+### Task 4: Delete the bespoke vetiver harness (vetiver-testing, docker-compose, Justfile dev recipes)
 
 **Files:**
 - Delete: `vetiver-testing/` (entire directory)
 - Delete: `docker-compose.yml` (root)
 - Modify: `Justfile` (remove `dev` and `dev-stop` recipes)
 
-> The de-vetivered `tests/connect/` gcfg + helper from Task 2 are the replacement; this task removes only the old vetiver-named harness.
+With no live Connect test remaining in rsconnect, none of this has a consumer.
 
 - [ ] **Step 1: Confirm nothing still references these paths**
 
@@ -361,8 +211,8 @@ git rm docker-compose.yml
 Run: `just --list`
 Expected: lists recipes with no `dev`/`dev-stop`, no parse error.
 
-Run: `uv run pytest -q -k "not system_caches"`
-Expected: PASS (the offline unit suite is unaffected).
+Run: `uv run pytest -q`
+Expected: PASS (the full offline suite, now including the mocked `test_main_system_caches.py`).
 
 - [ ] **Step 5: Commit**
 
@@ -373,7 +223,7 @@ git commit -m "chore: remove vetiver test harness and root docker-compose"
 
 ---
 
-### Task 6: Relabel the `actions.py` compatibility shim
+### Task 5: Relabel the `actions.py` compatibility shim
 
 **Files:**
 - Modify: `rsconnect/actions.py` (comment block markers at lines ~281–285 and ~441–442; optional `validate_*` swap)
@@ -464,15 +314,14 @@ git commit -m "docs: relabel deploy_python_fastapi as supported vetiver compat s
 
 ---
 
-## Notes carried from the vetiver-python implementation
+## Why no live Connect / no with-connect for rsconnect
 
-- The vetiver side is done (PR rstudio/vetiver-python#242). It confirmed `with-connect`'s default Connect (v2026.x) + current FastAPI/pydantic require a Content-Type header (fixed in vetiver), used `content_list()` (not `content_search`), and validated the Action's start-only outputs.
-- This plan's branch is based on `uv-tooling-modernization` (its exact-block edits target that branch's `Justfile`/`main.yml`/`conftest.py`), not `main`.
+The earlier draft of this plan kept a live Connect test (with a gcfg + `useradd` + key-mint helper) to exercise the publisher-denied path. Investigation showed that path re-tests *Connect's* permission enforcement, which is already covered upstream in `connect/test/api/tests/test_system_caches_runtime.py` for all four roles on the same `v1/system/caches/runtime` endpoint. rsconnect's job is to test its CLI wiring, which `httpretty` mocks do offline. This deletes the spike, the gcfg/helper, and the with-connect CI job, and moves system-caches coverage into the default per-PR suite. (vetiver-python, by contrast, genuinely deploys a model and serves predictions, so it keeps a live `with-connect` test — see rstudio/vetiver-python#242.)
 
 ## Self-Review notes
 
-- Spec "rsconnect-python changes" → Task 1 (spike) + Task 2 (re-home test, gcfg+helper) + Task 3 (own CI job) cover keeping `test_main_system_caches.py`; Tasks 4–5 cover all deletions; Task 6 covers the relabel.
-- The genuinely uncertain pieces (gcfg/JWT coexistence, publisher-key mint, exec user) are isolated to Task 1; Task 2/3 consume its validated outputs. No fabricated key-mint code is committed before the spike confirms it.
-- Ordering keeps CI green: the system-caches test is re-homed + its CI job stood up (Tasks 2–3) before `vetiver-testing/` is deleted (Task 5).
-- The shim is relabeled, never removed (Task 6); `bundle.py` validate functions untouched except as an explicit import in the optional cleanup.
-- `with-connect` SHA `0783dabdd24e360e985a4588ce1239c3dc31c542` used identically across Tasks 1–3.
+- Every task is offline and locally verifiable (no license/Docker).
+- Task 1 preserves the CLI behaviors the old test covered (list, delete, required-flag validation, 403 surfacing) via mocks; real enforcement is covered upstream.
+- Ordering keeps CI green: system-caches rewritten (Task 1) and the dependent job removed (Task 3) before the harness is deleted (Task 4).
+- The shim is relabeled, never removed (Task 5); `bundle.py` validate functions untouched except as an explicit import in the optional cleanup.
+- No external action pin, no with-connect dependency anywhere in this plan.
