@@ -20,7 +20,6 @@
 /notebooks*/
 /rsconnect-build
 /rsconnect-build-test
-/rsconnect/version.py
 /tests/testdata/**/rsconnect-python/
 env
 htmlcov
