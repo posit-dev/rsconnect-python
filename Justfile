@@ -3,8 +3,10 @@
 python_versions := "3.8 3.9 3.10 3.11 3.12 3.13"
 
 # Run the test suite against a single Python version (default 3.13)
+# Invoke via `bash` so the recipe works on Windows, where uv cannot spawn the
+# shebang script directly (os error 193).
 test py="3.13":
-    uv run --python {{py}} --group test ./scripts/runtests
+    uv run --python {{py}} --group test bash ./scripts/runtests
 
 # Run the test suite against all supported Python versions
 all-tests:
