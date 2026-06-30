@@ -167,10 +167,30 @@ remains for type checking (strict mode, unchanged config).
 - Lint scope **broadens** to the whole tree (`ruff check .`), which now includes
   `tests/` — the old Makefile linted `rsconnect/` and `tests/` separately, so
   coverage is preserved and slightly extended.
-- `[project.optional-dependencies].test`: remove `black==24.3.0`, `flake8`,
-  `flake8-pyproject`, `setuptools`, `setuptools_scm`; add `ruff`. Keep
-  `pyright`, `pytest`, `pytest-cov`, `coverage`, `httpretty`, `ipykernel`,
-  `nbconvert`, `twine`, `types-Flask`, and the `fastmcp` marker.
+- **Dev tooling moves out of published metadata into PEP 735
+  `[dependency-groups]`.** `ruff`, `pyright`, `twine`, `pytest`, etc. must not
+  appear in the wheel's installable extras. Genuine runtime optional features
+  (`keyring`, `snowflake`, `mcp`) stay as `[project.optional-dependencies]`.
+  The old `test` and `docs` extras are removed and re-expressed as groups:
+  ```toml
+  [project.optional-dependencies]
+  keyring = ["keyring>=23.0.0"]
+  snowflake = ["snowflake-cli"]
+  mcp = ["fastmcp==2.12.4; python_version >= '3.10'"]
+
+  [dependency-groups]
+  test = [
+      "coverage", "httpretty", "ipykernel", "nbconvert",
+      "pytest", "pytest-cov", "twine", "types-Flask",
+      "ruff", "pyright",
+      "fastmcp==2.12.4; python_version >= '3.10'",
+  ]
+  docs = ["mkdocs-material", "mkdocs-click", "pymdown-extensions", "mkdocs-macros-plugin"]
+  ```
+  Dropped entirely: `black==24.3.0`, `flake8`, `flake8-pyproject`,
+  `setuptools`, `setuptools_scm`. Tooling is invoked via `uv run --group test`
+  / `uv run --group docs` (or `uv sync --group …` where a persistent env is
+  needed, e.g. integration jobs).
 
 A one-time `ruff format .` pass is applied as a **dedicated commit**, separate
 from logic changes. See "Migration verification" for the pre-commit diff check
@@ -181,7 +201,7 @@ that bounds the churn.
 Tests run against uv-provided interpreters — no Docker images:
 
 ```
-uv run --python <X> --extra test ./scripts/runtests
+uv run --python <X> --group test ./scripts/runtests
 ```
 
 `scripts/runtests` is **kept** as the single source of truth for pytest args
@@ -194,12 +214,11 @@ jobs).
 `scripts/build-image` is deleted (Docker-only). The Makefile `image-%` /
 `RUNNER` machinery is deleted.
 
-**Dependency declaration:** test/lint/build tooling stays in
-`[project.optional-dependencies].test` (consumed via `--extra test`) for this
-migration, because the out-of-scope integration jobs still `pip install
-'.[test]'`. Migrating to PEP 735 `[dependency-groups]` (so dev tooling is not
-advertised in the published wheel's metadata) is a recommended **follow-up**,
-deferred here to avoid changing the out-of-scope integration jobs' install path.
+**Dependency declaration:** test/lint/build tooling lives in
+`[dependency-groups]` (§C), invoked via `uv run --group test`. The integration
+jobs, which previously did `pip install '.[test]'`, are updated to
+`uv sync --group test` (they are touched anyway by the other changes — this is
+explicitly in scope).
 
 ### E. Task runner → `Justfile`
 
@@ -207,13 +226,13 @@ deferred here to avoid changing the out-of-scope integration jobs' install path.
 
 | Recipe | Behavior |
 | --- | --- |
-| `test py="3.13"` | `uv run --python {{py}} --extra test ./scripts/runtests` |
+| `test py="3.13"` | `uv run --python {{py}} --group test ./scripts/runtests` |
 | `all-tests` | runs `test` for 3.8, 3.9, 3.10, 3.11, 3.12, 3.13 |
-| `lint` | `uv run ruff format --check .` + `uv run ruff check .` + advisory `uv run pyright rsconnect/` (see note) |
-| `fmt` | `uv run ruff format .` + `uv run ruff check --fix .` |
-| `dist` | `scripts/prepare-build` + `uv build` + `uv run twine check dist/*.whl` |
+| `lint` | `uv run --group test ruff format --check .` + `ruff check .` + advisory `pyright rsconnect/` (see note) |
+| `fmt` | `uv run --group test ruff format .` + `ruff check --fix .` |
+| `dist` | `scripts/prepare-build` + `uv build` + `uv run --group test twine check dist/*.whl` |
 | `install` | `uv pip install dist/*.whl` |
-| `docs` / `docs-serve` | `VERSION=$(uv version --short) uv run mkdocs build` / `serve` |
+| `docs` / `docs-serve` | `VERSION=$(uv version --short) uv run --group docs mkdocs build` / `serve` |
 | `version` | `uv version --short` |
 | `clean` / `clean-stores` | same cleanup as Makefile |
 | `dev` / `dev-stop` | **unchanged** — still `docker compose up/down` for the Connect server |
@@ -243,15 +262,18 @@ Audit **every** `make ` invocation across all workflows, not just `make test-X`.
 - `test-python-versions`: replace `actions/setup-python` + `pip install '.[test]'`
   + `make lint`/`make test-X` with `astral-sh/setup-uv` (pinned to a uv that
   provides `uv version`, ≥ 0.9), then `just lint` and
-  `just test ${{ matrix.python-version }}`. The `GITHUB_RUN_ID` Make hack is
-  gone. Coverage upload step unchanged (still reads `coverage.xml`).
+  `just test ${{ matrix.python-version }}` (recipes resolve the `test` group).
+  The `GITHUB_RUN_ID` Make hack is gone. Coverage upload step unchanged (still
+  reads `coverage.xml`).
 - `prerelease-test`: must actually exercise prereleases. `uv run --prerelease
   allow` alone resolves against the committed `uv.lock` and tests nothing new,
-  so use `uv run --upgrade --prerelease allow --extra test …` (re-resolves,
+  so use `uv run --upgrade --prerelease allow --group test …` (re-resolves,
   ignoring the lock). **Preserve** the existing `make lint` and `rsconnect
   version` smoke steps (as `just lint` / `rsconnect version`), which v1 dropped.
-- `distributions`: `just dist` (already uses `astral-sh/setup-uv`); keep the
-  `PACKAGE_NAME` matrix and the rename step (now `scripts/prepare-build`).
+- `distributions`: `just dist` (already uses `astral-sh/setup-uv`); replace the
+  `pip install -e '.[test]'` prep with `uv sync --group test` (provides `twine`
+  for `just dist`). Keep the `PACKAGE_NAME` matrix and the rename step (now
+  `scripts/prepare-build`).
   **The step that consumes `steps.create_dist.outputs.whl` must be rewritten to
   glob `dist/*.whl`** — `just` does not emit the Makefile's `::set-output
   name=whl::` value (and that syntax is deprecated in favor of `$GITHUB_OUTPUT`).
@@ -262,22 +284,26 @@ Audit **every** `make ` invocation across all workflows, not just `make test-X`.
   `with-connect` `command:` block, because that triggers an implicit
   build/resolve + interpreter fetch over the network *during* the
   integration test, and assumes `uv`/`just` are on PATH in that action's shell.
-  Instead: add an explicit `astral-sh/setup-uv` + `uv sync --extra test` (or
-  `uv pip install '.[test]'`) step on the runner **before** entering
-  `with-connect`, and have the `command:` invoke `pytest` directly against the
-  already-prepared environment.
+  Instead: add an explicit `astral-sh/setup-uv` + `uv sync --group test` step on
+  the runner **before** entering `with-connect`, and have the `command:` invoke
+  `pytest` (or `./scripts/runtests`) directly against the already-prepared
+  environment.
 - `test-dev-connect` (integration): keeps `docker compose`. It calls **`make
-  dev`** (not `make test-X`) — swap to `just dev`. Its `pip install '.[test]'`
-  + `pip freeze > requirements.txt` are left as-is (see requirements.txt note).
+  dev`** (not `make test-X`) — swap to `just dev`. Replace its
+  `pip install '.[test]'` with `uv sync --group test`; the
+  `pip freeze > requirements.txt` step is left as-is (see requirements.txt note).
 
 **`.github/workflows/preview-docs.yml`:** use `astral-sh/setup-uv` + `just docs`
-(which sets `VERSION`) instead of `setup-python` + `pip install`.
+(which sets `VERSION` and resolves the `docs` group) instead of `setup-python` +
+`pip install -e ".[docs]"`.
 
 **`.github/workflows/snyk.yml`:** unchanged mechanically, but in scope because
 it triggers on `pyproject.toml` changes and runs `uv pip compile pyproject.toml
 --output-file requirements.txt` (ephemeral, in-CI only — it does not commit the
-file). After the dependency edits, snyk simply scans the new dependency set.
-No action required beyond awareness.
+file). `uv pip compile` resolves only the main `[project.dependencies]` by
+default — it does **not** include `[dependency-groups]` — so moving dev tooling
+into groups actually makes the snyk scan cleaner (runtime deps only). No action
+required beyond awareness.
 
 ### G. Lockfile
 
@@ -363,7 +389,6 @@ linting section — drop the `#774` Makefile-specific pyright note / restate for
   making it blocking is a tracked follow-up.
 
 ## Deferred follow-ups (explicitly not in this migration)
-- PEP 735 `[dependency-groups]` for dev tooling (§D).
 - Making `pyright` blocking in CI (§E).
 - Reconciling the three `requirements.txt` consumers / integration-suite
   overhaul (`#649`).
