@@ -248,7 +248,7 @@ class TestMain:
         # Fake deploy task completion
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/__api__/v1/tasks/FAKE_TASK_ID" "?wait=1",
+            "http://fake_server/__api__/v1/tasks/FAKE_TASK_ID?wait=1",
             body=json.dumps({"output": ["FAKE_OUTPUT"], "last": "FAKE_LAST", "finished": True, "code": 0}),
             adding_headers={"Content-Type": "application/json"},
             status=200,
@@ -288,9 +288,7 @@ class TestMain:
                 # Do not validate app mode, so that the "target" content doesn't matter.
                 "rsconnect.api.RSConnectExecutor.validate_app_mode",
                 new=lambda self_, *args, **kwargs: self_,
-            ), caplog.at_level(
-                "INFO"
-            ):
+            ), caplog.at_level("INFO"):
                 result = runner.invoke(cli, args)
             assert result.exit_code == 0, result.output
             assert deploy_api_invoked == [True]
@@ -701,7 +699,7 @@ class TestMain:
         )
         httpretty.register_uri(
             httpretty.GET,
-            "http://fake_server/__api__/v1/tasks/FAKE_TASK_ID" "?wait=1",
+            "http://fake_server/__api__/v1/tasks/FAKE_TASK_ID?wait=1",
             body=json.dumps({"output": ["FAKE_OUTPUT"], "last": "FAKE_LAST", "finished": True, "code": 0}),
             adding_headers={"Content-Type": "application/json"},
             status=200,

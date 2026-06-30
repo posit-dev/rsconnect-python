@@ -154,7 +154,6 @@ logger.set_log_output_format(LogOutputFormat.DEFAULT)
 
 
 class ConsoleFormatter(logging.Formatter):
-
     green = "\x1b[32;20m"
     yellow = "\x1b[33;20m"
     red = "\x1b[31;20m"

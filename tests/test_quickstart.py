@@ -470,7 +470,7 @@ def test_quickstart_mode_file_set(
 
     expected = _ALWAYS_PRESENT | set(expected_sources.keys())
     assert actual == expected, (
-        f"file set mismatch:\n" f"  extra:   {sorted(actual - expected)}\n" f"  missing: {sorted(expected - actual)}"
+        f"file set mismatch:\n  extra:   {sorted(actual - expected)}\n  missing: {sorted(expected - actual)}"
     )
 
     for path, sentinel in expected_sources.items():

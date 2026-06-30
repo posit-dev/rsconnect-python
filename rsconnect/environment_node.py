@@ -57,7 +57,7 @@ class NodeEnvironment:
         package_json_path = os.path.join(directory, "package.json")
         if not os.path.exists(package_json_path):
             raise RSConnectException(
-                f"No package.json found in '{directory}'. " "A package.json file is required to deploy Node.js content."
+                f"No package.json found in '{directory}'. A package.json file is required to deploy Node.js content."
             )
 
         with open(package_json_path, encoding="utf-8") as f:
@@ -109,7 +109,7 @@ def _detect_version(executable: str, flag: str, label: str) -> str:
         return version
     except FileNotFoundError:
         raise RSConnectException(
-            f"Could not find '{executable}' on PATH. " f"Please install {label} or specify the path with --node."
+            f"Could not find '{executable}' on PATH. Please install {label} or specify the path with --node."
         )
     except subprocess.TimeoutExpired:
         raise RSConnectException(f"Timed out detecting {label} version.")

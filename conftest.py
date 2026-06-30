@@ -20,3 +20,6 @@ def pytest_collection_modifyitems(config, items):
     if config.getoption("--vetiver"):
         return
     skip_vetiver = pytest.mark.skip(reason="need --vetiver option to run")
+    for item in items:
+        if "vetiver" in item.keywords:
+            item.add_marker(skip_vetiver)
