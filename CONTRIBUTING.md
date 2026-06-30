@@ -4,10 +4,9 @@ This project aims to uphold Python [community norms](https://www.python.org/psf/
 tooling](https://packaging.python.org/guides/tool-recommendations/).
 
 To get started, you'll want to:
-- clone the repo into a project directory
-- setup a virtual 3.8+ python environment in the project directory
-- activate that virtual environment
-- install the dependencies
+- install [`uv`](https://docs.astral.sh/uv/) and [`just`](https://github.com/casey/just)
+- clone the repo
+- run `uv sync --group test` to provision the interpreter and install all dependencies
 - validate your build environment with some sample commands
 
 We use [`uv`](https://docs.astral.sh/uv/) to manage environments and

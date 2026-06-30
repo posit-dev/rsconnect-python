@@ -138,7 +138,7 @@ The app mode determines how Connect runs the content. Manifests must specify the
 
 ### CI/CD
 - GitHub Actions workflow in `.github/workflows/main.yml`
-- Tests run on Python 3.8-3.12 across ubuntu/macos/windows
+- Tests run on Python 3.8-3.13 across ubuntu/macos/windows
 - Linting enforced on all PRs
 - Coverage reported on Python 3.8 PRs
 

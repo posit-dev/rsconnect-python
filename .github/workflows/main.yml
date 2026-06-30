@@ -91,6 +91,12 @@ jobs:
     - run: just dist
       env:
         PACKAGE_NAME: ${{ matrix.package_name }}
+    - name: assert wheel contents
+      run: |
+        WHL=$(ls dist/*.whl | head -1)
+        unzip -l "$WHL" | grep -q 'rsconnect/py.typed' || { echo "::error::py.typed missing from wheel"; exit 1; }
+        unzip -l "$WHL" | grep -q 'rsconnect/quickstart/templates/' || { echo "::error::quickstart templates missing from wheel"; exit 1; }
+        if unzip -l "$WHL" | grep -qE ' (tests/|conftest\.py)'; then echo "::error::wheel contains test files"; exit 1; fi
     - name: smoke test the built wheel
       run: |
         WHL=$(ls dist/*.whl | head -1)
@@ -202,4 +208,4 @@ jobs:
       - name: Run tests
         run: |
           uv run --no-sync pytest tests/test_main_system_caches.py
-          uv run --no-sync pytest -m 'vetiver'
+          uv run --no-sync pytest --vetiver -m 'vetiver'
