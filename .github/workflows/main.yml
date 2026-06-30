@@ -32,16 +32,15 @@ jobs:
     - uses: actions/checkout@v6
       with:
         fetch-depth: 0
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - uses: actions/setup-python@v6
+    - uses: astral-sh/setup-uv@v6
       with:
-        python-version: ${{ matrix.python-version }}
-    - run: pip install '.[test]'
-    - run: pip freeze
-    - run: make lint
-    - run: rsconnect version
-    - run: make test-${{ matrix.python-version }}
+        version: ">=0.9.0"
+    - uses: extractions/setup-just@v3
+    # Fail fast if uv.lock has drifted from pyproject.toml.
+    - run: uv lock --locked
+    - run: just lint
+    - run: uv run --python ${{ matrix.python-version }} --group test rsconnect version
+    - run: just test ${{ matrix.python-version }}
     - if: github.event_name == 'pull_request' && matrix.python-version == '3.8'
       uses: orgoro/coverage@v3
       with:
@@ -55,16 +54,15 @@ jobs:
     - uses: actions/checkout@v6
       with:
         fetch-depth: 0
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - uses: actions/setup-python@v6
+    - uses: astral-sh/setup-uv@v6
       with:
-        python-version: 3.8.x
-    - run: pip install --pre '.[test]'
-    - run: pip freeze
-    - run: make lint
-    - run: rsconnect version
-    - run: make test-3.8
+        version: ">=0.9.0"
+    - uses: extractions/setup-just@v3
+    - run: just lint
+    # --upgrade forces a fresh resolve (ignoring the lock) so prereleases are
+    # actually exercised; plain `--prerelease allow` against the lock is a no-op.
+    - run: uv run --upgrade --prerelease allow --group test rsconnect version
+    - run: uv run --python 3.8 --upgrade --prerelease allow --group test ./scripts/runtests
 
   distributions:
     needs: test-python-versions
@@ -76,22 +74,28 @@ jobs:
     - uses: actions/checkout@v6
       with:
         fetch-depth: 0
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - uses: actions/setup-python@v6
+    - uses: astral-sh/setup-uv@v6
       with:
-        python-version: 3.8.x
-    - name: Install uv # see scripts/temporary-rename
-      uses: astral-sh/setup-uv@v6
-    - run: pip install -e '.[test]'
-    - run: pip freeze
-    - run: make dist
-      id: create_dist
+        version: ">=0.9.0"
+    - uses: extractions/setup-just@v3
+    - run: uv sync --group test
+    - name: assert tag matches pyproject version
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      run: |
+        tag="${GITHUB_REF_NAME}"
+        ver="$(uv version --short)"
+        if [ "$tag" != "$ver" ]; then
+          echo "::error::tag '$tag' does not match pyproject version '$ver'"
+          exit 1
+        fi
+    - run: just dist
       env:
         PACKAGE_NAME: ${{ matrix.package_name }}
-    - run: pip install -vvv ${{ steps.create_dist.outputs.whl }}
-    - run: rsconnect version
-    - run: rsconnect --help
+    - name: smoke test the built wheel
+      run: |
+        WHL=$(ls dist/*.whl | head -1)
+        uv run --no-project --with "$WHL" rsconnect version
+        uv run --no-project --with "$WHL" rsconnect --help
     - name: create github release
       uses: softprops/action-gh-release@v2
       if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags') && matrix.package_name == 'rsconnect_python'
@@ -109,14 +113,12 @@ jobs:
     - uses: actions/checkout@v6
       with:
         fetch-depth: 0
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Install uv
-      uses: astral-sh/setup-uv@v6
+    - uses: astral-sh/setup-uv@v6
       with:
-        python-version: 3.12
+        version: ">=0.9.0"
+    - uses: extractions/setup-just@v3
     - name: build docs
-      run: make docs
+      run: just docs
     - uses: actions/upload-artifact@v5
       with:
         name: docs
@@ -127,14 +129,14 @@ jobs:
         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
         aws-region: ${{ secrets.AWS_REGION }}
     - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      run: make sync-latest-docs-to-s3
+      run: just sync-latest-docs-to-s3
     - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ secrets.DOCS_AWS_ROLE }}
         aws-region: us-east-1
     - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-      run: make promote-docs-in-s3
+      run: just promote-docs-in-s3
 
   test-connect-versions:
     runs-on: ubuntu-latest
@@ -153,21 +155,16 @@ jobs:
           - "2022.10.0" # bionic
     name: Integration tests against Connect ${{ matrix.version }}
     env:
-      python-version: 3.13
+      python-version: '3.13'
     steps:
       - uses: actions/checkout@v6
-
-      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v6
         with:
-          python-version: ${{ env.python-version }}
-
-      - name: Install dependencies
-        run: pip install '.[test]'
-
-      - run: pip freeze
-
-      - run: rsconnect version
-
+          version: ">=0.9.0"
+      # Prepare the environment on the runner BEFORE entering with-connect, so
+      # no build/resolve/interpreter-fetch happens over the network mid-test.
+      - run: uv sync --python ${{ env.python-version }} --group test
+      - run: uv run --no-sync rsconnect version
       - name: Run integration tests
         uses: posit-dev/with-connect@main
         with:
@@ -175,26 +172,26 @@ jobs:
           # License file valid until 2026-12-05
           license: ${{ secrets.CONNECT_LICENSE_FILE }}
           command: |
-            make test-${{ env.python-version }}
+            uv run --no-sync --group test ./scripts/runtests
 
   test-dev-connect:
     name: "Integration tests against dev Connect"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v6
         with:
-          python-version: 3.12.4
+          version: ">=0.9.0"
+      - uses: extractions/setup-just@v3
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r vetiver-testing/vetiver-requirements.txt
-          python -m pip install '.[test]'
+          uv sync --python 3.12 --group test
+          uv pip install -r vetiver-testing/vetiver-requirements.txt
       - name: Run Posit Connect
         run: |
           docker compose up --build -d
-          pip freeze > requirements.txt
-          make dev
+          uv pip freeze > requirements.txt
+          just dev
         env:
           RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
@@ -202,9 +199,7 @@ jobs:
         run: |
           docker compose logs rsconnect
         if: ${{ failure() }}
-
-      # NOTE: edited to run checks for python package
       - name: Run tests
         run: |
-          pytest tests/test_main_system_caches.py
-          pytest -m 'vetiver'
+          uv run --no-sync pytest tests/test_main_system_caches.py
+          uv run --no-sync pytest -m 'vetiver'
