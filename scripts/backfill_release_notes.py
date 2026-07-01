@@ -7,10 +7,7 @@ generate its Changelog page from Releases.
 """
 from __future__ import annotations
 
-import argparse
 import re
-import subprocess
-import sys
 from typing import Dict
 
 VERSION_HEADER = re.compile(
