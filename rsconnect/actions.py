@@ -277,6 +277,59 @@ def validate_quarto_engines(inspect: QuartoInspectResult):
     return engines
 
 
+def is_quarto_shiny(inspect: QuartoInspectResult) -> bool:
+    """
+    Determines if the Quarto document uses Shiny by checking the quarto inspect output.
+
+    Quarto documents with `server: shiny` in their YAML front matter will have
+    this reflected in the inspect output in multiple locations:
+    - formats.<format>.metadata.server.type == "shiny"
+    - fileInformation.<path>.metadata.server == "shiny"
+
+    :param inspect: The parsed JSON from a 'quarto inspect' against the project.
+    :return: True if the document uses Shiny, False otherwise.
+    """
+    # Cast to Any for accessing fields not defined in the TypedDict.
+    # The quarto inspect output contains many more fields than we've typed.
+    inspect_any = cast(typing.Any, inspect)
+
+    # Check formats.<format>.metadata.server.type
+    formats = inspect_any.get("formats", {})
+    if isinstance(formats, dict):
+        for format_data in formats.values():
+            if isinstance(format_data, dict):
+                metadata = format_data.get("metadata", {})
+                if isinstance(metadata, dict):
+                    server = metadata.get("server", {})
+                    if isinstance(server, dict) and server.get("type") == "shiny":
+                        return True
+
+    # Check fileInformation.<path>.metadata.server
+    file_info = inspect_any.get("fileInformation", {})
+    if isinstance(file_info, dict):
+        for file_data in file_info.values():
+            if isinstance(file_data, dict):
+                metadata = file_data.get("metadata", {})
+                if isinstance(metadata, dict):
+                    server = metadata.get("server")
+                    if server == "shiny":
+                        return True
+
+    return False
+
+
+def infer_quarto_app_mode(inspect: QuartoInspectResult) -> AppMode:
+    """
+    Infers the appropriate app mode for a Quarto document based on the inspect output.
+
+    :param inspect: The parsed JSON from a 'quarto inspect' against the project.
+    :return: AppModes.SHINY_QUARTO if the document uses Shiny, AppModes.STATIC_QUARTO otherwise.
+    """
+    if is_quarto_shiny(inspect):
+        return AppModes.SHINY_QUARTO
+    return AppModes.STATIC_QUARTO
+
+
 # ===============================================================================
 # START: The following deprecated functions are here only for the vetiver-python
 # package.
