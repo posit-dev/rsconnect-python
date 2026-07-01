@@ -1,0 +1,9 @@
+# great-docs.yml
+display_name: rsconnect-python
+cli:
+  enabled: true
+  module: rsconnect.main
+reference: false           # disables auto Python API reference (CLI reference still generated; see task-4-report.md)
+changelog:
+  enabled: true
+  max_releases: 100

@@ -39,12 +39,6 @@ test = [
     "ruff",
     "pyright",
 ]
-docs = [
-    "mkdocs-material",
-    "mkdocs-click",
-    "pymdown-extensions",
-    "mkdocs-macros-plugin",
-]
 
 [project.urls]
 Repository = "http://github.com/posit-dev/rsconnect-python"
