@@ -1,0 +1,11 @@
+{
+  "skills": [
+    {
+      "name": "package",
+      "description": "The Posit Connect command-line interface.",
+      "files": [
+        "SKILL.md"
+      ]
+    }
+  ]
+}

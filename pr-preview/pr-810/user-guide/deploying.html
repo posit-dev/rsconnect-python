@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.38">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Deploying Content – rsconnect-python | rsconnect-python</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<link href="../user-guide/server-administration.html" rel="next">
+<link href="../user-guide/programmatic-provisioning.html" rel="prev">
+<link href="../favicon.ico" rel="icon">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-4374c486a51c078b4a30d8ae56e0846f.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-KHBDBW7');</script>
+<!-- End Google Tag Manager -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script>document.head.appendChild(Object.assign(document.createElement('link'),{rel:'stylesheet',href:(document.querySelector('meta[name="quarto:offset"]')||{content:''}).content+'termshow.css'}));</script>
+<script>document.head.appendChild(Object.assign(document.createElement('link'),{rel:'stylesheet',href:(document.querySelector('meta[name="quarto:offset"]')||{content:''}).content+'gd-lightbox.css'}));</script>
+<script>(function(){var s=document.createElement('script');var m=document.querySelector('meta[name="quarto:offset"]');s.src=(m?m.content:'')+'gd-lightbox.js';s.defer=true;document.head.appendChild(s);})();</script>
+<script>document.head.appendChild(Object.assign(document.createElement('link'),{rel:'stylesheet',href:(document.querySelector('meta[name="quarto:offset"]')||{content:''}).content+'gd-lightbox-compare.css'}));</script>
+<script>(function(){var s=document.createElement('script');var m=document.querySelector('meta[name="quarto:offset"]');s.src=(m?m.content:'')+'gd-lightbox-compare.js';s.defer=true;document.head.appendChild(s);})();</script>
+<script>document.head.appendChild(Object.assign(document.createElement('link'),{rel:'stylesheet',href:(document.querySelector('meta[name="quarto:offset"]')||{content:''}).content+'gd-lightbox-annotate.css'}));</script>
+<script>(function(){var s=document.createElement('script');var m=document.querySelector('meta[name="quarto:offset"]');s.src=(m?m.content:'')+'gd-lightbox-annotate.js';s.defer=true;document.head.appendChild(s);})();</script>
+<script src="../theme-init.js"></script>
+<script>document.addEventListener('DOMContentLoaded',function(){document.body.setAttribute('data-gd-ref-sections','api,cli');});</script>
+
+
+  <link rel="canonical" href="https://posit-dev.github.io/rsconnect-python/user-guide/deploying.html">
+  <meta name="description" content="There are a variety of options available to you when deploying a Jupyter notebook to Posit Connect.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Deploying Content – rsconnect-python | rsconnect-python">
+  <meta property="og:description" content="There are a variety of options available to you when deploying a Jupyter notebook to Posit Connect.">
+  <meta property="og:url" content="https://posit-dev.github.io/rsconnect-python/user-guide/deploying.html">
+  <meta property="og:site_name" content="rsconnect-python">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Deploying Content – rsconnect-python | rsconnect-python">
+  <meta name="twitter:description" content="There are a variety of options available to you when deploying a Jupyter notebook to Posit Connect.">
+</head>
+
+<body class="nav-sidebar floating nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a href="../index.html" class="navbar-brand navbar-brand-logo" data-tippy-content="<code>v1.29.0</code><br>Released 2026-04-29">
+    <img src="../iconPositConnect.svg" alt="rsconnect-python" class="navbar-logo light-content">
+    <img src="../iconPositConnect.svg" alt="rsconnect-python" class="navbar-logo dark-content">
+    </a>
+  </div>
+            <div id="quarto-search" class=""></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link active" href="../user-guide/index.html" aria-current="page"> 
+<span class="menu-text">User Guide</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../changelog.html"> 
+<span class="menu-text">Changelog</span></a>
+  </li>  
+</ul>
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <span class="nav-link">
+<div id="github-widget" data-owner="posit-dev" data-repo="rsconnect-python" data-stars="37" data-forks="28"></div>
+    </span>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <h1 class="quarto-secondary-nav-title no-breadcrumbs">Deploying Content</h1>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start">
+ <span class="menu-text">User Guide</span></a>
+</div>
+      <ul id="quarto-sidebar-section-1" class="list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../user-guide/index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Getting Started</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../user-guide/programmatic-provisioning.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Programmatic Provisioning</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../user-guide/deploying.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Deploying Content</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../user-guide/server-administration.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Server Administration</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul class="collapse">
+  <li><a href="#notebook-deployment-options" id="toc-notebook-deployment-options" class="nav-link active" data-scroll-target="#notebook-deployment-options">Notebook Deployment Options</a></li>
+  <li><a href="#creating-a-manifest-for-future-deployment" id="toc-creating-a-manifest-for-future-deployment" class="nav-link" data-scroll-target="#creating-a-manifest-for-future-deployment">Creating a Manifest for Future Deployment</a></li>
+  <li><a href="#apiapplication-deployment-options" id="toc-apiapplication-deployment-options" class="nav-link" data-scroll-target="#apiapplication-deployment-options">API/Application Deployment Options</a></li>
+  <li><a href="#creating-a-manifest-for-future-deployment-1" id="toc-creating-a-manifest-for-future-deployment-1" class="nav-link" data-scroll-target="#creating-a-manifest-for-future-deployment-1">Creating a Manifest for Future Deployment</a></li>
+  <li><a href="#deploying-r-or-other-content" id="toc-deploying-r-or-other-content" class="nav-link" data-scroll-target="#deploying-r-or-other-content">Deploying R or Other Content</a></li>
+  <li><a href="#deploying-a-downloaded-bundle" id="toc-deploying-a-downloaded-bundle" class="nav-link" data-scroll-target="#deploying-a-downloaded-bundle">Deploying a Downloaded Bundle</a></li>
+  <li><a href="#deploying-from-a-pyproject.toml" id="toc-deploying-from-a-pyproject.toml" class="nav-link" data-scroll-target="#deploying-from-a-pyproject.toml">Deploying from a pyproject.toml</a></li>
+  <li><a href="#options-for-all-types-of-deployments" id="toc-options-for-all-types-of-deployments" class="nav-link" data-scroll-target="#options-for-all-types-of-deployments">Options for All Types of Deployments</a></li>
+  <li><a href="#environment-variables" id="toc-environment-variables" class="nav-link" data-scroll-target="#environment-variables">Environment variables</a></li>
+  <li><a href="#update-notifications" id="toc-update-notifications" class="nav-link" data-scroll-target="#update-notifications">Update notifications</a></li>
+  <li><a href="#updating-a-deployment" id="toc-updating-a-deployment" class="nav-link" data-scroll-target="#updating-a-deployment">Updating a Deployment</a></li>
+  <li><a href="#stored-information-files" id="toc-stored-information-files" class="nav-link" data-scroll-target="#stored-information-files">Stored Information Files</a>
+  <ul class="collapse">
+  <li><a href="#deployment-data" id="toc-deployment-data" class="nav-link" data-scroll-target="#deployment-data">Deployment Data</a></li>
+  <li><a href="#hide-jupyter-notebook-input-code-cells" id="toc-hide-jupyter-notebook-input-code-cells" class="nav-link" data-scroll-target="#hide-jupyter-notebook-input-code-cells">Hide Jupyter Notebook Input Code Cells</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title d-none d-lg-block">Deploying Content</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="notebook-deployment-options" class="level2">
+<h2 class="anchored" data-anchor-id="notebook-deployment-options">Notebook Deployment Options</h2>
+<p>There are a variety of options available to you when deploying a Jupyter notebook to Posit Connect.</p>
+<section id="including-extra-files" class="level3">
+<h3 class="anchored" data-anchor-id="including-extra-files">Including Extra Files</h3>
+<p>You can include extra files in the deployment bundle to make them available when your notebook is run by the Posit Connect server. Just specify them on the command line after the notebook file:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy notebook my-notebook.ipynb data.csv</span></code></pre></div>
+</section>
+<section id="package-dependencies" class="level3">
+<h3 class="anchored" data-anchor-id="package-dependencies">Package Dependencies</h3>
+<p>If a <code>requirements.txt</code> file exists in the same directory as the notebook file, it will be included in the bundle. It must specify the package dependencies needed to execute the notebook. Posit Connect will reconstruct the Python environment using the specified package list.</p>
+<p>If there is no <code>requirements.txt</code> file or the <code>--force-generate</code> option is specified, the package dependencies will be determined from the current Python environment, or from an alternative Python executable specified via the <code>--python</code> option:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy notebook <span class="at">--python</span> /path/to/python my-notebook.ipynb</span></code></pre></div>
+<p>You can see the packages list that will be included by running <code>pip list --format=freeze</code> yourself, ensuring that you use the same Python that you use to run your Jupyter Notebook:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">/path/to/python</span> <span class="at">-m</span> pip list <span class="at">--format</span><span class="op">=</span>freeze</span></code></pre></div>
+</section>
+<section id="python-version" class="level3">
+<h3 class="anchored" data-anchor-id="python-version">Python Version</h3>
+<p>When deploying Python content to Posit Connect, the server will require a version of Python that matches the content requirements.</p>
+<p>For example, a server with only Python 3.9 installed will fail to match content that requires Python 3.8.</p>
+<p><code>rsconnect</code> supports detecting Python version requirements in several ways: 1. A <code>.python-version</code> file exists. In such case <code>rsconnect</code> will use its content to determine the python version requirement. 2. A <code>pyproject.toml</code> with a <code>project.requires-python</code> field exists. In such case the requirement specified in the field will be used if no <code>.python-version</code> file exists. 3. A <code>setup.cfg</code> with an <code>options.python_requires</code> field exists. In such case the requirement specified in the field will be used if <strong>1</strong> or <strong>2</strong> were not already satisfied. 4. If no other source of version requirement was found, then the interpreter in use is considered the one required to run the content.</p>
+<p>On Posit Connect <code>&gt;=2025.03.0</code> the requirement detected by <code>rsconnect</code> is always respected. Older Connect versions will instead rely only on the python version used to deploy the content to determine the requirement.</p>
+<p>For more information see the <a href="https://docs.posit.co/connect/admin/python/#python-version-matching">Posit Connect Admin Guide chapter titled Python Version Matching</a>.</p>
+<p>We recommend providing a <code>pyproject.toml</code> with a <code>project.requires-python</code> field if the deployed content is an installable package and a <code>.python-version</code> file for plain directories.</p>
+<blockquote class="blockquote">
+<p><strong>Note</strong> The packages and package versions listed in <code>requirements.txt</code> must be compatible with the Python version you request.</p>
+</blockquote>
+</section>
+<section id="static-snapshot-deployment" class="level3">
+<h3 class="anchored" data-anchor-id="static-snapshot-deployment">Static (Snapshot) Deployment</h3>
+<p>By default, <code>rsconnect</code> deploys the original notebook with all its source code. This enables the Posit Connect server to re-run the notebook upon request or on a schedule.</p>
+<p>If you just want to publish an HTML snapshot of the notebook, you can use the <code>--static</code> option. This will cause <code>rsconnect</code> to execute your notebook locally to produce the HTML file, then publish the HTML file to the Posit Connect server:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy notebook <span class="at">--static</span> my-notebook.ipynb</span></code></pre></div>
+</section>
+</section>
+<section id="creating-a-manifest-for-future-deployment" class="level2">
+<h2 class="anchored" data-anchor-id="creating-a-manifest-for-future-deployment">Creating a Manifest for Future Deployment</h2>
+<p>You can create a <code>manifest.json</code> file for a Jupyter Notebook, then use that manifest in a later deployment. Use the <code>write-manifest</code> command to do this.</p>
+<p>The <code>write-manifest</code> command will also create a <code>requirements.txt</code> file, if it does not already exist or the <code>--force-generate</code> option is specified. It will contain the package dependencies from the current Python environment, or from an alternative Python executable specified in the <code>--python</code> option.</p>
+<p>Here is an example of the <code>write-manifest</code> command:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> write-manifest notebook my-notebook.ipynb</span></code></pre></div>
+<blockquote class="blockquote">
+<p><strong>Note</strong> Manifests for static (pre-rendered) notebooks cannot be created.</p>
+</blockquote>
+</section>
+<section id="apiapplication-deployment-options" class="level2">
+<h2 class="anchored" data-anchor-id="apiapplication-deployment-options">API/Application Deployment Options</h2>
+<p>You can deploy a variety of APIs and applications using sub-commands of the <code>rsconnect deploy</code> command.</p>
+<ul>
+<li><code>api</code>: WSGI-compliant APIs (e.g., <code>bottle</code>, <code>falcon</code>, <code>flask</code>, <code>flask-restx</code>, <code>flasgger</code>, <code>pycnic</code>).</li>
+<li><code>flask</code>: Flask APIs (<em>Note: <code>flask</code> is an alias of <code>api</code>.</em>).</li>
+<li><code>fastapi</code>: ASGI-compliant APIs (e.g, <code>fastapi</code>, <code>quart</code>, <code>sanic</code>, <code>starlette</code>)</li>
+<li><code>dash</code>: Python Dash apps</li>
+<li><code>streamlit</code>: Streamlit apps</li>
+<li><code>bokeh</code>: Bokeh server apps</li>
+<li><code>gradio</code>: Gradio apps</li>
+<li><code>panel</code>: HoloViz Panel apps</li>
+</ul>
+<p>All options below apply equally to the <code>api</code>, <code>fastapi</code>, <code>dash</code>, <code>streamlit</code>, <code>gradio</code>, <code>bokeh</code>, and <code>panel</code> sub-commands.</p>
+<section id="including-extra-files-1" class="level3">
+<h3 class="anchored" data-anchor-id="including-extra-files-1">Including Extra Files</h3>
+<p>You can include extra files in the deployment bundle to make them available when your API or application is run by the Posit Connect server. Just specify them on the command line after the API or application directory:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy api flask-api/ data.csv</span></code></pre></div>
+<p>Since deploying an API or application starts at a directory level, there will be times when some files under that directory subtree should not be included in the deployment or manifest. Use the <code>--exclude</code> option to specify files or directories to exclude.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy dash <span class="at">--exclude</span> dash-app-venv <span class="at">--exclude</span> TODO.txt dash-app/</span></code></pre></div>
+<p>You can exclude a directory by naming it:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy dash <span class="at">--exclude</span> dash-app-venv <span class="at">--exclude</span> output/ dash-app/</span></code></pre></div>
+<p>The <code>--exclude</code> option may be repeated, and may include a glob pattern. You should always quote a glob pattern so that it will be passed to <code>rsconnect</code> as-is instead of letting the shell expand it. If a file is specifically listed as an extra file that also matches an exclusion pattern, the file will still be included in the deployment (i.e., extra files take precedence).</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy dash <span class="at">--exclude</span> dash-app-venv <span class="at">--exclude</span> “<span class="pp">*</span>.txt” dash-app/</span></code></pre></div>
+<p>The following shows an example of an extra file taking precedence:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy dash <span class="at">--exclude</span> “<span class="pp">*</span>.csv” dash-app/ important_data.csv</span></code></pre></div>
+<p>The “<code>**</code>” glob pattern will recursively match all files and directories, while “<code>*</code>” only matches files. The “<code>**</code>” pattern is useful with complicated project hierarchies where enumerating the <em>included</em> files is simpler than listing the <em>exclusions</em>.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy quarto . _quarto.yml index.qmd requirements.txt <span class="at">--exclude</span> <span class="st">"**"</span></span></code></pre></div>
+<p>Some directories are excluded by default, to prevent bundling and uploading files that are not needed or might interfere with the deployment process:</p>
+<pre><code>.Rproj.user
+.env
+.git
+.svn
+.venv
+__pycache__
+env
+packrat
+renv
+rsconnect-python
+rsconnect
+venv</code></pre>
+<p>Any directory that appears to be a Python virtual environment (by containing <code>bin/python</code>) will also be excluded.</p>
+</section>
+<section id="package-dependencies-1" class="level3">
+<h3 class="anchored" data-anchor-id="package-dependencies-1">Package Dependencies</h3>
+<p>If a <code>requirements.txt</code> file exists in the API/application directory, it will be included in the bundle. It must specify the package dependencies needed to execute the API or application. Posit Connect will reconstruct the Python environment using the specified package list.</p>
+<p>If there is no <code>requirements.txt</code> file or the <code>--force-generate</code> option is specified, the package dependencies will be determined from the current Python environment, or from an alternative Python executable specified via the <code>--python</code> option:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy api <span class="at">--python</span> /path/to/python my-api/</span></code></pre></div>
+<p>You can see the packages list that will be included by running <code>pip list --format=freeze</code> yourself, ensuring that you use the same Python that you use to run your API or application:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="ex">/path/to/python</span> <span class="at">-m</span> pip list <span class="at">--format</span><span class="op">=</span>freeze</span></code></pre></div>
+</section>
+<section id="python-version-1" class="level3">
+<h3 class="anchored" data-anchor-id="python-version-1">Python Version</h3>
+<p>When deploying Python content to Posit Connect, the server will require matching <code>&lt;MAJOR.MINOR&gt;</code> versions of Python. For example, a server with only Python 3.9 installed will fail to match content deployed with Python 3.8. Your administrator may also enable exact Python version matching which will be stricter and require matching major, minor, and patch versions. For more information see the <a href="https://docs.posit.co/connect/admin/python/#python-version-matching">Posit Connect Admin Guide chapter titled Python Version Matching</a>.</p>
+<p>We recommend installing a version of Python on your client that is also available in your Connect installation. If that’s not possible, you can override rsconnect-python’s detected Python version and request a version of Python that is installed in Connect, For example, this command:</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy api <span class="at">--override-python-version</span> 3.11.5 my-api/</span></code></pre></div>
+<p>will deploy the content in <code>my-api</code> while requesting that Connect use Python version 3.11.5.</p>
+<blockquote class="blockquote">
+<p><strong>Note</strong> The packages and package versions listed in <code>requirements.txt</code> must be compatible with the Python version you request.</p>
+</blockquote>
+</section>
+<section id="r-dependencies-renv.lock" class="level3">
+<h3 class="anchored" data-anchor-id="r-dependencies-renv.lock">R Dependencies (renv.lock)</h3>
+<p>Python content that also uses R (for example, an app that calls R through <a href="https://rpy2.github.io/"><code>rpy2</code></a>) can declare its R package dependencies with an <a href="https://rstudio.github.io/renv/">renv</a> lockfile. When an <code>renv.lock</code> file is found, rsconnect-python reads it and adds the R version and package list to the generated <code>manifest.json</code>, so Posit Connect can restore the R library alongside the Python environment. The lockfile is only parsed; R is never invoked.</p>
+<p>Detection happens automatically whenever a lockfile is present. To deploy without it, use the <code>--exclude-renv</code> option:</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy api <span class="at">--exclude-renv</span> my-api/</span></code></pre></div>
+<p>By default the lockfile is read from <code>renv.lock</code> in the content directory. The location can be overridden with the <code>RENV_PATHS_LOCKFILE</code> environment variable, matching renv’s own resolution: an absolute path is used as given (a trailing slash is treated as a directory, so <code>renv.lock</code> is appended), and a relative path is resolved against the content directory.</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="va">RENV_PATHS_LOCKFILE</span><span class="op">=</span>/path/to/renv.lock <span class="ex">rsconnect</span> deploy api my-api/</span></code></pre></div>
+<blockquote class="blockquote">
+<p><strong>Note</strong> The lockfile must be generated by renv 1.1.0 or later, so it records the repositories used to resolve each package. rsconnect-python stops with an error if the lockfile is incompatible or a package cannot be resolved; use <code>--exclude-renv</code> to deploy without R dependencies. renv profiles are not supported; only <code>RENV_PATHS_LOCKFILE</code> and the default location are consulted.</p>
+</blockquote>
+</section>
+</section>
+<section id="creating-a-manifest-for-future-deployment-1" class="level2">
+<h2 class="anchored" data-anchor-id="creating-a-manifest-for-future-deployment-1">Creating a Manifest for Future Deployment</h2>
+<p>You can create a <code>manifest.json</code> file for an API or application, then use that manifest in a later deployment. Use the <code>write-manifest</code> command to do this.</p>
+<p>The <code>write-manifest</code> command will also create a <code>requirements.txt</code> file, if it does not already exist or the <code>--force-generate</code> option is specified. It will contain the package dependencies from the current Python environment, or from an alternative Python executable specified in the <code>--python</code> option.</p>
+<p>Here is an example of the <code>write-manifest</code> command:</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> write-manifest api my-api/</span></code></pre></div>
+</section>
+<section id="deploying-r-or-other-content" class="level2">
+<h2 class="anchored" data-anchor-id="deploying-r-or-other-content">Deploying R or Other Content</h2>
+<p>You can deploy other content that has an existing Posit Connect <code>manifest.json</code> file. For example, if you download and unpack a source bundle from Posit Connect, you can deploy the resulting directory. The options are similar to notebook or API/application deployment; see <code>rsconnect deploy manifest --help</code> for details.</p>
+<p>Here is an example of the <code>deploy manifest</code> command:</p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy manifest /path/to/manifest.json</span></code></pre></div>
+<blockquote class="blockquote">
+<p><strong>Note</strong> In this case, the existing content is deployed as-is. Python environment inspection and notebook pre-rendering, if needed, are assumed to be done already and represented in the manifest.</p>
+</blockquote>
+<p>The argument to <code>deploy manifest</code> may also be a directory so long as that directory contains a <code>manifest.json</code> file.</p>
+<p>If you have R content but don’t have a <code>manifest.json</code> file, you can use the RStudio IDE to create the manifest. See the help for the <code>rsconnect::writeManifest</code> R function:</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">'rsconnect'</span>)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(rsconnect)</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>?rsconnect<span class="sc">::</span>writeManifest</span></code></pre></div>
+</section>
+<section id="deploying-a-downloaded-bundle" class="level2">
+<h2 class="anchored" data-anchor-id="deploying-a-downloaded-bundle">Deploying a Downloaded Bundle</h2>
+<p>If you already have a content bundle as a <code>.tar.gz</code> file—for example, one downloaded from a Posit Connect server—you can deploy it directly without unpacking it. This is handy for copying content from one server to another.</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy bundle /path/to/bundle.tar.gz</span></code></pre></div>
+<p>The bundle is uploaded as-is; its existing <code>manifest.json</code> determines the content type and dependencies. The options are the same as for <code>deploy manifest</code>; see <code>rsconnect deploy bundle --help</code> for details.</p>
+<blockquote class="blockquote">
+<p><strong>Note</strong> Bundles do not contain environment variables or secrets, so any that the content relied on must be set on the target server (you can pass them with <code>-E NAME=VALUE</code>). Dependencies are pinned in the manifest, so the target server needs a compatible Python or R version available.</p>
+</blockquote>
+</section>
+<section id="deploying-from-a-pyproject.toml" class="level2">
+<h2 class="anchored" data-anchor-id="deploying-from-a-pyproject.toml">Deploying from a pyproject.toml</h2>
+<p><code>rsconnect deploy pyproject</code> reads a <code>[tool.rsconnect]</code> table from a project’s <code>pyproject.toml</code> instead of taking the app mode and entrypoint as CLI arguments. It is designed as the deploy partner for projects scaffolded by <code>rsconnect quickstart</code>, but works with any project whose <code>pyproject.toml</code> contains the required keys.</p>
+<p>The <code>[tool.rsconnect]</code> table has two required keys:</p>
+<ul>
+<li><code>app_mode</code> — the Connect app mode the deployment uses. Supported values are <code>python-streamlit</code>, <code>python-shiny</code>, <code>python-fastapi</code>, <code>python-api</code>, <code>jupyter-voila</code>, <code>jupyter-static</code>, <code>quarto-static</code>, and <code>quarto-shiny</code>.</li>
+<li><code>entrypoint</code> — the file or importable path Connect runs. The expected form depends on <code>app_mode</code>: a script filename such as <code>app.py</code> for Streamlit and Shiny, a <code>module:object</code> reference such as <code>my_app.__connect__:app</code> for FastAPI or WSGI APIs, a <code>report.qmd</code> for Quarto, and a <code>notebook.ipynb</code> for Voila or static Jupyter content.</li>
+</ul>
+<p>A minimal Streamlit project looks like this:</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode toml"><code class="sourceCode toml"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="kw">[project]</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="dt">name</span> <span class="op">=</span> <span class="st">"my_app"</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="dt">version</span> <span class="op">=</span> <span class="st">"0.1.0"</span></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a><span class="dt">requires-python</span> <span class="op">=</span> <span class="st">"&gt;=3.9"</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="dt">dependencies</span> <span class="op">=</span> <span class="op">[</span><span class="st">"streamlit"</span><span class="op">]</span></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a><span class="kw">[tool.rsconnect]</span></span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a><span class="dt">app_mode</span> <span class="op">=</span> <span class="st">"python-streamlit"</span></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a><span class="dt">entrypoint</span> <span class="op">=</span> <span class="st">"app.py"</span></span></code></pre></div>
+<p>Projects scaffolded by <code>rsconnect quickstart</code> already contain this table. From the parent directory of the project, deploy it with:</p>
+<div class="sourceCode" id="cb23"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy pyproject my_app/</span></code></pre></div>
+<p>The directory passed to <code>deploy pyproject</code> must contain <code>pyproject.toml</code>. Dependencies follow the same resolution rules as the other deploy commands: <code>[project.dependencies]</code> from <code>pyproject.toml</code> provides the dependency snapshot, and <code>uv.lock</code> or <code>requirements.txt</code> may be supplied via <code>--requirements-file</code> when a pinned environment is needed.</p>
+</section>
+<section id="options-for-all-types-of-deployments" class="level2">
+<h2 class="anchored" data-anchor-id="options-for-all-types-of-deployments">Options for All Types of Deployments</h2>
+<p>These options apply to any type of content deployment.</p>
+<section id="title" class="level3">
+<h3 class="anchored" data-anchor-id="title">Title</h3>
+<p>The title of the deployed content is, by default, derived from the filename. For example, if you deploy <code>my-notebook.ipynb</code>, the title will be <code>my-notebook</code>. To change this, use the <code>--title</code> option:</p>
+<pre><code>rsconnect deploy notebook --title "My Notebook" my-notebook.ipynb</code></pre>
+<p>When using <code>rsconnect deploy api</code>, <code>rsconnect deploy fastapi</code>, <code>rsconnect deploy dash</code>, <code>rsconnect deploy streamlit</code>, <code>rsconnect deploy bokeh</code>, <code>rsconnect deploy gradio</code>, or <code>rsconnect deploy panel</code>, the title is derived from the directory containing the API or application.</p>
+<p>When using <code>rsconnect deploy manifest</code>, the title is derived from the primary filename referenced in the manifest.</p>
+</section>
+<section id="verification-after-deployment" class="level3">
+<h3 class="anchored" data-anchor-id="verification-after-deployment">Verification After Deployment</h3>
+<p>After deploying your content, rsconnect accesses the deployed content to verify that the deployment is live. This is done with a <code>GET</code> request to the content, without parameters. The request is considered successful if there isn’t a 5xx code returned. Errors like 400 Bad Request or 405 Method Not Allowed because not all apps support <code>GET /</code>. For cases where this is not desired, use the <code>--no-verify</code> flag on the command line.</p>
+</section>
+</section>
+<section id="environment-variables" class="level2">
+<h2 class="anchored" data-anchor-id="environment-variables">Environment variables</h2>
+<p>You can set environment variables during deployment. Their names and values will be passed to Posit Connect during deployment so you can use them in your code. Note that if you are using <code>rsconnect</code> to deploy to shinyapps.io, environment variable management is not supported on that platform.</p>
+<p>For example, if <code>notebook.ipynb</code> contains</p>
+<div class="sourceCode" id="cb25"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(os.environ[<span class="st">"MYVAR"</span>])</span></code></pre></div>
+<p>You can set the value of <code>MYVAR</code> that will be set when your code runs in Posit Connect using the <code>-E/--environment</code> option:</p>
+<div class="sourceCode" id="cb26"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy notebook <span class="at">--environment</span> MYVAR=<span class="st">'hello world'</span> notebook.ipynb</span></code></pre></div>
+<p>To avoid exposing sensitive values on the command line, you can specify a variable without a value. In this case, it will use the value from the environment in which rsconnect-python is running:</p>
+<div class="sourceCode" id="cb27"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">SECRET_KEY</span><span class="op">=</span>12345</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy notebook <span class="at">--environment</span> SECRET_KEY notebook.ipynb</span></code></pre></div>
+<p>If you specify environment variables when updating an existing deployment, new values will be set for the variables you provided. Other variables will remain unchanged. If you don’t specify any variables, all of the existing variables will remain unchanged.</p>
+<p>Environment variables are set on the content item before the content bundle is uploaded and deployed. If the deployment fails, the new environment variables will still take effect.</p>
+</section>
+<section id="update-notifications" class="level2">
+<h2 class="anchored" data-anchor-id="update-notifications">Update notifications</h2>
+<p>When you run a <code>rsconnect deploy</code> command, rsconnect-python checks PyPI for a newer release and prints an upgrade hint to stderr if one is available. The result is cached for 24 hours, so most deployments make no extra network request, and the check never blocks or fails a deployment.</p>
+<p>To disable the check entirely, set the <code>RSCONNECT_DISABLE_VERSION_CHECK</code> environment variable to <code>1</code> (or <code>true</code>/<code>yes</code>):</p>
+<div class="sourceCode" id="cb28"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">RSCONNECT_DISABLE_VERSION_CHECK</span><span class="op">=</span>1</span></code></pre></div>
+</section>
+<section id="updating-a-deployment" class="level2">
+<h2 class="anchored" data-anchor-id="updating-a-deployment">Updating a Deployment</h2>
+<p>If you deploy a file again to the same server, <code>rsconnect</code> will update the previous deployment. This means that you can keep running <code>rsconnect deploy notebook my-notebook.ipynb</code> as you develop new versions of your notebook. The same applies to other Python content types.</p>
+<section id="forcing-a-new-deployment" class="level3">
+<h3 class="anchored" data-anchor-id="forcing-a-new-deployment">Forcing a New Deployment</h3>
+<p>To bypass this behavior and force a new deployment, use the <code>--new</code> option:</p>
+<div class="sourceCode" id="cb29"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy dash <span class="at">--new</span> my-app/</span></code></pre></div>
+</section>
+<section id="updating-a-different-deployment" class="level3">
+<h3 class="anchored" data-anchor-id="updating-a-different-deployment">Updating a Different Deployment</h3>
+<p>If you want to update an existing deployment but don’t have the saved deployment data, you can provide the app’s numeric ID or GUID on the command line:</p>
+<div class="sourceCode" id="cb30"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy notebook <span class="at">--app-id</span> 123456 my-notebook.ipynb</span></code></pre></div>
+<p>You must be the owner of the target deployment, or a collaborator with permission to change the content. The type of content (static notebook, notebook with source code, API, or application) must match the existing deployment.</p>
+<blockquote class="blockquote">
+<p><strong>Note</strong> There is no confirmation required to update a deployment. If you do so accidentally, use the “Source Versions” dialog in the Posit Connect dashboard to activate the previous version and remove the erroneous one.</p>
+</blockquote>
+<section id="finding-the-app-id" class="level4">
+<h4 class="anchored" data-anchor-id="finding-the-app-id">Finding the App ID</h4>
+<p>The App ID associated with a piece of content you have previously deployed from the <code>rsconnect</code> command line interface can be found easily by querying the deployment information using the <code>info</code> command. For more information, see the <a href="#showing-the-deployment-information">Showing the Deployment Information</a> section.</p>
+<p>If the content was deployed elsewhere or <code>info</code> does not return the correct App ID, but you can open the content on Posit Connect, find the content and open it in a browser. The URL in your browser’s location bar will contain <code>#/apps/NNN</code> where <code>NNN</code> is your App ID. The GUID identifier for the app may be found on the <strong>Info</strong> tab for the content in the Posit Connect UI.</p>
+</section>
+</section>
+<section id="showing-the-deployment-information" class="level3">
+<h3 class="anchored" data-anchor-id="showing-the-deployment-information">Showing the Deployment Information</h3>
+<p>You can see the information that the <code>rsconnect</code> command has saved for the most recent deployment with the <code>info</code> command:</p>
+<div class="sourceCode" id="cb31"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> info my-notebook.ipynb</span></code></pre></div>
+<p>If you have deployed to multiple servers, the most recent deployment information for each server will be shown. This command also displays the path to the file where the deployment data is stored.</p>
+</section>
+</section>
+<section id="stored-information-files" class="level1">
+<h1>Stored Information Files</h1>
+<p>Stored information files are stored in a platform-specific directory:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Platform</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Mac</td>
+<td><code>$HOME/Library/Application Support/rsconnect-python/</code></td>
+</tr>
+<tr class="even">
+<td>Linux</td>
+<td><code>$HOME/.rsconnect-python/</code> or <code>$XDG_CONFIG_HOME/rsconnect-python/</code></td>
+</tr>
+<tr class="odd">
+<td>Windows</td>
+<td><code>$APPDATA/rsconnect-python</code></td>
+</tr>
+</tbody>
+</table>
+<p>Remembered server information is stored in the <code>servers.json</code> file in that directory.</p>
+<section id="deployment-data" class="level2">
+<h2 class="anchored" data-anchor-id="deployment-data">Deployment Data</h2>
+<p>After a deployment is completed, information about the deployment is saved to enable later redeployment. This data is stored alongside the deployed file, in an <code>rsconnect-python</code> subdirectory, if possible. If that location is not writable during deployment, then the deployment data will be stored in the global configuration directory specified above.</p>
+</section>
+<section id="hide-jupyter-notebook-input-code-cells" class="level2">
+<h2 class="anchored" data-anchor-id="hide-jupyter-notebook-input-code-cells">Hide Jupyter Notebook Input Code Cells</h2>
+<p>You can render a Jupyter notebook without its corresponding input code cells by passing the ‘–hide-all-input’ flag through the cli:</p>
+<div class="sourceCode" id="cb32"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy notebook <span class="dt">\</span></span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--server</span> https://connect.example.org <span class="dt">\</span></span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">--api-key</span> my-api-key <span class="dt">\</span></span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">--hide-all-input</span> <span class="dt">\</span></span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>    my-notebook.ipynb</span></code></pre></div>
+<p>To selectively hide input cells in a Jupyter notebook, you need to do two things:</p>
+<ol type="1">
+<li>tag cells with the ‘hide_input’ tag,</li>
+<li>then pass the ’ –hide-tagged-input’ flag through the cli:</li>
+</ol>
+<div class="sourceCode" id="cb33"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="ex">rsconnect</span> deploy notebook <span class="dt">\</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--server</span> https://connect.example.org <span class="dt">\</span></span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">--api-key</span> my-api-key <span class="dt">\</span></span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">--hide-tagged-input</span> <span class="dt">\</span></span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a>    my-notebook.ipynb</span></code></pre></div>
+<p>By default, rsconnect-python does not install Jupyter notebook-related depenencies. To use these hide input features in rsconnect-python you need to install these extra dependencies:</p>
+<pre><code>notebook
+nbformat
+nbconvert&gt;=5.6.1</code></pre>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="../user-guide/programmatic-provisioning.html" class="pagination-link" aria-label="Programmatic Provisioning">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text">Programmatic Provisioning</span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="../user-guide/server-administration.html" class="pagination-link" aria-label="Server Administration">
+        <span class="nav-page-text">Server Administration</span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+<div class="nav-footer-center">
+<p>Developed by <strong>Posit,&nbsp;PBC</strong>.<br>Site created with <strong>Great&nbsp;Docs</strong>.</p>
+</div>
+</div>
+</footer>
+<script src="../github-widget.js"></script>
+<script src="../copy-page.js"></script>
+<script src="../sidebar-wrap.js"></script>
+<script>(function(){var s=document.createElement('script');var m=document.querySelector('meta[name="quarto:offset"]');s.src=(m?m.content:'')+'sidebar-float.js';document.body.appendChild(s);})();</script>
+<script src="../sidebar-filter.js"></script>
+<script src="../dark-mode-toggle.js"></script>
+<script src="../back-to-top.js"></script>
+<script>(function(){var s=document.createElement('script');var m=document.querySelector('meta[name="quarto:offset"]');s.src=(m?m.content:'')+'on-this-page.js';document.body.appendChild(s);})();</script>
+<script src="../keyboard-nav.js"></script>
+<script src="../copy-code.js"></script>
+<script src="../details.js"></script>
+<script src="../mermaid-renderer.js"></script>
+<script src="../reference-switcher.js"></script>
+<script src="../tooltips.js"></script>
+<script>(function(){var s=document.createElement('script');var m=document.querySelector('meta[name="quarto:offset"]');s.src=(m?m.content:'')+'color-swatch.js';document.body.appendChild(s);})();</script>
+<script src="../responsive-tables.js"></script>
+<script>(function(){var s=document.createElement('script');var m=document.querySelector('meta[name="quarto:offset"]');s.src=(m?m.content:'')+'video-embed.js';document.body.appendChild(s);})();</script>
+<script>(function(){var s=document.createElement('script');var m=document.querySelector('meta[name="quarto:offset"]');s.src=(m?m.content:'')+'termshow.js';document.body.appendChild(s);})();</script>
+<script src="../navbar-widgets.js"></script>
+
+
+
+
+</body></html>
