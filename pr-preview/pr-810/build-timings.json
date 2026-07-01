@@ -1,455 +1,455 @@
 {
-  "build_time": "2026-07-01T20:20:21Z",
-  "total_seconds": 93.074,
+  "build_time": "2026-07-01T20:26:23Z",
+  "total_seconds": 94.257,
   "pages": [
     {
       "page": "skill.md",
-      "seconds": 28.31,
+      "seconds": 28.335,
       "frozen": false
     },
     {
       "page": "changelog.qmd",
-      "seconds": 2.732,
+      "seconds": 2.825,
       "frozen": false
     },
     {
       "page": "user-guide/deploying.qmd",
-      "seconds": 0.987,
+      "seconds": 1.044,
       "frozen": false
     },
     {
-      "page": "reference/cli/write_manifest/dash.qmd",
-      "seconds": 0.825,
+      "page": "reference/cli/write_manifest/streamlit.qmd",
+      "seconds": 0.847,
       "frozen": false
     },
     {
-      "page": "reference/cli/deploy/panel.qmd",
-      "seconds": 0.81,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/deploy/dash.qmd",
-      "seconds": 0.8,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/deploy/bokeh.qmd",
-      "seconds": 0.786,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/deploy/flask.qmd",
-      "seconds": 0.785,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/deploy/gradio.qmd",
-      "seconds": 0.776,
+      "page": "reference/cli/deploy/voila.qmd",
+      "seconds": 0.791,
       "frozen": false
     },
     {
       "page": "reference/cli/deploy/shiny.qmd",
+      "seconds": 0.791,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/deploy/api.qmd",
+      "seconds": 0.783,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/deploy/dash.qmd",
+      "seconds": 0.783,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/deploy/gradio.qmd",
+      "seconds": 0.782,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/deploy/panel.qmd",
+      "seconds": 0.782,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/deploy/streamlit.qmd",
+      "seconds": 0.782,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/deploy/bokeh.qmd",
       "seconds": 0.776,
       "frozen": false
     },
     {
-      "page": "reference/cli/deploy/fastapi.qmd",
+      "page": "reference/cli/deploy/flask.qmd",
       "seconds": 0.775,
       "frozen": false
     },
     {
       "page": "reference/cli/deploy/notebook.qmd",
-      "seconds": 0.767,
+      "seconds": 0.771,
       "frozen": false
     },
     {
-      "page": "reference/cli/deploy/streamlit.qmd",
-      "seconds": 0.766,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/deploy/api.qmd",
-      "seconds": 0.762,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/deploy/voila.qmd",
-      "seconds": 0.758,
+      "page": "reference/cli/deploy/fastapi.qmd",
+      "seconds": 0.768,
       "frozen": false
     },
     {
       "page": "reference/cli/deploy/quarto.qmd",
-      "seconds": 0.75,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/deploy/nodejs.qmd",
-      "seconds": 0.744,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/deploy/html.qmd",
-      "seconds": 0.74,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/deploy/tensorflow.qmd",
-      "seconds": 0.737,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/login.qmd",
-      "seconds": 0.737,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/environment/add.qmd",
-      "seconds": 0.733,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/deploy/pyproject.qmd",
-      "seconds": 0.732,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/deploy/bundle.qmd",
-      "seconds": 0.731,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/write_manifest/panel.qmd",
-      "seconds": 0.717,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/deploy/manifest.qmd",
-      "seconds": 0.716,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/write_manifest/shiny.qmd",
-      "seconds": 0.715,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/deploy.qmd",
-      "seconds": 0.714,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/write_manifest/quarto.qmd",
-      "seconds": 0.71,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/write_manifest/streamlit.qmd",
-      "seconds": 0.71,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/write_manifest/api.qmd",
-      "seconds": 0.705,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/write_manifest/flask.qmd",
-      "seconds": 0.705,
+      "seconds": 0.754,
       "frozen": false
     },
     {
       "page": "reference/cli/content/repository/redeploy.qmd",
-      "seconds": 0.702,
+      "seconds": 0.741,
       "frozen": false
     },
     {
-      "page": "reference/cli/write_manifest/voila.qmd",
-      "seconds": 0.701,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/deploy/git.qmd",
-      "seconds": 0.701,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/write_manifest.qmd",
-      "seconds": 0.699,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/write_manifest/bokeh.qmd",
-      "seconds": 0.697,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/write_manifest/notebook.qmd",
-      "seconds": 0.694,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/environment/edit.qmd",
-      "seconds": 0.693,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/content/repository/delete.qmd",
-      "seconds": 0.691,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/integration/add.qmd",
-      "seconds": 0.687,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/write_manifest/fastapi.qmd",
-      "seconds": 0.686,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/add.qmd",
-      "seconds": 0.685,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/index.qmd",
-      "seconds": 0.685,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/environment/list.qmd",
-      "seconds": 0.683,
+      "page": "reference/cli/deploy/nodejs.qmd",
+      "seconds": 0.738,
       "frozen": false
     },
     {
       "page": "reference/cli/content/search.qmd",
-      "seconds": 0.682,
+      "seconds": 0.735,
       "frozen": false
     },
     {
-      "page": "reference/cli/system/caches/delete.qmd",
-      "seconds": 0.682,
+      "page": "reference/cli/write_manifest/quarto.qmd",
+      "seconds": 0.729,
       "frozen": false
     },
     {
-      "page": "reference/cli/integration/edit.qmd",
-      "seconds": 0.681,
+      "page": "reference/cli/deploy/html.qmd",
+      "seconds": 0.728,
       "frozen": false
     },
     {
-      "page": "reference/cli/environment/show.qmd",
-      "seconds": 0.677,
+      "page": "reference/cli/deploy/pyproject.qmd",
+      "seconds": 0.728,
       "frozen": false
     },
     {
-      "page": "reference/cli/write_manifest/gradio.qmd",
-      "seconds": 0.675,
+      "page": "reference/cli/write_manifest/shiny.qmd",
+      "seconds": 0.724,
       "frozen": false
     },
     {
-      "page": "reference/cli/content/venv.qmd",
-      "seconds": 0.674,
+      "page": "reference/cli/write_manifest/flask.qmd",
+      "seconds": 0.722,
       "frozen": false
     },
     {
-      "page": "reference/cli/system/caches/list.qmd",
-      "seconds": 0.674,
+      "page": "reference/cli/deploy/manifest.qmd",
+      "seconds": 0.722,
       "frozen": false
     },
     {
-      "page": "reference/cli/details.qmd",
-      "seconds": 0.673,
+      "page": "reference/cli/environment/add.qmd",
+      "seconds": 0.722,
       "frozen": false
     },
     {
-      "page": "reference/cli/integration/templates/show.qmd",
-      "seconds": 0.668,
+      "page": "reference/cli/write_manifest/panel.qmd",
+      "seconds": 0.721,
       "frozen": false
     },
     {
-      "page": "reference/cli/integration/remove.qmd",
-      "seconds": 0.668,
+      "page": "reference/cli/content/repository/delete.qmd",
+      "seconds": 0.72,
       "frozen": false
     },
     {
-      "page": "reference/cli/environment/remove.qmd",
-      "seconds": 0.667,
+      "page": "reference/cli/deploy/bundle.qmd",
+      "seconds": 0.719,
       "frozen": false
     },
     {
-      "page": "reference/cli/content/build/add.qmd",
-      "seconds": 0.666,
+      "page": "reference/cli/write_manifest/api.qmd",
+      "seconds": 0.717,
       "frozen": false
     },
     {
-      "page": "reference/cli/content/repository.qmd",
-      "seconds": 0.665,
+      "page": "reference/cli/deploy/tensorflow.qmd",
+      "seconds": 0.714,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/deploy/git.qmd",
+      "seconds": 0.714,
       "frozen": false
     },
     {
       "page": "reference/cli/content/build/run.qmd",
-      "seconds": 0.662,
+      "seconds": 0.712,
       "frozen": false
     },
     {
-      "page": "reference/cli/integration/list.qmd",
-      "seconds": 0.662,
+      "page": "reference/cli/write_manifest/dash.qmd",
+      "seconds": 0.712,
       "frozen": false
     },
     {
-      "page": "reference/cli/content/build/logs.qmd",
-      "seconds": 0.661,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/quickstart.qmd",
-      "seconds": 0.661,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/write_manifest/pyproject.qmd",
-      "seconds": 0.659,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/integration/templates/list.qmd",
-      "seconds": 0.659,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/environment.qmd",
-      "seconds": 0.657,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/integration/show.qmd",
-      "seconds": 0.657,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/bootstrap.qmd",
-      "seconds": 0.657,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/content/get_lockfile.qmd",
-      "seconds": 0.656,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/content/build/history.qmd",
-      "seconds": 0.656,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/content/download_bundle.qmd",
-      "seconds": 0.656,
+      "page": "reference/cli/deploy.qmd",
+      "seconds": 0.711,
       "frozen": false
     },
     {
       "page": "reference/cli/content/describe.qmd",
-      "seconds": 0.654,
+      "seconds": 0.71,
       "frozen": false
     },
     {
-      "page": "reference/cli/write_manifest/tensorflow.qmd",
-      "seconds": 0.654,
+      "page": "reference/cli/environment/edit.qmd",
+      "seconds": 0.71,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/content/get_lockfile.qmd",
+      "seconds": 0.707,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/write_manifest/notebook.qmd",
+      "seconds": 0.707,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/content/build/logs.qmd",
+      "seconds": 0.704,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/add.qmd",
+      "seconds": 0.704,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/index.qmd",
+      "seconds": 0.704,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/write_manifest/fastapi.qmd",
+      "seconds": 0.703,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/write_manifest/bokeh.qmd",
+      "seconds": 0.699,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/login.qmd",
+      "seconds": 0.699,
       "frozen": false
     },
     {
       "page": "reference/cli/content/build/ls.qmd",
-      "seconds": 0.652,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/write_manifest/nodejs.qmd",
-      "seconds": 0.652,
-      "frozen": false
-    },
-    {
-      "page": "reference/cli/content/repository/show.qmd",
-      "seconds": 0.651,
+      "seconds": 0.696,
       "frozen": false
     },
     {
       "page": "reference/cli/content/build.qmd",
-      "seconds": 0.651,
+      "seconds": 0.695,
       "frozen": false
     },
     {
-      "page": "reference/cli/list.qmd",
-      "seconds": 0.649,
+      "page": "reference/cli/content/repository/show.qmd",
+      "seconds": 0.694,
       "frozen": false
     },
     {
-      "page": "reference/cli/version.qmd",
-      "seconds": 0.649,
+      "page": "reference/cli/write_manifest/voila.qmd",
+      "seconds": 0.694,
       "frozen": false
     },
     {
-      "page": "reference/cli/logout.qmd",
-      "seconds": 0.649,
+      "page": "reference/cli/integration/add.qmd",
+      "seconds": 0.694,
       "frozen": false
     },
     {
-      "page": "reference/cli/system/caches.qmd",
-      "seconds": 0.648,
+      "page": "reference/cli/integration/edit.qmd",
+      "seconds": 0.693,
       "frozen": false
     },
     {
-      "page": "reference/cli/integration/templates.qmd",
-      "seconds": 0.648,
+      "page": "reference/cli/bootstrap.qmd",
+      "seconds": 0.688,
       "frozen": false
     },
     {
-      "page": "reference/cli/content/build/rm.qmd",
-      "seconds": 0.645,
+      "page": "reference/cli/content/repository.qmd",
+      "seconds": 0.687,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/environment/remove.qmd",
+      "seconds": 0.687,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/content/venv.qmd",
+      "seconds": 0.686,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/write_manifest/gradio.qmd",
+      "seconds": 0.685,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/integration/templates/show.qmd",
+      "seconds": 0.683,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/integration/remove.qmd",
+      "seconds": 0.681,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/integration/show.qmd",
+      "seconds": 0.68,
       "frozen": false
     },
     {
       "page": "reference/cli/content.qmd",
-      "seconds": 0.645,
+      "seconds": 0.679,
       "frozen": false
     },
     {
-      "page": "reference/cli/remove.qmd",
-      "seconds": 0.642,
+      "page": "reference/cli/write_manifest.qmd",
+      "seconds": 0.678,
       "frozen": false
     },
     {
-      "page": "user-guide/server-administration.qmd",
-      "seconds": 0.64,
+      "page": "reference/cli/write_manifest/pyproject.qmd",
+      "seconds": 0.676,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/environment/show.qmd",
+      "seconds": 0.676,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/system/caches/delete.qmd",
+      "seconds": 0.676,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/integration/templates/list.qmd",
+      "seconds": 0.674,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/content/download_bundle.qmd",
+      "seconds": 0.672,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/write_manifest/nodejs.qmd",
+      "seconds": 0.67,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/details.qmd",
+      "seconds": 0.666,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/integration/list.qmd",
+      "seconds": 0.665,
       "frozen": false
     },
     {
       "page": "reference/cli/integration.qmd",
-      "seconds": 0.638,
+      "seconds": 0.665,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/list.qmd",
+      "seconds": 0.663,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/logout.qmd",
+      "seconds": 0.663,
+      "frozen": false
+    },
+    {
+      "page": "user-guide/server-administration.qmd",
+      "seconds": 0.662,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/content/build/history.qmd",
+      "seconds": 0.662,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/system/caches/list.qmd",
+      "seconds": 0.662,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/content/build/rm.qmd",
+      "seconds": 0.661,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/environment.qmd",
+      "seconds": 0.661,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/environment/list.qmd",
+      "seconds": 0.66,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/content/build/add.qmd",
+      "seconds": 0.658,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/write_manifest/tensorflow.qmd",
+      "seconds": 0.657,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/remove.qmd",
+      "seconds": 0.655,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/version.qmd",
+      "seconds": 0.654,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/quickstart.qmd",
+      "seconds": 0.653,
       "frozen": false
     },
     {
       "page": "reference/cli/system.qmd",
-      "seconds": 0.637,
+      "seconds": 0.651,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/system/caches.qmd",
+      "seconds": 0.65,
       "frozen": false
     },
     {
       "page": "reference/cli/info.qmd",
-      "seconds": 0.633,
+      "seconds": 0.65,
+      "frozen": false
+    },
+    {
+      "page": "reference/cli/integration/templates.qmd",
+      "seconds": 0.646,
       "frozen": false
     },
     {
       "page": "reference/cli/deploy/other_content.qmd",
-      "seconds": 0.615,
+      "seconds": 0.635,
       "frozen": false
     },
     {
       "page": "user-guide/index.qmd",
-      "seconds": 0.488,
+      "seconds": 0.531,
       "frozen": false
     },
     {
       "page": "contributing.qmd",
-      "seconds": 0.447,
+      "seconds": 0.48,
       "frozen": false
     },
     {
@@ -459,12 +459,12 @@
     },
     {
       "page": "skills.qmd",
-      "seconds": 0.407,
+      "seconds": 0.41,
       "frozen": false
     },
     {
       "page": "user-guide/programmatic-provisioning.qmd",
-      "seconds": 0.385,
+      "seconds": 0.403,
       "frozen": false
     }
   ]
