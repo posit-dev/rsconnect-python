@@ -8,6 +8,7 @@ generate its Changelog page from Releases.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -72,14 +73,18 @@ def _gh_releases() -> Dict[str, bool]:
         ["gh", "release", "list", "--limit", "500", "--json", "tagName,name"],
         check=True, capture_output=True, text=True,
     ).stdout
-    import json
     result: Dict[str, bool] = {}
     for rel in json.loads(out):
         tag = rel["tagName"]
-        body = subprocess.run(
-            ["gh", "release", "view", tag, "--json", "body", "-q", ".body"],
-            check=True, capture_output=True, text=True,
-        ).stdout.strip()
+        try:
+            body = subprocess.run(
+                ["gh", "release", "view", tag, "--json", "body", "-q", ".body"],
+                check=True, capture_output=True, text=True,
+            ).stdout.strip()
+        except subprocess.CalledProcessError as err:
+            print(f"warning: could not read release {tag}: {err}", file=sys.stderr)
+            result[tag] = True
+            continue
         result[tag] = bool(body)
     return result
 
