@@ -1,6 +1,5 @@
 {
   "recommendations": [
-    "ms-python.vscode-pylance",
     "charliermarsh.ruff"
   ]
 }
