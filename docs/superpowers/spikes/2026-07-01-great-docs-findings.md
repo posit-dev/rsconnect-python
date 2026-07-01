@@ -69,13 +69,25 @@ version is already displayed. Options for the inline "Generated from rsconnect-p
 (a) drop it (redundant with the auto version badge), or (b) post-build `sed` over
 `great-docs/_site/**/*.html` replacing a sentinel token.
 
-## ❌ No analytics/GTM hook
+## ✅ GTM/analytics via `include_in_header` (Quarto includes)
 
-great-docs has **no** analytics/GA/GTM support. `site:` keys are whitelisted (theme, toc,
-toc-depth, toc-title, show_dates, date_format, show_author, show_security) — arbitrary Quarto keys
-like `include-in-header` are NOT forwarded. Options to preserve `GTM-KHBDBW7`:
-(a) post-build injection of the GTM snippet into every `great-docs/_site/**/*.html` `<head>`,
-(b) drop analytics, or (c) request an analytics feature from great-docs maintainers (Posit-internal).
+great-docs has no dedicated analytics key, and `site:` keys are whitelisted (theme, toc, toc-depth,
+toc-title, show_dates, date_format, show_author, show_security) so nesting includes under `site:`
+does NOT work. BUT great-docs supports a **top-level `include_in_header`** key that it merges into
+Quarto's `format.html.include-in-header` (core.py:11247–11250; config.py:1205). Accepts an inline
+`text:` block or a `file:` entry. Verified: an inline GTM `<script>` snippet was injected into the
+`<head>` of **all 88 pages**:
+
+```yaml
+include_in_header:
+  - text: |
+      <!-- Google Tag Manager -->
+      <script>...GTM-KHBDBW7...</script>
+```
+
+This is the clean, config-based path — no post-build HTML mutation needed for analytics. (Note:
+`include_in_header` is head-only; the GTM `<noscript>` body iframe has no config hook, but the head
+script is the functional part for JS-enabled clients.)
 
 ## Net gate result
 
