@@ -111,6 +111,11 @@ class TestSystemCachesDelete(unittest.TestCase):
         result = runner.invoke(cli, args)
 
         self.assertEqual(result.exit_code, 0, result.output)
+        delete_request = next(r for r in httpretty.latest_requests() if r.method == "DELETE")
+        body = json.loads(delete_request.body)
+        self.assertEqual(body["language"], "Python")
+        self.assertEqual(body["version"], "1.2.3")
+        self.assertEqual(body["image_name"], "Local")
 
     def test_system_caches_delete_missing_all_flags(self):
         """Omitting both --language and --version yields exit code 2 (Click validation)."""
