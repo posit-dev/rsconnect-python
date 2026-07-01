@@ -1549,7 +1549,7 @@ def deploy_notebook(
     # Prepare metadata for upload
     server_version = None
     if isinstance(ce.client, RSConnectClient):
-        server_version = ce.client.server_settings().get("version", "")
+        server_version = ce.client.server_version()
     deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
     ce.metadata = deploy_metadata
 
@@ -1727,7 +1727,7 @@ def deploy_voila(
     # Prepare metadata for upload
     server_version = None
     if isinstance(ce.client, RSConnectClient):
-        server_version = ce.client.server_settings().get("version", "")
+        server_version = ce.client.server_version()
     base_dir = path if isdir(path) else dirname(path)
     deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
     ce.metadata = deploy_metadata
@@ -1825,7 +1825,7 @@ def deploy_manifest(
     # Prepare metadata for upload
     server_version = None
     if isinstance(ce.client, RSConnectClient):
-        server_version = ce.client.server_settings().get("version", "")
+        server_version = ce.client.server_version()
     base_dir = dirname(file_name)
     deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
     ce.metadata = deploy_metadata
@@ -1920,7 +1920,7 @@ def deploy_bundle(
     # explicit --metadata overrides are sent.
     server_version = None
     if isinstance(ce.client, RSConnectClient):
-        server_version = ce.client.server_settings().get("version", "")
+        server_version = ce.client.server_version()
     ce.metadata = prepare_deploy_metadata(None, metadata, no_metadata, server_version)
 
     (
@@ -2134,7 +2134,7 @@ def deploy_pyproject(
 
     server_version = None
     if isinstance(ce.client, RSConnectClient):
-        server_version = ce.client.server_settings().get("version", "")
+        server_version = ce.client.server_version()
     ce.metadata = prepare_deploy_metadata(directory, metadata, no_metadata, server_version)
 
     (
@@ -2406,7 +2406,7 @@ def deploy_quarto(
     # Prepare metadata for upload
     server_version = None
     if isinstance(ce.client, RSConnectClient):
-        server_version = ce.client.server_settings().get("version", "")
+        server_version = ce.client.server_version()
     deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
     ce.metadata = deploy_metadata
 
@@ -2521,7 +2521,7 @@ def deploy_tensorflow(
     # Prepare metadata for upload
     server_version = None
     if isinstance(ce.client, RSConnectClient):
-        server_version = ce.client.server_settings().get("version", "")
+        server_version = ce.client.server_version()
     deploy_metadata = prepare_deploy_metadata(directory, metadata, no_metadata, server_version)
     ce.metadata = deploy_metadata
 
@@ -2647,7 +2647,7 @@ def deploy_html(
     # Prepare metadata for upload
     server_version = None
     if isinstance(ce.client, RSConnectClient):
-        server_version = ce.client.server_settings().get("version", "")
+        server_version = ce.client.server_version()
     base_dir = path if isdir(path) else dirname(path)
     deploy_metadata = prepare_deploy_metadata(base_dir, metadata, no_metadata, server_version)
     ce.metadata = deploy_metadata
@@ -2866,7 +2866,7 @@ def generate_deploy_python(
             # Update the starlette version if needed. After all users are on Connect
             # 2024.01.1 or later, this can be removed. Requires access to the
             # Connect server version, which may be hidden.
-            connect_version_string = ce.client.server_settings().get("version", "")
+            connect_version_string = ce.client.server_version()
             server_version = connect_version_string
             if connect_version_string:
                 environment = fix_starlette_requirements(
@@ -3044,7 +3044,7 @@ def deploy_nodejs(
     )
 
     if isinstance(ce.client, RSConnectClient):
-        connect_version_string = ce.client.server_settings().get("version", "")
+        connect_version_string = ce.client.server_version()
         server_version = connect_version_string
 
     deploy_metadata = prepare_deploy_metadata(directory, metadata, no_metadata, server_version)

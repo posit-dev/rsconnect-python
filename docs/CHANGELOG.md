@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- The `CONNECT_SERVER_VERSION` environment variable can now be set to tell
+  rsconnect-python which Connect version to assume for feature-availability
+  checks. Some servers can be configured to suppress their version, which makes
+  version-gated features (such as draft deploys and git metadata) default to
+  off; setting `CONNECT_SERVER_VERSION` opts back in. When it is set, its value
+  is used directly and the `server_settings` request for the version is skipped.
 - `rsconnect deploy` commands now verify content before activating it. The new
   bundle is deployed as a draft, its preview URL is accessed to confirm the
   content starts, and only then is the bundle activated. If verification fails,

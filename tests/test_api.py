@@ -1,5 +1,6 @@
 import io
 import json
+import os
 import sys
 from unittest import TestCase
 from unittest.mock import Mock, patch
@@ -1122,3 +1123,53 @@ class RSConnectExecutorDeployGitTestCase(TestCase):
 
         with pytest.raises(RSConnectException, match="Repository URL is required"):
             RSConnectExecutor.deploy_git(executor)
+
+
+class RSConnectClientServerVersionTestCase(TestCase):
+    """Tests for RSConnectClient.server_version() and the CONNECT_SERVER_VERSION override."""
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_server_version_from_settings(self):
+        """Without the env var, the version comes from the server_settings endpoint."""
+        server = RSConnectServer("http://test-server", "api_key")
+        client = RSConnectClient(server)
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/server_settings",
+            body=json.dumps({"hostname": "test-server", "version": "2025.06.0"}),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        with patch.dict("os.environ", {}, clear=False):
+            os.environ.pop("CONNECT_SERVER_VERSION", None)
+            self.assertEqual(client.server_version(), "2025.06.0")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_server_version_hidden_returns_empty(self):
+        """A suppressed version yields an empty string when the env var is unset."""
+        server = RSConnectServer("http://test-server", "api_key")
+        client = RSConnectClient(server)
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/server_settings",
+            body=json.dumps({"hostname": "test-server"}),
+            status=200,
+            forcing_headers={"Content-Type": "application/json"},
+        )
+
+        with patch.dict("os.environ", {}, clear=False):
+            os.environ.pop("CONNECT_SERVER_VERSION", None)
+            self.assertEqual(client.server_version(), "")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_server_version_env_var_overrides_without_request(self):
+        """When CONNECT_SERVER_VERSION is set, it is returned without hitting the server."""
+        server = RSConnectServer("http://test-server", "api_key")
+        client = RSConnectClient(server)
+
+        with patch.dict("os.environ", {"CONNECT_SERVER_VERSION": "2025.12.0"}):
+            self.assertEqual(client.server_version(), "2025.12.0")
+
+        # No request to server_settings should have been made.
+        self.assertFalse(httpretty.has_request())

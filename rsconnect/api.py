@@ -606,6 +606,24 @@ class RSConnectClient(HTTPServer):
         response = self._server.handle_bad_response(response)
         return response
 
+    def server_version(self) -> str:
+        """
+        Determine the Connect server version used for feature-availability checks.
+
+        A server can be configured to suppress its version from the
+        ``server_settings`` endpoint, which makes version-gated features default to
+        "off". Setting the ``CONNECT_SERVER_VERSION`` environment variable overrides
+        this: when it is set we use it and skip the ``server_settings`` request
+        entirely, so the library acts as if it is talking to that version.
+
+        :return: The server version string, or an empty string if it is unknown.
+        """
+        env_version = os.environ.get("CONNECT_SERVER_VERSION")
+        if env_version:
+            logger.debug(f"Using CONNECT_SERVER_VERSION={env_version} for server version checks")
+            return env_version
+        return self.server_settings().get("version", "")
+
     def python_settings(self) -> PyInfo:
         response = cast(Union[PyInfo, HTTPResponse], self.get("v1/server_settings/python"))
         response = self._server.handle_bad_response(response)
@@ -1788,7 +1806,7 @@ class RSConnectExecutor:
             return False
         if self._draft_deploy_supported is None:
             try:
-                server_version = self.client.server_settings().get("version", "")
+                server_version = self.client.server_version()
             except Exception:
                 server_version = None
             self._draft_deploy_supported = server_supports_draft_deploy(server_version)
