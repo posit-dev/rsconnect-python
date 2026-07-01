@@ -352,8 +352,10 @@ git commit -m "feat: backfill GitHub Release notes from CHANGELOG"
 
 > **SPIKE-CORRECTED (Task 1 findings, authoritative).** These tasks were rewritten after the
 > spike overturned several pre-spike assumptions. Confirmed facts used below:
-> - CLI-only build works with `reference: []` (suppresses the Python API reference). Config keys:
->   `display_name`, `cli.enabled`/`cli.module`, `changelog.enabled`, top-level `include_in_header`.
+> - CLI-only build works with `reference: false` (boolean; suppresses the Python API reference).
+>   NOTE: `reference: []` does NOT work — an empty list is falsy and falls through to full API
+>   auto-discovery. Use the boolean `false`. Config keys: `display_name`, `cli.enabled`/`cli.module`,
+>   `changelog.enabled`, top-level `include_in_header`.
 > - `user_guide/` lives at the **project root** (not `great-docs/user_guide/`).
 > - great-docs renders into a **managed `great-docs/` directory** (git-ignore it entirely) and
 >   outputs `great-docs/_site/`. `great-docs.yml` (the config file) stays at the repo root and IS tracked.
@@ -385,7 +387,7 @@ display_name: rsconnect-python
 cli:
   enabled: true
   module: rsconnect.main
-reference: []              # empty => no auto Python API reference (CLI reference still generated)
+reference: false           # disables auto Python API reference (CLI reference still generated). NOT `[]` — an empty list is falsy and falls through to full auto-discovery.
 changelog:
   enabled: true
   max_releases: 100

@@ -12,12 +12,18 @@ display_name: rsconnect-python
 cli:
   enabled: true
   module: rsconnect.main
-reference: []          # empty explicit sections => no auto Python API reference
+reference: false       # boolean false disables auto Python API reference
 changelog:
   enabled: true
 ```
 
-`reference: []` produced **zero** non-CLI reference pages. Build emitted 87–88 HTML pages.
+**CORRECTION (found during Task 4 against the real package):** use `reference: false`, NOT
+`reference: []`. In great-docs 0.14.1, an empty list is falsy and falls through to full API
+auto-discovery (config.py:834, core.py:8452) — it enumerates every class in every module. The
+spike's original `reference: []` result (zero API pages) was a **false positive**: the spike probe
+used a throwaway package with no importable module, so griffe found nothing to document regardless
+of the key. Against the real, importable `rsconnect` package, only `reference: false` suppresses it.
+With `reference: false`: 84 CLI reference pages under `reference/cli/`, zero non-CLI reference pages.
 
 ## ✅ CLI auto-discovery from `rsconnect.main` is rich
 
