@@ -129,7 +129,7 @@ jobs:
     - uses: actions/upload-artifact@v5
       with:
         name: docs
-        path: site/
+        path: great-docs/_site/
     - uses: aws-actions/configure-aws-credentials@v4
       id: creds
       with:
