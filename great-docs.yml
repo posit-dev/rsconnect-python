@@ -3,7 +3,25 @@ display_name: rsconnect-python
 cli:
   enabled: true
   module: rsconnect.main
-reference: false           # disables auto Python API reference (CLI reference still generated; see task-4-report.md)
+logo: assets/iconPositConnect.svg
+favicon: assets/favicon.ico
+reference: false           # disable auto Python API reference; an empty list [] is falsy and would NOT disable it
+user_guide:
+  - section: "User Guide"
+    contents:
+      - index.qmd
+      - programmatic-provisioning.qmd
+      - deploying.qmd
+      - server-administration.qmd
 changelog:
   enabled: true
   max_releases: 100
+include_in_header:
+  - text: |
+      <!-- Google Tag Manager -->
+      <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+      new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+      'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+      })(window,document,'script','dataLayer','GTM-KHBDBW7');</script>
+      <!-- End Google Tag Manager -->
