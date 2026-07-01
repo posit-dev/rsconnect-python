@@ -58,7 +58,7 @@ clean:
 clean-stores:
     #!/usr/bin/env bash
     set -euo pipefail
-    find . -name "rsconnect-python" -o -name "rsconnect_python-*" -o -name "rsconnect-*" | xargs rm -rf
+    find . -type d \( -name "rsconnect-python" -o -name "rsconnect_python-*" \) -exec rm -rf {} +
 
 # Start a local Connect server for development (Docker; not replaced by uv)
 dev:
