@@ -24,6 +24,8 @@ jobs:
 
       - uses: extractions/setup-just@v3
 
+      - uses: quarto-dev/quarto-actions/setup@v2
+
       - name: Install and Build
         if: github.event.action != 'closed' # skip the build if the PR has been closed
         run: just docs
@@ -31,4 +33,4 @@ jobs:
       - name: Deploy preview
         uses: rossjrw/pr-preview-action@v1
         with:
-          source-dir: ./site/
+          source-dir: ./great-docs/_site/
