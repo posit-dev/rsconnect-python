@@ -36,3 +36,7 @@ vetiver-testing/rsconnect_api_keys.json
 # license files should not be commited to this repository
 *.lic
 /site/
+
+# great-docs managed build output and docs venv
+/great-docs/
+.venv-docs/

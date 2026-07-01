@@ -42,17 +42,27 @@ install:
 version:
     uv version --short
 
-# Build the documentation site
+# Build the documentation site (great-docs / Quarto). Requires the Quarto CLI.
 docs:
-    VERSION=$(uv version --short) uv run --group docs mkdocs build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    uv venv --python 3.12 --allow-existing .venv-docs
+    uv pip install --python .venv-docs --quiet great-docs pygments .
+    source .venv-docs/bin/activate
+    great-docs build
 
 # Serve the documentation with live reload
 docs-serve:
-    VERSION=$(uv version --short) uv run --group docs mkdocs serve
+    #!/usr/bin/env bash
+    set -euo pipefail
+    uv venv --python 3.12 --allow-existing .venv-docs
+    uv pip install --python .venv-docs --quiet great-docs pygments .
+    source .venv-docs/bin/activate
+    great-docs preview
 
 # Remove build/test artifacts
 clean:
-    rm -rf .coverage .pytest_cache build dist htmlcov rsconnect_python.egg-info rsconnect.egg-info site
+    rm -rf .coverage .pytest_cache build dist htmlcov rsconnect_python.egg-info rsconnect.egg-info great-docs
 
 # Remove local rsconnect store directories
 clean-stores:
@@ -62,8 +72,8 @@ clean-stores:
 
 # Sync latest docs to S3 (CI)
 sync-latest-docs-to-s3:
-    aws s3 sync --acl bucket-owner-full-control --cache-control max-age=0 site/ s3://rstudio-connect-downloads/connect/rsconnect-python/latest/docs/
+    aws s3 sync --acl bucket-owner-full-control --cache-control max-age=0 great-docs/_site/ s3://rstudio-connect-downloads/connect/rsconnect-python/latest/docs/
 
 # Promote docs in S3 (CI)
 promote-docs-in-s3:
-    aws s3 sync --delete --acl bucket-owner-full-control --cache-control max-age=300 site/ s3://docs.rstudio.com/rsconnect-python/
+    aws s3 sync --delete --acl bucket-owner-full-control --cache-control max-age=300 great-docs/_site/ s3://docs.rstudio.com/rsconnect-python/

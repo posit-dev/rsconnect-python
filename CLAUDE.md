@@ -54,6 +54,14 @@ just docs
 just docs-serve
 ```
 
+Docs are built with [great-docs](https://github.com/posit-dev/great-docs) (Quarto-based), not
+mkdocs. Requires the **Quarto CLI** to be installed. `just docs` provisions an isolated
+`.venv-docs` (Python 3.12) with `uv venv`/`uv pip install`, then runs `great-docs build` inside
+that venv — it does **not** use `uv run --with`, because Quarto's post-render hook must execute
+under the same interpreter that has `great_docs`/`pygments` importable. Output is written to
+`great-docs/_site/` (git-ignored, along with `.venv-docs/`). Narrative pages live in
+`user_guide/*.qmd`; CLI reference pages are auto-generated from `rsconnect.main`.
+
 ### Building Distribution
 ```bash
 # Build wheel distribution
@@ -184,7 +192,14 @@ The app mode determines how Connect runs the content. Manifests must specify the
 
 - Version is a static field in `pyproject.toml`, managed with `uv version`.
 - `main` carries a `.dev` version (e.g. `1.29.1.dev0`).
-- Update CHANGELOG.md before each release (even betas).
+- Release notes are now authored directly in the GitHub Release for each tag — that's the source
+  of truth for the published changelog (great-docs renders it into the docs changelog page).
+  `docs/CHANGELOG.md` only retains the `Unreleased` section for in-flight work; update it before
+  cutting a release, then clear it back to an empty `Unreleased` section afterward.
+- `scripts/backfill_release_notes.py` is the one-time migration that ported historical
+  `docs/CHANGELOG.md` entries into existing GitHub Releases. Run it dry-run first
+  (`uv run scripts/backfill_release_notes.py`) to review the plan, then `--apply` to write it.
+  It should not need to run again once history is migrated.
 - Cut a release: `uv version --bump stable`, commit, `git tag -a 1.2.3 -m 'Release 1.2.3'`, push the tag.
 - The `distributions` CI job asserts the tag matches the `pyproject.toml` version, then builds and publishes to PyPI.
 - After releasing, bump `main` back to the next `.dev` version with `uv version <next>.dev0`.

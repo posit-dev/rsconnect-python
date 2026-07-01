@@ -123,12 +123,13 @@ jobs:
       with:
         version: ">=0.9.0"
     - uses: extractions/setup-just@v3
+    - uses: quarto-dev/quarto-actions/setup@v2
     - name: build docs
       run: just docs
     - uses: actions/upload-artifact@v5
       with:
         name: docs
-        path: site/
+        path: great-docs/_site/
     - uses: aws-actions/configure-aws-credentials@v4
       id: creds
       with:
