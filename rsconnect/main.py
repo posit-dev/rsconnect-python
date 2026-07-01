@@ -757,9 +757,7 @@ def add(
         else:
             click.echo('Added {} credential "{}".'.format(real_server.remote_name, name))
     else:
-
         if server and ("snowflakecomputing.app" in server or snowflake_connection_name):
-
             server = cast(str, server)
             api_key = cast(str, api_key)
 
@@ -780,7 +778,6 @@ def add(
                 click.echo('Added {} credential "{}".'.format(real_server_spcs.remote_name, name))
 
         else:
-
             server = cast(str, server)
             api_key = cast(str, api_key)
             # If we're in this code path
@@ -904,8 +901,7 @@ def details(
 @cli.command(
     short_help="Remove the information about a Posit Connect server.",
     help=(
-        "Remove the information about a Posit Connect server by nickname or URL. "
-        "One of --name or --server is required."
+        "Remove the information about a Posit Connect server by nickname or URL. One of --name or --server is required."
     ),
     no_args_is_help=True,
 )
@@ -1444,7 +1440,7 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from " "the detected environment."),
+    help=("An optional python version to use instead of the version from the detected environment."),
 )
 @click.option(
     "--force-generate",
@@ -1631,7 +1627,7 @@ def deploy_notebook(
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from " "the detected environment."),
+    help=("An optional python version to use instead of the version from the detected environment."),
 )
 @click.option(
     "--force-generate",
@@ -2295,7 +2291,7 @@ def deploy_git(
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from " "the detected environment."),
+    help=("An optional python version to use instead of the version from the detected environment."),
 )
 @click.option(
     "--force-generate",
@@ -2755,7 +2751,7 @@ def generate_deploy_python(
     @click.option(
         "--override-python-version",
         type=validation.PYTHON_VERSION,
-        help=("An optional python version to use instead of the version from " "the detected environment."),
+        help=("An optional python version to use instead of the version from the detected environment."),
     )
     @click.option(
         "--force-generate",
@@ -3130,7 +3126,7 @@ def write_manifest():
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from " "the detected environment."),
+    help=("An optional python version to use instead of the version from the detected environment."),
 )
 @click.option(
     "--force-generate",
@@ -3252,7 +3248,7 @@ def write_manifest_notebook(
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from " "the detected environment."),
+    help=("An optional python version to use instead of the version from the detected environment."),
 )
 @click.option(
     "--force-generate",
@@ -3410,7 +3406,7 @@ def write_manifest_voila(
 @click.option(
     "--override-python-version",
     type=validation.PYTHON_VERSION,
-    help=("An optional python version to use instead of the version from " "the detected environment."),
+    help=("An optional python version to use instead of the version from the detected environment."),
 )
 @click.option(
     "--force-generate",
@@ -3833,7 +3829,7 @@ def generate_write_manifest_python(
     @click.option(
         "--override-python-version",
         type=validation.PYTHON_VERSION,
-        help=("An optional python version to use instead of the version from " "the detected environment."),
+        help=("An optional python version to use instead of the version from the detected environment."),
     )
     @click.option(
         "--force-generate",

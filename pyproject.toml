@@ -6,6 +6,7 @@ authors = [{ name = "Posit, PBC", email = "rsconnect@posit.co" }]
 license = { file = "LICENSE.md" }
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.8"
+version = "1.29.1.dev0"
 
 dependencies = [
     "typing-extensions>=4.8.0",
@@ -18,35 +19,31 @@ dependencies = [
     "toml>=0.10; python_version < '3.11'",
 ]
 
-dynamic = ["version"]
-
 [project.scripts]
 rsconnect = "rsconnect.main:cli"
 
 [project.optional-dependencies]
+keyring = ["keyring>=23.0.0"]
+snowflake = ["snowflake-cli"]
+
+[dependency-groups]
 test = [
-    "black==24.3.0",
     "coverage",
-    "flake8-pyproject",
-    "flake8",
     "httpretty",
     "ipykernel",
     "nbconvert",
-    "pyright",
-    "pytest-cov",
     "pytest",
-    "setuptools>=61",
-    "setuptools_scm[toml]>=3.4",
+    "pytest-cov",
     "twine",
     "types-Flask",
+    "ruff",
+    "pyright",
 ]
-keyring = ["keyring>=23.0.0"]
-snowflake = ["snowflake-cli"]
 docs = [
     "mkdocs-material",
     "mkdocs-click",
     "pymdown-extensions",
-    "mkdocs-macros-plugin"
+    "mkdocs-macros-plugin",
 ]
 
 [project.urls]
@@ -54,47 +51,24 @@ Repository = "http://github.com/posit-dev/rsconnect-python"
 Documentation = "https://docs.posit.co/rsconnect-python"
 
 [build-system]
-requires = ["setuptools>=61", "setuptools_scm[toml]>=3.4", "wheel"]
+requires = ["uv_build>=0.9.0,<0.13.0"]
+build-backend = "uv_build"
 
-[tool.distutils.bdist_wheel]
-universal = true
+[tool.uv.build-backend]
+module-name = "rsconnect"
+module-root = ""
 
-[tool.black]
+[tool.ruff]
 line-length = 120
+extend-exclude = ["my-shiny-app", "rsconnect-build", "rsconnect-build-test", "integration", "vetiver-testing", "tests/testdata"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E203", "E231", "E302"]
+per-file-ignores = { "tests/test_metadata.py" = ["E501"] }
 
 [tool.coverage.run]
 omit = ["tests/*"]
-
-[tool.flake8]
-max_line_length = 120
-show_source = true
-exclude = [".git", ".venv", ".venv2", ".venv3", "__pycache__", ".cache"]
-
-# The following codes are ignored so that `flake8` plays nicer with how `black`
-# likes to format:
-# - E203: whitespace before ':'
-# - E231: missing whitespace after ',', ';', or ':'
-# - E302: expected 2 blank lines, found 0
-#
-# ref:
-# https://pycodestyle.readthedocs.io/en/latest/intro.html#error-codes
-#
-extend_ignore = ["E203", "E231", "E302"]
-per-file-ignores = ["tests/test_metadata.py: E501"]
-
-[tool.setuptools]
-packages = ["rsconnect", "rsconnect.quickstart", "rsconnect.quickstart.templates"]
-
-[tool.setuptools_scm]
-write_to = "rsconnect/version.py"
-
-[tool.setuptools.package-data]
-rsconnect = ["py.typed"]
-# Per-mode quickstart templates are shipped as package data so
-# pkgutil.get_data() can read them from a wheel install. The glob covers
-# every subdirectory (streamlit/, shiny/, fastapi/, api/, notebook/, quarto/)
-# and every extension (.py, .ipynb, .qmd) without enumerating each one.
-"rsconnect.quickstart.templates" = ["**/*"]
 
 [tool.pytest.ini_options]
 markers = ["vetiver: tests for vetiver"]

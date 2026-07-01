@@ -5,15 +5,15 @@
     "files.encoding": "utf8",
     "files.eol": "\n",
     "[python]": {
-        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.formatOnSave": true,
         "editor.tabSize": 4,
         "editor.codeActionsOnSave": {
-            "source.organizeImports": "explicit"
+            "source.fixAll.ruff": "explicit",
+            "source.organizeImports.ruff": "explicit"
         },
         "editor.rulers": [120],
     },
-    "isort.args": ["--profile", "black"],
     "files.exclude": {
         "**/__pycache__": true,
         "build/**": true,

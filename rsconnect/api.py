@@ -334,7 +334,8 @@ class SPCSConnectServer(AbstractRemoteServer):
             payload = self.fmt_payload()
 
             response = server.request(
-                method="POST", **payload  # type: ignore[arg-type]  # fmt_payload returns a dict with body and headers
+                method="POST",
+                **payload,  # type: ignore[arg-type]  # fmt_payload returns a dict with body and headers
             )
             response = cast(HTTPResponse, response)
 
@@ -489,16 +490,12 @@ class RSConnectClient(HTTPServer):
                 start_pos = body.tell()  # type: ignore[union-attr]
             else:
                 body = body.read()  # type: ignore[union-attr]
-        response = super().request(
-            method, path, query_params, body, maximum_redirects, decode_response, headers
-        )  # pyright: ignore[reportUnknownArgumentType]
+        response = super().request(method, path, query_params, body, maximum_redirects, decode_response, headers)  # pyright: ignore[reportUnknownArgumentType]
         if can_retry and isinstance(response, HTTPResponse) and response.status == 401:
             if self._attempt_token_refresh():
                 if start_pos is not None:
                     body.seek(start_pos)  # type: ignore[union-attr]
-                return super().request(
-                    method, path, query_params, body, maximum_redirects, decode_response, headers
-                )  # pyright: ignore[reportUnknownArgumentType]
+                return super().request(method, path, query_params, body, maximum_redirects, decode_response, headers)  # pyright: ignore[reportUnknownArgumentType]
         return response
 
     def _attempt_token_refresh(self) -> bool:
@@ -1692,7 +1689,7 @@ class RSConnectExecutor:
         """
         if not isinstance(self.client, RSConnectClient):
             raise RSConnectException(
-                "Git deployment is only supported for Posit Connect servers, " "not shinyapps.io or Posit Cloud."
+                "Git deployment is only supported for Posit Connect servers, not shinyapps.io or Posit Cloud."
             )
 
         if not self.repository:

@@ -4,70 +4,59 @@ This project aims to uphold Python [community norms](https://www.python.org/psf/
 tooling](https://packaging.python.org/guides/tool-recommendations/).
 
 To get started, you'll want to:
-- clone the repo into a project directory
-- setup a virtual 3.8+ python environment in the project directory
-- activate that virtual environment
-- install the dependencies
+- install [`uv`](https://docs.astral.sh/uv/) and [`just`](https://github.com/casey/just)
+- clone the repo
+- run `uv sync --group test` to provision the interpreter and install all dependencies
 - validate your build environment with some sample commands
 
-While there are several different tools and techniques you can use to accomplish the
-steps listed above, the following is an example which uses `venv`.
+We use [`uv`](https://docs.astral.sh/uv/) to manage environments and
+[`just`](https://github.com/casey/just) as the task runner. Install both, then:
 
 ```bash
 # Clone the repo
 cd ~/dev
 git clone https://github.com/posit-dev/rsconnect-python.git
 cd rsconnect-python
-# Setup a virtual python environment
-python3 -m venv .venv
-# Activate the virtual environment
-source .venv/bin/activate
-# Install rsconnect-python with a symbolic link to the locations repository,
-# meaning any changes to code in there will automatically be reflected.
-# Also install dev/test dependencies.
-pip install -e '.[test]'
+# Create the environment and install the project plus dev tooling.
+# `uv` provisions the interpreter and resolves the `test` dependency group.
+uv sync --group test
+# Run the CLI from your working tree:
+uv run rsconnect version
 ```
 
 ## Workflow
 
-With your venv setup and active, as described previously, running rsconnect-python using your codebase is as simple as running the `rsconnect` command from the terminal.
-
 ### Linting
 
 ```bash
-make lint
+just lint
 ```
 
-This runs black (formatting check), flake8, and pyright.
-
-> **NOTE**: pyright currently has known errors that are suppressed in the Makefile (see [#774](https://github.com/posit-dev/rsconnect-python/issues/774)). Until those are resolved, you can run just the enforced checks directly:
->
-> ```bash
-> black --check --diff rsconnect/
-> flake8 rsconnect/
-> flake8 tests/
-> ```
-
-To auto-format code:
+This runs `ruff format --check`, `ruff check`, and `pyright`. `pyright` is
+advisory (it does not fail the command); ruff is enforced. Auto-format and
+apply fixes with:
 
 ```bash
-make fmt
+just fmt
 ```
 
 ### Testing
 
 ```bash
-# run the tests
-make test
+# run the tests on the default Python (3.13)
+just test
 
-# run tests with a specific Python version
-make test-3.12
+# run tests with a specific Python version (uv fetches it if needed)
+just test 3.12
 
 # run tests across all supported Python versions
-make all-tests
+just all-tests
 ```
 
-The test suite includes integration tests that require a running Posit Connect server. These tests are skipped automatically unless the `CONNECT_SERVER` and `CONNECT_API_KEY` environment variables are set. If you have these variables in your environment from other work and see unexpected test failures, unset them:
+The test suite includes integration tests that require a running Posit Connect
+server. These tests are skipped automatically unless the `CONNECT_SERVER` and
+`CONNECT_API_KEY` environment variables are set. If you have these variables in
+your environment from other work and see unexpected test failures, unset them:
 
 ```bash
 unset CONNECT_SERVER CONNECT_API_KEY
@@ -89,30 +78,39 @@ in the Connect repository. To test a feature branch:
 
 ## Versioning and Releasing
 
-All version and release management is done via [annotated git tags](https://git-scm.com/docs/git-tag), as this is the
-repo metadata used by the [`setuptools_scm`](https://github.com/pypa/setuptools_scm) package to generate the version
-string provided as `rsconnect:VERSION` and output by `rsconnect version`.
+The version is a static field in `pyproject.toml`, managed with
+[`uv version`](https://docs.astral.sh/uv/guides/package/#updating-your-version).
+`main` always carries a `.dev` version (e.g. `1.29.1.dev0`) so development
+builds are marked as pre-releases and never collide with a published release.
 
 ### Update CHANGELOG.md
 
-Before releasing, replace the `Unreleased` heading in the CHANGELOG.md with the version number and date. Update CHANGELOG.md before _EACH_ release, even beta releases, in order to avoid one commit with multiple tags (https://github.com/pypa/setuptools_scm/issues/521).
+Before releasing, replace the `Unreleased` heading in CHANGELOG.md with the
+version number and date. Update CHANGELOG.md before _EACH_ release, even beta
+releases.
 
 ### Tagging a Release
 
-To create a new release, create and push an annotated git tag:
-
 ```bash
-git tag -a 1.2.3 -m 'Release 1.2.3'
-git push origin 1.2.3
+# Drop the .dev suffix to cut the release (e.g. 1.29.1.dev0 -> 1.29.1)
+uv version --bump stable
+git commit -am 'Release 1.29.1'
+git tag -a 1.29.1 -m 'Release 1.29.1'
+git push origin main 1.29.1
 ```
 
-Once the tag push is received by GitHub, the relevant workflow action will be triggered and, upon successful completion,
-a release will be created and published to the repository
-[releases](https://github.com/posit-dev/rsconnect-python/releases) and the public
-[PYPI](https://pypi.org/project/rsconnect-python/#history).
+On a tag push, the `distributions` job asserts the tag equals the
+`pyproject.toml` version, builds `rsconnect_python` and `rsconnect`, and
+publishes to [PyPI](https://pypi.org/project/rsconnect-python/#history) and the
+GitHub releases page. After releasing, re-arm development on `main`:
 
-> **NOTE**: Pre-releases versions must comply with [PIP 440](https://www.python.org/dev/peps/pep-0440/) in order for
-> PIPY to appropriately mark them as pre-releases.
+```bash
+uv version 1.29.2.dev0
+git commit -am 'Begin 1.29.2 development'
+git push origin main
+```
+
+> **NOTE**: Pre-release versions must comply with [PEP 440](https://www.python.org/dev/peps/pep-0440/) so PyPI marks them as pre-releases. `uv version`'s `dev`/`alpha`/`beta`/`rc` bumps produce compliant strings.
 
 ## Updating rsconnect-python on conda-forge
 

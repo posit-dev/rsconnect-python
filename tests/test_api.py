@@ -562,14 +562,16 @@ class RSConnectClientDeployGitTestCase(TestCase):
         httpretty.register_uri(
             httpretty.POST,
             "http://test-server/__api__/v1/content",
-            body=json.dumps({
-                "id": 123,
-                "guid": "abc-123",
-                "name": "test-app",
-                "title": None,
-                "content_url": "http://test-server/content/abc-123/",
-                "dashboard_url": "http://test-server/connect/#/apps/abc-123",
-            }),
+            body=json.dumps(
+                {
+                    "id": 123,
+                    "guid": "abc-123",
+                    "name": "test-app",
+                    "title": None,
+                    "content_url": "http://test-server/content/abc-123/",
+                    "dashboard_url": "http://test-server/connect/#/apps/abc-123",
+                }
+            ),
             status=200,
             forcing_headers={"Content-Type": "application/json"},
         )
@@ -587,14 +589,16 @@ class RSConnectClientDeployGitTestCase(TestCase):
         httpretty.register_uri(
             httpretty.PUT,
             "http://test-server/__api__/v1/content/abc-123/repository",
-            body=json.dumps({
-                "repository": "https://github.com/user/repo",
-                "branch": "main",
-                "directory": ".",
-                "polling": True,
-                "last_error": "",
-                "last_known_commit": "",
-            }),
+            body=json.dumps(
+                {
+                    "repository": "https://github.com/user/repo",
+                    "branch": "main",
+                    "directory": ".",
+                    "polling": True,
+                    "last_error": "",
+                    "last_known_commit": "",
+                }
+            ),
             status=200,
             forcing_headers={"Content-Type": "application/json"},
         )
@@ -641,14 +645,16 @@ class RSConnectClientDeployGitTestCase(TestCase):
         httpretty.register_uri(
             httpretty.POST,
             "http://test-server/__api__/v1/content",
-            body=json.dumps({
-                "id": 123,
-                "guid": "abc-123",
-                "name": "test-app",
-                "title": None,
-                "content_url": "http://test-server/content/abc-123/",
-                "dashboard_url": "http://test-server/connect/#/apps/abc-123",
-            }),
+            body=json.dumps(
+                {
+                    "id": 123,
+                    "guid": "abc-123",
+                    "name": "test-app",
+                    "title": None,
+                    "content_url": "http://test-server/content/abc-123/",
+                    "dashboard_url": "http://test-server/connect/#/apps/abc-123",
+                }
+            ),
             status=200,
             forcing_headers={"Content-Type": "application/json"},
         )
@@ -694,14 +700,16 @@ class RSConnectClientDeployGitTestCase(TestCase):
         httpretty.register_uri(
             httpretty.GET,
             "http://test-server/__api__/v1/content/abc-123",
-            body=json.dumps({
-                "id": 123,
-                "guid": "abc-123",
-                "name": "existing-app",
-                "title": "Old Title",
-                "content_url": "http://test-server/content/abc-123/",
-                "dashboard_url": "http://test-server/connect/#/apps/abc-123",
-            }),
+            body=json.dumps(
+                {
+                    "id": 123,
+                    "guid": "abc-123",
+                    "name": "existing-app",
+                    "title": "Old Title",
+                    "content_url": "http://test-server/content/abc-123/",
+                    "dashboard_url": "http://test-server/connect/#/apps/abc-123",
+                }
+            ),
             status=200,
             forcing_headers={"Content-Type": "application/json"},
         )
@@ -710,14 +718,16 @@ class RSConnectClientDeployGitTestCase(TestCase):
         httpretty.register_uri(
             httpretty.GET,
             "http://test-server/__api__/v1/content/abc-123/repository",
-            body=json.dumps({
-                "repository": "https://github.com/user/repo",
-                "branch": "main",
-                "directory": ".",
-                "polling": True,
-                "last_error": "",
-                "last_known_commit": "abc123",
-            }),
+            body=json.dumps(
+                {
+                    "repository": "https://github.com/user/repo",
+                    "branch": "main",
+                    "directory": ".",
+                    "polling": True,
+                    "last_error": "",
+                    "last_known_commit": "abc123",
+                }
+            ),
             status=200,
             forcing_headers={"Content-Type": "application/json"},
         )
@@ -726,14 +736,16 @@ class RSConnectClientDeployGitTestCase(TestCase):
         httpretty.register_uri(
             httpretty.PATCH,
             "http://test-server/__api__/v1/content/abc-123/repository",
-            body=json.dumps({
-                "repository": "https://github.com/user/repo",
-                "branch": "feature",
-                "directory": "app",
-                "polling": True,
-                "last_error": "",
-                "last_known_commit": "abc123",
-            }),
+            body=json.dumps(
+                {
+                    "repository": "https://github.com/user/repo",
+                    "branch": "feature",
+                    "directory": "app",
+                    "polling": True,
+                    "last_error": "",
+                    "last_known_commit": "abc123",
+                }
+            ),
             status=200,
             forcing_headers={"Content-Type": "application/json"},
         )
@@ -780,14 +792,16 @@ class RSConnectClientDeployGitTestCase(TestCase):
         httpretty.register_uri(
             httpretty.POST,
             "http://test-server/__api__/v1/content",
-            body=json.dumps({
-                "id": 123,
-                "guid": "abc-123",
-                "name": "test-app",
-                "title": None,
-                "content_url": "http://test-server/content/abc-123/",
-                "dashboard_url": "http://test-server/connect/#/apps/abc-123",
-            }),
+            body=json.dumps(
+                {
+                    "id": 123,
+                    "guid": "abc-123",
+                    "name": "test-app",
+                    "title": None,
+                    "content_url": "http://test-server/content/abc-123/",
+                    "dashboard_url": "http://test-server/connect/#/apps/abc-123",
+                }
+            ),
             status=200,
             forcing_headers={"Content-Type": "application/json"},
         )
@@ -804,14 +818,20 @@ class RSConnectClientDeployGitTestCase(TestCase):
         def check_polling_request(request, uri, response_headers):
             body = json.loads(request.body)
             assert body["polling"] is False, "Expected polling to be False"
-            return [200, response_headers, json.dumps({
-                "repository": "https://github.com/user/repo",
-                "branch": "main",
-                "directory": ".",
-                "polling": False,
-                "last_error": "",
-                "last_known_commit": "",
-            })]
+            return [
+                200,
+                response_headers,
+                json.dumps(
+                    {
+                        "repository": "https://github.com/user/repo",
+                        "branch": "main",
+                        "directory": ".",
+                        "polling": False,
+                        "last_error": "",
+                        "last_known_commit": "",
+                    }
+                ),
+            ]
 
         httpretty.register_uri(
             httpretty.PUT,
@@ -851,14 +871,16 @@ class RSConnectClientDeployGitTestCase(TestCase):
         httpretty.register_uri(
             httpretty.POST,
             "http://test-server/__api__/v1/content",
-            body=json.dumps({
-                "id": 123,
-                "guid": "abc-123",
-                "name": "test-app",
-                "title": None,
-                "content_url": "http://test-server/content/abc-123/",
-                "dashboard_url": "http://test-server/connect/#/apps/abc-123",
-            }),
+            body=json.dumps(
+                {
+                    "id": 123,
+                    "guid": "abc-123",
+                    "name": "test-app",
+                    "title": None,
+                    "content_url": "http://test-server/content/abc-123/",
+                    "dashboard_url": "http://test-server/connect/#/apps/abc-123",
+                }
+            ),
             status=200,
             forcing_headers={"Content-Type": "application/json"},
         )
@@ -873,14 +895,16 @@ class RSConnectClientDeployGitTestCase(TestCase):
         httpretty.register_uri(
             httpretty.PUT,
             "http://test-server/__api__/v1/content/abc-123/repository",
-            body=json.dumps({
-                "repository": "https://github.com/user/repo",
-                "branch": "main",
-                "directory": ".",
-                "polling": True,
-                "last_error": "",
-                "last_known_commit": "",
-            }),
+            body=json.dumps(
+                {
+                    "repository": "https://github.com/user/repo",
+                    "branch": "main",
+                    "directory": ".",
+                    "polling": True,
+                    "last_error": "",
+                    "last_known_commit": "",
+                }
+            ),
             status=200,
             forcing_headers={"Content-Type": "application/json"},
         )
@@ -923,14 +947,16 @@ class RSConnectClientRepositoryTestCase(TestCase):
         httpretty.register_uri(
             httpretty.GET,
             "http://test-server/__api__/v1/content/abc-123/repository",
-            body=json.dumps({
-                "repository": "https://github.com/user/repo",
-                "branch": "main",
-                "directory": ".",
-                "polling": True,
-                "last_error": "",
-                "last_known_commit": "abc123",
-            }),
+            body=json.dumps(
+                {
+                    "repository": "https://github.com/user/repo",
+                    "branch": "main",
+                    "directory": ".",
+                    "polling": True,
+                    "last_error": "",
+                    "last_known_commit": "abc123",
+                }
+            ),
             status=200,
             forcing_headers={"Content-Type": "application/json"},
         )
@@ -969,14 +995,16 @@ class RSConnectClientRepositoryTestCase(TestCase):
         httpretty.register_uri(
             httpretty.PUT,
             "http://test-server/__api__/v1/content/abc-123/repository",
-            body=json.dumps({
-                "repository": "https://github.com/user/repo",
-                "branch": "main",
-                "directory": ".",
-                "polling": True,
-                "last_error": "",
-                "last_known_commit": "",
-            }),
+            body=json.dumps(
+                {
+                    "repository": "https://github.com/user/repo",
+                    "branch": "main",
+                    "directory": ".",
+                    "polling": True,
+                    "last_error": "",
+                    "last_known_commit": "",
+                }
+            ),
             status=200,
             forcing_headers={"Content-Type": "application/json"},
         )
@@ -1000,14 +1028,16 @@ class RSConnectClientRepositoryTestCase(TestCase):
         httpretty.register_uri(
             httpretty.PATCH,
             "http://test-server/__api__/v1/content/abc-123/repository",
-            body=json.dumps({
-                "repository": "https://github.com/user/repo",
-                "branch": "feature",
-                "directory": "app",
-                "polling": False,
-                "last_error": "",
-                "last_known_commit": "abc123",
-            }),
+            body=json.dumps(
+                {
+                    "repository": "https://github.com/user/repo",
+                    "branch": "feature",
+                    "directory": "app",
+                    "polling": False,
+                    "last_error": "",
+                    "last_known_commit": "abc123",
+                }
+            ),
             status=200,
             forcing_headers={"Content-Type": "application/json"},
         )
@@ -1047,15 +1077,17 @@ class RSConnectClientRepositoryTestCase(TestCase):
         httpretty.register_uri(
             httpretty.POST,
             "http://test-server/__api__/v1/content/abc-123/repository/bundle",
-            body=json.dumps({
-                "bundle_id": "456",
-                "task_id": "task-789",
-                "location": {
-                    "repository": "https://github.com/user/repo",
-                    "ref": "main",
-                    "directory": ".",
-                },
-            }),
+            body=json.dumps(
+                {
+                    "bundle_id": "456",
+                    "task_id": "task-789",
+                    "location": {
+                        "repository": "https://github.com/user/repo",
+                        "ref": "main",
+                        "directory": ".",
+                    },
+                }
+            ),
             status=200,
             forcing_headers={"Content-Type": "application/json"},
         )
