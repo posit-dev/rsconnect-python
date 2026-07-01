@@ -5,6 +5,7 @@ lives in docs/CHANGELOG.md (Keep a Changelog format). This one-time script
 parses that file and populates each matching Release so great-docs can
 generate its Changelog page from Releases.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -14,9 +15,7 @@ import subprocess
 import sys
 from typing import Dict
 
-VERSION_HEADER = re.compile(
-    r"^## \[(?P<version>\d+\.\d+\.\d+(?:[a-z]+\d+)?)\](?: - \S+)?\s*$"
-)
+VERSION_HEADER = re.compile(r"^## \[(?P<version>\d+\.\d+\.\d+(?:[a-z]+\d+)?)\](?: - \S+)?\s*$")
 LINK_REF = re.compile(r"^\[[^\]]+\]:\s+https?://")
 
 
@@ -71,7 +70,9 @@ def _gh_releases() -> Dict[str, bool]:
     """Map existing release tag -> whether its body is non-empty."""
     out = subprocess.run(
         ["gh", "release", "list", "--limit", "500", "--json", "tagName,name"],
-        check=True, capture_output=True, text=True,
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout
     result: Dict[str, bool] = {}
     for rel in json.loads(out):
@@ -79,7 +80,9 @@ def _gh_releases() -> Dict[str, bool]:
         try:
             body = subprocess.run(
                 ["gh", "release", "view", tag, "--json", "body", "-q", ".body"],
-                check=True, capture_output=True, text=True,
+                check=True,
+                capture_output=True,
+                text=True,
             ).stdout.strip()
         except subprocess.CalledProcessError as err:
             print(f"warning: could not read release {tag}: {err}", file=sys.stderr)
@@ -107,7 +110,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.apply:
             subprocess.run(
                 ["gh", "release", "edit", tag, "--notes-file", "-"],
-                input=body, text=True, check=True,
+                input=body,
+                text=True,
+                check=True,
             )
     print(f"{len(plan)} release(s) {'updated' if args.apply else 'would be updated'}.")
     return 0
