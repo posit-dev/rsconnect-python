@@ -350,66 +350,91 @@ git commit -m "feat: backfill GitHub Release notes from CHANGELOG"
 
 ---
 
+> **SPIKE-CORRECTED (Task 1 findings, authoritative).** These tasks were rewritten after the
+> spike overturned several pre-spike assumptions. Confirmed facts used below:
+> - CLI-only build works with `reference: []` (suppresses the Python API reference). Config keys:
+>   `display_name`, `cli.enabled`/`cli.module`, `changelog.enabled`, top-level `include_in_header`.
+> - `user_guide/` lives at the **project root** (not `great-docs/user_guide/`).
+> - great-docs renders into a **managed `great-docs/` directory** (git-ignore it entirely) and
+>   outputs `great-docs/_site/`. `great-docs.yml` (the config file) stays at the repo root and IS tracked.
+> - Build requires a dedicated venv (Python 3.12) with `great-docs` + `pygments` + the project
+>   installed, run **activated** (Quarto's post-render hook needs `pygments` on the active `python3`).
+>   The `uv run --with great-docs` ephemeral approach does NOT work.
+> - GTM analytics injects via a **top-level `include_in_header`** key (inline `text:`), verified on
+>   all pages. It is NOT reachable under `site:`.
+> - The inline `{{ rsconnect_python.version }}` line is **dropped** (great-docs auto-displays the
+>   package version); no `_variables.yml`, no post-build substitution.
+
 ## Task 4: great-docs scaffolding & config
 
 **Files:**
-- Create: `great-docs.yml`
-- Modify: `pyproject.toml` (remove the `docs` dependency group)
+- Create: `great-docs.yml` (repo root)
+- Create/modify: `.gitignore` (ignore the managed `great-docs/` dir and the docs venv)
+- Modify: `pyproject.toml` (remove the mkdocs `docs` dependency group)
 
 **Interfaces:**
-- Consumes: spike-confirmed keys from Task 1 (reference-disable YAML, user-guide dir, analytics support).
-- Produces: a `great-docs.yml` that builds a CLI + changelog site (no API reference) to `great-docs/_site/`, consumed by Tasks 5–7.
+- Produces: a `great-docs.yml` that builds a CLI + changelog site (no Python API reference) to
+  `great-docs/_site/`, consumed by Tasks 5–7. The build recipe (venv + activate) is defined in Task 7;
+  this task builds with the same recipe inline to validate config.
 
-- [ ] **Step 1: Write `great-docs.yml`**
-
-Use the keys confirmed in Task 1's findings note. Baseline (adjust key names to the findings):
+- [ ] **Step 1: Write `great-docs.yml`** (repo root)
 
 ```yaml
 # great-docs.yml
-site:
-  title: rsconnect-python
+display_name: rsconnect-python
 cli:
   enabled: true
   module: rsconnect.main
+reference: []              # empty => no auto Python API reference (CLI reference still generated)
 changelog:
   enabled: true
   max_releases: 100
-reference:
-  enabled: false        # per Task 1 findings; if unsupported, use the recorded fallback
-user_guide: great-docs/user_guide
-homepage: user_guide
 ```
 
 - [ ] **Step 2: Remove the mkdocs `docs` dependency group**
 
-Delete the `docs = [...]` block from `[dependency-groups]` in `pyproject.toml` (great-docs runs via `uv run --with great-docs`, not the group). Leave `[project.urls] Repository` intact — the auto-changelog needs it.
+Delete the `docs = [...]` block from `[dependency-groups]` in `pyproject.toml`. Do NOT add great-docs
+to a dependency group: it requires Python ≥3.11 while the project is `requires-python = ">=3.8"`, so a
+group would break resolution. great-docs is installed ad-hoc into a docs venv by the Task 7 recipe.
+Leave `[project.urls] Repository` intact — the auto-changelog reads it.
 
-Confirm the block removed:
+Confirm the mkdocs block is gone:
 ```bash
 grep -n "mkdocs" pyproject.toml
 ```
 Expected: no output.
 
-- [ ] **Step 3: Build to verify the config is valid**
+- [ ] **Step 3: Ignore the managed build dir and docs venv**
 
-Run:
-```bash
-uv run --python 3.12 --with great-docs great-docs build
+Append to the repo-root `.gitignore` (create the entries if absent):
 ```
-Expected: build succeeds; `great-docs/_site/index.html` exists, a CLI reference page exists, and a Changelog page renders with the backfilled history from Task 3.
-
-- [ ] **Step 4: Ignore generated build artifacts**
-
-Create/replace `.gitignore` entries so the generated site and Quarto internals are not committed:
-```bash
-printf '_site/\n.quarto/\n_quarto.yml\n_variables.yml\n' > great-docs/.gitignore
+/great-docs/
+.venv-docs/
 ```
-(Adjust to the actual generated-file set observed in Step 3.)
+(`great-docs/` is regenerated on every build — `_quarto.yml`, `index.qmd`, `scripts/`, `_site/`,
+`_package_meta.json`, etc. `great-docs.yml` is a file at the root and is NOT covered by `/great-docs/`.)
+
+- [ ] **Step 4: Build to verify the config is valid**
+
+```bash
+uv venv --python 3.12 .venv-docs
+uv pip install --python .venv-docs --quiet great-docs pygments .
+source .venv-docs/bin/activate
+great-docs build
+deactivate
+```
+Expected: `[OK] Build complete`; `great-docs/_site/index.html` exists; CLI reference pages exist under
+`great-docs/_site/reference/cli/`; a Changelog page renders (its history is populated only after the
+Task 3 backfill is applied by the user — an empty/short changelog here is expected and NOT a failure).
+Confirm no Python-module reference pages were generated:
+```bash
+find great-docs/_site -path '*reference*' -name '*.html' | grep -v '/cli/' || echo "no python API pages (correct)"
+```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add great-docs.yml great-docs/.gitignore pyproject.toml
+git add great-docs.yml pyproject.toml .gitignore
 git commit -m "build: add great-docs config, drop mkdocs deps"
 ```
 
@@ -417,61 +442,65 @@ git commit -m "build: add great-docs config, drop mkdocs deps"
 
 ## Task 5: Migrate narrative content to `.qmd`
 
-The four narrative pages are plain markdown; the only mkdocs-specific construct across all of them is the single `{{ rsconnect_python.version }}` macro in `deploying.md`. Migration is: move to the great-docs user-guide dir as `.qmd`, and convert that one macro to the spike-confirmed substitution mechanism. Page prose is preserved verbatim otherwise.
+The four narrative pages are plain markdown; the only mkdocs-specific construct across all of them is
+the single `{{ rsconnect_python.version }}` macro in `deploying.md`, which is **dropped** (great-docs
+auto-displays the version). Migration is: move the pages to the root `user_guide/` dir as `.qmd`,
+preserving prose verbatim, and remove that one macro line.
 
 **Files:**
-- Create: `great-docs/user_guide/index.qmd`, `deploying.qmd`, `programmatic-provisioning.qmd`, `server-administration.qmd` (from the matching `docs/*.md`)
-- Create: `great-docs/_variables.yml` (checked-in placeholder; regenerated at build in Task 7)
+- Create: `user_guide/index.qmd`, `user_guide/deploying.qmd`, `user_guide/programmatic-provisioning.qmd`,
+  `user_guide/server-administration.qmd` (from the matching `docs/*.md`)
 
 **Interfaces:**
-- Consumes: `great-docs.yml` `user_guide` path (Task 4); version-substitution mechanism (Task 1).
+- Consumes: `great-docs.yml` (Task 4). great-docs auto-discovers `user_guide/` at the repo root.
 - Produces: rendered user-guide pages consumed by the build in Tasks 7–8.
 
-- [ ] **Step 1: Copy the four pages into the user-guide dir as `.qmd`**
+- [ ] **Step 1: Copy the four pages into the root `user_guide/` dir as `.qmd`**
 
 ```bash
-mkdir -p great-docs/user_guide
+mkdir -p user_guide
 for f in index deploying programmatic-provisioning server-administration; do
-  cp "docs/$f.md" "great-docs/user_guide/$f.qmd"
+  cp "docs/$f.md" "user_guide/$f.qmd"
 done
 ```
+(The `docs/*.md` originals are removed later, in Task 8.)
 
-- [ ] **Step 2: Convert the version macro in `deploying.qmd`**
+- [ ] **Step 2: Drop the version macro line in `deploying.qmd`**
 
-Replace the mkdocs macro with the Quarto var (per Task 1 findings). In `great-docs/user_guide/deploying.qmd`, change:
+In `user_guide/deploying.qmd`, remove the line containing the mkdocs macro:
 ```
 Generated from <code>rsconnect-python {{ rsconnect_python.version }}</code>
 ```
-to:
+Delete the whole line (and an adjacent now-orphaned blank line if it leaves one). Do not replace it —
+great-docs shows the package version automatically. Confirm no macro remains:
+```bash
+grep -rn "rsconnect_python.version\|{{" user_guide/ || echo "no macros remain (correct)"
 ```
-Generated from <code>rsconnect-python {{< var rsconnect_python.version >}}</code>
-```
-(If Task 1 recorded the `sed` fallback instead, leave a literal placeholder token here and note it for Task 7's build recipe.)
 
-- [ ] **Step 3: Add a checked-in `_variables.yml`**
+- [ ] **Step 3: Add page titles/ordering if great-docs needs them**
+
+Build once (Step 4 recipe) and inspect the generated User Guide nav order. If pages are mis-ordered or
+mis-titled, add YAML front matter (`---\ntitle: "Deploying Content"\n---`) to each `.qmd` matching the
+current mkdocs nav labels: `Getting Started` (index), `Programmatic Provisioning`, `Deploying Content`,
+`Server Administration`. If the auto order/titles are already correct, skip.
+
+- [ ] **Step 4: Build and verify all four pages render**
 
 ```bash
-printf 'rsconnect_python:\n  version: "dev"\n' > great-docs/_variables.yml
+source .venv-docs/bin/activate    # venv from Task 4
+great-docs build
+deactivate
+for p in index deploying programmatic-provisioning server-administration; do
+  ls great-docs/_site/user-guide/$p.html 2>/dev/null || echo "MISSING $p"
+done
+grep -rn "{{ rsconnect_python.version }}" great-docs/_site/ && echo "MACRO LEAKED" || echo "no leaked macro (correct)"
 ```
-(Task 7 overwrites this at build time with the real version. `dev` is the local-build fallback.)
+Expected: build succeeds; all four `user-guide/*.html` pages exist; no leaked macro token.
 
-- [ ] **Step 4: Add page ordering/titles if required by great-docs**
-
-If the findings note shows great-docs orders user-guide pages by front matter or a nav key, add a `title:` (and `order:`) front-matter block to each `.qmd` matching the current mkdocs nav labels: `Getting Started` (index), `Programmatic Provisioning`, `Deploying Content`, `Server Administration`. Otherwise skip.
-
-- [ ] **Step 5: Build and verify pages + substitution render**
-
-Run:
-```bash
-uv run --python 3.12 --with great-docs great-docs build
-grep -rl "rsconnect-python dev" great-docs/_site/ || echo "MISSING version substitution"
-```
-Expected: build succeeds; all four pages present in `great-docs/_site/`; the version string resolved to `dev` (not the literal `{{ ... }}`).
-
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add great-docs/user_guide great-docs/_variables.yml
+git add user_guide
 git commit -m "docs: migrate narrative pages to great-docs qmd"
 ```
 
@@ -480,43 +509,66 @@ git commit -m "docs: migrate narrative pages to great-docs qmd"
 ## Task 6: Branding & analytics
 
 **Files:**
-- Create: `great-docs/` asset files (logo, favicon, custom CSS) as the findings note dictates
-- Modify: `great-docs.yml` (theme/branding/analytics keys)
+- Create: `assets/` at repo root for brand files (logo, favicon, custom CSS)
+- Modify: `great-docs.yml` (logo/favicon/CSS + `include_in_header` GTM)
 
 **Interfaces:**
-- Consumes: analytics support finding (Task 1); existing assets under `docs/images/` and `docs/css/custom.css`.
-- Produces: a branded site with GTM (or the recorded analytics fallback).
+- Consumes: existing assets under `docs/images/` and `docs/css/custom.css`; `great-docs.yml` from Task 4.
+- Produces: a branded site with GTM injected into every page's `<head>`.
 
-- [ ] **Step 1: Copy brand assets into the great-docs project**
+- [ ] **Step 1: Copy brand assets to a tracked `assets/` dir**
 
 ```bash
-mkdir -p great-docs/assets
-cp docs/images/iconPositConnect.svg docs/images/favicon.ico great-docs/assets/
-cp docs/css/custom.css great-docs/assets/custom.css
+mkdir -p assets
+cp docs/images/iconPositConnect.svg docs/images/favicon.ico assets/
+cp docs/css/custom.css assets/custom.css
 ```
+(Use `assets/` at the repo root — NOT under `great-docs/`, which is git-ignored and regenerated.)
 
-- [ ] **Step 2: Wire logo, favicon, and CSS into `great-docs.yml`**
+- [ ] **Step 2: Wire logo/favicon/CSS into `great-docs.yml`**
 
-Add the theme keys confirmed in Task 1 (logo, favicon, extra CSS) pointing at `great-docs/assets/`. Keep it minimal — only what maps to the current Material config (Posit logo, favicon, custom CSS).
+Add the branding keys (see the `great-docs config` starter output for exact key shapes). Baseline:
+```yaml
+logo: assets/iconPositConnect.svg
+```
+Add favicon and custom CSS via the keys great-docs exposes for them (confirm against
+`uv run --python 3.12 --with great-docs great-docs config` output; e.g. a `favicon:` key and a CSS/SCSS
+include). Keep it minimal — only what maps to the current Material config (Posit logo, favicon, custom CSS).
+If a key for custom CSS is not available, note it and defer; branding parity beyond the logo is
+non-blocking.
 
-- [ ] **Step 3: Configure analytics**
+- [ ] **Step 3: Inject GTM via top-level `include_in_header`**
 
-Add GTM (`GTM-KHBDBW7`) via the analytics/head-include key from Task 1. If GTM injection is unsupported, apply the recorded fallback (Quarto-native `google-analytics`, or omit with a note).
+Add to `great-docs.yml` (top level, NOT under `site:`), using the real Google Tag Manager snippet for
+container `GTM-KHBDBW7`:
+```yaml
+include_in_header:
+  - text: |
+      <!-- Google Tag Manager -->
+      <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+      new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+      'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+      })(window,document,'script','dataLayer','GTM-KHBDBW7');</script>
+      <!-- End Google Tag Manager -->
+```
 
 - [ ] **Step 4: Build and verify branding + analytics**
 
-Run:
 ```bash
-uv run --python 3.12 --with great-docs great-docs build
-grep -rl "GTM-KHBDBW7" great-docs/_site/ || echo "analytics not injected (check fallback)"
+source .venv-docs/bin/activate
+great-docs build
+deactivate
+n=$(grep -rl "GTM-KHBDBW7" great-docs/_site/ | wc -l); echo "pages with GTM: $n"
+ls great-docs/_site/**/iconPositConnect.svg great-docs/_site/*iconPositConnect* 2>/dev/null || echo "check logo path in output"
 ```
-Expected: build succeeds; logo/favicon present in output; analytics snippet present (or fallback confirmed per findings).
+Expected: build succeeds; GTM snippet present on all generated pages (n > 1); logo asset present in output.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add great-docs.yml great-docs/assets
-git commit -m "docs: port Posit branding and analytics to great-docs"
+git add great-docs.yml assets
+git commit -m "docs: port Posit branding and GTM analytics to great-docs"
 ```
 
 ---
@@ -529,31 +581,42 @@ git commit -m "docs: port Posit branding and analytics to great-docs"
 - Modify: `.github/workflows/preview-docs.yml`
 
 **Interfaces:**
-- Consumes: build command and `_variables.yml` mechanism (Tasks 1, 5); output dir `great-docs/_site/`.
-- Produces: CI that builds with great-docs and syncs `great-docs/_site/` to the existing S3 buckets and PR previews.
+- Consumes: output dir `great-docs/_site/`; the venv build recipe validated in the spike.
+- Produces: `just docs` builds via great-docs into `great-docs/_site/`; CI syncs that dir to the
+  existing S3 buckets and PR previews.
 
-- [ ] **Step 1: Update the `docs` and `docs-serve` recipes**
+- [ ] **Step 1: Replace the `docs` and `docs-serve` recipes**
 
+The build needs an activated venv, so these must be `bash` shebang recipes (multi-line shell state).
 Replace the mkdocs recipes in `justfile`:
 ```make
-# Build the documentation site
+# Build the documentation site (great-docs / Quarto). Requires the Quarto CLI.
 docs:
-    printf 'rsconnect_python:\n  version: "%s"\n' "$(uv version --short)" > great-docs/_variables.yml
-    uv run --python 3.12 --with great-docs great-docs build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    uv venv --python 3.12 .venv-docs
+    uv pip install --python .venv-docs --quiet great-docs pygments .
+    source .venv-docs/bin/activate
+    great-docs build
 
 # Serve the documentation with live reload
 docs-serve:
-    printf 'rsconnect_python:\n  version: "%s"\n' "$(uv version --short)" > great-docs/_variables.yml
-    uv run --python 3.12 --with great-docs great-docs preview
+    #!/usr/bin/env bash
+    set -euo pipefail
+    uv venv --python 3.12 .venv-docs
+    uv pip install --python .venv-docs --quiet great-docs pygments .
+    source .venv-docs/bin/activate
+    great-docs preview
 ```
-(If Task 1 recorded the `sed` fallback for version substitution, replace the `_variables.yml` line with the recorded substitution command. If great-docs has no `preview` subcommand, use `great-docs build` + a static server per the findings.)
+(`pygments` MUST be installed explicitly — the Quarto post-render hook needs it on the active `python3`.
+`.` installs the project so great-docs can import `rsconnect.main` for CLI discovery.)
 
 - [ ] **Step 2: Retarget the S3 and clean recipes**
 
-In `justfile`, change `site/` → `great-docs/_site/` in both S3 recipes, and update `clean` to remove `great-docs/_site`:
+Change `site/` → `great-docs/_site/` in both S3 recipes and update `clean`:
 ```make
 clean:
-    rm -rf .coverage .pytest_cache build dist htmlcov rsconnect_python.egg-info rsconnect.egg-info great-docs/_site
+    rm -rf .coverage .pytest_cache build dist htmlcov rsconnect_python.egg-info rsconnect.egg-info great-docs
 
 sync-latest-docs-to-s3:
     aws s3 sync --acl bucket-owner-full-control --cache-control max-age=0 great-docs/_site/ s3://rstudio-connect-downloads/connect/rsconnect-python/latest/docs/
@@ -564,25 +627,26 @@ promote-docs-in-s3:
 
 - [ ] **Step 3: Verify the recipe end-to-end locally**
 
-Run:
 ```bash
 just docs
 ls great-docs/_site/index.html
-grep -rl "rsconnect-python $(uv version --short)" great-docs/_site/ || echo "MISSING version"
 ```
-Expected: build succeeds; index exists; the real project version (not `dev`) appears in the output.
+Expected: build succeeds; `great-docs/_site/index.html` exists.
 
 - [ ] **Step 4: Add Quarto to the `docs` CI job**
 
-In `.github/workflows/main.yml`, in the `docs` job, add the Quarto setup action before `build docs` (after the `setup-just` step):
+In `.github/workflows/main.yml`, in the `docs` job, add the Quarto setup action after the `setup-just`
+step and before `build docs`:
 ```yaml
     - uses: quarto-dev/quarto-actions/setup@v2
 ```
-The `run: just docs` step is unchanged; the S3 sync/promote steps now push `great-docs/_site/` via the updated recipes (no YAML path change needed since they call `just`).
+The `run: just docs` step and the S3 sync/promote steps are unchanged — the recipe now builds via
+great-docs and the recipes point at `great-docs/_site/`.
 
 - [ ] **Step 5: Update the PR preview workflow**
 
-In `.github/workflows/preview-docs.yml`: add the Quarto setup step before `Install and Build`, and change `source-dir: ./site/` to `source-dir: ./great-docs/_site/`:
+In `.github/workflows/preview-docs.yml`: add the Quarto setup step before `Install and Build`, and
+change `source-dir: ./site/` to `source-dir: ./great-docs/_site/`:
 ```yaml
       - uses: quarto-dev/quarto-actions/setup@v2
 ```
@@ -629,8 +693,8 @@ Expected: no output (or only historical mentions inside `docs/CHANGELOG.md`, whi
 
 - [ ] **Step 3: Update `CLAUDE.md`**
 
-- In the Documentation commands section, replace the mkdocs `just docs`/`docs-serve` descriptions with the great-docs equivalents (note: requires Quarto CLI; runs via `uv run --with great-docs`).
-- In the Releasing section, update the changelog guidance: release notes are now authored in the GitHub Release (source of truth for the published changelog); `docs/CHANGELOG.md` retains only the `Unreleased` section for in-flight work. Reference `scripts/backfill_release_notes.py` as the one-time migration.
+- In the Documentation commands section, replace the mkdocs `just docs`/`docs-serve` descriptions with the great-docs equivalents. Note: requires the **Quarto CLI**; `just docs` builds via great-docs into `great-docs/_site/` using an isolated `.venv-docs` (Python 3.12) — it does NOT use `uv run --with`.
+- In the Releasing section, update the changelog guidance: release notes are now authored in the GitHub Release (source of truth for the published changelog); `docs/CHANGELOG.md` retains only the `Unreleased` section for in-flight work. Reference `scripts/backfill_release_notes.py` as the one-time migration (run its dry-run, then `--apply`).
 
 - [ ] **Step 4: Full build + parity check**
 
@@ -639,11 +703,11 @@ Run:
 just docs
 ```
 Then verify against this checklist (manually open `great-docs/_site/`):
-- All four narrative pages present with correct titles.
-- All 16 CLI commands documented (add, bootstrap, content, deploy, details, environment, info, integration, list, login, logout, quickstart, remove, system, version, write-manifest).
-- Changelog page shows full history from the backfilled Releases.
-- Version string resolves to the real version in `deploying`.
-- Posit logo/favicon present; analytics present (or fallback confirmed).
+- All four narrative pages present under `user-guide/` with correct titles.
+- All 16 CLI commands documented under `reference/cli/` (add, bootstrap, content, deploy, details, environment, info, integration, list, login, logout, quickstart, remove, system, version, write-manifest).
+- Changelog page renders (full history appears once the user applies the Task 3 backfill; empty/short before that is expected).
+- No leaked `{{ ... }}` macro token; great-docs shows the package version automatically.
+- Posit logo present; GTM (`GTM-KHBDBW7`) snippet present on pages.
 
 - [ ] **Step 5: Commit**
 
