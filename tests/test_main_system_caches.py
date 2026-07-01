@@ -1,159 +1,168 @@
 import json
 import unittest
-from os import system
 
+import httpretty
 from click.testing import CliRunner
 
 from rsconnect.main import cli
 
+from .utils import apply_common_args
 
 CONNECT_SERVER = "http://localhost:3939"
-CONNECT_KEYS_JSON = "vetiver-testing/rsconnect_api_keys.json"
-CONNECT_CACHE_DIR = "/data/python-environments/_packages_cache"
+API_KEY = "testapikey123"
 
-ADD_CACHE_COMMAND = f"docker compose exec -u rstudio-connect -T rsconnect mkdir -p {CONNECT_CACHE_DIR}/pip/1.2.3"
-RM_CACHE_COMMAND = f"docker compose exec -u rstudio-connect -T rsconnect rm -Rf {CONNECT_CACHE_DIR}/pip/1.2.3"
-# The following returns int(0) if dir exists, else int(256).
-CACHE_EXISTS_COMMAND = f"docker compose exec -u rstudio-connect -T rsconnect [ -d {CONNECT_CACHE_DIR}/pip/1.2.3 ]"
-SERVICE_RUNNING_COMMAND = "docker compose ps --services --filter 'status=running' | grep rsconnect"
+CACHES_PAYLOAD = {"caches": [{"language": "Python", "version": "1.2.3", "image_name": "Local"}]}
+
+PERMISSION_DENIED_BODY = json.dumps({"code": 22, "error": "You don't have permission to perform this operation."})
 
 
-def rsconnect_service_running():
-    exit_code = system(SERVICE_RUNNING_COMMAND)
-    if exit_code == 0:
-        return True
-    else:
-        return False
-
-
-def cache_dir_exists():
-    exit_code = system(CACHE_EXISTS_COMMAND)
-    if exit_code == 0:
-        return True
-    else:
-        return False
-
-
-def get_key(name):
-    with open(CONNECT_KEYS_JSON) as f:
-        api_key = json.load(f)[name]
-        return api_key
-
-
-def apply_common_args(args: list, server=None, key=None, insecure=True):
-    if server:
-        args.extend(["-s", server])
-    if key:
-        args.extend(["-k", key])
-    if insecure:
-        args.extend(["--insecure"])
+def register_server_validation_uris(connect_server: str):
+    """Register the endpoints that RSConnectExecutor.validate_server() requires."""
+    httpretty.register_uri(
+        httpretty.GET,
+        f"{connect_server}/__api__/server_settings",
+        body=open("tests/testdata/connect-responses/server_settings.json", "r").read(),
+        adding_headers={"Content-Type": "application/json"},
+    )
+    httpretty.register_uri(
+        httpretty.GET,
+        f"{connect_server}/__api__/v1/user",
+        body=open("tests/testdata/connect-responses/me.json", "r").read(),
+        adding_headers={"Content-Type": "application/json"},
+    )
 
 
 class TestSystemCachesList(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        system(ADD_CACHE_COMMAND)
-        if not rsconnect_service_running():
-            raise unittest.SkipTest("rsconnect docker service is not available")
-        return super().setUpClass()
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_system_caches_list_happy_path(self):
+        """Admin can list caches; stdout JSON matches the mocked payload."""
+        register_server_validation_uris(CONNECT_SERVER)
+        httpretty.register_uri(
+            httpretty.GET,
+            f"{CONNECT_SERVER}/__api__/v1/system/caches/runtime",
+            body=json.dumps(CACHES_PAYLOAD),
+            adding_headers={"Content-Type": "application/json"},
+        )
 
-    @classmethod
-    def tearDownClass(cls):
-        system(RM_CACHE_COMMAND)
-        return super().tearDownClass
-
-    # Admins can list caches
-    def test_system_caches_list_admin(self):
-        api_key = get_key("admin")
         runner = CliRunner()
-
         args = ["system", "caches", "list"]
-        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
-
+        apply_common_args(args, server=CONNECT_SERVER, key=API_KEY)
         result = runner.invoke(cli, args)
-        self.assertEqual(result.exit_code, 0)
 
-        expected = {"caches": [{"language": "Python", "version": "1.2.3", "image_name": "Local"}]}
+        self.assertEqual(result.exit_code, 0, result.output)
         result_dict = json.loads(result.output)
-        self.assertDictEqual(result_dict, expected)
+        self.assertDictEqual(result_dict, CACHES_PAYLOAD)
 
-    # Publishers cannot list caches
-    def test_system_caches_list_publisher(self):
-        api_key = get_key("susan")
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_system_caches_list_permission_denied(self):
+        """A 403 from Connect is surfaced as exit code 1 with the permission message."""
+        register_server_validation_uris(CONNECT_SERVER)
+        httpretty.register_uri(
+            httpretty.GET,
+            f"{CONNECT_SERVER}/__api__/v1/system/caches/runtime",
+            status=403,
+            body=PERMISSION_DENIED_BODY,
+            adding_headers={"Content-Type": "application/json"},
+        )
+
         runner = CliRunner()
-
         args = ["system", "caches", "list"]
-        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
-
+        apply_common_args(args, server=CONNECT_SERVER, key=API_KEY)
         result = runner.invoke(cli, args)
-        self.assertEqual(result.exit_code, 1)
 
+        self.assertEqual(result.exit_code, 1, result.output)
         self.assertRegex(result.output, "You don't have permission to perform this operation.")
 
 
 class TestSystemCachesDelete(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        system(ADD_CACHE_COMMAND)
-        if not rsconnect_service_running():
-            raise unittest.SkipTest("rsconnect docker service is not available")
-        return super().setUpClass()
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_system_caches_delete_happy_path(self):
+        """Admin can delete a cache; exit code 0."""
+        register_server_validation_uris(CONNECT_SERVER)
+        httpretty.register_uri(
+            httpretty.DELETE,
+            f"{CONNECT_SERVER}/__api__/v1/system/caches/runtime",
+            status=200,
+            body=json.dumps(
+                {"language": "Python", "version": "1.2.3", "image_name": "Local", "dry_run": False, "task_id": "abc123"}
+            ),
+            adding_headers={"Content-Type": "application/json"},
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            f"{CONNECT_SERVER}/__api__/v1/tasks/abc123",
+            body=json.dumps(
+                {
+                    "id": "abc123",
+                    "output": [],
+                    "result": {"type": "", "data": ""},
+                    "finished": True,
+                    "code": 0,
+                    "error": "",
+                    "last": 0,
+                }
+            ),
+            adding_headers={"Content-Type": "application/json"},
+        )
 
-    @classmethod
-    def tearDownClass(cls):
-        system(RM_CACHE_COMMAND)
-        return super().tearDownClass
-
-    # Publishers cannot delete caches
-    def test_system_caches_delete_publisher(self):
-        api_key = get_key("susan")
         runner = CliRunner()
-
         args = ["system", "caches", "delete", "--language", "Python", "--version", "1.2.3", "--image-name", "Local"]
-        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
-
+        apply_common_args(args, server=CONNECT_SERVER, key=API_KEY)
         result = runner.invoke(cli, args)
-        self.assertEqual(result.exit_code, 1)
 
-        self.assertRegex(result.output, "You don't have permission to perform this operation.")
+        self.assertEqual(result.exit_code, 0, result.output)
+        delete_request = next(r for r in httpretty.latest_requests() if r.method == "DELETE")
+        body = json.loads(delete_request.body)
+        self.assertEqual(body["language"], "Python")
+        self.assertEqual(body["version"], "1.2.3")
+        self.assertEqual(body["image_name"], "Local")
 
-    # Admins can delete caches that exist
-    def test_system_caches_delete_admin(self):
-        api_key = get_key("admin")
+    def test_system_caches_delete_missing_all_flags(self):
+        """Omitting both --language and --version yields exit code 2 (Click validation)."""
         runner = CliRunner()
-
-        args = ["system", "caches", "delete", "--language", "Python", "--version", "1.2.3", "--image-name", "Local"]
-        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
-
-        self.assertTrue(cache_dir_exists())
-        result = runner.invoke(cli, args)
-        self.assertEqual(result.exit_code, 0)
-        self.assertFalse(cache_dir_exists())
-
-        # TODO: Unsure how to test log messages received from Connect.
-
-    # --version and --language flags are required
-    def test_system_caches_delete_required_flags(self):
-        api_key = get_key("admin")
-        runner = CliRunner()
-
-        # neither flag provided should fail
         args = ["system", "caches", "delete"]
-        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
+        apply_common_args(args, server=CONNECT_SERVER, key=API_KEY)
         result = runner.invoke(cli, args)
-        self.assertEqual(result.exit_code, 2)
-        self.assertRegex(result.output, "Error: Missing option '--language' / '-l'")
 
-        # only --language flag provided should fail
+        self.assertEqual(result.exit_code, 2, result.output)
+        self.assertRegex(result.output, "Missing option '--language' / '-l'")
+
+    def test_system_caches_delete_missing_version_flag(self):
+        """Providing --language but omitting --version yields exit code 2."""
+        runner = CliRunner()
         args = ["system", "caches", "delete", "--language", "Python"]
-        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
+        apply_common_args(args, server=CONNECT_SERVER, key=API_KEY)
         result = runner.invoke(cli, args)
-        self.assertEqual(result.exit_code, 2)
-        self.assertRegex(result.output, "Error: Missing option '--version' / '-V'")
 
-        # only --version flag provided should fail
+        self.assertEqual(result.exit_code, 2, result.output)
+        self.assertRegex(result.output, "Missing option '--version' / '-V'")
+
+    def test_system_caches_delete_missing_language_flag(self):
+        """Providing --version but omitting --language yields exit code 2."""
+        runner = CliRunner()
         args = ["system", "caches", "delete", "--version", "1.2.3"]
-        apply_common_args(args, server=CONNECT_SERVER, key=api_key)
+        apply_common_args(args, server=CONNECT_SERVER, key=API_KEY)
         result = runner.invoke(cli, args)
-        self.assertEqual(result.exit_code, 2)
-        self.assertRegex(result.output, "Error: Missing option '--language' / '-l'")
+
+        self.assertEqual(result.exit_code, 2, result.output)
+        self.assertRegex(result.output, "Missing option '--language' / '-l'")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_system_caches_delete_permission_denied(self):
+        """A 403 from Connect on delete is surfaced as exit code 1 with the permission message."""
+        register_server_validation_uris(CONNECT_SERVER)
+        httpretty.register_uri(
+            httpretty.DELETE,
+            f"{CONNECT_SERVER}/__api__/v1/system/caches/runtime",
+            status=403,
+            body=PERMISSION_DENIED_BODY,
+            adding_headers={"Content-Type": "application/json"},
+        )
+
+        runner = CliRunner()
+        args = ["system", "caches", "delete", "--language", "Python", "--version", "1.2.3", "--image-name", "Local"]
+        apply_common_args(args, server=CONNECT_SERVER, key=API_KEY)
+        result = runner.invoke(cli, args)
+
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertRegex(result.output, "You don't have permission to perform this operation.")
