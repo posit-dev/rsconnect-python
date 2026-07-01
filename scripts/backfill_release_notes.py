@@ -7,7 +7,10 @@ generate its Changelog page from Releases.
 """
 from __future__ import annotations
 
+import argparse
 import re
+import subprocess
+import sys
 from typing import Dict
 
 VERSION_HEADER = re.compile(
@@ -45,3 +48,65 @@ def parse_changelog(text: str) -> Dict[str, str]:
 
     flush()
     return entries
+
+
+def build_backfill_plan(
+    entries: Dict[str, str],
+    existing_tags: set[str],
+    release_has_body: Dict[str, bool],
+) -> list[tuple[str, str]]:
+    """Return (tag, body) edits for releases that exist and are empty."""
+    plan: list[tuple[str, str]] = []
+    for version, body in entries.items():
+        if version not in existing_tags:
+            continue
+        if release_has_body.get(version, False):
+            continue
+        plan.append((version, body))
+    return plan
+
+
+def _gh_releases() -> Dict[str, bool]:
+    """Map existing release tag -> whether its body is non-empty."""
+    out = subprocess.run(
+        ["gh", "release", "list", "--limit", "500", "--json", "tagName,name"],
+        check=True, capture_output=True, text=True,
+    ).stdout
+    import json
+    result: Dict[str, bool] = {}
+    for rel in json.loads(out):
+        tag = rel["tagName"]
+        body = subprocess.run(
+            ["gh", "release", "view", tag, "--json", "body", "-q", ".body"],
+            check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        result[tag] = bool(body)
+    return result
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("changelog", nargs="?", default="docs/CHANGELOG.md")
+    parser.add_argument("--apply", action="store_true", help="Actually edit releases")
+    args = parser.parse_args(argv)
+
+    with open(args.changelog, encoding="utf-8") as handle:
+        entries = parse_changelog(handle.read())
+
+    body_by_tag = _gh_releases()
+    existing = set(body_by_tag)
+    plan = build_backfill_plan(entries, existing, body_by_tag)
+
+    for tag, body in plan:
+        print(f"{'APPLY' if args.apply else 'DRY-RUN'}: {tag} ({len(body)} chars)")
+        if args.apply:
+            subprocess.run(
+                ["gh", "release", "edit", tag, "--notes-file", "-"],
+                input=body, text=True, check=True,
+            )
+    print(f"{len(plan)} release(s) {'updated' if args.apply else 'would be updated'}.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

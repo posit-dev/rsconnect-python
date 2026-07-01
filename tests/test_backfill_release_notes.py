@@ -1,4 +1,4 @@
-from scripts.backfill_release_notes import parse_changelog
+from scripts.backfill_release_notes import build_backfill_plan, parse_changelog
 
 SAMPLE = """# Changelog
 
@@ -50,3 +50,11 @@ def test_parse_changelog_strips_surrounding_blank_lines():
     entries = parse_changelog(SAMPLE)
     assert not entries["1.29.0"].startswith("\n")
     assert not entries["1.29.0"].endswith("\n")
+
+
+def test_build_backfill_plan_skips_missing_and_nonempty():
+    entries = {"1.29.0": "body A", "1.28.2": "body B", "1.0.0": "old"}
+    existing_tags = {"1.29.0", "1.28.2"}  # 1.0.0 has no release
+    release_has_body = {"1.29.0": False, "1.28.2": True}  # 1.28.2 already has notes
+    plan = build_backfill_plan(entries, existing_tags, release_has_body)
+    assert plan == [("1.29.0", "body A")]
