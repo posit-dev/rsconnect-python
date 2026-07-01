@@ -512,11 +512,15 @@ git commit -m "docs: migrate narrative pages to great-docs qmd"
 
 **Files:**
 - Create: `assets/` at repo root for brand files (logo, favicon, custom CSS)
-- Modify: `great-docs.yml` (logo/favicon/CSS + `include_in_header` GTM)
+- Modify: `great-docs.yml` (logo/favicon/CSS + `include_in_header` GTM + User Guide ordering + comment cleanup)
 
 **Interfaces:**
-- Consumes: existing assets under `docs/images/` and `docs/css/custom.css`; `great-docs.yml` from Task 4.
-- Produces: a branded site with GTM injected into every page's `<head>`.
+- Consumes: existing assets under `docs/images/` and `docs/css/custom.css`; `great-docs.yml` from Task 4; the `user_guide/*.qmd` pages from Task 5.
+- Produces: a branded site with GTM injected into every page's `<head>` and the User Guide sidebar in the intended order.
+
+**Carry-overs folded into this task (from Tasks 4 & 5):**
+- Task 4 left the `reference: false` line with a comment referencing the ephemeral `task-4-report.md`. Make that comment self-contained (e.g. `# disable auto Python API reference; an empty list [] is falsy and would NOT disable it`).
+- Task 5 left the User Guide sidebar mis-ordered and the index browser-tab title as "rsconnect". Fix both here (Steps 6-7 below).
 
 - [ ] **Step 1: Copy brand assets to a tracked `assets/` dir**
 
@@ -566,11 +570,44 @@ ls great-docs/_site/**/iconPositConnect.svg great-docs/_site/*iconPositConnect* 
 ```
 Expected: build succeeds; GTM snippet present on all generated pages (n > 1); logo asset present in output.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Set the User Guide sidebar order and clean up the reference comment**
+
+The auto-discovered User Guide order does not match the old mkdocs nav. Add an explicit `user_guide:`
+ordering to `great-docs.yml` (paths are relative to the `user_guide/` dir, no prefix) matching the
+original nav sequence, and make the `reference:` comment self-contained:
+```yaml
+reference: false           # disable auto Python API reference; an empty list [] is falsy and would NOT disable it
+user_guide:
+  - index.qmd
+  - programmatic-provisioning.qmd
+  - deploying.qmd
+  - server-administration.qmd
+```
+(If great-docs requires the `section`/`contents` form instead of a bare list, use that shape with a
+single unnamed/"User Guide" section containing these four files in this order — confirm against
+`great-docs config` output.)
+
+- [ ] **Step 6: Fix the index browser-tab title**
+
+Add `pagetitle: "Getting Started"` to the front matter of `user_guide/index.qmd` so the browser tab
+title matches the nav label (Quarto otherwise derives `<title>` from the page's first `#` heading).
+
+- [ ] **Step 7: Rebuild and verify ordering + tab title**
 
 ```bash
-git add great-docs.yml assets
-git commit -m "docs: port Posit branding and GTM analytics to great-docs"
+source .venv-docs/bin/activate
+great-docs build
+deactivate
+```
+Confirm the User Guide sidebar order in the output is: Getting Started, Programmatic Provisioning,
+Deploying Content, Server Administration; and that `great-docs/_site/user-guide/index.html`'s
+`<title>` contains "Getting Started".
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add great-docs.yml assets user_guide
+git commit -m "docs: port Posit branding, GTM, and User Guide order to great-docs"
 ```
 
 ---
