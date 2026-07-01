@@ -720,7 +720,9 @@ git commit -m "build: run docs via great-docs in CI and just recipes"
 git rm mkdocs.yml docs/requirements.txt docs/.gitignore
 git rm -r docs/commands docs/overrides docs/css
 git rm docs/index.md docs/deploying.md docs/programmatic-provisioning.md docs/server-administration.md
+git rm assets/custom.css   # inert: great-docs has no custom-CSS hook, and its ../images/*.svg paths are broken
 ```
+(Keep `assets/iconPositConnect.svg` and `assets/favicon.ico` — those ARE wired via `great-docs.yml`.)
 
 - [ ] **Step 2: Confirm no mkdocs references remain**
 
