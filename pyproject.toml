@@ -60,7 +60,7 @@ module-root = ""
 
 [tool.ruff]
 line-length = 120
-extend-exclude = ["my-shiny-app", "rsconnect-build", "rsconnect-build-test", "integration", "tests/testdata"]
+extend-exclude = ["rsconnect-build", "rsconnect-build-test", "tests/testdata"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W"]
