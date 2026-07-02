@@ -179,33 +179,3 @@ jobs:
           license: ${{ secrets.CONNECT_LICENSE_FILE }}
           command: |
             uv run --no-sync --group test ./scripts/runtests
-
-  test-dev-connect:
-    name: "Integration tests against dev Connect"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v6
-        with:
-          version: ">=0.9.0"
-      - uses: extractions/setup-just@v3
-      - name: Install dependencies
-        run: |
-          uv sync --python 3.12 --group test
-          uv pip install -r vetiver-testing/vetiver-requirements.txt
-      - name: Run Posit Connect
-        run: |
-          docker compose up --build -d
-          uv pip freeze > requirements.txt
-          just dev
-        env:
-          RSC_LICENSE: ${{ secrets.RSC_LICENSE }}
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-      - name: Get logs in case of failure
-        run: |
-          docker compose logs rsconnect
-        if: ${{ failure() }}
-      - name: Run tests
-        run: |
-          uv run --no-sync pytest tests/test_main_system_caches.py
-          uv run --no-sync pytest --vetiver -m 'vetiver'

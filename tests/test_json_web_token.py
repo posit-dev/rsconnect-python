@@ -398,3 +398,16 @@ class TestJsonWebToken(TestCase):
 
             # assert we have a valid token
             self.assert_bootstrap_jwt_is_valid(test_payload, test_datetime)
+
+
+class TestBootstrapContract(TestCase):
+    """
+    Pin the bootstrap JWT contract to the literal values the Connect server
+    validates. Connect rejects the token unless these match exactly, so a
+    change here is a breaking cross-repo change and must be deliberate.
+    """
+
+    def test_contract_constants_match_connect(self):
+        self.assertEqual(DEFAULT_ISSUER, "rsconnect-python")
+        self.assertEqual(DEFAULT_AUDIENCE, "rsconnect")
+        self.assertEqual(BOOTSTRAP_SCOPE, "bootstrap")

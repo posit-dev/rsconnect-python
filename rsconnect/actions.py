@@ -278,10 +278,11 @@ def validate_quarto_engines(inspect: QuartoInspectResult):
 
 
 # ===============================================================================
-# START: The following deprecated functions are here only for the vetiver-python
-# package.
-# Some the code in this section has `pyright: ignore` comments, because this
-# deprecated code which will be removed in the future.
+# START: Compatibility entry point used by the vetiver-python package.
+# vetiver's `deploy_connect` calls `deploy_python_fastapi` (below), which routes
+# through `deploy_app` and the local `validate_*` helpers. This is a supported
+# shim; keep these signatures stable. The `pyright: ignore` comments remain
+# because the kwargs-forwarding style predates strict typing.
 # ===============================================================================
 def validate_extra_files(directory: str, extra_files: Sequence[str]):
     """
@@ -439,7 +440,7 @@ def deploy_app(
 
 
 # ===============================================================================
-# END deprecated functions for the vetiver-python package
+# END compatibility entry point for the vetiver-python package
 # ===============================================================================
 
 

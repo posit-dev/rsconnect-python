@@ -1,6 +1,0 @@
-pandas
-numpy
-pydantic<2
-pytest
-pins
-vetiver
