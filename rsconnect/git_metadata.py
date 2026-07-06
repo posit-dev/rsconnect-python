@@ -22,7 +22,9 @@ def _run_git_command(args: list[str], cwd: str) -> Optional[str]:
     try:
         result = subprocess.run(
             ["git"] + args,
-            cwd=cwd,
+            # dirname() of a bare filename (e.g. "manifest.json") yields "",
+            # which subprocess rejects; treat it as the current directory.
+            cwd=cwd or ".",
             capture_output=True,
             text=True,
             timeout=5,
