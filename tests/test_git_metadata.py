@@ -279,3 +279,22 @@ class TestIntegration:
         # Check that upload_bundle has metadata parameter
         sig = signature(RSConnectClient.upload_bundle)
         assert "metadata" in sig.parameters
+
+    def test_upload_bundle_with_metadata_handles_bad_response(self):
+        """A bad response on the multipart (metadata) upload path is surfaced as an
+        RSConnectException rather than a raw HTTPResponse (issue #814)."""
+        import io
+        from unittest.mock import patch
+
+        from rsconnect.api import RSConnectClient, RSConnectException, RSConnectServer
+        from rsconnect.http_support import HTTPResponse
+
+        client = RSConnectClient(RSConnectServer("http://test-server", "api_key"))
+        bad_response = HTTPResponse(
+            "http://test-server/__api__/v1/content/guid/bundles",
+            exception=OSError("connection refused"),
+        )
+        with patch.object(RSConnectClient, "post", return_value=bad_response):
+            with pytest.raises(RSConnectException) as cm:
+                client.upload_bundle("guid", io.BytesIO(b"tarball"), metadata={"source": "git"})
+        assert "connection refused" in str(cm.value)

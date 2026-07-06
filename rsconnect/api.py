@@ -736,7 +736,7 @@ class RSConnectClient(HTTPServer):
             response = cast(
                 Union[BundleMetadata, HTTPResponse], self.post(f"v1/content/{content_guid}/bundles", body=tarball)
             )
-            response = self._server.handle_bad_response(response)
+        response = self._server.handle_bad_response(response)
         return response
 
     def content_update(self, content_guid: str, updates: Mapping[str, str | None]) -> ContentItemV1:
