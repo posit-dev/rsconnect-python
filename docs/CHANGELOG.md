@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- Fixed a bug where `rsconnect deploy manifest manifest.json` (and other deploy
+  commands given a bare filename) failed to detect git metadata. The directory
+  passed to git detection was empty in that case, which caused detection to be
+  silently skipped; it now falls back to the current directory.
 - The `CONNECT_SERVER_VERSION` environment variable can now be set to tell
   rsconnect-python which Connect version to assume for feature-availability
   checks. Some servers can be configured to suppress their version, which makes

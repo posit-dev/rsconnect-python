@@ -123,6 +123,19 @@ class TestGitDetection:
             metadata = detect_git_metadata(tmpdir)
             assert metadata == {}
 
+    def test_is_git_repo_empty_dir_uses_cwd(self, git_repo, monkeypatch):
+        # dirname("manifest.json") yields "", which subprocess rejects as cwd.
+        # An empty directory should be treated as the current directory so that
+        # `rsconnect deploy manifest manifest.json` still detects git metadata.
+        monkeypatch.chdir(git_repo)
+        assert is_git_repo("") is True
+
+    def test_detect_git_metadata_empty_dir_uses_cwd(self, git_repo, monkeypatch):
+        monkeypatch.chdir(git_repo)
+        metadata = detect_git_metadata("")
+        assert metadata["source"] == "git"
+        assert metadata["source_repo"] == "https://github.com/user/repo.git"
+
 
 class TestServerVersionSupport:
     def test_server_supports_git_metadata(self):
