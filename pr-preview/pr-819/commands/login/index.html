@@ -9,7 +9,7 @@
       
       
       
-        <link rel="prev" href="../integration/">
+        <link rel="prev" href="../list/">
       
       
         <link rel="next" href="../logout/">
@@ -115,7 +115,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#login" class="md-skip">
+        <a href="#rsconnect-server-login" class="md-skip">
           Skip to content
         </a>
       
@@ -651,72 +651,6 @@
                 
   
   
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    login
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../logout/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    logout
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
   
   
     <li class="md-nav__item">
@@ -745,23 +679,23 @@
                 
   
   
+    
   
   
+  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_1_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_1_8" checked>
         
           
-          <label class="md-nav__link" for="__nav_5_1_10" id="__nav_5_1_10_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_1_8" id="__nav_5_1_8_label" tabindex="0">
             
   
   
@@ -779,8 +713,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_1_10_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_1_10">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_1_8_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5_1_8">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -861,6 +795,72 @@
     
   
     list
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    login
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../logout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    logout
   
 
     
@@ -1072,11 +1072,11 @@
 
 
 
-<h1 id="login">login<a class="headerlink" href="#login" title="Permanent link">#</a></h1>
+<h1 id="rsconnect-server-login">rsconnect server login<a class="headerlink" href="#rsconnect-server-login" title="Permanent link">#</a></h1>
 <p>Authenticate with a Posit Connect server using OAuth 2.1. This opens a browser for interactive login (or uses --use-device-code for headless environments). Tokens are stored in the system keyring when available, with fallback to the local credential store.</p>
 <p>Alternatively, pass --identity-token (or --identity-token-file) with an OIDC identity token, such as a GitHub Actions OIDC token, to exchange it for a short-lived Connect API key without interactive login. The resulting API key is saved as the server credential.</p>
 <p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>login [OPTIONS] SERVER
+<div class="highlight"><pre><span></span><code>rsconnect server login [OPTIONS] SERVER
 </code></pre></div>
 <p><strong>Options:</strong></p>
 <div class="highlight"><pre><span></span><code>  -s, --server TEXT           The URL of the Posit Connect server.
@@ -1143,7 +1143,7 @@
           
             
 
-            <a href="../integration/" class="md-footer__link md-footer__link--prev" rel="prev">
+            <a href="../list/" class="md-footer__link md-footer__link--prev" rel="prev">
               <div class="md-footer__button md-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
               </div>
@@ -1152,7 +1152,7 @@
                   <span class="md-footer__direction">
                     Previous
                   </span>
-                  integration
+                  list
                 </div>
               </div>
             </a>

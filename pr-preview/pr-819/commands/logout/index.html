@@ -12,7 +12,7 @@
         <link rel="prev" href="../login/">
       
       
-        <link rel="next" href="../quickstart/">
+        <link rel="next" href="../remove/">
       
       
         
@@ -115,7 +115,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#logout" class="md-skip">
+        <a href="#rsconnect-server-logout" class="md-skip">
           Skip to content
         </a>
       
@@ -654,72 +654,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../login/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    login
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    logout
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../quickstart/" class="md-nav__link">
         
   
@@ -745,23 +679,23 @@
                 
   
   
+    
   
   
+  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_1_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_1_8" checked>
         
           
-          <label class="md-nav__link" for="__nav_5_1_10" id="__nav_5_1_10_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_1_8" id="__nav_5_1_8_label" tabindex="0">
             
   
   
@@ -779,8 +713,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_1_10_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_1_10">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_1_8_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5_1_8">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -869,6 +803,72 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../login/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    login
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    logout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
     </li>
   
 
@@ -1072,10 +1072,10 @@
 
 
 
-<h1 id="logout">logout<a class="headerlink" href="#logout" title="Permanent link">#</a></h1>
+<h1 id="rsconnect-server-logout">rsconnect server logout<a class="headerlink" href="#rsconnect-server-logout" title="Permanent link">#</a></h1>
 <p>Remove locally-stored OAuth credentials for a Posit Connect server. The server is identified by a positional SERVER argument, -s/--server, or -n/--name. The server entry is preserved (for re-login without re-registration); use 'rsconnect remove' to delete the entry entirely.</p>
 <p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>logout [OPTIONS] SERVER
+<div class="highlight"><pre><span></span><code>rsconnect server logout [OPTIONS] SERVER
 </code></pre></div>
 <p><strong>Options:</strong></p>
 <div class="highlight"><pre><span></span><code>  -n, --name TEXT    The nickname of the Posit Connect server to log out from.
@@ -1144,13 +1144,13 @@
           
             
 
-            <a href="../quickstart/" class="md-footer__link md-footer__link--next" rel="next">
+            <a href="../remove/" class="md-footer__link md-footer__link--next" rel="next">
               <div class="md-footer__title">
                 <div class="md-ellipsis">
                   <span class="md-footer__direction">
                     Next
                   </span>
-                  quickstart
+                  remove
                 </div>
               </div>
               <div class="md-footer__button md-icon">
