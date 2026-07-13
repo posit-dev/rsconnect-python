@@ -1846,6 +1846,7 @@ class TestDefaultServer:
         with mock.patch("rsconnect.main.server_store", store):
             result = runner.invoke(cli, ["server", "set-default", "-n", "s1"])
         assert result.exit_code == 0, result.output
+        assert 'Server "s1" is now the default.' in result.output
         assert store.get_default()["name"] == "s1"
 
     def test_server_set_default_shinyapps_entry(self, tmp_path):
@@ -1885,7 +1886,7 @@ class TestServerGroup:
         runner = CliRunner()
         result = runner.invoke(cli, ["server", "--help"])
         assert result.exit_code == 0, result.output
-        for sub in ("add", "list", "remove", "details"):
+        for sub in ("add", "list", "remove", "details", "set-default"):
             assert sub in result.output
 
     def test_server_group_no_args_shows_help(self):
