@@ -530,7 +530,27 @@ def runtime_environment_args(func: Callable[P, T]) -> Callable[P, T]:
     return wrapper
 
 
-@click.group(no_args_is_help=True)
+class ServerAliasHidingGroup(click.Group):
+    """Root command group that omits the server-management commands from the
+    top-level ``--help`` listing.
+
+    ``add``, ``list``, ``remove``, and ``details`` are also registered under
+    the ``server`` group, which is their advertised home. They remain fully
+    invokable at the top level (e.g. ``rsconnect add``) and are still offered
+    by shell completion; this only declutters ``rsconnect --help``.
+    """
+
+    def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        aliased = set(server_group.commands)
+        original = self.commands
+        self.commands = {name: cmd for name, cmd in original.items() if name not in aliased}
+        try:
+            super().format_commands(ctx, formatter)
+        finally:
+            self.commands = original
+
+
+@click.group(cls=ServerAliasHidingGroup, no_args_is_help=True)
 @click.option("--future", "-u", is_flag=True, hidden=True, help="Enables future functionality.")
 def cli(future: bool):
     """

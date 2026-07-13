@@ -39,20 +39,21 @@ nav:
   - Server Administration: server-administration.md
   - CLI reference:
     - rsconnect:
-      - add: commands/add.md
-      - bootstrap: commands/bootstrap.md
       - content: commands/content.md
       - deploy: commands/deploy.md
-      - details: commands/details.md
       - environment: commands/environment.md
       - info: commands/info.md
       - integration: commands/integration.md
-      - list: commands/list.md
       - login: commands/login.md
       - logout: commands/logout.md
       - quickstart: commands/quickstart.md
-      - remove: commands/remove.md
-      - set-default: commands/set-default.md
+      - server:
+        - add: commands/add.md
+        - bootstrap: commands/bootstrap.md
+        - details: commands/details.md
+        - list: commands/list.md
+        - remove: commands/remove.md
+        - set-default: commands/set-default.md
       - system: commands/system.md
       - version: commands/version.md
       - write-manifest: commands/write-manifest.md
