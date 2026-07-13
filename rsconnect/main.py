@@ -947,7 +947,48 @@ def remove(
     if message:
         click.echo(message)
         if removed_was_default:
-            click.echo("Note: the removed server was the default. Use `rsconnect add --set-default` to set a new one.")
+            click.echo("Note: the removed server was the default. Use `rsconnect server set-default` to set a new one.")
+
+
+@click.command(
+    "set-default",
+    short_help="Set an already-saved server as the default.",
+    help=(
+        "Mark an already-saved server as the default. The default is used when "
+        "neither -n/--name nor -s/--server is given to other commands. This only "
+        "updates local metadata; the server is not contacted. Prefer -n/--name; "
+        "-s/--server must match the stored URL exactly."
+    ),
+    no_args_is_help=True,
+)
+@click.option("--name", "-n", help="The nickname of the server to set as the default.")
+@click.option("--server", "-s", help="The URL of the server to set as the default.")
+@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
+@click.pass_context
+def set_default(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    with cli_feedback("Checking arguments"):
+        if name and server:
+            raise RSConnectException("You must specify only one of -n/--name or -s/--server.")
+        if not name and not server:
+            raise RSConnectException("You must specify one of -n/--name or -s/--server.")
+
+        if server:
+            entry = server_store.get_by_url(server)
+            if entry is None:
+                raise RSConnectException('URL "%s" was not found.' % server)
+            name = entry["name"]
+
+        server_store.set_default(name)
+
+    click.echo('Server "%s" is now the default.' % name)
 
 
 @cli.group("server", no_args_is_help=True)
@@ -964,6 +1005,7 @@ server_group.add_command(add)
 server_group.add_command(list_servers)
 server_group.add_command(remove)
 server_group.add_command(details)
+server_group.add_command(set_default)
 
 
 def _resolve_identity_token(identity_token: Optional[str], identity_token_file: Optional[str]) -> Optional[str]:
