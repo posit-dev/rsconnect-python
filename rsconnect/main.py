@@ -1555,10 +1555,11 @@ def deploy_notebook(
 
     ce.validate_server().validate_app_mode(app_mode=app_mode)
     if app_mode == AppModes.STATIC:
+        assert environment.python_interpreter is not None
         ce.make_bundle(
             make_notebook_html_bundle,
             file,
-            environment.python,
+            environment.python_interpreter,
             hide_all_input,
             hide_tagged_input,
         )
