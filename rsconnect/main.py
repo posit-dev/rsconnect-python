@@ -950,6 +950,22 @@ def remove(
             click.echo("Note: the removed server was the default. Use `rsconnect add --set-default` to set a new one.")
 
 
+@cli.group("server", no_args_is_help=True)
+def server_group():
+    """
+    Manage saved Posit Connect and shinyapps.io server nicknames.
+
+    These subcommands are aliases for the top-level add, list, remove, and
+    details commands, grouped under a single namespace.
+    """
+
+
+server_group.add_command(add)
+server_group.add_command(list_servers)
+server_group.add_command(remove)
+server_group.add_command(details)
+
+
 def _resolve_identity_token(identity_token: Optional[str], identity_token_file: Optional[str]) -> Optional[str]:
     """Resolve the identity token from the flag/env var or a file.
 

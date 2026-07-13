@@ -1774,6 +1774,43 @@ class TestDefaultServer:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
 
+class TestServerGroup:
+    def test_server_group_help_lists_subcommands(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["server", "--help"])
+        assert result.exit_code == 0, result.output
+        for sub in ("add", "list", "remove", "details"):
+            assert sub in result.output
+
+    def test_server_group_no_args_shows_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["server"])
+        assert result.exit_code == 0, result.output
+        assert "Usage:" in result.output
+
+    def test_server_list_alias(self, tmp_path):
+        from rsconnect.metadata import ServerStore
+
+        store = ServerStore(base_dir=str(tmp_path))
+        store.set("s1", "http://s1.local", api_key="key1")
+        runner = CliRunner()
+        with mock.patch("rsconnect.main.server_store", store):
+            result = runner.invoke(cli, ["server", "list"])
+        assert result.exit_code == 0, result.output
+        assert "s1" in result.output
+
+    def test_top_level_list_still_works(self, tmp_path):
+        from rsconnect.metadata import ServerStore
+
+        store = ServerStore(base_dir=str(tmp_path))
+        store.set("s1", "http://s1.local", api_key="key1")
+        runner = CliRunner()
+        with mock.patch("rsconnect.main.server_store", store):
+            result = runner.invoke(cli, ["list"])
+        assert result.exit_code == 0, result.output
+        assert "s1" in result.output
+
+
 class TestDeployGit(TestCase):
     """Tests for deploy git CLI command."""
 
