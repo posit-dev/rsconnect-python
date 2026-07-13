@@ -995,9 +995,6 @@ def set_default(
 def server_group():
     """
     Manage saved Posit Connect and shinyapps.io server nicknames.
-
-    These subcommands are aliases for the top-level add, list, remove, and
-    details commands, grouped under a single namespace.
     """
 
 
@@ -1006,6 +1003,7 @@ server_group.add_command(list_servers)
 server_group.add_command(remove)
 server_group.add_command(details)
 server_group.add_command(set_default)
+server_group.add_command(bootstrap)
 
 
 def _resolve_identity_token(identity_token: Optional[str], identity_token_file: Optional[str]) -> Optional[str]:

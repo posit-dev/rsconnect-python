@@ -1886,8 +1886,19 @@ class TestServerGroup:
         runner = CliRunner()
         result = runner.invoke(cli, ["server", "--help"])
         assert result.exit_code == 0, result.output
-        for sub in ("add", "list", "remove", "details", "set-default"):
+        for sub in ("add", "list", "remove", "details", "set-default", "bootstrap"):
             assert sub in result.output
+
+    def test_server_bootstrap_alias_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["server", "bootstrap", "--help"])
+        assert result.exit_code == 0, result.output
+        assert "bootstrap" in result.output
+
+    def test_top_level_bootstrap_still_works(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["bootstrap", "--help"])
+        assert result.exit_code == 0, result.output
 
     def test_server_group_no_args_shows_help(self):
         runner = CliRunner()

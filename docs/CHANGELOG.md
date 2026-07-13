@@ -51,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--no-set-default` is passed. `CONNECT_SERVER` still takes precedence. An
   already-saved server can be made the default without re-adding it using
   `rsconnect server set-default -n <name>`. The new `rsconnect server` command
-  group also aliases `add`, `list`, `remove`, and `details`.
+  group also aliases `add`, `list`, `remove`, `details`, and `bootstrap`.
 - New `environment` subcommand for managing execution environments on Connect.
 - New `integration` subcommand for managing OAuth integrations on Connect.
 
