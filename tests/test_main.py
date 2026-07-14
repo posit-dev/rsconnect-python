@@ -2,7 +2,9 @@ import json
 import os
 import re
 import shutil
+import sys
 from os.path import join
+from types import SimpleNamespace
 from unittest import TestCase, mock
 
 import click
@@ -13,7 +15,7 @@ from click.testing import CliRunner
 from rsconnect import VERSION
 from rsconnect.api import RSConnectClient, RSConnectServer
 from rsconnect.json_web_token import SECRET_KEY_ENV
-from rsconnect.main import cli, env_management_callback
+from rsconnect.main import cli, env_management_callback, make_notebook_html_bundle
 
 from .utils import (
     apply_common_args,
@@ -302,6 +304,33 @@ class TestMain:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
+
+    def test_deploy_notebook_static_passes_interpreter_not_version(self):
+        # Regression test for #721: deploy_notebook must hand make_notebook_html_bundle
+        # the local interpreter *path* (used to run nbconvert), not environment.python,
+        # which is only a version string and made nbconvert fail with "No such file or
+        # directory".
+        fake_env = SimpleNamespace(python="3.12.1", python_interpreter=sys.executable)
+
+        with mock.patch("rsconnect.main.Environment.create_python_environment", return_value=fake_env), mock.patch(
+            "rsconnect.main.RSConnectExecutor"
+        ) as MockExecutor:
+            ce = MockExecutor.return_value
+
+            runner = CliRunner()
+            args = apply_common_args(
+                ["deploy", "notebook", get_dir(join("pip1", "dummy.ipynb"))],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            args += ["--static", "--no-verify"]
+            result = runner.invoke(cli, args)
+
+        assert result.exit_code == 0, result.output
+        # make_bundle(make_notebook_html_bundle, file, <python>, hide_all, hide_tagged)
+        bundle_args = ce.make_bundle.call_args.args
+        assert bundle_args[0] is make_notebook_html_bundle
+        assert bundle_args[2] == sys.executable
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_deploy_verify_before_activate(self, caplog):
