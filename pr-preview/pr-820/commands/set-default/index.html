@@ -9,10 +9,10 @@
       
       
       
-        <link rel="prev" href="../set-default/">
+        <link rel="prev" href="../remove/">
       
       
-        <link rel="next" href="../version/">
+        <link rel="next" href="../system/">
       
       
         
@@ -23,7 +23,7 @@
     
     
       
-        <title>system - rsconnect-python</title>
+        <title>set-default - rsconnect-python</title>
       
     
     
@@ -115,7 +115,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#system" class="md-skip">
+        <a href="#rsconnect-server-set-default" class="md-skip">
           Skip to content
         </a>
       
@@ -147,7 +147,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              system
+              set-default
             
           </span>
         </div>
@@ -847,10 +847,19 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../set-default/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -866,6 +875,7 @@
   
 
       </a>
+      
     </li>
   
 
@@ -875,37 +885,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    system
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../system/" class="md-nav__link">
         
   
   
@@ -921,65 +904,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#system-caches" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        caches
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="caches">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#system-caches-delete" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        delete
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#system-caches-list" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        list
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1076,53 +1000,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#system-caches" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        caches
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="caches">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#system-caches-delete" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        delete
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#system-caches-list" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        list
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -1138,82 +1015,17 @@
 
 
 
-<h1 id="system">system<a class="headerlink" href="#system" title="Permanent link">#</a></h1>
-<p>Interact with Posit Connect's system API.</p>
+<h1 id="rsconnect-server-set-default">rsconnect server set-default<a class="headerlink" href="#rsconnect-server-set-default" title="Permanent link">#</a></h1>
+<p>Mark an already-saved server as the default. The default is used when neither -n/--name nor -s/--server is given to other commands. This only updates local metadata; the server is not contacted. Prefer -n/--name; -s/--server must match the stored URL exactly.</p>
 <p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>system [OPTIONS] COMMAND [ARGS]...
+<div class="highlight"><pre><span></span><code>rsconnect server set-default [OPTIONS]
 </code></pre></div>
 <p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  --help  Show this message and exit.
-</code></pre></div>
-<h2 id="system-caches">system caches<a class="headerlink" href="#system-caches" title="Permanent link">#</a></h2>
-<p>Interact with Posit Connect's system caches.</p>
-<p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>system caches [OPTIONS] COMMAND [ARGS]...
-</code></pre></div>
-<p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  --help  Show this message and exit.
-</code></pre></div>
-<h3 id="system-caches-delete">system caches delete<a class="headerlink" href="#system-caches-delete" title="Permanent link">#</a></h3>
-<p>Delete a runtime cache on a Posit Connect server.</p>
-<p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>system caches delete [OPTIONS]
-</code></pre></div>
-<p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
-                                  deploy to.
-  -s, --server TEXT               The URL for the Posit Connect server to
-                                  deploy to. (Also settable via CONNECT_SERVER
-                                  environment variable.)
-  -k, --api-key TEXT              The API key to use to authenticate with
-                                  Posit Connect. (Also settable via
-                                  CONNECT_API_KEY environment variable.)
-  -i, --insecure                  Disable TLS certification/host validation.
-                                  (Also settable via CONNECT_INSECURE
-                                  environment variable.)
-  -c, --cacert FILE               The path to trusted TLS CA certificates.
-                                  (Also settable via CONNECT_CA_CERTIFICATE
-                                  environment variable.)
-  -v, --verbose                   Enable verbose output. Use -vv for very
-                                  verbose (debug) output.
-  --snowflake-connection-name TEXT
-                                  The name of the Snowflake connection in the
-                                  configuration file
-  -l, --language TEXT             The language of the target cache.
-                                  [required]
-  -V, --version TEXT              The version of the target cache.  [required]
-  -I, --image-name TEXT           The image name of the target cache&#39;s
-                                  execution environment. Defaults to &quot;Local&quot;.
-  -d, --dry-run                   If true, verify that deletion would occur,
-                                  but do not delete.
-  --help                          Show this message and exit.
-</code></pre></div>
-<h3 id="system-caches-list">system caches list<a class="headerlink" href="#system-caches-list" title="Permanent link">#</a></h3>
-<p>List runtime caches present on a Posit Connect server.</p>
-<p><strong>Usage:</strong></p>
-<div class="highlight"><pre><span></span><code>system caches list [OPTIONS]
-</code></pre></div>
-<p><strong>Options:</strong></p>
-<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
-                                  deploy to.
-  -s, --server TEXT               The URL for the Posit Connect server to
-                                  deploy to. (Also settable via CONNECT_SERVER
-                                  environment variable.)
-  -k, --api-key TEXT              The API key to use to authenticate with
-                                  Posit Connect. (Also settable via
-                                  CONNECT_API_KEY environment variable.)
-  -i, --insecure                  Disable TLS certification/host validation.
-                                  (Also settable via CONNECT_INSECURE
-                                  environment variable.)
-  -c, --cacert FILE               The path to trusted TLS CA certificates.
-                                  (Also settable via CONNECT_CA_CERTIFICATE
-                                  environment variable.)
-  -v, --verbose                   Enable verbose output. Use -vv for very
-                                  verbose (debug) output.
-  --snowflake-connection-name TEXT
-                                  The name of the Snowflake connection in the
-                                  configuration file
-  --help                          Show this message and exit.
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT    The nickname of the server to set as the default.
+  -s, --server TEXT  The URL of the server to set as the default.
+  -v, --verbose      Enable verbose output. Use -vv for very verbose (debug)
+                     output.
+  --help             Show this message and exit.
 </code></pre></div>
 
 
@@ -1253,7 +1065,7 @@
           
             
 
-            <a href="../set-default/" class="md-footer__link md-footer__link--prev" rel="prev">
+            <a href="../remove/" class="md-footer__link md-footer__link--prev" rel="prev">
               <div class="md-footer__button md-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
               </div>
@@ -1262,7 +1074,7 @@
                   <span class="md-footer__direction">
                     Previous
                   </span>
-                  set-default
+                  remove
                 </div>
               </div>
             </a>
@@ -1275,13 +1087,13 @@
           
             
 
-            <a href="../version/" class="md-footer__link md-footer__link--next" rel="next">
+            <a href="../system/" class="md-footer__link md-footer__link--next" rel="next">
               <div class="md-footer__title">
                 <div class="md-ellipsis">
                   <span class="md-footer__direction">
                     Next
                   </span>
-                  version
+                  system
                 </div>
               </div>
               <div class="md-footer__button md-icon">
