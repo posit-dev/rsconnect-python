@@ -1773,6 +1773,161 @@ class TestDefaultServer:
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
+    def test_server_set_default_by_name(self, tmp_path):
+        from rsconnect.metadata import ServerStore
+
+        store = ServerStore(base_dir=str(tmp_path))
+        store.set("s1", "http://s1.local", api_key="key1", set_as_default=True)
+        store.set("s2", "http://s2.local", api_key="key2")
+        runner = CliRunner()
+        with mock.patch("rsconnect.main.server_store", store):
+            result = runner.invoke(cli, ["server", "set-default", "-n", "s2"])
+        assert result.exit_code == 0, result.output
+        assert 'Server "s2" is now the default.' in result.output
+        assert store.get_default()["name"] == "s2"
+
+    def test_server_set_default_by_url_reports_nickname(self, tmp_path):
+        from rsconnect.metadata import ServerStore
+
+        store = ServerStore(base_dir=str(tmp_path))
+        store.set("s1", "http://s1.local", api_key="key1")
+        runner = CliRunner()
+        with mock.patch("rsconnect.main.server_store", store):
+            result = runner.invoke(cli, ["server", "set-default", "-s", "http://s1.local"])
+        assert result.exit_code == 0, result.output
+        assert 'Server "s1" is now the default.' in result.output
+        assert store.get_default()["name"] == "s1"
+
+    def test_server_set_default_unknown_name(self, tmp_path):
+        from rsconnect.metadata import ServerStore
+
+        store = ServerStore(base_dir=str(tmp_path))
+        store.set("s1", "http://s1.local", api_key="key1")
+        runner = CliRunner()
+        with mock.patch("rsconnect.main.server_store", store):
+            result = runner.invoke(cli, ["server", "set-default", "-n", "nope"])
+        assert result.exit_code != 0
+        assert "does not exist" in result.output
+
+    def test_server_set_default_unknown_url(self, tmp_path):
+        from rsconnect.metadata import ServerStore
+
+        store = ServerStore(base_dir=str(tmp_path))
+        store.set("s1", "http://s1.local", api_key="key1")
+        runner = CliRunner()
+        with mock.patch("rsconnect.main.server_store", store):
+            result = runner.invoke(cli, ["server", "set-default", "-s", "http://absent.local"])
+        assert result.exit_code != 0
+        assert "was not found" in result.output
+
+    def test_server_set_default_both_options_error(self, tmp_path):
+        from rsconnect.metadata import ServerStore
+
+        store = ServerStore(base_dir=str(tmp_path))
+        store.set("s1", "http://s1.local", api_key="key1")
+        runner = CliRunner()
+        with mock.patch("rsconnect.main.server_store", store):
+            result = runner.invoke(cli, ["server", "set-default", "-n", "s1", "-s", "http://s1.local"])
+        assert result.exit_code != 0
+        assert "only one of" in result.output
+
+    def test_server_set_default_no_args_shows_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["server", "set-default"])
+        assert result.exit_code == 0, result.output
+        assert "Usage:" in result.output
+
+    def test_server_set_default_idempotent(self, tmp_path):
+        from rsconnect.metadata import ServerStore
+
+        store = ServerStore(base_dir=str(tmp_path))
+        store.set("s1", "http://s1.local", api_key="key1", set_as_default=True)
+        runner = CliRunner()
+        with mock.patch("rsconnect.main.server_store", store):
+            result = runner.invoke(cli, ["server", "set-default", "-n", "s1"])
+        assert result.exit_code == 0, result.output
+        assert 'Server "s1" is now the default.' in result.output
+        assert store.get_default()["name"] == "s1"
+
+    def test_server_set_default_shinyapps_entry(self, tmp_path):
+        from rsconnect.metadata import ServerStore
+
+        store = ServerStore(base_dir=str(tmp_path))
+        store.set("shiny", "https://api.shinyapps.io", account_name="acct", token="tok", secret="sec")
+        runner = CliRunner()
+        with mock.patch("rsconnect.main.server_store", store):
+            result = runner.invoke(cli, ["server", "set-default", "-n", "shiny"])
+        assert result.exit_code == 0, result.output
+        assert store.get_default()["name"] == "shiny"
+
+    def test_no_top_level_set_default(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["set-default", "-n", "s1"])
+        assert result.exit_code != 0
+        assert "No such command" in result.output or "Usage:" in result.output
+
+    def test_set_default_moves_list_marker(self, tmp_path):
+        from rsconnect.metadata import ServerStore
+
+        store = ServerStore(base_dir=str(tmp_path))
+        store.set("s1", "http://s1.local", api_key="key1", set_as_default=True)
+        store.set("s2", "http://s2.local", api_key="key2")
+        runner = CliRunner()
+        with mock.patch("rsconnect.main.server_store", store):
+            runner.invoke(cli, ["server", "set-default", "-n", "s2"])
+            result = runner.invoke(cli, ["list"])
+        assert result.exit_code == 0, result.output
+        s2_line = next(line for line in result.output.splitlines() if '"s2"' in line)
+        assert "[default]" in s2_line
+
+
+class TestServerGroup:
+    def test_server_group_help_lists_subcommands(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["server", "--help"])
+        assert result.exit_code == 0, result.output
+        for sub in ("add", "list", "remove", "details", "set-default", "bootstrap"):
+            assert sub in result.output
+
+    def test_server_bootstrap_alias_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["server", "bootstrap", "--help"])
+        assert result.exit_code == 0, result.output
+        assert "bootstrap" in result.output
+
+    def test_top_level_bootstrap_still_works(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["bootstrap", "--help"])
+        assert result.exit_code == 0, result.output
+
+    def test_server_group_no_args_shows_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["server"])
+        assert result.exit_code == 0, result.output
+        assert "Usage:" in result.output
+
+    def test_server_list_alias(self, tmp_path):
+        from rsconnect.metadata import ServerStore
+
+        store = ServerStore(base_dir=str(tmp_path))
+        store.set("s1", "http://s1.local", api_key="key1")
+        runner = CliRunner()
+        with mock.patch("rsconnect.main.server_store", store):
+            result = runner.invoke(cli, ["server", "list"])
+        assert result.exit_code == 0, result.output
+        assert "s1" in result.output
+
+    def test_top_level_list_still_works(self, tmp_path):
+        from rsconnect.metadata import ServerStore
+
+        store = ServerStore(base_dir=str(tmp_path))
+        store.set("s1", "http://s1.local", api_key="key1")
+        runner = CliRunner()
+        with mock.patch("rsconnect.main.server_store", store):
+            result = runner.invoke(cli, ["list"])
+        assert result.exit_code == 0, result.output
+        assert "s1" in result.output
+
 
 class TestDeployGit(TestCase):
     """Tests for deploy git CLI command."""
