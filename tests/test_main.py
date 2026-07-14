@@ -3,9 +3,8 @@ import os
 import re
 import shutil
 import sys
-import tarfile
-from io import BytesIO
 from os.path import join
+from types import SimpleNamespace
 from unittest import TestCase, mock
 
 import click
@@ -15,9 +14,8 @@ from click.testing import CliRunner
 
 from rsconnect import VERSION
 from rsconnect.api import RSConnectClient, RSConnectServer
-from rsconnect.bundle import bundle_add_buffer
 from rsconnect.json_web_token import SECRET_KEY_ENV
-from rsconnect.main import cli, env_management_callback
+from rsconnect.main import cli, env_management_callback, make_notebook_html_bundle
 
 from .utils import (
     apply_common_args,
@@ -307,195 +305,32 @@ class TestMain:
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
-    @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_deploy_notebook_static_uses_python_interpreter(self, caplog):
-        # Regression test for #721: a static notebook deploy must run nbconvert with
-        # the local Python interpreter path, not the manifest's Python version string
-        # (environment.python), which isn't an executable and made nbconvert fail.
-        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
-        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+    def test_deploy_notebook_static_passes_interpreter_not_version(self):
+        # Regression test for #721: deploy_notebook must hand make_notebook_html_bundle
+        # the local interpreter *path* (used to run nbconvert), not environment.python,
+        # which is only a version string and made nbconvert fail with "No such file or
+        # directory".
+        fake_env = SimpleNamespace(python="3.12.1", python_interpreter=sys.executable)
 
-        httpretty.register_uri(
-            httpretty.GET,
-            "http://fake_server/__api__/server_settings",
-            body=json.dumps({"version": "9999.99.99"}),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-        httpretty.register_uri(
-            httpretty.GET,
-            "http://fake_server/__api__/v1/user",
-            body=open("tests/testdata/connect-responses/me.json", "r").read(),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-        # Mock v1/content search for unique name checking
-        httpretty.register_uri(
-            httpretty.GET,
-            "http://fake_server/__api__/v1/content?name=dummy",
-            body=json.dumps([]),  # Empty array means name is available
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-        httpretty.register_uri(
-            httpretty.POST,
-            "http://fake_server/__api__/v1/content",
-            body=json.dumps(
-                {
-                    "id": "1234",
-                    "guid": "1234-5678-9012-3456",
-                    "title": "dummy",
-                    "content_url": "http://fake_server/content/1234-5678-9012-3456",
-                    "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
-                }
-            ),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-        httpretty.register_uri(
-            httpretty.PATCH,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
-            body=json.dumps(
-                {
-                    "id": "1234",
-                    "guid": "1234-5678-9012-3456",
-                    "title": "dummy",
-                    "content_url": "http://fake_server/content/1234-5678-9012-3456",
-                    "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
-                }
-            ),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-        httpretty.register_uri(
-            httpretty.GET,
-            "http://fake_server/__api__/applications/1234-5678-9012-3456",
-            body=json.dumps(
-                {
-                    "id": "1234-5678-9012-3456",
-                    "guid": "1234-5678-9012-3456",
-                    "title": "dummy",
-                    "url": "http://fake_server/apps/1234-5678-9012-3456",
-                }
-            ),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-        httpretty.register_uri(
-            httpretty.GET,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
-            body=json.dumps(
-                {
-                    "id": "1234",
-                    "guid": "1234-5678-9012-3456",
-                    "title": "dummy",
-                    "content_url": "http://fake_server/content/1234-5678-9012-3456",
-                    "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
-                }
-            ),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
+        with mock.patch("rsconnect.main.Environment.create_python_environment", return_value=fake_env), mock.patch(
+            "rsconnect.main.RSConnectExecutor"
+        ) as MockExecutor:
+            ce = MockExecutor.return_value
 
-        httpretty.register_uri(
-            httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/bundles",
-            body=json.dumps({"id": "FAKE_BUNDLE_ID"}),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-
-        deploy_api_invoked = []
-
-        def post_application_deploy_callback(request, uri, response_headers):
-            parsed_request = _load_json(request.body)
-            assert parsed_request == {"bundle_id": "FAKE_BUNDLE_ID"}
-            deploy_api_invoked.append(True)
-            return [201, {"Content-Type": "application/json"}, json.dumps({"task_id": "FAKE_TASK_ID"})]
-
-        httpretty.register_uri(
-            httpretty.POST,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
-            body=post_application_deploy_callback,
-        )
-
-        # Fake deploy task completion
-        httpretty.register_uri(
-            httpretty.GET,
-            "http://fake_server/__api__/v1/tasks/FAKE_TASK_ID?wait=1",
-            body=json.dumps({"output": ["FAKE_OUTPUT"], "last": "FAKE_LAST", "finished": True, "code": 0}),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-
-        httpretty.register_uri(
-            httpretty.GET,
-            "http://fake_server/__api__/applications/1234-5678-9012-3456/config",
-            body=json.dumps({}),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-
-        httpretty.register_uri(
-            httpretty.GET,
-            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
-            body=json.dumps(
-                {
-                    "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
-                }
-            ),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-
-        expected_content_url = "http://fake_server/content/1234-5678-9012-3456"
-
-        captured_python = []
-
-        def fake_make_notebook_html_bundle(filename, python, hide_all_input, hide_tagged_input):
-            captured_python.append(python)
-            bundle_file = BytesIO()
-            with tarfile.open(mode="w:gz", fileobj=bundle_file) as bundle:
-                bundle_add_buffer(bundle, "manifest.json", "{}")
-            bundle_file.seek(0)
-            return bundle_file
-
-        try:
             runner = CliRunner()
             args = apply_common_args(
                 ["deploy", "notebook", get_dir(join("pip1", "dummy.ipynb"))],
                 server="http://fake_server",
                 key="FAKE_API_KEY",
             )
-            args.append("--static")
-            args.append("--no-verify")
-            args.extend(
-                [
-                    # Forces environment.python (the manifest version string) to
-                    # diverge from environment.python_interpreter (the real path),
-                    # so the regression is unambiguous if it recurs.
-                    "--override-python-version",
-                    "3.12.1",
-                ]
-            )
-            with mock.patch(
-                "rsconnect.main.make_notebook_html_bundle", side_effect=fake_make_notebook_html_bundle
-            ), mock.patch(
-                # Do not validate app mode, so that the "target" content doesn't matter.
-                "rsconnect.api.RSConnectExecutor.validate_app_mode",
-                new=lambda self_, *args, **kwargs: self_,
-            ), caplog.at_level("INFO"):
-                result = runner.invoke(cli, args)
-            assert result.exit_code == 0, result.output
-            assert deploy_api_invoked == [True]
-            assert "Deployment completed successfully." in caplog.text
-            assert f"Direct content URL: {expected_content_url}" in caplog.text
-            assert captured_python == [sys.executable]
-        finally:
-            if original_api_key_value:
-                os.environ["CONNECT_API_KEY"] = original_api_key_value
-            if original_server_value:
-                os.environ["CONNECT_SERVER"] = original_server_value
+            args += ["--static", "--no-verify"]
+            result = runner.invoke(cli, args)
+
+        assert result.exit_code == 0, result.output
+        # make_bundle(make_notebook_html_bundle, file, <python>, hide_all, hide_tagged)
+        bundle_args = ce.make_bundle.call_args.args
+        assert bundle_args[0] is make_notebook_html_bundle
+        assert bundle_args[2] == sys.executable
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_deploy_verify_before_activate(self, caplog):
