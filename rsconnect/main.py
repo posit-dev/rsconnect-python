@@ -994,7 +994,7 @@ def set_default(
 @cli.group("server", no_args_is_help=True)
 def server_group():
     """
-    Manage saved Posit Connect and shinyapps.io server nicknames.
+    Manage connections with Posit Connect and shinyapps.io servers.
     """
 
 
