@@ -93,7 +93,7 @@ releases.
 
 ```bash
 # Drop the .dev suffix to cut the release (e.g. 1.29.1.dev0 -> 1.29.1)
-uv version --bump stable
+uv version --bump stable  # use "--bump minor" if there are new features
 VERSION="$(uv version --short)"
 git commit -am "Release $VERSION"
 git tag -a "$VERSION" -m "Release $VERSION"
