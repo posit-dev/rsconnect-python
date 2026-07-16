@@ -88,6 +88,13 @@ jobs:
           echo "::error::tag '$tag' does not match pyproject version '$ver'"
           exit 1
         fi
+    - name: assert tag is on main
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      run: |
+        if ! git merge-base --is-ancestor HEAD origin/main; then
+          echo "::error::tag '${GITHUB_REF_NAME}' points to a commit that is not on main"
+          exit 1
+        fi
     - run: just dist
       env:
         PACKAGE_NAME: ${{ matrix.package_name }}
