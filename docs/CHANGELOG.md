@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.30.0] - 2026-07-16
+
+- Fixed a bug where `rsconnect deploy notebook --static` failed with `Unable to
+  include the file <version> in the bundle: No such file or directory`. The
+  Python version string recorded for the manifest was passed to `nbconvert` as
+  if it were the local interpreter path; the actual interpreter is now used.
 - Fixed a bug where `rsconnect deploy manifest manifest.json` (and other deploy
   commands given a bare filename) failed to detect git metadata. The directory
   passed to git detection was empty in that case, which caused detection to be
