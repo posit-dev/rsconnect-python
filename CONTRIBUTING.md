@@ -83,55 +83,57 @@ The version is a static field in `pyproject.toml`, managed with
 `main` always carries a `.dev` version (e.g. `1.29.1.dev0`) so development
 builds are marked as pre-releases and never collide with a published release.
 
-### Increment Version
+`main` is a protected branch, so direct pushes are rejected. Releases go
+through a Release PR; only the tag is pushed directly (tags are not
+protected).
 
-First prepare for next release by incrementing the version number
+### Open the Release PR
+
+Increment the version and update CHANGELOG.md. The changelog must be updated
+before _EACH_ release, even beta releases.
 
 ```bash
 # Drop the .dev suffix to cut the release (e.g. 1.29.1.dev0 -> 1.29.1)
-uv version --bump stable  # use "--bump minor" if there are new features
-VERSION="$(uv version --short)"
-```
-
-### Update CHANGELOG.md
-
-Before releasing, replace the `Unreleased` heading in CHANGELOG.md with the
-version number and date. Update CHANGELOG.md before _EACH_ release, even beta
-releases.
-
-```bash
+VERSION="$(uv version --bump stable --dry-run --short)"  # use "--bump minor" if there are new features
+git checkout -b "release-$VERSION" main
+uv version "$VERSION"
 sed -i "s/^## Unreleased/## [$VERSION] - $(date +%Y-%m-%d)/" docs/CHANGELOG.md
+git commit -am "Release $VERSION"
+git push -u origin "release-$VERSION"
+gh pr create --title "Release $VERSION" --body "Release $VERSION"
 ```
 
-### Tagging a Release
+### Merge the Release PR, then Tag main
+
+After the PR is approved and merged, tag the merge commit on `main`.
+Do NOT tag your local release branch: squash-merging rewrites the SHA.
 
 ```bash
-git commit -am "Release $VERSION"
+git checkout main && git pull
+VERSION="$(uv version --short)"  # sanity check: must be the release version
 git tag -a "$VERSION" -m "Release $VERSION"
-git push origin main "$VERSION"
+git push origin "$VERSION"
 ```
 
-On a tag push, the `distributions` job asserts the tag equals the
+On the tag push, the `distributions` job asserts the tag equals the
 `pyproject.toml` version, builds `rsconnect_python` and `rsconnect`, and
 publishes to [PyPI](https://pypi.org/project/rsconnect-python/#history) and the
 GitHub releases page.
 
 ### Re-arm development
 
-After releasing, re-arm development on `main` by adding an
-`Unreleased` section to the CHANGELOG.md
+After releasing, re-arm development on `main` with a second PR that adds
+back the `Unreleased` section to CHANGELOG.md and moves to a development
+version
 
 ```bash
+VERSION="$(uv version --bump patch --bump dev --dry-run --short)"  # e.g. 1.29.1 -> 1.29.2.dev1
+git checkout -b "rearm-$VERSION" main
 sed -i '0,/^## \[/s//## Unreleased\n\n&/' docs/CHANGELOG.md
-```
-
-and then moving back to a development version
-
-```bash
-uv version --bump patch --bump dev  # e.g. 1.29.1 -> 1.29.2.dev1
-VERSION="$(uv version --short)"
+uv version "$VERSION"
 git commit -am "Begin $VERSION development"
-git push origin main
+git push -u origin "rearm-$VERSION"
+gh pr create --title "Begin $VERSION development" --body "Re-arm development after release"
 ```
 
 > **NOTE**: Pre-release versions must comply with [PEP 440](https://www.python.org/dev/peps/pep-0440/) so PyPI marks them as pre-releases. `uv version`'s `dev`/`alpha`/`beta`/`rc` bumps produce compliant strings.
