@@ -6,7 +6,7 @@ authors = [{ name = "Posit, PBC", email = "rsconnect@posit.co" }]
 license = { file = "LICENSE.md" }
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.8"
-version = "1.30.0"
+version = "1.30.1.dev1"
 
 dependencies = [
     "typing-extensions>=4.8.0",
