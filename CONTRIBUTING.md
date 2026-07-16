@@ -83,18 +83,29 @@ The version is a static field in `pyproject.toml`, managed with
 `main` always carries a `.dev` version (e.g. `1.29.1.dev0`) so development
 builds are marked as pre-releases and never collide with a published release.
 
+### Increment Version
+
+First prepare for next release by incrementing the version number
+
+```bash
+# Drop the .dev suffix to cut the release (e.g. 1.29.1.dev0 -> 1.29.1)
+uv version --bump stable  # use "--bump minor" if there are new features
+VERSION="$(uv version --short)"
+```
+
 ### Update CHANGELOG.md
 
 Before releasing, replace the `Unreleased` heading in CHANGELOG.md with the
 version number and date. Update CHANGELOG.md before _EACH_ release, even beta
 releases.
 
+```bash
+sed -i "s/^## Unreleased/## [$VERSION] - $(date +%Y-%m-%d)/" docs/CHANGELOG.md
+```
+
 ### Tagging a Release
 
 ```bash
-# Drop the .dev suffix to cut the release (e.g. 1.29.1.dev0 -> 1.29.1)
-uv version --bump stable  # use "--bump minor" if there are new features
-VERSION="$(uv version --short)"
 git commit -am "Release $VERSION"
 git tag -a "$VERSION" -m "Release $VERSION"
 git push origin main "$VERSION"
@@ -103,7 +114,11 @@ git push origin main "$VERSION"
 On a tag push, the `distributions` job asserts the tag equals the
 `pyproject.toml` version, builds `rsconnect_python` and `rsconnect`, and
 publishes to [PyPI](https://pypi.org/project/rsconnect-python/#history) and the
-GitHub releases page. After releasing, re-arm development on `main`:
+GitHub releases page.
+
+### Re-arm development
+
+After releasing, re-arm development on `main`:
 
 ```bash
 uv version --bump patch --bump dev  # e.g. 1.29.1 -> 1.29.2.dev1
