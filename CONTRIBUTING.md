@@ -94,9 +94,10 @@ releases.
 ```bash
 # Drop the .dev suffix to cut the release (e.g. 1.29.1.dev0 -> 1.29.1)
 uv version --bump stable
-git commit -am 'Release 1.29.1'
-git tag -a 1.29.1 -m 'Release 1.29.1'
-git push origin main 1.29.1
+VERSION="$(uv version --short)"
+git commit -am "Release $VERSION"
+git tag -a "$VERSION" -m "Release $VERSION"
+git push origin main "$VERSION"
 ```
 
 On a tag push, the `distributions` job asserts the tag equals the
@@ -105,8 +106,9 @@ publishes to [PyPI](https://pypi.org/project/rsconnect-python/#history) and the
 GitHub releases page. After releasing, re-arm development on `main`:
 
 ```bash
-uv version 1.29.2.dev0
-git commit -am 'Begin 1.29.2 development'
+uv version --bump patch --bump dev  # e.g. 1.29.1 -> 1.29.2.dev1
+VERSION="$(uv version --short)"
+git commit -am "Begin $VERSION development"
 git push origin main
 ```
 
