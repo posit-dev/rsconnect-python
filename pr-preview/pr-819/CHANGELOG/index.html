@@ -1058,7 +1058,18 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Unreleased">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1300-2026-07-16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [1.30.0] - 2026-07-16
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="[1.30.0] - 2026-07-16">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2872,7 +2883,12 @@
 <p>The format is based on <a href="https://keepachangelog.com/en/1.0.0/">Keep a Changelog</a>,
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">#</a></h2>
+<h2 id="1300-2026-07-16">[1.30.0] - 2026-07-16<a class="headerlink" href="#1300-2026-07-16" title="Permanent link">#</a></h2>
 <ul>
+<li>Fixed a bug where <code>rsconnect deploy notebook --static</code> failed with <code>Unable to
+  include the file &lt;version&gt; in the bundle: No such file or directory</code>. The
+  Python version string recorded for the manifest was passed to <code>nbconvert</code> as
+  if it were the local interpreter path; the actual interpreter is now used.</li>
 <li>Fixed a bug where <code>rsconnect deploy manifest manifest.json</code> (and other deploy
   commands given a bare filename) failed to detect git metadata. The directory
   passed to git detection was empty in that case, which caused detection to be
