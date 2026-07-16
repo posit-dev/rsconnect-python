@@ -118,7 +118,14 @@ GitHub releases page.
 
 ### Re-arm development
 
-After releasing, re-arm development on `main`:
+After releasing, re-arm development on `main` by adding an
+`Unreleased` section to the CHANGELOG.md
+
+```bash
+sed -i '0,/^## \[/s//## Unreleased\n\n&/' docs/CHANGELOG.md
+```
+
+and then moving back to a development version
 
 ```bash
 uv version --bump patch --bump dev  # e.g. 1.29.1 -> 1.29.2.dev1
