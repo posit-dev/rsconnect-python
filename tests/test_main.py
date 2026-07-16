@@ -1957,6 +1957,37 @@ class TestServerGroup:
         assert result.exit_code == 0, result.output
         assert "s1" in result.output
 
+    @staticmethod
+    def _command_names(help_output):
+        # Click renders each command row with a 2-space indent; wrapped
+        # help text is indented further, so match only the command rows.
+        section = help_output.split("Commands:", 1)[1]
+        return [
+            line.strip().split()[0]
+            for line in section.splitlines()
+            if line.startswith("  ") and not line.startswith("   ") and line.strip()
+        ]
+
+    def test_server_aliases_hidden_from_top_level_help(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["--help"])
+        assert result.exit_code == 0, result.output
+        names = self._command_names(result.output)
+        assert "server" in names
+        for hidden in ("add", "list", "remove", "details", "bootstrap"):
+            assert hidden not in names, "%s should be hidden from top-level help" % hidden
+
+    def test_hidden_top_level_alias_still_runs(self, tmp_path):
+        from rsconnect.metadata import ServerStore
+
+        store = ServerStore(base_dir=str(tmp_path))
+        store.set("s1", "http://s1.local", api_key="key1")
+        runner = CliRunner()
+        with mock.patch("rsconnect.main.server_store", store):
+            result = runner.invoke(cli, ["remove", "--name", "s1"])
+        assert result.exit_code == 0, result.output
+        assert "Removed" in result.output
+
 
 class TestDeployGit(TestCase):
     """Tests for deploy git CLI command."""
