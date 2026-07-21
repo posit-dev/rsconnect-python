@@ -50,13 +50,12 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import NotRequired, TypedDict
 
-import click
 
 from .environment import Environment, list_environment_dirs, is_environment_dir
 from .environment_node import NodeEnvironment
 from .environment_r import REnvironment
 from .exception import RSConnectException
-from .log import VERBOSE, logger
+from .log import VERBOSE, logger, warn_user
 from .models import AppMode, AppModes, GlobSet
 from .shiny_express import escape_to_var_name, is_express_app
 
@@ -1925,10 +1924,7 @@ def validate_node_entry_point(entry_point: str | None, directory: str) -> str:
 
 def _warn_on_ignored_entrypoint(entrypoint: Optional[str]) -> None:
     if entrypoint:
-        click.secho(
-            "    Warning: entrypoint will not be used or considered for multi-notebook mode.",
-            fg="yellow",
-        )
+        warn_user("    Warning: entrypoint will not be used or considered for multi-notebook mode.")
 
 
 def create_notebook_manifest_and_environment_file(

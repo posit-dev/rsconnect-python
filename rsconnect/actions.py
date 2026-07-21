@@ -39,7 +39,7 @@ from .bundle import (
 from .environment import Environment
 from .environment_r import REnvironment
 from .exception import RSConnectException
-from .log import VERBOSE, logger
+from .log import VERBOSE, console_logger, logger
 from .models import AppMode, AppModes
 
 line_width = 45
@@ -58,6 +58,12 @@ def cli_feedback(label: str, stderr: bool = False):
     vs. internal errors (prefixed with 'Internal Error'). In verbose mode,
     tracebacks will be emitted for internal errors.
     """
+    if logger.quiet:
+        # Quiet mode: suppress the step label and [OK] line so stdout stays
+        # reserved for the content URL; errors are routed to stderr.
+        label = ""
+        stderr = True
+
     if label:
         pad = line_width - len(label)
         click.secho(label + "... " + " " * pad, nl=False, err=stderr)
@@ -85,17 +91,35 @@ def cli_feedback(label: str, stderr: bool = False):
         logger.set_in_feedback(False)
 
 
-def set_verbosity(verbose: int):
-    """Set the verbosity level based on a passed flag
+def set_verbosity(verbose: int, quiet: bool = False):
+    """Set the verbosity level based on the passed flags
 
-    :param verbose: boolean specifying verbose or not
+    :param verbose: verbosity count (0 = normal, 1 = verbose, 2+ = debug)
+    :param quiet: suppress all output except errors and the final content URL
     """
-    if verbose == 0:
-        logger.setLevel(logging.INFO)
-    elif verbose == 1:
-        logger.setLevel(VERBOSE)
+    if quiet:
+        # Enter quiet mode before validating the flags so that even the
+        # flag-conflict error below lands on stderr, not stdout.
+        logger.set_quiet(True)
+        # Silence step/progress lines from RSLogger (e.g. output_params) while
+        # still allowing warnings and errors through.
+        logger.setLevel(logging.WARNING)
+        # Silence the @cls_logged step labels and [OK] lines, which go through
+        # console_logger; [ERROR] lines still surface.
+        console_logger.setLevel(logging.ERROR)
+        if verbose:
+            raise RSConnectException("--quiet cannot be used together with -v/--verbose.")
     else:
-        logger.setLevel(logging.DEBUG)
+        # Undo any quiet mode left over from an earlier invocation in the same
+        # process (library use, test suites); this state is module-global.
+        logger.set_quiet(False)
+        console_logger.setLevel(logging.DEBUG)
+        if verbose == 0:
+            logger.setLevel(logging.INFO)
+        elif verbose == 1:
+            logger.setLevel(VERBOSE)
+        else:
+            logger.setLevel(logging.DEBUG)
 
 
 def _verify_server(connect_server: api.RSConnectServer):

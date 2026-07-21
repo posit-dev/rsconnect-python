@@ -128,7 +128,7 @@ from .json_web_token import (
     read_secret_key,
     validate_hs256_secret_key,
 )
-from .log import VERBOSE, LogOutputFormat, logger
+from .log import VERBOSE, LogOutputFormat, logger, warn_user
 from .metadata import AppStore, ServerStore
 from .models import (
     AppMode,
@@ -160,7 +160,9 @@ def cli_exception_handler(func: Callable[P, T]) -> Callable[P, T]:
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
         def failed(err: str) -> Never:
-            click.secho(str(err), fg="bright_red", err=False)
+            # In quiet mode, keep stdout reserved for the content URL so that
+            # `URL=$(rsconnect deploy ... --quiet)` never captures an error.
+            click.secho(str(err), fg="bright_red", err=logger.quiet)
             sys.exit(1)
 
         try:
@@ -184,7 +186,7 @@ def output_params(
     if click.__version__ >= "8.0.0" and sys.version_info >= (3, 7):
         logger.log(VERBOSE, "Detected the following inputs:")
         for k, v in vars:
-            if k in {"ctx", "verbose", "kwargs"}:
+            if k in {"ctx", "verbose", "quiet", "kwargs"}:
                 continue
             if v is not None:
                 val = v
@@ -235,6 +237,20 @@ CONNECT_CA_CERTIFICATE environment variable.)",
 
 def spcs_args(func: Callable[P, T]) -> Callable[P, T]:
     @click.option("--snowflake-connection-name", help="The name of the Snowflake connection in the configuration file")
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def quiet_arg(func: Callable[P, T]) -> Callable[P, T]:
+    @click.option(
+        "--quiet",
+        is_flag=True,
+        help="Suppress all output except the final content URL (printed to stdout). "
+        "Errors still go to stderr. Cannot be combined with -v/--verbose.",
+    )
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
         return func(*args, **kwargs)
@@ -1441,6 +1457,8 @@ def deploy(ctx: click.Context):
     checker.start()
 
     def _print_version_warning() -> None:
+        if logger.quiet:
+            return
         message = checker.get_warning_message()
         if message:
             click.secho(message, fg="yellow", err=True)
@@ -1458,10 +1476,7 @@ def _warn_on_ignored_manifest(directory: str):
     :param directory: the directory to check in.
     """
     if exists(join(directory, "manifest.json")):
-        click.secho(
-            "    Warning: the existing manifest.json file will not be used or considered.",
-            fg="yellow",
-        )
+        warn_user("    Warning: the existing manifest.json file will not be used or considered.")
 
 
 def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
@@ -1473,10 +1488,7 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     :param requirements_file_name: the name of the requirements file.
     """
     if exists(join(directory, requirements_file_name)):
-        click.secho(
-            "    Warning: the existing %s file will not be used or considered." % requirements_file_name,
-            fg="yellow",
-        )
+        warn_user("    Warning: the existing %s file will not be used or considered." % requirements_file_name)
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -1551,10 +1563,12 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@quiet_arg
 @cli_exception_handler
 @click.pass_context
 def deploy_notebook(
     ctx: click.Context,
+    quiet: bool,
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
@@ -1586,7 +1600,7 @@ def deploy_notebook(
     metadata: tuple[str, ...] = tuple(),
     no_metadata: bool = False,
 ):
-    set_verbosity(verbose)
+    set_verbosity(verbose, quiet)
     output_params(ctx, locals().items())
 
     # TODO: This used to save a value in kwargs["extra_files"] which would get passed to
@@ -1658,6 +1672,7 @@ def deploy_notebook(
         if not draft and ce.supports_verify_before_activate:
             # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
+    ce.emit_content_url()
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -1735,10 +1750,12 @@ def deploy_notebook(
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@quiet_arg
 @cli_exception_handler
 @click.pass_context
 def deploy_voila(
     ctx: click.Context,
+    quiet: bool,
     path: str,
     entrypoint: Optional[str],
     python: Optional[str],
@@ -1771,7 +1788,7 @@ def deploy_voila(
     metadata: tuple[str, ...] = tuple(),
     no_metadata: bool = False,
 ):
-    set_verbosity(verbose)
+    set_verbosity(verbose, quiet)
     output_params(ctx, locals().items())
     app_mode = AppModes.JUPYTER_VOILA
     base_dir = path if isdir(path) else dirname(path)
@@ -1829,6 +1846,7 @@ def deploy_voila(
         if not draft and ce.supports_verify_before_activate:
             # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
+    ce.emit_content_url()
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -1848,10 +1866,12 @@ def deploy_voila(
 @cloud_shinyapps_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @shinyapps_deploy_args
+@quiet_arg
 @cli_exception_handler
 @click.pass_context
 def deploy_manifest(
     ctx: click.Context,
+    quiet: bool,
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
@@ -1873,7 +1893,7 @@ def deploy_manifest(
     metadata: tuple[str, ...] = tuple(),
     no_metadata: bool = False,
 ):
-    set_verbosity(verbose)
+    set_verbosity(verbose, quiet)
     output_params(ctx, locals().items())
 
     file_name = validate_manifest_file(file)
@@ -1923,6 +1943,7 @@ def deploy_manifest(
         if not draft and ce.supports_verify_before_activate:
             # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
+    ce.emit_content_url()
 
 
 @deploy.command(
@@ -1942,10 +1963,12 @@ def deploy_manifest(
 @cloud_shinyapps_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
 @shinyapps_deploy_args
+@quiet_arg
 @cli_exception_handler
 @click.pass_context
 def deploy_bundle(
     ctx: click.Context,
+    quiet: bool,
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
@@ -1967,7 +1990,7 @@ def deploy_bundle(
     metadata: tuple[str, ...] = tuple(),
     no_metadata: bool = False,
 ):
-    set_verbosity(verbose)
+    set_verbosity(verbose, quiet)
     output_params(ctx, locals().items())
 
     app_mode = read_bundle_app_mode(file)
@@ -2016,6 +2039,7 @@ def deploy_bundle(
         if not draft and ce.supports_verify_before_activate:
             # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
+    ce.emit_content_url()
 
 
 @deploy.command(
@@ -2054,10 +2078,12 @@ def deploy_bundle(
     help="Skip renv.lock detection. R dependencies will not be added to the manifest, "
     "even when an renv.lock file is present (in the content directory or at RENV_PATHS_LOCKFILE).",
 )
+@quiet_arg
 @cli_exception_handler
 @click.pass_context
 def deploy_pyproject(
     ctx: click.Context,
+    quiet: bool,
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
@@ -2081,7 +2107,7 @@ def deploy_pyproject(
     metadata: tuple[str, ...] = tuple(),
     no_metadata: bool = False,
 ):
-    set_verbosity(verbose)
+    set_verbosity(verbose, quiet)
     output_params(ctx, locals().items())
 
     def quickstart_hint() -> str:
@@ -2227,6 +2253,7 @@ def deploy_pyproject(
         if not draft and ce.supports_verify_before_activate:
             # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
+    ce.emit_content_url()
 
 
 @deploy.command(
@@ -2321,6 +2348,7 @@ def deploy_git(
 
     if not no_verify:
         ce.verify_deployment()
+    ce.emit_content_url()
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -2399,10 +2427,12 @@ def deploy_git(
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@quiet_arg
 @cli_exception_handler
 @click.pass_context
 def deploy_quarto(
     ctx: click.Context,
+    quiet: bool,
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
@@ -2433,7 +2463,7 @@ def deploy_quarto(
     metadata: tuple[str, ...] = tuple(),
     no_metadata: bool = False,
 ):
-    set_verbosity(verbose)
+    set_verbosity(verbose, quiet)
     output_params(ctx, locals().items())
 
     base_dir = file_or_directory
@@ -2512,6 +2542,7 @@ def deploy_quarto(
         if not draft and ce.supports_verify_before_activate:
             # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
+    ce.emit_content_url()
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -2550,10 +2581,12 @@ def deploy_quarto(
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@quiet_arg
 @cli_exception_handler
 @click.pass_context
 def deploy_tensorflow(
     ctx: click.Context,
+    quiet: bool,
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
@@ -2574,7 +2607,7 @@ def deploy_tensorflow(
     metadata: tuple[str, ...] = tuple(),
     no_metadata: bool = False,
 ):
-    set_verbosity(verbose)
+    set_verbosity(verbose, quiet)
     output_params(ctx, locals().items())
 
     _warn_on_ignored_manifest(directory)
@@ -2621,6 +2654,7 @@ def deploy_tensorflow(
         if not draft and ce.supports_verify_before_activate:
             # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
+    ce.emit_content_url()
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
@@ -2655,10 +2689,12 @@ def deploy_tensorflow(
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@quiet_arg
 @cli_exception_handler
 @click.pass_context
 def deploy_html(
     ctx: click.Context,
+    quiet: bool,
     path: str,
     entrypoint: Optional[str],
     extra_files: tuple[str, ...],
@@ -2683,7 +2719,7 @@ def deploy_html(
     metadata: tuple[str, ...] = tuple(),
     no_metadata: bool = False,
 ):
-    set_verbosity(verbose)
+    set_verbosity(verbose, quiet)
     output_params(ctx, locals().items())
 
     if connect_server:
@@ -2748,6 +2784,7 @@ def deploy_html(
         if not draft and ce.supports_verify_before_activate:
             # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
+    ce.emit_content_url()
 
 
 def resolve_requirements_file(directory: str, requirements_file: Optional[str], force_generate: bool) -> Optional[str]:
@@ -2861,10 +2898,12 @@ def generate_deploy_python(
         type=click.Path(exists=True, dir_okay=False, file_okay=True),
     )
     @shinyapps_deploy_args
+    @quiet_arg
     @cli_exception_handler
     @click.pass_context
     def deploy_app(
         ctx: click.Context,
+        quiet: bool,
         name: Optional[str],
         server: Optional[str],
         api_key: Optional[str],
@@ -2899,7 +2938,7 @@ def generate_deploy_python(
         metadata: tuple[str, ...],
         no_metadata: bool,
     ):
-        set_verbosity(verbose)
+        set_verbosity(verbose, quiet)
         entrypoint = validate_entry_point(entrypoint, directory)
         extra_files_list = validate_extra_files(directory, extra_files)
         requirements_file = resolve_requirements_file(directory, requirements_file, force_generate)
@@ -2985,6 +3024,7 @@ def generate_deploy_python(
             if not draft and ce.supports_verify_before_activate:
                 # The draft bundle verified successfully, so activate it.
                 ce.activate_deployment().emit_task_log()
+        ce.emit_content_url()
 
     return deploy_app
 
@@ -3059,10 +3099,12 @@ generate_deploy_python(app_mode=AppModes.PYTHON_PANEL, min_version="2025.10.0")
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
 @shinyapps_deploy_args
+@quiet_arg
 @cli_exception_handler
 @click.pass_context
 def deploy_nodejs(
     ctx: click.Context,
+    quiet: bool,
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
@@ -3090,7 +3132,7 @@ def deploy_nodejs(
     metadata: tuple[str, ...],
     no_metadata: bool,
 ):
-    set_verbosity(verbose)
+    set_verbosity(verbose, quiet)
     entrypoint = validate_node_entry_point(entrypoint, directory)
     extra_files_list = validate_extra_files(directory, extra_files)
     node_environment = NodeEnvironment.create(directory, node_executable=node)
@@ -3148,6 +3190,7 @@ def deploy_nodejs(
         if not draft and ce.supports_verify_before_activate:
             # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
+    ce.emit_content_url()
 
 
 @deploy.command(

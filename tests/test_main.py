@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 import shutil
@@ -15,6 +16,7 @@ from click.testing import CliRunner
 from rsconnect import VERSION
 from rsconnect.api import RSConnectClient, RSConnectServer
 from rsconnect.json_web_token import SECRET_KEY_ENV
+from rsconnect.log import console_logger, logger as rs_logger
 from rsconnect.main import cli, env_management_callback, make_notebook_html_bundle
 
 from .utils import (
@@ -61,6 +63,15 @@ class TestMain:
         else:
             os.environ["HOME"] = self._saved_home
         shutil.rmtree("test-home", ignore_errors=True)
+
+    @pytest.fixture(autouse=True)
+    def _reset_logger_state(self):
+        # ``--quiet`` mutates module-global logger levels that would otherwise
+        # leak across CliRunner invocations and silence later tests.
+        yield
+        rs_logger.set_quiet(False)
+        rs_logger.setLevel(logging.INFO)
+        console_logger.setLevel(logging.DEBUG)
 
     @staticmethod
     def optional_target(default):
@@ -634,6 +645,198 @@ class TestMain:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
+
+    def _register_quiet_deploy_routes(self, task_body):
+        """Register httpretty routes for a standard Connect notebook deploy.
+
+        ``task_body`` is the JSON body returned by the task-status endpoint and
+        controls whether the deploy succeeds (``code`` 0) or fails.
+        """
+        content_body = json.dumps(
+            {
+                "id": "1234",
+                "guid": "1234-5678-9012-3456",
+                "title": "app5",
+                "content_url": "http://fake_server/content/1234-5678-9012-3456",
+                "dashboard_url": "http://fake_server/connect/#/apps/1234-5678-9012-3456",
+            }
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/server_settings",
+            body=json.dumps({"version": "9999.99.99"}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/user",
+            body=open("tests/testdata/connect-responses/me.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/content?name=app5",
+            body=json.dumps([]),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/v1/content",
+            body=content_body,
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.PATCH,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            body=content_body,
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456",
+            body=content_body,
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/bundles",
+            body=json.dumps({"id": "FAKE_BUNDLE_ID"}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/v1/content/1234-5678-9012-3456/deploy",
+            body=json.dumps({"task_id": "FAKE_TASK_ID"}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/tasks/FAKE_TASK_ID?wait=1",
+            body=task_body,
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+    @pytest.mark.parametrize("draft", [False, True])
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_quiet(self, draft):
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+
+        self._register_quiet_deploy_routes(
+            json.dumps({"output": ["FAKE_OUTPUT"], "last": "FAKE_LAST", "finished": True, "code": 0})
+        )
+        target = get_dir(join("pip1", "dummy.ipynb"))
+        expected_url = (
+            "http://fake_server/connect/#/apps/1234-5678-9012-3456/draft/FAKE_BUNDLE_ID"
+            if draft
+            else "http://fake_server/content/1234-5678-9012-3456"
+        )
+        try:
+            runner = CliRunner()
+            args = apply_common_args(["deploy", "notebook", target], server="http://fake_server", key="FAKE_API_KEY")
+            args += ["--no-verify", "--quiet"]
+            if draft:
+                args.append("--draft")
+            with mock.patch(
+                "rsconnect.api.RSConnectExecutor.validate_app_mode",
+                new=lambda self_, *a, **k: self_,
+            ):
+                result = runner.invoke(cli, args)
+            assert result.exit_code == 0, result.output
+            # Only the content URL is written to stdout.
+            assert result.stdout.strip() == expected_url
+            # Step lines and the streamed task log are suppressed.
+            assert "FAKE_OUTPUT" not in result.output
+            assert "Deployment completed successfully." not in result.output
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_quiet_failure_shows_task_log(self):
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+
+        self._register_quiet_deploy_routes(
+            json.dumps({"output": ["FAKE_OUTPUT"], "last": "FAKE_LAST", "finished": True, "code": 1})
+        )
+        target = get_dir(join("pip1", "dummy.ipynb"))
+        try:
+            runner = CliRunner()
+            args = apply_common_args(["deploy", "notebook", target], server="http://fake_server", key="FAKE_API_KEY")
+            args += ["--no-verify", "--quiet"]
+            with mock.patch(
+                "rsconnect.api.RSConnectExecutor.validate_app_mode",
+                new=lambda self_, *a, **k: self_,
+            ):
+                result = runner.invoke(cli, args)
+            assert result.exit_code == 1
+            # On failure the buffered task log and the error are flushed to stderr.
+            assert "FAKE_OUTPUT" in result.stderr
+            assert "Error:" in result.stderr
+            # stdout stays clean so `URL=$(...)` never captures an error.
+            assert result.stdout.strip() == ""
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_quiet_verify_failure_keeps_stdout_clean(self):
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+
+        self._register_quiet_deploy_routes(
+            json.dumps({"output": ["FAKE_OUTPUT"], "last": "FAKE_LAST", "finished": True, "code": 0})
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            re.compile(r"http://fake_server/content/1234-5678-9012-3456/"),
+            body="",
+            status=502,
+        )
+        target = get_dir(join("pip1", "dummy.ipynb"))
+        try:
+            runner = CliRunner()
+            args = apply_common_args(["deploy", "notebook", target], server="http://fake_server", key="FAKE_API_KEY")
+            args += ["--quiet"]
+            with mock.patch(
+                "rsconnect.api.RSConnectExecutor.validate_app_mode",
+                new=lambda self_, *a, **k: self_,
+            ):
+                result = runner.invoke(cli, args)
+            # A failed verification must not leave a URL on stdout.
+            assert result.exit_code == 1
+            assert result.stdout.strip() == ""
+            assert "Error:" in result.stderr
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
+    def test_deploy_quiet_verbose_conflict(self):
+        target = get_dir(join("pip1", "dummy.ipynb"))
+        runner = CliRunner()
+        args = apply_common_args(["deploy", "notebook", target], server="http://fake_server", key="FAKE_API_KEY")
+        args += ["--quiet", "-v"]
+        result = runner.invoke(cli, args)
+        assert result.exit_code != 0
+        assert "--quiet cannot be used together with -v/--verbose." in result.stderr
+        # Even the flag-conflict error must not pollute stdout in quiet mode.
+        assert result.stdout.strip() == ""
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_deploy_bundle(self, caplog):
