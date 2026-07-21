@@ -773,7 +773,7 @@ class TestMain:
         )
         target = get_dir(join("pip1", "dummy.ipynb"))
         try:
-            runner = CliRunner()
+            runner = CliRunner(mix_stderr=False)
             args = apply_common_args(["deploy", "notebook", target], server="http://fake_server", key="FAKE_API_KEY")
             args += ["--no-verify", "--quiet"]
             with mock.patch(
@@ -809,7 +809,7 @@ class TestMain:
         )
         target = get_dir(join("pip1", "dummy.ipynb"))
         try:
-            runner = CliRunner()
+            runner = CliRunner(mix_stderr=False)
             args = apply_common_args(["deploy", "notebook", target], server="http://fake_server", key="FAKE_API_KEY")
             args += ["--quiet"]
             with mock.patch(
@@ -829,7 +829,7 @@ class TestMain:
 
     def test_deploy_quiet_verbose_conflict(self):
         target = get_dir(join("pip1", "dummy.ipynb"))
-        runner = CliRunner()
+        runner = CliRunner(mix_stderr=False)
         args = apply_common_args(["deploy", "notebook", target], server="http://fake_server", key="FAKE_API_KEY")
         args += ["--quiet", "-v"]
         result = runner.invoke(cli, args)
