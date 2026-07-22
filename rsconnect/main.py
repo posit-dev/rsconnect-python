@@ -248,8 +248,8 @@ def quiet_arg(func: Callable[P, T]) -> Callable[P, T]:
     @click.option(
         "--quiet",
         is_flag=True,
-        help="Suppress all output except the final content URL (printed to stdout). "
-        "Errors still go to stderr. Cannot be combined with -v/--verbose.",
+        help="Print only the final content URL to stdout. "
+        "Warnings and errors still go to stderr. Cannot be combined with -v/--verbose.",
     )
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):

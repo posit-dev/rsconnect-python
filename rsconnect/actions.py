@@ -108,7 +108,7 @@ def set_verbosity(verbose: int, quiet: bool = False):
     """Set the verbosity level based on the passed flags
 
     :param verbose: verbosity count (0 = normal, 1 = verbose, 2+ = debug)
-    :param quiet: suppress all output except errors and the final content URL
+    :param quiet: emit only the final content URL on stdout; warnings and errors still go to stderr
     """
     level = -1 if quiet else min(verbose, 2)
     logger_level, console_level = _VERBOSITY_LEVELS[level]

@@ -423,9 +423,9 @@ URL=$(rsconnect deploy notebook --quiet -n myserver notebook.ipynb)
 echo "Deployed to $URL"
 ```
 
-Errors are still written to standard error, and if a deploy fails the server
-task log is emitted to standard error so the failure can be diagnosed.
-`--quiet` cannot be combined with `-v`/`--verbose`.
+Warnings and errors are still written to standard error, and if a deploy fails
+the server task log is emitted to standard error so the failure can be
+diagnosed. `--quiet` cannot be combined with `-v`/`--verbose`.
 
 ### Environment variables
 
