@@ -412,11 +412,11 @@ considered successful if there isn't a 5xx code returned. Errors like
 400 Bad Request or 405 Method Not Allowed because not all apps support `GET /`.
 For cases where this is not desired, use the `--no-verify` flag on the command line.
 
-#### Quiet Output (Scripting)
+#### Quiet Output
 
 By default a deploy prints step-by-step progress and streams the server build
 log. Pass `--quiet` to suppress all of that and print only the deployed content
-URL to standard output, which is convenient in scripts and CI:
+URL to standard output.
 
 ```bash
 URL=$(rsconnect deploy notebook --quiet -n myserver notebook.ipynb)

@@ -2294,10 +2294,12 @@ def deploy_pyproject(
     default=True,
     help="Enable/disable regular polling of the repository for updates. [default: enabled]",
 )
+@quiet_arg
 @cli_exception_handler
 @click.pass_context
 def deploy_git(
     ctx: click.Context,
+    quiet: bool,
     name: Optional[str],
     server: Optional[str],
     api_key: Optional[str],
@@ -2316,7 +2318,7 @@ def deploy_git(
     subdirectory: str,
     polling: bool,
 ):
-    set_verbosity(verbose)
+    set_verbosity(verbose, quiet)
     output_params(ctx, locals().items())
 
     if new and app_id:

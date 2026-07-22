@@ -838,6 +838,22 @@ class TestMain:
         # Even the flag-conflict error must not pollute stdout in quiet mode.
         assert result.stdout.strip() == ""
 
+    def test_every_deploy_subcommand_accepts_quiet(self):
+        # Guard against adding a new `deploy` subcommand that performs a real
+        # deployment but forgets `@quiet_arg` (and the matching
+        # ``set_verbosity(verbose, quiet)`` / ``emit_content_url()`` wiring).
+        # ``other-content`` is only a help stub, so it is exempt. Hidden
+        # commands (e.g. the ``_version_check_test_*`` stubs registered by the
+        # test suite) are not real deploy commands and are likewise exempt.
+        deploy_group = cli.commands["deploy"]
+        exempt = {"other-content"}
+        missing = [
+            name
+            for name, command in deploy_group.commands.items()
+            if name not in exempt and not command.hidden and not any(param.name == "quiet" for param in command.params)
+        ]
+        assert missing == [], f"deploy subcommands missing --quiet: {missing}"
+
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_deploy_bundle(self, caplog):
         # Deploying a downloaded bundle should upload the tarball as-is (no
