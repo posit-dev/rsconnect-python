@@ -601,10 +601,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#quiet-output-scripting" class="md-nav__link">
+  <a href="#quiet-output" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Quiet Output (Scripting)
+        Quiet Output
       
     </span>
   </a>
@@ -1661,10 +1661,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#quiet-output-scripting" class="md-nav__link">
+  <a href="#quiet-output" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Quiet Output (Scripting)
+        Quiet Output
       
     </span>
   </a>
@@ -2125,10 +2125,10 @@ to the content, without parameters. The request is
 considered successful if there isn't a 5xx code returned. Errors like
 400 Bad Request or 405 Method Not Allowed because not all apps support <code>GET /</code>.
 For cases where this is not desired, use the <code>--no-verify</code> flag on the command line.</p>
-<h4 id="quiet-output-scripting">Quiet Output (Scripting)<a class="headerlink" href="#quiet-output-scripting" title="Permanent link">#</a></h4>
+<h4 id="quiet-output">Quiet Output<a class="headerlink" href="#quiet-output" title="Permanent link">#</a></h4>
 <p>By default a deploy prints step-by-step progress and streams the server build
 log. Pass <code>--quiet</code> to suppress all of that and print only the deployed content
-URL to standard output, which is convenient in scripts and CI:</p>
+URL to standard output.</p>
 <div class="highlight"><pre><span></span><code><span class="nv">URL</span><span class="o">=</span><span class="k">$(</span>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--quiet<span class="w"> </span>-n<span class="w"> </span>myserver<span class="w"> </span>notebook.ipynb<span class="k">)</span>
 <span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Deployed to </span><span class="nv">$URL</span><span class="s2">&quot;</span>
 </code></pre></div>
