@@ -2132,9 +2132,9 @@ URL to standard output.</p>
 <div class="highlight"><pre><span></span><code><span class="nv">URL</span><span class="o">=</span><span class="k">$(</span>rsconnect<span class="w"> </span>deploy<span class="w"> </span>notebook<span class="w"> </span>--quiet<span class="w"> </span>-n<span class="w"> </span>myserver<span class="w"> </span>notebook.ipynb<span class="k">)</span>
 <span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Deployed to </span><span class="nv">$URL</span><span class="s2">&quot;</span>
 </code></pre></div>
-<p>Errors are still written to standard error, and if a deploy fails the server
-task log is emitted to standard error so the failure can be diagnosed.
-<code>--quiet</code> cannot be combined with <code>-v</code>/<code>--verbose</code>.</p>
+<p>Warnings and errors are still written to standard error, and if a deploy fails
+the server task log is emitted to standard error so the failure can be
+diagnosed. <code>--quiet</code> cannot be combined with <code>-v</code>/<code>--verbose</code>.</p>
 <h3 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">#</a></h3>
 <p>You can set environment variables during deployment. Their names and values will be
 passed to Posit Connect during deployment so you can use them in your code. Note that
