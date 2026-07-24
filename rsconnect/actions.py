@@ -92,12 +92,13 @@ def cli_feedback(label: str, stderr: bool = False):
 
 
 # Maps a verbosity level to the (RSLogger level, console_logger level) it sets.
-# Level -1 is quiet: RSLogger drops step/progress lines below WARNING and
-# console_logger drops @cls_logged step labels and [OK] lines below ERROR, so
-# only warnings/errors and the final content URL survive. Levels 0/1/2 are
-# normal/verbose/debug; anything above 2 clamps to debug.
+# Level -1 is quiet: RSLogger drops its diagnostic lines below WARNING and
+# console_logger drops the @cls_logged step labels and [OK] lines (emitted at
+# INFO/DEBUG) below WARNING, while still letting its warnings (e.g. credential
+# overlap) through to stderr, so only warnings/errors and the final content URL
+# survive. Levels 0/1/2 are normal/verbose/debug; anything above 2 clamps to debug.
 _VERBOSITY_LEVELS = {
-    -1: (logging.WARNING, logging.ERROR),
+    -1: (logging.WARNING, logging.WARNING),
     0: (logging.INFO, logging.DEBUG),
     1: (VERBOSE, logging.DEBUG),
     2: (logging.DEBUG, logging.DEBUG),

@@ -36,4 +36,3 @@ vetiver-testing/rsconnect_api_keys.json
 # license files should not be commited to this repository
 *.lic
 /site/
-/rsconnect/version.py

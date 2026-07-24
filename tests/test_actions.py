@@ -65,7 +65,7 @@ def test_warn_user_writes_to_stderr_in_quiet_mode(quiet_mode, capsys):
 def test_set_verbosity_resets_quiet_state(quiet_mode):
     set_verbosity(0, quiet=True)
     assert logger.quiet
-    assert console_logger.level == logging.ERROR
+    assert console_logger.level == logging.WARNING
 
     # A later non-quiet invocation in the same process must fully undo quiet mode.
     set_verbosity(0)
