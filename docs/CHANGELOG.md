@@ -15,6 +15,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failed deploy the server task log is emitted to stderr so failures remain
   diagnosable. `--quiet` cannot be combined with `-v/--verbose`, and for
   shinyapps.io deploys it also skips opening a browser.
+- Added interoperability with Posit Publisher's `.posit/publish` project files.
+  When deploying to Posit Connect or Snowflake (SPCS), rsconnect-python now
+  writes a Publisher configuration (`.posit/publish/<name>.toml`) and deployment
+  record (`.posit/publish/deployments/<name>.toml`) alongside the existing
+  `rsconnect-python/` metadata, so the same project can be published with either
+  tool. Publisher-authored configurations and records are read and preserved.
+- Added a `rsconnect redeploy [PATH]` command that redeploys content using an
+  existing `.posit/publish` project, recovering the target server and content
+  identity from the deployment record so no framework, entrypoint, or server
+  needs to be specified. `PATH` defaults to the current directory. When a
+  project predates `.posit` but has a `manifest.json` and a legacy
+  `rsconnect-python/` deployment record, `redeploy` falls back to those and
+  writes `.posit` files going forward.
+- The `rsconnect write-manifest` commands now also write a `.posit/publish`
+  configuration next to the generated `manifest.json`.
+- Connect Cloud (`connect.posit.cloud`) `.posit` files are read and preserved
+  for interoperability, but deploying to Connect Cloud is not supported by this
+  tool; only Posit Connect and Snowflake (SPCS) targets write `.posit` metadata.
 
 ## [1.30.0] - 2026-07-16
 

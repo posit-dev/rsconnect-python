@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import glob
 import json
 import os
 import shutil
@@ -130,6 +131,8 @@ from .json_web_token import (
 )
 from .log import VERBOSE, LogOutputFormat, logger, warn_user
 from .metadata import AppStore, ServerStore
+from .publisher.store import normalize_url as publisher_normalize_url
+from .publisher.store import resolve_publisher_deploy_target
 from .models import (
     AppMode,
     AppModes,
@@ -2042,6 +2045,110 @@ def deploy_bundle(
     ce.emit_content_url()
 
 
+def _plan_deploy_bundle(
+    directory: str,
+    app_mode: AppMode,
+    entrypoint: str,
+    requirements_file: str,
+    exclude_renv: bool,
+    unsupported_message: str,
+) -> "tuple[str, Callable[..., Any], tuple[Any, ...], dict[str, Any]]":
+    """Resolve the bundle builder and arguments for a Python/Quarto app mode.
+
+    Shared by ``deploy pyproject`` and ``redeploy``: both resolve a target
+    (entrypoint, app_mode, requirements file) from a TOML config and then need
+    the same per-app-mode bundling plan. Returns
+    ``(path, bundle_builder, bundle_args, bundle_kwargs)`` where ``path`` is what
+    the executor should treat as the content path.
+    """
+    extra_files: tuple[str, ...] = tuple()
+    excludes: tuple[str, ...] = tuple()
+    bundle_builder: Callable[..., Any]
+    bundle_args: tuple[Any, ...]
+    bundle_kwargs: dict[str, Any] = {}
+    path = directory
+
+    # renv.lock detection mirrors the dedicated deploy commands; --exclude-renv
+    # opts out, otherwise detection is driven by the lockfile's presence.
+    r_environment = None if exclude_renv else REnvironment.create(directory)
+
+    if app_mode in (AppModes.STREAMLIT_APP, AppModes.PYTHON_SHINY, AppModes.PYTHON_FASTAPI, AppModes.PYTHON_API):
+        if app_mode == AppModes.PYTHON_SHINY:
+            entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
+        environment = Environment.create_python_environment(
+            directory,
+            requirements_file=requirements_file,
+            override_python_version=None,
+        )
+        bundle_builder = make_api_bundle
+        bundle_args = (directory, entrypoint, app_mode, environment, extra_files, excludes)
+        bundle_kwargs = {
+            "image": None,
+            "env_management_py": None,
+            "env_management_r": None,
+            "r_environment": r_environment,
+        }
+    elif app_mode == AppModes.JUPYTER_NOTEBOOK:  # This is "jupyter-static"
+        path = str(Path(directory) / entrypoint)
+        environment = Environment.create_python_environment(
+            directory,
+            requirements_file=requirements_file,
+            override_python_version=None,
+        )
+        bundle_builder = make_notebook_source_bundle
+        # Legacy app mode - no need to override the bundle builder default
+        bundle_args = (path, environment, extra_files, False, False)
+        bundle_kwargs = {
+            "image": None,
+            "env_management_py": None,
+            "env_management_r": None,
+            "r_environment": r_environment,
+        }
+    elif app_mode == AppModes.JUPYTER_VOILA:
+        environment = Environment.create_python_environment(
+            directory,
+            requirements_file=requirements_file,
+            override_python_version=None,
+        )
+        bundle_builder = make_voila_bundle
+        bundle_args = (directory, entrypoint, extra_files, excludes, True, environment)
+        bundle_kwargs = {
+            "image": None,
+            "env_management_py": None,
+            "env_management_r": None,
+            "r_environment": r_environment,
+            "multi_notebook": False,
+        }
+    elif app_mode in (AppModes.STATIC_QUARTO, AppModes.SHINY_QUARTO):
+        path = str(Path(directory) / entrypoint)
+        with cli_feedback("Inspecting Quarto project"):
+            quarto = which_quarto(None)
+            logger.debug("Quarto: %s" % quarto)
+            inspect = quarto_inspect(quarto, path)
+            engines = validate_quarto_engines(inspect)
+
+        environment = None
+        if "jupyter" in engines:
+            with cli_feedback("Inspecting Python environment"):
+                environment = Environment.create_python_environment(
+                    directory,
+                    requirements_file=requirements_file,
+                    override_python_version=None,
+                )
+        bundle_builder = create_quarto_deployment_bundle
+        bundle_args = (path, extra_files, excludes, app_mode, inspect, environment)
+        bundle_kwargs = {
+            "image": None,
+            "env_management_py": None,
+            "env_management_r": None,
+            "r_environment": r_environment,
+        }
+    else:
+        raise RSConnectException(unsupported_message)
+
+    return path, bundle_builder, bundle_args, bundle_kwargs
+
+
 @deploy.command(
     name="pyproject",
     short_help="Deploy content to Posit Connect or shinyapps.io by pyproject.",
@@ -2131,90 +2238,15 @@ def deploy_pyproject(
     entrypoint = target.entrypoint
     effective_title = target.title
     requirements_file = target.requirements_file
-    extra_files: tuple[str, ...] = tuple()
-    excludes: tuple[str, ...] = tuple()
-    bundle_builder: Callable[..., Any]
-    bundle_args: tuple[Any, ...]
-    bundle_kwargs: dict[str, Any] = {}
-    path = directory
 
-    # renv.lock detection mirrors the dedicated deploy commands; --exclude-renv
-    # opts out, otherwise detection is driven by the lockfile's presence.
-    r_environment = None if exclude_renv else REnvironment.create(directory)
-
-    if app_mode in (AppModes.STREAMLIT_APP, AppModes.PYTHON_SHINY, AppModes.PYTHON_FASTAPI, AppModes.PYTHON_API):
-        if app_mode == AppModes.PYTHON_SHINY:
-            entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
-        environment = Environment.create_python_environment(
-            directory,
-            requirements_file=requirements_file,
-            override_python_version=None,
-        )
-        bundle_builder = make_api_bundle
-        bundle_args = (directory, entrypoint, app_mode, environment, extra_files, excludes)
-        bundle_kwargs = {
-            "image": None,
-            "env_management_py": None,
-            "env_management_r": None,
-            "r_environment": r_environment,
-        }
-    elif app_mode == AppModes.JUPYTER_NOTEBOOK:  # This is "jupyter-static"
-        path = str(Path(directory) / entrypoint)
-        environment = Environment.create_python_environment(
-            directory,
-            requirements_file=requirements_file,
-            override_python_version=None,
-        )
-        bundle_builder = make_notebook_source_bundle
-        # Legacy app mode - no need to override the bundle builder default
-        bundle_args = (path, environment, extra_files, False, False)
-        bundle_kwargs = {
-            "image": None,
-            "env_management_py": None,
-            "env_management_r": None,
-            "r_environment": r_environment,
-        }
-    elif app_mode == AppModes.JUPYTER_VOILA:
-        environment = Environment.create_python_environment(
-            directory,
-            requirements_file=requirements_file,
-            override_python_version=None,
-        )
-        bundle_builder = make_voila_bundle
-        bundle_args = (directory, entrypoint, extra_files, excludes, True, environment)
-        bundle_kwargs = {
-            "image": None,
-            "env_management_py": None,
-            "env_management_r": None,
-            "r_environment": r_environment,
-            "multi_notebook": False,
-        }
-    elif app_mode in (AppModes.STATIC_QUARTO, AppModes.SHINY_QUARTO):
-        path = str(Path(directory) / entrypoint)
-        with cli_feedback("Inspecting Quarto project"):
-            quarto = which_quarto(None)
-            logger.debug("Quarto: %s" % quarto)
-            inspect = quarto_inspect(quarto, path)
-            engines = validate_quarto_engines(inspect)
-
-        environment = None
-        if "jupyter" in engines:
-            with cli_feedback("Inspecting Python environment"):
-                environment = Environment.create_python_environment(
-                    directory,
-                    requirements_file=requirements_file,
-                    override_python_version=None,
-                )
-        bundle_builder = create_quarto_deployment_bundle
-        bundle_args = (path, extra_files, excludes, app_mode, inspect, environment)
-        bundle_kwargs = {
-            "image": None,
-            "env_management_py": None,
-            "env_management_r": None,
-            "r_environment": r_environment,
-        }
-    else:
-        raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in [tool.rsconnect]")
+    path, bundle_builder, bundle_args, bundle_kwargs = _plan_deploy_bundle(
+        directory,
+        app_mode,
+        entrypoint,
+        requirements_file,
+        exclude_renv,
+        f"Unsupported app_mode '{target.configured_app_mode}' in [tool.rsconnect]",
+    )
 
     ce = RSConnectExecutor(
         ctx=ctx,
@@ -2254,6 +2286,304 @@ def deploy_pyproject(
             # The draft bundle verified successfully, so activate it.
             ce.activate_deployment().emit_task_log()
     ce.emit_content_url()
+
+
+def _finish_redeploy(
+    ce: RSConnectExecutor,
+    directory: str,
+    app_mode: AppMode,
+    bundle_builder: Callable[..., Any],
+    bundle_args: tuple[Any, ...],
+    bundle_kwargs: dict[str, Any],
+    draft: bool,
+    no_verify: bool,
+    metadata: tuple[str, ...],
+    no_metadata: bool,
+) -> None:
+    """Run the shared deploy tail for redeploy (metadata, bundle, deploy, verify).
+
+    ``save_deployed_info`` in this chain writes the ``.posit`` config + record, so
+    a legacy-fallback redeploy also lays down ``.posit`` for next time.
+    """
+    server_version = None
+    if isinstance(ce.client, RSConnectClient):
+        server_version = ce.client.server_version()
+    ce.metadata = prepare_deploy_metadata(directory, metadata, no_metadata, server_version)
+
+    (
+        ce.validate_server()
+        .validate_app_mode(app_mode=app_mode)
+        .make_bundle(bundle_builder, *bundle_args, **bundle_kwargs)
+        .deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify))
+        .save_deployed_info()
+        .emit_task_log()
+    )
+    if not no_verify:
+        ce.verify_deployment()
+        if not draft and ce.supports_verify_before_activate:
+            # The draft bundle verified successfully, so activate it.
+            ce.activate_deployment().emit_task_log()
+
+
+def _legacy_records_for_dir(directory: str) -> list[dict[str, Any]]:
+    """Read legacy per-directory deployment records from ``rsconnect-python/*.json``.
+
+    Each JSON file maps ``server_url -> AppMetadata``; this flattens them into a
+    list of entries (the "where": server_url, app_guid, app_mode) for redeploy of
+    content deployed before ``.posit`` existed.
+    """
+    records: list[dict[str, Any]] = []
+    for json_file in sorted(glob.glob(os.path.join(directory, "rsconnect-python", "*.json"))):
+        try:
+            with open(json_file) as f:
+                data = json.load(f)
+        except (OSError, ValueError):
+            continue
+        for entry in data.values():
+            if isinstance(entry, dict) and entry.get("server_url"):
+                records.append(entry)
+    return records
+
+
+def _redeploy_from_legacy(
+    ctx: click.Context,
+    directory: str,
+    server_filter: Optional[str],
+    *,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    app_id: Optional[str],
+    title: Optional[str],
+    env_vars: dict[str, str],
+    no_verify: bool,
+    draft: bool,
+    metadata: tuple[str, ...],
+    no_metadata: bool,
+) -> None:
+    """Redeploy pre-``.posit`` content from a manifest.json + legacy JSON record.
+
+    The manifest supplies the "what" (it is already a built bundle); the legacy
+    ``rsconnect-python/*.json`` store supplies the "where" (server + GUID).
+    """
+    manifest_path = os.path.join(directory, "manifest.json")
+    if not os.path.exists(manifest_path):
+        raise RSConnectException(
+            "No .posit/publish configuration and no manifest.json found in {}; nothing to redeploy. "
+            "Deploy it once (e.g. with a `rsconnect deploy` command) to record its destination.".format(directory)
+        )
+
+    records = _legacy_records_for_dir(directory)
+    if server_filter:
+        normalized = publisher_normalize_url(server_filter)
+        records = [r for r in records if publisher_normalize_url(r["server_url"]) == normalized]
+    by_server = {r["server_url"]: r for r in records}
+
+    if not by_server:
+        raise RSConnectException(
+            "No prior deployment found for {}. Specify a destination with --server or --name "
+            "to deploy it for the first time (e.g. `rsconnect deploy manifest`).".format(directory)
+        )
+    if len(by_server) > 1:
+        raise RSConnectException(
+            "Multiple prior deployments found for {} ({}); specify one with --server.".format(
+                directory, ", ".join(sorted(by_server))
+            )
+        )
+    entry = next(iter(by_server.values()))
+
+    app_mode = read_manifest_app_mode(manifest_path)
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        server=server or entry["server_url"],
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        path=manifest_path,
+        app_id=app_id or entry.get("app_guid") or entry.get("app_id"),
+        title=title or default_title_from_manifest(manifest_path),
+        env_vars=env_vars,
+    )
+    _finish_redeploy(
+        ce, directory, app_mode, make_manifest_bundle, (manifest_path,), {}, draft, no_verify, metadata, no_metadata
+    )
+
+
+@cli.command(
+    name="redeploy",
+    short_help="Redeploy content described by a .posit/publish project.",
+    help=(
+        "Redeploy content using an existing Posit Publisher project (.posit/publish). "
+        "The deployment record and configuration are read to recover the target server and "
+        "content identity, so no framework, entrypoint, or server needs to be specified. "
+        "PATH defaults to the current directory.\n\n"
+        "For a first-ever deployment (when no deployment record exists yet), name the "
+        "destination with --server or --name."
+    ),
+)
+@server_args
+@spcs_args
+@metadata_args
+@click.option(
+    "--config-name",
+    "config_name",
+    default=None,
+    help="Name of the .posit/publish configuration to use (without the .toml suffix). "
+    "Required only when the project has more than one configuration.",
+)
+@click.option(
+    "--app-id",
+    "-a",
+    default=None,
+    help="Override the content ID or GUID to redeploy. Defaults to the id recorded in the deployment record.",
+)
+@click.option("--title", "-t", default=None, help="Override the content title.")
+@click.option(
+    "--environment",
+    "-E",
+    "env_vars",
+    multiple=True,
+    callback=validate_env_vars,
+    help="Set an environment variable. Specify a value with NAME=VALUE, or just NAME to use the "
+    "value from the local environment. May be specified multiple times.",
+)
+@click.option(
+    "--no-verify",
+    is_flag=True,
+    help="Don't access the deployed content to verify that it started correctly.",
+)
+@click.option(
+    "--draft",
+    is_flag=True,
+    help="Deploy the application as a draft and verify it, but do not activate it.",
+)
+@click.option(
+    "--exclude-renv",
+    "exclude_renv",
+    is_flag=True,
+    default=False,
+    help="Skip renv.lock detection. R dependencies will not be added to the manifest.",
+)
+@click.argument("path", required=False, type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@cli_exception_handler
+@click.pass_context
+def redeploy(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+    snowflake_connection_name: Optional[str],
+    metadata: tuple[str, ...],
+    no_metadata: bool,
+    config_name: Optional[str],
+    app_id: Optional[str],
+    title: Optional[str],
+    env_vars: dict[str, str],
+    no_verify: bool,
+    draft: bool,
+    exclude_renv: bool,
+    path: Optional[str],
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    directory = path or os.getcwd()
+
+    # If a saved nickname was given, resolve it to a URL so the right deployment
+    # record can be matched by its stored server_url.
+    server_filter = server
+    if not server_filter and name:
+        entry = server_store.get_by_name(name)
+        if entry:
+            server_filter = entry.get("url")
+
+    try:
+        target = resolve_publisher_deploy_target(directory, config_name=config_name, server=server_filter)
+    except RSConnectException as err:
+        # Fallback for content deployed before .posit existed: a manifest.json
+        # (the "what") plus the legacy rsconnect-python/*.json store (the "where").
+        # Only the "no config at all" case falls back; other resolution errors
+        # (ambiguous config, unknown config name) propagate.
+        if "No .posit/publish configuration" not in str(err):
+            raise
+        _redeploy_from_legacy(
+            ctx,
+            directory,
+            server_filter,
+            name=name,
+            server=server,
+            api_key=api_key,
+            snowflake_connection_name=snowflake_connection_name,
+            insecure=insecure,
+            cacert=cacert,
+            app_id=app_id,
+            title=title,
+            env_vars=env_vars,
+            no_verify=no_verify,
+            draft=draft,
+            metadata=metadata,
+            no_metadata=no_metadata,
+        )
+        return
+
+    if target.record is None and not (server or name):
+        raise RSConnectException(
+            "No prior deployment found for the .posit/publish project in {}. "
+            "Specify a destination with --server or --name to deploy it for the first time.".format(directory)
+        )
+
+    app_mode = target.app_mode
+    if app_mode is None or app_mode == AppModes.UNKNOWN:
+        raise RSConnectException(
+            "Cannot redeploy: configuration '{}' has an unknown content type '{}'.".format(
+                target.config_name, target.config.type
+            )
+        )
+    entrypoint = target.entrypoint
+    if not entrypoint:
+        raise RSConnectException(
+            "Cannot redeploy: configuration '{}' does not specify an entrypoint.".format(target.config_name)
+        )
+
+    requirements_file = target.requirements_file or "requirements.txt"
+    effective_title = title or target.title
+    effective_app_id = app_id or target.app_id
+    # Deploy to the record's server unless the caller overrode the destination.
+    deploy_server = server or target.server_url
+
+    deploy_path, bundle_builder, bundle_args, bundle_kwargs = _plan_deploy_bundle(
+        directory,
+        app_mode,
+        entrypoint,
+        requirements_file,
+        exclude_renv,
+        "Cannot redeploy: unsupported content type '{}'.".format(target.config.type),
+    )
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        server=deploy_server,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        path=deploy_path,
+        app_id=effective_app_id,
+        title=effective_title,
+        env_vars=env_vars,
+    )
+    _finish_redeploy(
+        ce, directory, app_mode, bundle_builder, bundle_args, bundle_kwargs, draft, no_verify, metadata, no_metadata
+    )
 
 
 @deploy.command(
@@ -3214,6 +3544,31 @@ def deploy_help():
     click.echo()
 
 
+def _write_manifest_publisher_config(manifest_dir: str, app_mode: AppMode) -> None:
+    """Best-effort: write a Posit Publisher config next to a generated manifest.json.
+
+    Lets ``write-manifest`` output be opened by the Publisher extension too. Only
+    the config (the "what") is written -- there is no deployment, so no record.
+    Content types Publisher does not model (e.g. TensorFlow) map to an "unknown"
+    type and are skipped, as is a manifest that was not written where expected.
+    A failure here must not affect the primary manifest.json output.
+    """
+    from .publisher import schema as publisher_schema
+    from .publisher.store import write_config_from_manifest
+
+    if publisher_schema.type_from_app_mode(app_mode) == "unknown":
+        return
+    manifest_path = os.path.join(str(manifest_dir), "manifest.json")
+    if not os.path.exists(manifest_path):
+        return
+    try:
+        with open(manifest_path) as f:
+            manifest = json.load(f)
+        write_config_from_manifest(str(manifest_dir), manifest, app_mode=app_mode)
+    except Exception as e:
+        logger.warning("Could not write .posit/publish config alongside manifest.json: %s", e)
+
+
 @cli.group(
     name="write-manifest",
     no_args_is_help=True,
@@ -3339,6 +3694,8 @@ def write_manifest_notebook(
             env_management_r,
             r_environment,
         )
+
+    _write_manifest_publisher_config(base_dir, AppModes.JUPYTER_NOTEBOOK)
 
     if environment_file_exists and not generate_env:
         click.secho(
@@ -3486,6 +3843,8 @@ def write_manifest_voila(
             r_environment,
             multi_notebook,
         )
+
+    _write_manifest_publisher_config(base_dir, AppModes.JUPYTER_VOILA)
 
 
 @write_manifest.command(
@@ -3644,6 +4003,8 @@ def write_manifest_quarto(
             env_management_r,
             r_environment,
         )
+
+    _write_manifest_publisher_config(base_dir, AppModes.STATIC_QUARTO)
 
 
 @write_manifest.command(
@@ -3825,6 +4186,8 @@ def write_manifest_pyproject(
                 env_management_r=None,
                 r_environment=r_environment,
             )
+
+    _write_manifest_publisher_config(str(manifest_dir), app_mode)
 
     # The manifest references environment.filename (e.g. a requirements.txt
     # generated from pyproject.toml's dependencies), so that file must exist
@@ -4128,6 +4491,8 @@ def write_manifest_nodejs(
             env_management_node,
         )
 
+    _write_manifest_publisher_config(directory, AppModes.NODE_JS)
+
 
 # noinspection SpellCheckingInspection
 def _write_framework_manifest(
@@ -4204,6 +4569,8 @@ def _write_framework_manifest(
             env_management_r,
             r_environment,
         )
+
+    _write_manifest_publisher_config(directory, app_mode)
 
     generate_env = resolved_requirements_file is None
     if environment_file_exists and not generate_env:

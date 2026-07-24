@@ -1,8 +1,12 @@
+import glob
 import os
+import shutil
 import ssl
 import sys
 
-from os.path import abspath, dirname
+from os.path import abspath, dirname, join
+
+import pytest
 
 import httpretty.core
 
@@ -15,6 +19,27 @@ sys.path.insert(0, HERE)
 # default argument value at import time, so this must be set before any test
 # module imports rsconnect. (Previously injected by the Makefile's TEST_ENV.)
 os.environ.setdefault("CONNECT_CONTENT_BUILD_DIR", "rsconnect-build-test")
+
+_TESTDATA = join(HERE, "tests", "testdata")
+
+
+def _remove_stray_posit_dirs():
+    """Delete any ``.posit`` directories under tests/testdata.
+
+    Deploying or writing a manifest for a directory now emits Posit Publisher
+    ``.posit/publish`` files next to the content. Tests that run those flows
+    against the shared testdata fixtures would otherwise leave stray artifacts in
+    the working tree; no ``.posit`` fixtures are committed there.
+    """
+    for path in glob.glob(join(_TESTDATA, "**", ".posit"), recursive=True):
+        shutil.rmtree(path, ignore_errors=True)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _clean_publisher_artifacts():
+    _remove_stray_posit_dirs()
+    yield
+    _remove_stray_posit_dirs()
 
 
 # httpretty (1.1.4, released 2021) mocks TLS with

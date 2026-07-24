@@ -1809,7 +1809,44 @@ class RSConnectExecutor:
             self.app_mode,
         )
 
+        # Dual-write Posit Publisher's .posit/publish config + deployment record
+        # for Connect/SPCS targets so the two tools interoperate. shinyapps.io /
+        # Posit Cloud (which lack a content GUID and dashboard URLs) stay on the
+        # legacy JSON store only.
+        if isinstance(self.remote_server, (RSConnectServer, SPCSConnectServer)):
+            self._save_publisher_metadata(deployed_info)
+
         return self
+
+    def _save_publisher_metadata(self, deployed_info: RSConnectClientDeployResult):
+        """Best-effort write of the ``.posit/publish`` config + record.
+
+        The deploy has already succeeded by the time metadata is saved, so any
+        failure here warns rather than aborting (mirroring the legacy save)."""
+        if self.bundle is None:
+            return
+        try:
+            from .publisher import schema
+            from .publisher.store import write_deployment_metadata
+
+            path = self.path
+            project_dir = path if os.path.isdir(path) else os.path.dirname(abspath(path))
+            product_type = (
+                schema.PRODUCT_TYPE_SNOWFLAKE
+                if isinstance(self.remote_server, SPCSConnectServer)
+                else schema.PRODUCT_TYPE_CONNECT
+            )
+            write_deployment_metadata(
+                project_dir=project_dir,
+                server_url=self.remote_server.url,
+                product_type=product_type,
+                app_mode=self.app_mode or AppModes.UNKNOWN,
+                title=deployed_info.get("title") or self.title,
+                deployed_info=deployed_info,
+                bundle=self.bundle,
+            )
+        except Exception as e:
+            logger.warning("Could not write .posit/publish metadata: %s", e)
 
     @property
     def supports_verify_before_activate(self) -> bool:
