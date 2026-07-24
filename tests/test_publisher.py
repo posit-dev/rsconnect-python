@@ -145,6 +145,53 @@ def test_write_deployment_metadata_creates_config_and_record(tmp_path):
     assert rec.config().type == "python-shiny"
 
 
+def test_redeploy_pins_resolved_config_and_record(tmp_path):
+    """Passing config_name/record_name (as redeploy does) updates those exact
+    files, even when the record lacks a configuration_name and the config's
+    entrypoint differs from the bundle -- preventing duplicate config/record files.
+    """
+    import os
+
+    project = str(tmp_path)
+    publish = tmp_path / ".posit" / "publish"
+    (publish / "deployments").mkdir(parents=True)
+    # config entrypoint deliberately differs from the bundle manifest's "app.py"
+    (publish / "chosen.toml").write_text(
+        '"$schema" = "https://cdn.posit.co/publisher/schemas/posit-publishing-schema-v3.json"\n'
+        'product_type = "connect"\n'
+        'type = "python-shiny"\n'
+        'entrypoint = "different.py"\n'
+        "validate = true\n"
+        'files = ["/different.py"]\n'
+    )
+    # record with NO configuration_name -> auto-derivation would miss the config
+    (publish / "deployments" / "chosen-rec.toml").write_text(
+        '"$schema" = "https://cdn.posit.co/publisher/schemas/posit-publishing-record-schema-v3.json"\n'
+        'server_type = "connect"\n'
+        'server_url = "https://connect.example.com"\n'
+        'type = "python-shiny"\n'
+    )
+
+    bundle = make_bundle(PY_SHINY_MANIFEST, {"requirements.txt": "shiny\n"})
+    store.write_deployment_metadata(
+        project_dir=project,
+        server_url="https://connect.example.com",
+        product_type="connect",
+        app_mode=AppModes.PYTHON_SHINY,
+        title="My App",
+        deployed_info=DEPLOYED_INFO,
+        bundle=bundle,
+        config_name="chosen",
+        record_name="chosen-rec",
+    )
+
+    assert {os.path.basename(p) for p in config.discover_configs(project)} == {"chosen.toml"}
+    assert {os.path.basename(p) for p in record.discover_records(project)} == {"chosen-rec.toml"}
+    rec = record.read_record(record.discover_records(project)[0])
+    assert rec.configuration_name == "chosen"
+    assert rec.id == "GUID-123"
+
+
 def test_filenames_use_publisher_random_code_methodology(tmp_path):
     """rsconnect mints the same style of names as Publisher's names.ts: a config
     ``<filenamified-title>-<CODE>`` and a record ``deployment-<CODE>``, where CODE

@@ -1306,6 +1306,12 @@ class RSConnectExecutor:
         self.deployed_info: RSConnectClientDeployResult | None = None
         self._draft_deploy_supported: bool | None = None
 
+        # When a deploy originates from an existing .posit project (``redeploy``),
+        # these pin the exact config/record files to update so the write does not
+        # re-derive (and duplicate) them.
+        self.publisher_config_name: str | None = None
+        self.publisher_record_name: str | None = None
+
         self.logger: logging.Logger | None = logger
         self.ctx = ctx
         self.setup_remote_server(
@@ -1844,6 +1850,8 @@ class RSConnectExecutor:
                 title=deployed_info.get("title") or self.title,
                 deployed_info=deployed_info,
                 bundle=self.bundle,
+                config_name=self.publisher_config_name,
+                record_name=self.publisher_record_name,
             )
         except Exception as e:
             logger.warning("Could not write .posit/publish metadata: %s", e)

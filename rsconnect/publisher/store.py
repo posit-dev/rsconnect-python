@@ -145,8 +145,14 @@ def write_deployment_metadata(
     deployed_info: typing.Mapping[str, typing.Any],
     bundle: "IO[bytes]",
     config_name: typing.Optional[str] = None,
+    record_name: typing.Optional[str] = None,
 ) -> typing.Tuple[str, str]:
     """Create/update the ``.posit`` config and deployment record for a deploy.
+
+    ``config_name``/``record_name`` pin the exact files to update -- ``redeploy``
+    passes the names it resolved so the write updates those files instead of
+    re-deriving (and possibly duplicating) them. When omitted, an existing record
+    for this server (and its config) is reused, otherwise new names are minted.
 
     Returns ``(config_path, record_path)``. Raises on failure; callers treat
     ``.posit`` write failures as non-fatal (the deploy has already succeeded).
@@ -164,13 +170,14 @@ def write_deployment_metadata(
         files=_config_file_patterns(details),
     )
     # Reuse an existing deployment's filenames on redeploy; only mint new random
-    # names for a genuinely new deployment.
-    existing_record_name = _find_record_name_for_server(project_dir, server_url)
+    # names for a genuinely new deployment. A caller-supplied record_name (from
+    # redeploy) pins the record file; otherwise match one by server_url.
+    existing_record_name = record_name or _find_record_name_for_server(project_dir, server_url)
     existing_config_name = None
-    if existing_record_name:
-        existing_config_name = record_mod.read_record(
-            schema.record_path(project_dir, existing_record_name)
-        ).configuration_name
+    if existing_record_name and not config_name:
+        record_file = schema.record_path(project_dir, existing_record_name)
+        if os.path.exists(record_file):
+            existing_config_name = record_mod.read_record(record_file).configuration_name
 
     cname = (
         config_name
@@ -257,6 +264,9 @@ class PublisherDeployTarget:
     server_url: typing.Optional[str]
     app_id: typing.Optional[str]
     record: typing.Optional[record_mod.PublisherRecord]
+    # Basename (no .toml) of the matched record file, so a redeploy updates that
+    # exact file rather than re-deriving it.
+    record_name: typing.Optional[str] = None
 
 
 def _load_configs(project_dir: str) -> typing.Dict[str, config_mod.PublisherConfig]:
@@ -287,9 +297,9 @@ def _select_config(
 
 def _matching_records(
     project_dir: str, config_name: str, server: typing.Optional[str]
-) -> typing.List[record_mod.PublisherRecord]:
-    """Records for ``config_name``, optionally filtered to a server URL."""
-    records: typing.List[record_mod.PublisherRecord] = []
+) -> typing.List[typing.Tuple[str, record_mod.PublisherRecord]]:
+    """``(record_name, record)`` pairs for ``config_name``, optionally filtered to a server URL."""
+    records: typing.List[typing.Tuple[str, record_mod.PublisherRecord]] = []
     normalized_server = normalize_url(server) if server else None
     for path in record_mod.discover_records(project_dir):
         rec = record_mod.read_record(path)
@@ -299,7 +309,7 @@ def _matching_records(
             continue
         if normalized_server and normalize_url(rec.server_url) != normalized_server:
             continue
-        records.append(rec)
+        records.append((os.path.splitext(os.path.basename(path))[0], rec))
     return records
 
 
@@ -321,14 +331,15 @@ def resolve_publisher_deploy_target(
         )
     name, cfg = _select_config(configs, config_name)
 
-    records = _matching_records(project_dir, name, server)
-    record: typing.Optional[record_mod.PublisherRecord]
-    if len(records) > 1:
-        servers = ", ".join(sorted(r.server_url for r in records))
+    matches = _matching_records(project_dir, name, server)
+    if len(matches) > 1:
+        servers = ", ".join(sorted(rec.server_url for _, rec in matches))
         raise RSConnectException(
             "Multiple deployments found for config '{}' ({}); specify one with --server.".format(name, servers)
         )
-    record = records[0] if records else None
+    record_name: typing.Optional[str]
+    record: typing.Optional[record_mod.PublisherRecord]
+    record_name, record = matches[0] if matches else (None, None)
 
     # Fall back to the record's embedded config snapshot if no standalone config
     # file carried the fields we need (e.g. a Publisher-authored record).
@@ -349,4 +360,5 @@ def resolve_publisher_deploy_target(
         server_url=record.server_url if record else None,
         app_id=record.id if record else None,
         record=record,
+        record_name=record_name,
     )

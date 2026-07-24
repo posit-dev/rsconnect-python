@@ -2581,6 +2581,10 @@ def redeploy(
         title=effective_title,
         env_vars=env_vars,
     )
+    # Pin the exact .posit files this redeploy resolved so save_deployed_info
+    # updates them in place instead of minting duplicates.
+    ce.publisher_config_name = target.config_name
+    ce.publisher_record_name = target.record_name
     _finish_redeploy(
         ce, directory, app_mode, bundle_builder, bundle_args, bundle_kwargs, draft, no_verify, metadata, no_metadata
     )

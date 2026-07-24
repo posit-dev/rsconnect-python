@@ -96,6 +96,8 @@ def _spy_make_bundle(monkeypatch: pytest.MonkeyPatch) -> dict[str, typing.Any]:
         captured["server_url"] = self.remote_server.url
         captured["app_mode"] = self.app_mode.name() if self.app_mode else None
         captured["title"] = self.title
+        captured["publisher_config_name"] = self.publisher_config_name
+        captured["publisher_record_name"] = self.publisher_record_name
         raise _StopDispatch()
 
     from rsconnect import api as api_mod
@@ -151,6 +153,9 @@ def test_redeploy_reuses_identity_from_record(
     assert captured["server_url"] == SERVER_URL
     assert captured["app_id"] == GUID
     assert captured["app_mode"] == "python-shiny"
+    # the resolved config/record filenames are pinned so save updates them in place
+    assert captured["publisher_config_name"] == "app"
+    assert captured["publisher_record_name"] == "deployment-abc123"
 
 
 def test_redeploy_app_id_override(runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
