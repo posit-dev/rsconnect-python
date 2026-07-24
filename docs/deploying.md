@@ -412,6 +412,21 @@ considered successful if there isn't a 5xx code returned. Errors like
 400 Bad Request or 405 Method Not Allowed because not all apps support `GET /`.
 For cases where this is not desired, use the `--no-verify` flag on the command line.
 
+#### Quiet Output
+
+By default a deploy prints step-by-step progress and streams the server build
+log. Pass `--quiet` to suppress all of that and print only the deployed content
+URL to standard output.
+
+```bash
+URL=$(rsconnect deploy notebook --quiet -n myserver notebook.ipynb)
+echo "Deployed to $URL"
+```
+
+Warnings and errors are still written to standard error, and if a deploy fails
+the server task log is emitted to standard error so the failure can be
+diagnosed. `--quiet` cannot be combined with `-v`/`--verbose`.
+
 ### Environment variables
 
 You can set environment variables during deployment. Their names and values will be

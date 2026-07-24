@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- `rsconnect deploy` subcommands now accept `--quiet`, which suppresses the
+  step-by-step progress lines and the streamed server build log, printing only
+  the deployed content URL to stdout so it can be captured with
+  `URL=$(rsconnect deploy ... --quiet)`. Errors still go to stderr, and on a
+  failed deploy the server task log is emitted to stderr so failures remain
+  diagnosable. `--quiet` cannot be combined with `-v/--verbose`, and for
+  shinyapps.io deploys it also skips opening a browser.
+
 ## [1.30.0] - 2026-07-16
 
 - Fixed a bug where `rsconnect deploy notebook --static` failed with `Unable to

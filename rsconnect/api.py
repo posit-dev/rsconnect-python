@@ -1684,8 +1684,9 @@ class RSConnectExecutor:
             # type: ignore[arg-type] - PrepareDeployResult uses int, but format() accepts it
             shinyapps_service.do_deploy(prepare_deploy_result.bundle_id, prepare_deploy_result.app_id)
 
-            print(f"Application successfully deployed to {prepare_deploy_result.app_url}")
-            webbrowser.open_new(prepare_deploy_result.app_url)
+            if not logger.quiet:
+                print(f"Application successfully deployed to {prepare_deploy_result.app_url}")
+                webbrowser.open_new(prepare_deploy_result.app_url)
 
             self.deployed_info = RSConnectClientDeployResult(
                 app_url=prepare_deploy_result.app_url,
@@ -1759,15 +1760,29 @@ class RSConnectExecutor:
             if not isinstance(self.client, RSConnectClient):
                 raise RSConnectException("To emit task log, client must be a RSConnectClient.")
 
-            log_lines, _ = self.client.wait_for_task(
-                self.deployed_info["task_id"],
-                log_callback.info,
-                abort_func,
-                timeout,
-                poll_wait,
-                raise_on_error,
-            )
+            # In quiet mode, buffer the task log rather than streaming it; on
+            # success only the content URL goes to stdout, but on failure we
+            # flush the buffered log to stderr so the deployment stays diagnosable.
+            buffered: list[str] = []
+            try:
+                log_lines, _ = self.client.wait_for_task(
+                    self.deployed_info["task_id"],
+                    buffered.append if logger.quiet else log_callback.info,
+                    abort_func,
+                    timeout,
+                    poll_wait,
+                    raise_on_error,
+                )
+            except RSConnectException:
+                for line in buffered:
+                    click.echo(line, err=True)
+                raise
             log_lines = self.remote_server.handle_bad_response(log_lines)
+
+            if logger.quiet:
+                # The content URL is printed by emit_content_url() once the
+                # whole deploy (including verification) has succeeded.
+                return self
 
             log_callback.info("Deployment completed successfully.")
             if self.deployed_info.get("draft_url"):
@@ -1863,6 +1878,16 @@ class RSConnectExecutor:
             # task and reports the live content URLs instead of the draft URL.
             deployed_info["task_id"] = task["task_id"]
             deployed_info["draft_url"] = None
+        return self
+
+    def emit_content_url(self):
+        """In quiet mode, print the deployed content URL as the only stdout output.
+
+        This must be the last step of a deploy — after verification — so that a
+        failed deploy never leaves a URL on stdout for `URL=$(...)` to capture.
+        """
+        if logger.quiet and self.deployed_info:
+            click.echo(self.deployed_info.get("draft_url") or self.deployed_info["app_url"])
         return self
 
     @cls_logged("Validating app mode...")
@@ -2294,8 +2319,23 @@ class PositClient(HTTPServer):
         return response
 
     def wait_until_task_is_successful(self, task_id: str, timeout: int = get_task_timeout()) -> None:
-        print()
-        print(f"Waiting for task: {task_id}")
+        # In quiet mode, buffer progress lines and flush them to stderr only if
+        # the task fails, so successful deploys stay silent on stdout.
+        buffered: list[str] = []
+
+        def emit(msg: str = "") -> None:
+            if logger.quiet:
+                buffered.append(msg)
+            else:
+                print(msg)
+
+        def flush_on_failure() -> None:
+            if logger.quiet:
+                for line in buffered:
+                    click.echo(line, err=True)
+
+        emit()
+        emit(f"Waiting for task: {task_id}")
 
         start_time = time.time()
         finished: bool | None = None
@@ -2313,16 +2353,18 @@ class PositClient(HTTPServer):
             if finished:
                 break
 
-            print(f"  {status} - {description}")
+            emit(f"  {status} - {description}")
             time.sleep(2)
 
         if not finished:
+            flush_on_failure()
             raise RSConnectException(get_task_timeout_help_message(timeout))
 
         if status != "success":
+            flush_on_failure()
             raise DeploymentFailedException(f"Application deployment failed with error: {error}")
 
-        print(f"Task done: {description}")
+        emit(f"Task done: {description}")
 
     def get_applications_like_name(self, name: str) -> list[str]:
         applications: list[PositClientApp] = []

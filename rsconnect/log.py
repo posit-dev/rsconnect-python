@@ -109,6 +109,7 @@ class RSLogger(_LoggerAdapter):
         self._in_feedback = False
         self._have_feedback_output = False
         self._log_format = LogOutputFormat.DEFAULT
+        self._quiet = False
 
     def addHandler(self, handler: logging.Handler):
         self.logger.addHandler(handler)
@@ -116,6 +117,13 @@ class RSLogger(_LoggerAdapter):
     def set_in_feedback(self, value: bool):
         self._in_feedback = value
         self._have_feedback_output = False
+
+    def set_quiet(self, value: bool):
+        self._quiet = value
+
+    @property
+    def quiet(self) -> bool:
+        return self._quiet
 
     def set_log_output_format(self, value: LogOutputFormat.All):
         self._log_format = value
@@ -185,6 +193,15 @@ console_handler.setFormatter(ConsoleFormatter())
 console_logger.addHandler(console_handler)
 
 
+def warn_user(message: str, fg: str = "yellow") -> None:
+    """Print a warning for the user.
+
+    In quiet mode the warning is routed to stderr so that stdout stays
+    reserved for the content URL.
+    """
+    click.secho(message, fg=fg, err=logger.quiet)
+
+
 def logged(logger: logging.Logger, label: str):
     def decorator(f: Callable[P, T]) -> Callable[P, T]:
         @wraps(f)
@@ -229,7 +246,7 @@ def cls_logged(label: str):  # uses logger provided by a class' self.logger
                 if logger:
                     logger.error(msg.format(str(exc)))
                 else:
-                    print(msg)
+                    print(msg.format(str(exc)), file=sys.stderr)
                 raise
             if logger:
                 logger.debug(" \t[OK]\n")

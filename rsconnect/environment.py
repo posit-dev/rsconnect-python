@@ -18,11 +18,10 @@ import os.path
 import enum
 
 from . import pyproject
-from .log import logger
+from .log import logger, warn_user
 from .exception import RSConnectException
 from .subprocesses.inspect_environment import EnvironmentData, MakeEnvironmentData as _MakeEnvironmentData
 
-import click
 
 try:
     from enum import StrEnum
@@ -312,10 +311,7 @@ def _warn_on_ignored_manifest(directory: str) -> None:
     :param directory: the directory to check in.
     """
     if os.path.exists(os.path.join(directory, "manifest.json")):
-        click.secho(
-            "    Warning: the existing manifest.json file will not be used or considered.",
-            fg="yellow",
-        )
+        warn_user("    Warning: the existing manifest.json file will not be used or considered.")
 
 
 def _check_requirements_file(directory: str, requirements_file: typing.Optional[str]) -> None:
@@ -331,7 +327,7 @@ def _check_requirements_file(directory: str, requirements_file: typing.Optional[
     directory_path = pathlib.Path(directory)
     requirements_file_path = directory_path / pathlib.Path(requirements_file)
     if directory_path not in requirements_file_path.parents:
-        click.secho(
+        warn_user(
             "    Warning: The requirements file '%s' is outside of the deployment directory.\n" % requirements_file,
             fg="red",
         )
@@ -352,10 +348,9 @@ def _warn_if_environment_directory(directory: typing.Union[str, pathlib.Path]) -
     :param directory: the directory to check in.
     """
     if is_environment_dir(directory):
-        click.secho(
+        warn_user(
             "    Warning: The deployment directory appears to be a python virtual environment.\n"
-            "             Python libraries and binaries will be excluded from the deployment.",
-            fg="yellow",
+            "             Python libraries and binaries will be excluded from the deployment."
         )
 
 
@@ -368,10 +363,7 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str) -
     :param requirements_file_name: the name of the requirements file.
     """
     if os.path.exists(os.path.join(directory, requirements_file_name)):
-        click.secho(
-            "    Warning: the existing %s file will not be used or considered." % requirements_file_name,
-            fg="yellow",
-        )
+        warn_user("    Warning: the existing %s file will not be used or considered." % requirements_file_name)
 
 
 def _warn_on_missing_python_version(version_constraint: typing.Optional[str]) -> None:
@@ -382,9 +374,8 @@ def _warn_on_missing_python_version(version_constraint: typing.Optional[str]) ->
     :param version_constraint: the version constraint in the project.
     """
     if version_constraint is None:
-        click.secho(
+        warn_user(
             "    Warning: Python version constraint missing from pyproject.toml, setup.cfg or .python-version\n"
             "             Connect will guess the version to use based on local environment.\n"
-            "             Consider specifying a Python version constraint.",
-            fg="yellow",
+            "             Consider specifying a Python version constraint."
         )
