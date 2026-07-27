@@ -2325,6 +2325,38 @@ def _finish_redeploy(
             ce.activate_deployment().emit_task_log()
 
 
+def _find_saved_server_by_url(server_url: Optional[str]) -> Optional[dict[str, Any]]:
+    """Find a saved rsconnect-python server whose URL matches ``server_url`` (normalized).
+
+    A ``.posit`` deployment record stores only the ``server_url`` (never the API
+    key), and Publisher keeps its own credentials in VS Code SecretStorage, which
+    a CLI cannot read. So to redeploy without re-specifying credentials, we match
+    the record's server against a credential the user already saved with
+    rsconnect-python -- using the same normalized-URL comparison Publisher uses to
+    join a record to a credential.
+
+    Returns the single match, or ``None`` if none match. Raises when more than one
+    saved server matches (e.g. two credentials for the same URL under different
+    nicknames), since guessing which credential to use would be unsafe -- the user
+    disambiguates with ``--name``.
+    """
+    if not server_url:
+        return None
+    target = publisher_normalize_url(server_url)
+    matches = [
+        entry
+        for entry in server_store.get_all_servers()
+        if entry.get("url") and publisher_normalize_url(entry["url"]) == target
+    ]
+    if len(matches) > 1:
+        raise RSConnectException(
+            "Multiple saved servers match {} ({}); pick one with --name.".format(
+                server_url, ", ".join(sorted(str(m.get("name")) for m in matches))
+            )
+        )
+    return matches[0] if matches else None
+
+
 def _legacy_records_for_dir(directory: str) -> list[dict[str, Any]]:
     """Read legacy per-directory deployment records from ``rsconnect-python/*.json``.
 
@@ -2396,10 +2428,17 @@ def _redeploy_from_legacy(
     entry = next(iter(by_server.values()))
 
     app_mode = read_manifest_app_mode(manifest_path)
+    deploy_server = server or entry["server_url"]
+    # Reuse a saved rsconnect-python credential matching the recorded server.
+    if not name and not server and not api_key:
+        matched = _find_saved_server_by_url(entry["server_url"])
+        if matched:
+            name = matched["name"]
+            deploy_server = None
     ce = RSConnectExecutor(
         ctx=ctx,
         name=name,
-        server=server or entry["server_url"],
+        server=deploy_server,
         api_key=api_key,
         snowflake_connection_name=snowflake_connection_name,
         insecure=insecure,
@@ -2558,6 +2597,13 @@ def redeploy(
     effective_app_id = app_id or target.app_id
     # Deploy to the record's server unless the caller overrode the destination.
     deploy_server = server or target.server_url
+    # With no explicit credential, reuse a saved rsconnect-python server whose URL
+    # matches the record's (Publisher's own credentials are not reachable here).
+    if not name and not server and not api_key:
+        matched = _find_saved_server_by_url(target.server_url)
+        if matched:
+            name = matched["name"]
+            deploy_server = None
 
     deploy_path, bundle_builder, bundle_args, bundle_kwargs = _plan_deploy_bundle(
         directory,

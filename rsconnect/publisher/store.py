@@ -40,7 +40,9 @@ def normalize_url(url: str) -> str:
         return ""
     parsed = urlparse(url if "//" in url else "//" + url)
     netloc = parsed.netloc.lower()
-    path = parsed.path
+    # Strip trailing slashes first so a trailing slash after ``__api__``
+    # (".../__api__/") still lets the suffix be removed.
+    path = parsed.path.rstrip("/")
     if path.endswith("/__api__"):
         path = path[: -len("/__api__")]
     path = path.rstrip("/")

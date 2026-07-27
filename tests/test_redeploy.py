@@ -271,6 +271,76 @@ def test_redeploy_legacy_manifest_without_record_needs_server(runner: CliRunner,
     assert "No prior deployment found" in result.output
 
 
+def test_find_saved_server_by_url_matches_normalized(monkeypatch: pytest.MonkeyPatch):
+    from rsconnect import main as main_mod
+
+    saved = [{"name": "prod", "url": "https://connect.example.com/__api__"}]
+    monkeypatch.setattr(main_mod, "server_store", types.SimpleNamespace(get_all_servers=lambda: saved))
+
+    # trailing slash / __api__ differences still match
+    assert main_mod._find_saved_server_by_url("https://connect.example.com/")["name"] == "prod"
+    assert main_mod._find_saved_server_by_url("https://other.example.com") is None
+    assert main_mod._find_saved_server_by_url(None) is None
+
+
+def test_find_saved_server_by_url_ambiguous_raises(monkeypatch: pytest.MonkeyPatch):
+    """Two saved credentials for the same server must not be guessed between."""
+    from rsconnect import main as main_mod
+    from rsconnect.exception import RSConnectException
+
+    saved = [
+        {"name": "prod-a", "url": "https://connect.example.com"},
+        {"name": "prod-b", "url": "https://connect.example.com/__api__"},
+    ]
+    monkeypatch.setattr(main_mod, "server_store", types.SimpleNamespace(get_all_servers=lambda: saved))
+
+    with pytest.raises(RSConnectException, match="Multiple saved servers match"):
+        main_mod._find_saved_server_by_url("https://connect.example.com/")
+
+
+def test_redeploy_reuses_saved_credential_by_url(
+    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """With no explicit credential, redeploy matches the record's server_url to a
+    saved rsconnect-python server (normalized) and deploys under that nickname."""
+    from rsconnect import main as main_mod
+
+    saved = {"name": "prod", "url": "https://connect.example.com/__api__/"}
+    monkeypatch.setattr(
+        main_mod,
+        "server_store",
+        types.SimpleNamespace(get_all_servers=lambda: [saved], get_by_name=lambda n: saved if n == "prod" else None),
+    )
+
+    captured: dict[str, typing.Any] = {}
+
+    class FakeExecutor:
+        def __init__(self, **kwargs: typing.Any):
+            captured.update(kwargs)
+            self.client = None
+            self.supports_verify_before_activate = False
+
+        def __getattr__(self, _name: str):
+            # every fluent step is a no-op that returns self
+            return lambda *a, **k: self
+
+        def should_deploy_as_draft(self, *a: typing.Any, **k: typing.Any) -> bool:
+            return False
+
+    monkeypatch.setattr(main_mod, "RSConnectExecutor", FakeExecutor)
+    monkeypatch.setattr(main_mod, "prepare_deploy_metadata", lambda *a, **k: None)
+    fake_env = types.SimpleNamespace(python="python")
+    monkeypatch.setattr(main_mod.Environment, "create_python_environment", classmethod(lambda cls, *a, **k: fake_env))
+    _write_posit_project(project_dir)  # record server_url = https://connect.example.com
+
+    result = runner.invoke(cli, ["redeploy", str(project_dir)])
+
+    assert result.exit_code == 0, result.output
+    # matched the saved server: deploy under its nickname, no raw server URL
+    assert captured.get("name") == "prod"
+    assert captured.get("server") is None
+
+
 def test_redeploy_dispatches_quarto(runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch):
     captured = _spy_make_bundle(monkeypatch)
     from rsconnect import main as main_mod
