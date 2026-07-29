@@ -43,6 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   configuration now honor `.gitignore` (in addition to the pre-existing built-in
   ignore list) when choosing which files to bundle. Files ignored by
   `.gitignore` are no longer included in the bundle.
+- `integration_requests` declared in a `.posit/publish` configuration are now
+  propagated into the generated `manifest.json` (matching Posit Publisher), so
+  OAuth integration requests authored in Publisher are honored on deploy even
+  though rsconnect-python cannot create them itself.
 
 ## [1.30.0] - 2026-07-16
 

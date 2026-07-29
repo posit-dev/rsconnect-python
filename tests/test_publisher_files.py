@@ -1,5 +1,6 @@
 """Tests for :mod:`rsconnect.publisher.files` selection."""
 
+import io
 import os
 
 from rsconnect.publisher.files import (
@@ -254,3 +255,103 @@ def test_executor_make_bundle_restricts_to_config(tmp_path):
     ce.make_bundle(fake_builder)
 
     assert captured["files"] == ["app.py"]
+
+
+# --- integration_requests propagation into the manifest ----------------------
+
+INTEGRATION_CONFIG_TOML = (
+    '"$schema" = "x"\n'
+    'type = "python-shiny"\n'
+    'entrypoint = "app.py"\n'
+    'files = [\n    "/app.py",\n]\n\n'
+    "[[integration_requests]]\n"
+    'name = "My Snowflake"\n'
+    'type = "snowflake"\n'
+    'auth_type = "Viewer"\n'
+    'guid = "abc-123"\n'
+)
+
+
+def _write_integration_config(tmp_path):
+    publish = tmp_path / ".posit" / "publish"
+    publish.mkdir(parents=True)
+    (publish / "app.toml").write_text(INTEGRATION_CONFIG_TOML, encoding="utf-8")
+
+
+def test_config_manifest_overlay_maps_integration_requests():
+    from rsconnect.publisher import config
+    from rsconnect.publisher.store import config_manifest_overlay
+
+    cfg = config.from_dict(
+        {
+            "type": "python-shiny",
+            "entrypoint": "app.py",
+            "integration_requests": [
+                {"name": "My Snowflake", "type": "snowflake", "auth_type": "Viewer", "guid": "abc-123"}
+            ],
+        }
+    )
+    overlay = config_manifest_overlay(cfg)
+    assert overlay == {
+        "integration_requests": [
+            {"guid": "abc-123", "name": "My Snowflake", "auth_type": "Viewer", "type": "snowflake"}
+        ]
+    }
+
+
+def test_resolve_manifest_overlay_reads_config(tmp_path):
+    from rsconnect.publisher.store import resolve_manifest_overlay
+
+    _write_integration_config(tmp_path)
+    overlay = resolve_manifest_overlay(str(tmp_path), entrypoint="app.py")
+    assert overlay["integration_requests"][0]["name"] == "My Snowflake"
+
+
+def test_resolve_manifest_overlay_empty_without_config(tmp_path):
+    from rsconnect.publisher.store import resolve_manifest_overlay
+
+    assert resolve_manifest_overlay(str(tmp_path)) == {}
+
+
+def test_manifest_overlay_injects_into_generated_manifest():
+    from rsconnect.bundle import make_source_manifest, overlay_manifest
+    from rsconnect.models import AppModes
+
+    overlay = {"integration_requests": [{"guid": "abc-123", "name": "My Snowflake", "type": "snowflake"}]}
+    with overlay_manifest(overlay):
+        manifest = make_source_manifest(AppModes.PYTHON_SHINY, entrypoint="app.py")
+    assert manifest["integration_requests"] == overlay["integration_requests"]
+    # base fields are still present and not clobbered
+    assert manifest["metadata"]["appmode"] == "python-shiny"
+
+
+def test_manifest_overlay_absent_when_no_context():
+    from rsconnect.bundle import make_source_manifest
+    from rsconnect.models import AppModes
+
+    manifest = make_source_manifest(AppModes.PYTHON_SHINY, entrypoint="app.py")
+    assert "integration_requests" not in manifest
+
+
+def test_executor_propagates_integration_requests_to_manifest(tmp_path):
+    from rsconnect.api import RSConnectExecutor
+    from rsconnect.bundle import make_source_manifest
+    from rsconnect.models import AppModes
+
+    root = str(tmp_path)
+    _make_tree(root, ["app.py"])
+    _write_integration_config(tmp_path)
+
+    captured = {}
+
+    def fake_builder(*_args, **_kwargs):
+        # Built inside make_bundle, so the overlay context is active.
+        captured["manifest"] = make_source_manifest(AppModes.PYTHON_SHINY, entrypoint="app.py")
+        return io.BytesIO(b"bundle")
+
+    fake_builder.__name__ = "make_api_bundle"
+
+    ce = RSConnectExecutor(path=root, app_id="1")
+    ce.make_bundle(fake_builder)
+
+    assert captured["manifest"]["integration_requests"][0]["guid"] == "abc-123"

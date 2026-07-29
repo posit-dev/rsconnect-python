@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import (
     IO,
     TYPE_CHECKING,
+    Any,
     Callable,
     Iterator,
     Literal,
@@ -109,6 +110,46 @@ def restrict_to_files(files: Optional[typing.Sequence[str]]) -> typing.Iterator[
         _include_files_override.reset(token)
 
 
+# Manifest fields sourced from a ``.posit/publish`` config that rsconnect cannot
+# derive from inspection (e.g. ``integration_requests``). Set by a deploy
+# orchestrator via ``overlay_manifest`` and merged by ``Manifest`` so a
+# Publisher-authored config's settings propagate into ``manifest.json`` exactly as
+# Publisher would emit them, even though rsconnect never originates them.
+_manifest_overlay: "contextvars.ContextVar[Optional[dict[str, Any]]]" = contextvars.ContextVar(
+    "rsconnect_manifest_overlay", default=None
+)
+
+
+@contextlib.contextmanager
+def overlay_manifest(fields: Optional[typing.Mapping[str, Any]]) -> typing.Iterator[None]:
+    """Merge ``fields`` into every ``Manifest`` built within the block.
+
+    ``None``/empty is a no-op. Top-level keys are only filled when rsconnect did
+    not already set them from inspection (so inspected values win); the nested
+    ``metadata`` mapping is merged key-by-key.
+    """
+    token = _manifest_overlay.set(dict(fields) if fields else None)
+    try:
+        yield
+    finally:
+        _manifest_overlay.reset(token)
+
+
+def _apply_manifest_overlay(data: "ManifestData") -> None:
+    """Merge the active ``overlay_manifest`` fields into ``data`` in place."""
+    overlay = _manifest_overlay.get()
+    if not overlay:
+        return
+    for key, value in overlay.items():
+        if key == "metadata" and isinstance(value, dict):
+            metadata = data.setdefault("metadata", cast("ManifestDataMetadata", {}))
+            for meta_key, meta_value in value.items():
+                metadata.setdefault(meta_key, meta_value)  # type: ignore[misc]
+        else:
+            # Do not clobber a value rsconnect already derived from inspection.
+            data.setdefault(key, value)  # type: ignore[misc]
+
+
 class ManifestDataFile(TypedDict):
     checksum: str
 
@@ -119,6 +160,15 @@ class ManifestDataMetadata(TypedDict):
     entrypoint: NotRequired[str]
     primary_rmd: NotRequired[str]
     content_category: NotRequired[str]
+
+
+class ManifestDataIntegrationRequest(TypedDict):
+    guid: NotRequired[str]
+    name: NotRequired[str]
+    description: NotRequired[str]
+    auth_type: NotRequired[str]
+    type: NotRequired[str]
+    config: NotRequired[dict[str, typing.Any]]
 
 
 class ManifestDataJupyter(TypedDict):
@@ -186,6 +236,7 @@ class ManifestData(TypedDict):
     platform: NotRequired[str]
     packages: NotRequired[dict[str, ManifestDataRPackage]]
     environment: NotRequired[ManifestDataEnvironment]
+    integration_requests: NotRequired[list[ManifestDataIntegrationRequest]]
 
 
 class Manifest:
@@ -277,6 +328,10 @@ class Manifest:
         self.data["files"] = {}
         if files:
             self.data["files"] = files
+
+        # Merge fields sourced from a .posit config (e.g. integration_requests)
+        # that rsconnect does not derive from inspection.
+        _apply_manifest_overlay(self.data)
 
     @classmethod
     def from_json(cls, json_str: str):

@@ -126,6 +126,33 @@ def _find_config_name_for_entrypoint(project_dir: str, entrypoint: str) -> typin
     return None
 
 
+def _select_applicable_config(
+    directory: str,
+    entrypoint: typing.Optional[str] = None,
+    config_name: typing.Optional[str] = None,
+) -> typing.Optional[config_mod.PublisherConfig]:
+    """The ``.posit/publish`` config that applies to a deploy from ``directory``.
+
+    Preference order: the one named ``config_name``, else the sole config, else the
+    config whose entrypoint matches ``entrypoint``. Returns ``None`` when there is
+    no config or the choice is ambiguous -- callers then fall back to defaults
+    rather than failing a plain ``deploy``.
+    """
+    try:
+        configs = _load_configs(directory)
+    except Exception:
+        return None
+    if config_name and config_name in configs:
+        return configs[config_name]
+    if len(configs) == 1:
+        return next(iter(configs.values()))
+    if entrypoint:
+        for candidate in configs.values():
+            if candidate.entrypoint == entrypoint:
+                return candidate
+    return None
+
+
 def resolve_bundle_files(
     directory: str,
     entrypoint: typing.Optional[str] = None,
@@ -133,27 +160,12 @@ def resolve_bundle_files(
 ) -> typing.List[str]:
     """Resolve the concrete project-relative files to bundle for ``directory``.
 
-    If a ``.posit/publish`` config applies -- the one named ``config_name``, else
-    the sole config, else the config whose entrypoint matches ``entrypoint`` -- and
-    it declares ``files``, return those selected as an allowlist. Otherwise return
-    the ``.gitignore``-aware default (everything not ignored). Never raises for an
-    ambiguous or missing config; it falls back to the default selection so a plain
-    ``deploy`` still works.
+    If a ``.posit/publish`` config applies and declares ``files``, return those
+    selected as an allowlist. Otherwise return the ``.gitignore``-aware default
+    (everything not ignored). Never raises for an ambiguous or missing config; it
+    falls back to the default selection so a plain ``deploy`` still works.
     """
-    cfg: typing.Optional[config_mod.PublisherConfig] = None
-    try:
-        configs = _load_configs(directory)
-    except Exception:
-        configs = {}
-    if config_name and config_name in configs:
-        cfg = configs[config_name]
-    elif len(configs) == 1:
-        cfg = next(iter(configs.values()))
-    elif entrypoint:
-        for candidate in configs.values():
-            if candidate.entrypoint == entrypoint:
-                cfg = candidate
-                break
+    cfg = _select_applicable_config(directory, entrypoint, config_name)
 
     if cfg is not None and cfg.files:
         selected = files_mod.select_config_files(directory, cfg.files)
@@ -165,6 +177,52 @@ def resolve_bundle_files(
                 selected = sorted([*selected, entry])
         return selected
     return files_mod.select_default_files(directory)
+
+
+# Integration-request keys carried through to the manifest, in Publisher's order
+# (see publisher ``bundler/manifestFromConfig.ts``).
+_INTEGRATION_REQUEST_KEYS = ("guid", "name", "description", "auth_type", "type", "config")
+
+
+def config_manifest_overlay(cfg: config_mod.PublisherConfig) -> typing.Dict[str, typing.Any]:
+    """Manifest fields sourced from a config that rsconnect cannot derive itself.
+
+    Currently just ``integration_requests``: rsconnect never originates these, but
+    a Publisher-authored config may declare them, and Connect reads them from
+    ``manifest.json`` (not a separate API). They round-trip through
+    :attr:`PublisherConfig.extra`; here they are normalized to Publisher's manifest
+    shape so the emitted manifest matches what Publisher would write.
+    """
+    overlay: typing.Dict[str, typing.Any] = {}
+    raw_requests = cfg.extra.get("integration_requests") if cfg.extra else None
+    if isinstance(raw_requests, list):
+        mapped: typing.List[typing.Dict[str, typing.Any]] = []
+        for req in raw_requests:
+            if not isinstance(req, dict):
+                continue
+            item = {key: req[key] for key in _INTEGRATION_REQUEST_KEYS if req.get(key) is not None}
+            if item:
+                mapped.append(item)
+        if mapped:
+            overlay["integration_requests"] = mapped
+    return overlay
+
+
+def resolve_manifest_overlay(
+    directory: str,
+    entrypoint: typing.Optional[str] = None,
+    config_name: typing.Optional[str] = None,
+) -> typing.Dict[str, typing.Any]:
+    """Manifest fields to overlay from the applicable ``.posit/publish`` config.
+
+    Empty when no config applies. Mirrors Publisher: config-authored settings that
+    Connect consumes from the manifest (e.g. ``integration_requests``) are
+    propagated even though rsconnect never originates them.
+    """
+    cfg = _select_applicable_config(directory, entrypoint, config_name)
+    if cfg is None:
+        return {}
+    return config_manifest_overlay(cfg)
 
 
 def _root_anchor(path: str) -> str:

@@ -53,6 +53,7 @@ else:
 
 from . import validation
 from .bundle import _default_title
+from .bundle import overlay_manifest as bundle_overlay_manifest
 from .bundle import restrict_to_files as bundle_restrict_to_files
 from .certificates import read_certificate_file
 from .environment import fake_module_file_from_directory
@@ -1623,9 +1624,9 @@ class RSConnectExecutor:
         force_unique_name = self.app_id is None
         self.deployment_name = self.make_deployment_name(self.title, force_unique_name)
 
-        include_files = self._resolve_bundle_files(func)
+        include_files, manifest_overlay = self._resolve_publisher_bundle_context(func)
         try:
-            with bundle_restrict_to_files(include_files):
+            with bundle_restrict_to_files(include_files), bundle_overlay_manifest(manifest_overlay):
                 self.bundle = func(*args, **kwargs)
         except IOError as error:
             msg = "Unable to include the file %s in the bundle: %s" % (
@@ -1636,16 +1637,25 @@ class RSConnectExecutor:
 
         return self
 
-    def _resolve_bundle_files(self, func: "Callable[..., Any]") -> "Optional[list[str]]":
-        """Pick the project-relative files this bundle should include.
+    def _resolve_publisher_bundle_context(
+        self, func: "Callable[..., Any]"
+    ) -> "tuple[Optional[list[str]], dict[str, Any]]":
+        """Resolve the ``.posit/publish`` inputs for this bundle build.
 
-        Honors a ``.posit/publish`` config's ``files`` when one applies, else a
-        ``.gitignore``-aware default. Returns ``None`` (leaving the builder's own
-        whole-tree walk in place) for ``deploy manifest`` -- which is driven by its
-        pre-built ``manifest.json`` -- and if resolution fails for any reason.
+        Returns ``(include_files, manifest_overlay)``:
+
+        - ``include_files`` -- the project-relative files to bundle (a config's
+          ``files`` allowlist when one applies, else a ``.gitignore``-aware
+          default), or ``None`` to leave the builder's whole-tree walk in place.
+        - ``manifest_overlay`` -- config-authored manifest fields rsconnect does
+          not derive from inspection (e.g. ``integration_requests``), propagated
+          into ``manifest.json`` exactly as Publisher would emit them.
+
+        Both are inert for ``deploy manifest`` (driven by its pre-built
+        ``manifest.json``) and if resolution fails for any reason.
         """
         if getattr(func, "__name__", "") == "make_manifest_bundle":
-            return None
+            return None, {}
         path = self.path
         if os.path.isdir(path):
             directory: str = path
@@ -1654,12 +1664,14 @@ class RSConnectExecutor:
             directory = os.path.dirname(path) or "."
             entrypoint = os.path.basename(path)
         try:
-            from .publisher.store import resolve_bundle_files
+            from .publisher.store import resolve_bundle_files, resolve_manifest_overlay
 
-            return resolve_bundle_files(directory, entrypoint, self.publisher_config_name)
-        except Exception as exc:  # best-effort: never block a deploy on file selection
-            logger.debug("Could not resolve .posit bundle file selection: %s", exc)
-            return None
+            include_files = resolve_bundle_files(directory, entrypoint, self.publisher_config_name)
+            overlay = resolve_manifest_overlay(directory, entrypoint, self.publisher_config_name)
+            return include_files, overlay
+        except Exception as exc:  # best-effort: never block a deploy on .posit resolution
+            logger.debug("Could not resolve .posit bundle context: %s", exc)
+            return None, {}
 
     def upload_posit_bundle(self, prepare_deploy_result: PrepareDeployResult, bundle_size: int, contents: bytes):
         upload_url = prepare_deploy_result.presigned_url
