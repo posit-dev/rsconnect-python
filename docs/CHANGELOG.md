@@ -33,6 +33,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Connect Cloud (`connect.posit.cloud`) `.posit` files are read and preserved
   for interoperability, but deploying to Connect Cloud is not supported by this
   tool; only Posit Connect and Snowflake (SPCS) targets write `.posit` metadata.
+- Deploys now bundle exactly the files declared by a `.posit/publish`
+  configuration's `files` list when such a configuration applies to the content.
+  The `files` entries use `.gitignore` syntax (a matching pattern includes a
+  path, a `!` prefix excludes it), matching Posit Publisher. A configuration
+  rsconnect-python writes now records the concrete set of deployed files, so its
+  `files`, the generated `manifest.json`, and the deployment record all agree.
+- **Behavior change:** deploys _without_ an applicable `.posit/publish`
+  configuration now honor `.gitignore` (in addition to the pre-existing built-in
+  ignore list) when choosing which files to bundle. Files ignored by
+  `.gitignore` are no longer included in the bundle.
 
 ## [1.30.0] - 2026-07-16
 

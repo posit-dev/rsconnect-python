@@ -4762,6 +4762,8 @@ source = { editable = "." }
 dependencies = [
     { name = "click" },
     { name = "packaging" },
+    { name = "pathspec", version = "0.12.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "pathspec", version = "1.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "pip", version = "25.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "pip", version = "26.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
     { name = "pip", version = "26.1.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
@@ -4823,6 +4825,7 @@ requires-dist = [
     { name = "click", specifier = ">=8.0.0" },
     { name = "keyring", marker = "extra == 'keyring'", specifier = ">=23.0.0" },
     { name = "packaging", specifier = ">=20.0" },
+    { name = "pathspec", specifier = ">=0.10.0" },
     { name = "pip", specifier = ">=10.0.0" },
     { name = "pyjwt", specifier = ">=2.4.0" },
     { name = "semver", specifier = ">=2.0.0,<4.0.0" },

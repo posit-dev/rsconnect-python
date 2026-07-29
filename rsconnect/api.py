@@ -53,6 +53,7 @@ else:
 
 from . import validation
 from .bundle import _default_title
+from .bundle import restrict_to_files as bundle_restrict_to_files
 from .certificates import read_certificate_file
 from .environment import fake_module_file_from_directory
 from .exception import DeploymentFailedException, RSConnectException
@@ -1622,8 +1623,10 @@ class RSConnectExecutor:
         force_unique_name = self.app_id is None
         self.deployment_name = self.make_deployment_name(self.title, force_unique_name)
 
+        include_files = self._resolve_bundle_files(func)
         try:
-            self.bundle = func(*args, **kwargs)
+            with bundle_restrict_to_files(include_files):
+                self.bundle = func(*args, **kwargs)
         except IOError as error:
             msg = "Unable to include the file %s in the bundle: %s" % (
                 error.filename,
@@ -1632,6 +1635,31 @@ class RSConnectExecutor:
             raise RSConnectException(msg)
 
         return self
+
+    def _resolve_bundle_files(self, func: "Callable[..., Any]") -> "Optional[list[str]]":
+        """Pick the project-relative files this bundle should include.
+
+        Honors a ``.posit/publish`` config's ``files`` when one applies, else a
+        ``.gitignore``-aware default. Returns ``None`` (leaving the builder's own
+        whole-tree walk in place) for ``deploy manifest`` -- which is driven by its
+        pre-built ``manifest.json`` -- and if resolution fails for any reason.
+        """
+        if getattr(func, "__name__", "") == "make_manifest_bundle":
+            return None
+        path = self.path
+        if os.path.isdir(path):
+            directory: str = path
+            entrypoint: Optional[str] = None
+        else:
+            directory = os.path.dirname(path) or "."
+            entrypoint = os.path.basename(path)
+        try:
+            from .publisher.store import resolve_bundle_files
+
+            return resolve_bundle_files(directory, entrypoint, self.publisher_config_name)
+        except Exception as exc:  # best-effort: never block a deploy on file selection
+            logger.debug("Could not resolve .posit bundle file selection: %s", exc)
+            return None
 
     def upload_posit_bundle(self, prepare_deploy_result: PrepareDeployResult, bundle_size: int, contents: bytes):
         upload_url = prepare_deploy_result.presigned_url

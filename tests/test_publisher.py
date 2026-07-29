@@ -120,7 +120,12 @@ def test_write_deployment_metadata_creates_config_and_record(tmp_path):
     assert cfg.entrypoint == "app.py"
     assert cfg.title == "My App"
     assert cfg.validate is True
-    assert cfg.files == ["/app.py", "/requirements.txt"]
+    # config files == the concrete deployed set (root-anchored), aligned with the
+    # manifest/record, plus the driving .posit config + record (mirrors Publisher).
+    assert cfg.files[:3] == ["/app.py", "/helpers.py", "/requirements.txt"]
+    posit_files = [f for f in cfg.files if f.startswith("/.posit/publish/")]
+    assert len(posit_files) == 2
+    assert any("/deployments/" in f for f in posit_files)
     assert cfg.python == {
         "version": "3.11.5",
         "package_file": "requirements.txt",
@@ -330,7 +335,12 @@ def test_write_config_from_manifest(tmp_path):
     cfg = config.read_config(path)
     assert cfg.type == "python-shiny"
     assert cfg.entrypoint == "app.py"
-    assert cfg.files == ["/app.py", "/requirements.txt"]
+    # concrete deployed set (root-anchored), aligned with the manifest, plus the
+    # config file itself (mirrors Publisher). No record path: write-manifest does
+    # not deploy.
+    assert cfg.files[:3] == ["/app.py", "/helpers.py", "/requirements.txt"]
+    assert any(f.startswith("/.posit/publish/") and f.endswith(".toml") for f in cfg.files)
+    assert not any("/deployments/" in f for f in cfg.files)
     # write-manifest prepares content but does not deploy: no record is written.
     assert record.discover_records(project) == []
 

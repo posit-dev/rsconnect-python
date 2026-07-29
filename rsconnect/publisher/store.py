@@ -21,6 +21,7 @@ from urllib.parse import urlparse
 from ..exception import RSConnectException
 from ..models import AppMode, AppModes
 from . import config as config_mod
+from . import files as files_mod
 from . import record as record_mod
 from . import schema
 
@@ -125,16 +126,92 @@ def _find_config_name_for_entrypoint(project_dir: str, entrypoint: str) -> typin
     return None
 
 
+def resolve_bundle_files(
+    directory: str,
+    entrypoint: typing.Optional[str] = None,
+    config_name: typing.Optional[str] = None,
+) -> typing.List[str]:
+    """Resolve the concrete project-relative files to bundle for ``directory``.
+
+    If a ``.posit/publish`` config applies -- the one named ``config_name``, else
+    the sole config, else the config whose entrypoint matches ``entrypoint`` -- and
+    it declares ``files``, return those selected as an allowlist. Otherwise return
+    the ``.gitignore``-aware default (everything not ignored). Never raises for an
+    ambiguous or missing config; it falls back to the default selection so a plain
+    ``deploy`` still works.
+    """
+    cfg: typing.Optional[config_mod.PublisherConfig] = None
+    try:
+        configs = _load_configs(directory)
+    except Exception:
+        configs = {}
+    if config_name and config_name in configs:
+        cfg = configs[config_name]
+    elif len(configs) == 1:
+        cfg = next(iter(configs.values()))
+    elif entrypoint:
+        for candidate in configs.values():
+            if candidate.entrypoint == entrypoint:
+                cfg = candidate
+                break
+
+    if cfg is not None and cfg.files:
+        selected = files_mod.select_config_files(directory, cfg.files)
+        # The entrypoint must ship even if the config's patterns don't cover it
+        # (the bundle builders reference it from this list, not separately).
+        if cfg.entrypoint:
+            entry = cfg.entrypoint.replace(os.sep, "/")
+            if entry not in selected and os.path.isfile(os.path.join(directory, cfg.entrypoint)):
+                selected = sorted([*selected, entry])
+        return selected
+    return files_mod.select_default_files(directory)
+
+
+def _root_anchor(path: str) -> str:
+    """Root-anchor a project-relative path (``app.py`` -> ``/app.py``).
+
+    Anchoring prevents an entry from also matching a same-named file deeper in the
+    tree, matching how Publisher records concrete, root-relative include paths.
+    """
+    return "/" + path.replace(os.sep, "/").lstrip("/")
+
+
 def _config_file_patterns(details: "record_mod.BundleContentDetails") -> typing.List[str]:
-    """Seed the config ``files`` include-list, matching Publisher's normalize."""
+    """The config ``files`` include-list: the concrete deployed file set.
+
+    Uses the exact file list from the built bundle's manifest so the config's
+    ``files``, the manifest's ``files``, and the record's ``files`` all denote the
+    same set (root-anchored, as Publisher writes them). The entrypoint and the
+    declared package file are guaranteed present (the schema requires
+    ``package_file`` to be listed under ``files``).
+    """
     patterns: typing.List[str] = []
+    for name in details.files:
+        anchored = _root_anchor(name)
+        if anchored not in patterns:
+            patterns.append(anchored)
     if details.entrypoint:
-        patterns.append("/" + details.entrypoint)
+        entry = _root_anchor(details.entrypoint)
+        if entry not in patterns:
+            patterns.insert(0, entry)
     if details.python and details.python.get("package_file"):
-        pkg = "/" + typing.cast(str, details.python["package_file"])
+        pkg = _root_anchor(typing.cast(str, details.python["package_file"]))
         if pkg not in patterns:
             patterns.append(pkg)
     return patterns
+
+
+def _posit_bundle_paths(project_dir: str, config_name: str, record_name: typing.Optional[str]) -> typing.List[str]:
+    """Root-anchored ``.posit`` paths to include in ``files``, mirroring Publisher.
+
+    Publisher adds the driving config (and its deployment record) to the deployment
+    file list so they ship in the bundle. Returns the config path always and the
+    record path when ``record_name`` is known.
+    """
+    paths = [_root_anchor(os.path.relpath(schema.config_path(project_dir, config_name), project_dir))]
+    if record_name:
+        paths.append(_root_anchor(os.path.relpath(schema.record_path(project_dir, record_name), project_dir)))
+    return paths
 
 
 def write_deployment_metadata(
@@ -169,7 +246,6 @@ def write_deployment_metadata(
         product_type=product_type,
         python=details.python,
         quarto=details.quarto,
-        files=_config_file_patterns(details),
     )
     # Reuse an existing deployment's filenames on redeploy; only mint new random
     # names for a genuinely new deployment. A caller-supplied record_name (from
@@ -187,6 +263,11 @@ def write_deployment_metadata(
         or _find_config_name_for_entrypoint(project_dir, details.entrypoint)
         or _new_config_name(project_dir, title or details.entrypoint or "content")
     )
+    rname = existing_record_name or _new_record_name(project_dir)
+    # For a new config, seed ``files`` with the concrete deployed set plus the
+    # ``.posit`` files (mirroring Publisher). ``write_config`` preserves an existing
+    # config's curated ``files``, so this only takes effect when minting one.
+    cfg.files = _config_file_patterns(details) + _posit_bundle_paths(project_dir, cname, rname)
     config_path, config_dict = config_mod.write_config(project_dir, cname, cfg)
 
     dashboard_url = deployed_info.get("dashboard_url")
@@ -233,13 +314,15 @@ def write_config_from_manifest(
         title=title,
         python=details.python,
         quarto=details.quarto,
-        files=_config_file_patterns(details),
     )
     cname = (
         config_name
         or _find_config_name_for_entrypoint(project_dir, details.entrypoint)
         or _new_config_name(project_dir, title or details.entrypoint or "content")
     )
+    # No deployment record here (write-manifest does not deploy); include the
+    # config itself but no record path.
+    cfg.files = _config_file_patterns(details) + _posit_bundle_paths(project_dir, cname, None)
     path, _ = config_mod.write_config(project_dir, cname, cfg)
     return path
 

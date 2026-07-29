@@ -4,6 +4,8 @@ Manifest generation and bundling utilities
 
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import hashlib
 import io
 import json
@@ -81,6 +83,30 @@ directories_ignore_list = [
 directories_to_ignore = {Path(d) for d in directories_ignore_list}
 
 mimetypes.add_type("text/ipynb", ".ipynb")
+
+# When set (by a deploy orchestrator via ``restrict_to_files``), ``create_file_list``
+# selects from exactly this pre-resolved set of project-relative files instead of
+# walking the whole tree. Deploy commands resolve the set from a ``.posit/publish``
+# config (allowlist) or a ``.gitignore``-aware default; see
+# ``rsconnect.publisher.files`` and ``rsconnect.publisher.store.resolve_bundle_files``.
+_include_files_override: "contextvars.ContextVar[Optional[list[str]]]" = contextvars.ContextVar(
+    "rsconnect_include_files_override", default=None
+)
+
+
+@contextlib.contextmanager
+def restrict_to_files(files: Optional[typing.Sequence[str]]) -> typing.Iterator[None]:
+    """Restrict bundling to ``files`` (project-relative) for the duration of the block.
+
+    ``None`` leaves the default whole-tree walk in place. The builders' own
+    ``excludes`` (e.g. ``manifest.json`` and the environment file, which are added
+    to the bundle separately) still apply on top of the restriction.
+    """
+    token = _include_files_override.set(list(files) if files is not None else None)
+    try:
+        yield
+    finally:
+        _include_files_override.reset(token)
 
 
 class ManifestDataFile(TypedDict):
@@ -1236,6 +1262,7 @@ def create_file_list(
     extra_files: Sequence[str],
     excludes: Sequence[str],
     use_abspath: bool = False,
+    include_files: Optional[Sequence[str]] = None,
 ) -> list[str]:
     """
     Builds a full list of files under the given path that should be included
@@ -1245,6 +1272,10 @@ def create_file_list(
     :param path: a file, or a directory to walk for files.
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param include_files: when provided (or set via ``restrict_to_files``), select
+        from exactly these project-relative files instead of walking the tree. The
+        ``excludes`` still apply, so a builder's separately-added files (manifest,
+        environment file) are not double-counted.
     :return: the list of relevant files, relative to the given directory.
     """
     extra_files = extra_files or []
@@ -1256,6 +1287,25 @@ def create_file_list(
     if isfile(path):
         path_to_add = abspath(path) if use_abspath else path
         file_set.add(path_to_add)
+        return sorted(file_set)
+
+    if include_files is None:
+        include_files = _include_files_override.get()
+
+    if include_files is not None:
+        # Allowlist mode: consider only the resolved files, applying the same
+        # exclude/ignore filtering the walk would, so builder-managed files
+        # (manifest.json, the environment file) are still dropped here.
+        for rel_path in include_files:
+            cur_path = os.path.join(path, rel_path)
+            if not isfile(cur_path):
+                continue
+            if Path(cur_path) in exclude_paths:
+                continue
+            if keep_manifest_specified_file(rel_path, exclude_paths | directories_to_ignore) and (
+                rel_path in extra_files or not glob_set.matches(cur_path)
+            ):
+                file_set.add(abspath(cur_path) if use_abspath else rel_path)
         return sorted(file_set)
 
     for cur_dir, _, files in os.walk(path):
