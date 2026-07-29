@@ -23,6 +23,28 @@ SERVER_URL = "https://connect.example.com"
 GUID = "RECORD-GUID-123"
 
 
+@pytest.fixture(autouse=True)
+def _isolate_connect_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Neutralize ambient Connect credentials so ``redeploy`` resolves the server
+    and content identity from the ``.posit`` record rather than the environment.
+
+    The integration-test CI job exports ``CONNECT_SERVER``/``CONNECT_API_KEY``
+    (pointing at its throwaway Connect); without this those would leak through the
+    ``--server``/``--api-key`` env-var options into the command under test and
+    override the record-based resolution these tests assert on.
+    """
+    for var in (
+        "CONNECT_SERVER",
+        "CONNECT_API_KEY",
+        "CONNECT_INSECURE",
+        "CONNECT_CA_CERTIFICATE",
+        "CONNECT_IDENTITY_TOKEN",
+        "CONNECT_IDENTITY_TOKEN_FILE",
+        "CONNECT_SERVER_VERSION",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+
 @pytest.fixture
 def runner() -> CliRunner:
     return CliRunner()
