@@ -7,6 +7,8 @@ dispatch -- runs without any network call. Asserts that the deployment record's
 server and content identity are recovered and reused.
 """
 
+from __future__ import annotations
+
 import pathlib
 import textwrap
 import types
