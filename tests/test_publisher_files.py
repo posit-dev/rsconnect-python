@@ -267,7 +267,7 @@ def test_no_config_bundles_gitignored_files(tmp_path):
     (tmp_path / ".gitignore").write_text("_site/\n", encoding="utf-8")
     with restrict_to_files(resolve_bundle_files(root)):
         files = create_file_list(root, [], [])
-    assert "_site/report.html" in files
+    assert os.path.join("_site", "report.html") in files
 
 
 # --- end-to-end: the executor resolves + restricts around the builder --------
