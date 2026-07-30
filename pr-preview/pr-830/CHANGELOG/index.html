@@ -2917,11 +2917,8 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
   built-in exclusions (<code>.git</code>, <code>__pycache__</code>, <code>node_modules</code>, and the like) still
   apply. A configuration rsconnect-python writes now records the concrete set of
   deployed files, so its <code>files</code>, the generated <code>manifest.json</code>, and the
-  deployment record all agree.</li>
-<li><strong>Behavior change:</strong> deploys <em>without</em> an applicable <code>.posit/publish</code>
-  configuration now honor <code>.gitignore</code> (in addition to the pre-existing built-in
-  ignore list) when choosing which files to bundle. Files ignored by
-  <code>.gitignore</code> are no longer included in the bundle.</li>
+  deployment record all agree. Deploys <em>without</em> an applicable configuration
+  bundle files exactly as before.</li>
 <li><code>integration_requests</code> declared in a <code>.posit/publish</code> configuration are now
   propagated into the generated <code>manifest.json</code> (matching Posit Publisher), so
   OAuth integration requests authored in Publisher are honored on deploy even
