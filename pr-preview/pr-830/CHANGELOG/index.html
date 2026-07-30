@@ -2910,15 +2910,16 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
   for interoperability, but deploying to Connect Cloud is not supported by this
   tool; only Posit Connect and Snowflake (SPCS) targets write <code>.posit</code> metadata.</li>
 <li>Deploys now bundle exactly the files declared by a <code>.posit/publish</code>
-  configuration's <code>files</code> list when such a configuration applies to the content.
+  configuration's <code>files</code> list when that list curates a subset of the project.
   The <code>files</code> entries use <code>.gitignore</code> syntax (a matching pattern includes a
-  path, a <code>!</code> prefix excludes it), matching Posit Publisher. A configuration with
-  an empty or absent <code>files</code> list means "everything", as in Publisher, so the
-  built-in exclusions (<code>.git</code>, <code>__pycache__</code>, <code>node_modules</code>, and the like) still
-  apply. A configuration rsconnect-python writes now records the concrete set of
-  deployed files, so its <code>files</code>, the generated <code>manifest.json</code>, and the
-  deployment record all agree. Deploys <em>without</em> an applicable configuration
-  bundle files exactly as before.</li>
+  path, a <code>!</code> prefix excludes it), matching Posit Publisher. A configuration whose
+  <code>files</code> is absent, empty, or <code>["*"]</code> declares no restriction, so bundling falls
+  through to the existing behavior. File selection is therefore unchanged for any
+  content that does not have a hand-curated <code>files</code> list, including on repeat
+  deploys of a project that had no <code>.posit</code> metadata to begin with: a
+  configuration rsconnect-python writes records <code>files = ["*"]</code> rather than a
+  snapshot of the files that happened to deploy, so newly added source files and
+  freshly rendered output keep being bundled.</li>
 <li><code>integration_requests</code> declared in a <code>.posit/publish</code> configuration are now
   propagated into the generated <code>manifest.json</code> (matching Posit Publisher), so
   OAuth integration requests authored in Publisher are honored on deploy even
