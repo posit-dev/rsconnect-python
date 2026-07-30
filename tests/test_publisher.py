@@ -138,6 +138,11 @@ def test_write_deployment_metadata_creates_config_and_record(tmp_path):
     assert rec.id == "GUID-123"
     assert rec.server_type == "connect"
     assert rec.type == "python-shiny"
+    # written normalized (no /__api__ suffix, despite deploy() passing that as
+    # server_url): Publisher compares this byte-for-byte against its own
+    # normalized account URL, so an unnormalized value here would make Publisher
+    # reject a perfectly matching account with "Server URL Mismatch".
+    assert rec.server_url == "https://connect.example.com"
     # configuration_name links to the config file that was written
     assert config_path.endswith(rec.configuration_name + ".toml")
     assert rec.direct_url == DEPLOYED_INFO["app_url"]
@@ -149,6 +154,29 @@ def test_write_deployment_metadata_creates_config_and_record(tmp_path):
     assert rec.requirements == ["shiny==1.0", "htmltools>=0.5"]
     # embedded configuration snapshot matches the config file
     assert rec.config().type == "python-shiny"
+
+
+def test_written_server_url_matches_publisher_normalization(tmp_path):
+    """rsconnect-python must write the same normalized ``server_url`` Publisher's
+    own Go backend would write, or a Publisher-side exact-string comparison against
+    its normalized account URL rejects a genuinely matching account with
+    "the account provided is for a different server" (``ErrServerURLMismatch`` in
+    Publisher's ``internal/state/state.go``, compared against ``purell``-normalized
+    ``Account.URL``: lowercase scheme+host, no trailing slash, no ``:443``).
+    """
+    cases = {
+        "https://Dogfood.example.com/": "https://dogfood.example.com",
+        "https://connect.example.com:443/rsc": "https://connect.example.com/rsc",
+        "http://connect.example.com:80/rsc": "http://connect.example.com/rsc",
+        "https://connect.example.com:8443/rsc": "https://connect.example.com:8443/rsc",
+        "https://connect.example.com///rsc/": "https://connect.example.com/rsc",
+        "https://connect.example.com/__api__": "https://connect.example.com",
+        "https://connect.example.com/__api__/": "https://connect.example.com",
+    }
+    for i, (raw, expected) in enumerate(cases.items()):
+        project = str(tmp_path / f"case-{i}")
+        _, record_path = deploy(project, server_url=raw)
+        assert record.read_record(record_path).server_url == expected, raw
 
 
 def test_config_files_reference_the_record_that_was_written(tmp_path):

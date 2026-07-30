@@ -29,25 +29,40 @@ if typing.TYPE_CHECKING:
     from typing import IO
 
 
+_DEFAULT_PORTS = {"http": "80", "https": "443"}
+
+
 def normalize_url(url: str) -> str:
     """Normalize a Connect URL for content comparison.
 
-    Strips a trailing ``/__api__`` and any trailing slash, and lowercases the
-    scheme+host, so a record's ``server_url`` matches a saved server that may
-    differ cosmetically. The path (a Connect instance may live under one) is
-    preserved apart from the ``__api__`` suffix.
+    Strips a trailing ``/__api__`` and any trailing slash, lowercases the
+    scheme+host, drops an explicit default port, and collapses duplicate slashes
+    in the path, so a record's ``server_url`` matches a saved server that may
+    differ only cosmetically.
+
+    This must produce the same result Publisher's Go backend would for the same
+    input: a record's ``server_url`` is compared there with plain string equality
+    against ``purell.NormalizeURLString(url, purell.FlagsSafe |
+    FlagRemoveTrailingSlash | FlagRemoveDotSegments | FlagRemoveDuplicateSlashes)``
+    (``internal/util/urls.go``), which lowercases scheme+host, strips a default
+    port, and collapses duplicate slashes. Anything written here that doesn't
+    match that exactly makes Publisher reject a genuinely matching account with
+    "the account provided is for a different server" (``ErrServerURLMismatch``).
     """
     if not url:
         return ""
     parsed = urlparse(url if "//" in url else "//" + url)
-    netloc = parsed.netloc.lower()
+    scheme = (parsed.scheme or "https").lower()
+    hostname = (parsed.hostname or "").lower()
+    netloc = hostname
+    if parsed.port is not None and str(parsed.port) != _DEFAULT_PORTS.get(scheme):
+        netloc = "{}:{}".format(hostname, parsed.port)
     # Strip trailing slashes first so a trailing slash after ``__api__``
     # (".../__api__/") still lets the suffix be removed.
-    path = parsed.path.rstrip("/")
+    path = re.sub(r"/{2,}", "/", parsed.path).rstrip("/")
     if path.endswith("/__api__"):
         path = path[: -len("/__api__")]
     path = path.rstrip("/")
-    scheme = (parsed.scheme or "https").lower()
     return "{}://{}{}".format(scheme, netloc, path)
 
 
@@ -338,7 +353,7 @@ def write_deployment_metadata(
 
     dashboard_url = deployed_info.get("dashboard_url")
     rec = record_mod.PublisherRecord(
-        server_url=server_url,
+        server_url=normalize_url(server_url),
         server_type=product_type,
         id=deployed_info.get("app_guid"),
         type=content_type,
