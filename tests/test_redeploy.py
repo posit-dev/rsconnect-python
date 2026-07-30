@@ -378,3 +378,128 @@ def test_redeploy_dispatches_quarto(runner: CliRunner, project_dir: pathlib.Path
 
     assert captured.get("builder") == "create_quarto_deployment_bundle", result.output
     assert captured["app_id"] == GUID
+
+
+def _spy_bundle_contents(monkeypatch: pytest.MonkeyPatch) -> dict[str, typing.Any]:
+    """Let the real bundle get built, then capture its member list at upload time.
+
+    Unlike :func:`_spy_make_bundle` (which stubs bundling out entirely), this
+    exercises the whole ``.posit`` -> ``restrict_to_files`` -> builder path so the
+    bundle's actual contents can be asserted.
+    """
+    import tarfile
+
+    from rsconnect import api as api_mod
+    from rsconnect import main as main_mod
+    from rsconnect.environment import Environment
+
+    captured: dict[str, typing.Any] = {}
+
+    def fake_deploy_bundle(self: typing.Any, *_a: typing.Any, **_k: typing.Any):
+        self.bundle.seek(0)
+        with tarfile.open(fileobj=self.bundle, mode="r:gz") as tar:
+            captured["files"] = sorted(n for n in tar.getnames() if not tar.getmember(n).isdir())
+        self.bundle.seek(0)
+        self.deployed_info = {
+            "app_url": SERVER_URL + "/content/abc/",
+            "app_id": "7",
+            "app_guid": GUID,
+            "title": "App",
+            "app_mode": self.app_mode.name() if self.app_mode else "python-shiny",
+            "dashboard_url": SERVER_URL + "/connect/#/apps/abc",
+            "app_store_version": 1,
+            "bundle_id": "99",
+        }
+        return self
+
+    environment = Environment.from_dict(
+        {
+            "python": "3.11.0",
+            "pip": "24.0",
+            "locale": "en_US.UTF-8",
+            "package_manager": "pip",
+            "source": "requirements.txt",
+            "filename": "requirements.txt",
+            "contents": "shiny\n",
+            "error": None,
+        }
+    )
+    monkeypatch.setattr(
+        main_mod.Environment,
+        "create_python_environment",
+        classmethod(lambda cls, *a, **k: environment),
+    )
+    monkeypatch.setattr(api_mod.RSConnectClient, "server_settings", lambda self: {})
+    monkeypatch.setattr(api_mod.RSConnectExecutor, "validate_server", lambda self: self)
+
+    def fake_validate_app_mode(self: typing.Any, app_mode: typing.Any):
+        self.app_mode = app_mode
+        return self
+
+    monkeypatch.setattr(api_mod.RSConnectExecutor, "validate_app_mode", fake_validate_app_mode)
+    monkeypatch.setattr(api_mod.RSConnectExecutor, "deploy_bundle", fake_deploy_bundle)
+    for method in ("emit_task_log", "verify_deployment", "emit_content_url"):
+        monkeypatch.setattr(api_mod.RSConnectExecutor, method, lambda self, *a, **k: self)
+    monkeypatch.setattr(api_mod.RSConnectExecutor, "should_deploy_as_draft", lambda self, *a, **k: False)
+    return captured
+
+
+def test_redeploy_bundles_only_the_configs_files(
+    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """redeploy must honor the config's ``files`` allowlist, not bundle the tree."""
+    captured = _spy_bundle_contents(monkeypatch)
+    _write_posit_project(project_dir)
+    (project_dir / "requirements.txt").write_text("shiny\n")
+    # noise the config does not list
+    (project_dir / "scratch.csv").write_text("noise")
+    (project_dir / "data").mkdir()
+    (project_dir / "data" / "blob.bin").write_text("blob")
+
+    result = runner.invoke(cli, ["redeploy", str(project_dir), "-k", "fake-key"])
+
+    assert result.exit_code == 0, result.output
+    assert captured["files"] == ["app.py", "manifest.json", "requirements.txt"]
+
+
+def test_redeploy_bundle_matches_deploy_bundle(
+    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """``redeploy`` and an equivalent ``deploy`` select the same files: both resolve
+    the same ``.posit`` config, so neither is broader than the other."""
+    captured = _spy_bundle_contents(monkeypatch)
+    _write_posit_project(project_dir)
+    (project_dir / "requirements.txt").write_text("shiny\n")
+    (project_dir / "scratch.csv").write_text("noise")
+
+    assert runner.invoke(cli, ["redeploy", str(project_dir), "-k", "fake-key"]).exit_code == 0
+    redeployed = captured["files"]
+
+    captured.clear()
+    result = runner.invoke(
+        cli,
+        ["deploy", "shiny", str(project_dir), "-k", "fake-key", "-s", SERVER_URL, "--app-id", "1"],
+    )
+    assert result.exit_code == 0, result.output
+    assert captured["files"] == redeployed
+
+
+def test_repeated_redeploy_keeps_the_same_file_set(
+    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Saving the ``.posit`` metadata after a deploy must not widen (or narrow) the
+    next redeploy's selection -- the config's curated ``files`` is preserved."""
+    captured = _spy_bundle_contents(monkeypatch)
+    _write_posit_project(project_dir)
+    (project_dir / "requirements.txt").write_text("shiny\n")
+    (project_dir / "scratch.csv").write_text("noise")
+
+    seen: list[list[str]] = []
+    for _ in range(3):
+        captured.clear()
+        result = runner.invoke(cli, ["redeploy", str(project_dir), "-k", "fake-key"])
+        assert result.exit_code == 0, result.output
+        seen.append(captured["files"])
+
+    assert seen[0] == seen[1] == seen[2]
+    assert "scratch.csv" not in seen[0]

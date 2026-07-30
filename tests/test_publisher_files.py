@@ -209,6 +209,29 @@ def test_resolve_bundle_files_force_includes_entrypoint(tmp_path):
     assert "data.csv" in selected
 
 
+def test_resolve_bundle_files_empty_files_means_everything(tmp_path):
+    """A config with no ``files`` key means "everything" (Publisher's ``["*"]``
+    default), so STANDARD_EXCLUSIONS still apply but .gitignore does not."""
+    from rsconnect.publisher.store import resolve_bundle_files
+
+    root = str(tmp_path)
+    _make_tree(root, ["app.py", "data.csv", "__pycache__/x.pyc"])
+    (tmp_path / ".gitignore").write_text("data.csv\n", encoding="utf-8")
+    publish = tmp_path / ".posit" / "publish"
+    publish.mkdir(parents=True)
+    # no files key at all
+    (publish / "app.toml").write_text(
+        '"$schema" = "x"\ntype = "python-shiny"\nentrypoint = "app.py"\n',
+        encoding="utf-8",
+    )
+    selected = resolve_bundle_files(root, entrypoint="app.py")
+    assert "app.py" in selected
+    # the config governs, so .gitignore is not consulted
+    assert "data.csv" in selected
+    # but the built-in exclusions still win
+    assert not any(f.startswith("__pycache__/") for f in selected)
+
+
 def test_resolve_bundle_files_default_when_no_config(tmp_path):
     from rsconnect.publisher.store import resolve_bundle_files
 

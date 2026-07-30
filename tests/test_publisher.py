@@ -150,6 +150,61 @@ def test_write_deployment_metadata_creates_config_and_record(tmp_path):
     assert rec.config().type == "python-shiny"
 
 
+def test_config_files_reference_the_record_that_was_written(tmp_path):
+    """The ``.posit`` record path recorded in the config's ``files`` must be the
+    record actually written, so the next deploy bundles it instead of a
+    never-existing name."""
+    import os
+
+    project = str(tmp_path)
+    config_path, record_path = deploy(project)
+
+    cfg = config.read_config(config_path)
+    recorded = [f for f in cfg.files if "/deployments/" in f]
+    assert len(recorded) == 1
+    assert os.path.basename(recorded[0]) == os.path.basename(record_path)
+    # only one record file exists -- no orphaned second name was minted
+    assert len(record.discover_records(project)) == 1
+    # every .posit path in files resolves to a real file
+    for rel in (f for f in cfg.files if f.startswith("/.posit/")):
+        assert os.path.isfile(os.path.join(project, rel.lstrip("/"))), rel
+
+
+def test_config_files_omit_a_non_path_entrypoint(tmp_path):
+    """A manifest ``metadata.entrypoint`` may be a module reference rather than a
+    file (Shiny records ``app`` for ``app.py``). Anchoring it would add a
+    never-matching ``/app`` include that selects nothing."""
+    manifest = {
+        **PY_SHINY_MANIFEST,
+        # what rsconnect actually writes for a `deploy shiny` of app.py
+        "metadata": {"appmode": "python-shiny", "entrypoint": "app"},
+    }
+    bundle = make_bundle(manifest, {"requirements.txt": "shiny==1.0\n"})
+    config_path, _ = store.write_deployment_metadata(
+        project_dir=str(tmp_path),
+        server_url="https://connect.example.com/__api__",
+        product_type="connect",
+        app_mode=AppModes.PYTHON_SHINY,
+        title="My App",
+        deployed_info=DEPLOYED_INFO,
+        bundle=bundle,
+    )
+    cfg = config.read_config(config_path)
+    assert "/app" not in cfg.files
+    # the real deployed files are still recorded
+    assert cfg.files[:3] == ["/app.py", "/helpers.py", "/requirements.txt"]
+
+
+def test_config_files_lead_with_the_entrypoint_when_it_is_a_file(tmp_path):
+    """When the manifest's entrypoint does name a deployed file, it leads the
+    include-list (and is not duplicated)."""
+    project = str(tmp_path)
+    config_path, _ = deploy(project)
+    cfg = config.read_config(config_path)
+    assert cfg.files[0] == "/app.py"
+    assert cfg.files.count("/app.py") == 1
+
+
 def test_redeploy_pins_resolved_config_and_record(tmp_path):
     """Passing config_name/record_name (as redeploy does) updates those exact
     files, even when the record lacks a configuration_name and the config's

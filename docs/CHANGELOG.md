@@ -36,9 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deploys now bundle exactly the files declared by a `.posit/publish`
   configuration's `files` list when such a configuration applies to the content.
   The `files` entries use `.gitignore` syntax (a matching pattern includes a
-  path, a `!` prefix excludes it), matching Posit Publisher. A configuration
-  rsconnect-python writes now records the concrete set of deployed files, so its
-  `files`, the generated `manifest.json`, and the deployment record all agree.
+  path, a `!` prefix excludes it), matching Posit Publisher. A configuration with
+  an empty or absent `files` list means "everything", as in Publisher, so the
+  built-in exclusions (`.git`, `__pycache__`, `node_modules`, and the like) still
+  apply. A configuration rsconnect-python writes now records the concrete set of
+  deployed files, so its `files`, the generated `manifest.json`, and the
+  deployment record all agree.
 - **Behavior change:** deploys _without_ an applicable `.posit/publish`
   configuration now honor `.gitignore` (in addition to the pre-existing built-in
   ignore list) when choosing which files to bundle. Files ignored by

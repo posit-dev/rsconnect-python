@@ -160,15 +160,18 @@ def resolve_bundle_files(
 ) -> typing.List[str]:
     """Resolve the concrete project-relative files to bundle for ``directory``.
 
-    If a ``.posit/publish`` config applies and declares ``files``, return those
-    selected as an allowlist. Otherwise return the ``.gitignore``-aware default
-    (everything not ignored). Never raises for an ambiguous or missing config; it
-    falls back to the default selection so a plain ``deploy`` still works.
+    When a ``.posit/publish`` config applies, its ``files`` include-list decides
+    the selection. An empty or absent ``files`` means "everything", spelled ``*``
+    -- the same default Publisher's ``collectFiles`` applies -- so
+    ``STANDARD_EXCLUSIONS`` still prune ``.git``, ``__pycache__``, and friends.
+
+    With no applicable config, fall back to the ``.gitignore``-aware default.
+    Never raises for an ambiguous or missing config, so a plain ``deploy`` works.
     """
     cfg = _select_applicable_config(directory, entrypoint, config_name)
 
-    if cfg is not None and cfg.files:
-        selected = files_mod.select_config_files(directory, cfg.files)
+    if cfg is not None:
+        selected = files_mod.select_config_files(directory, cfg.files or ["*"])
         # The entrypoint must ship even if the config's patterns don't cover it
         # (the bundle builders reference it from this list, not separately).
         if cfg.entrypoint:
@@ -239,19 +242,26 @@ def _config_file_patterns(details: "record_mod.BundleContentDetails") -> typing.
 
     Uses the exact file list from the built bundle's manifest so the config's
     ``files``, the manifest's ``files``, and the record's ``files`` all denote the
-    same set (root-anchored, as Publisher writes them). The entrypoint and the
-    declared package file are guaranteed present (the schema requires
-    ``package_file`` to be listed under ``files``).
+    same set (root-anchored, as Publisher writes them). The declared package file
+    is guaranteed present (the schema requires ``package_file`` to be listed under
+    ``files``).
+
+    The entrypoint is only surfaced when it names one of those files. A manifest's
+    ``metadata.entrypoint`` may be a module reference rather than a path (Shiny
+    deploys record ``app`` for ``app.py``), and anchoring that would add a
+    never-matching ``/app`` entry to the include-list.
     """
+    deployed = {name.replace(os.sep, "/") for name in details.files}
     patterns: typing.List[str] = []
     for name in details.files:
         anchored = _root_anchor(name)
         if anchored not in patterns:
             patterns.append(anchored)
-    if details.entrypoint:
+    if details.entrypoint and details.entrypoint.replace(os.sep, "/") in deployed:
         entry = _root_anchor(details.entrypoint)
-        if entry not in patterns:
-            patterns.insert(0, entry)
+        if entry in patterns:
+            patterns.remove(entry)
+        patterns.insert(0, entry)
     if details.python and details.python.get("package_file"):
         pkg = _root_anchor(typing.cast(str, details.python["package_file"]))
         if pkg not in patterns:
@@ -344,7 +354,6 @@ def write_deployment_metadata(
         requirements=details.requirements,
         configuration=config_dict,
     )
-    rname = existing_record_name or _new_record_name(project_dir)
     record_path = record_mod.write_record(project_dir, rname, rec)
     return config_path, record_path
 
