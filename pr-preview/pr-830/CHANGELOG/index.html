@@ -2927,6 +2927,22 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
   propagated into the generated <code>manifest.json</code> (matching Posit Publisher), so
   OAuth integration requests authored in Publisher are honored on deploy even
   though rsconnect-python cannot create them itself.</li>
+<li>Fixed a bug where a project deployed first with <code>rsconnect deploy</code>/<code>redeploy</code>
+  could fail to redeploy from Posit Publisher with "the account provided is for
+  a different server; it must match the server for this deployment", even
+  though Publisher had resolved the correct account. rsconnect-python was
+  writing the deployment record's <code>server_url</code> verbatim (whatever cosmetic form
+  <code>--server</code>/a saved server happened to be in); Publisher compares that value
+  byte-for-byte against its own normalized account URL. <code>server_url</code> is now
+  normalized the same way Publisher normalizes it (lowercase scheme+host, no
+  trailing slash, no <code>/__api__</code> suffix, no default port, no duplicate slashes)
+  before being written.</li>
+<li>Fixed a bug where the <code>entrypoint</code> written to a <code>.posit/publish</code> configuration
+  could be a bare Python module reference (e.g. <code>app</code> for <code>app.py</code>) rather than
+  the literal file path Posit Publisher's schema expects. It's now resolved
+  back to the real file when the manifest confirms it exists; a genuine
+  <code>module:object</code> reference with no matching file (e.g. Shiny Express) is left
+  unchanged.</li>
 </ul>
 <h2 id="1300-2026-07-16">[1.30.0] - 2026-07-16<a class="headerlink" href="#1300-2026-07-16" title="Permanent link">#</a></h2>
 <ul>
