@@ -2912,9 +2912,12 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Deploys now bundle exactly the files declared by a <code>.posit/publish</code>
   configuration's <code>files</code> list when such a configuration applies to the content.
   The <code>files</code> entries use <code>.gitignore</code> syntax (a matching pattern includes a
-  path, a <code>!</code> prefix excludes it), matching Posit Publisher. A configuration
-  rsconnect-python writes now records the concrete set of deployed files, so its
-  <code>files</code>, the generated <code>manifest.json</code>, and the deployment record all agree.</li>
+  path, a <code>!</code> prefix excludes it), matching Posit Publisher. A configuration with
+  an empty or absent <code>files</code> list means "everything", as in Publisher, so the
+  built-in exclusions (<code>.git</code>, <code>__pycache__</code>, <code>node_modules</code>, and the like) still
+  apply. A configuration rsconnect-python writes now records the concrete set of
+  deployed files, so its <code>files</code>, the generated <code>manifest.json</code>, and the
+  deployment record all agree.</li>
 <li><strong>Behavior change:</strong> deploys <em>without</em> an applicable <code>.posit/publish</code>
   configuration now honor <code>.gitignore</code> (in addition to the pre-existing built-in
   ignore list) when choosing which files to bundle. Files ignored by
