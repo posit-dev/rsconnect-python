@@ -34,15 +34,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for interoperability, but deploying to Connect Cloud is not supported by this
   tool; only Posit Connect and Snowflake (SPCS) targets write `.posit` metadata.
 - Deploys now bundle exactly the files declared by a `.posit/publish`
-  configuration's `files` list when such a configuration applies to the content.
+  configuration's `files` list when that list curates a subset of the project.
   The `files` entries use `.gitignore` syntax (a matching pattern includes a
-  path, a `!` prefix excludes it), matching Posit Publisher. A configuration with
-  an empty or absent `files` list means "everything", as in Publisher, so the
-  built-in exclusions (`.git`, `__pycache__`, `node_modules`, and the like) still
-  apply. A configuration rsconnect-python writes now records the concrete set of
-  deployed files, so its `files`, the generated `manifest.json`, and the
-  deployment record all agree. Deploys _without_ an applicable configuration
-  bundle files exactly as before.
+  path, a `!` prefix excludes it), matching Posit Publisher. A configuration whose
+  `files` is absent, empty, or `["*"]` declares no restriction, so bundling falls
+  through to the existing behavior. File selection is therefore unchanged for any
+  content that does not have a hand-curated `files` list, including on repeat
+  deploys of a project that had no `.posit` metadata to begin with: a
+  configuration rsconnect-python writes records `files = ["*"]` rather than a
+  snapshot of the files that happened to deploy, so newly added source files and
+  freshly rendered output keep being bundled.
 - `integration_requests` declared in a `.posit/publish` configuration are now
   propagated into the generated `manifest.json` (matching Posit Publisher), so
   OAuth integration requests authored in Publisher are honored on deploy even

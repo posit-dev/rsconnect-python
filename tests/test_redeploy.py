@@ -462,6 +462,48 @@ def test_redeploy_bundles_only_the_configs_files(
     assert captured["files"] == ["app.py", "manifest.json", "requirements.txt"]
 
 
+def test_second_deploy_without_posit_bundles_the_same_files(
+    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """A project that never had ``.posit`` must keep bundling as it always has.
+
+    The first deploy writes a config, so the second deploy finds one. That must not
+    narrow the selection: if the config recorded the concrete first-deploy file set,
+    a module added afterwards (or output rendered afterwards) would silently stop
+    being bundled. The only files the second bundle gains are the ``.posit`` files
+    themselves.
+    """
+    captured = _spy_bundle_contents(monkeypatch)
+    (project_dir / "app.py").write_text("x")
+    (project_dir / "helpers.py").write_text("x")
+    (project_dir / "requirements.txt").write_text("shiny\n")
+    # gitignored rendered output: not committed, but must still deploy
+    (project_dir / ".gitignore").write_text("build/\n")
+    (project_dir / "build").mkdir()
+    (project_dir / "build" / "out.html").write_text("rendered")
+
+    args = ["deploy", "shiny", str(project_dir), "-k", "fake-key", "-s", SERVER_URL, "--app-id", "1"]
+
+    assert runner.invoke(cli, args).exit_code == 0
+    first = captured["files"]
+    assert "build/out.html" in first  # .gitignore is not consulted
+
+    # the user adds a module and re-renders, then deploys again
+    (project_dir / "newmodule.py").write_text("x")
+    (project_dir / "build" / "out2.html").write_text("rendered")
+
+    captured.clear()
+    result = runner.invoke(cli, args)
+    assert result.exit_code == 0, result.output
+    second = captured["files"]
+
+    assert "newmodule.py" in second
+    assert "build/out2.html" in second
+    gained = set(second) - set(first)
+    assert all(f.startswith(".posit/") for f in gained - {"newmodule.py", "build/out2.html"})
+    assert not set(first) - set(second)  # nothing was dropped
+
+
 def test_redeploy_bundle_matches_deploy_bundle(
     runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ):

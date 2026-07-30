@@ -165,27 +165,42 @@ def test_resolve_bundle_files_force_includes_entrypoint(tmp_path):
     assert "data.csv" in selected
 
 
-def test_resolve_bundle_files_empty_files_means_everything(tmp_path):
-    """A config with no ``files`` key means "everything" (Publisher's ``["*"]``
-    default), so STANDARD_EXCLUSIONS still apply but .gitignore does not."""
+def test_resolve_bundle_files_none_for_unrestricted_config(tmp_path):
+    """A config that declares no real restriction imposes none.
+
+    An absent ``files``, an explicit ``["*"]``, and ``["*"]`` plus the ``.posit``
+    paths rsconnect writes all mean "everything", so bundling must fall through to
+    the caller's unchanged whole-tree walk rather than a re-derived allowlist."""
+    from rsconnect.publisher.store import resolve_bundle_files
+
+    root = str(tmp_path)
+    _make_tree(root, ["app.py", "data.csv"])
+    publish = tmp_path / ".posit" / "publish"
+    publish.mkdir(parents=True)
+    header = '"$schema" = "x"\ntype = "python-shiny"\nentrypoint = "app.py"\n'
+    for files_line in (
+        "",  # no files key at all
+        'files = ["*"]\n',
+        'files = ["*", "/.posit/publish/app.toml"]\n',
+    ):
+        (publish / "app.toml").write_text(header + files_line, encoding="utf-8")
+        assert resolve_bundle_files(root, entrypoint="app.py") is None, files_line
+
+
+def test_resolve_bundle_files_restricts_for_a_curated_config(tmp_path):
+    """A config listing real content patterns *is* honored -- that is the feature."""
     from rsconnect.publisher.store import resolve_bundle_files
 
     root = str(tmp_path)
     _make_tree(root, ["app.py", "data.csv", "__pycache__/x.pyc"])
-    (tmp_path / ".gitignore").write_text("data.csv\n", encoding="utf-8")
     publish = tmp_path / ".posit" / "publish"
     publish.mkdir(parents=True)
-    # no files key at all
     (publish / "app.toml").write_text(
-        '"$schema" = "x"\ntype = "python-shiny"\nentrypoint = "app.py"\n',
+        '"$schema" = "x"\ntype = "python-shiny"\nentrypoint = "app.py"\nfiles = ["/app.py"]\n',
         encoding="utf-8",
     )
     selected = resolve_bundle_files(root, entrypoint="app.py")
-    assert "app.py" in selected
-    # the config governs, so .gitignore is not consulted
-    assert "data.csv" in selected
-    # but the built-in exclusions still win
-    assert not any(f.startswith("__pycache__/") for f in selected)
+    assert selected == ["app.py"]
 
 
 def test_resolve_bundle_files_none_when_no_config(tmp_path):

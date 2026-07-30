@@ -153,6 +153,17 @@ def _select_applicable_config(
     return None
 
 
+def _is_unrestricted(config_files: typing.Sequence[str]) -> bool:
+    """Whether ``config_files`` expresses "everything" rather than a curated subset.
+
+    ``.posit`` paths are discounted: Publisher lists the driving config and record
+    so they ship in the bundle, which says nothing about curating content files.
+    What remains is unrestricted when it is empty or just ``*``.
+    """
+    meaningful = [pat for pat in config_files if not pat.lstrip("/").startswith(".posit/")]
+    return not meaningful or meaningful == ["*"]
+
+
 def resolve_bundle_files(
     directory: str,
     entrypoint: typing.Optional[str] = None,
@@ -160,20 +171,22 @@ def resolve_bundle_files(
 ) -> typing.Optional[typing.List[str]]:
     """Resolve the concrete project-relative files to bundle for ``directory``.
 
-    When a ``.posit/publish`` config applies, its ``files`` include-list decides
-    the selection. An empty or absent ``files`` means "everything", spelled ``*``
-    -- the same default Publisher's ``collectFiles`` applies -- so
-    ``STANDARD_EXCLUSIONS`` still prune ``.git``, ``__pycache__``, and friends.
+    When a ``.posit/publish`` config curates a subset of files, its ``files``
+    include-list decides the selection.
 
-    Returns ``None`` when no config applies, leaving the caller's existing
-    whole-tree walk in place unchanged. Never raises for an ambiguous or missing
-    config, so a plain ``deploy`` behaves exactly as it always has.
+    Returns ``None`` -- meaning "do not restrict", leaving the caller's existing
+    whole-tree walk in place unchanged -- when no config applies, and also when a
+    config declares no real restriction (see :func:`_is_unrestricted`). That second
+    case matters because rsconnect's own deploys write ``files = ["*"]``: a project
+    that never had ``.posit`` must keep bundling exactly as it always has, deploy
+    after deploy, rather than start obeying a list this tool invented. Never raises
+    for an ambiguous or missing config, so a plain ``deploy`` is unaffected.
     """
     cfg = _select_applicable_config(directory, entrypoint, config_name)
-    if cfg is None:
+    if cfg is None or _is_unrestricted(cfg.files):
         return None
 
-    selected = files_mod.select_config_files(directory, cfg.files or ["*"])
+    selected = files_mod.select_config_files(directory, cfg.files)
     # The entrypoint must ship even if the config's patterns don't cover it
     # (the bundle builders reference it from this list, not separately).
     if cfg.entrypoint:
@@ -238,36 +251,20 @@ def _root_anchor(path: str) -> str:
     return "/" + path.replace(os.sep, "/").lstrip("/")
 
 
-def _config_file_patterns(details: "record_mod.BundleContentDetails") -> typing.List[str]:
-    """The config ``files`` include-list: the concrete deployed file set.
+def _default_config_file_patterns() -> typing.List[str]:
+    """The ``files`` include-list for a config rsconnect is minting: everything.
 
-    Uses the exact file list from the built bundle's manifest so the config's
-    ``files``, the manifest's ``files``, and the record's ``files`` all denote the
-    same set (root-anchored, as Publisher writes them). The declared package file
-    is guaranteed present (the schema requires ``package_file`` to be listed under
-    ``files``).
-
-    The entrypoint is only surfaced when it names one of those files. A manifest's
-    ``metadata.entrypoint`` may be a module reference rather than a path (Shiny
-    deploys record ``app`` for ``app.py``), and anchoring that would add a
-    never-matching ``/app`` entry to the include-list.
+    Deliberately ``["*"]`` rather than the concrete set just deployed. A snapshot
+    would read as user curation on the *next* deploy and silently pin the content
+    to whatever files happened to exist the first time -- a newly added module, or
+    freshly rendered output, would stop being bundled with no diagnostic.
+    rsconnect cannot know which files a user *meant* to exclude, so it claims no
+    restriction and leaves the long-standing whole-tree walk in charge (see
+    :func:`resolve_bundle_files`). ``*`` is also what Publisher's ``collectFiles``
+    defaults an empty pattern list to, so the file stays Publisher-compatible and
+    is a sensible starting point for hand-curation.
     """
-    deployed = {name.replace(os.sep, "/") for name in details.files}
-    patterns: typing.List[str] = []
-    for name in details.files:
-        anchored = _root_anchor(name)
-        if anchored not in patterns:
-            patterns.append(anchored)
-    if details.entrypoint and details.entrypoint.replace(os.sep, "/") in deployed:
-        entry = _root_anchor(details.entrypoint)
-        if entry in patterns:
-            patterns.remove(entry)
-        patterns.insert(0, entry)
-    if details.python and details.python.get("package_file"):
-        pkg = _root_anchor(typing.cast(str, details.python["package_file"]))
-        if pkg not in patterns:
-            patterns.append(pkg)
-    return patterns
+    return ["*"]
 
 
 def _posit_bundle_paths(project_dir: str, config_name: str, record_name: typing.Optional[str]) -> typing.List[str]:
@@ -333,10 +330,10 @@ def write_deployment_metadata(
         or _new_config_name(project_dir, title or details.entrypoint or "content")
     )
     rname = existing_record_name or _new_record_name(project_dir)
-    # For a new config, seed ``files`` with the concrete deployed set plus the
-    # ``.posit`` files (mirroring Publisher). ``write_config`` preserves an existing
-    # config's curated ``files``, so this only takes effect when minting one.
-    cfg.files = _config_file_patterns(details) + _posit_bundle_paths(project_dir, cname, rname)
+    # For a new config, seed ``files`` with "everything" plus the ``.posit`` files
+    # (mirroring Publisher). ``write_config`` preserves an existing config's curated
+    # ``files``, so this only takes effect when minting one.
+    cfg.files = _default_config_file_patterns() + _posit_bundle_paths(project_dir, cname, rname)
     config_path, config_dict = config_mod.write_config(project_dir, cname, cfg)
 
     dashboard_url = deployed_info.get("dashboard_url")
@@ -390,7 +387,7 @@ def write_config_from_manifest(
     )
     # No deployment record here (write-manifest does not deploy); include the
     # config itself but no record path.
-    cfg.files = _config_file_patterns(details) + _posit_bundle_paths(project_dir, cname, None)
+    cfg.files = _default_config_file_patterns() + _posit_bundle_paths(project_dir, cname, None)
     path, _ = config_mod.write_config(project_dir, cname, cfg)
     return path
 
