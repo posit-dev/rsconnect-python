@@ -36,14 +36,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deploys now bundle exactly the files declared by a `.posit/publish`
   configuration's `files` list when that list curates a subset of the project.
   The `files` entries use `.gitignore` syntax (a matching pattern includes a
-  path, a `!` prefix excludes it), matching Posit Publisher. A configuration whose
-  `files` is absent, empty, or `["*"]` declares no restriction, so bundling falls
-  through to the existing behavior. File selection is therefore unchanged for any
-  content that does not have a hand-curated `files` list, including on repeat
-  deploys of a project that had no `.posit` metadata to begin with: a
-  configuration rsconnect-python writes records `files = ["*"]` rather than a
-  snapshot of the files that happened to deploy, so newly added source files and
-  freshly rendered output keep being bundled.
+  path, a `!` prefix excludes it), matching Posit Publisher. So a project can be
+  deployed with rsconnect-python, have its file list narrowed in Posit Publisher,
+  and every later `rsconnect deploy`/`redeploy` will bundle just those files —
+  rsconnect-python honors the curated list and never overwrites it.
+  A configuration whose `files` is absent, empty, or `["*"]` declares no
+  restriction, so bundling falls through to the existing file-selection logic.
+  File selection is therefore unchanged for any content without a hand-curated
+  `files` list, including on repeat deploys of a project that had no `.posit`
+  metadata to begin with: a configuration rsconnect-python writes records
+  `files = ["*"]` rather than a snapshot of the files that happened to deploy, so
+  newly added source files and freshly rendered output keep being bundled.
 - `integration_requests` declared in a `.posit/publish` configuration are now
   propagated into the generated `manifest.json` (matching Posit Publisher), so
   OAuth integration requests authored in Publisher are honored on deploy even

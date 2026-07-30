@@ -504,6 +504,50 @@ def test_second_deploy_without_posit_bundles_the_same_files(
     assert not set(first) - set(second)  # nothing was dropped
 
 
+def test_curating_files_in_publisher_is_honored_and_preserved(
+    runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+):
+    """The interop round-trip: rsconnect deploys, the user curates in Publisher,
+    rsconnect redeploys.
+
+    Deploy #1 writes ``files = ["*"]`` (no restriction). The user edits that down to
+    three explicit files in Publisher. From then on rsconnect must bundle exactly
+    those -- and must not clobber the curation back to ``*``.
+    """
+    import re
+
+    from rsconnect.publisher import config as config_mod
+
+    captured = _spy_bundle_contents(monkeypatch)
+    for rel in ("app.py", "helpers.py", "secrets.txt", "scratch.csv", "notes.md"):
+        (project_dir / rel).write_text("x")
+    (project_dir / "requirements.txt").write_text("shiny\n")
+
+    args = ["deploy", "shiny", str(project_dir), "-k", "fake-key", "-s", SERVER_URL, "--app-id", "1"]
+    assert runner.invoke(cli, args).exit_code == 0
+    # nothing curated yet, so normal bundling logic applies
+    assert "scratch.csv" in captured["files"]
+
+    (cfg_path,) = config_mod.discover_configs(str(project_dir))
+    assert "*" in config_mod.read_config(cfg_path).files
+
+    # the user curates in Publisher, which rewrites the whole `files` array
+    text = pathlib.Path(cfg_path).read_text()
+    curated = 'files = [\n    "/app.py",\n    "/helpers.py",\n    "/requirements.txt",\n]\n'
+    pathlib.Path(cfg_path).write_text(re.sub(r"files = \[[^\]]*\]\n", curated, text, count=1))
+
+    for command in (
+        ["redeploy", str(project_dir), "-k", "fake-key"],
+        args,  # a plain deploy must honor it too
+    ):
+        captured.clear()
+        result = runner.invoke(cli, command)
+        assert result.exit_code == 0, result.output
+        assert captured["files"] == ["app.py", "helpers.py", "manifest.json", "requirements.txt"]
+        # rsconnect must not overwrite the user's curation with its own default
+        assert config_mod.read_config(cfg_path).files == ["/app.py", "/helpers.py", "/requirements.txt"]
+
+
 def test_redeploy_bundle_matches_deploy_bundle(
     runner: CliRunner, project_dir: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ):

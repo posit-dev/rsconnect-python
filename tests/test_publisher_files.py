@@ -203,6 +203,48 @@ def test_resolve_bundle_files_restricts_for_a_curated_config(tmp_path):
     assert selected == ["app.py"]
 
 
+def test_resolve_bundle_files_honors_curation_alongside_posit_paths(tmp_path):
+    """Publisher writes the curated content patterns *and* the ``.posit`` paths.
+
+    The ``.posit`` entries must not make the list look unrestricted -- the whole
+    point of curating in Publisher is that the listed files are the ones that
+    ship."""
+    from rsconnect.publisher.store import resolve_bundle_files
+
+    root = str(tmp_path)
+    _make_tree(root, ["app.py", "helpers.py", "secrets.txt", "junk.csv"])
+    publish = tmp_path / ".posit" / "publish"
+    (publish / "deployments").mkdir(parents=True)
+    (publish / "app.toml").write_text(
+        '"$schema" = "x"\ntype = "python-shiny"\nentrypoint = "app.py"\n'
+        'files = ["/app.py", "/helpers.py", "/.posit/publish/app.toml"]\n',
+        encoding="utf-8",
+    )
+    selected = resolve_bundle_files(root, entrypoint="app.py")
+    assert selected == [".posit/publish/app.toml", "app.py", "helpers.py"]
+
+
+def test_resolve_bundle_files_honors_curation_by_exclusion(tmp_path):
+    """``["*", "!x"]`` is curation too: everything *except* x.
+
+    ``*`` alone means "no restriction", but ``*`` followed by a ``!`` exclusion is a
+    deliberate, and natural, way to curate -- it must not be flattened away."""
+    from rsconnect.publisher.store import resolve_bundle_files
+
+    root = str(tmp_path)
+    _make_tree(root, ["app.py", "helpers.py", "secrets.txt"])
+    publish = tmp_path / ".posit" / "publish"
+    publish.mkdir(parents=True)
+    (publish / "app.toml").write_text(
+        '"$schema" = "x"\ntype = "python-shiny"\nentrypoint = "app.py"\nfiles = ["*", "!/secrets.txt"]\n',
+        encoding="utf-8",
+    )
+    selected = resolve_bundle_files(root, entrypoint="app.py")
+    assert "app.py" in selected
+    assert "helpers.py" in selected
+    assert "secrets.txt" not in selected
+
+
 def test_resolve_bundle_files_none_when_no_config(tmp_path):
     """Without a config there is no restriction at all: the caller keeps its
     long-standing whole-tree walk, so .gitignore is never consulted."""
