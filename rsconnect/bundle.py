@@ -87,9 +87,9 @@ mimetypes.add_type("text/ipynb", ".ipynb")
 
 # When set (by a deploy orchestrator via ``restrict_to_files``), ``create_file_list``
 # selects from exactly this pre-resolved set of project-relative files instead of
-# walking the whole tree. Deploy commands resolve the set from a ``.posit/publish``
-# config (allowlist) or a ``.gitignore``-aware default; see
-# ``rsconnect.publisher.files`` and ``rsconnect.publisher.store.resolve_bundle_files``.
+# walking the whole tree. Deploy commands resolve the set from an applicable
+# ``.posit/publish`` config's ``files`` allowlist, and leave this unset otherwise;
+# see ``rsconnect.publisher.files`` and ``rsconnect.publisher.store.resolve_bundle_files``.
 _include_files_override: "contextvars.ContextVar[Optional[list[str]]]" = contextvars.ContextVar(
     "rsconnect_include_files_override", default=None
 )

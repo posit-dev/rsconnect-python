@@ -1644,9 +1644,9 @@ class RSConnectExecutor:
 
         Returns ``(include_files, manifest_overlay)``:
 
-        - ``include_files`` -- the project-relative files to bundle (a config's
-          ``files`` allowlist when one applies, else a ``.gitignore``-aware
-          default), or ``None`` to leave the builder's whole-tree walk in place.
+        - ``include_files`` -- the project-relative files to bundle, taken from an
+          applicable config's ``files`` allowlist, or ``None`` when no config
+          applies, which leaves the builder's whole-tree walk in place.
         - ``manifest_overlay`` -- config-authored manifest fields rsconnect does
           not derive from inspection (e.g. ``integration_requests``), propagated
           into ``manifest.json`` exactly as Publisher would emit them.

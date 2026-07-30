@@ -41,11 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   built-in exclusions (`.git`, `__pycache__`, `node_modules`, and the like) still
   apply. A configuration rsconnect-python writes now records the concrete set of
   deployed files, so its `files`, the generated `manifest.json`, and the
-  deployment record all agree.
-- **Behavior change:** deploys _without_ an applicable `.posit/publish`
-  configuration now honor `.gitignore` (in addition to the pre-existing built-in
-  ignore list) when choosing which files to bundle. Files ignored by
-  `.gitignore` are no longer included in the bundle.
+  deployment record all agree. Deploys _without_ an applicable configuration
+  bundle files exactly as before.
 - `integration_requests` declared in a `.posit/publish` configuration are now
   propagated into the generated `manifest.json` (matching Posit Publisher), so
   OAuth integration requests authored in Publisher are honored on deploy even

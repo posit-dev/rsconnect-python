@@ -6,7 +6,6 @@ import os
 from rsconnect.publisher.files import (
     STANDARD_EXCLUSIONS,
     select_config_files,
-    select_default_files,
 )
 
 
@@ -81,49 +80,6 @@ def test_config_files_skips_python_venv(tmp_path):
     selected = select_config_files(root, ["**"])
     assert "app.py" in selected
     assert not any(f.startswith("venv/") for f in selected)
-
-
-def test_default_files_honors_gitignore(tmp_path):
-    root = str(tmp_path)
-    _make_tree(root, ["app.py", "keep.txt", "build/out.o", "secret.log"])
-    _touch(root, ".gitignore")
-    with open(os.path.join(root, ".gitignore"), "w", encoding="utf-8") as handle:
-        handle.write("build/\n*.log\n")
-    selected = select_default_files(root)
-    assert "app.py" in selected
-    assert "keep.txt" in selected
-    assert ".gitignore" in selected
-    assert not any(f.startswith("build/") for f in selected)
-    assert "secret.log" not in selected
-
-
-def test_default_files_nested_gitignore(tmp_path):
-    root = str(tmp_path)
-    _make_tree(root, ["app.py", "sub/keep.py", "sub/skip.tmp", "skip.tmp"])
-    with open(os.path.join(root, "sub", ".gitignore"), "w", encoding="utf-8") as handle:
-        handle.write("*.tmp\n")
-    selected = select_default_files(root)
-    # Nested .gitignore only affects its own subtree.
-    assert "sub/keep.py" in selected
-    assert "sub/skip.tmp" not in selected
-    assert "skip.tmp" in selected
-
-
-def test_default_files_gitignore_negation(tmp_path):
-    root = str(tmp_path)
-    _make_tree(root, ["a.log", "keep.log"])
-    with open(os.path.join(root, ".gitignore"), "w", encoding="utf-8") as handle:
-        handle.write("*.log\n!keep.log\n")
-    selected = select_default_files(root)
-    assert "keep.log" in selected
-    assert "a.log" not in selected
-
-
-def test_default_files_skips_hardcoded_dirs(tmp_path):
-    root = str(tmp_path)
-    _make_tree(root, ["app.py", ".git/config", "__pycache__/x.pyc", "node_modules/m/i.js"])
-    selected = select_default_files(root)
-    assert selected == ["app.py"]
 
 
 def test_standard_exclusions_are_all_negations():
@@ -232,16 +188,29 @@ def test_resolve_bundle_files_empty_files_means_everything(tmp_path):
     assert not any(f.startswith("__pycache__/") for f in selected)
 
 
-def test_resolve_bundle_files_default_when_no_config(tmp_path):
+def test_resolve_bundle_files_none_when_no_config(tmp_path):
+    """Without a config there is no restriction at all: the caller keeps its
+    long-standing whole-tree walk, so .gitignore is never consulted."""
     from rsconnect.publisher.store import resolve_bundle_files
 
     root = str(tmp_path)
     _make_tree(root, ["app.py", "secret.log"])
     (tmp_path / ".gitignore").write_text("*.log\n", encoding="utf-8")
-    selected = resolve_bundle_files(root)
-    assert "app.py" in selected
-    assert ".gitignore" in selected
-    assert "secret.log" not in selected
+    assert resolve_bundle_files(root) is None
+
+
+def test_no_config_bundles_gitignored_files(tmp_path):
+    """A .gitignore'd build artifact (a Quarto project's rendered HTML, say) is
+    still bundled when no config applies -- that output is exactly what deploys."""
+    from rsconnect.bundle import create_file_list, restrict_to_files
+    from rsconnect.publisher.store import resolve_bundle_files
+
+    root = str(tmp_path)
+    _make_tree(root, ["report.qmd", "_site/report.html"])
+    (tmp_path / ".gitignore").write_text("_site/\n", encoding="utf-8")
+    with restrict_to_files(resolve_bundle_files(root)):
+        files = create_file_list(root, [], [])
+    assert "_site/report.html" in files
 
 
 # --- end-to-end: the executor resolves + restricts around the builder --------

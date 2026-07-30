@@ -157,7 +157,7 @@ def resolve_bundle_files(
     directory: str,
     entrypoint: typing.Optional[str] = None,
     config_name: typing.Optional[str] = None,
-) -> typing.List[str]:
+) -> typing.Optional[typing.List[str]]:
     """Resolve the concrete project-relative files to bundle for ``directory``.
 
     When a ``.posit/publish`` config applies, its ``files`` include-list decides
@@ -165,21 +165,22 @@ def resolve_bundle_files(
     -- the same default Publisher's ``collectFiles`` applies -- so
     ``STANDARD_EXCLUSIONS`` still prune ``.git``, ``__pycache__``, and friends.
 
-    With no applicable config, fall back to the ``.gitignore``-aware default.
-    Never raises for an ambiguous or missing config, so a plain ``deploy`` works.
+    Returns ``None`` when no config applies, leaving the caller's existing
+    whole-tree walk in place unchanged. Never raises for an ambiguous or missing
+    config, so a plain ``deploy`` behaves exactly as it always has.
     """
     cfg = _select_applicable_config(directory, entrypoint, config_name)
+    if cfg is None:
+        return None
 
-    if cfg is not None:
-        selected = files_mod.select_config_files(directory, cfg.files or ["*"])
-        # The entrypoint must ship even if the config's patterns don't cover it
-        # (the bundle builders reference it from this list, not separately).
-        if cfg.entrypoint:
-            entry = cfg.entrypoint.replace(os.sep, "/")
-            if entry not in selected and os.path.isfile(os.path.join(directory, cfg.entrypoint)):
-                selected = sorted([*selected, entry])
-        return selected
-    return files_mod.select_default_files(directory)
+    selected = files_mod.select_config_files(directory, cfg.files or ["*"])
+    # The entrypoint must ship even if the config's patterns don't cover it
+    # (the bundle builders reference it from this list, not separately).
+    if cfg.entrypoint:
+        entry = cfg.entrypoint.replace(os.sep, "/")
+        if entry not in selected and os.path.isfile(os.path.join(directory, cfg.entrypoint)):
+            selected = sorted([*selected, entry])
+    return selected
 
 
 # Integration-request keys carried through to the manifest, in Publisher's order
