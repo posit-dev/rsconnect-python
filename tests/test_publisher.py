@@ -213,10 +213,13 @@ def test_config_files_do_not_snapshot_the_deployed_set(tmp_path):
     assert content_patterns == ["*"]
 
 
-def test_config_files_omit_a_non_path_entrypoint(tmp_path):
-    """A manifest ``metadata.entrypoint`` may be a module reference rather than a
-    file (Shiny records ``app`` for ``app.py``); it must never leak into ``files``
-    as a never-matching ``/app`` include."""
+def test_config_entrypoint_recovers_the_real_file_from_a_module_reference(tmp_path):
+    """A manifest ``metadata.entrypoint`` may be a bare module reference rather
+    than a file (rsconnect records ``app`` for ``app.py``). Publisher's schema
+    documents ``entrypoint`` as the name of the primary file, and Publisher's own
+    detectors always write the literal filename -- so the config must record
+    ``app.py``, not the module name, and it must never leak into ``files`` as a
+    never-matching ``/app`` include either."""
     manifest = {
         **PY_SHINY_MANIFEST,
         # what rsconnect actually writes for a `deploy shiny` of app.py
@@ -233,9 +236,31 @@ def test_config_files_omit_a_non_path_entrypoint(tmp_path):
         bundle=bundle,
     )
     cfg = config.read_config(config_path)
+    assert cfg.entrypoint == "app.py"
     assert "/app" not in cfg.files
-    # the entrypoint is still recorded as the config's entrypoint, verbatim
-    assert cfg.entrypoint == "app"
+
+
+def test_config_entrypoint_keeps_a_module_object_reference_with_no_matching_file(tmp_path):
+    """``module:object`` form (Flask/FastAPI/Dash customization, or Shiny Express)
+    is left alone when no ``<module>.py`` exists in the bundle -- recovery is only
+    applied when the manifest confirms the literal file is actually there."""
+    manifest = {
+        **PY_SHINY_MANIFEST,
+        "metadata": {"appmode": "python-dash", "entrypoint": "app:my_app"},
+        "files": {"server.py": {"checksum": "a"}, "requirements.txt": {"checksum": "b"}},
+    }
+    bundle = make_bundle(manifest, {"requirements.txt": "dash==1.0\n"})
+    config_path, _ = store.write_deployment_metadata(
+        project_dir=str(tmp_path),
+        server_url="https://connect.example.com/__api__",
+        product_type="connect",
+        app_mode=AppModes.DASH_APP,
+        title="My App",
+        deployed_info=DEPLOYED_INFO,
+        bundle=bundle,
+    )
+    cfg = config.read_config(config_path)
+    assert cfg.entrypoint == "app:my_app"
 
 
 def test_redeploy_pins_resolved_config_and_record(tmp_path):

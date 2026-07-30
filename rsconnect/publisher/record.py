@@ -209,6 +209,27 @@ class BundleContentDetails:
     quarto: typing.Optional[typing.Dict[str, typing.Any]] = None
 
 
+def _recover_entrypoint_path(entrypoint: str, files: typing.Sequence[str]) -> str:
+    """Resolve a bare Python module reference back to its literal file path.
+
+    rsconnect-python's own Python deploys record ``metadata.entrypoint`` as an
+    importable module reference rather than a path -- e.g. ``"app"`` (or
+    ``"app:app"``) for ``app.py``. Posit Publisher's schema documents
+    ``entrypoint`` as "Name of the primary file containing the content", and its
+    own detectors (``pyshiny.ts``, ``pythonApp.ts``) always record the literal
+    filename for Flask/FastAPI/Dash/Shiny; only Shiny Express writes a
+    ``module:object`` reference, and that module never names a real file. So
+    recovering the literal path here, when the manifest confirms it exists,
+    matches what Publisher itself would write -- a config a human (or Publisher)
+    can act on, not an rsconnect-internal module name.
+    """
+    if not entrypoint or entrypoint.endswith(".py"):
+        return entrypoint
+    module = entrypoint.split(":", 1)[0]
+    candidate = module + ".py"
+    return candidate if candidate in files else entrypoint
+
+
 def details_from_manifest(manifest: typing.Mapping[str, typing.Any]) -> BundleContentDetails:
     """Parse content facts out of a ``manifest.json`` dict.
 
@@ -219,7 +240,12 @@ def details_from_manifest(manifest: typing.Mapping[str, typing.Any]) -> BundleCo
     details = BundleContentDetails()
     details.files = sorted((manifest.get("files") or {}).keys())
     meta = manifest.get("metadata") or {}
-    details.entrypoint = meta.get("entrypoint") or meta.get("primary_rmd") or meta.get("primary_html") or ""
+    entrypoint = meta.get("entrypoint")
+    if entrypoint:
+        details.entrypoint = _recover_entrypoint_path(entrypoint, details.files)
+    else:
+        # primary_rmd/primary_html are always literal paths already.
+        details.entrypoint = meta.get("primary_rmd") or meta.get("primary_html") or ""
 
     mpy = manifest.get("python")
     if mpy:

@@ -51,6 +51,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   propagated into the generated `manifest.json` (matching Posit Publisher), so
   OAuth integration requests authored in Publisher are honored on deploy even
   though rsconnect-python cannot create them itself.
+- Fixed a bug where a project deployed first with `rsconnect deploy`/`redeploy`
+  could fail to redeploy from Posit Publisher with "the account provided is for
+  a different server; it must match the server for this deployment", even
+  though Publisher had resolved the correct account. rsconnect-python was
+  writing the deployment record's `server_url` verbatim (whatever cosmetic form
+  `--server`/a saved server happened to be in); Publisher compares that value
+  byte-for-byte against its own normalized account URL. `server_url` is now
+  normalized the same way Publisher normalizes it (lowercase scheme+host, no
+  trailing slash, no `/__api__` suffix, no default port, no duplicate slashes)
+  before being written.
+- Fixed a bug where the `entrypoint` written to a `.posit/publish` configuration
+  could be a bare Python module reference (e.g. `app` for `app.py`) rather than
+  the literal file path Posit Publisher's schema expects. It's now resolved
+  back to the real file when the manifest confirms it exists; a genuine
+  `module:object` reference with no matching file (e.g. Shiny Express) is left
+  unchanged.
 
 ## [1.30.0] - 2026-07-16
 
