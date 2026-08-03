@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- Added support for Python 3.14. The test suite now runs on Python 3.14 in CI.
 - `rsconnect deploy` subcommands now accept `--quiet`, which suppresses the
   step-by-step progress lines and the streamed server build log, printing only
   the deployed content URL to stdout so it can be captured with
