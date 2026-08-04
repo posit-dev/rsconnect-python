@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- Fixed a bug where `rsconnect deploy manifest` and `rsconnect deploy bundle`,
+  when redeploying to an existing `--app-id` without passing `--title`, always
+  issued a `PATCH /v1/content/{guid}` to rename the content to its
+  manifest/bundle-derived default title. Under trusted publishing this request
+  is forbidden outright, failing the whole deploy with a 403; under an API key
+  it silently renamed the content. These commands now only update the title
+  when the user explicitly passes `--title`, matching the other deploy
+  subcommands; new content still defaults its title from the manifest/bundle as
+  before.
 - Added support for Python 3.14. The test suite now runs on Python 3.14 in CI.
 - `rsconnect deploy` subcommands now accept `--quiet`, which suppresses the
   step-by-step progress lines and the streamed server build log, printing only

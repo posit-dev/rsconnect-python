@@ -972,6 +972,289 @@ class TestMain:
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
+    def _register_redeploy_endpoints(self, guid, existing_title, patch_calls, app_mode_ordinal=15):
+        # Common Connect endpoints for redeploying to an existing --app-id: no
+        # POST /v1/content (creation) or GET /v1/content?name=... (uniqueness
+        # check) is needed, since those are only exercised for brand new content.
+        # app_mode_ordinal defaults to AppModes.PYTHON_SHINY (15), matching
+        # pyshiny_with_manifest; the bundle test overrides it to
+        # AppModes.PYTHON_API (8) to match bundle.tar.gz's manifest.
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/server_settings",
+            body=json.dumps({"version": "9999.99.99"}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/user",
+            body=open("tests/testdata/connect-responses/me.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        content_body = json.dumps(
+            {
+                "id": "1234",
+                "guid": guid,
+                "title": existing_title,
+                "app_mode": app_mode_ordinal,
+                "content_url": f"http://fake_server/content/{guid}",
+                "dashboard_url": f"http://fake_server/connect/#/apps/{guid}",
+            }
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            f"http://fake_server/__api__/v1/content/{guid}",
+            body=content_body,
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        def patch_callback(request, uri, response_headers):
+            patch_calls.append(_load_json(request.body))
+            return [200, {"Content-Type": "application/json"}, content_body]
+
+        httpretty.register_uri(
+            httpretty.PATCH,
+            f"http://fake_server/__api__/v1/content/{guid}",
+            body=patch_callback,
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            f"http://fake_server/__api__/v1/content/{guid}/bundles",
+            body=json.dumps({"id": "FAKE_BUNDLE_ID"}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        deploy_api_invoked = []
+
+        def post_application_deploy_callback(request, uri, response_headers):
+            deploy_api_invoked.append(True)
+            return [201, {"Content-Type": "application/json"}, json.dumps({"task_id": "FAKE_TASK_ID"})]
+
+        httpretty.register_uri(
+            httpretty.POST,
+            f"http://fake_server/__api__/v1/content/{guid}/deploy",
+            body=post_application_deploy_callback,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/tasks/FAKE_TASK_ID?wait=1",
+            body=json.dumps({"output": ["FAKE_OUTPUT"], "last": "FAKE_LAST", "finished": True, "code": 0}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        return deploy_api_invoked
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_manifest_redeploy_preserves_title(self, caplog):
+        # Regression test for #835: redeploying existing content via
+        # `deploy manifest --app-id` without `--title` must not PATCH the
+        # content's title, even though `title` is pre-resolved to the
+        # manifest-derived default ("app5") before RSConnectExecutor is
+        # constructed. Under trusted publishing, PATCH /v1/content/{guid} is
+        # forbidden outright, so a spurious PATCH here would 403 the whole
+        # deploy; under an API key it would silently rename the content.
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+        guid = "1234-5678-9012-3456"
+        patch_calls = []
+
+        try:
+            deploy_api_invoked = self._register_redeploy_endpoints(guid, "My Curated Title", patch_calls)
+
+            runner = CliRunner()
+            args = apply_common_args(
+                ["deploy", "manifest", get_manifest_path("pyshiny_with_manifest", "")],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            args += ["--app-id", guid, "--no-verify"]
+            with caplog.at_level("INFO"):
+                result = runner.invoke(cli, args)
+            assert result.exit_code == 0, result.output
+            assert deploy_api_invoked == [True]
+            assert patch_calls == []
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_manifest_redeploy_with_explicit_title_still_updates(self, caplog):
+        # When the user does pass --title, an existing app with a different
+        # title should still be updated (the pre-#835-fix behavior, preserved).
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+        guid = "1234-5678-9012-3456"
+        patch_calls = []
+
+        try:
+            deploy_api_invoked = self._register_redeploy_endpoints(guid, "My Curated Title", patch_calls)
+
+            runner = CliRunner()
+            args = apply_common_args(
+                ["deploy", "manifest", get_manifest_path("pyshiny_with_manifest", "")],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            args += ["--app-id", guid, "--title", "Explicit New Title", "--no-verify"]
+            with caplog.at_level("INFO"):
+                result = runner.invoke(cli, args)
+            assert result.exit_code == 0, result.output
+            assert deploy_api_invoked == [True]
+            assert patch_calls == [{"title": "Explicit New Title"}]
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_bundle_redeploy_preserves_title(self, caplog):
+        # Same regression as test_deploy_manifest_redeploy_preserves_title, but
+        # for `deploy bundle --app-id`.
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+        guid = "1234-5678-9012-3456"
+        patch_calls = []
+        bundle_path = join("tests", "testdata", "bundle.tar.gz")
+
+        try:
+            deploy_api_invoked = self._register_redeploy_endpoints(
+                guid, "My Curated Title", patch_calls, app_mode_ordinal=8
+            )
+
+            runner = CliRunner()
+            args = apply_common_args(["deploy", "bundle", bundle_path], server="http://fake_server", key="FAKE_API_KEY")
+            args += ["--app-id", guid, "--no-verify"]
+            with caplog.at_level("INFO"):
+                result = runner.invoke(cli, args)
+            assert result.exit_code == 0, result.output
+            assert deploy_api_invoked == [True]
+            assert patch_calls == []
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_deploy_manifest_new_content_uses_manifest_derived_title(self, caplog):
+        # New content (no --app-id) must still default its title from the
+        # manifest ("app5", derived from the entrypoint), not the executor's
+        # generic path-based fallback ("manifest").
+        original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
+        original_server_value = os.environ.pop("CONNECT_SERVER", None)
+        guid = "1234-5678-9012-3456"
+
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/server_settings",
+            body=json.dumps({"version": "9999.99.99"}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/user",
+            body=open("tests/testdata/connect-responses/me.json", "r").read(),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/content?name=app5",
+            body=json.dumps([]),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        # content_create only ever sends {"name": ...}, so Connect's response
+        # here reflects a server-assigned placeholder title, distinct from the
+        # manifest-derived default. The deploy flow must PATCH it to "app5".
+        create_body = json.dumps(
+            {
+                "id": "1234",
+                "guid": guid,
+                "title": "Untitled",
+                "content_url": f"http://fake_server/content/{guid}",
+                "dashboard_url": f"http://fake_server/connect/#/apps/{guid}",
+            }
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            "http://fake_server/__api__/v1/content",
+            body=create_body,
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        patch_calls = []
+
+        def patch_callback(request, uri, response_headers):
+            patch_calls.append(_load_json(request.body))
+            return [200, {"Content-Type": "application/json"}, create_body]
+
+        httpretty.register_uri(
+            httpretty.PATCH,
+            f"http://fake_server/__api__/v1/content/{guid}",
+            body=patch_callback,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            f"http://fake_server/__api__/v1/content/{guid}",
+            body=create_body,
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        httpretty.register_uri(
+            httpretty.POST,
+            f"http://fake_server/__api__/v1/content/{guid}/bundles",
+            body=json.dumps({"id": "FAKE_BUNDLE_ID"}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+        deploy_api_invoked = []
+
+        def post_application_deploy_callback(request, uri, response_headers):
+            deploy_api_invoked.append(True)
+            return [201, {"Content-Type": "application/json"}, json.dumps({"task_id": "FAKE_TASK_ID"})]
+
+        httpretty.register_uri(
+            httpretty.POST,
+            f"http://fake_server/__api__/v1/content/{guid}/deploy",
+            body=post_application_deploy_callback,
+        )
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://fake_server/__api__/v1/tasks/FAKE_TASK_ID?wait=1",
+            body=json.dumps({"output": ["FAKE_OUTPUT"], "last": "FAKE_LAST", "finished": True, "code": 0}),
+            adding_headers={"Content-Type": "application/json"},
+            status=200,
+        )
+
+        try:
+            runner = CliRunner()
+            args = apply_common_args(
+                ["deploy", "manifest", get_manifest_path("pyshiny_with_manifest", "")],
+                server="http://fake_server",
+                key="FAKE_API_KEY",
+            )
+            args.append("--no-verify")
+            with caplog.at_level("INFO"):
+                result = runner.invoke(cli, args)
+            assert result.exit_code == 0, result.output
+            assert deploy_api_invoked == [True]
+            assert patch_calls == [{"title": "app5"}]
+        finally:
+            if original_api_key_value:
+                os.environ["CONNECT_API_KEY"] = original_api_key_value
+            if original_server_value:
+                os.environ["CONNECT_SERVER"] = original_server_value
+
     # noinspection SpellCheckingInspection
     @pytest.mark.skip(reason="Skipping R manifest test (requires R 3.5, docker containers have moved on).")
     def test_deploy_manifest(self):

@@ -1898,6 +1898,7 @@ def deploy_manifest(
 
     file_name = validate_manifest_file(file)
     app_mode = read_manifest_app_mode(file_name)
+    title_is_default = not title
     title = title or default_title_from_manifest(file)
 
     ce = RSConnectExecutor(
@@ -1915,6 +1916,7 @@ def deploy_manifest(
         new=new,
         app_id=app_id,
         title=title,
+        title_is_default=title_is_default,
         visibility=visibility,
         env_vars=env_vars,
     )
@@ -1994,6 +1996,7 @@ def deploy_bundle(
     output_params(ctx, locals().items())
 
     app_mode = read_bundle_app_mode(file)
+    title_is_default = not title
     title = title or default_title_from_bundle(file)
 
     ce = RSConnectExecutor(
@@ -2011,6 +2014,7 @@ def deploy_bundle(
         new=new,
         app_id=app_id,
         title=title,
+        title_is_default=title_is_default,
         visibility=visibility,
         env_vars=env_vars,
     )

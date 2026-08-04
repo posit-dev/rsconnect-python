@@ -1267,6 +1267,7 @@ class RSConnectExecutor:
         new: Optional[bool] = None,
         app_id: Optional[str] = None,
         title: Optional[str] = None,
+        title_is_default: Optional[bool] = None,
         visibility: Optional[str] = None,
         disable_env_management: Optional[bool] = None,
         env_vars: Optional[dict[str, str]] = None,
@@ -1293,7 +1294,12 @@ class RSConnectExecutor:
         self.app_store: AppStore = AppStore(fake_module_file_from_directory(self.path))
         self.app_store_version: int | None = None
         self.api_key_is_required: bool | None = None
-        self.title_is_default: bool = not title
+        # Callers that pre-resolve a default title (e.g. `deploy manifest` / `deploy
+        # bundle`, which need the manifest/bundle-derived default rather than the
+        # generic `_default_title(self.path)` fallback above) can pass
+        # `title_is_default` explicitly so this still reflects whether the user
+        # actually supplied `--title`, rather than always being False.
+        self.title_is_default: bool = not title if title_is_default is None else title_is_default
         self.deployment_name: str | None = None
 
         # Git deployment parameters
