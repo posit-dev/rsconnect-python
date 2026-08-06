@@ -150,6 +150,8 @@ def write_config(project_dir: str, name: str, cfg: PublisherConfig) -> typing.Tu
             cfg.python = existing.python
         if existing.quarto and not cfg.quarto:
             cfg.quarto = existing.quarto
+        if existing.r and not cfg.r:
+            cfg.r = existing.r
         if existing.connect_cloud and not cfg.connect_cloud:
             cfg.connect_cloud = existing.connect_cloud
         if existing.product_type and cfg.product_type == schema.PRODUCT_TYPE_CONNECT:

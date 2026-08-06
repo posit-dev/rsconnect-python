@@ -63,6 +63,7 @@ class PublisherRecord:
     direct_url: typing.Optional[str] = None
     logs_url: typing.Optional[str] = None
     bundle_id: typing.Optional[str] = None
+    bundle_url: typing.Optional[str] = None
     files: typing.List[str] = dataclasses.field(default_factory=list)
     requirements: typing.List[str] = dataclasses.field(default_factory=list)
     configuration: typing.Optional[typing.Dict[str, typing.Any]] = None
@@ -101,6 +102,8 @@ class PublisherRecord:
             data["deployed_at"] = self.deployed_at
         if self.bundle_id:
             data["bundle_id"] = self.bundle_id
+        if self.bundle_url:
+            data["bundle_url"] = self.bundle_url
         if self.files:
             data["files"] = list(self.files)
         if self.requirements:
@@ -134,6 +137,7 @@ def from_dict(data: typing.Mapping[str, typing.Any]) -> PublisherRecord:
         direct_url=data.get("direct_url"),
         logs_url=data.get("logs_url"),
         bundle_id=data.get("bundle_id"),
+        bundle_url=data.get("bundle_url"),
         files=list(data.get("files", []) or []),
         requirements=list(data.get("requirements", []) or []),
         configuration=data.get("configuration"),
@@ -151,13 +155,16 @@ def read_record(path: str) -> PublisherRecord:
 def write_record(project_dir: str, name: str, record: PublisherRecord) -> str:
     """Write ``record`` to ``.posit/publish/deployments/<name>.toml``.
 
-    Preserves ``created_at`` and any unmanaged fields from an existing record.
+    Preserves ``created_at``, ``bundle_url``, and any unmanaged fields from an
+    existing record.
     """
     path = schema.record_path(project_dir, name)
     if os.path.exists(path):
         existing = read_record(path)
         if not record.created_at:
             record.created_at = existing.created_at
+        if not record.bundle_url:
+            record.bundle_url = existing.bundle_url
         record.extra = {**existing.extra, **record.extra}
     serialize.write(path, serialize.dumps(record.to_dict(), [_AUTOGEN_HEADER]))
     return path

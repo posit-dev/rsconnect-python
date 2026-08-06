@@ -133,6 +133,7 @@ from .log import VERBOSE, LogOutputFormat, logger, warn_user
 from .metadata import AppStore, ServerStore
 from .publisher.store import normalize_url as publisher_normalize_url
 from .publisher.store import resolve_publisher_deploy_target
+from .publisher.store import unhonored_redeploy_settings
 from .models import (
     AppMode,
     AppModes,
@@ -2072,7 +2073,16 @@ def _plan_deploy_bundle(
     # opts out, otherwise detection is driven by the lockfile's presence.
     r_environment = None if exclude_renv else REnvironment.create(directory)
 
-    if app_mode in (AppModes.STREAMLIT_APP, AppModes.PYTHON_SHINY, AppModes.PYTHON_FASTAPI, AppModes.PYTHON_API):
+    if app_mode in (
+        AppModes.STREAMLIT_APP,
+        AppModes.PYTHON_SHINY,
+        AppModes.PYTHON_FASTAPI,
+        AppModes.PYTHON_API,
+        AppModes.DASH_APP,
+        AppModes.BOKEH_APP,
+        AppModes.PYTHON_GRADIO,
+        AppModes.PYTHON_PANEL,
+    ):
         if app_mode == AppModes.PYTHON_SHINY:
             entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
         environment = Environment.create_python_environment(
@@ -2087,6 +2097,17 @@ def _plan_deploy_bundle(
             "env_management_py": None,
             "env_management_r": None,
             "r_environment": r_environment,
+        }
+    elif app_mode == AppModes.STATIC:
+        bundle_builder = make_html_bundle
+        bundle_args = (directory, entrypoint, extra_files, excludes)
+    elif app_mode == AppModes.NODE_JS:
+        node_environment = NodeEnvironment.create(directory, node_executable=None)
+        bundle_builder = make_nodejs_bundle
+        bundle_args = (directory, entrypoint, node_environment, extra_files, excludes)
+        bundle_kwargs = {
+            "image": None,
+            "env_management_node": None,
         }
     elif app_mode == AppModes.JUPYTER_NOTEBOOK:  # This is "jupyter-static"
         path = str(Path(directory) / entrypoint)
@@ -2590,6 +2611,16 @@ def redeploy(
     if not entrypoint:
         raise RSConnectException(
             "Cannot redeploy: configuration '{}' does not specify an entrypoint.".format(target.config_name)
+        )
+
+    unhonored = unhonored_redeploy_settings(target.config)
+    if unhonored:
+        click.secho(
+            "WARNING: configuration '{}' sets {}, which rsconnect-python does not apply on redeploy. "
+            "The live Connect deployment is left as-is; change these settings through Posit Connect "
+            "directly.".format(target.config_name, ", ".join(unhonored)),
+            fg="yellow",
+            err=True,
         )
 
     requirements_file = target.requirements_file or "requirements.txt"

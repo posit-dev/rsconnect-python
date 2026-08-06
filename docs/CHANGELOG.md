@@ -27,7 +27,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   needs to be specified. `PATH` defaults to the current directory. When a
   project predates `.posit` but has a `manifest.json` and a legacy
   `rsconnect-python/` deployment record, `redeploy` falls back to those and
-  writes `.posit` files going forward.
+  writes `.posit` files going forward. `redeploy` now supports every content
+  type rsconnect-python can build a bundle for: Shiny, FastAPI, Flask/API,
+  Streamlit, Dash, Bokeh, Gradio, Panel, HTML, Node.js, Jupyter notebooks
+  (including Voila), and Quarto. R content types are not supported, since
+  rsconnect-python has no R bundler. `redeploy` carries forward only the
+  entrypoint, requirements, title, and content id from a `.posit/publish`
+  configuration; it prints a warning (and still deploys) when a configuration
+  sets `description`, `environment`, `secrets`, or `connect.*` settings, since
+  those require a Connect API call `redeploy` does not yet make. The live
+  Connect deployment is left as-is in that case, not reset to a default.
 - The `rsconnect write-manifest` commands now also write a `.posit/publish`
   configuration next to the generated `manifest.json`.
 - Connect Cloud (`connect.posit.cloud`) `.posit` files are read and preserved
@@ -67,6 +76,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   back to the real file when the manifest confirms it exists; a genuine
   `module:object` reference with no matching file (e.g. Shiny Express) is left
   unchanged.
+- Fixed a bug where rewriting a `.posit/publish` configuration could drop an
+  existing `[r]` table (rsconnect-python never originates R metadata itself,
+  but now preserves one already on disk, matching how `python`/`quarto` are
+  preserved).
+- Fixed a bug where a deployment record's `bundle_url` field, if present
+  (e.g. written by Posit Publisher), was silently dropped whenever
+  rsconnect-python rewrote that record.
+- Fixed a bug where two different apps in one project, both deployed to the
+  same Connect server, could collide onto a single `.posit/publish` deployment
+  record. Records are now matched by content id, not just by server, when more
+  than one candidate shares a server URL.
 
 ## [1.30.0] - 2026-07-16
 

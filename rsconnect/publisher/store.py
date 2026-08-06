@@ -113,18 +113,41 @@ def _new_record_name(project_dir: str) -> str:
             return candidate
 
 
-def _find_record_name_for_server(project_dir: str, server_url: str) -> typing.Optional[str]:
-    """Basename of an existing record whose ``server_url`` matches, so a redeploy
-    updates in place instead of spawning a new random-named file."""
+def _find_record_name_for_server(
+    project_dir: str, server_url: str, app_guid: typing.Optional[str] = None
+) -> typing.Optional[str]:
+    """Basename of an existing record whose ``server_url`` (and, when known,
+    content id) matches, so a redeploy updates in place instead of spawning a
+    new random-named file.
+
+    Two different configs in the same project can both target the same
+    Connect server (e.g. two apps deployed to one team's instance), so a bare
+    ``server_url`` match is ambiguous. When ``app_guid`` is known (a deploy
+    that just completed always has one), only a record whose ``id`` also
+    matches is reused. Without an ``app_guid``, a single unambiguous
+    ``server_url`` match is still reused; multiple ambiguous matches return
+    ``None`` (minting a new record) rather than risk overwriting the wrong
+    deployment's data.
+    """
     target = normalize_url(server_url)
+    candidates: typing.List[str] = []
     for path in record_mod.discover_records(project_dir):
         try:
             rec = record_mod.read_record(path)
         except Exception:
             continue
-        if normalize_url(rec.server_url) == target:
-            return os.path.splitext(os.path.basename(path))[0]
-    return None
+        if normalize_url(rec.server_url) != target:
+            continue
+        name = os.path.splitext(os.path.basename(path))[0]
+        if app_guid and rec.id == app_guid:
+            return name
+        candidates.append(name)
+    if app_guid:
+        # An app_guid was supplied but nothing on disk matched it: this is a
+        # genuinely different deployment to the same server, not a redeploy of
+        # one of the candidates above -- don't guess which one to overwrite.
+        return None
+    return candidates[0] if len(candidates) == 1 else None
 
 
 def _find_config_name_for_entrypoint(project_dir: str, entrypoint: str) -> typing.Optional[str]:
@@ -331,7 +354,9 @@ def write_deployment_metadata(
     # Reuse an existing deployment's filenames on redeploy; only mint new random
     # names for a genuinely new deployment. A caller-supplied record_name (from
     # redeploy) pins the record file; otherwise match one by server_url.
-    existing_record_name = record_name or _find_record_name_for_server(project_dir, server_url)
+    existing_record_name = record_name or _find_record_name_for_server(
+        project_dir, server_url, app_guid=deployed_info.get("app_guid")
+    )
     existing_config_name = None
     if existing_record_name and not config_name:
         record_file = schema.record_path(project_dir, existing_record_name)
@@ -476,6 +501,28 @@ def _matching_records(
             continue
         records.append((os.path.splitext(os.path.basename(path))[0], rec))
     return records
+
+
+# Config keys that require a Connect API call ``redeploy`` never makes (title
+# is the one identity field it does push; see ``unhonored_redeploy_settings``).
+_UNHONORED_REDEPLOY_SETTING_KEYS = ("description", "environment", "secrets", "connect")
+
+
+def unhonored_redeploy_settings(cfg: config_mod.PublisherConfig) -> typing.List[str]:
+    """Config keys present that ``redeploy`` reads but cannot apply to Connect.
+
+    ``redeploy`` only ever carries forward ``entrypoint``, ``requirements``,
+    ``title``, and the content id; it never issues the Connect API calls needed
+    to apply ``description``, ``environment``/``secrets`` (env vars), or
+    ``connect.runtime``/``connect.access``/``connect.kubernetes`` settings --
+    whether or not they were just edited in the TOML. These keys are not
+    modeled fields (see :data:`PublisherConfig.extra`), so nothing reads them
+    for behavior; they round-trip through the file untouched. Returns the
+    subset of :data:`_UNHONORED_REDEPLOY_SETTING_KEYS` present on ``cfg``, so a
+    caller can warn without failing the deploy: the live Connect deployment is
+    left exactly as it was, not reset to a default.
+    """
+    return [key for key in _UNHONORED_REDEPLOY_SETTING_KEYS if cfg.extra.get(key)]
 
 
 def resolve_publisher_deploy_target(

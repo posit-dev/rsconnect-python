@@ -263,6 +263,32 @@ def test_config_entrypoint_keeps_a_module_object_reference_with_no_matching_file
     assert cfg.entrypoint == "app:my_app"
 
 
+def test_config_entrypoint_keeps_a_package_style_module_reference_with_no_matching_file(tmp_path):
+    """A package-style dotted module reference (``pkg.wsgi:application``) must not
+    be corrupted by naively appending ``.py`` to the module part. The derived
+    name ``pkg.wsgi.py`` does not match the real file ``pkg/wsgi.py`` (a
+    different string), so recovery must leave the ``module:object`` reference
+    alone -- closing a reviewed edge case where a dotted module name could
+    coincidentally collide with an unrelated file in the bundle."""
+    manifest = {
+        **PY_SHINY_MANIFEST,
+        "metadata": {"appmode": "python-dash", "entrypoint": "pkg.wsgi:application"},
+        "files": {"pkg/wsgi.py": {"checksum": "a"}, "requirements.txt": {"checksum": "b"}},
+    }
+    bundle = make_bundle(manifest, {"requirements.txt": "dash==1.0\n"})
+    config_path, _ = store.write_deployment_metadata(
+        project_dir=str(tmp_path),
+        server_url="https://connect.example.com/__api__",
+        product_type="connect",
+        app_mode=AppModes.DASH_APP,
+        title="My App",
+        deployed_info=DEPLOYED_INFO,
+        bundle=bundle,
+    )
+    cfg = config.read_config(config_path)
+    assert cfg.entrypoint == "pkg.wsgi:application"
+
+
 def test_redeploy_pins_resolved_config_and_record(tmp_path):
     """Passing config_name/record_name (as redeploy does) updates those exact
     files, even when the record lacks a configuration_name and the config's
@@ -344,6 +370,50 @@ def test_created_at_preserved_on_redeploy(tmp_path):
     first = record.read_record(record_path).created_at
     _, record_path = deploy(project, bundle_id="99")
     assert record.read_record(record_path).created_at == first
+
+
+def test_bundle_url_round_trips_and_survives_a_redeploy_without_one(tmp_path):
+    """``bundle_url`` is a field Publisher writes but rsconnect never originates
+    itself (it never appears in ``deployed_info``). A Publisher-authored record's
+    ``bundle_url`` must (a) be read into ``PublisherRecord``, (b) be re-emitted
+    when that same record is written back out, and (c) survive an rsconnect
+    redeploy -- whose freshly built ``PublisherRecord`` always has
+    ``bundle_url=None`` -- rather than being silently dropped."""
+    project = str(tmp_path)
+    deployments_dir = tmp_path / ".posit" / "publish" / "deployments"
+    deployments_dir.mkdir(parents=True)
+    record_path = str(deployments_dir / "existing.toml")
+    serialize.write(
+        record_path,
+        serialize.dumps(
+            {
+                "$schema": schema.RECORD_SCHEMA_URL,
+                "server_type": "connect",
+                "server_url": "https://connect.example.com",
+                "type": "python-shiny",
+                "bundle_url": "https://example.com/bundle",
+            }
+        ),
+    )
+
+    # (a) reading populates bundle_url
+    rec = record.read_record(record_path)
+    assert rec.bundle_url == "https://example.com/bundle"
+
+    # (b) writing the same record back out re-emits bundle_url
+    record.write_record(project, "existing", rec)
+    assert record.read_record(record_path).bundle_url == "https://example.com/bundle"
+
+    # (c) a fresh record (bundle_url=None, as rsconnect always constructs on a
+    # real deploy) written over the existing file must preserve the prior value
+    fresh = record.PublisherRecord(
+        server_url="https://connect.example.com",
+        server_type="connect",
+        type="python-shiny",
+    )
+    assert fresh.bundle_url is None
+    record.write_record(project, "existing", fresh)
+    assert record.read_record(record_path).bundle_url == "https://example.com/bundle"
 
 
 def test_snowflake_product_type(tmp_path):
@@ -505,3 +575,59 @@ def test_connect_cloud_round_trip(tmp_path):
     config.write_config(project, "cloud", config.PublisherConfig(type="python-shiny", entrypoint="app.py"))
     assert config.read_config(path).product_type == "connect_cloud"
     assert config.read_config(path).connect_cloud["vanity_name"] == "my-app"
+
+
+# --- redeploy settings that rsconnect cannot apply --------------------------
+
+
+def test_unhonored_redeploy_settings_reports_present_keys():
+    cfg = config.PublisherConfig(type="python-shiny", entrypoint="app.py")
+    cfg.extra = {
+        "environment": {"API_URL": "https://example.com"},
+        "connect": {"access": {"run_as": "rstudio-connect"}},
+        "unrelated_unknown_key": "kept-but-not-flagged",
+    }
+    assert store.unhonored_redeploy_settings(cfg) == ["environment", "connect"]
+
+
+def test_unhonored_redeploy_settings_empty_when_nothing_set():
+    cfg = config.PublisherConfig(type="python-shiny", entrypoint="app.py")
+    assert store.unhonored_redeploy_settings(cfg) == []
+
+
+# --- record matching by server -----------------------------------------------
+
+
+def test_two_configs_on_the_same_server_get_distinct_records():
+    """Two different apps in one project, both deployed to the same Connect
+    server, must not collapse into a single record just because their
+    ``server_url`` matches -- each app_guid mints/keeps its own record."""
+
+    def deploy_app(project_dir, app_guid, title):
+        bundle = make_bundle(PY_SHINY_MANIFEST, {"requirements.txt": "shiny\n"})
+        return store.write_deployment_metadata(
+            project_dir=project_dir,
+            server_url="https://connect.example.com",
+            product_type="connect",
+            app_mode=AppModes.PYTHON_SHINY,
+            title=title,
+            deployed_info={**DEPLOYED_INFO, "app_guid": app_guid},
+            bundle=bundle,
+        )
+
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as project:
+        _, record_path_a = deploy_app(project, "GUID-AAA", "App A")
+        _, record_path_b = deploy_app(project, "GUID-BBB", "App B")
+
+        assert record_path_a != record_path_b
+        assert record.read_record(record_path_a).id == "GUID-AAA"
+        assert record.read_record(record_path_b).id == "GUID-BBB"
+
+        # Redeploying App A again (same guid, same server) updates its own
+        # record in place rather than spawning a third file or touching App B's.
+        _, record_path_a2 = deploy_app(project, "GUID-AAA", "App A")
+        assert record_path_a2 == record_path_a
+        assert record.read_record(record_path_b).id == "GUID-BBB"
+        assert len(record.discover_records(project)) == 2
