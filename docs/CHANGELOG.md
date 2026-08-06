@@ -7,86 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-- Added support for Python 3.14. The test suite now runs on Python 3.14 in CI.
-- `rsconnect deploy` subcommands now accept `--quiet`, which suppresses the
-  step-by-step progress lines and the streamed server build log, printing only
-  the deployed content URL to stdout so it can be captured with
-  `URL=$(rsconnect deploy ... --quiet)`. Errors still go to stderr, and on a
-  failed deploy the server task log is emitted to stderr so failures remain
-  diagnosable. `--quiet` cannot be combined with `-v/--verbose`, and for
-  shinyapps.io deploys it also skips opening a browser.
-- Added interoperability with Posit Publisher's `.posit/publish` project files.
-  When deploying to Posit Connect or Snowflake (SPCS), rsconnect-python now
-  writes a Publisher configuration (`.posit/publish/<name>.toml`) and deployment
-  record (`.posit/publish/deployments/<name>.toml`) alongside the existing
-  `rsconnect-python/` metadata, so the same project can be published with either
-  tool. Publisher-authored configurations and records are read and preserved.
-- Added a `rsconnect redeploy [PATH]` command that redeploys content using an
-  existing `.posit/publish` project, recovering the target server and content
-  identity from the deployment record so no framework, entrypoint, or server
-  needs to be specified. `PATH` defaults to the current directory. When a
-  project predates `.posit` but has a `manifest.json` and a legacy
-  `rsconnect-python/` deployment record, `redeploy` falls back to those and
-  writes `.posit` files going forward. `redeploy` now supports every content
-  type rsconnect-python can build a bundle for: Shiny, FastAPI, Flask/API,
-  Streamlit, Dash, Bokeh, Gradio, Panel, HTML, Node.js, Jupyter notebooks
-  (including Voila), and Quarto. R content types are not supported, since
-  rsconnect-python has no R bundler. `redeploy` carries forward only the
-  entrypoint, requirements, title, and content id from a `.posit/publish`
-  configuration; it prints a warning (and still deploys) when a configuration
-  sets `description`, `environment`, `secrets`, or `connect.*` settings, since
-  those require a Connect API call `redeploy` does not yet make. The live
-  Connect deployment is left as-is in that case, not reset to a default.
-- The `rsconnect write-manifest` commands now also write a `.posit/publish`
-  configuration next to the generated `manifest.json`.
-- Connect Cloud (`connect.posit.cloud`) `.posit` files are read and preserved
-  for interoperability, but deploying to Connect Cloud is not supported by this
-  tool; only Posit Connect and Snowflake (SPCS) targets write `.posit` metadata.
-- Deploys now bundle exactly the files declared by a `.posit/publish`
-  configuration's `files` list when that list curates a subset of the project.
-  The `files` entries use `.gitignore` syntax (a matching pattern includes a
-  path, a `!` prefix excludes it), matching Posit Publisher. So a project can be
-  deployed with rsconnect-python, have its file list narrowed in Posit Publisher,
-  and every later `rsconnect deploy`/`redeploy` will bundle just those files —
-  rsconnect-python honors the curated list and never overwrites it.
-  A configuration whose `files` is absent, empty, or `["*"]` declares no
-  restriction, so bundling falls through to the existing file-selection logic.
-  File selection is therefore unchanged for any content without a hand-curated
-  `files` list, including on repeat deploys of a project that had no `.posit`
-  metadata to begin with: a configuration rsconnect-python writes records
-  `files = ["*"]` rather than a snapshot of the files that happened to deploy, so
-  newly added source files and freshly rendered output keep being bundled.
-- `integration_requests` declared in a `.posit/publish` configuration are now
-  propagated into the generated `manifest.json` (matching Posit Publisher), so
-  OAuth integration requests authored in Publisher are honored on deploy even
-  though rsconnect-python cannot create them itself.
-- Fixed a bug where a project deployed first with `rsconnect deploy`/`redeploy`
-  could fail to redeploy from Posit Publisher with "the account provided is for
-  a different server; it must match the server for this deployment", even
-  though Publisher had resolved the correct account. rsconnect-python was
-  writing the deployment record's `server_url` verbatim (whatever cosmetic form
-  `--server`/a saved server happened to be in); Publisher compares that value
-  byte-for-byte against its own normalized account URL. `server_url` is now
-  normalized the same way Publisher normalizes it (lowercase scheme+host, no
-  trailing slash, no `/__api__` suffix, no default port, no duplicate slashes)
-  before being written.
-- Fixed a bug where the `entrypoint` written to a `.posit/publish` configuration
-  could be a bare Python module reference (e.g. `app` for `app.py`) rather than
-  the literal file path Posit Publisher's schema expects. It's now resolved
-  back to the real file when the manifest confirms it exists; a genuine
-  `module:object` reference with no matching file (e.g. Shiny Express) is left
-  unchanged.
-- Fixed a bug where rewriting a `.posit/publish` configuration could drop an
-  existing `[r]` table (rsconnect-python never originates R metadata itself,
-  but now preserves one already on disk, matching how `python`/`quarto` are
-  preserved).
-- Fixed a bug where a deployment record's `bundle_url` field, if present
-  (e.g. written by Posit Publisher), was silently dropped whenever
-  rsconnect-python rewrote that record.
-- Fixed a bug where two different apps in one project, both deployed to the
-  same Connect server, could collide onto a single `.posit/publish` deployment
-  record. Records are now matched by content id, not just by server, when more
-  than one candidate shares a server URL.
+### Added
+
+- Python 3.14 support. The test suite now runs on Python 3.14 in CI.
+- `--quiet` flag for `rsconnect deploy` commands. It suppresses the
+  step-by-step progress lines and the streamed build log. It prints only the
+  deployed content URL to stdout, so you can capture it with
+  `URL=$(rsconnect deploy ... --quiet)`. Errors still go to stderr. On a
+  failed deploy, the server task log also goes to stderr. `--quiet` cannot
+  combine with `-v`/`--verbose`. For shinyapps.io deploys, `--quiet` also
+  skips opening a browser.
+- Interoperability with Posit Publisher `.posit/publish` project files. On
+  deploys to Posit Connect or Snowflake (SPCS), rsconnect-python writes a
+  Publisher configuration (`.posit/publish/<name>.toml`) and a deployment
+  record (`.posit/publish/deployments/<name>.toml`) next to the existing
+  `rsconnect-python/` metadata, and reads and preserves configurations and
+  records that Publisher wrote. One project can publish with either tool.
+- `rsconnect redeploy [PATH]` command. It redeploys content from an existing
+  `.posit/publish` project, reading the target server and content identity
+  from the deployment record, so you do not need to give a framework,
+  entrypoint, or server. `PATH` defaults to the current directory. It also
+  works from a legacy `manifest.json` and `rsconnect-python/` deployment
+  record, and writes `.posit` files for future use. `redeploy` supports
+  every content type rsconnect-python can bundle except R, since
+  rsconnect-python has no R bundler. It carries forward only the
+  entrypoint, requirements, title, and content ID from a configuration; if
+  the configuration sets `description`, `environment`, `secrets`, or
+  `connect.*`, it prints a warning and deploys anyway, since applying those
+  settings needs a Connect API call `redeploy` does not yet make.
+- `.posit/publish` output from `rsconnect write-manifest` commands. Each
+  command now writes a configuration next to the generated `manifest.json`.
+- Read support for Connect Cloud (`connect.posit.cloud`) `.posit` files.
+  rsconnect-python reads and preserves these files for interoperability, but
+  does not support deploying to Connect Cloud.
+- File curation from a `.posit/publish` configuration's `files` list. When
+  the list names a subset of the project, deploys bundle exactly those
+  files, using `.gitignore` syntax (a `!` prefix excludes a path), matching
+  Posit Publisher. rsconnect-python never overwrites a curated list. A
+  configuration with no `files` list, an empty list, or `["*"]` sets no
+  restriction, so file selection is unchanged from before.
+- `integration_requests` propagation from a `.posit/publish` configuration
+  into the generated `manifest.json`, matching Posit Publisher. This honors
+  OAuth integration requests that Publisher authored, even though
+  rsconnect-python cannot create them itself.
+- Fixed a bug where Posit Publisher could fail to redeploy Python content
+  whose `.posit/publish` configuration rsconnect-python had written. Publisher
+  checks a configuration's `files` list for the package file (for example
+  `requirements.txt`) by literal name match rather than by expanding `*`, so
+  the default `files = ["*"]` rsconnect-python writes never satisfied that
+  check even though it already selects the file for bundling. A newly
+  written configuration now also lists the package file literally alongside
+  `*`, which changes nothing about which files actually bundle.
 
 ## [1.30.0] - 2026-07-16
 
