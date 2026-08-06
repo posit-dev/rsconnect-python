@@ -196,10 +196,19 @@ def _is_unrestricted(config_files: typing.Sequence[str]) -> bool:
 
     ``.posit`` paths are discounted: Publisher lists the driving config and record
     so they ship in the bundle, which says nothing about curating content files.
-    What remains is unrestricted when it is empty or just ``*``.
+    What remains is unrestricted when it is empty, or a bare ``*`` together with
+    only non-negated literal entries -- a ``!``-free pattern list containing ``*``
+    can never select less than "everything", so every other *include* alongside it
+    (e.g. the Python package file appended by :func:`_python_package_file_pattern`
+    so Publisher's redeploy preflight, which checks ``files`` by literal suffix
+    rather than by expanding globs, can find it) is necessarily redundant. Only a
+    ``!``-exclusion actually narrows the selection, so its presence means real
+    curation.
     """
     meaningful = [pat for pat in config_files if not pat.lstrip("/").startswith(".posit/")]
-    return not meaningful or meaningful == ["*"]
+    if not meaningful:
+        return True
+    return "*" in meaningful and not any(pat.startswith("!") for pat in meaningful)
 
 
 def resolve_bundle_files(
@@ -305,6 +314,20 @@ def _default_config_file_patterns() -> typing.List[str]:
     return ["*"]
 
 
+def _python_package_file_pattern(cfg: config_mod.PublisherConfig) -> typing.List[str]:
+    """Root-anchored pattern for the Python package file, when this config has one.
+
+    ``*`` already selects this file, so this changes nothing about what gets
+    bundled. It exists because Publisher's redeploy preflight checks for the
+    package file by literal suffix match against ``files`` entries instead of
+    expanding glob patterns, so a bare ``*`` does not satisfy it even though the
+    bundler itself would include the file. See :func:`_is_unrestricted`, which
+    is taught to keep treating a config with this entry as unrestricted.
+    """
+    pkg_file = cfg.requirements_file
+    return [_root_anchor(pkg_file)] if pkg_file else []
+
+
 def _posit_bundle_paths(project_dir: str, config_name: str, record_name: typing.Optional[str]) -> typing.List[str]:
     """Root-anchored ``.posit`` paths to include in ``files``, mirroring Publisher.
 
@@ -373,7 +396,11 @@ def write_deployment_metadata(
     # For a new config, seed ``files`` with "everything" plus the ``.posit`` files
     # (mirroring Publisher). ``write_config`` preserves an existing config's curated
     # ``files``, so this only takes effect when minting one.
-    cfg.files = _default_config_file_patterns() + _posit_bundle_paths(project_dir, cname, rname)
+    cfg.files = (
+        _default_config_file_patterns()
+        + _python_package_file_pattern(cfg)
+        + _posit_bundle_paths(project_dir, cname, rname)
+    )
     config_path, config_dict = config_mod.write_config(project_dir, cname, cfg)
 
     dashboard_url = deployed_info.get("dashboard_url")
@@ -427,7 +454,11 @@ def write_config_from_manifest(
     )
     # No deployment record here (write-manifest does not deploy); include the
     # config itself but no record path.
-    cfg.files = _default_config_file_patterns() + _posit_bundle_paths(project_dir, cname, None)
+    cfg.files = (
+        _default_config_file_patterns()
+        + _python_package_file_pattern(cfg)
+        + _posit_bundle_paths(project_dir, cname, None)
+    )
     path, _ = config_mod.write_config(project_dir, cname, cfg)
     return path
 

@@ -168,8 +168,11 @@ def test_resolve_bundle_files_force_includes_entrypoint(tmp_path):
 def test_resolve_bundle_files_none_for_unrestricted_config(tmp_path):
     """A config that declares no real restriction imposes none.
 
-    An absent ``files``, an explicit ``["*"]``, and ``["*"]`` plus the ``.posit``
-    paths rsconnect writes all mean "everything", so bundling must fall through to
+    An absent ``files``, an explicit ``["*"]``, ``["*"]`` plus the ``.posit`` paths
+    rsconnect writes, and ``["*"]`` plus a literal package-file entry (the form
+    rsconnect now writes for Python content, so Publisher's redeploy preflight --
+    which checks ``files`` by literal suffix instead of expanding globs -- can find
+    ``requirements.txt``) all mean "everything", so bundling must fall through to
     the caller's unchanged whole-tree walk rather than a re-derived allowlist."""
     from rsconnect.publisher.store import resolve_bundle_files
 
@@ -182,6 +185,7 @@ def test_resolve_bundle_files_none_for_unrestricted_config(tmp_path):
         "",  # no files key at all
         'files = ["*"]\n',
         'files = ["*", "/.posit/publish/app.toml"]\n',
+        'files = ["*", "/requirements.txt"]\n',
     ):
         (publish / "app.toml").write_text(header + files_line, encoding="utf-8")
         assert resolve_bundle_files(root, entrypoint="app.py") is None, files_line

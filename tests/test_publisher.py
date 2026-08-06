@@ -121,9 +121,12 @@ def test_write_deployment_metadata_creates_config_and_record(tmp_path):
     assert cfg.title == "My App"
     assert cfg.validate is True
     # files is "everything" -- not a snapshot of the deployed set, which would
-    # silently pin the content on the next deploy -- plus the driving .posit
-    # config + record (mirrors Publisher).
+    # silently pin the content on the next deploy -- plus the literal Python
+    # package file (so Publisher's redeploy preflight, which checks for it by
+    # literal suffix rather than expanding "*", can find it) and the driving
+    # .posit config + record (mirrors Publisher).
     assert cfg.files[0] == "*"
+    assert "/requirements.txt" in cfg.files
     posit_files = [f for f in cfg.files if f.startswith("/.posit/publish/")]
     assert len(posit_files) == 2
     assert any("/deployments/" in f for f in posit_files)
@@ -205,12 +208,15 @@ def test_config_files_do_not_snapshot_the_deployed_set(tmp_path):
     A snapshot reads as user curation on the next deploy, which would pin the
     content to that set and silently drop anything added later. The deployed set
     is still recorded on the *record* (see
-    ``test_write_deployment_metadata_creates_config_and_record``)."""
+    ``test_write_deployment_metadata_creates_config_and_record``). The one literal
+    entry alongside ``*`` is the Python package file, added only for Publisher's
+    redeploy preflight check -- it changes nothing about what gets bundled, since
+    ``*`` already selects it (see :func:`_is_unrestricted` in ``store.py``)."""
     project = str(tmp_path)
     config_path, _ = deploy(project)
     cfg = config.read_config(config_path)
     content_patterns = [f for f in cfg.files if not f.startswith("/.posit/")]
-    assert content_patterns == ["*"]
+    assert content_patterns == ["*", "/requirements.txt"]
 
 
 def test_config_entrypoint_recovers_the_real_file_from_a_module_reference(tmp_path):
@@ -518,9 +524,12 @@ def test_write_config_from_manifest(tmp_path):
     cfg = config.read_config(path)
     assert cfg.type == "python-shiny"
     assert cfg.entrypoint == "app.py"
-    # "everything", plus the config file itself (mirrors Publisher). No record
-    # path: write-manifest does not deploy.
+    # "everything", plus the literal Python package file (for Publisher's redeploy
+    # preflight, see test_config_files_do_not_snapshot_the_deployed_set) and the
+    # config file itself (mirrors Publisher). No record path: write-manifest does
+    # not deploy.
     assert cfg.files[0] == "*"
+    assert "/requirements.txt" in cfg.files
     assert any(f.startswith("/.posit/publish/") and f.endswith(".toml") for f in cfg.files)
     assert not any("/deployments/" in f for f in cfg.files)
     # write-manifest prepares content but does not deploy: no record is written.
