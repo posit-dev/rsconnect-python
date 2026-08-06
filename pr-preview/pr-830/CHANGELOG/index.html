@@ -2884,6 +2884,7 @@
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">#</a></h2>
 <ul>
+<li>Added support for Python 3.14. The test suite now runs on Python 3.14 in CI.</li>
 <li><code>rsconnect deploy</code> subcommands now accept <code>--quiet</code>, which suppresses the
   step-by-step progress lines and the streamed server build log, printing only
   the deployed content URL to stdout so it can be captured with
@@ -2903,7 +2904,16 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
   needs to be specified. <code>PATH</code> defaults to the current directory. When a
   project predates <code>.posit</code> but has a <code>manifest.json</code> and a legacy
   <code>rsconnect-python/</code> deployment record, <code>redeploy</code> falls back to those and
-  writes <code>.posit</code> files going forward.</li>
+  writes <code>.posit</code> files going forward. <code>redeploy</code> now supports every content
+  type rsconnect-python can build a bundle for: Shiny, FastAPI, Flask/API,
+  Streamlit, Dash, Bokeh, Gradio, Panel, HTML, Node.js, Jupyter notebooks
+  (including Voila), and Quarto. R content types are not supported, since
+  rsconnect-python has no R bundler. <code>redeploy</code> carries forward only the
+  entrypoint, requirements, title, and content id from a <code>.posit/publish</code>
+  configuration; it prints a warning (and still deploys) when a configuration
+  sets <code>description</code>, <code>environment</code>, <code>secrets</code>, or <code>connect.*</code> settings, since
+  those require a Connect API call <code>redeploy</code> does not yet make. The live
+  Connect deployment is left as-is in that case, not reset to a default.</li>
 <li>The <code>rsconnect write-manifest</code> commands now also write a <code>.posit/publish</code>
   configuration next to the generated <code>manifest.json</code>.</li>
 <li>Connect Cloud (<code>connect.posit.cloud</code>) <code>.posit</code> files are read and preserved
@@ -2943,6 +2953,17 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
   back to the real file when the manifest confirms it exists; a genuine
   <code>module:object</code> reference with no matching file (e.g. Shiny Express) is left
   unchanged.</li>
+<li>Fixed a bug where rewriting a <code>.posit/publish</code> configuration could drop an
+  existing <code>[r]</code> table (rsconnect-python never originates R metadata itself,
+  but now preserves one already on disk, matching how <code>python</code>/<code>quarto</code> are
+  preserved).</li>
+<li>Fixed a bug where a deployment record's <code>bundle_url</code> field, if present
+  (e.g. written by Posit Publisher), was silently dropped whenever
+  rsconnect-python rewrote that record.</li>
+<li>Fixed a bug where two different apps in one project, both deployed to the
+  same Connect server, could collide onto a single <code>.posit/publish</code> deployment
+  record. Records are now matched by content id, not just by server, when more
+  than one candidate shares a server URL.</li>
 </ul>
 <h2 id="1300-2026-07-16">[1.30.0] - 2026-07-16<a class="headerlink" href="#1300-2026-07-16" title="Permanent link">#</a></h2>
 <ul>
