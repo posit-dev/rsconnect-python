@@ -50,14 +50,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   into the generated `manifest.json`, matching Posit Publisher. This honors
   OAuth integration requests that Publisher authored, even though
   rsconnect-python cannot create them itself.
-- Fixed a bug where Posit Publisher could fail to redeploy Python content
-  whose `.posit/publish` configuration rsconnect-python had written. Publisher
-  checks a configuration's `files` list for the package file (for example
-  `requirements.txt`) by literal name match rather than by expanding `*`, so
-  the default `files = ["*"]` rsconnect-python writes never satisfied that
-  check even though it already selects the file for bundling. A newly
-  written configuration now also lists the package file literally alongside
-  `*`, which changes nothing about which files actually bundle.
+- Literal package-file listing (for example `requirements.txt`) in a
+  `.posit/publish` configuration that rsconnect-python writes for Python
+  content, alongside the default `["*"]`. Posit Publisher's redeploy checks
+  a configuration's `files` list for the package file by literal name
+  rather than by expanding `*`, so this lets Publisher redeploy content
+  whose configuration rsconnect-python wrote. It changes nothing about
+  which files actually bundle.
 
 ## [1.30.0] - 2026-07-16
 
