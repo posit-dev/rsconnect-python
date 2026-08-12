@@ -291,11 +291,20 @@ def login_with_device_code(
     metadata: dict[str, Any],
     insecure: bool = False,
     ca_data: Optional[str | bytes] = None,
+    scope: Optional[str] = None,
+    open_browser: bool = True,
 ) -> dict[str, Any]:
     """Perform OAuth Device Code flow.
 
     Displays a URL and user code for the user to enter in a browser,
     then polls for token completion.
+
+    :param scope: OAuth scope to request. Connect does not require one; Posit
+        Connect Cloud requires "vivid".
+    :param open_browser: whether to also try opening the verification URL. Off
+        for `rsconnect login --use-device-code`, where asking for the device flow
+        usually means there is no usable browser. The URL and code are printed
+        either way.
     """
     device_endpoint = str(metadata.get("device_authorization_endpoint", ""))
     if not device_endpoint:
@@ -309,7 +318,10 @@ def login_with_device_code(
     base = f"{parsed.scheme}://{parsed.netloc}"
     path = parsed.path
 
-    body = urlencode({"client_id": client_id}).encode("utf-8")
+    params = {"client_id": client_id}
+    if scope:
+        params["scope"] = scope
+    body = urlencode(params).encode("utf-8")
 
     server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
     with server:
@@ -329,11 +341,17 @@ def login_with_device_code(
 
     verification_uri_complete = str(resp.get("verification_uri_complete", "")) or verification_uri
 
+    # Printed whether or not a browser opens: the user needs the code to confirm,
+    # and a browser may open somewhere they cannot see it.
     click.echo(f"\nOpen this URL in your browser:\n\n  {verification_uri_complete}\n")
     click.echo(f"Enter the code: {user_code}\n")
-    click.echo("Waiting for authorization...")
 
-    return _poll_for_device_token(metadata, client_id, device_code, interval, expires_in, insecure, ca_data)
+    if open_browser and webbrowser.open(verification_uri_complete):
+        click.echo("Opened browser for authorization. Waiting...")
+    else:
+        click.echo("Waiting for authorization...")
+
+    return _poll_for_device_token(metadata, client_id, device_code, interval, expires_in, insecure, ca_data, scope)
 
 
 def _poll_for_device_token(
@@ -344,6 +362,7 @@ def _poll_for_device_token(
     expires_in: int,
     insecure: bool = False,
     ca_data: Optional[str | bytes] = None,
+    scope: Optional[str] = None,
 ) -> dict[str, Any]:
     """Poll the token endpoint for device code completion."""
     token_endpoint = str(metadata["token_endpoint"])
@@ -357,13 +376,14 @@ def _poll_for_device_token(
     while time.time() < deadline:
         time.sleep(poll_interval)
 
-        body = urlencode(
-            {
-                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-                "client_id": client_id,
-                "device_code": device_code,
-            }
-        ).encode("utf-8")
+        params = {
+            "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+            "client_id": client_id,
+            "device_code": device_code,
+        }
+        if scope:
+            params["scope"] = scope
+        body = urlencode(params).encode("utf-8")
 
         server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
         with server:
@@ -417,39 +437,77 @@ def refresh_access_token(
     refresh_token: str,
     insecure: bool = False,
     ca_data: Optional[str | bytes] = None,
+    scope: Optional[str] = None,
 ) -> dict[str, Any]:
     """Refresh an OAuth access token using a refresh token.
 
     Returns the new token response dict. Raises InvalidClientError if the
     client_id has been deleted server-side.
     """
-    token_endpoint = str(metadata["token_endpoint"])
+    params = {
+        "grant_type": "refresh_token",
+        "client_id": client_id,
+        "refresh_token": refresh_token,
+    }
+    if scope:
+        params["scope"] = scope
+
+    data = _post_token_request(str(metadata["token_endpoint"]), params, insecure, ca_data)
+    if "access_token" not in data:
+        raise RSConnectException("Token refresh returned an unexpected response.")
+
+    return data
+
+
+def request_client_credentials_token(
+    token_endpoint: str,
+    client_id: str,
+    client_secret: str,
+    scope: Optional[str] = None,
+    insecure: bool = False,
+    ca_data: Optional[str | bytes] = None,
+) -> dict[str, Any]:
+    """Request an access token using the OAuth client credentials grant (RFC 6749 4.4).
+
+    Used for non-interactive/CI authentication. Per RFC 6749 4.4.3 the response
+    is not expected to include a refresh token; callers should keep the client
+    credentials so a new access token can be minted when this one expires.
+    """
+    params = {
+        "grant_type": "client_credentials",
+        "client_id": client_id,
+        "client_secret": client_secret,
+    }
+    if scope:
+        params["scope"] = scope
+
+    data = _post_token_request(token_endpoint, params, insecure, ca_data)
+    if "access_token" not in data:
+        raise RSConnectException("Client credentials request returned an unexpected response.")
+
+    return data
+
+
+def _post_token_request(
+    token_endpoint: str,
+    params: dict[str, str],
+    insecure: bool = False,
+    ca_data: Optional[str | bytes] = None,
+) -> dict[str, Any]:
+    """POST a form-encoded request to an OAuth token endpoint and return the JSON body."""
     parsed = urlparse(token_endpoint)
     base = f"{parsed.scheme}://{parsed.netloc}"
-    path = parsed.path
-
-    body = urlencode(
-        {
-            "grant_type": "refresh_token",
-            "client_id": client_id,
-            "refresh_token": refresh_token,
-        }
-    ).encode("utf-8")
 
     server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
     with server:
         response = server.request(
             "POST",
-            path,
-            body=body,
+            parsed.path,
+            body=urlencode(params).encode("utf-8"),
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
 
-    data = _unwrap_json_response(response)
-    if "access_token" not in data:
-        raise RSConnectException("Token refresh returned an unexpected response.")
-
-    return data
+    return _unwrap_json_response(response)
 
 
 _TOKEN_EXCHANGE_GRANT = "urn:ietf:params:oauth:grant-type:token-exchange"

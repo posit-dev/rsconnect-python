@@ -218,6 +218,38 @@ class TestDeviceCodeFlow:
             login_with_device_code(FAKE_URL, "client-1", metadata)
 
     @patch("rsconnect.oauth.time.sleep")
+    @patch("rsconnect.oauth.webbrowser.open", return_value=True)
+    def test_opens_a_browser_by_default(self, mock_open: MagicMock, _, mock_http_server: MagicMock):
+        mock_http_server.request.side_effect = [
+            _make_response(200, {"device_code": "dc", "user_code": "UC", "verification_uri": "https://verify"}),
+            _make_response(200, {"access_token": "at"}),
+        ]
+        login_with_device_code(FAKE_URL, "client-1", FAKE_METADATA)
+        mock_open.assert_called_once_with("https://verify")
+
+    @patch("rsconnect.oauth.time.sleep")
+    @patch("rsconnect.oauth.webbrowser.open", return_value=True)
+    def test_open_browser_false_does_not_open_one(self, mock_open: MagicMock, _, mock_http_server: MagicMock):
+        # `rsconnect login --use-device-code` relies on this: asking for the
+        # device flow against Connect usually means there is no usable browser.
+        mock_http_server.request.side_effect = [
+            _make_response(200, {"device_code": "dc", "user_code": "UC", "verification_uri": "https://verify"}),
+            _make_response(200, {"access_token": "at"}),
+        ]
+        login_with_device_code(FAKE_URL, "client-1", FAKE_METADATA, open_browser=False)
+        mock_open.assert_not_called()
+
+    @patch("rsconnect.oauth.time.sleep")
+    @patch("rsconnect.oauth.webbrowser.open", return_value=False)
+    def test_a_browser_that_will_not_open_is_not_fatal(self, _open: MagicMock, _, mock_http_server: MagicMock):
+        mock_http_server.request.side_effect = [
+            _make_response(200, {"device_code": "dc", "user_code": "UC", "verification_uri": "https://verify"}),
+            _make_response(200, {"access_token": "at"}),
+        ]
+        result = login_with_device_code(FAKE_URL, "client-1", FAKE_METADATA)
+        assert result["access_token"] == "at"
+
+    @patch("rsconnect.oauth.time.sleep")
     def test_poll_success(self, _, mock_http_server: MagicMock):
         mock_http_server.request.side_effect = [
             _make_response(400, {"error": "authorization_pending"}),

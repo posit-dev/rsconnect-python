@@ -10,6 +10,7 @@ from rsconnect.metadata import (
     ContentBuildStore,
     ServerStore,
     _normalize_server_url,
+    resolve_server_alias,
 )
 from rsconnect.models import BuildStatus
 
@@ -351,6 +352,25 @@ class TestHelpers(TestCase):
         self.assertEqual("127_0_0_1_3939", _normalize_server_url("https://127.0.0.1:3939"))
         self.assertEqual("connect_dev", _normalize_server_url("https://connect.dev"))
         self.assertEqual("connect_dev_6443", _normalize_server_url("https://connect.dev:6443"))
+
+    def test_resolve_server_alias(self):
+        self.assertEqual("https://api.connect.posit.cloud/v1", resolve_server_alias("connect.posit.cloud"))
+        self.assertEqual("https://api.shinyapps.io", resolve_server_alias("shinyapps.io"))
+        # Anything else, including an already-resolved URL, is left alone.
+        self.assertEqual(
+            "https://api.connect.posit.cloud/v1", resolve_server_alias("https://api.connect.posit.cloud/v1")
+        )
+        self.assertEqual("https://connect.example.com", resolve_server_alias("https://connect.example.com"))
+
+    def test_lookup_by_short_name_finds_the_stored_api_url(self):
+        store = ServerStore(base_dir=tempfile.mkdtemp())
+        store.set("cloud", "https://api.connect.posit.cloud/v1", connect_cloud_account_name="acme")
+        store.set("sa", "https://api.shinyapps.io", account_name="me", token="t", secret="s")
+
+        for short_name, nickname in (("connect.posit.cloud", "cloud"), ("shinyapps.io", "sa")):
+            entry = store.get_by_url(short_name)
+            assert entry is not None
+            self.assertEqual(entry["name"], nickname)
 
 
 class TestBuildMetadata(TestCase):

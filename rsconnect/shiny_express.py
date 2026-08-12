@@ -134,3 +134,12 @@ def escape_to_var_name(x: str) -> str:
             is_first = False
 
     return encoded
+
+
+def unescape_from_var_name(x: str) -> str:
+    """
+    Reverse escape_to_var_name: decode each _<hex>_ sequence back to its
+    character. Literal underscores in the original string are themselves
+    escaped (to _5f_), so every underscore-delimited hex run is an escape.
+    """
+    return re.sub(r"_([0-9a-fA-F]+?)_", lambda m: chr(int(m.group(1), 16)), x)

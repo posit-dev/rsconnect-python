@@ -4,7 +4,7 @@ from unittest import TestCase
 
 import pytest
 
-from rsconnect.actions import _verify_server, cli_feedback, set_verbosity
+from rsconnect.actions import _verify_server, cli_feedback, quarto_inputs_from_inspect, set_verbosity
 from rsconnect.api import RSConnectServer
 from rsconnect.exception import RSConnectException
 from rsconnect.log import console_logger, logger, warn_user
@@ -71,3 +71,24 @@ def test_set_verbosity_resets_quiet_state(quiet_mode):
     set_verbosity(0)
     assert not logger.quiet
     assert console_logger.level == logging.DEBUG
+
+
+def test_quarto_inputs_from_inspect_relativizes_in_render_order(tmp_path):
+    inspect = {
+        "quarto": {"version": "1.4.0"},
+        "engines": ["markdown"],
+        "files": {
+            "input": [
+                str(tmp_path / "zebra.qmd"),
+                str(tmp_path / "docs" / "about.qmd"),
+            ],
+        },
+    }
+    assert quarto_inputs_from_inspect(str(tmp_path), inspect) == ["zebra.qmd", "docs/about.qmd"]
+
+
+def test_quarto_inputs_from_inspect_is_empty_for_a_standalone_document(tmp_path):
+    doc = tmp_path / "report.qmd"
+    doc.write_text("# hi")
+    inspect = {"quarto": {"version": "1.4.0"}, "engines": ["markdown"]}
+    assert quarto_inputs_from_inspect(str(doc), inspect) == []

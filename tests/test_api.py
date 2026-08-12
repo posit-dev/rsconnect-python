@@ -472,6 +472,7 @@ class SPCSConnectServerTestCase(TestCase):
         mock_server_instance = mock_http_server.return_value
         mock_response = Mock()
         mock_response.status = 200
+        mock_response.exception = None
         mock_response.response_body = "token_data"
         mock_server_instance.request.return_value = mock_response
 
@@ -532,6 +533,7 @@ class SPCSConnectServerTestCase(TestCase):
         mock_server_instance = mock_http_server.return_value
         mock_response = Mock()
         mock_response.status = 200
+        mock_response.exception = None
         mock_response.response_body = None
         mock_server_instance.request.return_value = mock_response
 

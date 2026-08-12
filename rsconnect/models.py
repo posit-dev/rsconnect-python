@@ -172,6 +172,28 @@ class AppModes:
         "bokeh": BOKEH_APP,
     }
 
+    # Posit Connect Cloud content types. This is the API's full vocabulary --
+    # eight values, enforced with a 422 -- so any app mode absent here cannot be
+    # deployed there at all.
+    #
+    # Connect Cloud derives the app mode itself from the content type and the
+    # primary file, so several modes deliberately collapse onto one type: the
+    # static and Shiny variants of Quarto and R Markdown, and R vs Python Shiny
+    # (told apart by whether the primary file ends in ``.R``).
+    _connect_cloud_content_types: dict[AppMode, str] = {
+        JUPYTER_NOTEBOOK: "jupyter",
+        BOKEH_APP: "bokeh",
+        DASH_APP: "dash",
+        SHINY: "shiny",
+        PYTHON_SHINY: "shiny",
+        STREAMLIT_APP: "streamlit",
+        STATIC_QUARTO: "quarto",
+        SHINY_QUARTO: "quarto",
+        RMD: "rmarkdown",
+        SHINY_RMD: "rmarkdown",
+        STATIC: "static",
+    }
+
     # CLI alias vocabulary used by ``rsconnect deploy <alias>`` and
     # ``rsconnect quickstart <alias>``. Many-to-one is allowed: ``api`` and
     # ``flask`` both resolve to ``PYTHON_API``. NB: ``shiny`` here means
@@ -236,6 +258,18 @@ class AppModes:
     @classmethod
     def get_by_cloud_name(cls, name: str) -> AppMode:
         return cls._cloud_to_connect_modes.get(name, cls.UNKNOWN)
+
+    @classmethod
+    def get_connect_cloud_content_type(cls, mode: AppMode) -> Optional[str]:
+        """The Posit Connect Cloud content type for an app mode, or None.
+
+        None means Connect Cloud cannot host that kind of content.
+        """
+        return cls._connect_cloud_content_types.get(mode)
+
+    @classmethod
+    def supported_by_connect_cloud(cls, mode: AppMode) -> bool:
+        return mode in cls._connect_cloud_content_types
 
     @classmethod
     def get_by_cli_alias(cls, alias: str) -> AppMode:
