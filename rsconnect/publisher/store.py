@@ -1,12 +1,11 @@
 """Facade tying the ``.posit/publish`` config + record files to deploy flows.
 
-Write side: :func:`write_deployment_metadata` is called after a successful
-Connect/SPCS deploy to create-or-update the config and the deployment record.
+Write side: :func:`write_deployment_metadata` creates or updates the config and
+deployment record after an explicit Publisher-service deployment.
 
 Read side: :func:`resolve_publisher_deploy_target` reconstructs a ready-to-deploy
-target from an existing config (+ record) so a bare ``rsconnect redeploy`` can
-run with no other arguments. Records are matched by ``server_url`` content, not
-filename, so Publisher-authored files interoperate.
+target from an existing config and optional record. Records can be selected by
+name or matched by server URL so Publisher-authored files interoperate.
 """
 
 from __future__ import annotations
@@ -71,9 +70,8 @@ def normalize_url(url: str) -> str:
 
 # File-naming mirrors Posit Publisher's utils/names.ts: a random, uppercase,
 # base-32 ending appended to a filesystem-safe title. Publisher relies on its
-# UI to reuse a chosen file; a CLI has none, so on redeploy we first look for an
-# existing record with the same server_url (and its config) and reuse those
-# filenames, only minting a new random name for a genuinely new deployment.
+# UI to reuse a chosen file. The service pins a selected record by name and only
+# mints a random name for a genuinely new deployment.
 _BASE32_UPPER = "0123456789ABCDEFGHIJKLMNOPQRSTUV"
 
 
@@ -117,7 +115,7 @@ def _find_record_name_for_server(
     project_dir: str, server_url: str, app_guid: typing.Optional[str] = None
 ) -> typing.Optional[str]:
     """Basename of an existing record whose ``server_url`` (and, when known,
-    content id) matches, so a redeploy updates in place instead of spawning a
+    content id) matches, so a repeat publish updates in place instead of spawning a
     new random-named file.
 
     Two different configs in the same project can both target the same
@@ -144,7 +142,7 @@ def _find_record_name_for_server(
         candidates.append(name)
     if app_guid:
         # An app_guid was supplied but nothing on disk matched it: this is a
-        # genuinely different deployment to the same server, not a redeploy of
+        # genuinely different deployment to the same server, not a repeat publish of
         # one of the candidates above -- don't guess which one to overwrite.
         return None
     return candidates[0] if len(candidates) == 1 else None
@@ -258,7 +256,7 @@ def config_manifest_overlay(cfg: config_mod.PublisherConfig) -> typing.Dict[str,
     shape so the emitted manifest matches what Publisher would write.
     """
     overlay: typing.Dict[str, typing.Any] = {}
-    raw_requests = cfg.extra.get("integration_requests") if cfg.extra else None
+    raw_requests = cfg.integration_requests
     if isinstance(raw_requests, list):
         mapped: typing.List[typing.Dict[str, typing.Any]] = []
         for req in raw_requests:
@@ -355,28 +353,20 @@ def write_deployment_metadata(
 ) -> typing.Tuple[str, str]:
     """Create/update the ``.posit`` config and deployment record for a deploy.
 
-    ``config_name``/``record_name`` pin the exact files to update -- ``redeploy``
-    passes the names it resolved so the write updates those files instead of
+    ``config_name``/``record_name`` pin the exact files to update. The publish
+    service passes the names it resolved so the write updates those files instead of
     re-deriving (and possibly duplicating) them. When omitted, an existing record
     for this server (and its config) is reused, otherwise new names are minted.
 
-    Returns ``(config_path, record_path)``. Raises on failure; callers treat
-    ``.posit`` write failures as non-fatal (the deploy has already succeeded).
+    Returns ``(config_path, record_path)``. Raises on failure so an explicit
+    Publisher workflow cannot report success without recording its deployment.
     """
     details = record_mod.read_bundle_details(bundle)
     content_type = schema.type_from_app_mode(app_mode)
 
-    cfg = config_mod.PublisherConfig(
-        type=content_type,
-        entrypoint=details.entrypoint,
-        title=title,
-        product_type=product_type,
-        python=details.python,
-        quarto=details.quarto,
-    )
-    # Reuse an existing deployment's filenames on redeploy; only mint new random
+    # Reuse an existing deployment's filenames on repeat publish; only mint new random
     # names for a genuinely new deployment. A caller-supplied record_name (from
-    # redeploy) pins the record file; otherwise match one by server_url.
+    # publish) pins the record file; otherwise match one by server_url.
     existing_record_name = record_name or _find_record_name_for_server(
         project_dir, server_url, app_guid=deployed_info.get("app_guid")
     )
@@ -393,15 +383,34 @@ def write_deployment_metadata(
         or _new_config_name(project_dir, title or details.entrypoint or "content")
     )
     rname = existing_record_name or _new_record_name(project_dir)
-    # For a new config, seed ``files`` with "everything" plus the ``.posit`` files
-    # (mirroring Publisher). ``write_config`` preserves an existing config's curated
-    # ``files``, so this only takes effect when minting one.
-    cfg.files = (
-        _default_config_file_patterns()
-        + _python_package_file_pattern(cfg)
-        + _posit_bundle_paths(project_dir, cname, rname)
-    )
-    config_path, config_dict = config_mod.write_config(project_dir, cname, cfg)
+    config_file = schema.config_path(project_dir, cname)
+    if os.path.exists(config_file):
+        cfg = config_mod.read_config(config_file)
+        cfg.title = cfg.title or title
+        cfg.product_type = product_type
+        cfg.python = cfg.python or details.python
+        cfg.quarto = cfg.quarto or details.quarto
+    else:
+        cfg = config_mod.PublisherConfig(
+            type=content_type,
+            entrypoint=details.entrypoint,
+            title=title,
+            product_type=product_type,
+            python=details.python,
+            quarto=details.quarto,
+        )
+        cfg.files = _default_config_file_patterns() + _python_package_file_pattern(cfg)
+
+    # Publisher includes the driving config and deployment record in the bundle.
+    # Add those bookkeeping paths without disturbing user-curated content paths.
+    for path in _posit_bundle_paths(project_dir, cname, rname):
+        if path not in cfg.files:
+            cfg.files.append(path)
+    package_pattern = _python_package_file_pattern(cfg)
+    for path in package_pattern:
+        if path not in cfg.files:
+            cfg.files.append(path)
+    config_path, config_dict = config_mod.write_config(project_dir, cname, cfg, merge_existing=False)
 
     dashboard_url = deployed_info.get("dashboard_url")
     rec = record_mod.PublisherRecord(
@@ -485,7 +494,7 @@ class PublisherDeployTarget:
     server_url: typing.Optional[str]
     app_id: typing.Optional[str]
     record: typing.Optional[record_mod.PublisherRecord]
-    # Basename (no .toml) of the matched record file, so a redeploy updates that
+    # Basename (no .toml) of the matched record file, so a repeat publish updates that
     # exact file rather than re-deriving it.
     record_name: typing.Optional[str] = None
 
@@ -517,12 +526,18 @@ def _select_config(
 
 
 def _matching_records(
-    project_dir: str, config_name: str, server: typing.Optional[str]
+    project_dir: str,
+    config_name: str,
+    server: typing.Optional[str],
+    record_name: typing.Optional[str] = None,
 ) -> typing.List[typing.Tuple[str, record_mod.PublisherRecord]]:
     """``(record_name, record)`` pairs for ``config_name``, optionally filtered to a server URL."""
     records: typing.List[typing.Tuple[str, record_mod.PublisherRecord]] = []
     normalized_server = normalize_url(server) if server else None
     for path in record_mod.discover_records(project_dir):
+        name = os.path.splitext(os.path.basename(path))[0]
+        if record_name and name != record_name:
+            continue
         rec = record_mod.read_record(path)
         # Match by content: the record's configuration_name links it to a config;
         # records without one are accepted only when there is a single config.
@@ -530,42 +545,20 @@ def _matching_records(
             continue
         if normalized_server and normalize_url(rec.server_url) != normalized_server:
             continue
-        records.append((os.path.splitext(os.path.basename(path))[0], rec))
+        records.append((name, rec))
     return records
-
-
-# Config keys that require a Connect API call ``redeploy`` never makes (title
-# is the one identity field it does push; see ``unhonored_redeploy_settings``).
-_UNHONORED_REDEPLOY_SETTING_KEYS = ("description", "environment", "secrets", "connect")
-
-
-def unhonored_redeploy_settings(cfg: config_mod.PublisherConfig) -> typing.List[str]:
-    """Config keys present that ``redeploy`` reads but cannot apply to Connect.
-
-    ``redeploy`` only ever carries forward ``entrypoint``, ``requirements``,
-    ``title``, and the content id; it never issues the Connect API calls needed
-    to apply ``description``, ``environment``/``secrets`` (env vars), or
-    ``connect.runtime``/``connect.access``/``connect.kubernetes`` settings --
-    whether or not they were just edited in the TOML. These keys are not
-    modeled fields (see :data:`PublisherConfig.extra`), so nothing reads them
-    for behavior; they round-trip through the file untouched. Returns the
-    subset of :data:`_UNHONORED_REDEPLOY_SETTING_KEYS` present on ``cfg``, so a
-    caller can warn without failing the deploy: the live Connect deployment is
-    left exactly as it was, not reset to a default.
-    """
-    return [key for key in _UNHONORED_REDEPLOY_SETTING_KEYS if cfg.extra.get(key)]
 
 
 def resolve_publisher_deploy_target(
     project_dir: str,
     config_name: typing.Optional[str] = None,
+    record_name: typing.Optional[str] = None,
     server: typing.Optional[str] = None,
 ) -> PublisherDeployTarget:
     """Resolve a deploy target from ``.posit`` files under ``project_dir``.
 
     Raises :class:`RSConnectException` when no config exists, when the config or
-    record choice is ambiguous, or (for a redeploy) when there is no prior
-    deployment and no server was supplied to seed a first deploy.
+    record choice is ambiguous.
     """
     configs = _load_configs(project_dir)
     if not configs:
@@ -574,15 +567,23 @@ def resolve_publisher_deploy_target(
         )
     name, cfg = _select_config(configs, config_name)
 
-    matches = _matching_records(project_dir, name, server)
-    if len(matches) > 1:
-        servers = ", ".join(sorted(rec.server_url for _, rec in matches))
+    matches = _matching_records(project_dir, name, server, record_name)
+    if record_name and not matches:
         raise RSConnectException(
-            "Multiple deployments found for config '{}' ({}); specify one with --server.".format(name, servers)
+            "No deployment record named '{}' matches config '{}'{}.".format(
+                record_name,
+                name,
+                " and server '{}'".format(server) if server else "",
+            )
         )
-    record_name: typing.Optional[str]
+    if len(matches) > 1:
+        choices = ", ".join(sorted("{} ({})".format(record_name, rec.server_url) for record_name, rec in matches))
+        raise RSConnectException(
+            "Multiple deployments found for config '{}' ({}); specify a deployment record.".format(name, choices)
+        )
+    selected_record_name: typing.Optional[str]
     record: typing.Optional[record_mod.PublisherRecord]
-    record_name, record = matches[0] if matches else (None, None)
+    selected_record_name, record = matches[0] if matches else (None, None)
 
     # Fall back to the record's embedded config snapshot if no standalone config
     # file carried the fields we need (e.g. a Publisher-authored record).
@@ -603,5 +604,10 @@ def resolve_publisher_deploy_target(
         server_url=record.server_url if record else None,
         app_id=record.id if record else None,
         record=record,
-        record_name=record_name,
+        record_name=selected_record_name,
     )
+
+
+# Public v2 name; keep the old name as a compatibility alias for code already
+# written against this feature branch.
+resolve_publish_target = resolve_publisher_deploy_target

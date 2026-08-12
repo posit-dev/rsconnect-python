@@ -24,12 +24,20 @@ _MANAGED_KEYS = frozenset(
         "product_type",
         "type",
         "entrypoint",
+        "source",
         "title",
+        "description",
         "validate",
         "files",
+        "has_parameters",
         "python",
         "quarto",
         "r",
+        "jupyter",
+        "environment",
+        "secrets",
+        "integration_requests",
+        "connect",
         "connect_cloud",
     }
 )
@@ -41,19 +49,27 @@ class PublisherConfig:
 
     type: str = "unknown"
     entrypoint: str = ""
+    source: typing.Optional[str] = None
     title: typing.Optional[str] = None
+    description: typing.Optional[str] = None
     validate: bool = True
-    files: typing.List[str] = dataclasses.field(default_factory=list)
+    files: typing.List[str] = dataclasses.field(default_factory=lambda: [])
+    has_parameters: bool = False
     product_type: str = schema.PRODUCT_TYPE_CONNECT
     python: typing.Optional[typing.Dict[str, typing.Any]] = None
     quarto: typing.Optional[typing.Dict[str, typing.Any]] = None
     r: typing.Optional[typing.Dict[str, typing.Any]] = None
+    jupyter: typing.Optional[typing.Dict[str, typing.Any]] = None
+    environment: typing.Dict[str, str] = dataclasses.field(default_factory=lambda: {})
+    secrets: typing.List[str] = dataclasses.field(default_factory=lambda: [])
+    integration_requests: typing.List[typing.Dict[str, typing.Any]] = dataclasses.field(default_factory=lambda: [])
+    connect: typing.Optional[typing.Dict[str, typing.Any]] = None
     # Connect Cloud settings ({vanity_name, access_control}), preserved for
     # interop with Publisher-authored configs.
     connect_cloud: typing.Optional[typing.Dict[str, typing.Any]] = None
     schema_url: str = schema.CONFIG_SCHEMA_URL
     # Fields rsconnect does not manage, preserved verbatim on rewrite.
-    extra: typing.Dict[str, typing.Any] = dataclasses.field(default_factory=dict)
+    extra: typing.Dict[str, typing.Any] = dataclasses.field(default_factory=lambda: {})
 
     @property
     def app_mode(self) -> AppMode:
@@ -80,17 +96,33 @@ class PublisherConfig:
         data["product_type"] = self.product_type or schema.PRODUCT_TYPE_CONNECT
         data["type"] = self.type
         data["entrypoint"] = self.entrypoint
+        if self.source:
+            data["source"] = self.source
         if self.title:
             data["title"] = self.title
+        if self.description:
+            data["description"] = self.description
         # ``validate`` has no omitempty in Publisher; always written.
         data["validate"] = self.validate
         data["files"] = list(self.files)
+        if self.has_parameters:
+            data["has_parameters"] = self.has_parameters
         if self.python:
             data["python"] = self.python
         if self.quarto:
             data["quarto"] = self.quarto
         if self.r:
             data["r"] = self.r
+        if self.jupyter:
+            data["jupyter"] = self.jupyter
+        if self.environment:
+            data["environment"] = self.environment
+        if self.secrets:
+            data["secrets"] = list(self.secrets)
+        if self.integration_requests:
+            data["integration_requests"] = list(self.integration_requests)
+        if self.connect:
+            data["connect"] = self.connect
         if self.connect_cloud:
             data["connect_cloud"] = self.connect_cloud
         for key, value in self.extra.items():
@@ -113,20 +145,34 @@ def from_dict(data: typing.Mapping[str, typing.Any]) -> PublisherConfig:
     return PublisherConfig(
         type=data.get("type", "unknown"),
         entrypoint=data.get("entrypoint", ""),
+        source=data.get("source"),
         title=data.get("title"),
+        description=data.get("description"),
         validate=data.get("validate", True),
         files=list(data.get("files", []) or []),
+        has_parameters=data.get("has_parameters", False),
         product_type=data.get("product_type", schema.PRODUCT_TYPE_CONNECT),
         python=data.get("python"),
         quarto=data.get("quarto"),
         r=data.get("r"),
+        jupyter=data.get("jupyter"),
+        environment=dict(data.get("environment", {}) or {}),
+        secrets=list(data.get("secrets", []) or []),
+        integration_requests=list(data.get("integration_requests", []) or []),
+        connect=data.get("connect"),
         connect_cloud=data.get("connect_cloud"),
         schema_url=data.get("$schema", schema.CONFIG_SCHEMA_URL),
         extra={k: v for k, v in data.items() if k not in _MANAGED_KEYS},
     )
 
 
-def write_config(project_dir: str, name: str, cfg: PublisherConfig) -> typing.Tuple[str, typing.Dict[str, typing.Any]]:
+def write_config(
+    project_dir: str,
+    name: str,
+    cfg: PublisherConfig,
+    *,
+    merge_existing: bool = True,
+) -> typing.Tuple[str, typing.Dict[str, typing.Any]]:
     """Write ``cfg`` to ``<project_dir>/.posit/publish/<name>.toml``.
 
     If a config already exists, its unmanaged fields, its ``files`` include-list,
@@ -138,7 +184,7 @@ def write_config(project_dir: str, name: str, cfg: PublisherConfig) -> typing.Tu
     """
     path = schema.config_path(project_dir, name)
     comments: typing.List[str] = []
-    if os.path.exists(path):
+    if merge_existing and os.path.exists(path):
         existing = read_config(path)
         # Preserve unmanaged fields and user curation from the existing file.
         cfg.extra = {**existing.extra, **cfg.extra}
@@ -146,12 +192,28 @@ def write_config(project_dir: str, name: str, cfg: PublisherConfig) -> typing.Tu
             cfg.files = existing.files
         if existing.title and not cfg.title:
             cfg.title = existing.title
+        if existing.source and not cfg.source:
+            cfg.source = existing.source
+        if existing.description and not cfg.description:
+            cfg.description = existing.description
+        if existing.has_parameters and not cfg.has_parameters:
+            cfg.has_parameters = existing.has_parameters
         if existing.python and not cfg.python:
             cfg.python = existing.python
         if existing.quarto and not cfg.quarto:
             cfg.quarto = existing.quarto
         if existing.r and not cfg.r:
             cfg.r = existing.r
+        if existing.jupyter and not cfg.jupyter:
+            cfg.jupyter = existing.jupyter
+        if existing.environment and not cfg.environment:
+            cfg.environment = existing.environment
+        if existing.secrets and not cfg.secrets:
+            cfg.secrets = existing.secrets
+        if existing.integration_requests and not cfg.integration_requests:
+            cfg.integration_requests = existing.integration_requests
+        if existing.connect and not cfg.connect:
+            cfg.connect = existing.connect
         if existing.connect_cloud and not cfg.connect_cloud:
             cfg.connect_cloud = existing.connect_cloud
         if existing.product_type and cfg.product_type == schema.PRODUCT_TYPE_CONNECT:

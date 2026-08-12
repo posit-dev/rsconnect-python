@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import dataclasses
 import datetime
 import hashlib
 import hmac
@@ -1245,6 +1246,17 @@ class ServerDetails(TypedDict):
     python: ServerDetailsPython
 
 
+@dataclasses.dataclass(frozen=True)
+class PublisherContext:
+    """Explicit `.posit/publish` inputs for a config-driven deployment."""
+
+    project_dir: str
+    config_name: str
+    record_name: Optional[str]
+    include_files: Optional[List[str]]
+    manifest_overlay: Mapping[str, Any]
+
+
 class RSConnectExecutor:
     def __init__(
         self,
@@ -1277,6 +1289,7 @@ class RSConnectExecutor:
         branch: Optional[str] = None,
         subdirectory: Optional[str] = None,
         polling: bool = True,
+        publisher_context: Optional[PublisherContext] = None,
     ) -> None:
         self.remote_server: TargetableServer
         self.client: RSConnectClient | PositClient
@@ -1308,11 +1321,8 @@ class RSConnectExecutor:
         self.deployed_info: RSConnectClientDeployResult | None = None
         self._draft_deploy_supported: bool | None = None
 
-        # When a deploy originates from an existing .posit project (``redeploy``),
-        # these pin the exact config/record files to update so the write does not
-        # re-derive (and duplicate) them.
-        self.publisher_config_name: str | None = None
-        self.publisher_record_name: str | None = None
+        self.publisher_context = publisher_context
+        self.publisher_metadata_paths: Optional[typing.Tuple[str, str]] = None
 
         self.logger: logging.Logger | None = logger
         self.ctx = ctx
@@ -1624,7 +1634,9 @@ class RSConnectExecutor:
         force_unique_name = self.app_id is None
         self.deployment_name = self.make_deployment_name(self.title, force_unique_name)
 
-        include_files, manifest_overlay = self._resolve_publisher_bundle_context(func)
+        context = self.publisher_context
+        include_files = context.include_files if context else None
+        manifest_overlay: Mapping[str, Any] = context.manifest_overlay if context else {}
         try:
             with bundle_restrict_to_files(include_files), bundle_overlay_manifest(manifest_overlay):
                 self.bundle = func(*args, **kwargs)
@@ -1636,42 +1648,6 @@ class RSConnectExecutor:
             raise RSConnectException(msg)
 
         return self
-
-    def _resolve_publisher_bundle_context(
-        self, func: "Callable[..., Any]"
-    ) -> "tuple[Optional[list[str]], dict[str, Any]]":
-        """Resolve the ``.posit/publish`` inputs for this bundle build.
-
-        Returns ``(include_files, manifest_overlay)``:
-
-        - ``include_files`` -- the project-relative files to bundle, taken from an
-          applicable config's ``files`` allowlist, or ``None`` when no config
-          applies, which leaves the builder's whole-tree walk in place.
-        - ``manifest_overlay`` -- config-authored manifest fields rsconnect does
-          not derive from inspection (e.g. ``integration_requests``), propagated
-          into ``manifest.json`` exactly as Publisher would emit them.
-
-        Both are inert for ``deploy manifest`` (driven by its pre-built
-        ``manifest.json``) and if resolution fails for any reason.
-        """
-        if getattr(func, "__name__", "") == "make_manifest_bundle":
-            return None, {}
-        path = self.path
-        if os.path.isdir(path):
-            directory: str = path
-            entrypoint: Optional[str] = None
-        else:
-            directory = os.path.dirname(path) or "."
-            entrypoint = os.path.basename(path)
-        try:
-            from .publisher.store import resolve_bundle_files, resolve_manifest_overlay
-
-            include_files = resolve_bundle_files(directory, entrypoint, self.publisher_config_name)
-            overlay = resolve_manifest_overlay(directory, entrypoint, self.publisher_config_name)
-            return include_files, overlay
-        except Exception as exc:  # best-effort: never block a deploy on .posit resolution
-            logger.debug("Could not resolve .posit bundle context: %s", exc)
-            return None, {}
 
     def upload_posit_bundle(self, prepare_deploy_result: PrepareDeployResult, bundle_size: int, contents: bytes):
         upload_url = prepare_deploy_result.presigned_url
@@ -1844,6 +1820,8 @@ class RSConnectExecutor:
         app_store = self.app_store
         path = self.path
         deployed_info = self.deployed_info
+        if deployed_info is None:
+            raise RSConnectException("Cannot save deployment information before deploying a bundle.")
 
         app_store.set(
             self.remote_server.url,
@@ -1855,46 +1833,37 @@ class RSConnectExecutor:
             self.app_mode,
         )
 
-        # Dual-write Posit Publisher's .posit/publish config + deployment record
-        # for Connect/SPCS targets so the two tools interoperate. shinyapps.io /
-        # Posit Cloud (which lack a content GUID and dashboard URLs) stay on the
-        # legacy JSON store only.
-        if isinstance(self.remote_server, (RSConnectServer, SPCSConnectServer)):
+        if self.publisher_context and isinstance(self.remote_server, (RSConnectServer, SPCSConnectServer)):
             self._save_publisher_metadata(deployed_info)
 
         return self
 
     def _save_publisher_metadata(self, deployed_info: RSConnectClientDeployResult):
-        """Best-effort write of the ``.posit/publish`` config + record.
-
-        The deploy has already succeeded by the time metadata is saved, so any
-        failure here warns rather than aborting (mirroring the legacy save)."""
+        """Write the config and record for an explicit Publisher deployment."""
         if self.bundle is None:
-            return
-        try:
-            from .publisher import schema
-            from .publisher.store import write_deployment_metadata
+            raise RSConnectException("Cannot write Publisher metadata before a bundle is built.")
+        from .publisher import schema
+        from .publisher.store import write_deployment_metadata
 
-            path = self.path
-            project_dir = path if os.path.isdir(path) else os.path.dirname(abspath(path))
-            product_type = (
-                schema.PRODUCT_TYPE_SNOWFLAKE
-                if isinstance(self.remote_server, SPCSConnectServer)
-                else schema.PRODUCT_TYPE_CONNECT
-            )
-            write_deployment_metadata(
-                project_dir=project_dir,
-                server_url=self.remote_server.url,
-                product_type=product_type,
-                app_mode=self.app_mode or AppModes.UNKNOWN,
-                title=deployed_info.get("title") or self.title,
-                deployed_info=deployed_info,
-                bundle=self.bundle,
-                config_name=self.publisher_config_name,
-                record_name=self.publisher_record_name,
-            )
-        except Exception as e:
-            logger.warning("Could not write .posit/publish metadata: %s", e)
+        context = self.publisher_context
+        if context is None:
+            return
+        product_type = (
+            schema.PRODUCT_TYPE_SNOWFLAKE
+            if isinstance(self.remote_server, SPCSConnectServer)
+            else schema.PRODUCT_TYPE_CONNECT
+        )
+        self.publisher_metadata_paths = write_deployment_metadata(
+            project_dir=context.project_dir,
+            server_url=self.remote_server.url,
+            product_type=product_type,
+            app_mode=self.app_mode or AppModes.UNKNOWN,
+            title=deployed_info.get("title") or self.title,
+            deployed_info=deployed_info,
+            bundle=self.bundle,
+            config_name=context.config_name,
+            record_name=context.record_name,
+        )
 
     @property
     def supports_verify_before_activate(self) -> bool:

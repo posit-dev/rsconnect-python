@@ -304,6 +304,7 @@ def _spy_make_bundle(monkeypatch: pytest.MonkeyPatch) -> dict[str, typing.Any]:
         raise _StopDispatch()
 
     from rsconnect import api as api_mod
+    from rsconnect import deploy as deploy_mod
     from rsconnect import main as main_mod
 
     fake_environment = types.SimpleNamespace(python="python")
@@ -312,6 +313,9 @@ def _spy_make_bundle(monkeypatch: pytest.MonkeyPatch) -> dict[str, typing.Any]:
         "create_python_environment",
         classmethod(lambda cls, *args, **kwargs: fake_environment),
     )
+    monkeypatch.setattr(deploy_mod, "which_quarto", lambda quarto=None: "quarto")
+    monkeypatch.setattr(deploy_mod, "quarto_inspect", lambda quarto, path: {"engines": []})
+    monkeypatch.setattr(deploy_mod, "validate_quarto_engines", lambda inspect: [])
     monkeypatch.setattr(main_mod, "which_quarto", lambda quarto=None: "quarto")
     monkeypatch.setattr(main_mod, "quarto_inspect", lambda quarto, path: {"engines": []})
     monkeypatch.setattr(main_mod, "validate_quarto_engines", lambda inspect: [])

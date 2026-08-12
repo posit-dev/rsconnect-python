@@ -8,3 +8,25 @@ VS Code extension uses, so the two tools interoperate on the same project.
 The format (schema URLs, field names, content-type map, serialization details)
 is ported from the ``posit-dev/publisher`` project.
 """
+
+from .service import (
+    CONTENT_TYPES,
+    ContentTypeSpec,
+    InitRequest,
+    InitResult,
+    PublishRequest,
+    PublishResult,
+    initialize_project,
+    publish_project,
+)
+
+__all__ = [
+    "CONTENT_TYPES",
+    "ContentTypeSpec",
+    "InitRequest",
+    "InitResult",
+    "PublishRequest",
+    "PublishResult",
+    "initialize_project",
+    "publish_project",
+]

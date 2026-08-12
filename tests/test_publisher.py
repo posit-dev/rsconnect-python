@@ -536,36 +536,6 @@ def test_write_config_from_manifest(tmp_path):
     assert record.discover_records(project) == []
 
 
-def test_write_manifest_publisher_config_helper(tmp_path):
-    """The write-manifest CLI helper writes a config next to an existing
-    manifest.json, using the explicit app_mode (not the manifest's appmode)."""
-    import json as _json
-
-    from rsconnect.main import _write_manifest_publisher_config
-
-    (tmp_path / "manifest.json").write_text(_json.dumps(PY_SHINY_MANIFEST))
-    _write_manifest_publisher_config(str(tmp_path), AppModes.PYTHON_SHINY)
-
-    configs = config.discover_configs(str(tmp_path))
-    assert len(configs) == 1
-    cfg = config.read_config(configs[0])
-    assert cfg.type == "python-shiny"
-    assert cfg.entrypoint == "app.py"
-    # no record: write-manifest does not deploy
-    assert record.discover_records(str(tmp_path)) == []
-
-
-def test_write_manifest_publisher_config_skips_unknown_type(tmp_path):
-    """TensorFlow has no Publisher content type, so no config is written."""
-    import json as _json
-
-    from rsconnect.main import _write_manifest_publisher_config
-
-    (tmp_path / "manifest.json").write_text(_json.dumps(PY_SHINY_MANIFEST))
-    _write_manifest_publisher_config(str(tmp_path), AppModes.TENSORFLOW)
-    assert config.discover_configs(str(tmp_path)) == []
-
-
 def test_connect_cloud_round_trip(tmp_path):
     project = str(tmp_path)
     cfg = config.PublisherConfig(
@@ -584,24 +554,6 @@ def test_connect_cloud_round_trip(tmp_path):
     config.write_config(project, "cloud", config.PublisherConfig(type="python-shiny", entrypoint="app.py"))
     assert config.read_config(path).product_type == "connect_cloud"
     assert config.read_config(path).connect_cloud["vanity_name"] == "my-app"
-
-
-# --- redeploy settings that rsconnect cannot apply --------------------------
-
-
-def test_unhonored_redeploy_settings_reports_present_keys():
-    cfg = config.PublisherConfig(type="python-shiny", entrypoint="app.py")
-    cfg.extra = {
-        "environment": {"API_URL": "https://example.com"},
-        "connect": {"access": {"run_as": "rstudio-connect"}},
-        "unrelated_unknown_key": "kept-but-not-flagged",
-    }
-    assert store.unhonored_redeploy_settings(cfg) == ["environment", "connect"]
-
-
-def test_unhonored_redeploy_settings_empty_when_nothing_set():
-    cfg = config.PublisherConfig(type="python-shiny", entrypoint="app.py")
-    assert store.unhonored_redeploy_settings(cfg) == []
 
 
 # --- record matching by server -----------------------------------------------

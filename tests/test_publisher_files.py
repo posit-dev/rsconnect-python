@@ -277,12 +277,7 @@ def test_no_config_bundles_gitignored_files(tmp_path):
 # --- end-to-end: the executor resolves + restricts around the builder --------
 
 
-def test_executor_make_bundle_restricts_to_config(tmp_path):
-    import io
-
-    from rsconnect.api import RSConnectExecutor
-    from rsconnect.bundle import create_file_list
-
+def _make_config_restricted_project(tmp_path):
     root = str(tmp_path)
     _make_tree(root, ["app.py", "helpers.py", "requirements.txt"])
     publish = tmp_path / ".posit" / "publish"
@@ -291,6 +286,17 @@ def test_executor_make_bundle_restricts_to_config(tmp_path):
         '"$schema" = "x"\ntype = "python-shiny"\nentrypoint = "app.py"\nfiles = [\n    "/app.py",\n]\n',
         encoding="utf-8",
     )
+    return root
+
+
+def test_executor_make_bundle_uses_explicit_publisher_context(tmp_path):
+    import io
+
+    from rsconnect.api import PublisherContext, RSConnectExecutor
+    from rsconnect.bundle import create_file_list
+    from rsconnect.publisher.store import resolve_bundle_files
+
+    root = _make_config_restricted_project(tmp_path)
 
     captured = {}
 
@@ -300,14 +306,43 @@ def test_executor_make_bundle_restricts_to_config(tmp_path):
         captured["files"] = create_file_list(root, [], [])
         return io.BytesIO(b"bundle")
 
-    # make_bundle keys off the builder name to skip manifest-driven deploys.
-    fake_builder.__name__ = "make_api_bundle"
-
     # app_id set so make_deployment_name does not contact a server for a unique name.
-    ce = RSConnectExecutor(path=root, app_id="1")
+    ce = RSConnectExecutor(
+        path=root,
+        app_id="1",
+        publisher_context=PublisherContext(
+            project_dir=root,
+            config_name="app",
+            record_name=None,
+            include_files=resolve_bundle_files(root, config_name="app"),
+            manifest_overlay={},
+        ),
+    )
     ce.make_bundle(fake_builder)
 
     assert captured["files"] == ["app.py"]
+
+
+def test_executor_make_bundle_ignores_curation_by_default(tmp_path):
+    """A plain deploy has no Publisher context and therefore bundles everything."""
+    import io
+
+    from rsconnect.api import RSConnectExecutor
+    from rsconnect.bundle import create_file_list
+
+    root = _make_config_restricted_project(tmp_path)
+
+    captured = {}
+
+    def fake_builder(*_args, **_kwargs):
+        captured["files"] = create_file_list(root, [], [])
+        return io.BytesIO(b"bundle")
+
+    ce = RSConnectExecutor(path=root, app_id="1")
+    ce.make_bundle(fake_builder)
+
+    # the whole tree, including the config itself, since nothing restricts it
+    assert captured["files"] == [".posit/publish/app.toml", "app.py", "helpers.py", "requirements.txt"]
 
 
 # --- integration_requests propagation into the manifest ----------------------
@@ -387,7 +422,7 @@ def test_manifest_overlay_absent_when_no_context():
 
 
 def test_executor_propagates_integration_requests_to_manifest(tmp_path):
-    from rsconnect.api import RSConnectExecutor
+    from rsconnect.api import PublisherContext, RSConnectExecutor
     from rsconnect.bundle import make_source_manifest
     from rsconnect.models import AppModes
 
@@ -402,9 +437,19 @@ def test_executor_propagates_integration_requests_to_manifest(tmp_path):
         captured["manifest"] = make_source_manifest(AppModes.PYTHON_SHINY, entrypoint="app.py")
         return io.BytesIO(b"bundle")
 
-    fake_builder.__name__ = "make_api_bundle"
-
-    ce = RSConnectExecutor(path=root, app_id="1")
+    ce = RSConnectExecutor(
+        path=root,
+        app_id="1",
+        publisher_context=PublisherContext(
+            project_dir=root,
+            config_name="app",
+            record_name=None,
+            include_files=None,
+            manifest_overlay={
+                "integration_requests": [{"guid": "abc-123", "name": "My Snowflake", "type": "snowflake"}]
+            },
+        ),
+    )
     ce.make_bundle(fake_builder)
 
     assert captured["manifest"]["integration_requests"][0]["guid"] == "abc-123"
