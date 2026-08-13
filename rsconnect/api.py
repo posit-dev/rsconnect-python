@@ -2884,6 +2884,10 @@ class ConnectCloudLogs(TypedDict):
     data: list[ConnectCloudLogEntry]
 
 
+class ConnectCloudAuthorization(TypedDict):
+    token: NotRequired[str]
+
+
 # How many accounts to request per page from GET /accounts.
 _CONNECT_CLOUD_ACCOUNT_PAGE_SIZE = 100
 
@@ -3175,8 +3179,8 @@ class ConnectCloudClient(HTTPServer):
             "resource_id": channel,
             "permission": "revision.logs:read",
         }
-        response = self.post("/authorization", body=body)
-        data = cast(dict[str, Any], self._server.handle_bad_response(response))
+        response = cast(Union[ConnectCloudAuthorization, HTTPResponse], self.post("/authorization", body=body))
+        data = self._server.handle_bad_response(response)
         token = data.get("token")
         if not token:
             raise RSConnectException("Posit Connect Cloud did not return a log authorization token.")
