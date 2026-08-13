@@ -1,6 +1,6 @@
 # rsconnect-python task runner. Run `just --list` to see recipes.
 
-python_versions := "3.8 3.9 3.10 3.11 3.12 3.13"
+python_versions := "3.8 3.9 3.10 3.11 3.12 3.13 3.14"
 
 # Run the test suite against a single Python version (default 3.13)
 # Invoke via `bash` so the recipe works on Windows, where uv cannot spawn the
