@@ -287,7 +287,9 @@ def cloud_shinyapps_args(func: Callable[P, T]) -> Callable[P, T]:
         envvar=["SHINYAPPS_ACCOUNT"],
         help="The shinyapps.io or Posit Connect Cloud account name. (Also settable via the \
 SHINYAPPS_ACCOUNT environment variable for shinyapps.io, or CONNECT_CLOUD_ACCOUNT for \
-Posit Connect Cloud; each applies only to its own target.)",
+Posit Connect Cloud; each applies only to its own target.) For Posit Connect Cloud this \
+is the account to publish to, and may accompany -n/--name to publish to an account other \
+than the one the credential was saved with.",
     )
     @click.option(
         "--token",
@@ -358,7 +360,8 @@ def connect_cloud_account_arg(func: Callable[P, T]) -> Callable[P, T]:
         "--account",
         "-A",
         help="The Posit Connect Cloud account to deploy to. (Also settable via the \
-CONNECT_CLOUD_ACCOUNT environment variable.)",
+CONNECT_CLOUD_ACCOUNT environment variable.) May accompany -n/--name to publish to an \
+account other than the one the credential was saved with.",
     )
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):

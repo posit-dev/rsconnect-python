@@ -19,17 +19,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--connect-cloud` (or `-s connect.posit.cloud`) with `-A <account>` (or the
   `CONNECT_CLOUD_ACCOUNT` environment variable; a `SHINYAPPS_ACCOUNT` variable
   exported for shinyapps.io is ignored here), or `-n <nickname>` for a saved
-  account. Supported content types: Shiny (Python
-  and R), Streamlit, Dash, Bokeh, Jupyter notebooks, Quarto, R Markdown, and
-  static content.
+  credential — which publishes to the account it was saved with, or to another
+  account of the same login when `-A` is given as well. Supported content types:
+  Shiny (Python and R), Streamlit, Dash, Bokeh, Jupyter notebooks, Quarto,
+  R Markdown, and static content.
 - `rsconnect add` now reports invalid option combinations and unreadable
   certificate files as plain error messages. Previously these surfaced as raw
   Python tracebacks.
 - Deploying with a nickname (`-n`) no longer fails when `SHINYAPPS_ACCOUNT`,
   `SHINYAPPS_TOKEN`, or `SHINYAPPS_SECRET` happen to be set in the environment.
   Those values are ignored for nickname deploys — the saved credential is what
-  the nickname means. Shinyapps options typed on the command line still
-  conflict with `-n`.
+  the nickname means. A typed `-T/--token` or `-S/--secret` still conflicts with
+  `-n`.
 - Credentials are now redacted from verbose (`-v`) log output and from error
   messages that quote a request URL. This covers authorization and signing
   headers, OAuth tokens and client secrets in request and response bodies, the

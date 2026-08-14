@@ -1404,10 +1404,67 @@ class TestEnvironmentSourcedAccountIsScopedToItsTarget(unittest.TestCase):
         )
         self.assertEqual(server.account_name, "acme")
 
-    def test_a_typed_shinyapps_option_still_conflicts_with_a_nickname(self):
+    def test_a_typed_shinyapps_token_still_conflicts_with_a_nickname(self):
         with self.assertRaises(RSConnectException) as context:
-            _setup_remote_server(ctx=_ctx(account=TYPED), name="cloud", account_name="typed-acct")
+            _setup_remote_server(ctx=_ctx(token=TYPED), name="cloud", token="typed-token")
         self.assertIn("cannot be specified in conjunction", str(context.exception))
+
+
+class TestNicknameWithATypedAccount(unittest.TestCase):
+    """-A alongside -n is only meaningful for Connect Cloud, where the nickname
+    names the credential and -A the account to publish to. For every other target
+    the nickname already names the account, so the combination is a conflict --
+    judged after resolution, since only the store knows which target it is."""
+
+    def test_a_typed_account_selects_the_target_account_of_a_cloud_nickname(self):
+        server = _cloud_server(
+            ctx=_ctx(account=TYPED),
+            resolve=_cloud_entry(connect_cloud_account_id="acct-acme", connect_cloud_access_token="at"),
+            name="cloud",
+            account_name="typed-acct",
+        )
+        self.assertEqual(server.account_name, "typed-acct")
+        self.assertEqual(server.access_token, "at")
+        # The saved id belongs to the saved account, so publishing elsewhere resolves
+        # the name against the server instead.
+        self.assertIsNone(server.account_id)
+
+    def test_a_typed_account_still_conflicts_with_a_connect_nickname(self):
+        store = ServerStore(base_dir=tempfile.mkdtemp())
+        store.set("prod", "https://connect.example.com", api_key="key")
+        with self.assertRaises(RSConnectException) as context:
+            _setup_remote_server(ctx=_ctx(account=TYPED), store=store, name="prod", account_name="typed-acct")
+        self.assertIn("cannot be specified in conjunction", str(context.exception))
+
+    def test_a_typed_account_cannot_borrow_a_shinyapps_nicknames_credentials(self):
+        # The nickname's token and secret belong to its own account, so a typed -A
+        # must not deploy somewhere else with them.
+        with self.assertRaises(RSConnectException) as context:
+            _setup_remote_server(
+                ctx=_ctx(account=TYPED),
+                resolve=ServerData(
+                    "shiny",
+                    "https://api.shinyapps.io",
+                    True,
+                    account_name="saved-acct",
+                    token="saved-token",
+                    secret="saved-secret",
+                ),
+                name="shiny",
+                account_name="other-acct",
+            )
+        self.assertIn("cannot be specified in conjunction", str(context.exception))
+
+    def test_connect_options_with_a_cloud_nickname_are_reported_against_connect_cloud(self):
+        with self.assertRaises(RSConnectException) as context:
+            _setup_remote_server(
+                ctx=_ctx(account=TYPED, insecure=TYPED),
+                resolve=_cloud_entry(connect_cloud_access_token="at"),
+                name="cloud",
+                account_name="typed-acct",
+                insecure=True,
+            )
+        self.assertIn("alongside Posit Connect Cloud", str(context.exception))
 
 
 class TestDefaultServerAccountDeferral(unittest.TestCase):
@@ -2601,8 +2658,8 @@ class TestConnectCloudFlagAlias(CliTestCase):
 
 
 class TestConnectCloudSameAccountAmbiguity(unittest.TestCase):
-    """Several entries for the same account may hold different credentials, so
-    -A must not silently pick one of them."""
+    """Several credentials may share a default account (an interactive login and a
+    service account, say), so the account cannot pick one of them."""
 
     def _store(self):
         store = ServerStore(base_dir=tempfile.mkdtemp())
@@ -2610,10 +2667,10 @@ class TestConnectCloudSameAccountAmbiguity(unittest.TestCase):
             store.set(name, API, connect_cloud_account_name="acme", connect_cloud_access_token="at-" + name)
         return store
 
-    def test_lookup_by_account_with_several_matches_is_rejected(self):
+    def test_lookup_by_url_with_several_credentials_is_rejected(self):
         store = self._store()
         with self.assertRaises(RSConnectException) as context:
-            store.get_by_url("connect.posit.cloud", "acme")
+            store.get_by_url("connect.posit.cloud")
         message = str(context.exception)
         self.assertIn('"cloud-a"', message)
         self.assertIn('"cloud-b"', message)
@@ -2664,7 +2721,7 @@ class TestConnectCloudUrlVariantLookup(unittest.TestCase):
             "HTTPS://API.CONNECT.POSIT.CLOUD/v1",
             "connect.posit.cloud/",
         ):
-            entry = store.get_by_url(variant, "acme")
+            entry = store.get_by_url(variant)
             assert entry is not None, variant
             self.assertEqual(entry["name"], "cloud", variant)
 
@@ -2809,9 +2866,9 @@ class TestConnectCloudFindsSavedCredentialsByUrl(unittest.TestCase):
 
 
 class TestConnectCloudAccountSelection(unittest.TestCase):
-    """Every Connect Cloud server is saved under the same API URL, so the account is
-    what picks one out. Mirrors how the R client's findAccount() keys on
-    (account, server) and refuses to guess between several."""
+    """A saved entry is a credential, not an account binding: -A/--account says where
+    to publish and only -n/--name picks the credential. A single saved credential is
+    used whatever the account; several are ambiguous until a nickname names one."""
 
     def setUp(self):
         env_patch = mock.patch.dict(os.environ, {}, clear=True)
@@ -2833,6 +2890,14 @@ class TestConnectCloudAccountSelection(unittest.TestCase):
     def _server(self, store, **kwargs):
         return _cloud_server(store=store, **kwargs)
 
+    def test_nothing_saved_resolves_to_no_credential(self):
+        self.assertIsNone(self._store().get_by_url(connect_cloud.SERVER_NAME))
+
+    def test_one_saved_credential_is_found_by_url(self):
+        entry = self._one().get_by_url(connect_cloud.SERVER_NAME)
+        assert entry is not None
+        self.assertEqual(entry["name"], "cloud")
+
     def test_the_account_is_not_required_when_one_server_is_saved(self):
         server = self._server(self._one(), use_connect_cloud=True)
         self.assertEqual(server.account_name, "sam")
@@ -2852,34 +2917,41 @@ class TestConnectCloudAccountSelection(unittest.TestCase):
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertIn("-A/--account is required", result.output)
 
-    def test_the_account_selects_among_several_saved_servers(self):
-        server = self._server(self._two(), use_connect_cloud=True, account_name="acme-team")
-        self.assertEqual(server.access_token, "ci-token")
-        self.assertEqual(server.server_name, "ci")
+    def test_the_account_does_not_select_among_several_credentials(self):
+        # The account a credential was saved with is its default publish target, not
+        # its scope, so naming an account cannot say which credential to use.
+        for account in ("acme-team", "sam", "stranger"):
+            with self.assertRaises(RSConnectException) as context:
+                self._server(self._two(), use_connect_cloud=True, account_name=account)
+            self.assertIn("-n/--name", str(context.exception))
 
-        server = self._server(self._two(), use_connect_cloud=True, account_name="sam")
-        self.assertEqual(server.access_token, "sam-token")
-        self.assertEqual(server.server_name, "personal")
-
-    def test_several_saved_servers_and_no_account_is_an_error(self):
+    def test_several_saved_credentials_are_listed_with_their_accounts(self):
         with self.assertRaises(RSConnectException) as context:
             self._server(self._two(), use_connect_cloud=True)
         message = str(context.exception)
-        self.assertIn("Several Posit Connect Cloud accounts are saved", message)
-        self.assertIn('acme-team (nickname "ci")', message)
-        self.assertIn('sam (nickname "personal")', message)
-
-    def test_several_saved_servers_and_an_unknown_account_is_an_error(self):
-        with self.assertRaises(RSConnectException) as context:
-            self._server(self._two(), use_connect_cloud=True, account_name="stranger")
-        message = str(context.exception)
-        self.assertIn('No saved Posit Connect Cloud credential is for account "stranger"', message)
-        self.assertIn('acme-team (nickname "ci")', message)
+        self.assertIn("Several Posit Connect Cloud credentials are saved", message)
+        self.assertIn('"ci" (account acme-team)', message)
+        self.assertIn('"personal" (account sam)', message)
 
     def test_a_nickname_selects_a_server_without_the_account(self):
         server = self._server(self._two(), name="ci")
         self.assertEqual(server.account_name, "acme-team")
         self.assertEqual(server.access_token, "ci-token")
+
+    def test_a_nickname_publishes_to_another_account_of_the_same_credential(self):
+        store = self._two()
+        store.set(
+            "personal",
+            API,
+            connect_cloud_account_name="sam",
+            connect_cloud_account_id="acct-sam",
+            connect_cloud_access_token="sam-token",
+        )
+        server = self._server(store, name="personal", environ={"CONNECT_CLOUD_ACCOUNT": "acme-team"})
+
+        self.assertEqual(server.access_token, "sam-token")
+        self.assertEqual(server.account_name, "acme-team")
+        self.assertIsNone(server.account_id)
 
     def test_one_saved_login_publishes_to_another_of_its_accounts(self):
         # A Connect Cloud token belongs to a user, who can publish to every account
@@ -2896,14 +2968,14 @@ class TestConnectCloudAccountSelection(unittest.TestCase):
             result = runner.invoke(cli, ["remove", "-s", connect_cloud.SERVER_NAME])
         self.assertEqual(result.exit_code, 1, result.output)
         # `remove` reports through cli_feedback, so the message lands on stdout.
-        self.assertIn("Several Posit Connect Cloud accounts are saved", result.output)
+        self.assertIn("Several Posit Connect Cloud credentials are saved", result.output)
         self.assertIsNotNone(store.get_by_name("personal"))
         self.assertIsNotNone(store.get_by_name("ci"))
 
     def test_a_connect_server_url_is_unaffected(self):
         store = ServerStore(base_dir=tempfile.mkdtemp())
         store.set("prod", "https://connect.example.com", api_key="key")
-        entry = store.get_by_url("https://connect.example.com", account_name="ignored")
+        entry = store.get_by_url("https://connect.example.com")
         assert entry is not None
         self.assertEqual(entry["name"], "prod")
 

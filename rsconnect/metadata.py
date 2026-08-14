@@ -370,28 +370,26 @@ class ServerStore(DataStore[ServerDataDict]):
         """
         return self._get_by_key(name)
 
-    def get_by_url(self, url: str, account_name: Optional[str] = None):
+    def get_by_url(self, url: str):
         """
         Get the server information for the given URL..
 
         :param url: the Connect URL of the server to get information for. A short
         name such as "connect.posit.cloud" is translated to the API URL entries are
         stored under.
-        :param account_name: the Posit Connect Cloud account to select, for the case
-        where one URL covers several saved servers.
-        :raises RSConnectException: if several Posit Connect Cloud servers share the
-        URL and the account does not single one out.
+        :raises RSConnectException: if several Posit Connect Cloud credentials share
+        the URL, since only a nickname can tell them apart.
         """
         target = resolve_server_alias(url)
         if connect_cloud.is_connect_cloud_url(target):
-            return self._get_connect_cloud_server(target, account_name)
+            return self._get_connect_cloud_server(target)
         return self._get_by_value_attr("url", target)
 
     def has_connect_cloud_account(self, url: Optional[str]) -> bool:
         """Whether any Posit Connect Cloud credential is saved for this URL.
 
         Callers use this to decide whether the account has to be supplied on the
-        command line or can come from a saved server.
+        command line or can come from a saved credential's default target.
         """
         if not url:
             return False
@@ -408,45 +406,32 @@ class ServerStore(DataStore[ServerDataDict]):
             key=lambda entry: entry.get("name") or "",
         )
 
-    def _get_connect_cloud_server(self, url: str, account_name: Optional[str]):
-        """Pick one of the Posit Connect Cloud servers saved for an API URL.
+    def _get_connect_cloud_server(self, url: str):
+        """Pick the Posit Connect Cloud credential saved for an API URL.
 
         Every Connect Cloud entry records the same API URL, so unlike Posit Connect
-        the URL does not identify one server; the account does. With a single saved
-        login an explicit account still selects what to publish to rather than which
-        credential to use, since that login can publish to every account it has
-        access to. Anything more ambiguous is reported rather than guessed at.
+        the URL does not identify one entry. An entry is a credential, not an account
+        binding: the login behind it can publish to every account its user has rights
+        on, so -A/--account selects the publish target and only the nickname selects
+        the credential. With several saved the choice is reported rather than guessed
+        at, because they may hold different credentials (an interactive login and a
+        service account, or two identities) which refresh differently.
         """
         candidates = self._connect_cloud_servers(url)
-        if account_name:
-            matches = [e for e in candidates if e.get("connect_cloud_account_name") == account_name]
-            if len(matches) == 1:
-                return matches[0]
-            if len(matches) > 1:
-                # The entries may hold different credentials (interactive vs
-                # service account); picking one silently would decide which gets
-                # used and refreshed.
-                nicknames = ", ".join('"%s"' % e.get("name") for e in matches)
-                raise RSConnectException(
-                    'Several saved Posit Connect Cloud credentials are for account "%s": %s. '
-                    "Use -n/--name to pick one." % (account_name, nicknames)
-                )
         if not candidates:
             return None
         if len(candidates) == 1:
             return candidates[0]
 
+        # The account each credential publishes to by default, so the nicknames can
+        # be recognized.
         saved = ", ".join(
-            '%s (nickname "%s")' % (entry.get("connect_cloud_account_name"), entry.get("name")) for entry in candidates
+            '"%s" (account %s)' % (entry.get("name"), entry.get("connect_cloud_account_name")) for entry in candidates
         )
-        if account_name:
-            raise RSConnectException(
-                'No saved Posit Connect Cloud credential is for account "%s", and there are several to choose '
-                "from: %s. Use -n/--name to choose one, or run `rsconnect add` for that account."
-                % (account_name, saved)
-            )
         raise RSConnectException(
-            "Several Posit Connect Cloud accounts are saved: %s. Use -A/--account or -n/--name to pick one." % saved
+            "Several Posit Connect Cloud credentials are saved: %s. Use -n/--name to choose one, adding "
+            "-A/--account to publish to a different account, or pass --client-id and --client-secret to "
+            "use a service account credential directly." % saved
         )
 
     def get_all_servers(self):
@@ -590,8 +575,8 @@ class ServerStore(DataStore[ServerDataDict]):
         arbitrary one.
 
         :param url: the Connect URL of the server to remove.
-        :raises RSConnectException: if several Posit Connect Cloud entries share
-        the URL.
+        :raises RSConnectException: if several Posit Connect Cloud credentials
+        share the URL.
         """
         entry = self.get_by_url(url)
         if entry is None:
@@ -620,7 +605,7 @@ class ServerStore(DataStore[ServerDataDict]):
             updated.pop("oauth_token_expiry", None)  # type: ignore[misc]
         self._set(name, updated)
 
-    def resolve(self, name: Optional[str], url: Optional[str], account_name: Optional[str] = None) -> ServerData:
+    def resolve(self, name: Optional[str], url: Optional[str]) -> ServerData:
         """
         This function will resolve the given inputs into a set of server information.
         It assumes that either `name` or `url` is provided.
@@ -638,8 +623,6 @@ class ServerStore(DataStore[ServerDataDict]):
 
         :param name: the nickname to look for.
         :param url: the Connect server URL to look for.
-        :param account_name: the Posit Connect Cloud account to look for, which is
-        what identifies one of several servers sharing the Connect Cloud API URL.
         :return: the information needed to interact with the resolved server and whether
         it came from the store or the arguments.
         """
@@ -648,7 +631,7 @@ class ServerStore(DataStore[ServerDataDict]):
             if not entry:
                 raise RSConnectException('The nickname, "%s", does not exist.' % name)
         elif url:
-            entry = self.get_by_url(url, account_name)
+            entry = self.get_by_url(url)
         else:
             entry = self.get_default()
             if entry is None and self.count() == 1:

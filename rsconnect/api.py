@@ -1577,12 +1577,12 @@ class RSConnectExecutor:
             server_data = ServerData(None, None, False)
         else:
             try:
-                server_data = store.resolve(name, url, account_name)
+                server_data = store.resolve(name, url)
             except RSConnectException:
-                # Several saved Connect Cloud entries can make the lookup ambiguous,
+                # Several saved Connect Cloud credentials make the lookup ambiguous,
                 # but a complete supplied credential pair with an account is its own
                 # identity (the one-shot/CI shape) and needs nothing from the store.
-                # A matching single entry still resolves above and keeps its
+                # A single saved credential still resolves above and keeps its
                 # token-reuse and write-back behavior.
                 if supplied_client_id and supplied_client_secret and account_name and not name:
                     server_data = ServerData(None, None, False)
@@ -1653,11 +1653,19 @@ class RSConnectExecutor:
             # Deferred from validate_connection_options: a nickname or default
             # server is only known not to be Connect Cloud here, after resolution.
             validation.validate_connect_cloud_credential_options(ctx, supplied_client_id, supplied_client_secret)
-            # Also deferred: a lone -A was allowed through when a default server
-            # might have resolved to Connect Cloud. It did not, so the shinyapps
-            # all-or-nothing rule applies after all -- judged on the pre-merge
-            # values, or a default shinyapps entry's token and secret would
-            # satisfy it and deploy the typed account with borrowed credentials.
+            # Also deferred: a lone -A was allowed through when a nickname or
+            # default server might have resolved to Connect Cloud. It did not, so
+            # -A means the shinyapps account again -- which a nickname already
+            # names, and which the all-or-nothing rule below governs otherwise.
+            # Both are judged on the pre-merge values, or a default shinyapps
+            # entry's token and secret would satisfy the rule and deploy the typed
+            # account with borrowed credentials.
+            if name and supplied_account_name:
+                raise RSConnectException(
+                    "-n/--name cannot be specified in conjunction with -A/--account, unless the nickname \
+names a Posit Connect Cloud credential, where -A selects the account to publish to. \
+See command help for further details."
+                )
             if supplied_account_name and not (supplied_token and supplied_secret):
                 raise RSConnectException(
                     "-A/--account, -T/--token, and -S/--secret must all be provided \
