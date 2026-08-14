@@ -12,6 +12,7 @@ from rsconnect.http_support import HTTPResponse
 from rsconnect.metadata import ServerData
 from rsconnect.oauth import (
     InvalidClientError,
+    InvalidGrantError,
     _exchange_code_for_token,
     _poll_for_device_token,
     discover_oauth_metadata,
@@ -289,6 +290,20 @@ class TestRefreshAccessToken:
         mock_http_server.request.return_value = _make_response(401, {"error": "invalid_client"})
         with pytest.raises(InvalidClientError):
             refresh_access_token(FAKE_METADATA, "bad-client", "old-rt")
+
+    def test_invalid_grant(self, mock_http_server: MagicMock):
+        mock_http_server.request.return_value = _make_response(
+            400, {"error": "invalid_grant", "error_description": "refresh token expired"}
+        )
+        with pytest.raises(InvalidGrantError, match="refresh token expired") as raised:
+            refresh_access_token(FAKE_METADATA, "client-1", "old-rt")
+        assert raised.value.description == "refresh token expired"
+
+    def test_invalid_grant_without_a_description(self, mock_http_server: MagicMock):
+        mock_http_server.request.return_value = _make_response(400, {"error": "invalid_grant"})
+        with pytest.raises(InvalidGrantError, match="revoked") as raised:
+            refresh_access_token(FAKE_METADATA, "client-1", "old-rt")
+        assert raised.value.description is None
 
 
 class TestKeyringIntegration:

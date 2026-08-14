@@ -37,15 +37,31 @@ class InvalidClientError(RSConnectException):
         super().__init__("OAuth client_id is invalid or has been deleted on the server.")
 
 
+class InvalidGrantError(RSConnectException):
+    """Raised when the OAuth server returns an invalid_grant error.
+
+    The grant presented — usually a refresh token — has expired, been revoked,
+    or was issued to another client. Callers decide what to do about it; the
+    server's ``error_description`` is kept in ``description`` when it sends one.
+    """
+
+    def __init__(self, description: Optional[str] = None) -> None:
+        self.description = description
+        detail = f": {description}" if description else "."
+        super().__init__(f"The OAuth grant is invalid, expired, or has been revoked{detail}")
+
+
 def _check_oauth_error_response(response: HTTPResponse) -> None:
     """Check an HTTPResponse for OAuth error codes and raise appropriately."""
     if response.json_data and isinstance(response.json_data, dict):
-        error = response.json_data.get("error", "")
+        error = str(response.json_data.get("error") or "")
+        description = str(response.json_data.get("error_description") or "")
         if error == "invalid_client":
             raise InvalidClientError()
-        description = response.json_data.get("error_description", error)
-        if description:
-            raise RSConnectException(f"OAuth error: {description}")
+        if error == "invalid_grant":
+            raise InvalidGrantError(description or None)
+        if description or error:
+            raise RSConnectException(f"OAuth error: {description or error}")
 
 
 def _unwrap_json_response(response: Any) -> dict[str, Any]:
@@ -442,7 +458,8 @@ def refresh_access_token(
     """Refresh an OAuth access token using a refresh token.
 
     Returns the new token response dict. Raises InvalidClientError if the
-    client_id has been deleted server-side.
+    client_id has been deleted server-side, or InvalidGrantError if the refresh
+    token has expired or been revoked.
     """
     params = {
         "grant_type": "refresh_token",

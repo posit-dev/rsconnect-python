@@ -12,6 +12,7 @@ import hmac
 import json
 import os
 import re
+import shlex
 import sys
 import tarfile
 import time
@@ -2947,10 +2948,15 @@ class ConnectCloudClient(HTTPServer):
         Uses the client credentials grant when a service account credential is
         stored, and the refresh token otherwise. Returns whether a new token was
         obtained.
+
+        A credential the auth server rejects outright raises instead, since no
+        retry will fix it and the caller would otherwise report only the opaque
+        401. Transient failures still return False so the original 401 surfaces.
         """
-        from .metadata import ServerStore
+        from .oauth import InvalidClientError, InvalidGrantError
 
         server = self._server
+        service_account = bool(server.client_id and server.client_secret)
         try:
             if server.client_id and server.client_secret:
                 tokens = connect_cloud.login_client_credentials(
@@ -2960,12 +2966,32 @@ class ConnectCloudClient(HTTPServer):
                 tokens = connect_cloud.refresh(server.refresh_token, server.environment)
             else:
                 return False
+        except InvalidClientError as exc:
+            if not service_account:
+                # This CLI's own OAuth client, not the user's credential.
+                logger.warning("Posit Connect Cloud token refresh failed: %s" % exc)
+                return False
+            raise RSConnectException(
+                "The Posit Connect Cloud service account credential was rejected — it has been revoked or "
+                "rotated. Create a new one at %s/identity/credentials, then save it with `%s`."
+                % (server.urls().auth, self._add_command(service_account=True))
+            ) from exc
+        except InvalidGrantError as exc:
+            if service_account:
+                logger.warning("Posit Connect Cloud token refresh failed: %s" % exc)
+                return False
+            self._persist_tokens(None, None)
+            raise RSConnectException(
+                "Your Posit Connect Cloud session has expired and could not be renewed. "
+                "Authenticate again with `%s`." % self._add_command()
+            ) from exc
         except RSConnectException as exc:
-            logger.debug("Posit Connect Cloud token refresh failed: %s" % exc)
+            logger.warning("Posit Connect Cloud token refresh failed: %s" % exc)
             return False
 
         access_token = tokens.get("access_token")
         if not access_token:
+            logger.warning("Posit Connect Cloud returned no access token when refreshing the credential.")
             return False
 
         server.access_token = access_token
@@ -2973,30 +2999,67 @@ class ConnectCloudClient(HTTPServer):
         # so keep the existing one rather than clearing it.
         server.refresh_token = tokens.get("refresh_token") or server.refresh_token
         self._apply_authorization()
-
-        if server.server_name:
-            store = ServerStore()
-            entry = store.get_by_name(server.server_name)
-            if entry:
-                # A refresh persists the new tokens and nothing else. Every other field
-                # is taken from the saved entry alone — never from this run, which may
-                # be publishing to a different account on the same login, or carrying
-                # service-account credentials from the environment that must not be
-                # grafted onto an interactively created entry. `rsconnect add` is what
-                # changes those. This is how the R client's withTokenRefreshRetry()
-                # writes back too. ServerStore.set writes the file itself.
-                store.set(
-                    server.server_name,
-                    server.url,
-                    connect_cloud_account_name=entry.get("connect_cloud_account_name") or server.account_name,
-                    connect_cloud_account_id=entry.get("connect_cloud_account_id"),
-                    connect_cloud_client_id=entry.get("connect_cloud_client_id"),
-                    connect_cloud_client_secret=entry.get("connect_cloud_client_secret"),
-                    connect_cloud_access_token=server.access_token,
-                    connect_cloud_refresh_token=server.refresh_token,
-                )
+        self._persist_tokens(server.access_token, server.refresh_token)
 
         return True
+
+    def _add_command(self, service_account: bool = False) -> str:
+        """The `rsconnect add` invocation that would re-save this credential."""
+        from .metadata import ServerStore
+
+        server = self._server
+        # Re-adding must keep the nickname pointed at the saved entry's account,
+        # not this run's, which may be publishing to a different one via -A.
+        account = server.account_name
+        if server.server_name:
+            entry = ServerStore().get_by_name(server.server_name)
+            if entry:
+                account = entry.get("connect_cloud_account_name") or account
+        parts = ["rsconnect add --connect-cloud"]
+        if server.environment != connect_cloud.DEFAULT_ENVIRONMENT:
+            # Without the URL, add would authenticate against production.
+            parts.append("-s %s" % shlex.quote(server.url))
+        parts.append("-n %s" % (shlex.quote(server.server_name) if server.server_name else "<nickname>"))
+        parts.append("-A %s" % (shlex.quote(account) if account else "<account>"))
+        if service_account:
+            parts.append("--client-id <id> --client-secret <secret>")
+        return " ".join(parts)
+
+    def _persist_tokens(self, access_token: Optional[str], refresh_token: Optional[str]) -> None:
+        """Write the tokens back to the saved entry, or clear them when both are None.
+
+        Does nothing for a run with no saved entry behind it: a credential
+        override or a one-shot deploy.
+        """
+        from .metadata import ServerStore
+
+        server = self._server
+        if not server.server_name:
+            return
+
+        store = ServerStore()
+        entry = store.get_by_name(server.server_name)
+        if not entry:
+            return
+
+        # A refresh persists the new tokens and nothing else. Every other field
+        # is taken from the saved entry alone — never from this run, which may
+        # be publishing to a different account on the same login, or carrying
+        # service-account credentials from the environment that must not be
+        # grafted onto an interactively created entry. `rsconnect add` is what
+        # changes those. This is how the R client's withTokenRefreshRetry()
+        # writes back too. ServerStore.set writes the file itself, and omits
+        # the token fields when they are None.
+        store.set(
+            server.server_name,
+            server.url,
+            connect_cloud_account_name=entry.get("connect_cloud_account_name") or server.account_name,
+            connect_cloud_account_id=entry.get("connect_cloud_account_id"),
+            connect_cloud_client_id=entry.get("connect_cloud_client_id"),
+            connect_cloud_client_secret=entry.get("connect_cloud_client_secret"),
+            connect_cloud_access_token=access_token,
+            connect_cloud_refresh_token=refresh_token,
+        )
 
     def get_current_user(self) -> JsonData:
         response = self.get("/users/me")

@@ -25,6 +25,7 @@ from rsconnect.log import VERBOSE
 from rsconnect.main import cli
 from rsconnect.metadata import AppStore, ServerData, ServerStore
 from rsconnect.models import AppModes
+from rsconnect.oauth import InvalidClientError, InvalidGrantError
 from rsconnect.validation import validate_connection_options
 
 ENV = ParameterSource.ENVIRONMENT
@@ -720,12 +721,30 @@ class TestConnectCloudClientTokenRefresh(unittest.TestCase):
                 client.get_current_user()
         return refresher
 
-    def _save_entry(self, **fields):
-        """Persist a "cloud" entry and point the client's write-back store at it."""
+    def _get_user_with_refresh_failure(self, server, mock_target, error):
+        """Serve a 401 with the named rsconnect.connect_cloud function raising `error`.
+
+        Returns the exception that reached the caller, so a test can tell an
+        actionable refresh failure from the original 401 passing through.
+        """
+        httpretty.register_uri(
+            httpretty.GET,
+            f"{API}/users/me",
+            responses=[httpretty.Response(body="", status=401), _json_response({"id": "u1"})],
+        )
+        client = ConnectCloudClient(server)
+        with mock.patch(f"rsconnect.connect_cloud.{mock_target}", side_effect=error):
+            with client:
+                with self.assertRaises(RSConnectException) as raised:
+                    client.get_current_user()
+        return raised.exception
+
+    def _save_entry(self, name="cloud", **fields):
+        """Persist a saved entry and point the client's write-back store at it."""
         self._base_dir = tempfile.mkdtemp()
         store = ServerStore(base_dir=self._base_dir)
         fields.setdefault("connect_cloud_account_name", "acme")
-        store.set("cloud", API, **fields)
+        store.set(name, API, **fields)
         store.save()
         # The client imports ServerStore inside the function, so patch it at its source.
         patch = mock.patch("rsconnect.metadata.ServerStore", lambda: ServerStore(base_dir=self._base_dir))
@@ -850,6 +869,131 @@ class TestConnectCloudClientTokenRefresh(unittest.TestCase):
         self.assertEqual(entry["connect_cloud_client_id"], "saved-cid")
         self.assertEqual(entry["connect_cloud_client_secret"], "saved-secret")
         self.assertEqual(entry["connect_cloud_access_token"], "fresh")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_an_expired_refresh_token_clears_the_stored_tokens_and_says_how_to_reauthenticate(self):
+        self._save_entry(
+            connect_cloud_account_id="acct-1",
+            connect_cloud_access_token="stale",
+            connect_cloud_refresh_token="rt",
+        )
+        server = ConnectCloudServer("acme", access_token="stale", refresh_token="rt", server_name="cloud")
+        exception = self._get_user_with_refresh_failure(server, "refresh", InvalidGrantError("token expired"))
+
+        self.assertIn("session has expired", exception.message)
+        self.assertIn("rsconnect add --connect-cloud -n cloud -A acme", exception.message)
+        entry = self._stored_entry()
+        self.assertNotIn("connect_cloud_access_token", entry)
+        self.assertNotIn("connect_cloud_refresh_token", entry)
+        # Only the tokens go: the entry is still the credential to re-authenticate.
+        self.assertEqual(entry["name"], "cloud")
+        self.assertEqual(entry["connect_cloud_account_name"], "acme")
+        self.assertEqual(entry["connect_cloud_account_id"], "acct-1")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_an_expired_refresh_token_is_reported_without_a_saved_entry(self):
+        server = ConnectCloudServer("acme", access_token="stale", refresh_token="rt")
+        with mock.patch("rsconnect.metadata.ServerStore") as store:
+            exception = self._get_user_with_refresh_failure(server, "refresh", InvalidGrantError())
+
+        store.assert_not_called()
+        self.assertIn("session has expired", exception.message)
+        self.assertIn("rsconnect add --connect-cloud -n <nickname> -A acme", exception.message)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_the_reauthentication_command_names_the_saved_entrys_account(self):
+        # The run may be publishing to another account on the same login;
+        # re-adding must not repoint the nickname at it.
+        self._save_entry(connect_cloud_account_name="alice", connect_cloud_refresh_token="rt")
+        server = ConnectCloudServer("team-x", access_token="stale", refresh_token="rt", server_name="cloud")
+        exception = self._get_user_with_refresh_failure(server, "refresh", InvalidGrantError())
+
+        self.assertIn("-A alice", exception.message)
+        self.assertNotIn("team-x", exception.message)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_the_reauthentication_command_keeps_a_non_production_server(self):
+        # Without the URL, the suggested add would authenticate against production.
+        staging_api = "https://api.staging.connect.posit.cloud/v1"
+        httpretty.register_uri(httpretty.GET, f"{staging_api}/users/me", body="", status=401)
+        server = ConnectCloudServer("acme", access_token="stale", refresh_token="rt", url=staging_api)
+        client = ConnectCloudClient(server)
+
+        with mock.patch("rsconnect.connect_cloud.refresh", side_effect=InvalidGrantError()):
+            with client:
+                with self.assertRaises(RSConnectException) as raised:
+                    client.get_current_user()
+
+        self.assertIn("-s %s" % staging_api, raised.exception.message)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_the_reauthentication_command_quotes_values_that_need_it(self):
+        self._save_entry(name="my cloud", connect_cloud_account_name="acme", connect_cloud_refresh_token="rt")
+        server = ConnectCloudServer("acme", access_token="stale", refresh_token="rt", server_name="my cloud")
+        exception = self._get_user_with_refresh_failure(server, "refresh", InvalidGrantError())
+
+        self.assertIn("-n 'my cloud' -A acme", exception.message)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_a_rejected_service_account_secret_is_reported_and_the_entry_is_left_alone(self):
+        self._save_entry(
+            connect_cloud_client_id="cid",
+            connect_cloud_client_secret="csecret",
+            connect_cloud_access_token="stale",
+        )
+        server = ConnectCloudServer(
+            "acme", access_token="stale", client_id="cid", client_secret="csecret", server_name="cloud"
+        )
+        exception = self._get_user_with_refresh_failure(server, "login_client_credentials", InvalidClientError())
+
+        self.assertIn("service account credential was rejected", exception.message)
+        self.assertIn("https://login.posit.cloud/identity/credentials", exception.message)
+        self.assertIn(
+            "rsconnect add --connect-cloud -n cloud -A acme --client-id <id> --client-secret <secret>",
+            exception.message,
+        )
+        entry = self._stored_entry()
+        self.assertEqual(entry["connect_cloud_client_secret"], "csecret")
+        self.assertEqual(entry["connect_cloud_access_token"], "stale")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_a_transient_refresh_failure_leaves_the_original_401_and_warns(self):
+        self._save_entry(connect_cloud_access_token="stale", connect_cloud_refresh_token="rt")
+        server = ConnectCloudServer("acme", access_token="stale", refresh_token="rt", server_name="cloud")
+
+        with self.assertLogs("rsconnect", level="WARNING") as captured:
+            exception = self._get_user_with_refresh_failure(
+                server, "refresh", RSConnectException("Could not connect to https://login.posit.cloud")
+            )
+
+        self.assertIn("401", exception.message)
+        self.assertIn("token refresh failed", "\n".join(captured.output))
+        self.assertEqual(self._stored_entry()["connect_cloud_refresh_token"], "rt")
+        self.assertEqual(len(httpretty.latest_requests()), 1)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_a_rejected_cli_oauth_client_is_not_reported_as_an_expired_session(self):
+        # invalid_client on the refresh-token path is about this CLI's own OAuth
+        # client, not a credential the user can re-save.
+        self._save_entry(connect_cloud_access_token="stale", connect_cloud_refresh_token="rt")
+        server = ConnectCloudServer("acme", access_token="stale", refresh_token="rt", server_name="cloud")
+
+        with self.assertLogs("rsconnect", level="WARNING"):
+            exception = self._get_user_with_refresh_failure(server, "refresh", InvalidClientError())
+
+        self.assertIn("401", exception.message)
+        self.assertEqual(self._stored_entry()["connect_cloud_refresh_token"], "rt")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_invalid_grant_from_a_client_credentials_grant_leaves_the_original_401(self):
+        server = ConnectCloudServer("acme", access_token="stale", client_id="cid", client_secret="csecret")
+
+        with self.assertLogs("rsconnect", level="WARNING"):
+            exception = self._get_user_with_refresh_failure(
+                server, "login_client_credentials", InvalidGrantError("no grant")
+            )
+
+        self.assertIn("401", exception.message)
 
 
 class TestConnectCloudAdd(CliTestCase):
