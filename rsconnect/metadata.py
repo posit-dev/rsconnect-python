@@ -697,7 +697,8 @@ class AppMetadata(TypedDict):
     filename: str
     app_url: str
     app_id: str
-    app_guid: str
+    # Posit Connect Cloud and shinyapps.io identify content by id alone.
+    app_guid: Optional[str]
     title: str
     app_mode: str
     app_store_version: int
@@ -757,7 +758,7 @@ class AppStore(DataStore[AppMetadata]):
         filename: str,
         app_url: str,
         app_id: str,
-        app_guid: str,
+        app_guid: Optional[str],
         title: str,
         app_mode: AppMode | str,
     ):
@@ -785,6 +786,16 @@ class AppStore(DataStore[AppMetadata]):
                 "app_store_version": self.version,
             },
         )
+
+    def remove(self, server_url: str) -> bool:
+        """
+        Forget the metadata for the app deployed to the given server.
+
+        :param server_url: the key the record is stored under, as reported by
+        `get_all()`.
+        :return: whether a record was removed.
+        """
+        return self._remove_by_key(server_url)
 
     def resolve(self, server: str, app_id: Optional[str], app_mode: Optional[AppMode]):
         metadata = self.get(server)
