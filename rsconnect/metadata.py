@@ -385,6 +385,17 @@ class ServerStore(DataStore[ServerDataDict]):
             return self._get_connect_cloud_server(target)
         return self._get_by_value_attr("url", target)
 
+    def saved_entry(self, name: Optional[str], url: str) -> Optional[ServerDataDict]:
+        """The entry a server in hand came from: by its nickname, else by its URL.
+
+        A one-shot target has no nickname, and neither does one resolved before the
+        nickname was carried on the server, so the URL is the fallback.
+        """
+        entry = self.get_by_name(name) if name else None
+        if entry is None:
+            entry = self.get_by_url(url)
+        return entry
+
     def has_connect_cloud_account(self, url: Optional[str]) -> bool:
         """Whether any Posit Connect Cloud credential is saved for this URL.
 

@@ -22,12 +22,15 @@ from rsconnect.api import (
     RSConnectExecutor,
 )
 from rsconnect.exception import DeploymentFailedException, RSConnectException
+from rsconnect.http_support import HTTPResponse, HTTPServer
 from rsconnect.log import VERBOSE
 from rsconnect.main import cli
 from rsconnect.metadata import AppStore, ServerData, ServerStore
 from rsconnect.models import AppModes
 from rsconnect.oauth import InvalidClientError, InvalidGrantError
 from rsconnect.validation import validate_connection_options
+
+from .utils import failing_keyring
 
 ENV = ParameterSource.ENVIRONMENT
 TYPED = ParameterSource.COMMANDLINE
@@ -1028,6 +1031,67 @@ class TestConnectCloudClientTokenRefresh(unittest.TestCase):
         self.assertIn("401", exception.message)
 
 
+class TestConnectCloudStreamBodyRetry(unittest.TestCase):
+    """The retry-once skeleton is shared with the Posit Connect client, so a streamed
+    body is rewound before the retry here too rather than arriving empty."""
+
+    def _attempt_bodies(self, body: Any, server: Optional[ConnectCloudServer] = None, read: bool = True) -> list[Any]:
+        """The body each attempt was given, read out when `read`, with refresh stubbed."""
+        client = ConnectCloudClient(server or ConnectCloudServer("acme", access_token="stale", refresh_token="rt"))
+        seen: list[Any] = []
+
+        def fake_request(
+            _self: Any,
+            method: str,
+            path: str,
+            query_params: Any = None,
+            body: Any = None,
+            maximum_redirects: int = 5,
+            decode_response: bool = True,
+            headers: Any = None,
+        ) -> Any:
+            seen.append(body.read() if read and hasattr(body, "read") else body)
+            response = mock.Mock(spec=HTTPResponse)
+            response.status = 401 if len(seen) == 1 else 200
+            return response
+
+        with mock.patch.object(HTTPServer, "request", fake_request):
+            with mock.patch.object(client, "_attempt_token_refresh", return_value=True):
+                client.request("POST", "/contents", body=body)
+        return seen
+
+    def _retry_bodies(self, body: Any) -> list[Any]:
+        return self._attempt_bodies(body)
+
+    def test_a_seekable_stream_is_rewound(self):
+        self.assertEqual(self._retry_bodies(io.BytesIO(b"payload")), [b"payload", b"payload"])
+
+    def test_a_stream_is_left_alone_when_there_is_nothing_to_refresh_with(self):
+        # No refresh token and no service account credential: nothing can be minted,
+        # so the request is sent once and its body is neither buffered nor rewound.
+        stream = io.BytesIO(b"payload")
+        seen = self._attempt_bodies(stream, server=ConnectCloudServer("acme", access_token="at"), read=False)
+
+        self.assertEqual(seen, [stream])
+
+    def test_a_stream_that_cannot_seek_is_read_into_memory(self):
+        class NonSeekableStream(io.RawIOBase):
+            def __init__(self, data: bytes):
+                self._data = data
+
+            def read(self, size: int = -1) -> bytes:
+                data, self._data = self._data, b""
+                return data
+
+            def readable(self) -> bool:
+                return True
+
+            def seekable(self) -> bool:
+                return False
+
+        self.assertEqual(self._retry_bodies(NonSeekableStream(b"payload")), [b"payload", b"payload"])
+
+
 class TestConnectCloudAdd(CliTestCase):
     """CLI-level tests for `rsconnect add -s connect.posit.cloud`."""
 
@@ -1057,6 +1121,29 @@ class TestConnectCloudAdd(CliTestCase):
 
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("keyring not available", result.output)
+
+    def test_add_falls_back_to_the_file_when_no_keyring_backend_is_usable(self):
+        # A CI runner has keyring installed with nothing behind it, which is the case
+        # the servers.json fallback exists for; it used to abort the command instead.
+        self._mock_device_login()
+        with failing_keyring():
+            result = self.runner.invoke(cli, ["add", "-n", "cloud", "--connect-cloud", "-A", "acme"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("keyring not available", result.output)
+        entry = self.store.get_by_name("cloud")
+        assert entry is not None
+        self.assertEqual(entry["connect_cloud_access_token"], "at")
+        self.assertEqual(entry["connect_cloud_refresh_token"], "rt")
+
+    def test_a_deploy_reads_the_credentials_back_without_a_keyring_backend(self):
+        self._mock_device_login()
+        with failing_keyring():
+            self.runner.invoke(cli, ["add", "-n", "cloud", "--connect-cloud", "-A", "acme"])
+            data = self.store.resolve("cloud", None)
+
+        self.assertEqual(data.connect_cloud_access_token, "at")
+        self.assertEqual(data.connect_cloud_refresh_token, "rt")
 
     def test_a_stale_ca_certificate_env_var_does_not_block_add(self):
         # CONNECT_CA_CERTIFICATE pointing at a missing file used to fail at CLI

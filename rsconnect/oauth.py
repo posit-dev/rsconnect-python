@@ -644,6 +644,27 @@ REFRESH_TOKEN_FIELD = "refresh_token"
 CLIENT_SECRET_FIELD = "client_secret"
 
 
+def _no_keyring_errors() -> tuple[type[BaseException], ...]:
+    """The exceptions that mean this machine has no keyring, for an `except` clause.
+
+    keyring raises NoKeyringError from every operation when no backend is usable,
+    which is the normal state of a CI runner with the package installed. It is a
+    sibling of PasswordSetError and PasswordDeleteError under KeyringError, not a
+    subclass of either, so nothing catches it unless it is named here -- and being
+    treated as a keyring that failed rather than one that is absent is what broke the
+    servers.json fallback. Other KeyringError subclasses stay in the failure bucket:
+    a locked or half-initialized backend may well hold credentials.
+
+    Empty, matching nothing, when the errors module will not import: the failure
+    bucket is the safe answer when the two cannot be told apart.
+    """
+    try:
+        from keyring.errors import NoKeyringError  # type: ignore[import-untyped]
+    except ImportError:
+        return ()
+    return (NoKeyringError,)
+
+
 def keyring_store_values(key: str, values: Mapping[str, Optional[str]]) -> bool:
     """Store credential values in the system keyring, deleting the empty ones.
 
@@ -674,6 +695,11 @@ def keyring_store_values(key: str, values: Mapping[str, Optional[str]]) -> bool:
                 except keyring.errors.PasswordDeleteError:
                     pass
         return True
+    except _no_keyring_errors() as e:
+        # Nothing was stored, so there is no partial write to clean up below -- and
+        # the cleanup would fail the same way, which used to make this raise.
+        logger.debug(f"no system keyring available: {e}")
+        return False
     except Exception as e:
         logger.warning(f"keyring storage failed: {e}")
         # The caller now writes all of these values to servers.json, and reads
@@ -693,8 +719,9 @@ def keyring_read_value(key: str, field: str) -> Tuple[bool, Optional[str]]:
     """Retrieve one credential value, saying whether the keyring could be read.
 
     A caller that decides what to write based on what is already stored needs to
-    tell "nothing stored" from "could not look": a machine with no keyring at all
-    knowably has nothing, but a keyring that raises could have anything.
+    tell "nothing stored" from "could not look": a machine with no keyring, or none
+    with a usable backend, knowably has nothing, but a backend that failed could
+    have anything.
     """
     try:
         import keyring  # type: ignore[import-untyped]
@@ -703,6 +730,9 @@ def keyring_read_value(key: str, field: str) -> Tuple[bool, Optional[str]]:
 
     try:
         return True, keyring.get_password(_KEYRING_SERVICE, f"{key}:{field}")
+    except _no_keyring_errors() as e:
+        logger.debug(f"no system keyring available: {e}")
+        return True, None
     except Exception as e:
         logger.warning(f"keyring retrieval failed: {e}")
         return False, None
@@ -730,6 +760,7 @@ def keyring_delete_values(key: str, fields: Iterable[str]) -> bool:
         # cannot be told from a deletion that failed.
         import keyring.errors  # type: ignore[import-untyped]
 
+        no_keyring = _no_keyring_errors()
         deleted = True
         for field in fields:
             username = f"{key}:{field}"
@@ -741,13 +772,21 @@ def keyring_delete_values(key: str, fields: Iterable[str]) -> bool:
                 try:
                     if keyring.get_password(_KEYRING_SERVICE, username) is not None:
                         deleted = False
+                except no_keyring:
+                    raise
                 except Exception as e:
                     logger.warning(f"keyring deletion failed: {e}")
                     deleted = False
+            except no_keyring:
+                # Answered for every field at once, below.
+                raise
             except Exception as e:
                 logger.warning(f"keyring deletion failed: {e}")
                 deleted = False
         return deleted
+    except _no_keyring_errors() as e:
+        logger.debug(f"no system keyring available: {e}")
+        return True
     except Exception as e:
         logger.warning(f"keyring deletion failed: {e}")
         return False

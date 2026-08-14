@@ -60,6 +60,7 @@ from .certificates import read_certificate_file
 from .environment import fake_module_file_from_directory
 from .exception import DeploymentFailedException, RSConnectException
 from .http_support import (
+    BearerTokenHTTPServer,
     CookieJar,
     HTTPResponse,
     HTTPServer,
@@ -501,7 +502,7 @@ def server_supports_draft_deploy(server_version: Optional[str]) -> bool:
         return False
 
 
-class RSConnectClient(HTTPServer):
+class RSConnectClient(BearerTokenHTTPServer):
     def __init__(self, server: Union[RSConnectServer, SPCSConnectServer], cookies: Optional[CookieJar] = None):
         if cookies is None:
             cookies = server.cookie_jar
@@ -533,30 +534,10 @@ class RSConnectClient(HTTPServer):
         ):
             self.authorization(f"Bearer {server.oauth_access_token}")
 
-    def request(
-        self,
-        method: str,
-        path: str,
-        query_params: Optional[Mapping[str, "JsonData"]] = None,
-        body: "str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None" = None,
-        maximum_redirects: int = 5,
-        decode_response: bool = True,
-        headers: Optional[Mapping[str, str]] = None,
-    ) -> "JsonData | HTTPResponse":
-        can_retry = isinstance(self._server, RSConnectServer) and bool(self._server.oauth_client_id)
-        start_pos: "int | None" = None
-        if can_retry and hasattr(body, "read"):
-            if getattr(body, "seekable", lambda: False)():
-                start_pos = body.tell()  # type: ignore[union-attr]
-            else:
-                body = body.read()  # type: ignore[union-attr]
-        response = super().request(method, path, query_params, body, maximum_redirects, decode_response, headers)  # pyright: ignore[reportUnknownArgumentType]
-        if can_retry and isinstance(response, HTTPResponse) and response.status == 401:
-            if self._attempt_token_refresh():
-                if start_pos is not None:
-                    body.seek(start_pos)  # type: ignore[union-attr]
-                return super().request(method, path, query_params, body, maximum_redirects, decode_response, headers)  # pyright: ignore[reportUnknownArgumentType]
-        return response
+    def _can_refresh_token(self) -> bool:
+        # An API key, a bootstrap JWT, or a Snowflake token exchange has nothing to
+        # mint a new credential from; only an OAuth login does.
+        return isinstance(self._server, RSConnectServer) and bool(self._server.oauth_client_id)
 
     def _attempt_token_refresh(self) -> bool:
         from .oauth import (
@@ -572,14 +553,11 @@ class RSConnectClient(HTTPServer):
 
         server = cast(RSConnectServer, self._server)
 
+        # The keyring is where a login stores its tokens; the entry's own fields are
+        # the fallback for a machine without one.
         _, refresh_token = keyring_get_tokens(server.url)
         if not refresh_token:
-            store = ServerStore()
-            entry = None
-            if server.server_name:
-                entry = store.get_by_name(server.server_name)
-            if not entry:
-                entry = store.get_by_url(server.url)
+            entry = ServerStore().saved_entry(server.server_name, server.url)
             if entry:
                 refresh_token = entry.get("oauth_refresh_token")  # type: ignore[assignment]
         if not refresh_token:
@@ -594,11 +572,7 @@ class RSConnectClient(HTTPServer):
             # Client was deleted server-side; clear stale tokens and re-register
             keyring_delete_tokens(server.url)
             store = ServerStore()
-            entry = None
-            if server.server_name:
-                entry = store.get_by_name(server.server_name)
-            if not entry:
-                entry = store.get_by_url(server.url)
+            entry = store.saved_entry(server.server_name, server.url)
             if entry:
                 entry_name = str(entry.get("name", server.server_name or server.url))
                 store.update_oauth_tokens(entry_name, None, None, None)
@@ -630,11 +604,7 @@ class RSConnectClient(HTTPServer):
         stored = keyring_store_token(server.url, new_access, new_refresh)
         if not stored:
             store = ServerStore()
-            entry = None
-            if server.server_name:
-                entry = store.get_by_name(server.server_name)
-            if not entry:
-                entry = store.get_by_url(server.url)
+            entry = store.saved_entry(server.server_name, server.url)
             if entry:
                 entry_name = str(entry.get("name", server.server_name or server.url))
                 store.update_oauth_tokens(entry_name, new_access, new_refresh, new_expiry)
@@ -2908,7 +2878,7 @@ _CONNECT_CLOUD_MAX_ACCOUNT_PAGES = 100
 _CONNECT_CLOUD_PUBLISH_PERMISSION = "content:create"
 
 
-class ConnectCloudClient(HTTPServer):
+class ConnectCloudClient(BearerTokenHTTPServer):
     """
     An HTTP client to call the Posit Connect Cloud API.
 
@@ -2934,21 +2904,11 @@ class ConnectCloudClient(HTTPServer):
             else response
         )
 
-    def request(
-        self,
-        method: str,
-        path: str,
-        query_params: Optional[Mapping[str, JsonData]] = None,
-        body: str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None = None,
-        maximum_redirects: int = 5,
-        decode_response: bool = True,
-        headers: Optional[Mapping[str, str]] = None,
-    ) -> JsonData | HTTPResponse:
-        response = super().request(method, path, query_params, body, maximum_redirects, decode_response, headers)  # pyright: ignore[reportUnknownArgumentType]
-        if isinstance(response, HTTPResponse) and response.status == 401:
-            if self._attempt_token_refresh():
-                return super().request(method, path, query_params, body, maximum_redirects, decode_response, headers)  # pyright: ignore[reportUnknownArgumentType]
-        return response
+    def _can_refresh_token(self) -> bool:
+        # The same two credentials _attempt_token_refresh mints from. Without either
+        # there is no retry to prepare a request body for.
+        server = self._server
+        return bool(server.refresh_token or (server.client_id and server.client_secret))
 
     def _attempt_token_refresh(self) -> bool:
         """Mint a new access token and apply it to this client.

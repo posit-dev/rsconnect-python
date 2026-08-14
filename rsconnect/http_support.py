@@ -652,6 +652,57 @@ class HTTPServer(object):
             del self._headers["Cookie"]
 
 
+class BearerTokenHTTPServer(HTTPServer):
+    """An HTTPServer whose requests carry an OAuth access token.
+
+    When a token expires the server answers 401, so the response is handled by
+    minting a new token and sending the request once more. Subclasses provide the
+    minting in `_attempt_token_refresh`, which also applies the new token to this
+    client, and say in `_can_refresh_token` whether there is anything to mint from.
+    """
+
+    def _can_refresh_token(self) -> bool:
+        return True
+
+    def _attempt_token_refresh(self) -> bool:
+        """Mint a new access token and apply it to this client.
+
+        Returns whether a new token was obtained. Raises for a credential that no
+        retry could fix, rather than leaving the caller with the opaque 401.
+        """
+        raise NotImplementedError
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        query_params: Optional[Mapping[str, JsonData]] = None,
+        body: str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None = None,
+        maximum_redirects: int = 5,
+        decode_response: bool = True,
+        headers: Optional[Mapping[str, str]] = None,
+    ) -> JsonData | HTTPResponse:
+        if not self._can_refresh_token():
+            return super().request(method, path, query_params, body, maximum_redirects, decode_response, headers)  # pyright: ignore[reportUnknownArgumentType]
+
+        start_pos: int | None = None
+        if hasattr(body, "read"):
+            # The first attempt consumes a streamed body (a bundle upload), so a
+            # retry has to rewind it -- or hold it in memory when it cannot seek.
+            if getattr(body, "seekable", lambda: False)():
+                start_pos = body.tell()  # type: ignore[union-attr]
+            else:
+                body = body.read()  # type: ignore[union-attr]
+
+        response = super().request(method, path, query_params, body, maximum_redirects, decode_response, headers)  # pyright: ignore[reportUnknownArgumentType]
+        if isinstance(response, HTTPResponse) and response.status == 401:
+            if self._attempt_token_refresh():
+                if start_pos is not None:
+                    body.seek(start_pos)  # type: ignore[union-attr]
+                return super().request(method, path, query_params, body, maximum_redirects, decode_response, headers)  # pyright: ignore[reportUnknownArgumentType]
+        return response
+
+
 class CookieJar(object):
     @staticmethod
     def from_dict(source: dict[str, Any]):

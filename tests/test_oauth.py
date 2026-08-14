@@ -10,6 +10,8 @@ import pytest
 from rsconnect.exception import RSConnectException
 from rsconnect.http_support import HTTPResponse
 from rsconnect.metadata import ServerData
+
+from .utils import failing_keyring
 from rsconnect.oauth import (
     InvalidClientError,
     InvalidGrantError,
@@ -312,6 +314,22 @@ class _PasswordDeleteError(Exception):
     """Stands in for keyring.errors.PasswordDeleteError, which means "nothing stored"."""
 
 
+class _NoKeyringError(Exception):
+    """Stands in for keyring.errors.NoKeyringError, which means "no usable backend"."""
+
+
+def _mock_keyring_errors() -> MagicMock:
+    """A stand-in for the keyring.errors module.
+
+    The classes it names have to be real exceptions, since the code under test catches
+    them.
+    """
+    errors = MagicMock()
+    errors.PasswordDeleteError = _PasswordDeleteError
+    errors.NoKeyringError = _NoKeyringError
+    return errors
+
+
 class TestKeyringIntegration:
     def test_store_success(self):
         mock_keyring = MagicMock()
@@ -344,8 +362,7 @@ class TestKeyringIntegration:
         # prefer the keyring, so a field written before the failure would shadow it.
         mock_keyring = MagicMock()
         mock_keyring.set_password.side_effect = [None, Exception("keychain locked")]
-        mock_keyring_errors = MagicMock()
-        mock_keyring_errors.PasswordDeleteError = _PasswordDeleteError
+        mock_keyring_errors = _mock_keyring_errors()
         with patch.dict("sys.modules", {"keyring": mock_keyring, "keyring.errors": mock_keyring_errors}):
             result = keyring_store_token("https://example.com", "at-1", "rt-1")
 
@@ -362,8 +379,7 @@ class TestKeyringIntegration:
         mock_keyring.set_password.side_effect = [None, Exception("keychain locked")]
         mock_keyring.delete_password.side_effect = _PasswordDeleteError()
         mock_keyring.get_password.return_value = "at-1"
-        mock_keyring_errors = MagicMock()
-        mock_keyring_errors.PasswordDeleteError = _PasswordDeleteError
+        mock_keyring_errors = _mock_keyring_errors()
         with patch.dict("sys.modules", {"keyring": mock_keyring, "keyring.errors": mock_keyring_errors}):
             with pytest.raises(RSConnectException, match="could not be removed"):
                 keyring_store_token("https://example.com", "at-1", "rt-1")
@@ -405,8 +421,7 @@ class TestKeyringIntegration:
         mock_keyring = MagicMock()
         mock_keyring.set_password.side_effect = [None, Exception("keychain locked")]
         mock_keyring.delete_password.side_effect = Exception("keychain locked")
-        mock_keyring_errors = MagicMock()
-        mock_keyring_errors.PasswordDeleteError = _PasswordDeleteError
+        mock_keyring_errors = _mock_keyring_errors()
         with patch.dict("sys.modules", {"keyring": mock_keyring, "keyring.errors": mock_keyring_errors}):
             with pytest.raises(RSConnectException, match="could not be removed"):
                 keyring_store_token("https://example.com", "at-1", "rt-1")
@@ -435,6 +450,66 @@ class TestKeyringIntegration:
         with patch.dict("sys.modules", {"keyring": mock_keyring, "keyring.errors": mock_keyring_errors}):
             keyring_delete_tokens("https://example.com")
         assert mock_keyring.delete_password.call_count == 2
+
+
+class TestNoKeyringBackend:
+    """keyring installed with no usable backend is the CI-runner case the servers.json
+    fallback exists for. Its fail backend raises NoKeyringError, which sits beside
+    PasswordDeleteError under KeyringError rather than under it, so it only counts as
+    "no keyring" by being named."""
+
+    def test_storing_falls_back_to_the_file(self):
+        with failing_keyring():
+            assert keyring_store_token("https://example.com", "at-1", "rt-1") is False
+
+    def test_storing_does_not_try_to_clean_up_after_itself(self):
+        # A backend that reports itself absent stored nothing, so there is no partial
+        # write to remove -- and the removal would fail the same way, which used to
+        # turn the fallback into a hard error.
+        with failing_keyring():
+            with patch("rsconnect.oauth.keyring_delete_values") as cleanup:
+                assert keyring_store_token("https://example.com", "at-1", "rt-1") is False
+        cleanup.assert_not_called()
+
+    def test_reading_reports_nothing_stored_rather_than_unreadable(self):
+        with failing_keyring():
+            assert keyring_read_value("https://example.com", "access_token") == (True, None)
+
+    def test_deleting_has_nothing_to_delete(self):
+        with failing_keyring():
+            assert keyring_delete_values("https://example.com", ("access_token", "refresh_token")) is True
+
+    @patch("rsconnect.oauth.login_with_browser")
+    @patch("rsconnect.oauth.register_client", return_value="new-client-id")
+    @patch("rsconnect.oauth.discover_oauth_metadata")
+    def test_login_stores_its_tokens_in_the_file(
+        self,
+        mock_discover: MagicMock,
+        mock_register: MagicMock,
+        mock_login: MagicMock,
+    ):
+        import tempfile
+
+        from click.testing import CliRunner
+
+        from rsconnect.main import cli
+        from rsconnect.metadata import ServerStore
+
+        mock_discover.return_value = FAKE_METADATA
+        mock_login.return_value = {"access_token": "at-1", "refresh_token": "rt-1", "expires_in": 3600}
+
+        store = ServerStore(base_dir=tempfile.mkdtemp())
+        runner = CliRunner()
+        with patch("rsconnect.main.server_store", store):
+            with failing_keyring():
+                result = runner.invoke(cli, ["login", "--server", FAKE_URL, "--name", "test-server"])
+
+        assert result.exit_code == 0, result.output
+        assert "keyring not available" in result.output
+        entry = store.get_by_name("test-server")
+        assert entry is not None
+        assert entry["oauth_access_token"] == "at-1"
+        assert entry["oauth_refresh_token"] == "rt-1"
 
 
 class TestLoginWithBrowser:
