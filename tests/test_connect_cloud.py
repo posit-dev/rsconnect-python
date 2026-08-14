@@ -2,6 +2,7 @@ import contextlib
 import io
 import json
 import os
+import sys
 import tarfile
 import tempfile
 import unittest
@@ -446,6 +447,37 @@ def _skip_account_check(test):
     )
     patch.start()
     test.addCleanup(patch.stop)
+
+
+class FakeKeyring:
+    """A stand-in for the keyring module, backed by a dict."""
+
+    class errors:
+        class PasswordDeleteError(Exception):
+            pass
+
+    def __init__(self):
+        self.passwords: Dict[Any, str] = {}
+
+    def set_password(self, service: str, username: str, password: str) -> None:
+        self.passwords[(service, username)] = password
+
+    def get_password(self, service: str, username: str) -> Optional[str]:
+        return self.passwords.get((service, username))
+
+    def delete_password(self, service: str, username: str) -> None:
+        if (service, username) not in self.passwords:
+            raise self.errors.PasswordDeleteError()
+        del self.passwords[(service, username)]
+
+
+def _use_fake_keyring(test: unittest.TestCase) -> FakeKeyring:
+    """Give one test a working keyring; conftest makes it unavailable by default."""
+    fake = FakeKeyring()
+    patch = mock.patch.dict(sys.modules, {"keyring": fake, "keyring.errors": fake.errors})
+    patch.start()
+    test.addCleanup(patch.stop)
+    return fake
 
 
 class CliTestCase(unittest.TestCase):
@@ -1018,6 +1050,13 @@ class TestConnectCloudAdd(CliTestCase):
             },
         )
         self.assertIn("Posit Connect Cloud", result.output)
+
+    def test_add_says_where_the_credentials_went_without_a_keyring(self):
+        self._mock_device_login()
+        result = self.runner.invoke(cli, ["add", "-n", "cloud", "--connect-cloud", "-A", "acme"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("keyring not available", result.output)
 
     def test_a_stale_ca_certificate_env_var_does_not_block_add(self):
         # CONNECT_CA_CERTIFICATE pointing at a missing file used to fail at CLI
@@ -2978,6 +3017,246 @@ class TestConnectCloudAccountSelection(unittest.TestCase):
         entry = store.get_by_url("https://connect.example.com")
         assert entry is not None
         self.assertEqual(entry["name"], "prod")
+
+
+class TestConnectCloudKeyringStorage(CliTestCase):
+    """Connect Cloud secrets go to the system keyring when there is one, keyed by URL
+    and nickname because one URL covers every Connect Cloud credential. The
+    servers.json fields stay as the fallback for machines without a usable keyring."""
+
+    def setUp(self):
+        super().setUp()
+        self.keyring = _use_fake_keyring(self)
+        self.base_dir = os.path.dirname(self.store.get_path())
+        # Token write-back opens its own store, inside the function, from this module.
+        store_patch = mock.patch("rsconnect.metadata.ServerStore", lambda: ServerStore(base_dir=self.base_dir))
+        store_patch.start()
+        self.addCleanup(store_patch.stop)
+
+    def _stored(self, field: str, nickname: str = "cloud") -> Optional[str]:
+        return self.keyring.get_password("rsconnect-python", "%s#%s:%s" % (API, nickname, field))
+
+    def _store_in_keyring(self, field: str, value: str, nickname: str = "cloud") -> None:
+        self.keyring.set_password("rsconnect-python", "%s#%s:%s" % (API, nickname, field), value)
+
+    def _saved_entry(self, nickname: str = "cloud") -> Any:
+        entry = ServerStore(base_dir=self.base_dir).get_by_name(nickname)
+        assert entry is not None
+        return entry
+
+    def _refresh(self, **kwargs: Any) -> bool:
+        server = ConnectCloudServer("acme", access_token="stale", refresh_token="rt", server_name="cloud")
+        client = ConnectCloudClient(server)
+        with mock.patch("rsconnect.connect_cloud.refresh", **kwargs):
+            return client._attempt_token_refresh()
+
+    def test_add_stores_the_tokens_in_the_keyring_and_not_in_the_file(self):
+        self._mock_device_login()
+        result = self.runner.invoke(cli, ["add", "-n", "cloud", "--connect-cloud", "-A", "acme"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(self._stored("access_token"), "at")
+        self.assertEqual(self._stored("refresh_token"), "rt")
+        entry = self._saved_entry()
+        self.assertNotIn("connect_cloud_access_token", entry)
+        self.assertNotIn("connect_cloud_refresh_token", entry)
+        self.assertEqual(entry["connect_cloud_account_name"], "acme")
+
+    def test_add_stores_a_service_account_secret_in_the_keyring(self):
+        with mock.patch(
+            "rsconnect.connect_cloud.request_client_credentials_token", return_value={"access_token": "at"}
+        ):
+            result = self.runner.invoke(
+                cli,
+                ["add", "-n", "cloud", "--connect-cloud", "-A", "acme", "--client-id", "cid", "--client-secret", "sec"],
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(self._stored("client_secret"), "sec")
+        entry = self._saved_entry()
+        self.assertNotIn("connect_cloud_client_secret", entry)
+        # The client id is not a secret, and is what `list` shows to identify the credential.
+        self.assertEqual(entry["connect_cloud_client_id"], "cid")
+
+    def test_each_nickname_keys_its_own_entries(self):
+        self._mock_device_login()
+        for nickname in ("cloud", "other"):
+            result = self.runner.invoke(cli, ["add", "-n", nickname, "--connect-cloud", "-A", "acme"])
+            self.assertEqual(result.exit_code, 0, result.output)
+
+        self.assertEqual(self._stored("access_token"), "at")
+        self.assertEqual(self._stored("access_token", nickname="other"), "at")
+        self.assertEqual(len(self.keyring.passwords), 4)
+
+    def test_the_keyring_wins_over_the_fields_left_in_the_file(self):
+        # An entry saved before keyring support keeps its plaintext fields until the
+        # next add or refresh; whatever the keyring holds is used meanwhile.
+        self.store.set(
+            "cloud",
+            API,
+            connect_cloud_account_name="acme",
+            connect_cloud_access_token="file-at",
+            connect_cloud_refresh_token="file-rt",
+            connect_cloud_client_secret="file-secret",
+        )
+        self._store_in_keyring("access_token", "keyring-at")
+
+        data = self.store.resolve("cloud", None)
+
+        self.assertEqual(data.connect_cloud_access_token, "keyring-at")
+        self.assertEqual(data.connect_cloud_refresh_token, "file-rt")
+        self.assertEqual(data.connect_cloud_client_secret, "file-secret")
+
+    def test_a_refresh_moves_the_tokens_out_of_the_file(self):
+        self.store.set(
+            "cloud",
+            API,
+            connect_cloud_account_name="acme",
+            connect_cloud_access_token="stale",
+            connect_cloud_refresh_token="rt",
+        )
+
+        self.assertTrue(self._refresh(return_value={"access_token": "new-at", "refresh_token": "new-rt"}))
+
+        self.assertEqual(self._stored("access_token"), "new-at")
+        self.assertEqual(self._stored("refresh_token"), "new-rt")
+        entry = self._saved_entry()
+        self.assertNotIn("connect_cloud_access_token", entry)
+        self.assertNotIn("connect_cloud_refresh_token", entry)
+
+    def test_a_refresh_moves_a_client_secret_out_of_the_file_too(self):
+        self.store.set(
+            "cloud",
+            API,
+            connect_cloud_account_name="acme",
+            connect_cloud_client_id="cid",
+            connect_cloud_client_secret="file-secret",
+            connect_cloud_refresh_token="rt",
+        )
+
+        self.assertTrue(self._refresh(return_value={"access_token": "new-at"}))
+
+        self.assertEqual(self._stored("client_secret"), "file-secret")
+        entry = self._saved_entry()
+        self.assertNotIn("connect_cloud_client_secret", entry)
+        self.assertEqual(entry["connect_cloud_client_id"], "cid")
+
+    def test_a_refresh_keeps_a_client_secret_that_is_already_in_the_keyring(self):
+        self.store.set("cloud", API, connect_cloud_account_name="acme", connect_cloud_client_id="cid")
+        self._store_in_keyring("client_secret", "keyring-secret")
+
+        self.assertTrue(self._refresh(return_value={"access_token": "new-at"}))
+
+        self.assertEqual(self._stored("client_secret"), "keyring-secret")
+
+    def test_a_refresh_does_not_overwrite_the_keyring_secret_with_the_files(self):
+        # A secret in both places means the file's copy predates the one in use; the
+        # keyring is what reads prefer, so it stays and the stale copy goes.
+        self.store.set(
+            "cloud",
+            API,
+            connect_cloud_account_name="acme",
+            connect_cloud_client_id="cid",
+            connect_cloud_client_secret="file-secret",
+        )
+        self._store_in_keyring("client_secret", "keyring-secret")
+
+        self.assertTrue(self._refresh(return_value={"access_token": "new-at"}))
+
+        self.assertEqual(self._stored("client_secret"), "keyring-secret")
+        self.assertNotIn("connect_cloud_client_secret", self._saved_entry())
+
+    def test_a_keyring_read_failure_leaves_the_client_secret_where_it_is(self):
+        # A read that failed says nothing about what the keyring holds, so the
+        # file's copy is neither written over it nor dropped from the file.
+        self.store.set(
+            "cloud",
+            API,
+            connect_cloud_account_name="acme",
+            connect_cloud_client_id="cid",
+            connect_cloud_client_secret="file-secret",
+            connect_cloud_refresh_token="rt",
+        )
+        secret_username = "%s#cloud:%s" % (API, "client_secret")
+        stored = self.keyring.get_password
+
+        def failing_read(service: str, username: str) -> Optional[str]:
+            if username == secret_username:
+                raise Exception("keychain locked")
+            return stored(service, username)
+
+        with mock.patch.object(self.keyring, "get_password", side_effect=failing_read):
+            self.assertTrue(self._refresh(return_value={"access_token": "new-at"}))
+
+        self.assertIsNone(self._stored("client_secret"))
+        self.assertEqual(self._saved_entry()["connect_cloud_client_secret"], "file-secret")
+
+    def test_replacing_a_credential_discards_its_keyring_values(self):
+        self.store.set("cloud", API, connect_cloud_account_name="acme")
+        self._store_in_keyring("access_token", "at")
+
+        self.store.set("cloud", "https://connect.example.com", api_key="key")
+
+        self.assertEqual(self.keyring.passwords, {})
+
+    def test_moving_a_credential_to_another_environment_discards_the_old_values(self):
+        self.store.set("cloud", API, connect_cloud_account_name="acme")
+        self._store_in_keyring("access_token", "at")
+
+        self.store.set("cloud", "https://api.staging.connect.posit.cloud/v1", connect_cloud_account_name="acme")
+
+        self.assertEqual(self.keyring.passwords, {})
+
+    def test_resaving_the_same_credential_keeps_its_keyring_values(self):
+        self.store.set("cloud", API, connect_cloud_account_name="acme")
+        self._store_in_keyring("access_token", "at")
+
+        self.store.set("cloud", API, connect_cloud_account_name="other-account")
+
+        self.assertEqual(self._stored("access_token"), "at")
+
+    def test_an_expired_refresh_token_clears_the_keyring_tokens(self):
+        self.store.set("cloud", API, connect_cloud_account_name="acme")
+        self._store_in_keyring("access_token", "stale")
+        self._store_in_keyring("refresh_token", "rt")
+        self._store_in_keyring("client_secret", "sec")
+
+        with self.assertRaises(RSConnectException):
+            self._refresh(side_effect=InvalidGrantError())
+
+        self.assertIsNone(self._stored("access_token"))
+        self.assertIsNone(self._stored("refresh_token"))
+        # Only the dead tokens go; the credential itself is what gets re-authenticated.
+        self.assertEqual(self._stored("client_secret"), "sec")
+
+    def test_remove_deletes_the_keyring_entries(self):
+        self.store.set("cloud", API, connect_cloud_account_name="acme")
+        for field in ("access_token", "refresh_token", "client_secret"):
+            self._store_in_keyring(field, field + "-value")
+
+        result = self.runner.invoke(cli, ["remove", "-n", "cloud"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(self.keyring.passwords, {})
+
+    def test_remove_by_url_deletes_the_keyring_entries(self):
+        self.store.set("cloud", API, connect_cloud_account_name="acme")
+        self._store_in_keyring("access_token", "at")
+
+        result = self.runner.invoke(cli, ["remove", "-s", connect_cloud.SERVER_NAME])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(self.keyring.passwords, {})
+
+    def test_list_reports_credentials_in_the_keyring(self):
+        self.store.set("cloud", API, connect_cloud_account_name="acme")
+        self._store_in_keyring("access_token", "at")
+
+        result = self.runner.invoke(cli, ["list"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("Credentials stored in system keyring", result.output)
+        self.assertNotIn("Credentials are saved", result.output)
 
 
 class TestConnectCloudVisibility(unittest.TestCase):

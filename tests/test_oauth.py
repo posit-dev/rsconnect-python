@@ -19,7 +19,9 @@ from rsconnect.oauth import (
     exchange_token_for_api_key,
     generate_pkce_pair,
     keyring_delete_tokens,
+    keyring_delete_values,
     keyring_get_tokens,
+    keyring_read_value,
     keyring_store_token,
     login_with_browser,
     login_with_device_code,
@@ -306,6 +308,10 @@ class TestRefreshAccessToken:
         assert raised.value.description is None
 
 
+class _PasswordDeleteError(Exception):
+    """Stands in for keyring.errors.PasswordDeleteError, which means "nothing stored"."""
+
+
 class TestKeyringIntegration:
     def test_store_success(self):
         mock_keyring = MagicMock()
@@ -332,6 +338,95 @@ class TestKeyringIntegration:
             access, refresh = keyring_get_tokens("https://example.com")
         assert access is None
         assert refresh is None
+
+    def test_a_failure_partway_through_leaves_nothing_behind(self):
+        # The caller falls back to storing every value in servers.json, and reads
+        # prefer the keyring, so a field written before the failure would shadow it.
+        mock_keyring = MagicMock()
+        mock_keyring.set_password.side_effect = [None, Exception("keychain locked")]
+        mock_keyring_errors = MagicMock()
+        mock_keyring_errors.PasswordDeleteError = _PasswordDeleteError
+        with patch.dict("sys.modules", {"keyring": mock_keyring, "keyring.errors": mock_keyring_errors}):
+            result = keyring_store_token("https://example.com", "at-1", "rt-1")
+
+        assert result is False
+        assert [call.args[1] for call in mock_keyring.delete_password.call_args_list] == [
+            "https://example.com:access_token",
+            "https://example.com:refresh_token",
+        ]
+
+    def test_a_cleanup_that_leaves_the_value_behind_is_reported(self):
+        # PasswordDeleteError says the deletion did not happen, which is only the
+        # state the caller needs when there was nothing there to delete.
+        mock_keyring = MagicMock()
+        mock_keyring.set_password.side_effect = [None, Exception("keychain locked")]
+        mock_keyring.delete_password.side_effect = _PasswordDeleteError()
+        mock_keyring.get_password.return_value = "at-1"
+        mock_keyring_errors = MagicMock()
+        mock_keyring_errors.PasswordDeleteError = _PasswordDeleteError
+        with patch.dict("sys.modules", {"keyring": mock_keyring, "keyring.errors": mock_keyring_errors}):
+            with pytest.raises(RSConnectException, match="could not be removed"):
+                keyring_store_token("https://example.com", "at-1", "rt-1")
+
+    def test_a_read_failure_is_not_reported_as_an_absent_value(self):
+        mock_keyring = MagicMock()
+        mock_keyring.get_password.side_effect = Exception("keychain locked")
+        with patch.dict("sys.modules", {"keyring": mock_keyring}):
+            readable, value = keyring_read_value("https://example.com", "access_token")
+
+        assert (readable, value) == (False, None)
+
+    def test_no_keyring_at_all_reads_as_an_absent_value(self):
+        with patch.dict("sys.modules", {"keyring": None}):
+            assert keyring_read_value("https://example.com", "access_token") == (True, None)
+
+    def test_deletion_without_the_keyring_errors_module_is_a_failure(self):
+        # keyring itself imported, so there may be values in it, and its errors
+        # module is what tells "nothing was stored" from a deletion that failed.
+        mock_keyring = MagicMock()
+        with patch.dict("sys.modules", {"keyring": mock_keyring, "keyring.errors": None}):
+            assert keyring_delete_values("https://example.com", ("access_token",)) is False
+
+    def test_deletion_without_a_keyring_at_all_succeeds(self):
+        with patch.dict("sys.modules", {"keyring": None}):
+            assert keyring_delete_values("https://example.com", ("access_token",)) is True
+
+    def test_a_backend_import_error_is_a_read_failure(self):
+        # keyring imports its backend lazily, so an ImportError from get_password
+        # comes from a keyring that exists and could hold anything.
+        mock_keyring = MagicMock()
+        mock_keyring.get_password.side_effect = ImportError("no backend module")
+        with patch.dict("sys.modules", {"keyring": mock_keyring}):
+            assert keyring_read_value("https://example.com", "access_token") == (False, None)
+
+    def test_a_failure_that_cannot_be_cleaned_up_is_reported(self):
+        # Falling back to servers.json would leave the written field shadowing it,
+        # so this is not something the caller can carry on from.
+        mock_keyring = MagicMock()
+        mock_keyring.set_password.side_effect = [None, Exception("keychain locked")]
+        mock_keyring.delete_password.side_effect = Exception("keychain locked")
+        mock_keyring_errors = MagicMock()
+        mock_keyring_errors.PasswordDeleteError = _PasswordDeleteError
+        with patch.dict("sys.modules", {"keyring": mock_keyring, "keyring.errors": mock_keyring_errors}):
+            with pytest.raises(RSConnectException, match="could not be removed"):
+                keyring_store_token("https://example.com", "at-1", "rt-1")
+
+    def test_connect_entries_are_named_by_url_alone(self):
+        # Frozen format: any change here makes every existing `rsconnect login` miss
+        # its keychain entry and orphans the old one.
+        mock_keyring = MagicMock()
+        with patch.dict("sys.modules", {"keyring": mock_keyring}):
+            keyring_store_token("https://connect.example.com", "at-1", "rt-1")
+            keyring_get_tokens("https://connect.example.com")
+
+        assert [call.args for call in mock_keyring.set_password.call_args_list] == [
+            ("rsconnect-python", "https://connect.example.com:access_token", "at-1"),
+            ("rsconnect-python", "https://connect.example.com:refresh_token", "rt-1"),
+        ]
+        assert [call.args for call in mock_keyring.get_password.call_args_list] == [
+            ("rsconnect-python", "https://connect.example.com:access_token"),
+            ("rsconnect-python", "https://connect.example.com:refresh_token"),
+        ]
 
     def test_delete_success(self):
         mock_keyring = MagicMock()

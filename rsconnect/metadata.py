@@ -434,6 +434,29 @@ class ServerStore(DataStore[ServerDataDict]):
             "use a service account credential directly." % saved
         )
 
+    def _connect_cloud_secrets(self, entry: ServerDataDict) -> tuple[Optional[str], Optional[str], Optional[str]]:
+        """A Posit Connect Cloud entry's secrets, as (access, refresh, client secret).
+
+        `rsconnect add` and token refresh store these in the system keyring when
+        there is one, leaving the fields in this file empty; those fields are the
+        fallback for machines without a usable keyring. Entries for other targets
+        have no Connect Cloud secrets to look for.
+        """
+        access = entry.get("connect_cloud_access_token")
+        refresh = entry.get("connect_cloud_refresh_token")
+        client_secret = entry.get("connect_cloud_client_secret")
+        if not entry.get("connect_cloud_account_name"):
+            return access, refresh, client_secret
+
+        keyring_access, keyring_refresh, keyring_secret = connect_cloud.credentials_from_keyring(
+            entry["url"], entry["name"]
+        )
+        return (
+            keyring_access or access,
+            keyring_refresh or refresh,
+            keyring_secret or client_secret,
+        )
+
     def get_all_servers(self):
         """
         Returns a list of all known servers sorted by nickname.
@@ -531,9 +554,10 @@ class ServerStore(DataStore[ServerDataDict]):
                 target_data["connect_cloud_client_id"] = connect_cloud_client_id
             if connect_cloud_client_secret:
                 target_data["connect_cloud_client_secret"] = connect_cloud_client_secret
-            # Tokens live in this file, which is written 0600. The system keyring is
-            # only used by `rsconnect login` for Connect, not here -- the same as
-            # shinyapps.io's token and secret, and as the R client's account DCF.
+            # Callers pass the tokens only when they could not be stored in the
+            # system keyring; this file, written 0600, is the fallback for machines
+            # without one -- the same as shinyapps.io's token and secret, and as the
+            # R client's account DCF.
             if connect_cloud_access_token:
                 target_data["connect_cloud_access_token"] = connect_cloud_access_token
             if connect_cloud_refresh_token:
@@ -557,6 +581,13 @@ class ServerStore(DataStore[ServerDataDict]):
         if set_as_default or was_default:
             entry["default"] = True
         self._set(name, entry)  # type: ignore
+
+        # Nothing records the URL a replaced Connect Cloud credential's keyring
+        # values are keyed by any more, so they would be both unreachable and able
+        # to shadow a later credential saved under the same nickname and URL.
+        if existing and existing.get("connect_cloud_account_name"):
+            if not connect_cloud_account_name or existing["url"] != url:
+                connect_cloud.delete_credentials_from_keyring(existing["url"], name)
 
     def remove_by_name(self, name: str):
         """
@@ -638,6 +669,7 @@ class ServerStore(DataStore[ServerDataDict]):
                 entry = self._get_first_value()
 
         if entry:
+            cloud_access_token, cloud_refresh_token, cloud_client_secret = self._connect_cloud_secrets(entry)
             return ServerData(
                 name or entry["name"],
                 entry["url"],
@@ -656,9 +688,9 @@ class ServerStore(DataStore[ServerDataDict]):
                 connect_cloud_account_name=entry.get("connect_cloud_account_name"),
                 connect_cloud_account_id=entry.get("connect_cloud_account_id"),
                 connect_cloud_client_id=entry.get("connect_cloud_client_id"),
-                connect_cloud_client_secret=entry.get("connect_cloud_client_secret"),
-                connect_cloud_access_token=entry.get("connect_cloud_access_token"),
-                connect_cloud_refresh_token=entry.get("connect_cloud_refresh_token"),
+                connect_cloud_client_secret=cloud_client_secret,
+                connect_cloud_access_token=cloud_access_token,
+                connect_cloud_refresh_token=cloud_refresh_token,
             )
         else:
             return ServerData(

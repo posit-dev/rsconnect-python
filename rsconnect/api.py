@@ -3034,7 +3034,11 @@ class ConnectCloudClient(HTTPServer):
         return " ".join(parts)
 
     def _persist_tokens(self, access_token: Optional[str], refresh_token: Optional[str]) -> None:
-        """Write the tokens back to the saved entry, or clear them when both are None.
+        """Write the tokens back to the saved credential, or clear them when both are None.
+
+        Prefers the system keyring, falling back to the tokens' fields in
+        servers.json. A keyring write also scrubs those fields, which is how an
+        entry saved before keyring support moves its tokens out of the file.
 
         Does nothing for a run with no saved entry behind it: a credential
         override or a one-shot deploy.
@@ -3050,6 +3054,27 @@ class ConnectCloudClient(HTTPServer):
         if not entry:
             return
 
+        entry_url = entry["url"]
+        # A client secret still in the file predates keyring support, so it moves
+        # with the tokens -- unless the keyring already holds one, which is the
+        # secret in use and must not be overwritten by the file's older copy.
+        file_client_secret = entry.get("connect_cloud_client_secret")
+        keyring_readable, keyring_client_secret = connect_cloud.client_secret_from_keyring(
+            entry_url, server.server_name
+        )
+        migrating_secret = bool(file_client_secret) and keyring_readable and not keyring_client_secret
+        if migrating_secret:
+            in_keyring = connect_cloud.store_credentials_in_keyring(
+                entry_url, server.server_name, access_token, refresh_token, file_client_secret
+            )
+        else:
+            in_keyring = connect_cloud.store_tokens_in_keyring(
+                entry_url, server.server_name, access_token, refresh_token
+            )
+        # The file's copy only goes once the keyring is known to hold a secret; a
+        # read that failed says nothing about what is in there.
+        secret_in_keyring = in_keyring and (migrating_secret or bool(keyring_client_secret))
+
         # A refresh persists the new tokens and nothing else. Every other field
         # is taken from the saved entry alone — never from this run, which may
         # be publishing to a different account on the same login, or carrying
@@ -3060,13 +3085,13 @@ class ConnectCloudClient(HTTPServer):
         # the token fields when they are None.
         store.set(
             server.server_name,
-            server.url,
+            entry_url,
             connect_cloud_account_name=entry.get("connect_cloud_account_name") or server.account_name,
             connect_cloud_account_id=entry.get("connect_cloud_account_id"),
             connect_cloud_client_id=entry.get("connect_cloud_client_id"),
-            connect_cloud_client_secret=entry.get("connect_cloud_client_secret"),
-            connect_cloud_access_token=access_token,
-            connect_cloud_refresh_token=refresh_token,
+            connect_cloud_client_secret=None if secret_in_keyring else file_client_secret,
+            connect_cloud_access_token=None if in_keyring else access_token,
+            connect_cloud_refresh_token=None if in_keyring else refresh_token,
         )
 
     def get_current_user(self) -> JsonData:

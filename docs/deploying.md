@@ -553,6 +553,12 @@ Stored information files are stored in a platform-specific directory:
 
 Remembered server information is stored in the `servers.json` file in that directory.
 
+OAuth credentials — the tokens from `rsconnect login` for Posit Connect, and the
+tokens and service account client secret for Posit Connect Cloud — are stored in the
+system keyring when one is available. On a machine without a usable keyring, such as a
+CI runner, they are kept in `servers.json` instead, which is written with owner-only
+permissions.
+
 ### Deployment Data
 
 After a deployment is completed, information about the deployment is saved

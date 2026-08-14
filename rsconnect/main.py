@@ -936,19 +936,34 @@ def add(
         account = cast(str, account)
         cloud_server = _connect_cloud_login(account, client_id, client_secret, url=server)
 
+        # The keyring holds the secrets when there is one, and the entry keeps only
+        # the account and client id. servers.json (written 0600) carries them
+        # otherwise, for machines with no usable keyring such as CI runners.
+        in_keyring = connect_cloud_auth.store_credentials_in_keyring(
+            cloud_server.url,
+            name,
+            cloud_server.access_token,
+            cloud_server.refresh_token,
+            cloud_server.client_secret,
+        )
         server_store.set(
             name,
             cloud_server.url,
             connect_cloud_account_name=cloud_server.account_name,
             connect_cloud_account_id=cloud_server.account_id,
             connect_cloud_client_id=cloud_server.client_id,
-            connect_cloud_client_secret=cloud_server.client_secret,
-            connect_cloud_access_token=cloud_server.access_token,
-            connect_cloud_refresh_token=cloud_server.refresh_token,
+            connect_cloud_client_secret=None if in_keyring else cloud_server.client_secret,
+            connect_cloud_access_token=None if in_keyring else cloud_server.access_token,
+            connect_cloud_refresh_token=None if in_keyring else cloud_server.refresh_token,
             set_as_default=set_default,
         )
         verb = "Updated" if old_server else "Added"
         click.echo('{} {} credential "{}" for account "{}".'.format(verb, cloud_server.remote_name, name, account))
+        if not in_keyring:
+            click.secho(
+                "Note: keyring not available; credentials stored in local file (chmod 600).",
+                fg="yellow",
+            )
     elif token:
         server = cast(str, server)
         account = cast(str, account)
@@ -1040,7 +1055,12 @@ def list_servers(verbose: int):
                     click.echo("    Posit Connect Cloud account: %s" % server["connect_cloud_account_name"])
                     if server.get("connect_cloud_client_id"):
                         click.echo("    Service account client ID: %s" % server["connect_cloud_client_id"])
-                    if server.get("connect_cloud_access_token"):
+                    access, _, client_secret = connect_cloud_auth.credentials_from_keyring(
+                        server["url"], server["name"]
+                    )
+                    if access or client_secret:
+                        click.echo("    Credentials stored in system keyring")
+                    elif server.get("connect_cloud_access_token") or server.get("connect_cloud_client_secret"):
                         click.echo("    Credentials are saved")
                 if server.get("api_key"):
                     click.echo("    API key is saved")
@@ -1162,6 +1182,11 @@ def remove(
                 raise RSConnectException('URL "%s" was not found.' % server)
         else:
             raise RSConnectException("You must specify one of -n/--name or -s/--server.")
+
+        # Removing the entry leaves any keyring secrets orphaned, since nothing
+        # else records the nickname they are keyed by.
+        if entry and entry.get("connect_cloud_account_name"):
+            connect_cloud_auth.delete_credentials_from_keyring(entry["url"], entry["name"])
 
     if message:
         click.echo(message)
