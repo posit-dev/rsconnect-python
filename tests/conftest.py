@@ -24,7 +24,9 @@ def no_system_keyring():
     try:
         yield
     finally:
-        if sys.modules.get("keyring") is None:
+        # The sentinel default distinguishes the fixture's own None marker from
+        # a key some test deleted outright, which is left as that test's doing.
+        if sys.modules.get("keyring", absent) is None:
             if previous is absent:
                 del sys.modules["keyring"]
             else:
