@@ -155,6 +155,13 @@ class TestServerMetadata(TestCase):
         self.assertEqual(server_data.ca_data, None)
         self.assertFalse(server_data.from_store)
 
+    def test_resolve_unknown_name_raises(self):
+        # A -n naming nothing must fail here rather than fall through to
+        # argument-style resolution, which would treat the nickname as a URL.
+        with self.assertRaises(RSConnectException) as context:
+            self.server_store.resolve("no-such-server", None)
+        self.assertEqual(context.exception.message, 'The nickname, "no-such-server", does not exist.')
+
     def test_save_and_load(self):
         temp = tempfile.mkdtemp()
         server_store = ServerStore(base_dir=temp)
