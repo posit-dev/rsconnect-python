@@ -370,12 +370,14 @@ account other than the one the credential was saved with.",
     return wrapper
 
 
-def shinyapps_deploy_args(func: Callable[P, T]) -> Callable[P, T]:
+def visibility_arg(func: Callable[P, T]) -> Callable[P, T]:
     @click.option(
         "--visibility",
         "-V",
         type=click.Choice(["public", "private"]),
-        help="The visibility of the resource being deployed. (shinyapps.io only; must be public (default) or private)",
+        help="The visibility of the content being deployed, public (default) or private. \
+(shinyapps.io and Posit Connect Cloud only; on Posit Connect Cloud a redeploy without this \
+option leaves the existing visibility alone.)",
     )
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
@@ -1775,6 +1777,7 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@visibility_arg
 @quiet_arg
 @cli_exception_handler
 @click.pass_context
@@ -1811,6 +1814,7 @@ def deploy_notebook(
     env_management_r: Optional[bool],
     exclude_renv: bool,
     draft: bool,
+    visibility: Optional[str] = None,
     no_verify: bool = False,
     package_installer: Optional[PackageInstaller] = None,
     metadata: tuple[str, ...] = tuple(),
@@ -1852,6 +1856,7 @@ def deploy_notebook(
         new=new,
         app_id=app_id,
         title=title,
+        visibility=visibility,
         disable_env_management=disable_env_management,
         env_vars=env_vars,
     )
@@ -2086,7 +2091,7 @@ def deploy_voila(
 @cloud_shinyapps_args
 @connect_cloud_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
-@shinyapps_deploy_args
+@visibility_arg
 @quiet_arg
 @cli_exception_handler
 @click.pass_context
@@ -2194,7 +2199,7 @@ def deploy_manifest(
 @cloud_shinyapps_args
 @connect_cloud_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
-@shinyapps_deploy_args
+@visibility_arg
 @quiet_arg
 @cli_exception_handler
 @click.pass_context
@@ -2312,7 +2317,7 @@ def deploy_bundle(
     ),
 )
 @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
-@shinyapps_deploy_args
+@visibility_arg
 @click.option(
     "--exclude-renv",
     "exclude_renv",
@@ -2686,6 +2691,7 @@ def deploy_git(
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@visibility_arg
 @quiet_arg
 @cli_exception_handler
 @click.pass_context
@@ -2723,6 +2729,7 @@ def deploy_quarto(
     no_verify: bool,
     draft: bool,
     package_installer: Optional[PackageInstaller],
+    visibility: Optional[str] = None,
     metadata: tuple[str, ...] = tuple(),
     no_metadata: bool = False,
 ):
@@ -2773,6 +2780,7 @@ def deploy_quarto(
         new=new,
         app_id=app_id,
         title=title,
+        visibility=visibility,
         disable_env_management=disable_env_management,
         env_vars=env_vars,
         quarto_inputs=quarto_inputs_from_inspect(file_or_directory, inspect),
@@ -2961,6 +2969,7 @@ def deploy_tensorflow(
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@visibility_arg
 @quiet_arg
 @cli_exception_handler
 @click.pass_context
@@ -2990,6 +2999,7 @@ def deploy_html(
     connect_cloud: bool,
     no_verify: bool,
     draft: bool,
+    visibility: Optional[str] = None,
     connect_server: Optional[api.RSConnectServer] = None,
     metadata: tuple[str, ...] = tuple(),
     no_metadata: bool = False,
@@ -3032,6 +3042,7 @@ def deploy_html(
             new=new,
             app_id=app_id,
             title=title,
+            visibility=visibility,
             env_vars=env_vars,
         )
 
@@ -3181,7 +3192,7 @@ def generate_deploy_python(
         nargs=-1,
         type=click.Path(exists=True, dir_okay=False, file_okay=True),
     )
-    @shinyapps_deploy_args
+    @visibility_arg
     @quiet_arg
     @cli_exception_handler
     @click.pass_context
@@ -3388,7 +3399,7 @@ generate_deploy_python(app_mode=AppModes.PYTHON_PANEL, min_version="2025.10.0")
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
-@shinyapps_deploy_args
+@visibility_arg
 @quiet_arg
 @cli_exception_handler
 @click.pass_context

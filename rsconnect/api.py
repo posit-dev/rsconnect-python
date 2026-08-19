@@ -1757,12 +1757,6 @@ for shinyapps.io. See command help for further details."
             raise RSConnectException("remote_server must be a Posit Connect Cloud server.")
         if not isinstance(self.client, ConnectCloudClient):
             raise RSConnectException("client must be a ConnectCloudClient.")
-        if self.visibility is not None:
-            # Connect Cloud has no equivalent setting.
-            raise RSConnectException(
-                "-V/--visibility is not supported by Posit Connect Cloud. "
-                "Manage content access from the Connect Cloud interface."
-            )
         if not self.remote_server.access_token and not (
             self.remote_server.client_id and self.remote_server.client_secret
         ):
@@ -2030,6 +2024,7 @@ for shinyapps.io. See command help for further details."
                     env_vars=self.env_vars,
                     update_title=not self.title_is_default,
                     app_id_is_explicit=self.app_id_is_explicit,
+                    visibility=self.visibility,
                 )
                 self.deployed_info = RSConnectClientDeployResult(
                     app_url=prepared.app_url,
@@ -3165,7 +3160,13 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         app_mode: str,
         primary_file: str,
         secrets: Optional[list[dict[str, str]]] = None,
+        access: Optional[str] = None,
     ) -> ConnectCloudContent:
+        """Create content to upload a bundle into.
+
+        `access` is the content's visibility ("public" or "private"). Omitted from
+        the request when None so the server picks its own default.
+        """
         body: dict[str, Any] = {
             "account_id": account_id,
             "title": title,
@@ -3177,6 +3178,8 @@ class ConnectCloudClient(BearerTokenHTTPServer):
             },
             "secrets": secrets or [],
         }
+        if access is not None:
+            body["access"] = access
         response = cast(Union[ConnectCloudContent, HTTPResponse], self.post("/contents", body=body))
         return self._server.handle_bad_response(response)
 
@@ -3189,6 +3192,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         secrets: Optional[list[dict[str, str]]] = None,
         new_bundle: bool = True,
         title: Optional[str] = None,
+        access: Optional[str] = None,
     ) -> ConnectCloudContent:
         """Update content, optionally minting a fresh revision to upload into.
 
@@ -3200,7 +3204,9 @@ class ConnectCloudClient(BearerTokenHTTPServer):
 
         `secrets` replaces the content's whole set, and `title` overwrites the
         stored one, so both are omitted from the request entirely when None: a
-        deploy without -E/-t must leave the existing values alone.
+        deploy without -E/-t must leave the existing values alone. `access` (the
+        content's visibility) is omitted the same way, so a redeploy without
+        -V keeps whatever visibility the content already has.
         """
         body: dict[str, Any] = {
             "revision_overrides": {
@@ -3213,6 +3219,8 @@ class ConnectCloudClient(BearerTokenHTTPServer):
             body["secrets"] = secrets
         if title is not None:
             body["title"] = title
+        if access is not None:
+            body["access"] = access
         query_params: dict[str, JsonData] = {"new_bundle": "true"} if new_bundle else {}
         response = cast(
             Union[ConnectCloudContent, HTTPResponse],
@@ -3400,11 +3408,16 @@ class ConnectCloudService:
         upload: bool = True,
         update_title: bool = False,
         app_id_is_explicit: bool = False,
+        visibility: Optional[str] = None,
     ) -> ConnectCloudDeployResult:
         """Create or fetch the content item and get a revision to upload into.
 
         `update_title` is set when the user typed an explicit --title: only then
         does a redeploy overwrite the title on existing content.
+
+        `visibility` is the -V/--visibility value. Its two choices, "public" and
+        "private", are spelled the same way as the Connect Cloud content access
+        levels, so the value is sent through as `access` unchanged.
 
         `app_id_is_explicit` distinguishes an --app-id the user typed from one
         read out of the local deployment record. An explicit id names content
@@ -3463,6 +3476,7 @@ class ConnectCloudService:
                 app_mode=app_mode.name(),
                 primary_file=primary_file,
                 secrets=secrets,
+                access=visibility,
             )
         else:
             # Existing content: push secrets and entrypoint, and ask for a new
@@ -3478,6 +3492,7 @@ class ConnectCloudService:
                 secrets=secrets,
                 new_bundle=upload,
                 title=title if update_title and title else None,
+                access=visibility,
             )
 
         next_revision = content.get("next_revision")

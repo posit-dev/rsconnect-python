@@ -633,6 +633,28 @@ class TestConnectCloudClient(unittest.TestCase):
             },
         )
 
+    def _create_content(self, **kwargs):
+        """POST /contents with the always-required arguments; returns the request body."""
+        _register_json(httpretty.POST, f"{API}/contents", {"id": "c1", "next_revision": {"id": "r1"}})
+        with self.client:
+            self.client.create_content(
+                account_id="acct-1",
+                title="My App",
+                content_type="shiny",
+                app_mode="python-shiny",
+                primary_file="app.py",
+                **kwargs,
+            )
+        return _json_body(httpretty.last_request())
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_create_content_with_access_sets_the_visibility(self):
+        self.assertEqual(self._create_content(access="private")["access"], "private")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_create_content_without_access_takes_the_server_default(self):
+        self.assertNotIn("access", self._create_content())
+
     def _update_content(self, **kwargs):
         """PATCH /contents/c1 with the always-required arguments; returns the request body."""
         _register_json(httpretty.PATCH, f"{API}/contents/c1", {"id": "c1", "next_revision": {"id": "r2"}})
@@ -671,6 +693,14 @@ class TestConnectCloudClient(unittest.TestCase):
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_update_content_without_title_leaves_it_alone(self):
         self.assertNotIn("title", self._update_content())
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_update_content_with_access_sets_the_visibility(self):
+        self.assertEqual(self._update_content(access="private")["access"], "private")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_update_content_without_access_leaves_the_visibility_alone(self):
+        self.assertNotIn("access", self._update_content())
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_update_content_without_new_bundle(self):
@@ -2163,6 +2193,22 @@ class TestConnectCloudService(unittest.TestCase):
         self.assertEqual(result.revision_id, "r2")
         self.assertEqual(result.upload_url, "https://up.example/fresh")
 
+    def test_prepare_deploy_sends_the_visibility_as_the_content_access(self):
+        self._prepare_deploy(visibility="private")
+        self.assertEqual(self.client.create_content.call_args.kwargs["access"], "private")
+
+        self._prepare_deploy(app_id="c1", visibility="public")
+        self.assertEqual(self.client.update_content.call_args.kwargs["access"], "public")
+
+    def test_prepare_deploy_without_a_visibility_does_not_send_access(self):
+        # No -V leaves new content on the server's default and keeps a redeploy
+        # from overwriting a visibility set in the Connect Cloud interface.
+        self._prepare_deploy()
+        self.assertIsNone(self.client.create_content.call_args.kwargs["access"])
+
+        self._prepare_deploy(app_id="c1")
+        self.assertIsNone(self.client.update_content.call_args.kwargs["access"])
+
     def test_prepare_deploy_updates_the_title_only_when_explicit(self):
         self._prepare_deploy(app_id="c1")
         self.assertIsNone(self.client.update_content.call_args.kwargs["title"])
@@ -2358,11 +2404,12 @@ class TestConnectCloudDeployRecordsContentEarly(unittest.TestCase):
         self.app_path = os.path.join(tempdir.name, "app.py")
         self.server = ConnectCloudServer("acme", access_token="at")
 
-    def _executor(self, app_id=None):
+    def _executor(self, app_id=None, visibility=None):
         executor = RSConnectExecutor.__new__(RSConnectExecutor)
         executor.remote_server = self.server
         executor.client = mock.MagicMock(spec=ConnectCloudClient)
         executor.app_mode = AppModes.PYTHON_SHINY
+        executor.visibility = visibility
         executor.app_id = app_id
         executor.app_id_is_explicit = app_id is not None
         executor.app_store = AppStore(self.app_path)
@@ -2429,6 +2476,16 @@ class TestConnectCloudDeployRecordsContentEarly(unittest.TestCase):
                 executor.deploy_bundle()
 
         self.assertEqual(seen, ["c1"])
+
+    def test_the_visibility_reaches_prepare_deploy(self):
+        executor = self._executor(visibility="private")
+        service = self._service()
+
+        with mock.patch.object(api, "ConnectCloudService", return_value=service):
+            with mock.patch.object(api.webbrowser, "open_new"):
+                executor.deploy_bundle()
+
+        self.assertEqual(service.prepare_deploy.call_args.kwargs["visibility"], "private")
 
     def test_upload_failure_still_records_the_content_id(self):
         executor = self._executor()
@@ -2672,6 +2729,31 @@ class TestConnectCloudCliPolish(CliTestCase):
             self.assertIn("--connect-cloud", result.output, command)
             self.assertIn("--client-id", result.output, command)
             self.assertIn("-A, --account", result.output, command)
+
+    def test_connect_cloud_capable_commands_take_the_visibility_option(self):
+        # -V sets the content's access level on Connect Cloud, so every command
+        # that can publish there has to offer it.
+        for command in ("notebook", "quarto", "html", "manifest", "pyproject", "shiny"):
+            result = self.runner.invoke(cli, ["deploy", command, "--help"])
+            self.assertIn("-V, --visibility", result.output, command)
+
+    def test_the_visibility_option_reaches_the_executor(self):
+        # notebook, quarto, and html only gained -V for Connect Cloud; the
+        # commands that also target shinyapps.io have carried it all along.
+        project_dir = tempfile.mkdtemp()
+        notebook = os.path.join(project_dir, "notebook.ipynb")
+        with open(notebook, "w") as f:
+            f.write("{}")
+        page = os.path.join(project_dir, "index.html")
+        with open(page, "w") as f:
+            f.write("<html></html>")
+
+        for command, target in (("notebook", notebook), ("html", page)):
+            with mock.patch("rsconnect.main.Environment.create_python_environment"):
+                with mock.patch("rsconnect.main.RSConnectExecutor") as executor_cls:
+                    result = self.runner.invoke(cli, ["deploy", command, target, "-V", "private", "--no-verify"])
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertEqual(executor_cls.call_args.kwargs["visibility"], "private", command)
 
     def test_help_mentions_connect_cloud_only_for_supported_types(self):
         # The generated commands share a template; unsupported types must not
@@ -3348,7 +3430,7 @@ class TestConnectCloudKeyringStorage(CliTestCase):
         self.assertNotIn("Credentials are saved", result.output)
 
 
-class TestConnectCloudVisibility(unittest.TestCase):
+class TestConnectCloudServerValidation(unittest.TestCase):
     def _executor(self, visibility=None, server=None):
         executor = RSConnectExecutor.__new__(RSConnectExecutor)
         executor.remote_server = server or ConnectCloudServer("acme", access_token="at")
@@ -3359,12 +3441,11 @@ class TestConnectCloudVisibility(unittest.TestCase):
         executor.visibility = visibility
         return executor
 
-    def test_visibility_is_rejected(self):
-        # Connect Cloud has no equivalent setting. R silently ignores it; we do not.
+    def test_visibility_is_accepted(self):
+        # Connect Cloud content has an access level, which -V sets.
         executor = self._executor("private")
-        with self.assertRaises(RSConnectException) as context:
-            executor.validate_connect_cloud_server()
-        self.assertIn("--visibility is not supported", str(context.exception))
+        executor.validate_connect_cloud_server()
+        executor.client.get_current_user.assert_called_once()
 
     def test_no_visibility_is_accepted(self):
         executor = self._executor()
