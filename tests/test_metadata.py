@@ -1,3 +1,4 @@
+import os
 import shutil
 import tempfile
 from os.path import exists, join
@@ -252,6 +253,31 @@ class TestServerMetadata(TestCase):
         self.server_store.set_default("foo")
         self.server_store.remove_by_name("foo")
         self.assertIsNone(self.server_store.get_default())
+
+    def test_save_skips_rewrite_when_file_unchanged(self):
+        def fail_open(path_to_open, mode, *args, **kw):
+            self.fail("rewrote %s when nothing had changed" % path_to_open)
+
+        self.server_store.save(fail_open)
+
+    def test_save_rewrites_when_data_changed(self):
+        writes = []
+
+        def recording_open(path_to_open, mode, *args, **kw):
+            writes.append(path_to_open)
+            return open(path_to_open, mode, *args, **kw)
+
+        del self.server_store._data["foo"]
+        self.server_store.save(recording_open)
+
+        self.assertEqual(writes, [self.server_store_path])
+        self.assertIsNone(ServerStore(base_dir=self.tempDir).get_by_name("foo"))
+
+    def test_save_rewrites_when_file_removed(self):
+        os.remove(self.server_store_path)
+        self.server_store.save()
+
+        self.assertEqual(len(ServerStore(base_dir=self.tempDir).get_all_servers()), 5)
 
 
 class TestAppMetadata(TestCase):

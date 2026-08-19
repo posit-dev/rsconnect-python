@@ -60,6 +60,38 @@ def _get_present_options(
     return result
 
 
+# Deploy options that configure Posit Connect features Connect Cloud does not
+# have.
+_CONNECT_ONLY_DEPLOY_OPTIONS: dict[str, str] = {
+    "image": "-I/--image",
+    "disable_env_management": "--disable-env-management",
+    "env_management_py": "--disable-env-management-py",
+    "env_management_r": "--disable-env-management-r",
+    "draft": "--draft",
+    "metadata": "--metadata",
+}
+
+
+def _typed_connect_only_deploy_options(ctx: Optional[click.Context]) -> list[str]:
+    """The Connect-only deploy options this command line passed.
+
+    Judged by parameter source rather than by value: --disable-env-management-py
+    inverts to False when given, and the --disable-env-management shorthand fills
+    in the per-language parameters without being their source.
+
+    Only options count. `environment add` takes a positional IMAGE argument, whose
+    parameter is also named `image` and is not this option.
+    """
+    if ctx is None:
+        return []
+    option_names = {param.name for param in ctx.command.params if isinstance(param, click.Option)}
+    return [
+        label
+        for name, label in _CONNECT_ONLY_DEPLOY_OPTIONS.items()
+        if name in option_names and get_parameter_source_name_from_ctx(name, ctx) == "COMMANDLINE"
+    ]
+
+
 def validate_connect_cloud_incompatible_options(
     ctx: Optional[click.Context],
     api_key: Optional[str],
@@ -69,12 +101,12 @@ def validate_connect_cloud_incompatible_options(
 ):
     """Reject options that have no meaning on Posit Connect Cloud.
 
-    validate_connection_options performs the same checks, but only when Connect
-    Cloud is selected by flag or URL; a saved nickname or default server is only
-    identified as Connect Cloud after store resolution, so the executor calls
-    this afterwards. Environment-sourced values are ignored for the same reason
-    as elsewhere: a CONNECT_API_KEY exported for another target is just the
-    CI environment, not a request to use it here.
+    validate_connection_options repeats the credential and SPCS checks, but only
+    when Connect Cloud is selected by flag or URL; a saved nickname or default
+    server is only identified as Connect Cloud after store resolution, so the
+    executor calls this afterwards. Environment-sourced values are ignored for
+    the same reason as elsewhere: a CONNECT_API_KEY exported for another target
+    is just the CI environment, not a request to use it here.
     """
     present_connect_options = _get_present_options(
         {"-k/--api-key": api_key, "-i/--insecure": insecure, "-c/--cacert": cacert},
@@ -92,6 +124,12 @@ alongside Posit Connect Cloud. See command help for further details."
     if present_spcs_options:
         raise RSConnectException(
             f"SPCS options ({', '.join(present_spcs_options)}) may not be passed \
+alongside Posit Connect Cloud. See command help for further details."
+        )
+    connect_only_deploy_options = _typed_connect_only_deploy_options(ctx)
+    if connect_only_deploy_options:
+        raise RSConnectException(
+            f"Posit Connect options ({', '.join(connect_only_deploy_options)}) may not be passed \
 alongside Posit Connect Cloud. See command help for further details."
         )
 

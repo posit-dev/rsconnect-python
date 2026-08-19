@@ -245,6 +245,21 @@ class DataStore(Generic[T]):
             f.write(data)
         self._real_path = path
 
+    def _already_holds(self, path: str, data: bytes) -> bool:
+        """
+        Whether this store was loaded from `path` and that file already holds `data`.
+
+        Restricted to the path we read so a store loaded from its secondary
+        location still migrates to the primary one on the next save.
+        """
+        if self._real_path != path or not exists(path):
+            return False
+        try:
+            with open(path, "rb") as f:
+                return f.read() == data
+        except OSError:
+            return False
+
     # noinspection PyShadowingBuiltins
     def save(self, open: Callable[..., BufferedWriter] = open):
         """
@@ -252,19 +267,22 @@ class DataStore(Generic[T]):
 
         The app directory is tried first. If that fails,
         then we write to the global config location.
+
+        A save that would not change the file is skipped.
         """
         data = json.dumps(self._data, indent=4).encode("utf-8")
-        try:
-            makedirs(self._primary_path)
-            self.save_to(self._primary_path, data, open)
-        except OSError:
-            if not self._secondary_path:
-                raise
-            makedirs(self._secondary_path)
-            self.save_to(self._secondary_path, data, open)
+        if not self._already_holds(self._primary_path, data):
+            try:
+                makedirs(self._primary_path)
+                self.save_to(self._primary_path, data, open)
+            except OSError:
+                if not self._secondary_path:
+                    raise
+                makedirs(self._secondary_path)
+                self.save_to(self._secondary_path, data, open)
 
-        if self._chmod and self._real_path is not None:
-            os.chmod(self._real_path, 0o600)
+            if self._chmod and self._real_path is not None:
+                os.chmod(self._real_path, 0o600)
 
 
 class ServerDataDict(TypedDict):
