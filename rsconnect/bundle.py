@@ -4,6 +4,8 @@ Manifest generation and bundling utilities
 
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import hashlib
 import io
 import json
@@ -33,6 +35,7 @@ from pathlib import Path
 from typing import (
     IO,
     TYPE_CHECKING,
+    Any,
     Callable,
     Iterator,
     Literal,
@@ -82,6 +85,70 @@ directories_to_ignore = {Path(d) for d in directories_ignore_list}
 
 mimetypes.add_type("text/ipynb", ".ipynb")
 
+# When set (by a deploy orchestrator via ``restrict_to_files``), ``create_file_list``
+# selects from exactly this pre-resolved set of project-relative files instead of
+# walking the whole tree. Deploy commands resolve the set from an applicable
+# ``.posit/publish`` config's ``files`` allowlist, and leave this unset otherwise;
+# see ``rsconnect.publisher.files`` and ``rsconnect.publisher.store.resolve_bundle_files``.
+_include_files_override: "contextvars.ContextVar[Optional[list[str]]]" = contextvars.ContextVar(
+    "rsconnect_include_files_override", default=None
+)
+
+
+@contextlib.contextmanager
+def restrict_to_files(files: Optional[typing.Sequence[str]]) -> typing.Iterator[None]:
+    """Restrict bundling to ``files`` (project-relative) for the duration of the block.
+
+    ``None`` leaves the default whole-tree walk in place. The builders' own
+    ``excludes`` (e.g. ``manifest.json`` and the environment file, which are added
+    to the bundle separately) still apply on top of the restriction.
+    """
+    token = _include_files_override.set(list(files) if files is not None else None)
+    try:
+        yield
+    finally:
+        _include_files_override.reset(token)
+
+
+# Manifest fields sourced from a ``.posit/publish`` config that rsconnect cannot
+# derive from inspection (e.g. ``integration_requests``). Set by a deploy
+# orchestrator via ``overlay_manifest`` and merged by ``Manifest`` so a
+# Publisher-authored config's settings propagate into ``manifest.json`` exactly as
+# Publisher would emit them, even though rsconnect never originates them.
+_manifest_overlay: "contextvars.ContextVar[Optional[dict[str, Any]]]" = contextvars.ContextVar(
+    "rsconnect_manifest_overlay", default=None
+)
+
+
+@contextlib.contextmanager
+def overlay_manifest(fields: Optional[typing.Mapping[str, Any]]) -> typing.Iterator[None]:
+    """Merge ``fields`` into every ``Manifest`` built within the block.
+
+    ``None``/empty is a no-op. Top-level keys are only filled when rsconnect did
+    not already set them from inspection (so inspected values win); the nested
+    ``metadata`` mapping is merged key-by-key.
+    """
+    token = _manifest_overlay.set(dict(fields) if fields else None)
+    try:
+        yield
+    finally:
+        _manifest_overlay.reset(token)
+
+
+def _apply_manifest_overlay(data: "ManifestData") -> None:
+    """Merge the active ``overlay_manifest`` fields into ``data`` in place."""
+    overlay = _manifest_overlay.get()
+    if not overlay:
+        return
+    for key, value in overlay.items():
+        if key == "metadata" and isinstance(value, dict):
+            metadata = data.setdefault("metadata", cast("ManifestDataMetadata", {}))
+            for meta_key, meta_value in value.items():
+                metadata.setdefault(meta_key, meta_value)  # type: ignore[misc]
+        else:
+            # Do not clobber a value rsconnect already derived from inspection.
+            data.setdefault(key, value)  # type: ignore[misc]
+
 
 class ManifestDataFile(TypedDict):
     checksum: str
@@ -93,6 +160,15 @@ class ManifestDataMetadata(TypedDict):
     entrypoint: NotRequired[str]
     primary_rmd: NotRequired[str]
     content_category: NotRequired[str]
+
+
+class ManifestDataIntegrationRequest(TypedDict):
+    guid: NotRequired[str]
+    name: NotRequired[str]
+    description: NotRequired[str]
+    auth_type: NotRequired[str]
+    type: NotRequired[str]
+    config: NotRequired[dict[str, typing.Any]]
 
 
 class ManifestDataJupyter(TypedDict):
@@ -160,6 +236,7 @@ class ManifestData(TypedDict):
     platform: NotRequired[str]
     packages: NotRequired[dict[str, ManifestDataRPackage]]
     environment: NotRequired[ManifestDataEnvironment]
+    integration_requests: NotRequired[list[ManifestDataIntegrationRequest]]
 
 
 class Manifest:
@@ -251,6 +328,10 @@ class Manifest:
         self.data["files"] = {}
         if files:
             self.data["files"] = files
+
+        # Merge fields sourced from a .posit config (e.g. integration_requests)
+        # that rsconnect does not derive from inspection.
+        _apply_manifest_overlay(self.data)
 
     @classmethod
     def from_json(cls, json_str: str):
@@ -1236,6 +1317,7 @@ def create_file_list(
     extra_files: Sequence[str],
     excludes: Sequence[str],
     use_abspath: bool = False,
+    include_files: Optional[Sequence[str]] = None,
 ) -> list[str]:
     """
     Builds a full list of files under the given path that should be included
@@ -1245,6 +1327,10 @@ def create_file_list(
     :param path: a file, or a directory to walk for files.
     :param extra_files: a sequence of any extra files to include in the bundle.
     :param excludes: a sequence of glob patterns that will exclude matched files.
+    :param include_files: when provided (or set via ``restrict_to_files``), select
+        from exactly these project-relative files instead of walking the tree. The
+        ``excludes`` still apply, so a builder's separately-added files (manifest,
+        environment file) are not double-counted.
     :return: the list of relevant files, relative to the given directory.
     """
     extra_files = extra_files or []
@@ -1256,6 +1342,25 @@ def create_file_list(
     if isfile(path):
         path_to_add = abspath(path) if use_abspath else path
         file_set.add(path_to_add)
+        return sorted(file_set)
+
+    if include_files is None:
+        include_files = _include_files_override.get()
+
+    if include_files is not None:
+        # Allowlist mode: consider only the resolved files, applying the same
+        # exclude/ignore filtering the walk would, so builder-managed files
+        # (manifest.json, the environment file) are still dropped here.
+        for rel_path in include_files:
+            cur_path = os.path.join(path, rel_path)
+            if not isfile(cur_path):
+                continue
+            if Path(cur_path) in exclude_paths:
+                continue
+            if keep_manifest_specified_file(rel_path, exclude_paths | directories_to_ignore) and (
+                rel_path in extra_files or not glob_set.matches(cur_path)
+            ):
+                file_set.add(abspath(cur_path) if use_abspath else rel_path)
         return sorted(file_set)
 
     for cur_dir, _, files in os.walk(path):

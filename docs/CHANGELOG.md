@@ -7,14 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-- Added support for Python 3.14. The test suite now runs on Python 3.14 in CI.
-- `rsconnect deploy` subcommands now accept `--quiet`, which suppresses the
-  step-by-step progress lines and the streamed server build log, printing only
-  the deployed content URL to stdout so it can be captured with
-  `URL=$(rsconnect deploy ... --quiet)`. Errors still go to stderr, and on a
-  failed deploy the server task log is emitted to stderr so failures remain
-  diagnosable. `--quiet` cannot be combined with `-v/--verbose`, and for
-  shinyapps.io deploys it also skips opening a browser.
+### Added
+
+- Python 3.14 support. The test suite now runs on Python 3.14 in CI.
+- `--quiet` flag for `rsconnect deploy` commands. It suppresses the
+  step-by-step progress lines and the streamed build log. It prints only the
+  deployed content URL to stdout, so you can capture it with
+  `URL=$(rsconnect deploy ... --quiet)`. Errors still go to stderr. On a
+  failed deploy, the server task log also goes to stderr. `--quiet` cannot
+  combine with `-v`/`--verbose`. For shinyapps.io deploys, `--quiet` also
+  skips opening a browser.
+- Reusable Publisher services for frontends such as `posit-cli`.
+  `initialize_project()` creates a Publisher v3
+  `.posit/publish/<config>.toml`, and `publish_project()` performs first and
+  subsequent publishes from that configuration while preserving the selected
+  deployment record. Configured file curation, integration requests, Python
+  and Jupyter options, environment variables, and supported Connect
+  Kubernetes bundle settings are applied during publishing.
+- Publisher behavior is explicit: ordinary `rsconnect deploy` and
+  `rsconnect write-manifest` commands neither read nor write `.posit` state.
+  A `PublisherContext` opts the shared executor into Publisher file curation,
+  manifest overlays, and metadata writes.
 
 ## [1.30.0] - 2026-07-16
 

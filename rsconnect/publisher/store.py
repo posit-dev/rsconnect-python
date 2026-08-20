@@ -1,0 +1,613 @@
+"""Facade tying the ``.posit/publish`` config + record files to deploy flows.
+
+Write side: :func:`write_deployment_metadata` creates or updates the config and
+deployment record after an explicit Publisher-service deployment.
+
+Read side: :func:`resolve_publisher_deploy_target` reconstructs a ready-to-deploy
+target from an existing config and optional record. Records can be selected by
+name or matched by server URL so Publisher-authored files interoperate.
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import os
+import random
+import re
+import typing
+from urllib.parse import urlparse
+
+from ..exception import RSConnectException
+from ..models import AppMode, AppModes
+from . import config as config_mod
+from . import files as files_mod
+from . import record as record_mod
+from . import schema
+
+if typing.TYPE_CHECKING:
+    from typing import IO
+
+
+_DEFAULT_PORTS = {"http": "80", "https": "443"}
+
+
+def normalize_url(url: str) -> str:
+    """Normalize a Connect URL for content comparison.
+
+    Strips a trailing ``/__api__`` and any trailing slash, lowercases the
+    scheme+host, drops an explicit default port, and collapses duplicate slashes
+    in the path, so a record's ``server_url`` matches a saved server that may
+    differ only cosmetically.
+
+    This must produce the same result Publisher's Go backend would for the same
+    input: a record's ``server_url`` is compared there with plain string equality
+    against ``purell.NormalizeURLString(url, purell.FlagsSafe |
+    FlagRemoveTrailingSlash | FlagRemoveDotSegments | FlagRemoveDuplicateSlashes)``
+    (``internal/util/urls.go``), which lowercases scheme+host, strips a default
+    port, and collapses duplicate slashes. Anything written here that doesn't
+    match that exactly makes Publisher reject a genuinely matching account with
+    "the account provided is for a different server" (``ErrServerURLMismatch``).
+    """
+    if not url:
+        return ""
+    parsed = urlparse(url if "//" in url else "//" + url)
+    scheme = (parsed.scheme or "https").lower()
+    hostname = (parsed.hostname or "").lower()
+    netloc = hostname
+    if parsed.port is not None and str(parsed.port) != _DEFAULT_PORTS.get(scheme):
+        netloc = "{}:{}".format(hostname, parsed.port)
+    # Strip trailing slashes first so a trailing slash after ``__api__``
+    # (".../__api__/") still lets the suffix be removed.
+    path = re.sub(r"/{2,}", "/", parsed.path).rstrip("/")
+    if path.endswith("/__api__"):
+        path = path[: -len("/__api__")]
+    path = path.rstrip("/")
+    return "{}://{}{}".format(scheme, netloc, path)
+
+
+# --- write side ------------------------------------------------------------
+
+
+# File-naming mirrors Posit Publisher's utils/names.ts: a random, uppercase,
+# base-32 ending appended to a filesystem-safe title. Publisher relies on its
+# UI to reuse a chosen file. The service pins a selected record by name and only
+# mints a random name for a genuinely new deployment.
+_BASE32_UPPER = "0123456789ABCDEFGHIJKLMNOPQRSTUV"
+
+
+def _random_name_ending(length: int = 4) -> str:
+    """A random uppercase base-32 string, matching Publisher's ``randomNameEnding``."""
+    return "".join(random.choice(_BASE32_UPPER) for _ in range(length))
+
+
+def _filenamify(title: str) -> str:
+    """Approximate Publisher's ``filenamify(title, {replacement: '-', maxLength: 30})``."""
+    slug = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "-", title).strip(". ").strip()
+    return (slug or "content")[:30]
+
+
+def _basenames(paths: typing.Iterable[str]) -> typing.Set[str]:
+    return {os.path.splitext(os.path.basename(p))[0].lower() for p in paths}
+
+
+def _new_config_name(project_dir: str, title: str) -> str:
+    """A fresh ``<title>-<code>`` config name, unique among existing configs.
+
+    Matches Publisher's ``newConfigFileNameFromTitle``."""
+    existing = _basenames(config_mod.discover_configs(project_dir))
+    base = _filenamify(title)
+    while True:
+        candidate = "{}-{}".format(base, _random_name_ending())
+        if candidate.lower() not in existing:
+            return candidate
+
+
+def _new_record_name(project_dir: str) -> str:
+    """A fresh ``deployment-<code>`` record name, matching Publisher's ``newDeploymentName``."""
+    existing = _basenames(record_mod.discover_records(project_dir))
+    while True:
+        candidate = "deployment-{}".format(_random_name_ending())
+        if candidate.lower() not in existing:
+            return candidate
+
+
+def _find_record_name_for_server(
+    project_dir: str, server_url: str, app_guid: typing.Optional[str] = None
+) -> typing.Optional[str]:
+    """Basename of an existing record whose ``server_url`` (and, when known,
+    content id) matches, so a repeat publish updates in place instead of spawning a
+    new random-named file.
+
+    Two different configs in the same project can both target the same
+    Connect server (e.g. two apps deployed to one team's instance), so a bare
+    ``server_url`` match is ambiguous. When ``app_guid`` is known (a deploy
+    that just completed always has one), only a record whose ``id`` also
+    matches is reused. Without an ``app_guid``, a single unambiguous
+    ``server_url`` match is still reused; multiple ambiguous matches return
+    ``None`` (minting a new record) rather than risk overwriting the wrong
+    deployment's data.
+    """
+    target = normalize_url(server_url)
+    candidates: typing.List[str] = []
+    for path in record_mod.discover_records(project_dir):
+        try:
+            rec = record_mod.read_record(path)
+        except Exception:
+            continue
+        if normalize_url(rec.server_url) != target:
+            continue
+        name = os.path.splitext(os.path.basename(path))[0]
+        if app_guid and rec.id == app_guid:
+            return name
+        candidates.append(name)
+    if app_guid:
+        # An app_guid was supplied but nothing on disk matched it: this is a
+        # genuinely different deployment to the same server, not a repeat publish of
+        # one of the candidates above -- don't guess which one to overwrite.
+        return None
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def _find_config_name_for_entrypoint(project_dir: str, entrypoint: str) -> typing.Optional[str]:
+    """Basename of an existing config with a matching entrypoint, if any."""
+    if not entrypoint:
+        return None
+    for path in config_mod.discover_configs(project_dir):
+        try:
+            cfg = config_mod.read_config(path)
+        except Exception:
+            continue
+        if cfg.entrypoint == entrypoint:
+            return os.path.splitext(os.path.basename(path))[0]
+    return None
+
+
+def _select_applicable_config(
+    directory: str,
+    entrypoint: typing.Optional[str] = None,
+    config_name: typing.Optional[str] = None,
+) -> typing.Optional[config_mod.PublisherConfig]:
+    """The ``.posit/publish`` config that applies to a deploy from ``directory``.
+
+    Preference order: the one named ``config_name``, else the sole config, else the
+    config whose entrypoint matches ``entrypoint``. Returns ``None`` when there is
+    no config or the choice is ambiguous -- callers then fall back to defaults
+    rather than failing a plain ``deploy``.
+    """
+    try:
+        configs = _load_configs(directory)
+    except Exception:
+        return None
+    if config_name and config_name in configs:
+        return configs[config_name]
+    if len(configs) == 1:
+        return next(iter(configs.values()))
+    if entrypoint:
+        for candidate in configs.values():
+            if candidate.entrypoint == entrypoint:
+                return candidate
+    return None
+
+
+def _is_unrestricted(config_files: typing.Sequence[str]) -> bool:
+    """Whether ``config_files`` expresses "everything" rather than a curated subset.
+
+    ``.posit`` paths are discounted: Publisher lists the driving config and record
+    so they ship in the bundle, which says nothing about curating content files.
+    What remains is unrestricted when it is empty, or a bare ``*`` together with
+    only non-negated literal entries -- a ``!``-free pattern list containing ``*``
+    can never select less than "everything", so every other *include* alongside it
+    (e.g. the Python package file appended by :func:`_python_package_file_pattern`
+    so Publisher's redeploy preflight, which checks ``files`` by literal suffix
+    rather than by expanding globs, can find it) is necessarily redundant. Only a
+    ``!``-exclusion actually narrows the selection, so its presence means real
+    curation.
+    """
+    meaningful = [pat for pat in config_files if not pat.lstrip("/").startswith(".posit/")]
+    if not meaningful:
+        return True
+    return "*" in meaningful and not any(pat.startswith("!") for pat in meaningful)
+
+
+def resolve_bundle_files(
+    directory: str,
+    entrypoint: typing.Optional[str] = None,
+    config_name: typing.Optional[str] = None,
+) -> typing.Optional[typing.List[str]]:
+    """Resolve the concrete project-relative files to bundle for ``directory``.
+
+    When a ``.posit/publish`` config curates a subset of files, its ``files``
+    include-list decides the selection.
+
+    Returns ``None`` -- meaning "do not restrict", leaving the caller's existing
+    whole-tree walk in place unchanged -- when no config applies, and also when a
+    config declares no real restriction (see :func:`_is_unrestricted`). That second
+    case matters because rsconnect's own deploys write ``files = ["*"]``: a project
+    that never had ``.posit`` must keep bundling exactly as it always has, deploy
+    after deploy, rather than start obeying a list this tool invented. Never raises
+    for an ambiguous or missing config, so a plain ``deploy`` is unaffected.
+    """
+    cfg = _select_applicable_config(directory, entrypoint, config_name)
+    if cfg is None or _is_unrestricted(cfg.files):
+        return None
+
+    selected = files_mod.select_config_files(directory, cfg.files)
+    # The entrypoint must ship even if the config's patterns don't cover it
+    # (the bundle builders reference it from this list, not separately).
+    if cfg.entrypoint:
+        entry = cfg.entrypoint.replace(os.sep, "/")
+        if entry not in selected and os.path.isfile(os.path.join(directory, cfg.entrypoint)):
+            selected = sorted([*selected, entry])
+    return selected
+
+
+# Integration-request keys carried through to the manifest, in Publisher's order
+# (see publisher ``bundler/manifestFromConfig.ts``).
+_INTEGRATION_REQUEST_KEYS = ("guid", "name", "description", "auth_type", "type", "config")
+
+
+def config_manifest_overlay(cfg: config_mod.PublisherConfig) -> typing.Dict[str, typing.Any]:
+    """Manifest fields sourced from a config that rsconnect cannot derive itself.
+
+    Currently just ``integration_requests``: rsconnect never originates these, but
+    a Publisher-authored config may declare them, and Connect reads them from
+    ``manifest.json`` (not a separate API). They round-trip through
+    :attr:`PublisherConfig.extra`; here they are normalized to Publisher's manifest
+    shape so the emitted manifest matches what Publisher would write.
+    """
+    overlay: typing.Dict[str, typing.Any] = {}
+    raw_requests = cfg.integration_requests
+    if isinstance(raw_requests, list):
+        mapped: typing.List[typing.Dict[str, typing.Any]] = []
+        for req in raw_requests:
+            if not isinstance(req, dict):
+                continue
+            item = {key: req[key] for key in _INTEGRATION_REQUEST_KEYS if req.get(key) is not None}
+            if item:
+                mapped.append(item)
+        if mapped:
+            overlay["integration_requests"] = mapped
+    return overlay
+
+
+def resolve_manifest_overlay(
+    directory: str,
+    entrypoint: typing.Optional[str] = None,
+    config_name: typing.Optional[str] = None,
+) -> typing.Dict[str, typing.Any]:
+    """Manifest fields to overlay from the applicable ``.posit/publish`` config.
+
+    Empty when no config applies. Mirrors Publisher: config-authored settings that
+    Connect consumes from the manifest (e.g. ``integration_requests``) are
+    propagated even though rsconnect never originates them.
+    """
+    cfg = _select_applicable_config(directory, entrypoint, config_name)
+    if cfg is None:
+        return {}
+    return config_manifest_overlay(cfg)
+
+
+def _root_anchor(path: str) -> str:
+    """Root-anchor a project-relative path (``app.py`` -> ``/app.py``).
+
+    Anchoring prevents an entry from also matching a same-named file deeper in the
+    tree, matching how Publisher records concrete, root-relative include paths.
+    """
+    return "/" + path.replace(os.sep, "/").lstrip("/")
+
+
+def _default_config_file_patterns() -> typing.List[str]:
+    """The ``files`` include-list for a config rsconnect is minting: everything.
+
+    Deliberately ``["*"]`` rather than the concrete set just deployed. A snapshot
+    would read as user curation on the *next* deploy and silently pin the content
+    to whatever files happened to exist the first time -- a newly added module, or
+    freshly rendered output, would stop being bundled with no diagnostic.
+    rsconnect cannot know which files a user *meant* to exclude, so it claims no
+    restriction and leaves the long-standing whole-tree walk in charge (see
+    :func:`resolve_bundle_files`). ``*`` is also what Publisher's ``collectFiles``
+    defaults an empty pattern list to, so the file stays Publisher-compatible and
+    is a sensible starting point for hand-curation.
+    """
+    return ["*"]
+
+
+def _python_package_file_pattern(cfg: config_mod.PublisherConfig) -> typing.List[str]:
+    """Root-anchored pattern for the Python package file, when this config has one.
+
+    ``*`` already selects this file, so this changes nothing about what gets
+    bundled. It exists because Publisher's redeploy preflight checks for the
+    package file by literal suffix match against ``files`` entries instead of
+    expanding glob patterns, so a bare ``*`` does not satisfy it even though the
+    bundler itself would include the file. See :func:`_is_unrestricted`, which
+    is taught to keep treating a config with this entry as unrestricted.
+    """
+    pkg_file = cfg.requirements_file
+    return [_root_anchor(pkg_file)] if pkg_file else []
+
+
+def _posit_bundle_paths(project_dir: str, config_name: str, record_name: typing.Optional[str]) -> typing.List[str]:
+    """Root-anchored ``.posit`` paths to include in ``files``, mirroring Publisher.
+
+    Publisher adds the driving config (and its deployment record) to the deployment
+    file list so they ship in the bundle. Returns the config path always and the
+    record path when ``record_name`` is known.
+    """
+    paths = [_root_anchor(os.path.relpath(schema.config_path(project_dir, config_name), project_dir))]
+    if record_name:
+        paths.append(_root_anchor(os.path.relpath(schema.record_path(project_dir, record_name), project_dir)))
+    return paths
+
+
+def write_deployment_metadata(
+    *,
+    project_dir: str,
+    server_url: str,
+    product_type: str,
+    app_mode: "AppMode | str",
+    title: typing.Optional[str],
+    deployed_info: typing.Mapping[str, typing.Any],
+    bundle: "IO[bytes]",
+    config_name: typing.Optional[str] = None,
+    record_name: typing.Optional[str] = None,
+) -> typing.Tuple[str, str]:
+    """Create/update the ``.posit`` config and deployment record for a deploy.
+
+    ``config_name``/``record_name`` pin the exact files to update. The publish
+    service passes the names it resolved so the write updates those files instead of
+    re-deriving (and possibly duplicating) them. When omitted, an existing record
+    for this server (and its config) is reused, otherwise new names are minted.
+
+    Returns ``(config_path, record_path)``. Raises on failure so an explicit
+    Publisher workflow cannot report success without recording its deployment.
+    """
+    details = record_mod.read_bundle_details(bundle)
+    content_type = schema.type_from_app_mode(app_mode)
+
+    # Reuse an existing deployment's filenames on repeat publish; only mint new random
+    # names for a genuinely new deployment. A caller-supplied record_name (from
+    # publish) pins the record file; otherwise match one by server_url.
+    existing_record_name = record_name or _find_record_name_for_server(
+        project_dir, server_url, app_guid=deployed_info.get("app_guid")
+    )
+    existing_config_name = None
+    if existing_record_name and not config_name:
+        record_file = schema.record_path(project_dir, existing_record_name)
+        if os.path.exists(record_file):
+            existing_config_name = record_mod.read_record(record_file).configuration_name
+
+    cname = (
+        config_name
+        or existing_config_name
+        or _find_config_name_for_entrypoint(project_dir, details.entrypoint)
+        or _new_config_name(project_dir, title or details.entrypoint or "content")
+    )
+    rname = existing_record_name or _new_record_name(project_dir)
+    config_file = schema.config_path(project_dir, cname)
+    if os.path.exists(config_file):
+        cfg = config_mod.read_config(config_file)
+        cfg.title = cfg.title or title
+        cfg.product_type = product_type
+        cfg.python = cfg.python or details.python
+        cfg.quarto = cfg.quarto or details.quarto
+    else:
+        cfg = config_mod.PublisherConfig(
+            type=content_type,
+            entrypoint=details.entrypoint,
+            title=title,
+            product_type=product_type,
+            python=details.python,
+            quarto=details.quarto,
+        )
+        cfg.files = _default_config_file_patterns() + _python_package_file_pattern(cfg)
+
+    # Publisher includes the driving config and deployment record in the bundle.
+    # Add those bookkeeping paths without disturbing user-curated content paths.
+    for path in _posit_bundle_paths(project_dir, cname, rname):
+        if path not in cfg.files:
+            cfg.files.append(path)
+    package_pattern = _python_package_file_pattern(cfg)
+    for path in package_pattern:
+        if path not in cfg.files:
+            cfg.files.append(path)
+    config_path, config_dict = config_mod.write_config(project_dir, cname, cfg, merge_existing=False)
+
+    dashboard_url = deployed_info.get("dashboard_url")
+    rec = record_mod.PublisherRecord(
+        server_url=normalize_url(server_url),
+        server_type=product_type,
+        id=deployed_info.get("app_guid"),
+        type=content_type,
+        configuration_name=cname,
+        deployed_at=record_mod.now(),
+        dashboard_url=dashboard_url,
+        direct_url=deployed_info.get("app_url"),
+        logs_url=(dashboard_url + "/logs") if dashboard_url else None,
+        bundle_id=deployed_info.get("bundle_id"),
+        files=details.files,
+        requirements=details.requirements,
+        configuration=config_dict,
+    )
+    record_path = record_mod.write_record(project_dir, rname, rec)
+    return config_path, record_path
+
+
+def write_config_from_manifest(
+    project_dir: str,
+    manifest: typing.Mapping[str, typing.Any],
+    app_mode: "AppMode | str | None" = None,
+    title: typing.Optional[str] = None,
+    config_name: typing.Optional[str] = None,
+) -> str:
+    """Write a ``.posit/publish`` config from a ``manifest.json`` dict.
+
+    Used by ``write-manifest`` (which prepares content but does not deploy) so a
+    Publisher config accompanies the generated manifest. No record is written,
+    since there is no deployment. ``app_mode`` defaults to the manifest's
+    ``metadata.appmode``. Returns the config path.
+    """
+    details = record_mod.details_from_manifest(manifest)
+    if app_mode is None:
+        app_mode = AppModes.get_by_name((manifest.get("metadata") or {}).get("appmode", ""), return_unknown=True)
+    cfg = config_mod.PublisherConfig(
+        type=schema.type_from_app_mode(app_mode),
+        entrypoint=details.entrypoint,
+        title=title,
+        python=details.python,
+        quarto=details.quarto,
+    )
+    cname = (
+        config_name
+        or _find_config_name_for_entrypoint(project_dir, details.entrypoint)
+        or _new_config_name(project_dir, title or details.entrypoint or "content")
+    )
+    # No deployment record here (write-manifest does not deploy); include the
+    # config itself but no record path.
+    cfg.files = (
+        _default_config_file_patterns()
+        + _python_package_file_pattern(cfg)
+        + _posit_bundle_paths(project_dir, cname, None)
+    )
+    path, _ = config_mod.write_config(project_dir, cname, cfg)
+    return path
+
+
+# --- read side -------------------------------------------------------------
+
+
+@dataclasses.dataclass(frozen=True)
+class PublisherDeployTarget:
+    """A ready-to-deploy target reconstructed from ``.posit`` files.
+
+    Mirrors :class:`rsconnect.pyproject.PyprojectDeployTarget` (the "what") and
+    adds the record-sourced "where" (``server_url``/``app_id``). ``record`` is
+    ``None`` on a first deployment (config exists but nothing deployed yet).
+    """
+
+    project_dir: str
+    config_name: str
+    config: config_mod.PublisherConfig
+    app_mode: AppMode
+    entrypoint: str
+    title: typing.Optional[str]
+    requirements_file: typing.Optional[str]
+    server_url: typing.Optional[str]
+    app_id: typing.Optional[str]
+    record: typing.Optional[record_mod.PublisherRecord]
+    # Basename (no .toml) of the matched record file, so a repeat publish updates that
+    # exact file rather than re-deriving it.
+    record_name: typing.Optional[str] = None
+
+
+def _load_configs(project_dir: str) -> typing.Dict[str, config_mod.PublisherConfig]:
+    """Map config basename (without .toml) -> parsed config."""
+    result: typing.Dict[str, config_mod.PublisherConfig] = {}
+    for path in config_mod.discover_configs(project_dir):
+        name = os.path.splitext(os.path.basename(path))[0]
+        result[name] = config_mod.read_config(path)
+    return result
+
+
+def _select_config(
+    configs: typing.Dict[str, config_mod.PublisherConfig], config_name: typing.Optional[str]
+) -> typing.Tuple[str, config_mod.PublisherConfig]:
+    if config_name:
+        if config_name not in configs:
+            raise RSConnectException(
+                "No .posit config named '{}'. Found: {}".format(config_name, ", ".join(sorted(configs)) or "none")
+            )
+        return config_name, configs[config_name]
+    if len(configs) == 1:
+        name = next(iter(configs))
+        return name, configs[name]
+    raise RSConnectException(
+        "Multiple .posit configs found ({}); specify one with --config-name.".format(", ".join(sorted(configs)))
+    )
+
+
+def _matching_records(
+    project_dir: str,
+    config_name: str,
+    server: typing.Optional[str],
+    record_name: typing.Optional[str] = None,
+) -> typing.List[typing.Tuple[str, record_mod.PublisherRecord]]:
+    """``(record_name, record)`` pairs for ``config_name``, optionally filtered to a server URL."""
+    records: typing.List[typing.Tuple[str, record_mod.PublisherRecord]] = []
+    normalized_server = normalize_url(server) if server else None
+    for path in record_mod.discover_records(project_dir):
+        name = os.path.splitext(os.path.basename(path))[0]
+        if record_name and name != record_name:
+            continue
+        rec = record_mod.read_record(path)
+        # Match by content: the record's configuration_name links it to a config;
+        # records without one are accepted only when there is a single config.
+        if rec.configuration_name and rec.configuration_name != config_name:
+            continue
+        if normalized_server and normalize_url(rec.server_url) != normalized_server:
+            continue
+        records.append((name, rec))
+    return records
+
+
+def resolve_publisher_deploy_target(
+    project_dir: str,
+    config_name: typing.Optional[str] = None,
+    record_name: typing.Optional[str] = None,
+    server: typing.Optional[str] = None,
+) -> PublisherDeployTarget:
+    """Resolve a deploy target from ``.posit`` files under ``project_dir``.
+
+    Raises :class:`RSConnectException` when no config exists, when the config or
+    record choice is ambiguous.
+    """
+    configs = _load_configs(project_dir)
+    if not configs:
+        raise RSConnectException(
+            "No .posit/publish configuration found in {}. This directory has no Publisher project.".format(project_dir)
+        )
+    name, cfg = _select_config(configs, config_name)
+
+    matches = _matching_records(project_dir, name, server, record_name)
+    if record_name and not matches:
+        raise RSConnectException(
+            "No deployment record named '{}' matches config '{}'{}.".format(
+                record_name,
+                name,
+                " and server '{}'".format(server) if server else "",
+            )
+        )
+    if len(matches) > 1:
+        choices = ", ".join(sorted("{} ({})".format(record_name, rec.server_url) for record_name, rec in matches))
+        raise RSConnectException(
+            "Multiple deployments found for config '{}' ({}); specify a deployment record.".format(name, choices)
+        )
+    selected_record_name: typing.Optional[str]
+    record: typing.Optional[record_mod.PublisherRecord]
+    selected_record_name, record = matches[0] if matches else (None, None)
+
+    # Fall back to the record's embedded config snapshot if no standalone config
+    # file carried the fields we need (e.g. a Publisher-authored record).
+    effective = cfg
+    if record is not None and record.config() is not None:
+        embedded = typing.cast(config_mod.PublisherConfig, record.config())
+        if not effective.entrypoint and embedded.entrypoint:
+            effective = embedded
+
+    return PublisherDeployTarget(
+        project_dir=project_dir,
+        config_name=name,
+        config=effective,
+        app_mode=effective.app_mode,
+        entrypoint=effective.entrypoint,
+        title=effective.title,
+        requirements_file=effective.requirements_file,
+        server_url=record.server_url if record else None,
+        app_id=record.id if record else None,
+        record=record,
+        record_name=selected_record_name,
+    )
+
+
+# Public v2 name; keep the old name as a compatibility alias for code already
+# written against this feature branch.
+resolve_publish_target = resolve_publisher_deploy_target

@@ -17,6 +17,8 @@ dependencies = [
     "click>=8.0.0",
     "packaging>=20.0",
     "toml>=0.10; python_version < '3.11'",
+    "tomli-w>=1.0.0",
+    "pathspec>=0.10.0",
 ]
 
 [project.scripts]

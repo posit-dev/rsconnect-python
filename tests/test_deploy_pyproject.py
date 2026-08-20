@@ -304,6 +304,7 @@ def _spy_make_bundle(monkeypatch: pytest.MonkeyPatch) -> dict[str, typing.Any]:
         raise _StopDispatch()
 
     from rsconnect import api as api_mod
+    from rsconnect import deploy as deploy_mod
     from rsconnect import main as main_mod
 
     fake_environment = types.SimpleNamespace(python="python")
@@ -312,6 +313,9 @@ def _spy_make_bundle(monkeypatch: pytest.MonkeyPatch) -> dict[str, typing.Any]:
         "create_python_environment",
         classmethod(lambda cls, *args, **kwargs: fake_environment),
     )
+    monkeypatch.setattr(deploy_mod, "which_quarto", lambda quarto=None: "quarto")
+    monkeypatch.setattr(deploy_mod, "quarto_inspect", lambda quarto, path: {"engines": []})
+    monkeypatch.setattr(deploy_mod, "validate_quarto_engines", lambda inspect: [])
     monkeypatch.setattr(main_mod, "which_quarto", lambda quarto=None: "quarto")
     monkeypatch.setattr(main_mod, "quarto_inspect", lambda quarto, path: {"engines": []})
     monkeypatch.setattr(main_mod, "validate_quarto_engines", lambda inspect: [])
@@ -363,14 +367,25 @@ def test_deploy_pyproject_dispatches_by_app_mode(
 
 @pytest.mark.parametrize(
     "app_mode",
-    ["no-such-mode", "python-dash", "nodejs-api"],
+    ["no-such-mode", "shiny", "renamed-shiny"],
     ids=["unknown", "valid-but-unhandled", "aliased"],
 )
 def test_deploy_pyproject_errors_on_unsupported_app_mode(
     runner: CliRunner, project_dir: pathlib.Path, app_mode: str, monkeypatch: pytest.MonkeyPatch
 ):
     """Unsupported app modes fail quoting the configured string (not its canonical
-    alias target) and without the quickstart hint."""
+    alias target) and without the quickstart hint.
+
+    ``renamed-shiny`` is a synthetic ``AppModes._name_aliases`` entry (mirroring
+    the real historical-rename mechanism, e.g. ``nodejs-api`` -> ``nodejs``)
+    pointed at the still-unhandled R Shiny mode, so the "quotes the configured
+    string, not the resolved target" behavior stays covered even as more Python
+    app modes gain redeploy/pyproject support over time.
+    """
+    if app_mode == "renamed-shiny":
+        from rsconnect.models import AppModes
+
+        monkeypatch.setitem(AppModes._name_aliases, "renamed-shiny", "shiny")
     _spy_make_bundle(monkeypatch)
     _write_pyproject(
         project_dir,

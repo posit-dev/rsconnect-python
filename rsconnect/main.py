@@ -86,7 +86,6 @@ from .api import (
     RSConnectExecutor,
     RSConnectServer,
     SPCSConnectServer,
-    server_supports_git_metadata,
 )
 from .bundle import (
     default_title_from_bundle,
@@ -119,8 +118,8 @@ from .bundle import (
 from .environment_node import NodeEnvironment
 from .environment_r import REnvironment
 from .environment import Environment, PackageInstaller, fake_module_file_from_directory
+from .deploy import plan_deploy_bundle, prepare_deploy_metadata
 from .exception import RSConnectException
-from .git_metadata import detect_git_metadata
 from .json_web_token import (
     TokenGenerator,
     parse_client_response,
@@ -319,63 +318,6 @@ def validate_env_vars(ctx: click.Context, param: click.Parameter, all_values: tu
             vars[s] = value
 
     return vars
-
-
-def prepare_deploy_metadata(
-    directory: Optional[str],
-    metadata_overrides: tuple[str, ...],
-    no_metadata: bool,
-    server_version: Optional[str] = None,
-) -> Optional[dict[str, str]]:
-    """
-    Prepare metadata for bundle upload.
-
-    :param directory: Directory to auto-detect git metadata from. Pass None to
-        skip auto-detection and send only the CLI overrides (e.g. for bundle
-        deployments, where the bundle's location on disk is unrelated to the
-        content's source).
-    :param metadata_overrides: CLI metadata overrides (key=value pairs)
-    :param no_metadata: Flag to disable all metadata
-    :param server_version: Optional server version to check support
-    :return: Metadata dict or None if metadata should not be sent
-    """
-    if no_metadata:
-        return None
-
-    # Parse CLI metadata overrides
-    cli_metadata: dict[str, str] = {}
-    force_metadata = False
-    if metadata_overrides:
-        force_metadata = True
-        for item in metadata_overrides:
-            if "=" in item:
-                key, value = item.split("=", 1)
-                if value:  # If value is not empty
-                    cli_metadata[key] = value
-                else:  # Empty value clears the key
-                    cli_metadata[key] = ""
-
-    # Auto-detect git metadata, unless the caller opted out by passing None.
-    detected_metadata = detect_git_metadata(directory) if directory is not None else {}
-
-    # Merge: CLI overrides take precedence, then remove empty values
-    final_metadata = {**detected_metadata, **cli_metadata}
-    final_metadata = {k: v for k, v in final_metadata.items() if v}
-
-    # If no metadata collected, return None
-    if not final_metadata:
-        return None
-
-    # Check if we should send metadata based on server version
-    if force_metadata:
-        # If CLI metadata was provided, always send it
-        return final_metadata
-
-    # Otherwise, only send if server supports it
-    if server_supports_git_metadata(server_version):
-        return final_metadata
-
-    return None
 
 
 def _generate_git_title(repository: str, subdirectory: str) -> str:
@@ -2131,90 +2073,15 @@ def deploy_pyproject(
     entrypoint = target.entrypoint
     effective_title = target.title
     requirements_file = target.requirements_file
-    extra_files: tuple[str, ...] = tuple()
-    excludes: tuple[str, ...] = tuple()
-    bundle_builder: Callable[..., Any]
-    bundle_args: tuple[Any, ...]
-    bundle_kwargs: dict[str, Any] = {}
-    path = directory
 
-    # renv.lock detection mirrors the dedicated deploy commands; --exclude-renv
-    # opts out, otherwise detection is driven by the lockfile's presence.
-    r_environment = None if exclude_renv else REnvironment.create(directory)
-
-    if app_mode in (AppModes.STREAMLIT_APP, AppModes.PYTHON_SHINY, AppModes.PYTHON_FASTAPI, AppModes.PYTHON_API):
-        if app_mode == AppModes.PYTHON_SHINY:
-            entrypoint = resolve_shiny_express_entrypoint(entrypoint, directory)
-        environment = Environment.create_python_environment(
-            directory,
-            requirements_file=requirements_file,
-            override_python_version=None,
-        )
-        bundle_builder = make_api_bundle
-        bundle_args = (directory, entrypoint, app_mode, environment, extra_files, excludes)
-        bundle_kwargs = {
-            "image": None,
-            "env_management_py": None,
-            "env_management_r": None,
-            "r_environment": r_environment,
-        }
-    elif app_mode == AppModes.JUPYTER_NOTEBOOK:  # This is "jupyter-static"
-        path = str(Path(directory) / entrypoint)
-        environment = Environment.create_python_environment(
-            directory,
-            requirements_file=requirements_file,
-            override_python_version=None,
-        )
-        bundle_builder = make_notebook_source_bundle
-        # Legacy app mode - no need to override the bundle builder default
-        bundle_args = (path, environment, extra_files, False, False)
-        bundle_kwargs = {
-            "image": None,
-            "env_management_py": None,
-            "env_management_r": None,
-            "r_environment": r_environment,
-        }
-    elif app_mode == AppModes.JUPYTER_VOILA:
-        environment = Environment.create_python_environment(
-            directory,
-            requirements_file=requirements_file,
-            override_python_version=None,
-        )
-        bundle_builder = make_voila_bundle
-        bundle_args = (directory, entrypoint, extra_files, excludes, True, environment)
-        bundle_kwargs = {
-            "image": None,
-            "env_management_py": None,
-            "env_management_r": None,
-            "r_environment": r_environment,
-            "multi_notebook": False,
-        }
-    elif app_mode in (AppModes.STATIC_QUARTO, AppModes.SHINY_QUARTO):
-        path = str(Path(directory) / entrypoint)
-        with cli_feedback("Inspecting Quarto project"):
-            quarto = which_quarto(None)
-            logger.debug("Quarto: %s" % quarto)
-            inspect = quarto_inspect(quarto, path)
-            engines = validate_quarto_engines(inspect)
-
-        environment = None
-        if "jupyter" in engines:
-            with cli_feedback("Inspecting Python environment"):
-                environment = Environment.create_python_environment(
-                    directory,
-                    requirements_file=requirements_file,
-                    override_python_version=None,
-                )
-        bundle_builder = create_quarto_deployment_bundle
-        bundle_args = (path, extra_files, excludes, app_mode, inspect, environment)
-        bundle_kwargs = {
-            "image": None,
-            "env_management_py": None,
-            "env_management_r": None,
-            "r_environment": r_environment,
-        }
-    else:
-        raise RSConnectException(f"Unsupported app_mode '{target.configured_app_mode}' in [tool.rsconnect]")
+    plan = plan_deploy_bundle(
+        directory,
+        app_mode,
+        entrypoint,
+        requirements_file,
+        exclude_renv=exclude_renv,
+        unsupported_message=f"Unsupported app_mode '{target.configured_app_mode}' in [tool.rsconnect]",
+    )
 
     ce = RSConnectExecutor(
         ctx=ctx,
@@ -2226,7 +2093,7 @@ def deploy_pyproject(
         account=account,
         token=token,
         secret=secret,
-        path=path,
+        path=plan.path,
         server=server,
         new=new,
         app_id=app_id,
@@ -2243,7 +2110,7 @@ def deploy_pyproject(
     (
         ce.validate_server()
         .validate_app_mode(app_mode=app_mode)
-        .make_bundle(bundle_builder, *bundle_args, **bundle_kwargs)
+        .make_bundle(plan.builder, *plan.args, **plan.kwargs)
         .deploy_bundle(activate=not ce.should_deploy_as_draft(draft, no_verify))
         .save_deployed_info()
         .emit_task_log()

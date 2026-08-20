@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import dataclasses
 import datetime
 import hashlib
 import hmac
@@ -53,6 +54,8 @@ else:
 
 from . import validation
 from .bundle import _default_title
+from .bundle import overlay_manifest as bundle_overlay_manifest
+from .bundle import restrict_to_files as bundle_restrict_to_files
 from .certificates import read_certificate_file
 from .environment import fake_module_file_from_directory
 from .exception import DeploymentFailedException, RSConnectException
@@ -1243,6 +1246,17 @@ class ServerDetails(TypedDict):
     python: ServerDetailsPython
 
 
+@dataclasses.dataclass(frozen=True)
+class PublisherContext:
+    """Explicit `.posit/publish` inputs for a config-driven deployment."""
+
+    project_dir: str
+    config_name: str
+    record_name: Optional[str]
+    include_files: Optional[List[str]]
+    manifest_overlay: Mapping[str, Any]
+
+
 class RSConnectExecutor:
     def __init__(
         self,
@@ -1275,6 +1289,7 @@ class RSConnectExecutor:
         branch: Optional[str] = None,
         subdirectory: Optional[str] = None,
         polling: bool = True,
+        publisher_context: Optional[PublisherContext] = None,
     ) -> None:
         self.remote_server: TargetableServer
         self.client: RSConnectClient | PositClient
@@ -1305,6 +1320,9 @@ class RSConnectExecutor:
         self.bundle: IO[bytes] | None = None
         self.deployed_info: RSConnectClientDeployResult | None = None
         self._draft_deploy_supported: bool | None = None
+
+        self.publisher_context = publisher_context
+        self.publisher_metadata_paths: Optional[typing.Tuple[str, str]] = None
 
         self.logger: logging.Logger | None = logger
         self.ctx = ctx
@@ -1616,8 +1634,12 @@ class RSConnectExecutor:
         force_unique_name = self.app_id is None
         self.deployment_name = self.make_deployment_name(self.title, force_unique_name)
 
+        context = self.publisher_context
+        include_files = context.include_files if context else None
+        manifest_overlay: Mapping[str, Any] = context.manifest_overlay if context else {}
         try:
-            self.bundle = func(*args, **kwargs)
+            with bundle_restrict_to_files(include_files), bundle_overlay_manifest(manifest_overlay):
+                self.bundle = func(*args, **kwargs)
         except IOError as error:
             msg = "Unable to include the file %s in the bundle: %s" % (
                 error.filename,
@@ -1798,6 +1820,8 @@ class RSConnectExecutor:
         app_store = self.app_store
         path = self.path
         deployed_info = self.deployed_info
+        if deployed_info is None:
+            raise RSConnectException("Cannot save deployment information before deploying a bundle.")
 
         app_store.set(
             self.remote_server.url,
@@ -1809,7 +1833,37 @@ class RSConnectExecutor:
             self.app_mode,
         )
 
+        if self.publisher_context and isinstance(self.remote_server, (RSConnectServer, SPCSConnectServer)):
+            self._save_publisher_metadata(deployed_info)
+
         return self
+
+    def _save_publisher_metadata(self, deployed_info: RSConnectClientDeployResult):
+        """Write the config and record for an explicit Publisher deployment."""
+        if self.bundle is None:
+            raise RSConnectException("Cannot write Publisher metadata before a bundle is built.")
+        from .publisher import schema
+        from .publisher.store import write_deployment_metadata
+
+        context = self.publisher_context
+        if context is None:
+            return
+        product_type = (
+            schema.PRODUCT_TYPE_SNOWFLAKE
+            if isinstance(self.remote_server, SPCSConnectServer)
+            else schema.PRODUCT_TYPE_CONNECT
+        )
+        self.publisher_metadata_paths = write_deployment_metadata(
+            project_dir=context.project_dir,
+            server_url=self.remote_server.url,
+            product_type=product_type,
+            app_mode=self.app_mode or AppModes.UNKNOWN,
+            title=deployed_info.get("title") or self.title,
+            deployed_info=deployed_info,
+            bundle=self.bundle,
+            config_name=context.config_name,
+            record_name=context.record_name,
+        )
 
     @property
     def supports_verify_before_activate(self) -> bool:

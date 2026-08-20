@@ -16,7 +16,6 @@ sys.path.insert(0, HERE)
 # module imports rsconnect. (Previously injected by the Makefile's TEST_ENV.)
 os.environ.setdefault("CONNECT_CONTENT_BUILD_DIR", "rsconnect-build-test")
 
-
 # httpretty (1.1.4, released 2021) mocks TLS with
 # `ssl.SSLContext.wrap_socket = functools.partial(fake_wrap_socket, ...)`.
 # Python 3.14 made partial objects descriptors, so that class attribute now binds
