@@ -342,7 +342,12 @@ def test_executor_make_bundle_ignores_curation_by_default(tmp_path):
     ce.make_bundle(fake_builder)
 
     # the whole tree, including the config itself, since nothing restricts it
-    assert captured["files"] == [".posit/publish/app.toml", "app.py", "helpers.py", "requirements.txt"]
+    assert captured["files"] == [
+        os.path.join(".posit", "publish", "app.toml"),
+        "app.py",
+        "helpers.py",
+        "requirements.txt",
+    ]
 
 
 # --- integration_requests propagation into the manifest ----------------------
