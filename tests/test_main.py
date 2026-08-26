@@ -48,20 +48,28 @@ def _load_json(data):
 
 
 class TestMain:
+    # Every env var ``metadata.config_dirname()`` consults. ``HOME`` alone only
+    # isolates macOS: Linux prefers ``XDG_CONFIG_HOME`` and Windows prefers
+    # ``APPDATA``, so on those platforms the app store would escape ``test-home``
+    # and leak saved deployment metadata (app IDs) between tests.
+    _config_home_vars = ("HOME", "XDG_CONFIG_HOME", "APPDATA")
+
     def setup_method(self):
         # Isolate from any real ``~/.rsconnect-python/`` on the host.
-        # ``teardown_method`` restores ``HOME`` so the relative path does not
+        # ``teardown_method`` restores these so the relative path does not
         # leak into later tests that invoke ``uv`` and would otherwise create
         # ``<cwd>/test-home/.cache/uv/`` inside their working directory.
-        self._saved_home = os.environ.get("HOME")
+        self._saved_config_home = {var: os.environ.get(var) for var in self._config_home_vars}
         shutil.rmtree("test-home", ignore_errors=True)
-        os.environ["HOME"] = "test-home"
+        for var in self._config_home_vars:
+            os.environ[var] = "test-home"
 
     def teardown_method(self):
-        if self._saved_home is None:
-            os.environ.pop("HOME", None)
-        else:
-            os.environ["HOME"] = self._saved_home
+        for var, value in self._saved_config_home.items():
+            if value is None:
+                os.environ.pop(var, None)
+            else:
+                os.environ[var] = value
         shutil.rmtree("test-home", ignore_errors=True)
 
     @pytest.fixture(autouse=True)
@@ -972,13 +980,15 @@ class TestMain:
             if original_server_value:
                 os.environ["CONNECT_SERVER"] = original_server_value
 
-    def _register_redeploy_endpoints(self, guid, existing_title, patch_calls, app_mode_ordinal=15):
-        # Common Connect endpoints for redeploying to an existing --app-id: no
-        # POST /v1/content (creation) or GET /v1/content?name=... (uniqueness
-        # check) is needed, since those are only exercised for brand new content.
+    def _register_deploy_endpoints(self, guid, existing_title, patch_calls, app_mode_ordinal=15, new_name=None):
+        # Common Connect endpoints for a deploy targeting content ``guid``, whose
+        # title Connect currently reports as ``existing_title``.
         # app_mode_ordinal defaults to AppModes.PYTHON_SHINY (15), matching
         # pyshiny_with_manifest; the bundle test overrides it to
         # AppModes.PYTHON_API (8) to match bundle.tar.gz's manifest.
+        # Pass ``new_name`` to also register the two endpoints only brand new
+        # content hits: the uniqueness check (GET /v1/content?name=...) and
+        # creation (POST /v1/content).
         httpretty.register_uri(
             httpretty.GET,
             "http://fake_server/__api__/server_settings",
@@ -1010,6 +1020,24 @@ class TestMain:
             adding_headers={"Content-Type": "application/json"},
             status=200,
         )
+        if new_name:
+            httpretty.register_uri(
+                httpretty.GET,
+                f"http://fake_server/__api__/v1/content?name={new_name}",
+                body=json.dumps([]),
+                adding_headers={"Content-Type": "application/json"},
+                status=200,
+            )
+            # content_create only ever sends {"name": ...}, so the created
+            # content comes back carrying the server-assigned ``existing_title``
+            # rather than the caller's derived default.
+            httpretty.register_uri(
+                httpretty.POST,
+                "http://fake_server/__api__/v1/content",
+                body=content_body,
+                adding_headers={"Content-Type": "application/json"},
+                status=200,
+            )
 
         def patch_callback(request, uri, response_headers):
             patch_calls.append(_load_json(request.body))
@@ -1063,7 +1091,7 @@ class TestMain:
         patch_calls = []
 
         try:
-            deploy_api_invoked = self._register_redeploy_endpoints(guid, "My Curated Title", patch_calls)
+            deploy_api_invoked = self._register_deploy_endpoints(guid, "My Curated Title", patch_calls)
 
             runner = CliRunner()
             args = apply_common_args(
@@ -1093,7 +1121,7 @@ class TestMain:
         patch_calls = []
 
         try:
-            deploy_api_invoked = self._register_redeploy_endpoints(guid, "My Curated Title", patch_calls)
+            deploy_api_invoked = self._register_deploy_endpoints(guid, "My Curated Title", patch_calls)
 
             runner = CliRunner()
             args = apply_common_args(
@@ -1124,7 +1152,7 @@ class TestMain:
         bundle_path = join("tests", "testdata", "bundle.tar.gz")
 
         try:
-            deploy_api_invoked = self._register_redeploy_endpoints(
+            deploy_api_invoked = self._register_deploy_endpoints(
                 guid, "My Curated Title", patch_calls, app_mode_ordinal=8
             )
 
@@ -1150,93 +1178,11 @@ class TestMain:
         original_api_key_value = os.environ.pop("CONNECT_API_KEY", None)
         original_server_value = os.environ.pop("CONNECT_SERVER", None)
         guid = "1234-5678-9012-3456"
-
-        httpretty.register_uri(
-            httpretty.GET,
-            "http://fake_server/__api__/server_settings",
-            body=json.dumps({"version": "9999.99.99"}),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-        httpretty.register_uri(
-            httpretty.GET,
-            "http://fake_server/__api__/v1/user",
-            body=open("tests/testdata/connect-responses/me.json", "r").read(),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-        httpretty.register_uri(
-            httpretty.GET,
-            "http://fake_server/__api__/v1/content?name=app5",
-            body=json.dumps([]),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-        # content_create only ever sends {"name": ...}, so Connect's response
-        # here reflects a server-assigned placeholder title, distinct from the
-        # manifest-derived default. The deploy flow must PATCH it to "app5".
-        create_body = json.dumps(
-            {
-                "id": "1234",
-                "guid": guid,
-                "title": "Untitled",
-                "content_url": f"http://fake_server/content/{guid}",
-                "dashboard_url": f"http://fake_server/connect/#/apps/{guid}",
-            }
-        )
-        httpretty.register_uri(
-            httpretty.POST,
-            "http://fake_server/__api__/v1/content",
-            body=create_body,
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-
         patch_calls = []
 
-        def patch_callback(request, uri, response_headers):
-            patch_calls.append(_load_json(request.body))
-            return [200, {"Content-Type": "application/json"}, create_body]
-
-        httpretty.register_uri(
-            httpretty.PATCH,
-            f"http://fake_server/__api__/v1/content/{guid}",
-            body=patch_callback,
-        )
-        httpretty.register_uri(
-            httpretty.GET,
-            f"http://fake_server/__api__/v1/content/{guid}",
-            body=create_body,
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-        httpretty.register_uri(
-            httpretty.POST,
-            f"http://fake_server/__api__/v1/content/{guid}/bundles",
-            body=json.dumps({"id": "FAKE_BUNDLE_ID"}),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-        deploy_api_invoked = []
-
-        def post_application_deploy_callback(request, uri, response_headers):
-            deploy_api_invoked.append(True)
-            return [201, {"Content-Type": "application/json"}, json.dumps({"task_id": "FAKE_TASK_ID"})]
-
-        httpretty.register_uri(
-            httpretty.POST,
-            f"http://fake_server/__api__/v1/content/{guid}/deploy",
-            body=post_application_deploy_callback,
-        )
-        httpretty.register_uri(
-            httpretty.GET,
-            "http://fake_server/__api__/v1/tasks/FAKE_TASK_ID?wait=1",
-            body=json.dumps({"output": ["FAKE_OUTPUT"], "last": "FAKE_LAST", "finished": True, "code": 0}),
-            adding_headers={"Content-Type": "application/json"},
-            status=200,
-        )
-
         try:
+            deploy_api_invoked = self._register_deploy_endpoints(guid, "Untitled", patch_calls, new_name="app5")
+
             runner = CliRunner()
             args = apply_common_args(
                 ["deploy", "manifest", get_manifest_path("pyshiny_with_manifest", "")],
