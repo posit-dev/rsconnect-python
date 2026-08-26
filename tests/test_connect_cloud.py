@@ -3009,6 +3009,23 @@ class TestConnectOnlyDeployOptions(unittest.TestCase):
 
     OPTIONS = validation._CONNECT_ONLY_DEPLOY_OPTIONS
 
+    def test_the_list_covers_every_connect_only_option(self):
+        # Dropping an entry starts accepting that option on Connect Cloud, and would
+        # otherwise just remove its coverage from the tests below.
+        self.assertEqual(
+            set(self.OPTIONS),
+            {
+                "image",
+                "disable_env_management",
+                "env_management_py",
+                "env_management_r",
+                "env_management_node",
+                "node",
+                "draft",
+                "metadata",
+            },
+        )
+
     def test_the_labels_name_options_the_deploy_commands_really_have(self):
         declared = _deploy_option_flags()
         for param, label in self.OPTIONS.items():
