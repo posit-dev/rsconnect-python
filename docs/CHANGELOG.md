@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- `rsconnect deploy manifest` and `rsconnect deploy bundle`,
+  when redeploying to an existing `--app-id`, only update the title
+  when the user explicitly passes `--title`, matching the other deploy
+  subcommands.
 - Added support for Python 3.14. The test suite now runs on Python 3.14 in CI.
 - `rsconnect deploy` subcommands now accept `--quiet`, which suppresses the
   step-by-step progress lines and the streamed server build log, printing only
