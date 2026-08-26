@@ -177,7 +177,7 @@ class AbstractRemoteServer:
                         response.json_data["error"],
                     )
                     raise RSConnectException(error, status=response.status)
-                if response.status < 200 or response.status > 299:
+                if response.status is None or response.status < 200 or response.status > 299:
                     raise RSConnectException(
                         "Received an unexpected response from %s (calling %s): %s %s"
                         % (
@@ -2260,6 +2260,10 @@ for shinyapps.io. See command help for further details."
         With ``--no-verify`` we activate immediately.
         """
         if draft:
+            if not isinstance(self.client, RSConnectClient):
+                # Neither Connect Cloud nor shinyapps.io has a draft step at any version,
+                # so the version below would send the reader looking for one.
+                raise RSConnectException("Deploying as a draft is only supported by Posit Connect.")
             if not self.supports_verify_before_activate:
                 # We can't honor --draft without the activate field: silently activating
                 # would be the opposite of what the user asked for, so fail loudly.
@@ -3202,11 +3206,10 @@ class ConnectCloudClient(BearerTokenHTTPServer):
     ) -> ConnectCloudContent:
         """Update content, optionally minting a fresh revision to upload into.
 
-        `content_type` and `primary_file` are always sent alongside `app_mode`:
-        the API only recomputes `app_mode` when one of them is present in the
-        override set, and the stored content type would otherwise survive a
-        redeploy that changes what kind of content this is (--app-id pointing at
-        content of another type).
+        `revision_overrides` is a partial set: any field left out keeps the value
+        already stored on the content. All three go every time so a redeploy that
+        changes what kind of content this is (--app-id pointing at content of
+        another type) does not keep the old content type.
 
         `secrets` replaces the content's whole set, and `title` overwrites the
         stored one, so both are omitted from the request entirely when None: a

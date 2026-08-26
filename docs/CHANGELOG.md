@@ -8,21 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 - Posit Connect Cloud is now a supported deployment target, alongside Posit
-  Connect and shinyapps.io, mirroring the R rsconnect package's support.
-  Register an account with `rsconnect add -n <nickname> --connect-cloud
-  -A <account>`, which verifies the account exists and that you can publish to
-  it. Authentication is an interactive browser login by default; for CI and
-  other non-interactive use, pass a service account credential with
-  `--client-id`/`--client-secret` (or the `CONNECT_CLOUD_CLIENT_ID` and
-  `CONNECT_CLOUD_CLIENT_SECRET` environment variables). Tokens are refreshed
-  automatically. Deploy with any `rsconnect deploy` subcommand by passing
-  `--connect-cloud` (or `-s connect.posit.cloud`) with `-A <account>` (or the
-  `CONNECT_CLOUD_ACCOUNT` environment variable; a `SHINYAPPS_ACCOUNT` variable
-  exported for shinyapps.io is ignored here), or `-n <nickname>` for a saved
-  credential — which publishes to the account it was saved with, or to another
-  account of the same login when `-A` is given as well. Supported content types:
-  Shiny (Python and R), Streamlit, Dash, Bokeh, Jupyter notebooks, Quarto,
-  R Markdown, and static content.
+  Connect and shinyapps.io.
 - `rsconnect add` now reports invalid option combinations and unreadable
   certificate files as plain error messages. Previously these surfaced as raw
   Python tracebacks.
