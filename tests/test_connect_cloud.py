@@ -2672,13 +2672,13 @@ class TestConnectCloudCliPolish(CliTestCase):
             result = self.runner.invoke(cli, ["deploy", "manifest", path])
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertTrue(executor_cls.call_args.kwargs["title"])
-        self.assertTrue(executor_cls.return_value.title_is_default)
+        self.assertTrue(executor_cls.call_args.kwargs["title_is_default"])
 
         with mock.patch("rsconnect.main.RSConnectExecutor") as executor_cls:
             result = self.runner.invoke(cli, ["deploy", "manifest", path, "-t", "Typed Title"])
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(executor_cls.call_args.kwargs["title"], "Typed Title")
-        self.assertFalse(executor_cls.return_value.title_is_default)
+        self.assertFalse(executor_cls.call_args.kwargs["title_is_default"])
 
     def test_env_var_values_are_hidden_in_verbose_output(self):
         # -E values are sent to Connect Cloud as secrets; -v must log names only.

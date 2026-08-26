@@ -2128,7 +2128,7 @@ def deploy_manifest(
     file_name = validate_manifest_file(file)
     app_mode = read_manifest_app_mode(file_name)
     # Remember whether --title was typed: a defaulted title must not
-    # overwrite existing Connect Cloud content's title on redeploy.
+    # overwrite existing content's title on redeploy.
     title_is_default = not title
     title = title or default_title_from_manifest(file)
 
@@ -2150,10 +2150,10 @@ def deploy_manifest(
         new=new,
         app_id=app_id,
         title=title,
+        title_is_default=title_is_default,
         visibility=visibility,
         env_vars=env_vars,
     )
-    ce.title_is_default = title_is_default
 
     # Prepare metadata for upload
     server_version = None
@@ -2235,7 +2235,7 @@ def deploy_bundle(
 
     app_mode = read_bundle_app_mode(file)
     # Remember whether --title was typed: a defaulted title must not
-    # overwrite existing Connect Cloud content's title on redeploy.
+    # overwrite existing content's title on redeploy.
     title_is_default = not title
     title = title or default_title_from_bundle(file)
 
@@ -2257,10 +2257,10 @@ def deploy_bundle(
         new=new,
         app_id=app_id,
         title=title,
+        title_is_default=title_is_default,
         visibility=visibility,
         env_vars=env_vars,
     )
-    ce.title_is_default = title_is_default
 
     # Prepare metadata for upload. Passing directory=None skips git auto-detection:
     # the bundle's location on disk is unrelated to the content's source, so only
