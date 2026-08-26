@@ -2884,15 +2884,10 @@
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">#</a></h2>
 <ul>
-<li>Fixed a bug where <code>rsconnect deploy manifest</code> and <code>rsconnect deploy bundle</code>,
-  when redeploying to an existing <code>--app-id</code> without passing <code>--title</code>, always
-  issued a <code>PATCH /v1/content/{guid}</code> to rename the content to its
-  manifest/bundle-derived default title. Under trusted publishing this request
-  is forbidden outright, failing the whole deploy with a 403; under an API key
-  it silently renamed the content. These commands now only update the title
+<li><code>rsconnect deploy manifest</code> and <code>rsconnect deploy bundle</code>,
+  when redeploying to an existing <code>--app-id</code>, only update the title
   when the user explicitly passes <code>--title</code>, matching the other deploy
-  subcommands; new content still defaults its title from the manifest/bundle as
-  before.</li>
+  subcommands.</li>
 <li>Added support for Python 3.14. The test suite now runs on Python 3.14 in CI.</li>
 <li><code>rsconnect deploy</code> subcommands now accept <code>--quiet</code>, which suppresses the
   step-by-step progress lines and the streamed server build log, printing only
