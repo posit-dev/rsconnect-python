@@ -67,6 +67,8 @@ _CONNECT_ONLY_DEPLOY_OPTIONS: dict[str, str] = {
     "disable_env_management": "--disable-env-management",
     "env_management_py": "--disable-env-management-py",
     "env_management_r": "--disable-env-management-r",
+    "env_management_node": "--disable-env-management-node",
+    "node": "--node",
     "draft": "--draft",
     "metadata": "--metadata",
 }
