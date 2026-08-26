@@ -23,13 +23,8 @@ def read_certificate_file(location: str) -> str | bytes:
 
     path = Path(location)
 
-    # Readability is judged before the suffix so a bad path reports as the real
-    # problem: the file type of a file that does not exist is beside the point.
-    # Both are operational errors: the CLI no longer checks existence at parse
-    # time (the certificate only applies once the target is known), so this is
-    # where a bad path surfaces. is_file() sits inside the handler because it
-    # raises OSError itself when the path's metadata cannot be read, e.g.
-    # through a permission-denied directory.
+    # is_file() is inside the try because it raises OSError itself when the path's
+    # metadata cannot be read, e.g. through a permission-denied directory.
     try:
         if not path.is_file():
             raise RSConnectException("The certificate file %s could not be read: no such file." % location)

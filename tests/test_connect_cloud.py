@@ -30,12 +30,14 @@ from rsconnect.main import cli
 from rsconnect.metadata import AppStore, ServerData, ServerStore
 from rsconnect.models import AppModes
 from rsconnect.oauth import InvalidClientError, InvalidGrantError
+from rsconnect import validation
 from rsconnect.validation import validate_connection_options
 
 from .utils import failing_keyring
 
 ENV = ParameterSource.ENVIRONMENT
 TYPED = ParameterSource.COMMANDLINE
+DEFAULT = ParameterSource.DEFAULT
 
 
 class TestConnectCloudEnvironments(unittest.TestCase):
@@ -337,8 +339,13 @@ def _json_body(request):
 
 
 def _ctx(**sources: ParameterSource) -> click.Context:
-    """A click context recording where each named parameter's value came from."""
-    ctx = click.Context(click.Command("deploy"))
+    """A click context recording where each named parameter's value came from.
+
+    Each name is declared as an option, since validation distinguishes options
+    from same-named arguments.
+    """
+    params: list[click.Parameter] = [click.Option(["--%s" % param.replace("_", "-")]) for param in sources]
+    ctx = click.Context(click.Command("deploy", params=params))
     for param, source in sources.items():
         ctx.set_parameter_source(param, source)  # pyright: ignore[reportAttributeAccessIssue]
     return ctx
@@ -665,9 +672,9 @@ class TestConnectCloudClient(unittest.TestCase):
         return _json_body(httpretty.last_request())
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_update_content_sends_primary_file_with_app_mode(self):
-        # The API only recomputes app_mode when content_type or primary_file is
-        # in the override set; sending app_mode alone would persist it verbatim.
+    def test_update_content_sends_the_whole_revision_override_set(self):
+        # Omitted overrides keep the content's stored value, so all three go every
+        # time or a redeploy of a different kind of content keeps the old ones.
         body = self._update_content()
         self.assertEqual(
             body["revision_overrides"],
@@ -2983,6 +2990,73 @@ class TestConnectCloudCredentialOptionsDeferred(unittest.TestCase):
         store = _store_with_cloud_entry()
         self.assertTrue(store.remove_by_url("connect.posit.cloud"))
         self.assertEqual(store.get_all_servers(), [])
+
+
+class TestConnectOnlyDeployOptions(unittest.TestCase):
+    """Deploy options that configure Posit Connect features Connect Cloud does not
+    have. Connect Cloud ignores them, so they are rejected rather than accepted and
+    dropped."""
+
+    OPTIONS = {
+        "image": "-I/--image",
+        "disable_env_management": "--disable-env-management",
+        "env_management_py": "--disable-env-management-py",
+        "env_management_r": "--disable-env-management-r",
+        "draft": "--draft",
+        "metadata": "--metadata",
+    }
+
+    def test_each_is_rejected_with_the_flag(self):
+        for param, label in self.OPTIONS.items():
+            with self.subTest(param):
+                with self.assertRaises(RSConnectException) as context:
+                    _setup_remote_server(ctx=_ctx(**{param: TYPED}), account_name="acme", use_connect_cloud=True)
+                message = str(context.exception)
+                self.assertIn(label, message)
+                self.assertIn("may not be passed alongside Posit Connect Cloud", message)
+
+    def test_each_is_rejected_for_a_saved_cloud_nickname(self):
+        # A nickname is only known to name a Connect Cloud credential after the
+        # store lookup, which is why this is checked in the executor.
+        for param, label in self.OPTIONS.items():
+            with self.subTest(param):
+                with self.assertRaises(RSConnectException) as context:
+                    _setup_remote_server(
+                        ctx=_ctx(**{param: TYPED}), resolve=_cloud_entry(connect_cloud_access_token="at"), name="cloud"
+                    )
+                self.assertIn(label, str(context.exception))
+
+    def test_defaulted_options_are_accepted(self):
+        # --disable-env-management-py inverts to False when given and the shorthand
+        # sets the same parameters without being their source, so what the user
+        # typed can only be read from the parameter source.
+        _cloud_server(ctx=_ctx(image=DEFAULT, env_management_py=DEFAULT), account_name="acme", use_connect_cloud=True)
+
+    def test_a_connect_target_still_accepts_them(self):
+        store = ServerStore(base_dir=tempfile.mkdtemp())
+        store.set("prod", "https://connect.example.com", api_key="key")
+        executor = _setup_remote_server(ctx=_ctx(image=TYPED), store=store, name="prod")
+        self.assertIsInstance(executor.remote_server, api.RSConnectServer)
+
+    def test_draft_at_the_deploy_step_does_not_cite_a_connect_version(self):
+        # The CLI rejects --draft before this, but a programmatic caller has no
+        # click context to judge, and a Connect version says nothing to a target
+        # with no draft step.
+        executor = RSConnectExecutor.__new__(RSConnectExecutor)
+        executor.client = mock.Mock(spec=ConnectCloudClient)
+        with self.assertRaises(RSConnectException) as context:
+            executor.should_deploy_as_draft(draft=True, no_verify=False)
+        message = str(context.exception)
+        self.assertIn("only supported by Posit Connect", message)
+        self.assertNotIn("2025.06.0", message)
+
+    def test_a_same_named_argument_is_not_one_of_these_options(self):
+        # `environment add` takes a positional IMAGE, so a Connect Cloud nickname
+        # must reach that command's own "requires a Posit Connect server" error
+        # rather than be told it passed -I/--image.
+        command = cli.commands["environment"].commands["add"]
+        with command.make_context("add", ["my-image:1.0", "-n", "cloud"]) as ctx:
+            self.assertEqual(validation._typed_connect_only_deploy_options(ctx), [])
 
 
 class TestConnectCloudFindsSavedCredentialsByUrl(unittest.TestCase):
