@@ -2885,21 +2885,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">#</a></h2>
 <ul>
 <li>Posit Connect Cloud is now a supported deployment target, alongside Posit
-  Connect and shinyapps.io, mirroring the R rsconnect package's support.
-  Register an account with <code>rsconnect add -n &lt;nickname&gt; --connect-cloud
-  -A &lt;account&gt;</code>, which verifies the account exists and that you can publish to
-  it. Authentication is an interactive browser login by default; for CI and
-  other non-interactive use, pass a service account credential with
-  <code>--client-id</code>/<code>--client-secret</code> (or the <code>CONNECT_CLOUD_CLIENT_ID</code> and
-  <code>CONNECT_CLOUD_CLIENT_SECRET</code> environment variables). Tokens are refreshed
-  automatically. Deploy with any <code>rsconnect deploy</code> subcommand by passing
-  <code>--connect-cloud</code> (or <code>-s connect.posit.cloud</code>) with <code>-A &lt;account&gt;</code> (or the
-  <code>CONNECT_CLOUD_ACCOUNT</code> environment variable; a <code>SHINYAPPS_ACCOUNT</code> variable
-  exported for shinyapps.io is ignored here), or <code>-n &lt;nickname&gt;</code> for a saved
-  credential — which publishes to the account it was saved with, or to another
-  account of the same login when <code>-A</code> is given as well. Supported content types:
-  Shiny (Python and R), Streamlit, Dash, Bokeh, Jupyter notebooks, Quarto,
-  R Markdown, and static content.</li>
+  Connect and shinyapps.io.</li>
 <li><code>rsconnect add</code> now reports invalid option combinations and unreadable
   certificate files as plain error messages. Previously these surfaced as raw
   Python tracebacks.</li>
