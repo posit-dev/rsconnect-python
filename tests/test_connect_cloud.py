@@ -351,6 +351,16 @@ def _ctx(**sources: ParameterSource) -> click.Context:
     return ctx
 
 
+def _deploy_option_flags() -> Dict[str, set[frozenset[str]]]:
+    """The flags each `deploy` subcommand option is spelled with, by parameter name."""
+    flags: Dict[str, set[frozenset[str]]] = {}
+    for command in cli.commands["deploy"].commands.values():
+        for param in command.params:
+            if isinstance(param, click.Option) and param.name:
+                flags.setdefault(param.name, set()).add(frozenset(param.opts + param.secondary_opts))
+    return flags
+
+
 def _json_response(payload: Any, status: int = 200) -> Any:
     return httpretty.Response(
         body=json.dumps(payload), adding_headers={"Content-Type": "application/json"}, status=status
@@ -2997,14 +3007,13 @@ class TestConnectOnlyDeployOptions(unittest.TestCase):
     have. Connect Cloud ignores them, so they are rejected rather than accepted and
     dropped."""
 
-    OPTIONS = {
-        "image": "-I/--image",
-        "disable_env_management": "--disable-env-management",
-        "env_management_py": "--disable-env-management-py",
-        "env_management_r": "--disable-env-management-r",
-        "draft": "--draft",
-        "metadata": "--metadata",
-    }
+    OPTIONS = validation._CONNECT_ONLY_DEPLOY_OPTIONS
+
+    def test_the_labels_name_options_the_deploy_commands_really_have(self):
+        declared = _deploy_option_flags()
+        for param, label in self.OPTIONS.items():
+            with self.subTest(param):
+                self.assertEqual(declared.get(param), {frozenset(label.split("/"))})
 
     def test_each_is_rejected_with_the_flag(self):
         for param, label in self.OPTIONS.items():
