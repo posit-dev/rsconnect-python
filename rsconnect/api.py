@@ -2330,8 +2330,9 @@ for shinyapps.io. See command help for further details."
         with self.client:
             content = self.client.get_content(content_id)
             account_id = content.get("account_id")
-            account_name = service.account_name_for_id(account_id) if account_id else None
-            if not account_name:
+            account = service.account_for_id(account_id) if account_id else None
+            account_name = account["name"] if account else None
+            if not account or not account_name:
                 raise RSConnectException(
                     "Unable to determine which Posit Connect Cloud account owns content %s. "
                     "You may not have a role on that account." % content_id
@@ -2350,6 +2351,15 @@ for shinyapps.io. See command help for further details."
                 raise RSConnectException(
                     'Content %s belongs to the Posit Connect Cloud account "%s", not "%s". '
                     "Re-run with -A %s." % (content_id, account_name, self.remote_server.account_name, account_name)
+                )
+            # An account id saved with a nickname skips get_account_by_name in
+            # validate_connect_cloud_server, so without this check a viewer role is
+            # caught only by the deploy -- after the source record has been removed.
+            if not service.can_publish_to(account):
+                raise RSConnectException(
+                    'You have access to the Posit Connect Cloud account "%s" but do not have '
+                    "permission to publish to it, so the next deploy from this directory would "
+                    "fail. Ask an account administrator for the publisher role." % account_name
                 )
 
         title = content.get("title") or (source or {}).get("title") or self.title
@@ -2371,8 +2381,10 @@ for shinyapps.io. See command help for further details."
         if source:
             self.app_store.remove(source["server_url"])
         # The name-keyed record is the same account's, now superseded by the id-keyed
-        # one -- the same migration a deploy's write performs.
-        if fallback_key:
+        # one -- the same migration a deploy's write performs. The keys coincide when
+        # the account's name equals its id, and removing it then would delete the
+        # record just written.
+        if fallback_key and fallback_key != target_key:
             self.app_store.remove(fallback_key)
 
         record = self.app_store.get(target_key)
@@ -3673,16 +3685,31 @@ class ConnectCloudService:
         account = self._client.get_account_by_name(self._server.account_name)
         return account["id"]
 
-    def account_name_for_id(self, account_id: str) -> Optional[str]:
-        """The name of the account with this id, among those the caller has a role on.
+    def account_for_id(self, account_id: str) -> Optional[ConnectCloudAccount]:
+        """The account with this id, among those the caller has a role on.
 
         None means the account is not one of them, which for content the caller is
         working with means they likely cannot publish to it either.
         """
         for account in self._client.get_accounts():
             if account.get("id") == account_id:
-                return account["name"]
+                return account
         return None
+
+    def account_name_for_id(self, account_id: str) -> Optional[str]:
+        """The name of the account with this id, or None if the caller has no role on it."""
+        account = self.account_for_id(account_id)
+        return account["name"] if account else None
+
+    @staticmethod
+    def can_publish_to(account: ConnectCloudAccount) -> bool:
+        """Whether the caller may publish to this account, by the same rule as
+        get_account_by_name, so a viewer role is judged identically either way.
+
+        Called on the class, not on self._client, so the rule holds for a stubbed
+        client too.
+        """
+        return ConnectCloudClient._can_publish(account)
 
     def content_url(self, content_id: str, account_id: Optional[str]) -> str:
         """Build the browsable URL for a content item.

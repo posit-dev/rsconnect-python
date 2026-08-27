@@ -2690,6 +2690,40 @@ class TestConnectCloudMigrate(unittest.TestCase):
         self.assertIn("Unable to determine which Posit Connect Cloud account", str(context.exception))
         self.assertIsNotNone(self._store().get(SHINYAPPS))
 
+    def test_an_account_without_publish_permission_is_refused(self):
+        # An account id saved with a nickname skips the publish check in
+        # validate_connect_cloud_server, so a viewer role would otherwise not be
+        # caught until the deploy, with the source record already removed.
+        self._record(SHINYAPPS)
+        executor = self._executor()
+        executor.client.get_accounts.return_value = [
+            {"id": "acct-1", "name": "acme", "permissions": ["content:read"]},
+        ]
+
+        with self.assertRaises(RSConnectException) as context:
+            executor.migrate_to_connect_cloud("c1")
+
+        self.assertIn("do not have permission to publish", str(context.exception))
+        saved = self._store()
+        self.assertIsNotNone(saved.get(SHINYAPPS), "the source record must survive a refusal")
+        self.assertIsNone(saved.get(MIGRATED_KEY))
+
+    def test_an_account_named_after_its_id_keeps_the_written_record(self):
+        # The id-keyed and name-keyed record locations collide when the account's
+        # name equals its id; removing the name-keyed one then deletes the record
+        # just written, and the source record is already gone.
+        self._record(SHINYAPPS)
+        executor = self._executor(account_name="acct-1", account_id="acct-1")
+        executor.client.get_accounts.return_value = [{"id": "acct-1", "name": "acct-1"}]
+        self.assertEqual(executor.record_server_key(), executor.record_server_key_fallback())
+
+        record = executor.migrate_to_connect_cloud("c1")
+
+        self.assertEqual(record["app_id"], "c1")
+        saved = self._store()
+        self.assertIsNotNone(saved.get(executor.record_server_key()), "the new record must survive")
+        self.assertIsNone(saved.get(SHINYAPPS))
+
     def test_missing_content_leaves_the_records_alone(self):
         self._record(SHINYAPPS)
         executor = self._executor()
