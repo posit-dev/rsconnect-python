@@ -1289,6 +1289,11 @@ def _record_server_list(records: list[AppMetadata]) -> str:
     return " Records exist for: %s." % ", ".join(servers)
 
 
+def _is_shinyapps_record(record: AppMetadata) -> bool:
+    """Whether a deployment record points at shinyapps.io."""
+    return record.get("server_url", "").split("#")[0].rstrip("/") == SHINYAPPS_API_URL
+
+
 class RSConnectExecutor:
     def __init__(
         self,
@@ -2255,6 +2260,9 @@ for shinyapps.io. See command help for further details."
     def migration_source_record(self, from_server: Optional[str] = None) -> Optional[AppMetadata]:
         """The deployment record being migrated away from, if there is one.
 
+        Supplies the title and app mode for the new record, and is removed only
+        when it is a shinyapps.io record (see migrate_to_connect_cloud).
+
         Only records for other servers are candidates: a Connect Cloud record is
         what this migration produces, so treating one as a source would delete the
         result. With no `from_server` a lone record is taken, and several are
@@ -2297,6 +2305,11 @@ for shinyapps.io. See command help for further details."
         Connect Cloud. What changes is the local record, which is the only way back to a
         content item — Connect Cloud cannot look content up by name, so deploying
         without a record creates a duplicate instead of updating the existing item.
+
+        The record migrated from supplies the title and app mode, and is removed
+        only when it is a shinyapps.io record, whose content has been migrated away
+        and whose record is therefore dead. A record for a Posit Connect server is
+        kept: its content still exists and is still deployable.
 
         :param content_id: the id of the Connect Cloud content to point at.
         :param from_server: the URL of the deployment record to migrate, needed only
@@ -2376,9 +2389,13 @@ for shinyapps.io. See command help for further details."
             (source or {}).get("app_mode") or AppModes.UNKNOWN.name(),
         )
 
-        # Removed only after the new record is safely written: leaving both is
-        # recoverable, losing both is not.
-        if source:
+        # Only a shinyapps.io record is removed, and only after the new record is
+        # safely written: leaving both is recoverable, losing both is not. Its
+        # content is what was migrated away, so the record is dead. A record for
+        # any other server still points at live content that is still deployable,
+        # and deploying one directory to both Connect and Connect Cloud is a
+        # supported setup, so that record is kept.
+        if source and _is_shinyapps_record(source):
             self.app_store.remove(source["server_url"])
         # The name-keyed record is the same account's, now superseded by the id-keyed
         # one -- the same migration a deploy's write performs. The keys coincide when

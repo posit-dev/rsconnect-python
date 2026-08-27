@@ -2829,6 +2829,35 @@ class TestConnectCloudMigrate(unittest.TestCase):
         self.assertIsNotNone(saved.get("https://connect.example.com"))
         self.assertIsNotNone(saved.get(MIGRATED_KEY))
 
+    def test_a_lone_connect_record_is_inherited_but_kept(self):
+        # Only shinyapps.io content is migrated away, so only that record is dead.
+        # Connect content still exists and stays deployable from this directory.
+        CONNECT = "https://connect.example.com"
+        self._record(CONNECT, app_id="17")
+
+        record = self._executor().migrate_to_connect_cloud("c1")
+
+        saved = self._store()
+        self.assertIsNotNone(saved.get(CONNECT), "the Connect record must survive")
+        self.assertEqual(saved.get(CONNECT)["app_id"], "17")
+        self.assertIsNotNone(saved.get(MIGRATED_KEY))
+        # Still the source for the new record's app mode.
+        self.assertEqual(record["app_mode"], "python-shiny")
+
+    def test_a_named_connect_record_is_also_kept(self):
+        # --from-server picks which record supplies the metadata; it does not make a
+        # live Connect record removable.
+        CONNECT = "https://connect.example.com"
+        self._record(SHINYAPPS)
+        self._record(CONNECT)
+
+        self._executor().migrate_to_connect_cloud("c1", from_server=CONNECT)
+
+        saved = self._store()
+        self.assertIsNotNone(saved.get(CONNECT), "the Connect record must survive")
+        self.assertIsNotNone(saved.get(SHINYAPPS), "an unselected record is untouched")
+        self.assertIsNotNone(saved.get(MIGRATED_KEY))
+
     def test_from_server_that_matches_no_record_is_reported(self):
         self._record(SHINYAPPS)
         executor = self._executor()

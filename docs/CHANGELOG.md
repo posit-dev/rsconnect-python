@@ -15,10 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Use it after migrating shinyapps.io content to Connect Cloud:
   `rsconnect content migrate-to-connect-cloud ./my-app -n cloud
   --content-id <id>`. Nothing is copied and no bundle is uploaded — the content
-  must already exist in Connect Cloud, and only local files change. The record
-  it was migrated from is removed, so that deployment target is replaced rather
-  than added to; pass `--from-server` to choose which record to migrate when
-  there are several, and any record for another server is left alone.
+  must already exist in Connect Cloud, and only local files change. A
+  shinyapps.io record is removed once its content has been migrated, since that
+  record is then dead; a record for a Posit Connect server is kept, so the
+  directory can go on deploying to both. Pass `--from-server` to choose which
+  record to migrate when there are several.
 - `rsconnect add` now reports invalid option combinations and unreadable
   certificate files as plain error messages. Previously these surfaced as raw
   Python tracebacks.
