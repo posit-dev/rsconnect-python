@@ -1061,17 +1061,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#unreleased_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Unreleased
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#1300-2026-07-16" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2895,6 +2884,8 @@
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">#</a></h2>
 <ul>
+<li>Posit Connect Cloud is now a supported deployment target, alongside Posit
+  Connect and shinyapps.io.</li>
 <li>New <code>rsconnect content migrate-to-connect-cloud</code> points a directory's local
   deployment record at an existing Posit Connect Cloud content item, so the next
   deploy from that directory updates that item instead of creating a second one.
@@ -2902,35 +2893,17 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
   <code>rsconnect content migrate-to-connect-cloud ./my-app -n cloud
   --content-id &lt;id&gt;</code>. Nothing is copied and no bundle is uploaded — the content
   must already exist in Connect Cloud, and only local files change. The record
-  it was migrated from is removed, so the directory is left with one deployment
-  target rather than two; pass <code>--from-server</code> to choose which record to migrate
-  when there are several.</li>
-</ul>
-<h2 id="unreleased_1">Unreleased<a class="headerlink" href="#unreleased_1" title="Permanent link">#</a></h2>
-<ul>
-<li>Posit Connect Cloud is now a supported deployment target, alongside Posit
-  Connect and shinyapps.io, mirroring the R rsconnect package's support.
-  Register an account with <code>rsconnect add -n &lt;nickname&gt; --connect-cloud
-  -A &lt;account&gt;</code>, which verifies the account exists and that you can publish to
-  it. Authentication is an interactive browser login by default; for CI and
-  other non-interactive use, pass a service account credential with
-  <code>--client-id</code>/<code>--client-secret</code> (or the <code>CONNECT_CLOUD_CLIENT_ID</code> and
-  <code>CONNECT_CLOUD_CLIENT_SECRET</code> environment variables). Tokens are refreshed
-  automatically. Deploy with any <code>rsconnect deploy</code> subcommand by passing
-  <code>--connect-cloud</code> (or <code>-s connect.posit.cloud</code>) with <code>-A &lt;account&gt;</code> (or the
-  <code>CONNECT_CLOUD_ACCOUNT</code> environment variable; a <code>SHINYAPPS_ACCOUNT</code> variable
-  exported for shinyapps.io is ignored here), or <code>-n &lt;nickname&gt;</code> for a saved
-  account. Supported content types: Shiny (Python
-  and R), Streamlit, Dash, Bokeh, Jupyter notebooks, Quarto, R Markdown, and
-  static content.</li>
+  it was migrated from is removed, so that deployment target is replaced rather
+  than added to; pass <code>--from-server</code> to choose which record to migrate when
+  there are several, and any record for another server is left alone.</li>
 <li><code>rsconnect add</code> now reports invalid option combinations and unreadable
   certificate files as plain error messages. Previously these surfaced as raw
   Python tracebacks.</li>
 <li>Deploying with a nickname (<code>-n</code>) no longer fails when <code>SHINYAPPS_ACCOUNT</code>,
   <code>SHINYAPPS_TOKEN</code>, or <code>SHINYAPPS_SECRET</code> happen to be set in the environment.
   Those values are ignored for nickname deploys — the saved credential is what
-  the nickname means. Shinyapps options typed on the command line still
-  conflict with <code>-n</code>.</li>
+  the nickname means. A typed <code>-T/--token</code> or <code>-S/--secret</code> still conflicts with
+  <code>-n</code>.</li>
 <li>Credentials are now redacted from verbose (<code>-v</code>) log output and from error
   messages that quote a request URL. This covers authorization and signing
   headers, OAuth tokens and client secrets in request and response bodies, the

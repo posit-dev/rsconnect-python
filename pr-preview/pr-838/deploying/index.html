@@ -2236,6 +2236,11 @@ deployment data is stored.</p>
 </tbody>
 </table>
 <p>Remembered server information is stored in the <code>servers.json</code> file in that directory.</p>
+<p>OAuth credentials — the tokens from <code>rsconnect login</code> for Posit Connect, and the
+tokens and service account client secret for Posit Connect Cloud — are stored in the
+system keyring when one is available. On a machine without a usable keyring, such as a
+CI runner, they are kept in <code>servers.json</code> instead, which is written with owner-only
+permissions.</p>
 <h3 id="deployment-data">Deployment Data<a class="headerlink" href="#deployment-data" title="Permanent link">#</a></h3>
 <p>After a deployment is completed, information about the deployment is saved
 to enable later redeployment. This data is stored alongside the deployed file,
