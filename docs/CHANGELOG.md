@@ -7,42 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-- New `rsconnect content migrate-to-connect-cloud` points a directory's local
-  deployment record at an existing Posit Connect Cloud content item, so the next
-  deploy from that directory updates that item instead of creating a second one.
-  Use it after migrating shinyapps.io content to Connect Cloud:
-  `rsconnect content migrate-to-connect-cloud ./my-app -n cloud
-  --content-id <id>`. Nothing is copied and no bundle is uploaded — the content
-  must already exist in Connect Cloud, and only local files change. The record
-  it was migrated from is removed, so the directory is left with one deployment
-  target rather than two; pass `--from-server` to choose which record to migrate
-  when there are several.
-
-## Unreleased
-
 - Posit Connect Cloud is now a supported deployment target, alongside Posit
-  Connect and shinyapps.io, mirroring the R rsconnect package's support.
-  Register an account with `rsconnect add -n <nickname> --connect-cloud
-  -A <account>`, which verifies the account exists and that you can publish to
-  it. Authentication is an interactive browser login by default; for CI and
-  other non-interactive use, pass a service account credential with
-  `--client-id`/`--client-secret` (or the `CONNECT_CLOUD_CLIENT_ID` and
-  `CONNECT_CLOUD_CLIENT_SECRET` environment variables). Tokens are refreshed
-  automatically. Deploy with any `rsconnect deploy` subcommand by passing
-  `--connect-cloud` (or `-s connect.posit.cloud`) with `-A <account>` (or the
-  `CONNECT_CLOUD_ACCOUNT` environment variable; a `SHINYAPPS_ACCOUNT` variable
-  exported for shinyapps.io is ignored here), or `-n <nickname>` for a saved
-  account. Supported content types: Shiny (Python
-  and R), Streamlit, Dash, Bokeh, Jupyter notebooks, Quarto, R Markdown, and
-  static content.
+  Connect and shinyapps.io.
 - `rsconnect add` now reports invalid option combinations and unreadable
   certificate files as plain error messages. Previously these surfaced as raw
   Python tracebacks.
 - Deploying with a nickname (`-n`) no longer fails when `SHINYAPPS_ACCOUNT`,
   `SHINYAPPS_TOKEN`, or `SHINYAPPS_SECRET` happen to be set in the environment.
   Those values are ignored for nickname deploys — the saved credential is what
-  the nickname means. Shinyapps options typed on the command line still
-  conflict with `-n`.
+  the nickname means. A typed `-T/--token` or `-S/--secret` still conflicts with
+  `-n`.
 - Credentials are now redacted from verbose (`-v`) log output and from error
   messages that quote a request URL. This covers authorization and signing
   headers, OAuth tokens and client secrets in request and response bodies, the

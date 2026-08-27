@@ -12,6 +12,7 @@ import hmac
 import json
 import os
 import re
+import shlex
 import sys
 import tarfile
 import time
@@ -59,6 +60,7 @@ from .certificates import read_certificate_file
 from .environment import fake_module_file_from_directory
 from .exception import DeploymentFailedException, RSConnectException
 from .http_support import (
+    BearerTokenHTTPServer,
     CookieJar,
     HTTPResponse,
     HTTPServer,
@@ -68,15 +70,7 @@ from .http_support import (
     create_multipart_form_data,
 )
 from .log import cls_logged, connect_logger, console_logger, logger
-from .metadata import (
-    SHINYAPPS_API_URL,
-    SHINYAPPS_SERVER_NAME,
-    AppMetadata,
-    AppStore,
-    ServerData,
-    ServerStore,
-    resolve_server_alias,
-)
+from .metadata import SHINYAPPS_API_URL, SHINYAPPS_SERVER_NAME, AppStore, ServerData, ServerStore
 from .models import (
     AppMode,
     AppModes,
@@ -183,7 +177,7 @@ class AbstractRemoteServer:
                         response.json_data["error"],
                     )
                     raise RSConnectException(error, status=response.status)
-                if response.status < 200 or response.status > 299:
+                if response.status is None or response.status < 200 or response.status > 299:
                     raise RSConnectException(
                         "Received an unexpected response from %s (calling %s): %s %s"
                         % (
@@ -508,7 +502,7 @@ def server_supports_draft_deploy(server_version: Optional[str]) -> bool:
         return False
 
 
-class RSConnectClient(HTTPServer):
+class RSConnectClient(BearerTokenHTTPServer):
     def __init__(self, server: Union[RSConnectServer, SPCSConnectServer], cookies: Optional[CookieJar] = None):
         if cookies is None:
             cookies = server.cookie_jar
@@ -540,30 +534,10 @@ class RSConnectClient(HTTPServer):
         ):
             self.authorization(f"Bearer {server.oauth_access_token}")
 
-    def request(
-        self,
-        method: str,
-        path: str,
-        query_params: Optional[Mapping[str, "JsonData"]] = None,
-        body: "str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None" = None,
-        maximum_redirects: int = 5,
-        decode_response: bool = True,
-        headers: Optional[Mapping[str, str]] = None,
-    ) -> "JsonData | HTTPResponse":
-        can_retry = isinstance(self._server, RSConnectServer) and bool(self._server.oauth_client_id)
-        start_pos: "int | None" = None
-        if can_retry and hasattr(body, "read"):
-            if getattr(body, "seekable", lambda: False)():
-                start_pos = body.tell()  # type: ignore[union-attr]
-            else:
-                body = body.read()  # type: ignore[union-attr]
-        response = super().request(method, path, query_params, body, maximum_redirects, decode_response, headers)  # pyright: ignore[reportUnknownArgumentType]
-        if can_retry and isinstance(response, HTTPResponse) and response.status == 401:
-            if self._attempt_token_refresh():
-                if start_pos is not None:
-                    body.seek(start_pos)  # type: ignore[union-attr]
-                return super().request(method, path, query_params, body, maximum_redirects, decode_response, headers)  # pyright: ignore[reportUnknownArgumentType]
-        return response
+    def _can_refresh_token(self) -> bool:
+        # An API key, a bootstrap JWT, or a Snowflake token exchange has nothing to
+        # mint a new credential from; only an OAuth login does.
+        return isinstance(self._server, RSConnectServer) and bool(self._server.oauth_client_id)
 
     def _attempt_token_refresh(self) -> bool:
         from .oauth import (
@@ -579,14 +553,11 @@ class RSConnectClient(HTTPServer):
 
         server = cast(RSConnectServer, self._server)
 
+        # The keyring is where a login stores its tokens; the entry's own fields are
+        # the fallback for a machine without one.
         _, refresh_token = keyring_get_tokens(server.url)
         if not refresh_token:
-            store = ServerStore()
-            entry = None
-            if server.server_name:
-                entry = store.get_by_name(server.server_name)
-            if not entry:
-                entry = store.get_by_url(server.url)
+            entry = ServerStore().saved_entry(server.server_name, server.url)
             if entry:
                 refresh_token = entry.get("oauth_refresh_token")  # type: ignore[assignment]
         if not refresh_token:
@@ -601,11 +572,7 @@ class RSConnectClient(HTTPServer):
             # Client was deleted server-side; clear stale tokens and re-register
             keyring_delete_tokens(server.url)
             store = ServerStore()
-            entry = None
-            if server.server_name:
-                entry = store.get_by_name(server.server_name)
-            if not entry:
-                entry = store.get_by_url(server.url)
+            entry = store.saved_entry(server.server_name, server.url)
             if entry:
                 entry_name = str(entry.get("name", server.server_name or server.url))
                 store.update_oauth_tokens(entry_name, None, None, None)
@@ -637,11 +604,7 @@ class RSConnectClient(HTTPServer):
         stored = keyring_store_token(server.url, new_access, new_refresh)
         if not stored:
             store = ServerStore()
-            entry = None
-            if server.server_name:
-                entry = store.get_by_name(server.server_name)
-            if not entry:
-                entry = store.get_by_url(server.url)
+            entry = store.saved_entry(server.server_name, server.url)
             if entry:
                 entry_name = str(entry.get("name", server.server_name or server.url))
                 store.update_oauth_tokens(entry_name, new_access, new_refresh, new_expiry)
@@ -1310,14 +1273,6 @@ class ServerDetails(TypedDict):
     python: ServerDetailsPython
 
 
-def _record_server_list(records: list[AppMetadata]) -> str:
-    """The servers a set of deployment records covers, for an error message."""
-    servers = sorted(record.get("server_url", "") for record in records)
-    if not servers:
-        return ""
-    return " Records exist for: %s." % ", ".join(servers)
-
-
 class RSConnectExecutor:
     def __init__(
         self,
@@ -1345,6 +1300,7 @@ class RSConnectExecutor:
         new: Optional[bool] = None,
         app_id: Optional[str] = None,
         title: Optional[str] = None,
+        title_is_default: Optional[bool] = None,
         visibility: Optional[str] = None,
         disable_env_management: Optional[bool] = None,
         env_vars: Optional[dict[str, str]] = None,
@@ -1380,7 +1336,12 @@ class RSConnectExecutor:
         self.app_store: AppStore = AppStore(fake_module_file_from_directory(self.path))
         self.app_store_version: int | None = None
         self.api_key_is_required: bool | None = None
-        self.title_is_default: bool = not title
+        # `deploy manifest` / `deploy bundle` pre-resolve `title` to a
+        # manifest/bundle-derived default rather than the generic
+        # `_default_title(self.path)` fallback above, so they pass
+        # `title_is_default` explicitly to report whether the user really
+        # supplied `--title`.
+        self.title_is_default: bool = not title if title_is_default is None else title_is_default
         self.deployment_name: str | None = None
 
         # Git deployment parameters
@@ -1592,12 +1553,12 @@ class RSConnectExecutor:
             server_data = ServerData(None, None, False)
         else:
             try:
-                server_data = store.resolve(name, url, account_name)
+                server_data = store.resolve(name, url)
             except RSConnectException:
-                # Several saved Connect Cloud entries can make the lookup ambiguous,
+                # Several saved Connect Cloud credentials make the lookup ambiguous,
                 # but a complete supplied credential pair with an account is its own
                 # identity (the one-shot/CI shape) and needs nothing from the store.
-                # A matching single entry still resolves above and keeps its
+                # A single saved credential still resolves above and keeps its
                 # token-reuse and write-back behavior.
                 if supplied_client_id and supplied_client_secret and account_name and not name:
                     server_data = ServerData(None, None, False)
@@ -1668,11 +1629,19 @@ class RSConnectExecutor:
             # Deferred from validate_connection_options: a nickname or default
             # server is only known not to be Connect Cloud here, after resolution.
             validation.validate_connect_cloud_credential_options(ctx, supplied_client_id, supplied_client_secret)
-            # Also deferred: a lone -A was allowed through when a default server
-            # might have resolved to Connect Cloud. It did not, so the shinyapps
-            # all-or-nothing rule applies after all -- judged on the pre-merge
-            # values, or a default shinyapps entry's token and secret would
-            # satisfy it and deploy the typed account with borrowed credentials.
+            # Also deferred: a lone -A was allowed through when a nickname or
+            # default server might have resolved to Connect Cloud. It did not, so
+            # -A means the shinyapps account again -- which a nickname already
+            # names, and which the all-or-nothing rule below governs otherwise.
+            # Both are judged on the pre-merge values, or a default shinyapps
+            # entry's token and secret would satisfy the rule and deploy the typed
+            # account with borrowed credentials.
+            if name and supplied_account_name:
+                raise RSConnectException(
+                    "-n/--name cannot be specified in conjunction with -A/--account, unless the nickname \
+names a Posit Connect Cloud credential, where -A selects the account to publish to. \
+See command help for further details."
+                )
             if supplied_account_name and not (supplied_token and supplied_secret):
                 raise RSConnectException(
                     "-A/--account, -T/--token, and -S/--secret must all be provided \
@@ -1794,12 +1763,6 @@ for shinyapps.io. See command help for further details."
             raise RSConnectException("remote_server must be a Posit Connect Cloud server.")
         if not isinstance(self.client, ConnectCloudClient):
             raise RSConnectException("client must be a ConnectCloudClient.")
-        if self.visibility is not None:
-            # Connect Cloud has no equivalent setting.
-            raise RSConnectException(
-                "-V/--visibility is not supported by Posit Connect Cloud. "
-                "Manage content access from the Connect Cloud interface."
-            )
         if not self.remote_server.access_token and not (
             self.remote_server.client_id and self.remote_server.client_secret
         ):
@@ -2067,6 +2030,7 @@ for shinyapps.io. See command help for further details."
                     env_vars=self.env_vars,
                     update_title=not self.title_is_default,
                     app_id_is_explicit=self.app_id_is_explicit,
+                    visibility=self.visibility,
                 )
                 self.deployed_info = RSConnectClientDeployResult(
                     app_url=prepared.app_url,
@@ -2272,134 +2236,6 @@ for shinyapps.io. See command help for further details."
             self.app_mode,
         )
 
-    def migration_source_record(self, from_server: Optional[str] = None) -> Optional[AppMetadata]:
-        """The deployment record being migrated away from, if there is one.
-
-        Only records for other servers are candidates: a Connect Cloud record is
-        what this migration produces, so treating one as a source would delete the
-        result. With no `from_server` a lone record is taken, and several are
-        reported rather than picked between.
-        """
-        candidates = [
-            record
-            for record in self.app_store.get_all()
-            if not connect_cloud.is_connect_cloud_url(record.get("server_url", "").split("#")[0])
-        ]
-
-        if from_server:
-            target = resolve_server_alias(from_server)
-            matches = [record for record in candidates if record.get("server_url") == target]
-            if not matches:
-                raise RSConnectException(
-                    'No deployment record for server "%s" in %s.%s'
-                    % (from_server, self.app_store.get_path(), _record_server_list(candidates))
-                )
-            return matches[0]
-
-        if not candidates:
-            return None
-        if len(candidates) == 1:
-            return candidates[0]
-        raise RSConnectException(
-            "Several deployment records exist in %s. Use --from-server to choose which one to "
-            "migrate.%s" % (self.app_store.get_path(), _record_server_list(candidates))
-        )
-
-    def migrate_to_connect_cloud(
-        self,
-        content_id: str,
-        from_server: Optional[str] = None,
-        overwrite: bool = False,
-    ) -> AppMetadata:
-        """Point this content's local deployment record at existing Posit Connect Cloud content.
-
-        Nothing is copied and no bundle is uploaded: the content must already exist in
-        Connect Cloud. What changes is the local record, which is the only way back to a
-        content item — Connect Cloud cannot look content up by name, so deploying
-        without a record creates a duplicate instead of updating the existing item.
-
-        :param content_id: the id of the Connect Cloud content to point at.
-        :param from_server: the URL of the deployment record to migrate, needed only
-        when the local records cover several servers.
-        :param overwrite: replace an existing Connect Cloud record for this account.
-        :return: the record that was written.
-        """
-        if not isinstance(self.remote_server, ConnectCloudServer) or not isinstance(self.client, ConnectCloudClient):
-            raise RSConnectException("Migrating a deployment record requires a Posit Connect Cloud account.")
-
-        source = self.migration_source_record(from_server)
-
-        # Checked before any request, so a run that cannot write anything makes no
-        # network calls and leaves the existing record untouched. The name-keyed
-        # location counts as existing too: a deploy reads it when the id-keyed one is
-        # missing, so a record there is this account's current target, and writing the
-        # id-keyed record would silently retarget the deploy and strand a duplicate.
-        target_key = self.record_server_key()
-        fallback_key = self.record_server_key_fallback()
-        existing = self.app_store.get(target_key)
-        if existing is None and fallback_key:
-            existing = self.app_store.get(fallback_key)
-        if existing and not overwrite:
-            raise RSConnectException(
-                'A Posit Connect Cloud deployment record for account "%s" already exists in %s, for content %s. '
-                "Use --overwrite to replace it."
-                % (self.remote_server.account_name, self.app_store.get_path(), existing.get("app_id"))
-            )
-
-        service = ConnectCloudService(self.client, self.remote_server)
-        with self.client:
-            content = self.client.get_content(content_id)
-            account_id = content.get("account_id")
-            account_name = service.account_name_for_id(account_id) if account_id else None
-            if not account_name:
-                raise RSConnectException(
-                    "Unable to determine which Posit Connect Cloud account owns content %s. "
-                    "You may not have a role on that account." % content_id
-                )
-            # The record is keyed by account, and a deploy only reads the record for the
-            # account it is publishing to -- and would refuse content owned by another
-            # account anyway. A record written under the wrong account would therefore
-            # be silently ignored, so name the account that makes it usable instead.
-            # Compared by id when one is known, since that is what the key uses and what
-            # survives a rename; by name otherwise, which is then what the key uses too.
-            if self.remote_server.account_id:
-                same_account = account_id == self.remote_server.account_id
-            else:
-                same_account = account_name == self.remote_server.account_name
-            if not same_account:
-                raise RSConnectException(
-                    'Content %s belongs to the Posit Connect Cloud account "%s", not "%s". '
-                    "Re-run with -A %s." % (content_id, account_name, self.remote_server.account_name, account_name)
-                )
-
-        title = content.get("title") or (source or {}).get("title") or self.title
-        self.app_store.set(
-            target_key,
-            abspath(self.path),
-            self.remote_server.urls().content_url(account_name, content_id),
-            content_id,
-            None,  # Connect Cloud content has no GUID separate from its id.
-            title,
-            # Connect Cloud derives the app mode from the content type and primary file,
-            # so there is nothing to read back from it; the source record's mode is kept
-            # when there is one. "unknown" does not block a later deploy of any mode.
-            (source or {}).get("app_mode") or AppModes.UNKNOWN.name(),
-        )
-
-        # Removed only after the new record is safely written: leaving both is
-        # recoverable, losing both is not.
-        if source:
-            self.app_store.remove(source["server_url"])
-        # The name-keyed record is the same account's, now superseded by the id-keyed
-        # one -- the same migration a deploy's write performs.
-        if fallback_key:
-            self.app_store.remove(fallback_key)
-
-        record = self.app_store.get(target_key)
-        if record is None:  # pragma: no cover - just written above
-            raise RSConnectException("The deployment record could not be saved.")
-        return record
-
     @property
     def supports_verify_before_activate(self) -> bool:
         """Whether the target server supports deploying a bundle as a draft and
@@ -2424,6 +2260,10 @@ for shinyapps.io. See command help for further details."
         With ``--no-verify`` we activate immediately.
         """
         if draft:
+            if not isinstance(self.client, RSConnectClient):
+                # Neither Connect Cloud nor shinyapps.io has a draft step at any version,
+                # so the version below would send the reader looking for one.
+                raise RSConnectException("Deploying as a draft is only supported by Posit Connect.")
             if not self.supports_verify_before_activate:
                 # We can't honor --draft without the activate field: silently activating
                 # would be the opposite of what the user asked for, so fail loudly.
@@ -3043,7 +2883,7 @@ _CONNECT_CLOUD_MAX_ACCOUNT_PAGES = 100
 _CONNECT_CLOUD_PUBLISH_PERMISSION = "content:create"
 
 
-class ConnectCloudClient(HTTPServer):
+class ConnectCloudClient(BearerTokenHTTPServer):
     """
     An HTTP client to call the Posit Connect Cloud API.
 
@@ -3069,21 +2909,11 @@ class ConnectCloudClient(HTTPServer):
             else response
         )
 
-    def request(
-        self,
-        method: str,
-        path: str,
-        query_params: Optional[Mapping[str, JsonData]] = None,
-        body: str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None = None,
-        maximum_redirects: int = 5,
-        decode_response: bool = True,
-        headers: Optional[Mapping[str, str]] = None,
-    ) -> JsonData | HTTPResponse:
-        response = super().request(method, path, query_params, body, maximum_redirects, decode_response, headers)  # pyright: ignore[reportUnknownArgumentType]
-        if isinstance(response, HTTPResponse) and response.status == 401:
-            if self._attempt_token_refresh():
-                return super().request(method, path, query_params, body, maximum_redirects, decode_response, headers)  # pyright: ignore[reportUnknownArgumentType]
-        return response
+    def _can_refresh_token(self) -> bool:
+        # The same two credentials _attempt_token_refresh mints from. Without either
+        # there is no retry to prepare a request body for.
+        server = self._server
+        return bool(server.refresh_token or (server.client_id and server.client_secret))
 
     def _attempt_token_refresh(self) -> bool:
         """Mint a new access token and apply it to this client.
@@ -3091,10 +2921,15 @@ class ConnectCloudClient(HTTPServer):
         Uses the client credentials grant when a service account credential is
         stored, and the refresh token otherwise. Returns whether a new token was
         obtained.
+
+        A credential the auth server rejects outright raises instead, since no
+        retry will fix it and the caller would otherwise report only the opaque
+        401. Transient failures still return False so the original 401 surfaces.
         """
-        from .metadata import ServerStore
+        from .oauth import InvalidClientError, InvalidGrantError
 
         server = self._server
+        service_account = bool(server.client_id and server.client_secret)
         try:
             if server.client_id and server.client_secret:
                 tokens = connect_cloud.login_client_credentials(
@@ -3104,12 +2939,32 @@ class ConnectCloudClient(HTTPServer):
                 tokens = connect_cloud.refresh(server.refresh_token, server.environment)
             else:
                 return False
+        except InvalidClientError as exc:
+            if not service_account:
+                # This CLI's own OAuth client, not the user's credential.
+                logger.warning("Posit Connect Cloud token refresh failed: %s" % exc)
+                return False
+            raise RSConnectException(
+                "The Posit Connect Cloud service account credential was rejected — it has been revoked or "
+                "rotated. Create a new one at %s/identity/credentials, then save it with `%s`."
+                % (server.urls().auth, self._add_command(service_account=True))
+            ) from exc
+        except InvalidGrantError as exc:
+            if service_account:
+                logger.warning("Posit Connect Cloud token refresh failed: %s" % exc)
+                return False
+            self._persist_tokens(None, None)
+            raise RSConnectException(
+                "Your Posit Connect Cloud session has expired and could not be renewed. "
+                "Authenticate again with `%s`." % self._add_command()
+            ) from exc
         except RSConnectException as exc:
-            logger.debug("Posit Connect Cloud token refresh failed: %s" % exc)
+            logger.warning("Posit Connect Cloud token refresh failed: %s" % exc)
             return False
 
         access_token = tokens.get("access_token")
         if not access_token:
+            logger.warning("Posit Connect Cloud returned no access token when refreshing the credential.")
             return False
 
         server.access_token = access_token
@@ -3117,30 +2972,92 @@ class ConnectCloudClient(HTTPServer):
         # so keep the existing one rather than clearing it.
         server.refresh_token = tokens.get("refresh_token") or server.refresh_token
         self._apply_authorization()
-
-        if server.server_name:
-            store = ServerStore()
-            entry = store.get_by_name(server.server_name)
-            if entry:
-                # A refresh persists the new tokens and nothing else. Every other field
-                # is taken from the saved entry alone — never from this run, which may
-                # be publishing to a different account on the same login, or carrying
-                # service-account credentials from the environment that must not be
-                # grafted onto an interactively created entry. `rsconnect add` is what
-                # changes those. This is how the R client's withTokenRefreshRetry()
-                # writes back too. ServerStore.set writes the file itself.
-                store.set(
-                    server.server_name,
-                    server.url,
-                    connect_cloud_account_name=entry.get("connect_cloud_account_name") or server.account_name,
-                    connect_cloud_account_id=entry.get("connect_cloud_account_id"),
-                    connect_cloud_client_id=entry.get("connect_cloud_client_id"),
-                    connect_cloud_client_secret=entry.get("connect_cloud_client_secret"),
-                    connect_cloud_access_token=server.access_token,
-                    connect_cloud_refresh_token=server.refresh_token,
-                )
+        self._persist_tokens(server.access_token, server.refresh_token)
 
         return True
+
+    def _add_command(self, service_account: bool = False) -> str:
+        """The `rsconnect add` invocation that would re-save this credential."""
+        from .metadata import ServerStore
+
+        server = self._server
+        # Re-adding must keep the nickname pointed at the saved entry's account,
+        # not this run's, which may be publishing to a different one via -A.
+        account = server.account_name
+        if server.server_name:
+            entry = ServerStore().get_by_name(server.server_name)
+            if entry:
+                account = entry.get("connect_cloud_account_name") or account
+        parts = ["rsconnect add --connect-cloud"]
+        if server.environment != connect_cloud.DEFAULT_ENVIRONMENT:
+            # Without the URL, add would authenticate against production.
+            parts.append("-s %s" % shlex.quote(server.url))
+        parts.append("-n %s" % (shlex.quote(server.server_name) if server.server_name else "<nickname>"))
+        parts.append("-A %s" % (shlex.quote(account) if account else "<account>"))
+        if service_account:
+            parts.append("--client-id <id> --client-secret <secret>")
+        return " ".join(parts)
+
+    def _persist_tokens(self, access_token: Optional[str], refresh_token: Optional[str]) -> None:
+        """Write the tokens back to the saved credential, or clear them when both are None.
+
+        Prefers the system keyring, falling back to the tokens' fields in
+        servers.json. A keyring write also scrubs those fields, which is how an
+        entry saved before keyring support moves its tokens out of the file.
+
+        Does nothing for a run with no saved entry behind it: a credential
+        override or a one-shot deploy.
+        """
+        from .metadata import ServerStore
+
+        server = self._server
+        if not server.server_name:
+            return
+
+        store = ServerStore()
+        entry = store.get_by_name(server.server_name)
+        if not entry:
+            return
+
+        entry_url = entry["url"]
+        # A client secret still in the file predates keyring support, so it moves
+        # with the tokens -- unless the keyring already holds one, which is the
+        # secret in use and must not be overwritten by the file's older copy.
+        file_client_secret = entry.get("connect_cloud_client_secret")
+        keyring_readable, keyring_client_secret = connect_cloud.client_secret_from_keyring(
+            entry_url, server.server_name
+        )
+        migrating_secret = bool(file_client_secret) and keyring_readable and not keyring_client_secret
+        if migrating_secret:
+            in_keyring = connect_cloud.store_credentials_in_keyring(
+                entry_url, server.server_name, access_token, refresh_token, file_client_secret
+            )
+        else:
+            in_keyring = connect_cloud.store_tokens_in_keyring(
+                entry_url, server.server_name, access_token, refresh_token
+            )
+        # The file's copy only goes once the keyring is known to hold a secret; a
+        # read that failed says nothing about what is in there.
+        secret_in_keyring = in_keyring and (migrating_secret or bool(keyring_client_secret))
+
+        # A refresh persists the new tokens and nothing else. Every other field
+        # is taken from the saved entry alone — never from this run, which may
+        # be publishing to a different account on the same login, or carrying
+        # service-account credentials from the environment that must not be
+        # grafted onto an interactively created entry. `rsconnect add` is what
+        # changes those. This is how the R client's withTokenRefreshRetry()
+        # writes back too. ServerStore.set writes the file itself, and omits
+        # the token fields when they are None.
+        store.set(
+            server.server_name,
+            entry_url,
+            connect_cloud_account_name=entry.get("connect_cloud_account_name") or server.account_name,
+            connect_cloud_account_id=entry.get("connect_cloud_account_id"),
+            connect_cloud_client_id=entry.get("connect_cloud_client_id"),
+            connect_cloud_client_secret=None if secret_in_keyring else file_client_secret,
+            connect_cloud_access_token=None if in_keyring else access_token,
+            connect_cloud_refresh_token=None if in_keyring else refresh_token,
+        )
 
     def get_current_user(self) -> JsonData:
         response = self.get("/users/me")
@@ -3253,7 +3170,13 @@ class ConnectCloudClient(HTTPServer):
         app_mode: str,
         primary_file: str,
         secrets: Optional[list[dict[str, str]]] = None,
+        access: Optional[str] = None,
     ) -> ConnectCloudContent:
+        """Create content to upload a bundle into.
+
+        `access` is the content's visibility ("public" or "private"). Omitted from
+        the request when None so the server picks its own default.
+        """
         body: dict[str, Any] = {
             "account_id": account_id,
             "title": title,
@@ -3265,6 +3188,8 @@ class ConnectCloudClient(HTTPServer):
             },
             "secrets": secrets or [],
         }
+        if access is not None:
+            body["access"] = access
         response = cast(Union[ConnectCloudContent, HTTPResponse], self.post("/contents", body=body))
         return self._server.handle_bad_response(response)
 
@@ -3277,18 +3202,20 @@ class ConnectCloudClient(HTTPServer):
         secrets: Optional[list[dict[str, str]]] = None,
         new_bundle: bool = True,
         title: Optional[str] = None,
+        access: Optional[str] = None,
     ) -> ConnectCloudContent:
         """Update content, optionally minting a fresh revision to upload into.
 
-        `content_type` and `primary_file` are always sent alongside `app_mode`:
-        the API only recomputes `app_mode` when one of them is present in the
-        override set, and the stored content type would otherwise survive a
-        redeploy that changes what kind of content this is (--app-id pointing at
-        content of another type).
+        `revision_overrides` is a partial set: any field left out keeps the value
+        already stored on the content. All three go every time so a redeploy that
+        changes what kind of content this is (--app-id pointing at content of
+        another type) does not keep the old content type.
 
         `secrets` replaces the content's whole set, and `title` overwrites the
         stored one, so both are omitted from the request entirely when None: a
-        deploy without -E/-t must leave the existing values alone.
+        deploy without -E/-t must leave the existing values alone. `access` (the
+        content's visibility) is omitted the same way, so a redeploy without
+        -V keeps whatever visibility the content already has.
         """
         body: dict[str, Any] = {
             "revision_overrides": {
@@ -3301,6 +3228,8 @@ class ConnectCloudClient(HTTPServer):
             body["secrets"] = secrets
         if title is not None:
             body["title"] = title
+        if access is not None:
+            body["access"] = access
         query_params: dict[str, JsonData] = {"new_bundle": "true"} if new_bundle else {}
         response = cast(
             Union[ConnectCloudContent, HTTPResponse],
@@ -3340,7 +3269,7 @@ class ConnectCloudClient(HTTPServer):
         logs_server.authorization(f"Bearer {token}")
         with logs_server:
             response = logs_server.get(
-                f"/v1/logs/{channel}",
+                f"/logs/{channel}",
                 query_params={"traversal_direction": "backward", "limit": 1500},
             )
         # A plain HTTPServer leaves the body as an HTTPResponse rather than
@@ -3488,11 +3417,16 @@ class ConnectCloudService:
         upload: bool = True,
         update_title: bool = False,
         app_id_is_explicit: bool = False,
+        visibility: Optional[str] = None,
     ) -> ConnectCloudDeployResult:
         """Create or fetch the content item and get a revision to upload into.
 
         `update_title` is set when the user typed an explicit --title: only then
         does a redeploy overwrite the title on existing content.
+
+        `visibility` is the -V/--visibility value. Its two choices, "public" and
+        "private", are spelled the same way as the Connect Cloud content access
+        levels, so the value is sent through as `access` unchanged.
 
         `app_id_is_explicit` distinguishes an --app-id the user typed from one
         read out of the local deployment record. An explicit id names content
@@ -3551,6 +3485,7 @@ class ConnectCloudService:
                 app_mode=app_mode.name(),
                 primary_file=primary_file,
                 secrets=secrets,
+                access=visibility,
             )
         else:
             # Existing content: push secrets and entrypoint, and ask for a new
@@ -3566,6 +3501,7 @@ class ConnectCloudService:
                 secrets=secrets,
                 new_bundle=upload,
                 title=title if update_title and title else None,
+                access=visibility,
             )
 
         next_revision = content.get("next_revision")
@@ -3593,17 +3529,6 @@ class ConnectCloudService:
         account = self._client.get_account_by_name(self._server.account_name)
         return account["id"]
 
-    def account_name_for_id(self, account_id: str) -> Optional[str]:
-        """The name of the account with this id, among those the caller has a role on.
-
-        None means the account is not one of them, which for content the caller is
-        working with means they likely cannot publish to it either.
-        """
-        for account in self._client.get_accounts():
-            if account.get("id") == account_id:
-                return account["name"]
-        return None
-
     def content_url(self, content_id: str, account_id: Optional[str]) -> str:
         """Build the browsable URL for a content item.
 
@@ -3616,7 +3541,10 @@ class ConnectCloudService:
             # be stale after a rename, and account ids are what survive one.
             account_name = self._server.account_name
             if account_id:
-                account_name = self.account_name_for_id(account_id) or account_name
+                for account in self._client.get_accounts():
+                    if account.get("id") == account_id:
+                        account_name = account["name"]
+                        break
             return self._server.urls().content_url(account_name, content_id)
         except RSConnectException as exc:
             # A URL we cannot build must not mask an otherwise successful deploy.

@@ -13,7 +13,18 @@ from typing import Any, NamedTuple, Optional
 from urllib.parse import urlparse
 
 from .exception import RSConnectException
-from .oauth import login_with_device_code, refresh_access_token, request_client_credentials_token
+from .oauth import (
+    ACCESS_TOKEN_FIELD,
+    CLIENT_SECRET_FIELD,
+    REFRESH_TOKEN_FIELD,
+    keyring_delete_values,
+    keyring_get_value,
+    keyring_read_value,
+    keyring_store_values,
+    login_with_device_code,
+    refresh_access_token,
+    request_client_credentials_token,
+)
 
 # The OAuth scope Connect Cloud issues tokens for. "vivid" is the internal name
 # of the Connect Cloud API.
@@ -69,20 +80,20 @@ _ENVIRONMENTS: dict[str, ConnectCloudUrls] = {
         api="https://api.connect.posit.cloud/v1",
         ui="https://connect.posit.cloud",
         auth="https://login.posit.cloud",
-        logs="https://logs.connect.posit.cloud",
+        logs="https://logs.connect.posit.cloud/v1",
     ),
     "staging": ConnectCloudUrls(
         api="https://api.staging.connect.posit.cloud/v1",
         ui="https://staging.connect.posit.cloud",
         auth="https://login.staging.posit.cloud",
-        logs="https://logs.staging.connect.posit.cloud",
+        logs="https://logs.staging.connect.posit.cloud/v1",
     ),
     "development": ConnectCloudUrls(
         api="https://api.dev.connect.posit.cloud/v1",
         ui="https://dev.connect.posit.cloud",
         # Development shares staging's auth service.
         auth="https://login.staging.posit.cloud",
-        logs="https://logs.dev.connect.posit.cloud",
+        logs="https://logs.dev.connect.posit.cloud/v1",
     ),
 }
 
@@ -230,3 +241,75 @@ def refresh(refresh_token: str, environment: Optional[str] = None) -> dict[str, 
         refresh_token=refresh_token,
         scope=SCOPE,
     )
+
+
+_CREDENTIAL_FIELDS = (ACCESS_TOKEN_FIELD, REFRESH_TOKEN_FIELD, CLIENT_SECRET_FIELD)
+
+
+def keyring_key(url: str, nickname: str) -> str:
+    """The system keyring key for a saved Connect Cloud credential.
+
+    Every Connect Cloud entry records the same API URL, so the nickname is what
+    makes the key unique. Posit Connect keys its entries by URL alone and must
+    keep doing so, or existing logins stop finding their tokens.
+    """
+    return "%s#%s" % (url, nickname)
+
+
+def store_credentials_in_keyring(
+    url: str,
+    nickname: str,
+    access_token: Optional[str],
+    refresh_token: Optional[str],
+    client_secret: Optional[str],
+) -> bool:
+    """Store a saved credential's secrets in the system keyring, replacing all of them.
+
+    Returns False when no keyring is available, which means the caller has to keep
+    the secrets in servers.json instead.
+    """
+    return keyring_store_values(
+        keyring_key(url, nickname),
+        {
+            ACCESS_TOKEN_FIELD: access_token,
+            REFRESH_TOKEN_FIELD: refresh_token,
+            CLIENT_SECRET_FIELD: client_secret,
+        },
+    )
+
+
+def store_tokens_in_keyring(url: str, nickname: str, access_token: Optional[str], refresh_token: Optional[str]) -> bool:
+    """Store (or, for empty values, delete) a saved credential's tokens.
+
+    Leaves any stored client secret alone: a token refresh rotates the tokens
+    only, and `rsconnect add` is what changes the credential itself.
+    """
+    return keyring_store_values(
+        keyring_key(url, nickname),
+        {ACCESS_TOKEN_FIELD: access_token, REFRESH_TOKEN_FIELD: refresh_token},
+    )
+
+
+def client_secret_from_keyring(url: str, nickname: str) -> tuple[bool, Optional[str]]:
+    """The stored service account client secret, and whether the keyring could be read.
+
+    A read failure is not the same as no secret: overwriting one that may be there
+    with an older copy from servers.json would break the credential.
+    """
+    return keyring_read_value(keyring_key(url, nickname), CLIENT_SECRET_FIELD)
+
+
+def credentials_from_keyring(url: str, nickname: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    """A saved credential's secrets from the system keyring, as
+    (access token, refresh token, client secret). Each is None when absent."""
+    key = keyring_key(url, nickname)
+    return (
+        keyring_get_value(key, ACCESS_TOKEN_FIELD),
+        keyring_get_value(key, REFRESH_TOKEN_FIELD),
+        keyring_get_value(key, CLIENT_SECRET_FIELD),
+    )
+
+
+def delete_credentials_from_keyring(url: str, nickname: str) -> None:
+    """Delete a saved credential's secrets from the system keyring."""
+    keyring_delete_values(keyring_key(url, nickname), _CREDENTIAL_FIELDS)

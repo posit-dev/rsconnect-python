@@ -84,7 +84,6 @@ from .actions_integration import (
 )
 from .models import EnvironmentInstallation, EnvironmentVolumeMount
 from .api import (
-    ConnectCloudServer,
     RSConnectClient,
     RSConnectExecutor,
     RSConnectServer,
@@ -288,7 +287,9 @@ def cloud_shinyapps_args(func: Callable[P, T]) -> Callable[P, T]:
         envvar=["SHINYAPPS_ACCOUNT"],
         help="The shinyapps.io or Posit Connect Cloud account name. (Also settable via the \
 SHINYAPPS_ACCOUNT environment variable for shinyapps.io, or CONNECT_CLOUD_ACCOUNT for \
-Posit Connect Cloud; each applies only to its own target.)",
+Posit Connect Cloud; each applies only to its own target.) For Posit Connect Cloud this \
+is the account to publish to, and may accompany -n/--name to publish to an account other \
+than the one the credential was saved with.",
     )
     @click.option(
         "--token",
@@ -359,7 +360,8 @@ def connect_cloud_account_arg(func: Callable[P, T]) -> Callable[P, T]:
         "--account",
         "-A",
         help="The Posit Connect Cloud account to deploy to. (Also settable via the \
-CONNECT_CLOUD_ACCOUNT environment variable.)",
+CONNECT_CLOUD_ACCOUNT environment variable.) May accompany -n/--name to publish to an \
+account other than the one the credential was saved with.",
     )
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
@@ -368,12 +370,14 @@ CONNECT_CLOUD_ACCOUNT environment variable.)",
     return wrapper
 
 
-def shinyapps_deploy_args(func: Callable[P, T]) -> Callable[P, T]:
+def visibility_arg(func: Callable[P, T]) -> Callable[P, T]:
     @click.option(
         "--visibility",
         "-V",
         type=click.Choice(["public", "private"]),
-        help="The visibility of the resource being deployed. (shinyapps.io only; must be public (default) or private)",
+        help="The visibility of the content being deployed, public (default) or private. \
+(shinyapps.io and Posit Connect Cloud only; on Posit Connect Cloud a redeploy without this \
+option leaves the existing visibility alone.)",
     )
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs):
@@ -934,19 +938,34 @@ def add(
         account = cast(str, account)
         cloud_server = _connect_cloud_login(account, client_id, client_secret, url=server)
 
+        # The keyring holds the secrets when there is one, and the entry keeps only
+        # the account and client id. servers.json (written 0600) carries them
+        # otherwise, for machines with no usable keyring such as CI runners.
+        in_keyring = connect_cloud_auth.store_credentials_in_keyring(
+            cloud_server.url,
+            name,
+            cloud_server.access_token,
+            cloud_server.refresh_token,
+            cloud_server.client_secret,
+        )
         server_store.set(
             name,
             cloud_server.url,
             connect_cloud_account_name=cloud_server.account_name,
             connect_cloud_account_id=cloud_server.account_id,
             connect_cloud_client_id=cloud_server.client_id,
-            connect_cloud_client_secret=cloud_server.client_secret,
-            connect_cloud_access_token=cloud_server.access_token,
-            connect_cloud_refresh_token=cloud_server.refresh_token,
+            connect_cloud_client_secret=None if in_keyring else cloud_server.client_secret,
+            connect_cloud_access_token=None if in_keyring else cloud_server.access_token,
+            connect_cloud_refresh_token=None if in_keyring else cloud_server.refresh_token,
             set_as_default=set_default,
         )
         verb = "Updated" if old_server else "Added"
         click.echo('{} {} credential "{}" for account "{}".'.format(verb, cloud_server.remote_name, name, account))
+        if not in_keyring:
+            click.secho(
+                "Note: keyring not available; credentials stored in local file (chmod 600).",
+                fg="yellow",
+            )
     elif token:
         server = cast(str, server)
         account = cast(str, account)
@@ -1038,7 +1057,12 @@ def list_servers(verbose: int):
                     click.echo("    Posit Connect Cloud account: %s" % server["connect_cloud_account_name"])
                     if server.get("connect_cloud_client_id"):
                         click.echo("    Service account client ID: %s" % server["connect_cloud_client_id"])
-                    if server.get("connect_cloud_access_token"):
+                    access, _, client_secret = connect_cloud_auth.credentials_from_keyring(
+                        server["url"], server["name"]
+                    )
+                    if access or client_secret:
+                        click.echo("    Credentials stored in system keyring")
+                    elif server.get("connect_cloud_access_token") or server.get("connect_cloud_client_secret"):
                         click.echo("    Credentials are saved")
                 if server.get("api_key"):
                     click.echo("    API key is saved")
@@ -1160,6 +1184,11 @@ def remove(
                 raise RSConnectException('URL "%s" was not found.' % server)
         else:
             raise RSConnectException("You must specify one of -n/--name or -s/--server.")
+
+        # Removing the entry leaves any keyring secrets orphaned, since nothing
+        # else records the nickname they are keyed by.
+        if entry and entry.get("connect_cloud_account_name"):
+            connect_cloud_auth.delete_credentials_from_keyring(entry["url"], entry["name"])
 
     if message:
         click.echo(message)
@@ -1748,6 +1777,7 @@ def _warn_on_ignored_requirements(directory: str, requirements_file_name: str):
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@visibility_arg
 @quiet_arg
 @cli_exception_handler
 @click.pass_context
@@ -1784,6 +1814,7 @@ def deploy_notebook(
     env_management_r: Optional[bool],
     exclude_renv: bool,
     draft: bool,
+    visibility: Optional[str] = None,
     no_verify: bool = False,
     package_installer: Optional[PackageInstaller] = None,
     metadata: tuple[str, ...] = tuple(),
@@ -1825,6 +1856,7 @@ def deploy_notebook(
         new=new,
         app_id=app_id,
         title=title,
+        visibility=visibility,
         disable_env_management=disable_env_management,
         env_vars=env_vars,
     )
@@ -2059,7 +2091,7 @@ def deploy_voila(
 @cloud_shinyapps_args
 @connect_cloud_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=True, file_okay=True))
-@shinyapps_deploy_args
+@visibility_arg
 @quiet_arg
 @cli_exception_handler
 @click.pass_context
@@ -2096,7 +2128,7 @@ def deploy_manifest(
     file_name = validate_manifest_file(file)
     app_mode = read_manifest_app_mode(file_name)
     # Remember whether --title was typed: a defaulted title must not
-    # overwrite existing Connect Cloud content's title on redeploy.
+    # overwrite existing content's title on redeploy.
     title_is_default = not title
     title = title or default_title_from_manifest(file)
 
@@ -2118,10 +2150,10 @@ def deploy_manifest(
         new=new,
         app_id=app_id,
         title=title,
+        title_is_default=title_is_default,
         visibility=visibility,
         env_vars=env_vars,
     )
-    ce.title_is_default = title_is_default
 
     # Prepare metadata for upload
     server_version = None
@@ -2167,7 +2199,7 @@ def deploy_manifest(
 @cloud_shinyapps_args
 @connect_cloud_args
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, file_okay=True))
-@shinyapps_deploy_args
+@visibility_arg
 @quiet_arg
 @cli_exception_handler
 @click.pass_context
@@ -2203,7 +2235,7 @@ def deploy_bundle(
 
     app_mode = read_bundle_app_mode(file)
     # Remember whether --title was typed: a defaulted title must not
-    # overwrite existing Connect Cloud content's title on redeploy.
+    # overwrite existing content's title on redeploy.
     title_is_default = not title
     title = title or default_title_from_bundle(file)
 
@@ -2225,10 +2257,10 @@ def deploy_bundle(
         new=new,
         app_id=app_id,
         title=title,
+        title_is_default=title_is_default,
         visibility=visibility,
         env_vars=env_vars,
     )
-    ce.title_is_default = title_is_default
 
     # Prepare metadata for upload. Passing directory=None skips git auto-detection:
     # the bundle's location on disk is unrelated to the content's source, so only
@@ -2285,7 +2317,7 @@ def deploy_bundle(
     ),
 )
 @click.argument("directory", type=click.Path(exists=True, dir_okay=True, file_okay=False))
-@shinyapps_deploy_args
+@visibility_arg
 @click.option(
     "--exclude-renv",
     "exclude_renv",
@@ -2659,6 +2691,7 @@ def deploy_git(
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@visibility_arg
 @quiet_arg
 @cli_exception_handler
 @click.pass_context
@@ -2696,6 +2729,7 @@ def deploy_quarto(
     no_verify: bool,
     draft: bool,
     package_installer: Optional[PackageInstaller],
+    visibility: Optional[str] = None,
     metadata: tuple[str, ...] = tuple(),
     no_metadata: bool = False,
 ):
@@ -2746,6 +2780,7 @@ def deploy_quarto(
         new=new,
         app_id=app_id,
         title=title,
+        visibility=visibility,
         disable_env_management=disable_env_management,
         env_vars=env_vars,
         quarto_inputs=quarto_inputs_from_inspect(file_or_directory, inspect),
@@ -2934,6 +2969,7 @@ def deploy_tensorflow(
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
+@visibility_arg
 @quiet_arg
 @cli_exception_handler
 @click.pass_context
@@ -2963,6 +2999,7 @@ def deploy_html(
     connect_cloud: bool,
     no_verify: bool,
     draft: bool,
+    visibility: Optional[str] = None,
     connect_server: Optional[api.RSConnectServer] = None,
     metadata: tuple[str, ...] = tuple(),
     no_metadata: bool = False,
@@ -3005,6 +3042,7 @@ def deploy_html(
             new=new,
             app_id=app_id,
             title=title,
+            visibility=visibility,
             env_vars=env_vars,
         )
 
@@ -3154,7 +3192,7 @@ def generate_deploy_python(
         nargs=-1,
         type=click.Path(exists=True, dir_okay=False, file_okay=True),
     )
-    @shinyapps_deploy_args
+    @visibility_arg
     @quiet_arg
     @cli_exception_handler
     @click.pass_context
@@ -3361,7 +3399,7 @@ generate_deploy_python(app_mode=AppModes.PYTHON_PANEL, min_version="2025.10.0")
     nargs=-1,
     type=click.Path(exists=True, dir_okay=False, file_okay=True),
 )
-@shinyapps_deploy_args
+@visibility_arg
 @quiet_arg
 @cli_exception_handler
 @click.pass_context
@@ -4851,101 +4889,6 @@ def content_venv(
                 raise RSConnectException("uv pip install failed with exit code %d" % result.returncode)
 
             logger.info("Environment ready. Activate with: source %s/bin/activate" % env_path)
-
-
-@content.command(
-    name="migrate-to-connect-cloud",
-    short_help="Point a local deployment record at existing Posit Connect Cloud content.",
-    help=(
-        "Rewrite the local deployment record for FILE_OR_DIRECTORY so the next deploy updates an "
-        "existing Posit Connect Cloud content item instead of creating a new one. Use this after "
-        "migrating shinyapps.io content in Connect Cloud."
-        "\n\n"
-        "Nothing is copied and no bundle is uploaded: the content must already exist in Connect "
-        "Cloud, and only local files are changed. The record it was migrated from is removed, so "
-        "afterwards the directory has one deployment target rather than two."
-        "\n\n"
-        "FILE_OR_DIRECTORY is the same path you pass to `rsconnect deploy`. It defaults to the "
-        "current directory."
-    ),
-    no_args_is_help=True,
-)
-@click.option("--name", "-n", help="The nickname of the saved Posit Connect Cloud account.")
-@click.option(
-    "--server",
-    "-s",
-    envvar="CONNECT_SERVER",
-    help="The Posit Connect Cloud server, `connect.posit.cloud`. \
-(Also settable via CONNECT_SERVER environment variable.)",
-)
-@connect_cloud_args
-@connect_cloud_account_arg
-@click.option(
-    "--content-id",
-    required=True,
-    type=StrippedStringParamType(),
-    metavar="TEXT",
-    help="The id of the Posit Connect Cloud content to point at. It is the last part of the \
-content URL: https://connect.posit.cloud/{account}/content/{content-id}.",
-)
-@click.option(
-    "--from-server",
-    help="The URL of the deployment record to migrate, such as `shinyapps.io`. Only needed when \
-the local deployment records cover more than one server.",
-)
-@click.option(
-    "--overwrite",
-    "-o",
-    is_flag=True,
-    help="Replace an existing Posit Connect Cloud deployment record for this account.",
-)
-@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
-@click.argument(
-    "file_or_directory",
-    type=click.Path(exists=True, dir_okay=True, file_okay=True),
-    default=os.curdir,
-)
-@cli_exception_handler
-@click.pass_context
-def content_migrate_to_connect_cloud(
-    ctx: click.Context,
-    name: Optional[str],
-    server: Optional[str],
-    account: Optional[str],
-    client_id: Optional[str],
-    client_secret: Optional[str],
-    connect_cloud: bool,
-    content_id: str,
-    from_server: Optional[str],
-    overwrite: bool,
-    file_or_directory: str,
-    verbose: int,
-):
-    set_verbosity(verbose)
-    output_params(ctx, locals().items())
-
-    ce = RSConnectExecutor(
-        ctx=ctx,
-        name=name,
-        server=server,
-        account=account,
-        client_id=client_id,
-        client_secret=client_secret,
-        use_connect_cloud=connect_cloud,
-        path=file_or_directory,
-    ).validate_server()
-    if not isinstance(ce.remote_server, ConnectCloudServer):
-        raise RSConnectException(
-            "`rsconnect content migrate-to-connect-cloud` requires a Posit Connect Cloud account. "
-            "Pass --connect-cloud with -A/--account, or -n with a saved Connect Cloud nickname."
-        )
-
-    with cli_feedback("Migrating the deployment record"):
-        record = ce.migrate_to_connect_cloud(content_id, from_server=from_server, overwrite=overwrite)
-
-    click.echo('Found "%s" in Posit Connect Cloud.' % record["title"])
-    click.echo("The deployment record for %s now points at %s" % (file_or_directory, record["app_url"]))
-    click.echo("The next deploy will update that content item rather than create a new one.")
 
 
 @content.group(no_args_is_help=True, help="Manage git repository configuration for content items.")

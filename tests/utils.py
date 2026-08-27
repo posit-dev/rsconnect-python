@@ -2,11 +2,40 @@ import sys
 import os
 import jwt
 import re
+from contextlib import contextmanager
 from os.path import join, dirname, exists
 from packaging import version
+from unittest import mock
 
 import pytest
 from rsconnect.api import RSConnectServer, RSConnectClient
+
+# Captured while this module is imported, which is before the conftest fixture hides
+# keyring from tests: failing_keyring() needs the real modules back.
+try:
+    import keyring as _keyring
+    import keyring.backends.fail as _keyring_fail
+    import keyring.errors as _keyring_errors
+except ImportError:  # pragma: no cover
+    _keyring = None
+
+
+@contextmanager
+def failing_keyring():
+    """Run with keyring installed and its fail backend active.
+
+    That is the shape of a CI runner: the package is there, no backend is usable, and
+    every operation raises NoKeyringError. Credentials have to land in servers.json.
+    """
+    if _keyring is None:  # pragma: no cover
+        pytest.skip("keyring is not installed")
+    previous = _keyring.get_keyring()
+    _keyring.set_keyring(_keyring_fail.Keyring())
+    try:
+        with mock.patch.dict(sys.modules, {"keyring": _keyring, "keyring.errors": _keyring_errors}):
+            yield
+    finally:
+        _keyring.set_keyring(previous)
 
 
 def apply_common_args(args: list, server=None, key=None, cacert=None, insecure=False):

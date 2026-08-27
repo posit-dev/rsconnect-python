@@ -60,6 +60,40 @@ def _get_present_options(
     return result
 
 
+# Deploy options that configure Posit Connect features Connect Cloud does not
+# have.
+_CONNECT_ONLY_DEPLOY_OPTIONS: dict[str, str] = {
+    "image": "-I/--image",
+    "disable_env_management": "--disable-env-management",
+    "env_management_py": "--disable-env-management-py",
+    "env_management_r": "--disable-env-management-r",
+    "env_management_node": "--disable-env-management-node",
+    "node": "--node",
+    "draft": "--draft",
+    "metadata": "--metadata",
+}
+
+
+def _typed_connect_only_deploy_options(ctx: Optional[click.Context]) -> list[str]:
+    """The Connect-only deploy options this command line passed.
+
+    Judged by parameter source rather than by value: --disable-env-management-py
+    inverts to False when given, and the --disable-env-management shorthand fills
+    in the per-language parameters without being their source.
+
+    Only options count. `environment add` takes a positional IMAGE argument, whose
+    parameter is also named `image` and is not this option.
+    """
+    if ctx is None:
+        return []
+    option_names = {param.name for param in ctx.command.params if isinstance(param, click.Option)}
+    return [
+        label
+        for name, label in _CONNECT_ONLY_DEPLOY_OPTIONS.items()
+        if name in option_names and get_parameter_source_name_from_ctx(name, ctx) == "COMMANDLINE"
+    ]
+
+
 def validate_connect_cloud_incompatible_options(
     ctx: Optional[click.Context],
     api_key: Optional[str],
@@ -69,12 +103,12 @@ def validate_connect_cloud_incompatible_options(
 ):
     """Reject options that have no meaning on Posit Connect Cloud.
 
-    validate_connection_options performs the same checks, but only when Connect
-    Cloud is selected by flag or URL; a saved nickname or default server is only
-    identified as Connect Cloud after store resolution, so the executor calls
-    this afterwards. Environment-sourced values are ignored for the same reason
-    as elsewhere: a CONNECT_API_KEY exported for another target is just the
-    CI environment, not a request to use it here.
+    validate_connection_options repeats the credential and SPCS checks, but only
+    when Connect Cloud is selected by flag or URL; a saved nickname or default
+    server is only identified as Connect Cloud after store resolution, so the
+    executor calls this afterwards. Environment-sourced values are ignored for
+    the same reason as elsewhere: a CONNECT_API_KEY exported for another target
+    is just the CI environment, not a request to use it here.
     """
     present_connect_options = _get_present_options(
         {"-k/--api-key": api_key, "-i/--insecure": insecure, "-c/--cacert": cacert},
@@ -92,6 +126,12 @@ alongside Posit Connect Cloud. See command help for further details."
     if present_spcs_options:
         raise RSConnectException(
             f"SPCS options ({', '.join(present_spcs_options)}) may not be passed \
+alongside Posit Connect Cloud. See command help for further details."
+        )
+    connect_only_deploy_options = _typed_connect_only_deploy_options(ctx)
+    if connect_only_deploy_options:
+        raise RSConnectException(
+            f"Posit Connect options ({', '.join(connect_only_deploy_options)}) may not be passed \
 alongside Posit Connect Cloud. See command help for further details."
         )
 
@@ -184,15 +224,17 @@ def validate_connection_options(
     # `rsconnect add` is unaffected: there -n names the entry being created, and
     # add does not pass it to this function.
     #
-    # Typed shinyapps options contradict a nickname the same way, but
+    # A typed -T/--token or -S/--secret contradicts a nickname the same way, but
     # environment-sourced ones (SHINYAPPS_ACCOUNT/TOKEN/SECRET exported for CI
     # elsewhere) are just the environment and must not block a nickname deploy;
     # the executor drops them before resolution so they cannot merge into the
-    # entry either.
+    # entry either. -A/--account is not judged here at all: a nickname may name a
+    # Posit Connect Cloud credential, where -A selects the account to publish to.
+    # The executor raises the conflict once the nickname is known not to be one.
     options_mutually_exclusive_with_name = {"-s/--server": url, "--connect-cloud": connect_cloud}
     present_options_mutually_exclusive_with_name = _get_present_options(
         options_mutually_exclusive_with_name, ctx
-    ) + _get_present_options(shinyapps_options, ctx, ignore_sources=("ENVIRONMENT",))
+    ) + _get_present_options({"-T/--token": token, "-S/--secret": secret}, ctx, ignore_sources=("ENVIRONMENT",))
 
     if name and present_options_mutually_exclusive_with_name:
         name_source = get_parameter_source_name_from_ctx("name", ctx)
@@ -278,25 +320,28 @@ Omit both to log in interactively. See command help for further details."
     if not name and not (has_default_server and not url):
         validate_connect_cloud_credential_options(ctx, client_id, client_secret)
 
-    # A lone -A alongside a default server cannot be judged yet: the default may
-    # resolve to Connect Cloud, where -A selects the account to publish to. The
-    # conflict and all-or-nothing rules below are deferred for this case; the
-    # executor re-raises the all-or-nothing error after resolution when the
-    # target turns out not to be Connect Cloud. A token or secret is unambiguous
-    # shinyapps intent, so those still fail fast here.
-    lone_account_with_default = bool(
-        account_name and not token and not secret and has_default_server and not name and not url
+    # A lone -A alongside a nickname or a default server cannot be judged yet:
+    # either may resolve to Connect Cloud, where -A selects the account to publish
+    # to. The conflict and all-or-nothing rules below are deferred for this case;
+    # the executor raises after resolution when the target turns out not to be
+    # Connect Cloud. A token or secret is unambiguous shinyapps intent, so those
+    # still fail fast here.
+    lone_account_with_saved_server = bool(
+        account_name and not token and not secret and (has_default_server or name) and not url
     )
 
     # In the deferred case only *typed* Connect options conflict: an exported
     # CONNECT_API_KEY or CONNECT_CA_CERTIFICATE is just the environment, and the
     # default may not even be a Connect server. Cloud targets re-check typed
     # options after resolution (validate_connect_cloud_incompatible_options).
-    connect_conflicts = (
-        _get_present_options(connect_options, ctx, ignore_sources=("ENVIRONMENT",))
-        if lone_account_with_default
-        else present_connect_options
-    )
+    # With a nickname, not even a typed one is judged here: its -A may be a
+    # Connect Cloud publish target, and this rule would report the mistake as a
+    # shinyapps.io conflict. That case fails after resolution too, from the Cloud
+    # check above or the executor's -n/-A conflict.
+    if lone_account_with_saved_server:
+        connect_conflicts = [] if name else _get_present_options(connect_options, ctx, ignore_sources=("ENVIRONMENT",))
+    else:
+        connect_conflicts = present_connect_options
     if connect_conflicts and present_shinyapps_options:
         raise RSConnectException(
             f"Connect options ({', '.join(connect_conflicts)}) may not be passed \
@@ -318,7 +363,7 @@ alongside SPCS options ({', '.join(present_spcs_options)}). \
         )
 
     if present_shinyapps_options:
-        if len(present_shinyapps_options) != len(shinyapps_options) and not lone_account_with_default:
+        if len(present_shinyapps_options) != len(shinyapps_options) and not lone_account_with_saved_server:
             raise RSConnectException(
                 "-A/--account, -T/--token, and -S/--secret must all be provided \
 for shinyapps.io. See command help for further details."
