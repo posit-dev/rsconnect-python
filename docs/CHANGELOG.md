@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Posit Connect Cloud is now a supported deployment target, alongside Posit
   Connect and shinyapps.io.
+- New `rsconnect content migrate-to-connect-cloud` points a directory's local
+  deployment record at an existing Posit Connect Cloud content item, so the next
+  deploy from that directory updates that item instead of creating a second one.
+  Use it after migrating shinyapps.io content to Connect Cloud:
+  `rsconnect content migrate-to-connect-cloud ./my-app -n cloud
+  --content-id <id>`. Nothing is copied and no bundle is uploaded — the content
+  must already exist in Connect Cloud, and only local files change. The record
+  it was migrated from is removed, so the directory is left with one deployment
+  target rather than two; pass `--from-server` to choose which record to migrate
+  when there are several.
 - `rsconnect add` now reports invalid option combinations and unreadable
   certificate files as plain error messages. Previously these surfaced as raw
   Python tracebacks.

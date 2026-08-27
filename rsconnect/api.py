@@ -70,7 +70,15 @@ from .http_support import (
     create_multipart_form_data,
 )
 from .log import cls_logged, connect_logger, console_logger, logger
-from .metadata import SHINYAPPS_API_URL, SHINYAPPS_SERVER_NAME, AppStore, ServerData, ServerStore
+from .metadata import (
+    SHINYAPPS_API_URL,
+    SHINYAPPS_SERVER_NAME,
+    AppMetadata,
+    AppStore,
+    ServerData,
+    ServerStore,
+    resolve_server_alias,
+)
 from .models import (
     AppMode,
     AppModes,
@@ -1273,6 +1281,14 @@ class ServerDetails(TypedDict):
     python: ServerDetailsPython
 
 
+def _record_server_list(records: list[AppMetadata]) -> str:
+    """The servers a set of deployment records covers, for an error message."""
+    servers = sorted(record.get("server_url", "") for record in records)
+    if not servers:
+        return ""
+    return " Records exist for: %s." % ", ".join(servers)
+
+
 class RSConnectExecutor:
     def __init__(
         self,
@@ -2235,6 +2251,134 @@ for shinyapps.io. See command help for further details."
             deployed_info["title"],
             self.app_mode,
         )
+
+    def migration_source_record(self, from_server: Optional[str] = None) -> Optional[AppMetadata]:
+        """The deployment record being migrated away from, if there is one.
+
+        Only records for other servers are candidates: a Connect Cloud record is
+        what this migration produces, so treating one as a source would delete the
+        result. With no `from_server` a lone record is taken, and several are
+        reported rather than picked between.
+        """
+        candidates = [
+            record
+            for record in self.app_store.get_all()
+            if not connect_cloud.is_connect_cloud_url(record.get("server_url", "").split("#")[0])
+        ]
+
+        if from_server:
+            target = resolve_server_alias(from_server)
+            matches = [record for record in candidates if record.get("server_url") == target]
+            if not matches:
+                raise RSConnectException(
+                    'No deployment record for server "%s" in %s.%s'
+                    % (from_server, self.app_store.get_path(), _record_server_list(candidates))
+                )
+            return matches[0]
+
+        if not candidates:
+            return None
+        if len(candidates) == 1:
+            return candidates[0]
+        raise RSConnectException(
+            "Several deployment records exist in %s. Use --from-server to choose which one to "
+            "migrate.%s" % (self.app_store.get_path(), _record_server_list(candidates))
+        )
+
+    def migrate_to_connect_cloud(
+        self,
+        content_id: str,
+        from_server: Optional[str] = None,
+        overwrite: bool = False,
+    ) -> AppMetadata:
+        """Point this content's local deployment record at existing Posit Connect Cloud content.
+
+        Nothing is copied and no bundle is uploaded: the content must already exist in
+        Connect Cloud. What changes is the local record, which is the only way back to a
+        content item — Connect Cloud cannot look content up by name, so deploying
+        without a record creates a duplicate instead of updating the existing item.
+
+        :param content_id: the id of the Connect Cloud content to point at.
+        :param from_server: the URL of the deployment record to migrate, needed only
+        when the local records cover several servers.
+        :param overwrite: replace an existing Connect Cloud record for this account.
+        :return: the record that was written.
+        """
+        if not isinstance(self.remote_server, ConnectCloudServer) or not isinstance(self.client, ConnectCloudClient):
+            raise RSConnectException("Migrating a deployment record requires a Posit Connect Cloud account.")
+
+        source = self.migration_source_record(from_server)
+
+        # Checked before any request, so a run that cannot write anything makes no
+        # network calls and leaves the existing record untouched. The name-keyed
+        # location counts as existing too: a deploy reads it when the id-keyed one is
+        # missing, so a record there is this account's current target, and writing the
+        # id-keyed record would silently retarget the deploy and strand a duplicate.
+        target_key = self.record_server_key()
+        fallback_key = self.record_server_key_fallback()
+        existing = self.app_store.get(target_key)
+        if existing is None and fallback_key:
+            existing = self.app_store.get(fallback_key)
+        if existing and not overwrite:
+            raise RSConnectException(
+                'A Posit Connect Cloud deployment record for account "%s" already exists in %s, for content %s. '
+                "Use --overwrite to replace it."
+                % (self.remote_server.account_name, self.app_store.get_path(), existing.get("app_id"))
+            )
+
+        service = ConnectCloudService(self.client, self.remote_server)
+        with self.client:
+            content = self.client.get_content(content_id)
+            account_id = content.get("account_id")
+            account_name = service.account_name_for_id(account_id) if account_id else None
+            if not account_name:
+                raise RSConnectException(
+                    "Unable to determine which Posit Connect Cloud account owns content %s. "
+                    "You may not have a role on that account." % content_id
+                )
+            # The record is keyed by account, and a deploy only reads the record for the
+            # account it is publishing to -- and would refuse content owned by another
+            # account anyway. A record written under the wrong account would therefore
+            # be silently ignored, so name the account that makes it usable instead.
+            # Compared by id when one is known, since that is what the key uses and what
+            # survives a rename; by name otherwise, which is then what the key uses too.
+            if self.remote_server.account_id:
+                same_account = account_id == self.remote_server.account_id
+            else:
+                same_account = account_name == self.remote_server.account_name
+            if not same_account:
+                raise RSConnectException(
+                    'Content %s belongs to the Posit Connect Cloud account "%s", not "%s". '
+                    "Re-run with -A %s." % (content_id, account_name, self.remote_server.account_name, account_name)
+                )
+
+        title = content.get("title") or (source or {}).get("title") or self.title
+        self.app_store.set(
+            target_key,
+            abspath(self.path),
+            self.remote_server.urls().content_url(account_name, content_id),
+            content_id,
+            None,  # Connect Cloud content has no GUID separate from its id.
+            title,
+            # Connect Cloud derives the app mode from the content type and primary file,
+            # so there is nothing to read back from it; the source record's mode is kept
+            # when there is one. "unknown" does not block a later deploy of any mode.
+            (source or {}).get("app_mode") or AppModes.UNKNOWN.name(),
+        )
+
+        # Removed only after the new record is safely written: leaving both is
+        # recoverable, losing both is not.
+        if source:
+            self.app_store.remove(source["server_url"])
+        # The name-keyed record is the same account's, now superseded by the id-keyed
+        # one -- the same migration a deploy's write performs.
+        if fallback_key:
+            self.app_store.remove(fallback_key)
+
+        record = self.app_store.get(target_key)
+        if record is None:  # pragma: no cover - just written above
+            raise RSConnectException("The deployment record could not be saved.")
+        return record
 
     @property
     def supports_verify_before_activate(self) -> bool:
@@ -3529,6 +3673,17 @@ class ConnectCloudService:
         account = self._client.get_account_by_name(self._server.account_name)
         return account["id"]
 
+    def account_name_for_id(self, account_id: str) -> Optional[str]:
+        """The name of the account with this id, among those the caller has a role on.
+
+        None means the account is not one of them, which for content the caller is
+        working with means they likely cannot publish to it either.
+        """
+        for account in self._client.get_accounts():
+            if account.get("id") == account_id:
+                return account["name"]
+        return None
+
     def content_url(self, content_id: str, account_id: Optional[str]) -> str:
         """Build the browsable URL for a content item.
 
@@ -3541,10 +3696,7 @@ class ConnectCloudService:
             # be stale after a rename, and account ids are what survive one.
             account_name = self._server.account_name
             if account_id:
-                for account in self._client.get_accounts():
-                    if account.get("id") == account_id:
-                        account_name = account["name"]
-                        break
+                account_name = self.account_name_for_id(account_id) or account_name
             return self._server.urls().content_url(account_name, content_id)
         except RSConnectException as exc:
             # A URL we cannot build must not mask an otherwise successful deploy.

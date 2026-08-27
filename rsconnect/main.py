@@ -84,6 +84,7 @@ from .actions_integration import (
 )
 from .models import EnvironmentInstallation, EnvironmentVolumeMount
 from .api import (
+    ConnectCloudServer,
     RSConnectClient,
     RSConnectExecutor,
     RSConnectServer,
@@ -4889,6 +4890,101 @@ def content_venv(
                 raise RSConnectException("uv pip install failed with exit code %d" % result.returncode)
 
             logger.info("Environment ready. Activate with: source %s/bin/activate" % env_path)
+
+
+@content.command(
+    name="migrate-to-connect-cloud",
+    short_help="Point a local deployment record at existing Posit Connect Cloud content.",
+    help=(
+        "Rewrite the local deployment record for FILE_OR_DIRECTORY so the next deploy updates an "
+        "existing Posit Connect Cloud content item instead of creating a new one. Use this after "
+        "migrating shinyapps.io content in Connect Cloud."
+        "\n\n"
+        "Nothing is copied and no bundle is uploaded: the content must already exist in Connect "
+        "Cloud, and only local files are changed. The record it was migrated from is removed, so "
+        "afterwards the directory has one deployment target rather than two."
+        "\n\n"
+        "FILE_OR_DIRECTORY is the same path you pass to `rsconnect deploy`. It defaults to the "
+        "current directory."
+    ),
+    no_args_is_help=True,
+)
+@click.option("--name", "-n", help="The nickname of the saved Posit Connect Cloud account.")
+@click.option(
+    "--server",
+    "-s",
+    envvar="CONNECT_SERVER",
+    help="The Posit Connect Cloud server, `connect.posit.cloud`. \
+(Also settable via CONNECT_SERVER environment variable.)",
+)
+@connect_cloud_args
+@connect_cloud_account_arg
+@click.option(
+    "--content-id",
+    required=True,
+    type=StrippedStringParamType(),
+    metavar="TEXT",
+    help="The id of the Posit Connect Cloud content to point at. It is the last part of the \
+content URL: https://connect.posit.cloud/{account}/content/{content-id}.",
+)
+@click.option(
+    "--from-server",
+    help="The URL of the deployment record to migrate, such as `shinyapps.io`. Only needed when \
+the local deployment records cover more than one server.",
+)
+@click.option(
+    "--overwrite",
+    "-o",
+    is_flag=True,
+    help="Replace an existing Posit Connect Cloud deployment record for this account.",
+)
+@click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
+@click.argument(
+    "file_or_directory",
+    type=click.Path(exists=True, dir_okay=True, file_okay=True),
+    default=os.curdir,
+)
+@cli_exception_handler
+@click.pass_context
+def content_migrate_to_connect_cloud(
+    ctx: click.Context,
+    name: Optional[str],
+    server: Optional[str],
+    account: Optional[str],
+    client_id: Optional[str],
+    client_secret: Optional[str],
+    connect_cloud: bool,
+    content_id: str,
+    from_server: Optional[str],
+    overwrite: bool,
+    file_or_directory: str,
+    verbose: int,
+):
+    set_verbosity(verbose)
+    output_params(ctx, locals().items())
+
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        server=server,
+        account=account,
+        client_id=client_id,
+        client_secret=client_secret,
+        use_connect_cloud=connect_cloud,
+        path=file_or_directory,
+    ).validate_server()
+    if not isinstance(ce.remote_server, ConnectCloudServer):
+        raise RSConnectException(
+            "`rsconnect content migrate-to-connect-cloud` requires a Posit Connect Cloud account. "
+            "Pass --connect-cloud with -A/--account, or -n with a saved Connect Cloud nickname."
+        )
+
+    with cli_feedback("Migrating the deployment record"):
+        record = ce.migrate_to_connect_cloud(content_id, from_server=from_server, overwrite=overwrite)
+
+    click.echo('Found "%s" in Posit Connect Cloud.' % record["title"])
+    click.echo("The deployment record for %s now points at %s" % (file_or_directory, record["app_url"]))
+    click.echo("The next deploy will update that content item rather than create a new one.")
 
 
 @content.group(no_args_is_help=True, help="Manage git repository configuration for content items.")

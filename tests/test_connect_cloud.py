@@ -21,8 +21,10 @@ from rsconnect.api import (
     ConnectCloudClient,
     ConnectCloudServer,
     ConnectCloudService,
+    RSConnectClient,
     RSConnectExecutor,
 )
+from rsconnect.environment import fake_module_file_from_directory
 from rsconnect.exception import DeploymentFailedException, RSConnectException
 from rsconnect.http_support import HTTPResponse, HTTPServer
 from rsconnect.log import VERBOSE
@@ -2579,6 +2581,304 @@ class TestConnectCloudRecordKey(unittest.TestCase):
         executor.validate_app_mode(app_mode=AppModes.PYTHON_SHINY)
 
         self.assertEqual(executor.app_id, "c1")
+
+
+SHINYAPPS = "https://api.shinyapps.io"
+MIGRATED_KEY = "%s#acct-1" % API
+
+
+class TestConnectCloudMigrate(unittest.TestCase):
+    """Migration rewrites the local deployment record; no content is copied."""
+
+    def setUp(self):
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        self.app_dir = tempdir.name
+        self.store_file = fake_module_file_from_directory(self.app_dir)
+
+    def _store(self) -> AppStore:
+        return AppStore(self.store_file)
+
+    def _record(self, server_url: str, app_id: str = "42", app_mode: Any = AppModes.PYTHON_SHINY) -> None:
+        store = self._store()
+        store.set(server_url, self.app_dir, "https://acme.shinyapps.io/my-app", app_id, None, "My App", app_mode)
+
+    def _executor(self, account_name: str = "acme", account_id: Optional[str] = "acct-1") -> RSConnectExecutor:
+        executor = RSConnectExecutor.__new__(RSConnectExecutor)
+        executor.remote_server = ConnectCloudServer(account_name, access_token="at", account_id=account_id)
+        executor.client = mock.MagicMock(spec=ConnectCloudClient)
+        executor.client.get_content.return_value = {"id": "c1", "title": "My Cloud App", "account_id": "acct-1"}
+        executor.client.get_accounts.return_value = [{"id": "acct-1", "name": "acme"}]
+        executor.app_store = self._store()
+        executor.path = self.app_dir
+        executor.title = "app"
+        executor.logger = None
+        return executor
+
+    def test_rewrites_the_record_and_removes_the_source(self):
+        self._record(SHINYAPPS)
+
+        record = self._executor().migrate_to_connect_cloud("c1")
+
+        self.assertEqual(record["app_id"], "c1")
+        self.assertEqual(record["title"], "My Cloud App")
+        self.assertEqual(record["app_url"], "https://connect.posit.cloud/acme/content/c1")
+        # The mode is not knowable from Connect Cloud, so the source record's is kept.
+        self.assertEqual(record["app_mode"], "python-shiny")
+
+        saved = self._store()
+        self.assertIsNotNone(saved.get(MIGRATED_KEY))
+        self.assertIsNone(saved.get(SHINYAPPS), "the migrated-from record should be gone")
+
+    def test_the_next_deploy_finds_the_migrated_record(self):
+        # The whole point: a deploy of the same path must pick the content id up,
+        # or it would create a second content item in Connect Cloud.
+        self._record(SHINYAPPS)
+        self._executor().migrate_to_connect_cloud("c1")
+
+        executor = RSConnectExecutor.__new__(RSConnectExecutor)
+        executor.logger = None
+        executor.remote_server = ConnectCloudServer("acme", account_id="acct-1")
+        executor.app_store = self._store()
+        executor.app_store_version = None
+        executor.path = self.app_dir
+        executor.new = False
+        executor.app_id = None
+        executor.app_mode = None
+        executor.validate_app_mode(app_mode=AppModes.PYTHON_SHINY)
+
+        self.assertEqual(executor.app_id, "c1")
+
+    def test_content_owned_by_another_account_is_refused(self):
+        # A record under this account would never be read for content the deploy
+        # would refuse anyway, so the account that makes it usable is named.
+        self._record(SHINYAPPS)
+        executor = self._executor()
+        executor.client.get_content.return_value = {"id": "c1", "title": "T", "account_id": "acct-2"}
+        executor.client.get_accounts.return_value = [
+            {"id": "acct-1", "name": "acme"},
+            {"id": "acct-2", "name": "team"},
+        ]
+
+        with self.assertRaises(RSConnectException) as context:
+            executor.migrate_to_connect_cloud("c1")
+
+        self.assertIn('"team"', str(context.exception))
+        self.assertIn("-A team", str(context.exception))
+        saved = self._store()
+        self.assertIsNotNone(saved.get(SHINYAPPS), "the source record should be untouched")
+        self.assertIsNone(saved.get("%s#acct-2" % API))
+
+    def test_without_an_account_id_the_account_is_matched_by_name(self):
+        # A server built from an account name alone keys its records by that name,
+        # so the ownership check has to compare the same thing the key does.
+        self._record(SHINYAPPS)
+        executor = self._executor(account_id=None)
+
+        record = executor.migrate_to_connect_cloud("c1")
+
+        self.assertEqual(record["server_url"], "%s#acme" % API)
+
+    def test_an_unresolvable_account_is_refused(self):
+        self._record(SHINYAPPS)
+        executor = self._executor()
+        executor.client.get_content.return_value = {"id": "c1", "title": "T", "account_id": "acct-unknown"}
+
+        with self.assertRaises(RSConnectException) as context:
+            executor.migrate_to_connect_cloud("c1")
+
+        self.assertIn("Unable to determine which Posit Connect Cloud account", str(context.exception))
+        self.assertIsNotNone(self._store().get(SHINYAPPS))
+
+    def test_missing_content_leaves_the_records_alone(self):
+        self._record(SHINYAPPS)
+        executor = self._executor()
+        executor.client.get_content.side_effect = RSConnectException("content c1 has been deleted", status=404)
+
+        with self.assertRaises(RSConnectException):
+            executor.migrate_to_connect_cloud("c1")
+
+        saved = self._store()
+        self.assertIsNotNone(saved.get(SHINYAPPS))
+        self.assertIsNone(saved.get(MIGRATED_KEY))
+
+    def test_an_existing_cloud_record_needs_overwrite(self):
+        self._record(SHINYAPPS)
+        self._record(MIGRATED_KEY, app_id="other")
+        executor = self._executor()
+
+        with self.assertRaises(RSConnectException) as context:
+            executor.migrate_to_connect_cloud("c1")
+
+        self.assertIn("--overwrite", str(context.exception))
+        self.assertIn("other", str(context.exception))
+        # The check precedes every request, so nothing was asked of the server.
+        executor.client.get_content.assert_not_called()
+        self.assertEqual(self._store().get(MIGRATED_KEY)["app_id"], "other")
+
+    def test_a_name_keyed_cloud_record_also_needs_overwrite(self):
+        # A record written before account ids were stored is keyed by name. A deploy
+        # reads it when the id-keyed record is missing, so it is this account's
+        # current target and must not be replaced silently.
+        self._record("%s#acme" % API, app_id="old")
+        executor = self._executor()
+
+        with self.assertRaises(RSConnectException) as context:
+            executor.migrate_to_connect_cloud("c1")
+
+        self.assertIn("--overwrite", str(context.exception))
+        self.assertIn("old", str(context.exception))
+        executor.client.get_content.assert_not_called()
+
+    def test_overwrite_replaces_a_name_keyed_cloud_record(self):
+        # Both keys naming the same account must not be left behind as duplicates.
+        self._record("%s#acme" % API, app_id="old")
+
+        record = self._executor().migrate_to_connect_cloud("c1", overwrite=True)
+
+        self.assertEqual(record["server_url"], MIGRATED_KEY)
+        saved = self._store()
+        self.assertEqual(saved.get(MIGRATED_KEY)["app_id"], "c1")
+        self.assertIsNone(saved.get("%s#acme" % API))
+
+    def test_overwrite_replaces_the_existing_cloud_record(self):
+        self._record(MIGRATED_KEY, app_id="other")
+
+        record = self._executor().migrate_to_connect_cloud("c1", overwrite=True)
+
+        self.assertEqual(record["app_id"], "c1")
+        self.assertEqual(self._store().get(MIGRATED_KEY)["app_id"], "c1")
+
+    def test_a_cloud_record_is_never_treated_as_the_source(self):
+        # Another account's record is not what this one is migrating away from;
+        # deleting it would throw away a working deployment target.
+        other_account = "%s#acct-9" % API
+        self._record(other_account)
+
+        self._executor().migrate_to_connect_cloud("c1")
+
+        saved = self._store()
+        self.assertIsNotNone(saved.get(other_account))
+        self.assertIsNotNone(saved.get(MIGRATED_KEY))
+
+    def test_no_source_record_reconstructs_from_the_content(self):
+        record = self._executor().migrate_to_connect_cloud("c1")
+
+        self.assertEqual(record["app_id"], "c1")
+        self.assertEqual(record["title"], "My Cloud App")
+        # Nothing local says what kind of content this is, and "unknown" does not
+        # block a later deploy of any mode.
+        self.assertEqual(record["app_mode"], "unknown")
+
+    def test_several_records_require_from_server(self):
+        self._record(SHINYAPPS)
+        self._record("https://connect.example.com")
+        executor = self._executor()
+
+        with self.assertRaises(RSConnectException) as context:
+            executor.migrate_to_connect_cloud("c1")
+
+        self.assertIn("--from-server", str(context.exception))
+        self.assertIn(SHINYAPPS, str(context.exception))
+        self.assertIn("https://connect.example.com", str(context.exception))
+        executor.client.get_content.assert_not_called()
+
+    def test_from_server_selects_one_and_leaves_the_other(self):
+        self._record(SHINYAPPS)
+        self._record("https://connect.example.com")
+
+        # The pseudo-server name resolves to the URL records are stored under.
+        self._executor().migrate_to_connect_cloud("c1", from_server="shinyapps.io")
+
+        saved = self._store()
+        self.assertIsNone(saved.get(SHINYAPPS))
+        self.assertIsNotNone(saved.get("https://connect.example.com"))
+        self.assertIsNotNone(saved.get(MIGRATED_KEY))
+
+    def test_from_server_that_matches_no_record_is_reported(self):
+        self._record(SHINYAPPS)
+        executor = self._executor()
+
+        with self.assertRaises(RSConnectException) as context:
+            executor.migrate_to_connect_cloud("c1", from_server="https://connect.example.com")
+
+        self.assertIn("No deployment record", str(context.exception))
+        self.assertIn(SHINYAPPS, str(context.exception))
+        self.assertIsNotNone(self._store().get(SHINYAPPS))
+
+    def test_a_non_cloud_target_is_rejected(self):
+        executor = RSConnectExecutor.__new__(RSConnectExecutor)
+        executor.remote_server = api.RSConnectServer("https://connect.example.com", "key")
+        executor.client = mock.MagicMock(spec=RSConnectClient)
+
+        with self.assertRaises(RSConnectException) as context:
+            executor.migrate_to_connect_cloud("c1")
+
+        self.assertIn("Posit Connect Cloud account", str(context.exception))
+
+
+class TestConnectCloudMigrateCli(CliTestCase):
+    def setUp(self):
+        super().setUp()
+        # The executor opens its own store; point it at the same temporary one.
+        api_store_patch = mock.patch("rsconnect.api.ServerStore", return_value=self.store)
+        api_store_patch.start()
+        self.addCleanup(api_store_patch.stop)
+
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        self.app_dir = tempdir.name
+        self.app_store = AppStore(fake_module_file_from_directory(self.app_dir))
+        self.app_store.set(
+            SHINYAPPS, self.app_dir, "https://acme.shinyapps.io/my-app", "42", None, "My App", AppModes.PYTHON_SHINY
+        )
+
+    def _migrate(self, *args: str):
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(ConnectCloudClient, "get_current_user", return_value={"id": "u1"}))
+            stack.enter_context(
+                mock.patch.object(
+                    ConnectCloudClient,
+                    "get_content",
+                    return_value={"id": "c1", "title": "My Cloud App", "account_id": "acct-1"},
+                )
+            )
+            stack.enter_context(
+                mock.patch.object(ConnectCloudClient, "get_accounts", return_value=[{"id": "acct-1", "name": "acme"}])
+            )
+            return self.runner.invoke(
+                cli,
+                ["content", "migrate-to-connect-cloud", self.app_dir, "--content-id", "c1", *args],
+            )
+
+    def test_migrates_with_a_saved_nickname(self):
+        self.store.set(
+            "cloud",
+            API,
+            connect_cloud_account_name="acme",
+            connect_cloud_account_id="acct-1",
+            connect_cloud_access_token="at",
+        )
+
+        result = self._migrate("-n", "cloud")
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("My Cloud App", result.output)
+        self.assertIn("https://connect.posit.cloud/acme/content/c1", result.output)
+
+        saved = AppStore(fake_module_file_from_directory(self.app_dir))
+        self.assertEqual(saved.get(MIGRATED_KEY)["app_id"], "c1")
+        self.assertIsNone(saved.get(SHINYAPPS))
+
+    def test_a_connect_server_is_rejected(self):
+        self.store.set("prod", "https://connect.example.com", api_key="key")
+
+        with mock.patch.object(api.RSConnectExecutor, "validate_connect_server"):
+            result = self._migrate("-n", "prod")
+
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertIn("requires a Posit Connect Cloud account", result.output)
+        self.assertIsNotNone(AppStore(fake_module_file_from_directory(self.app_dir)).get(SHINYAPPS))
 
 
 class TestPresignedUrlErrorRedaction(unittest.TestCase):
