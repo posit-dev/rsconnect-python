@@ -1827,7 +1827,8 @@
 </code></pre></div>
 <h2 id="content-migrate-to-connect-cloud">content migrate-to-connect-cloud<a class="headerlink" href="#content-migrate-to-connect-cloud" title="Permanent link">#</a></h2>
 <p>Rewrite the local deployment record for FILE_OR_DIRECTORY so the next deploy updates an existing Posit Connect Cloud content item instead of creating a new one. Use this after migrating shinyapps.io content in Connect Cloud.</p>
-<p>Nothing is copied and no bundle is uploaded: the content must already exist in Connect Cloud, and only local files are changed. The record it was migrated from is removed, so that deployment target is replaced rather than added to. Any record for another server is left alone.</p>
+<p>Nothing is copied and no bundle is uploaded: the content must already exist in Connect Cloud, and only local files are changed.</p>
+<p>A shinyapps.io record is removed once its content has been migrated, since that record is then dead. A record for a Posit Connect server is kept, because its content still exists and is still deployable, so the directory can go on deploying to both.</p>
 <p>FILE_OR_DIRECTORY is the same path you pass to <code>rsconnect deploy</code>. It defaults to the current directory.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>content migrate-to-connect-cloud [OPTIONS] [FILE_OR_DIRECTORY]
