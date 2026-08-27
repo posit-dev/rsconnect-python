@@ -7,6 +7,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import socket
 import ssl
 from http import client as http
@@ -32,6 +33,111 @@ JsonData = Union[
 ]
 
 _user_agent = f"RSConnectPython/{VERSION}"
+
+# Credential material must not reach the debug log, which otherwise prints
+# requests and responses verbatim. Headers are matched by name; body and query
+# fields are matched in both form-encoded and JSON shapes. "value" covers Posit
+# Connect Cloud secret payloads ([{"name": ..., "value": ...}]); the X-Amz-*,
+# signature, and sig (Azure SAS) names cover presigned upload URLs, whose query
+# string carries its own credentials.
+_SENSITIVE_HEADERS = {
+    "authorization",
+    "proxy-authorization",
+    "cookie",
+    "set-cookie",
+    # shinyapps.io request signing and the SPCS API-key header.
+    "x-auth-token",
+    "x-auth-signature",
+    "x-rsc-authorization",
+}
+_SENSITIVE_FIELDS = (
+    "client_secret",
+    "refresh_token",
+    "access_token",
+    "device_code",
+    "token",
+    "secret",
+    "password",
+    "value",
+    "signature",
+    "sig",
+    "x-amz-signature",
+    "x-amz-credential",
+    "x-amz-security-token",
+    "awsaccesskeyid",
+    # OIDC token exchange (RFC 8693); "token" alone does not match it because
+    # the underscore is a word character, so \btoken= never fires inside it.
+    "subject_token",
+    # PKCE (RFC 7636).
+    "code_verifier",
+    # The bootstrap response body carries a freshly minted admin API key.
+    "api_key",
+    "id_token",
+)
+_SENSITIVE_FIELD_SET = frozenset(_SENSITIVE_FIELDS)
+# The OAuth authorization code is only ever form-encoded (the token endpoint
+# POST), so "code" is redacted there but deliberately left out of the JSON
+# redaction: in JSON bodies a bare "code" key is an error code (Connect,
+# shinyapps.io), which the debug log must keep readable.
+_SENSITIVE_FORM_ONLY_FIELDS = _SENSITIVE_FIELDS + ("code",)
+_SENSITIVE_FORM_FIELD = re.compile(r"\b(%s)=[^&\s'\"]*" % "|".join(_SENSITIVE_FORM_ONLY_FIELDS), re.IGNORECASE)
+_SENSITIVE_JSON_FIELD = re.compile(r'"(%s)"\s*:\s*"[^"]*"' % "|".join(_SENSITIVE_FIELDS), re.IGNORECASE)
+
+
+def _redacted_header_for_log(key: str, value: str) -> str:
+    if key.lower() not in _SENSITIVE_HEADERS:
+        return value
+    # Keep only a leading scheme word ("Bearer", "Key"): in X-Auth-Signature the
+    # first token is itself the credential ("<sig>; version=1").
+    scheme, _, rest = value.partition(" ")
+    return f"{scheme} <redacted>" if rest and scheme.isalpha() else "<redacted>"
+
+
+def _redacted_uri_for_log(uri: str) -> str:
+    """Redact credential-bearing query parameters, e.g. a presigned upload URL's."""
+    return _SENSITIVE_FORM_FIELD.sub(r"\1=<redacted>", uri)
+
+
+def _redact_json_value(value: JsonData) -> JsonData:
+    if isinstance(value, dict):
+        return {
+            key: ("<redacted>" if key.lower() in _SENSITIVE_FIELD_SET else _redact_json_value(item))
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_redact_json_value(item) for item in value]
+    if isinstance(value, str):
+        # A string under an innocent key can itself carry credentials, e.g. a
+        # presigned upload URL's query string in source_bundle_upload_url.
+        return _redacted_uri_for_log(value)
+    return value
+
+
+def _redacted_body_for_log(body: object) -> object:
+    """Redact known credential fields from a request or response body.
+
+    Only affects what is logged; the body itself is sent untouched. Streams and
+    other non-text bodies are logged as their repr, which carries no content.
+    JSON bodies are parsed and redacted structurally, since a secret containing
+    an escaped quote would leak past a regex; everything else falls back to the
+    form-encoded pattern.
+    """
+    if isinstance(body, bytes):
+        text = body.decode("utf-8", errors="replace")
+    elif isinstance(body, str):
+        text = body
+    else:
+        return body
+
+    stripped = text.lstrip()
+    if stripped.startswith("{") or stripped.startswith("["):
+        try:
+            return json.dumps(_redact_json_value(json.loads(text)))
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    text = _SENSITIVE_FORM_FIELD.sub(r"\1=<redacted>", text)
+    return _SENSITIVE_JSON_FIELD.sub(r'"\1": "<redacted>"', text)
 
 
 # noinspection PyUnusedLocal,PyUnresolvedReferences
@@ -235,6 +341,10 @@ class HTTPResponse(object):
         self.content_type: str | None = None
         self.json_data: JsonData = None
         self.response_body = body
+        # None when the request failed before a response arrived (exception set),
+        # so status checks on a connection failure do not raise AttributeError.
+        self.status: int | None = None
+        self.reason: str | None = None
 
         if response is not None:
             self.status = response.status
@@ -436,12 +546,12 @@ class HTTPServer(object):
 
         try:
             if logger.is_debugging():
-                logger.debug(f"Request: {method} {full_uri}")
+                logger.debug(f"Request: {method} {_redacted_uri_for_log(full_uri)}")
                 logger.debug("Headers:")
                 for key, value in headers.items():
-                    logger.debug(f"--> {key}: {value}")
+                    logger.debug(f"--> {key}: {_redacted_header_for_log(key, value)}")
                 logger.debug("Body:")
-                logger.debug(f"--> {body if body is not None else '<no body>'}")
+                logger.debug(f"--> {_redacted_body_for_log(body) if body is not None else '<no body>'}")
 
             # if we weren't called under a `with` statement, we'll need to manage the
             # connection here.
@@ -464,13 +574,13 @@ class HTTPServer(object):
                     logger.debug(f"Response: {response.status} {response.reason}")
                     logger.debug("Headers:")
                     for key, value in response.getheaders():
-                        logger.debug(f"--> {key}: {value}")
+                        logger.debug(f"--> {key}: {_redacted_header_for_log(key, value)}")
                     logger.debug("Body:")
                     if response.getheader("Content-Type", "").startswith("application/json"):
                         # Only print JSON responses.
                         # Otherwise we end up dumping entire web pages to the log.
                         try:
-                            logger.debug(f"--> {response_body}")
+                            logger.debug(f"--> {_redacted_body_for_log(response_body)}")
                         except json.JSONDecodeError:
                             logger.debug("--> <invalid JSON>")
                     else:
@@ -499,7 +609,7 @@ class HTTPServer(object):
                 else:
                     next_url = location
 
-                logger.debug(f"--> Redirected to: {urljoin(self._url.geturl(), location)}")
+                logger.debug(f"--> Redirected to: {_redacted_uri_for_log(urljoin(self._url.geturl(), location))}")
 
                 redirect_extra_headers = self.get_extra_headers(next_url, "GET", body)
                 return self._do_request(
@@ -542,6 +652,57 @@ class HTTPServer(object):
             del self._headers["Cookie"]
 
 
+class BearerTokenHTTPServer(HTTPServer):
+    """An HTTPServer whose requests carry an OAuth access token.
+
+    When a token expires the server answers 401, so the response is handled by
+    minting a new token and sending the request once more. Subclasses provide the
+    minting in `_attempt_token_refresh`, which also applies the new token to this
+    client, and say in `_can_refresh_token` whether there is anything to mint from.
+    """
+
+    def _can_refresh_token(self) -> bool:
+        return True
+
+    def _attempt_token_refresh(self) -> bool:
+        """Mint a new access token and apply it to this client.
+
+        Returns whether a new token was obtained. Raises for a credential that no
+        retry could fix, rather than leaving the caller with the opaque 401.
+        """
+        raise NotImplementedError
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        query_params: Optional[Mapping[str, JsonData]] = None,
+        body: str | bytes | IO[bytes] | Mapping[str, Any] | list[Any] | None = None,
+        maximum_redirects: int = 5,
+        decode_response: bool = True,
+        headers: Optional[Mapping[str, str]] = None,
+    ) -> JsonData | HTTPResponse:
+        if not self._can_refresh_token():
+            return super().request(method, path, query_params, body, maximum_redirects, decode_response, headers)  # pyright: ignore[reportUnknownArgumentType]
+
+        start_pos: int | None = None
+        if hasattr(body, "read"):
+            # The first attempt consumes a streamed body (a bundle upload), so a
+            # retry has to rewind it -- or hold it in memory when it cannot seek.
+            if getattr(body, "seekable", lambda: False)():
+                start_pos = body.tell()  # type: ignore[union-attr]
+            else:
+                body = body.read()  # type: ignore[union-attr]
+
+        response = super().request(method, path, query_params, body, maximum_redirects, decode_response, headers)  # pyright: ignore[reportUnknownArgumentType]
+        if isinstance(response, HTTPResponse) and response.status == 401:
+            if self._attempt_token_refresh():
+                if start_pos is not None:
+                    body.seek(start_pos)  # type: ignore[union-attr]
+                return super().request(method, path, query_params, body, maximum_redirects, decode_response, headers)  # pyright: ignore[reportUnknownArgumentType]
+        return response
+
+
 class CookieJar(object):
     @staticmethod
     def from_dict(source: dict[str, Any]):
@@ -573,13 +734,14 @@ class CookieJar(object):
                 if morsel.key not in self._keys:
                     self._keys.append(morsel.key)
                 self._content[morsel.key] = morsel.value
-                logger.debug(f"--> Set cookie {morsel.key}: {morsel.value}")
+                # Cookies are session credentials; names only, like the header log.
+                logger.debug(f"--> Set cookie {morsel.key}: <redacted>")
 
-        logger.debug(f"CookieJar contents: {self._keys}\n{self._content}")
+        logger.debug(f"CookieJar contents: {self._keys}")
 
     def get_cookie_header_value(self):
         result = "; ".join([f"{key}={self._reference.value_encode(self._content[key])[1]}" for key in self._keys])
-        logger.debug(f"Cookie: {result}")
+        logger.debug(f"Cookie: {'; '.join(f'{key}=<redacted>' for key in self._keys)}")
         return result
 
     def as_dict(self):

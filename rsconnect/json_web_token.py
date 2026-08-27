@@ -82,9 +82,7 @@ def parse_client_response(response: BootstrapOutputDTO | HTTPResponse) -> tuple[
         if hasattr(response, "exception") and response.exception is not None:
             raise RSConnectException(str(response.exception))
 
-        status = 500
-        if hasattr(response, "status"):
-            status = response.status
+        status = response.status if response.status is not None else 500
 
         json_data: JsonData = {}
         if hasattr(response, "json_data"):

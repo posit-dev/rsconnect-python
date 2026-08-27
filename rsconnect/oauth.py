@@ -14,7 +14,7 @@ import threading
 import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer as _HTTPServer
-from typing import Any, Dict, Optional, Tuple, cast
+from typing import Any, Dict, Iterable, Mapping, Optional, Tuple, cast
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import click
@@ -37,15 +37,31 @@ class InvalidClientError(RSConnectException):
         super().__init__("OAuth client_id is invalid or has been deleted on the server.")
 
 
+class InvalidGrantError(RSConnectException):
+    """Raised when the OAuth server returns an invalid_grant error.
+
+    The grant presented — usually a refresh token — has expired, been revoked,
+    or was issued to another client. Callers decide what to do about it; the
+    server's ``error_description`` is kept in ``description`` when it sends one.
+    """
+
+    def __init__(self, description: Optional[str] = None) -> None:
+        self.description = description
+        detail = f": {description}" if description else "."
+        super().__init__(f"The OAuth grant is invalid, expired, or has been revoked{detail}")
+
+
 def _check_oauth_error_response(response: HTTPResponse) -> None:
     """Check an HTTPResponse for OAuth error codes and raise appropriately."""
     if response.json_data and isinstance(response.json_data, dict):
-        error = response.json_data.get("error", "")
+        error = str(response.json_data.get("error") or "")
+        description = str(response.json_data.get("error_description") or "")
         if error == "invalid_client":
             raise InvalidClientError()
-        description = response.json_data.get("error_description", error)
-        if description:
-            raise RSConnectException(f"OAuth error: {description}")
+        if error == "invalid_grant":
+            raise InvalidGrantError(description or None)
+        if description or error:
+            raise RSConnectException(f"OAuth error: {description or error}")
 
 
 def _unwrap_json_response(response: Any) -> dict[str, Any]:
@@ -291,11 +307,20 @@ def login_with_device_code(
     metadata: dict[str, Any],
     insecure: bool = False,
     ca_data: Optional[str | bytes] = None,
+    scope: Optional[str] = None,
+    open_browser: bool = True,
 ) -> dict[str, Any]:
     """Perform OAuth Device Code flow.
 
     Displays a URL and user code for the user to enter in a browser,
     then polls for token completion.
+
+    :param scope: OAuth scope to request. Connect does not require one; Posit
+        Connect Cloud requires "vivid".
+    :param open_browser: whether to also try opening the verification URL. Off
+        for `rsconnect login --use-device-code`, where asking for the device flow
+        usually means there is no usable browser. The URL and code are printed
+        either way.
     """
     device_endpoint = str(metadata.get("device_authorization_endpoint", ""))
     if not device_endpoint:
@@ -309,7 +334,10 @@ def login_with_device_code(
     base = f"{parsed.scheme}://{parsed.netloc}"
     path = parsed.path
 
-    body = urlencode({"client_id": client_id}).encode("utf-8")
+    params = {"client_id": client_id}
+    if scope:
+        params["scope"] = scope
+    body = urlencode(params).encode("utf-8")
 
     server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
     with server:
@@ -329,11 +357,17 @@ def login_with_device_code(
 
     verification_uri_complete = str(resp.get("verification_uri_complete", "")) or verification_uri
 
+    # Printed whether or not a browser opens: the user needs the code to confirm,
+    # and a browser may open somewhere they cannot see it.
     click.echo(f"\nOpen this URL in your browser:\n\n  {verification_uri_complete}\n")
     click.echo(f"Enter the code: {user_code}\n")
-    click.echo("Waiting for authorization...")
 
-    return _poll_for_device_token(metadata, client_id, device_code, interval, expires_in, insecure, ca_data)
+    if open_browser and webbrowser.open(verification_uri_complete):
+        click.echo("Opened browser for authorization. Waiting...")
+    else:
+        click.echo("Waiting for authorization...")
+
+    return _poll_for_device_token(metadata, client_id, device_code, interval, expires_in, insecure, ca_data, scope)
 
 
 def _poll_for_device_token(
@@ -344,6 +378,7 @@ def _poll_for_device_token(
     expires_in: int,
     insecure: bool = False,
     ca_data: Optional[str | bytes] = None,
+    scope: Optional[str] = None,
 ) -> dict[str, Any]:
     """Poll the token endpoint for device code completion."""
     token_endpoint = str(metadata["token_endpoint"])
@@ -357,13 +392,14 @@ def _poll_for_device_token(
     while time.time() < deadline:
         time.sleep(poll_interval)
 
-        body = urlencode(
-            {
-                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-                "client_id": client_id,
-                "device_code": device_code,
-            }
-        ).encode("utf-8")
+        params = {
+            "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+            "client_id": client_id,
+            "device_code": device_code,
+        }
+        if scope:
+            params["scope"] = scope
+        body = urlencode(params).encode("utf-8")
 
         server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
         with server:
@@ -417,39 +453,78 @@ def refresh_access_token(
     refresh_token: str,
     insecure: bool = False,
     ca_data: Optional[str | bytes] = None,
+    scope: Optional[str] = None,
 ) -> dict[str, Any]:
     """Refresh an OAuth access token using a refresh token.
 
     Returns the new token response dict. Raises InvalidClientError if the
-    client_id has been deleted server-side.
+    client_id has been deleted server-side, or InvalidGrantError if the refresh
+    token has expired or been revoked.
     """
-    token_endpoint = str(metadata["token_endpoint"])
+    params = {
+        "grant_type": "refresh_token",
+        "client_id": client_id,
+        "refresh_token": refresh_token,
+    }
+    if scope:
+        params["scope"] = scope
+
+    data = _post_token_request(str(metadata["token_endpoint"]), params, insecure, ca_data)
+    if "access_token" not in data:
+        raise RSConnectException("Token refresh returned an unexpected response.")
+
+    return data
+
+
+def request_client_credentials_token(
+    token_endpoint: str,
+    client_id: str,
+    client_secret: str,
+    scope: Optional[str] = None,
+    insecure: bool = False,
+    ca_data: Optional[str | bytes] = None,
+) -> dict[str, Any]:
+    """Request an access token using the OAuth client credentials grant (RFC 6749 4.4).
+
+    Used for non-interactive/CI authentication. Per RFC 6749 4.4.3 the response
+    is not expected to include a refresh token; callers should keep the client
+    credentials so a new access token can be minted when this one expires.
+    """
+    params = {
+        "grant_type": "client_credentials",
+        "client_id": client_id,
+        "client_secret": client_secret,
+    }
+    if scope:
+        params["scope"] = scope
+
+    data = _post_token_request(token_endpoint, params, insecure, ca_data)
+    if "access_token" not in data:
+        raise RSConnectException("Client credentials request returned an unexpected response.")
+
+    return data
+
+
+def _post_token_request(
+    token_endpoint: str,
+    params: dict[str, str],
+    insecure: bool = False,
+    ca_data: Optional[str | bytes] = None,
+) -> dict[str, Any]:
+    """POST a form-encoded request to an OAuth token endpoint and return the JSON body."""
     parsed = urlparse(token_endpoint)
     base = f"{parsed.scheme}://{parsed.netloc}"
-    path = parsed.path
-
-    body = urlencode(
-        {
-            "grant_type": "refresh_token",
-            "client_id": client_id,
-            "refresh_token": refresh_token,
-        }
-    ).encode("utf-8")
 
     server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
     with server:
         response = server.request(
             "POST",
-            path,
-            body=body,
+            parsed.path,
+            body=urlencode(params).encode("utf-8"),
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
 
-    data = _unwrap_json_response(response)
-    if "access_token" not in data:
-        raise RSConnectException("Token refresh returned an unexpected response.")
-
-    return data
+    return _unwrap_json_response(response)
 
 
 _TOKEN_EXCHANGE_GRANT = "urn:ietf:params:oauth:grant-type:token-exchange"
@@ -564,60 +639,175 @@ def _token_exchange_error(status: Optional[int], data: dict[str, Any]) -> RSConn
 # ---------------------------------------------------------------------------
 
 
-def keyring_store_token(server_url: str, access_token: str, refresh_token: Optional[str]) -> bool:
+ACCESS_TOKEN_FIELD = "access_token"
+REFRESH_TOKEN_FIELD = "refresh_token"
+CLIENT_SECRET_FIELD = "client_secret"
+
+
+def _no_keyring_errors() -> tuple[type[BaseException], ...]:
+    """The exceptions that mean this machine has no keyring, for an `except` clause.
+
+    keyring raises NoKeyringError from every operation when no backend is usable,
+    which is the normal state of a CI runner with the package installed. It is a
+    sibling of PasswordSetError and PasswordDeleteError under KeyringError, not a
+    subclass of either, so nothing catches it unless it is named here -- and being
+    treated as a keyring that failed rather than one that is absent is what broke the
+    servers.json fallback. Other KeyringError subclasses stay in the failure bucket:
+    a locked or half-initialized backend may well hold credentials.
+
+    Empty, matching nothing, when the errors module will not import: the failure
+    bucket is the safe answer when the two cannot be told apart.
+    """
+    try:
+        from keyring.errors import NoKeyringError  # type: ignore[import-untyped]
+    except ImportError:
+        return ()
+    return (NoKeyringError,)
+
+
+def keyring_store_values(key: str, values: Mapping[str, Optional[str]]) -> bool:
+    """Store credential values in the system keyring, deleting the empty ones.
+
+    Entries are named "<key>:<field>". A Posit Connect caller passes the bare
+    server URL as the key: that format is frozen, because changing it would make
+    every existing `rsconnect login` miss its keychain entry. Callers that share
+    one URL across several saved credentials -- Posit Connect Cloud -- pass a key
+    that includes the nickname.
+
+    Returns True on success, False if keyring is not available, which is the
+    caller's signal to fall back to servers.json.
+    """
+    # Only the import itself means "no keyring here": keyring imports its backend
+    # lazily, so an ImportError from set_password is a failure of one that exists.
+    try:
+        import keyring  # type: ignore[import-untyped]
+    except ImportError:
+        return False
+
+    try:
+        for field, value in values.items():
+            username = f"{key}:{field}"
+            if value:
+                keyring.set_password(_KEYRING_SERVICE, username, value)
+            else:
+                try:
+                    keyring.delete_password(_KEYRING_SERVICE, username)
+                except keyring.errors.PasswordDeleteError:
+                    pass
+        return True
+    except _no_keyring_errors() as e:
+        # Nothing was stored, so there is no partial write to clean up below -- and
+        # the cleanup would fail the same way, which used to make this raise.
+        logger.debug(f"no system keyring available: {e}")
+        return False
+    except Exception as e:
+        logger.warning(f"keyring storage failed: {e}")
+        # The caller now writes all of these values to servers.json, and reads
+        # prefer the keyring, so a field written before the failure would shadow
+        # the file with a value that no longer belongs to the others. Returning
+        # False is only safe once they are gone.
+        if not keyring_delete_values(key, values):
+            raise RSConnectException(
+                "Could not store credentials in the system keyring, and the entries written before the "
+                "failure could not be removed either. Delete the rsconnect-python entries from your "
+                "keyring, then save the credential again."
+            ) from e
+        return False
+
+
+def keyring_read_value(key: str, field: str) -> Tuple[bool, Optional[str]]:
+    """Retrieve one credential value, saying whether the keyring could be read.
+
+    A caller that decides what to write based on what is already stored needs to
+    tell "nothing stored" from "could not look": a machine with no keyring, or none
+    with a usable backend, knowably has nothing, but a backend that failed could
+    have anything.
+    """
+    try:
+        import keyring  # type: ignore[import-untyped]
+    except ImportError:
+        return True, None
+
+    try:
+        return True, keyring.get_password(_KEYRING_SERVICE, f"{key}:{field}")
+    except _no_keyring_errors() as e:
+        logger.debug(f"no system keyring available: {e}")
+        return True, None
+    except Exception as e:
+        logger.warning(f"keyring retrieval failed: {e}")
+        return False, None
+
+
+def keyring_get_value(key: str, field: str) -> Optional[str]:
+    """Retrieve one credential value from the system keyring, or None."""
+    return keyring_read_value(key, field)[1]
+
+
+def keyring_delete_values(key: str, fields: Iterable[str]) -> bool:
+    """Delete credential values from the system keyring.
+
+    Returns whether the values are gone, which they also are when there is no
+    keyring holding them or they were never stored.
+    """
+    try:
+        import keyring  # type: ignore[import-untyped]
+    except ImportError:
+        return True
+
+    try:
+        # Inside this block, not above: keyring itself imported, so there may be
+        # values in it, and without its errors module the "nothing was stored" case
+        # cannot be told from a deletion that failed.
+        import keyring.errors  # type: ignore[import-untyped]
+
+        no_keyring = _no_keyring_errors()
+        deleted = True
+        for field in fields:
+            username = f"{key}:{field}"
+            try:
+                keyring.delete_password(_KEYRING_SERVICE, username)
+            except keyring.errors.PasswordDeleteError:
+                # The deletion did not happen. Usually because there was nothing
+                # stored, which is the state the caller is after, so check.
+                try:
+                    if keyring.get_password(_KEYRING_SERVICE, username) is not None:
+                        deleted = False
+                except no_keyring:
+                    raise
+                except Exception as e:
+                    logger.warning(f"keyring deletion failed: {e}")
+                    deleted = False
+            except no_keyring:
+                # Answered for every field at once, below.
+                raise
+            except Exception as e:
+                logger.warning(f"keyring deletion failed: {e}")
+                deleted = False
+        return deleted
+    except _no_keyring_errors() as e:
+        logger.debug(f"no system keyring available: {e}")
+        return True
+    except Exception as e:
+        logger.warning(f"keyring deletion failed: {e}")
+        return False
+
+
+def keyring_store_token(key: str, access_token: Optional[str], refresh_token: Optional[str]) -> bool:
     """Store OAuth tokens in the system keyring.
 
     Returns True on success, False if keyring is not available.
     """
-    try:
-        import keyring  # type: ignore[import-untyped]
-
-        keyring.set_password(_KEYRING_SERVICE, f"{server_url}:access_token", access_token)
-        if refresh_token:
-            keyring.set_password(_KEYRING_SERVICE, f"{server_url}:refresh_token", refresh_token)
-        else:
-            try:
-                keyring.delete_password(_KEYRING_SERVICE, f"{server_url}:refresh_token")
-            except keyring.errors.PasswordDeleteError:
-                pass
-        return True
-    except ImportError:
-        return False
-    except Exception as e:
-        logger.warning(f"keyring storage failed: {e}")
-        return False
+    return keyring_store_values(key, {ACCESS_TOKEN_FIELD: access_token, REFRESH_TOKEN_FIELD: refresh_token})
 
 
-def keyring_get_tokens(server_url: str) -> Tuple[Optional[str], Optional[str]]:
+def keyring_get_tokens(key: str) -> Tuple[Optional[str], Optional[str]]:
     """Retrieve OAuth tokens from the system keyring.
 
     Returns (access_token, refresh_token), or (None, None) if unavailable.
     """
-    try:
-        import keyring  # type: ignore[import-untyped]
-
-        access = keyring.get_password(_KEYRING_SERVICE, f"{server_url}:access_token")
-        refresh = keyring.get_password(_KEYRING_SERVICE, f"{server_url}:refresh_token")
-        return access, refresh
-    except ImportError:
-        return None, None
-    except Exception as e:
-        logger.warning(f"keyring retrieval failed: {e}")
-        return None, None
+    return keyring_get_value(key, ACCESS_TOKEN_FIELD), keyring_get_value(key, REFRESH_TOKEN_FIELD)
 
 
-def keyring_delete_tokens(server_url: str) -> None:
+def keyring_delete_tokens(key: str) -> None:
     """Delete OAuth tokens from the system keyring."""
-    try:
-        import keyring  # type: ignore[import-untyped]
-        import keyring.errors  # type: ignore[import-untyped]
-
-        for suffix in (":access_token", ":refresh_token"):
-            try:
-                keyring.delete_password(_KEYRING_SERVICE, f"{server_url}{suffix}")
-            except keyring.errors.PasswordDeleteError:
-                pass
-    except ImportError:
-        pass
-    except Exception as e:
-        logger.warning(f"keyring deletion failed: {e}")
+    keyring_delete_values(key, (ACCESS_TOKEN_FIELD, REFRESH_TOKEN_FIELD))

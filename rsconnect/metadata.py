@@ -39,11 +39,33 @@ else:
 if TYPE_CHECKING:
     from .api import RSConnectServer, SPCSConnectServer
 
+from . import connect_cloud
 from .exception import RSConnectException
 from .log import logger
 from .models import AppMode, AppModes, ContentItemV1, TaskStatusResult, TaskStatusV1
 
 T = TypeVar("T", bound=Mapping[str, object])
+
+# What a user may type for --server in place of shinyapps.io's API URL, mirroring
+# connect_cloud.SERVER_NAME. Used by api.ShinyappsServer as well.
+SHINYAPPS_SERVER_NAME = "shinyapps.io"
+SHINYAPPS_API_URL = "https://api.shinyapps.io"
+
+
+def resolve_server_alias(url: str) -> str:
+    """Translate a --server value into the URL a saved server is stored under.
+
+    Connect Cloud and shinyapps.io both accept a short name in place of their API
+    URL, but `rsconnect add` stores the API URL, so a lookup by URL has to
+    translate first or it can never match. Any Connect Cloud URL variant that
+    is_connect_cloud_url accepts (host case, trailing slash) canonicalizes the
+    same way, or those variants could never find a saved credential either.
+    """
+    if connect_cloud.is_connect_cloud_url(url):
+        return connect_cloud.resolve_url(url)
+    if url == SHINYAPPS_SERVER_NAME:
+        return SHINYAPPS_API_URL
+    return url
 
 
 def config_dirname(platform: str = sys.platform, env: Mapping[str, str] = os.environ):
@@ -223,6 +245,21 @@ class DataStore(Generic[T]):
             f.write(data)
         self._real_path = path
 
+    def _already_holds(self, path: str, data: bytes) -> bool:
+        """
+        Whether this store was loaded from `path` and that file already holds `data`.
+
+        Restricted to the path we read so a store loaded from its secondary
+        location still migrates to the primary one on the next save.
+        """
+        if self._real_path != path or not exists(path):
+            return False
+        try:
+            with open(path, "rb") as f:
+                return f.read() == data
+        except OSError:
+            return False
+
     # noinspection PyShadowingBuiltins
     def save(self, open: Callable[..., BufferedWriter] = open):
         """
@@ -230,19 +267,22 @@ class DataStore(Generic[T]):
 
         The app directory is tried first. If that fails,
         then we write to the global config location.
+
+        A save that would not change the file is skipped.
         """
         data = json.dumps(self._data, indent=4).encode("utf-8")
-        try:
-            makedirs(self._primary_path)
-            self.save_to(self._primary_path, data, open)
-        except OSError:
-            if not self._secondary_path:
-                raise
-            makedirs(self._secondary_path)
-            self.save_to(self._secondary_path, data, open)
+        if not self._already_holds(self._primary_path, data):
+            try:
+                makedirs(self._primary_path)
+                self.save_to(self._primary_path, data, open)
+            except OSError:
+                if not self._secondary_path:
+                    raise
+                makedirs(self._secondary_path)
+                self.save_to(self._secondary_path, data, open)
 
-        if self._chmod and self._real_path is not None:
-            os.chmod(self._real_path, 0o600)
+            if self._chmod and self._real_path is not None:
+                os.chmod(self._real_path, 0o600)
 
 
 class ServerDataDict(TypedDict):
@@ -263,6 +303,16 @@ class ServerDataDict(TypedDict):
     oauth_access_token: NotRequired[str]
     oauth_refresh_token: NotRequired[str]
     oauth_token_expiry: NotRequired[float]
+    # Posit Connect Cloud. These names are prefixed on purpose: `account_name`
+    # already means the shinyapps.io account, and `oauth_*` already means the
+    # Connect OAuth login. Server type is inferred from which of these key sets
+    # is present (see ServerStore.set), so the names must not collide.
+    connect_cloud_account_name: NotRequired[str]
+    connect_cloud_account_id: NotRequired[str]
+    connect_cloud_client_id: NotRequired[str]
+    connect_cloud_client_secret: NotRequired[str]
+    connect_cloud_access_token: NotRequired[str]
+    connect_cloud_refresh_token: NotRequired[str]
     default: NotRequired[bool]
 
 
@@ -288,6 +338,12 @@ class ServerData:
         oauth_access_token: Optional[str] = None,
         oauth_refresh_token: Optional[str] = None,
         oauth_token_expiry: Optional[float] = None,
+        connect_cloud_account_name: Optional[str] = None,
+        connect_cloud_account_id: Optional[str] = None,
+        connect_cloud_client_id: Optional[str] = None,
+        connect_cloud_client_secret: Optional[str] = None,
+        connect_cloud_access_token: Optional[str] = None,
+        connect_cloud_refresh_token: Optional[str] = None,
     ):
         self.name = name
         self.url = url
@@ -303,6 +359,12 @@ class ServerData:
         self.oauth_access_token = oauth_access_token
         self.oauth_refresh_token = oauth_refresh_token
         self.oauth_token_expiry = oauth_token_expiry
+        self.connect_cloud_account_name = connect_cloud_account_name
+        self.connect_cloud_account_id = connect_cloud_account_id
+        self.connect_cloud_client_id = connect_cloud_client_id
+        self.connect_cloud_client_secret = connect_cloud_client_secret
+        self.connect_cloud_access_token = connect_cloud_access_token
+        self.connect_cloud_refresh_token = connect_cloud_refresh_token
 
 
 class ServerStore(DataStore[ServerDataDict]):
@@ -314,7 +376,9 @@ class ServerStore(DataStore[ServerDataDict]):
     """
 
     def __init__(self, base_dir: str = config_dirname()):
-        super(ServerStore, self).__init__(join(base_dir, "servers.json"), chmod=True)
+        # Zero-arg super() resolves via __class__ rather than the module global,
+        # so the class stays constructible when the name is patched out.
+        super().__init__(join(base_dir, "servers.json"), chmod=True)
 
     def get_by_name(self, name: str):
         """
@@ -328,9 +392,99 @@ class ServerStore(DataStore[ServerDataDict]):
         """
         Get the server information for the given URL..
 
-        :param url: the Connect URL of the server to get information for.
+        :param url: the Connect URL of the server to get information for. A short
+        name such as "connect.posit.cloud" is translated to the API URL entries are
+        stored under.
+        :raises RSConnectException: if several Posit Connect Cloud credentials share
+        the URL, since only a nickname can tell them apart.
         """
-        return self._get_by_value_attr("url", url)
+        target = resolve_server_alias(url)
+        if connect_cloud.is_connect_cloud_url(target):
+            return self._get_connect_cloud_server(target)
+        return self._get_by_value_attr("url", target)
+
+    def saved_entry(self, name: Optional[str], url: str) -> Optional[ServerDataDict]:
+        """The entry a server in hand came from: by its nickname, else by its URL.
+
+        A one-shot target has no nickname, and neither does one resolved before the
+        nickname was carried on the server, so the URL is the fallback.
+        """
+        entry = self.get_by_name(name) if name else None
+        if entry is None:
+            entry = self.get_by_url(url)
+        return entry
+
+    def has_connect_cloud_account(self, url: Optional[str]) -> bool:
+        """Whether any Posit Connect Cloud credential is saved for this URL.
+
+        Callers use this to decide whether the account has to be supplied on the
+        command line or can come from a saved credential's default target.
+        """
+        if not url:
+            return False
+        return bool(self._connect_cloud_servers(resolve_server_alias(url)))
+
+    def _connect_cloud_servers(self, url: str) -> list[ServerDataDict]:
+        """The saved Posit Connect Cloud servers for one API URL, by nickname."""
+        return sorted(
+            (
+                entry
+                for entry in self._data.values()
+                if entry.get("url") == url and entry.get("connect_cloud_account_name")
+            ),
+            key=lambda entry: entry.get("name") or "",
+        )
+
+    def _get_connect_cloud_server(self, url: str):
+        """Pick the Posit Connect Cloud credential saved for an API URL.
+
+        Every Connect Cloud entry records the same API URL, so unlike Posit Connect
+        the URL does not identify one entry. An entry is a credential, not an account
+        binding: the login behind it can publish to every account its user has rights
+        on, so -A/--account selects the publish target and only the nickname selects
+        the credential. With several saved the choice is reported rather than guessed
+        at, because they may hold different credentials (an interactive login and a
+        service account, or two identities) which refresh differently.
+        """
+        candidates = self._connect_cloud_servers(url)
+        if not candidates:
+            return None
+        if len(candidates) == 1:
+            return candidates[0]
+
+        # The account each credential publishes to by default, so the nicknames can
+        # be recognized.
+        saved = ", ".join(
+            '"%s" (account %s)' % (entry.get("name"), entry.get("connect_cloud_account_name")) for entry in candidates
+        )
+        raise RSConnectException(
+            "Several Posit Connect Cloud credentials are saved: %s. Use -n/--name to choose one, adding "
+            "-A/--account to publish to a different account, or pass --client-id and --client-secret to "
+            "use a service account credential directly." % saved
+        )
+
+    def _connect_cloud_secrets(self, entry: ServerDataDict) -> tuple[Optional[str], Optional[str], Optional[str]]:
+        """A Posit Connect Cloud entry's secrets, as (access, refresh, client secret).
+
+        `rsconnect add` and token refresh store these in the system keyring when
+        there is one, leaving the fields in this file empty; those fields are the
+        fallback for machines without a usable keyring. Entries for other targets
+        have no Connect Cloud secrets to look for.
+        """
+        access = entry.get("connect_cloud_access_token")
+        refresh = entry.get("connect_cloud_refresh_token")
+        client_secret = entry.get("connect_cloud_client_secret")
+        if not entry.get("connect_cloud_account_name"):
+            return access, refresh, client_secret
+
+        keyring_access, keyring_refresh, keyring_secret = connect_cloud.credentials_from_keyring(
+            entry["url"], entry["name"]
+        )
+        return (
+            keyring_access or access,
+            keyring_refresh or refresh,
+            keyring_secret or client_secret,
+        )
 
     def get_all_servers(self):
         """
@@ -376,6 +530,12 @@ class ServerStore(DataStore[ServerDataDict]):
         oauth_access_token: Optional[str] = None,
         oauth_refresh_token: Optional[str] = None,
         oauth_token_expiry: Optional[float] = None,
+        connect_cloud_account_name: Optional[str] = None,
+        connect_cloud_account_id: Optional[str] = None,
+        connect_cloud_client_id: Optional[str] = None,
+        connect_cloud_client_secret: Optional[str] = None,
+        connect_cloud_access_token: Optional[str] = None,
+        connect_cloud_refresh_token: Optional[str] = None,
         set_as_default: bool = False,
     ):
         """
@@ -406,8 +566,31 @@ class ServerStore(DataStore[ServerDataDict]):
             "name": name,
             "url": url,
         }
+        # Server type is not stored explicitly; it is inferred from which set of
+        # credential keys is present, here and in RSConnectExecutor.setup_remote_server.
+        # Each branch must therefore key off a field unique to its target, so that
+        # exactly one branch can match. In particular Connect Cloud is tested by its
+        # own prefixed field rather than `account_name`, which shinyapps.io uses.
         if snowflake_connection_name:
             target_data = dict(snowflake_connection_name=snowflake_connection_name, api_key=api_key)
+        elif connect_cloud_account_name:
+            target_data = dict(connect_cloud_account_name=connect_cloud_account_name)
+            # Saved so a deploy can address the account directly. The name can be
+            # changed in Connect Cloud, and resolving it costs a paginated request.
+            if connect_cloud_account_id:
+                target_data["connect_cloud_account_id"] = connect_cloud_account_id
+            if connect_cloud_client_id:
+                target_data["connect_cloud_client_id"] = connect_cloud_client_id
+            if connect_cloud_client_secret:
+                target_data["connect_cloud_client_secret"] = connect_cloud_client_secret
+            # Callers pass the tokens only when they could not be stored in the
+            # system keyring; this file, written 0600, is the fallback for machines
+            # without one -- the same as shinyapps.io's token and secret, and as the
+            # R client's account DCF.
+            if connect_cloud_access_token:
+                target_data["connect_cloud_access_token"] = connect_cloud_access_token
+            if connect_cloud_refresh_token:
+                target_data["connect_cloud_refresh_token"] = connect_cloud_refresh_token
         elif api_key:
             target_data = dict(api_key=api_key, insecure=insecure, ca_cert=ca_data)
         elif oauth_client_id:
@@ -428,6 +611,13 @@ class ServerStore(DataStore[ServerDataDict]):
             entry["default"] = True
         self._set(name, entry)  # type: ignore
 
+        # Nothing records the URL a replaced Connect Cloud credential's keyring
+        # values are keyed by any more, so they would be both unreachable and able
+        # to shadow a later credential saved under the same nickname and URL.
+        if existing and existing.get("connect_cloud_account_name"):
+            if not connect_cloud_account_name or existing["url"] != url:
+                connect_cloud.delete_credentials_from_keyring(existing["url"], name)
+
     def remove_by_name(self, name: str):
         """
         Remove the server information for the given nickname.
@@ -440,9 +630,18 @@ class ServerStore(DataStore[ServerDataDict]):
         """
         Remove the server information for the given URL..
 
+        Goes through the same lookup as reads, so a Connect Cloud URL shared by
+        several entries is rejected as ambiguous rather than removing an
+        arbitrary one.
+
         :param url: the Connect URL of the server to remove.
+        :raises RSConnectException: if several Posit Connect Cloud credentials
+        share the URL.
         """
-        return self._remove_by_value_attr("name", "url", url)
+        entry = self.get_by_url(url)
+        if entry is None:
+            return False
+        return self._remove_by_key(entry["name"])
 
     def update_oauth_tokens(
         self,
@@ -499,6 +698,7 @@ class ServerStore(DataStore[ServerDataDict]):
                 entry = self._get_first_value()
 
         if entry:
+            cloud_access_token, cloud_refresh_token, cloud_client_secret = self._connect_cloud_secrets(entry)
             return ServerData(
                 name or entry["name"],
                 entry["url"],
@@ -514,6 +714,12 @@ class ServerStore(DataStore[ServerDataDict]):
                 oauth_access_token=entry.get("oauth_access_token"),
                 oauth_refresh_token=entry.get("oauth_refresh_token"),
                 oauth_token_expiry=entry.get("oauth_token_expiry"),
+                connect_cloud_account_name=entry.get("connect_cloud_account_name"),
+                connect_cloud_account_id=entry.get("connect_cloud_account_id"),
+                connect_cloud_client_id=entry.get("connect_cloud_client_id"),
+                connect_cloud_client_secret=cloud_client_secret,
+                connect_cloud_access_token=cloud_access_token,
+                connect_cloud_refresh_token=cloud_refresh_token,
             )
         else:
             return ServerData(

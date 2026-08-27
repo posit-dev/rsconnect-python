@@ -7,10 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-- `rsconnect deploy manifest` and `rsconnect deploy bundle`,
-  when redeploying to an existing `--app-id`, only update the title
-  when the user explicitly passes `--title`, matching the other deploy
-  subcommands.
+- Posit Connect Cloud is now a supported deployment target, alongside Posit
+  Connect and shinyapps.io.
+- `rsconnect add` now reports invalid option combinations and unreadable
+  certificate files as plain error messages. Previously these surfaced as raw
+  Python tracebacks.
+- Deploying with a nickname (`-n`) no longer fails when `SHINYAPPS_ACCOUNT`,
+  `SHINYAPPS_TOKEN`, or `SHINYAPPS_SECRET` happen to be set in the environment.
+  Those values are ignored for nickname deploys — the saved credential is what
+  the nickname means. A typed `-T/--token` or `-S/--secret` still conflicts with
+  `-n`.
+- Credentials are now redacted from verbose (`-v`) log output and from error
+  messages that quote a request URL. This covers authorization and signing
+  headers, OAuth tokens and client secrets in request and response bodies, the
+  query-string credentials of presigned bundle-upload URLs, and the values of
+  environment variables passed with `-E` (names are still logged).
+- `rsconnect deploy manifest` and `rsconnect deploy bundle` no longer overwrite
+  the title of existing content when `-t/--title` is not given. Previously a
+  redeploy reset the server-side title to one derived from the manifest or
+  bundle; now, as with the other deploy commands, a redeploy without `-t`
+  leaves the existing title unchanged.
+- `rsconnect deploy pyproject` no longer uses the server nickname (`-n`) as a
+  title override. The title now comes from `-t/--title` or the pyproject
+  metadata, so redeploying with a nickname no longer renames existing content
+  after the nickname.
 - Added support for Python 3.14. The test suite now runs on Python 3.14 in CI.
 - `rsconnect deploy` subcommands now accept `--quiet`, which suppresses the
   step-by-step progress lines and the streamed server build log, printing only

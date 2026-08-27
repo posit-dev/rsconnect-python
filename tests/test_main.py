@@ -1702,7 +1702,7 @@ class TestMain:
                 ],
             )
             assert result.exit_code == 1, result.output
-            assert "`rsconnect add` requires" in str(result.exception)
+            assert "`rsconnect add` requires" in result.output
         finally:
             if original_api_key_value:
                 os.environ["CONNECT_API_KEY"] = original_api_key_value
@@ -1726,9 +1726,9 @@ class TestMain:
             )
             assert result.exit_code == 1, result.output
             assert (
-                str(result.exception)
-                == "-A/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io. \
+                "-A/--account, -T/--token, and -S/--secret must all be provided for shinyapps.io. \
 See command help for further details."
+                in result.output
             )
         finally:
             if original_api_key_value:

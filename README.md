@@ -1,6 +1,6 @@
 # [rsconnect-python](https://docs.posit.co/rsconnect-python)
 
-The [Posit Connect](https://docs.posit.co/connect/) command-line interface.
+The command-line interface for [Posit Connect](https://docs.posit.co/connect/) and [Posit Connect Cloud](https://connect.posit.cloud).
 
 ## Installation
 
@@ -22,7 +22,7 @@ pipx install rsconnect-python
 python -m pip install rsconnect-python
 ```
 
-## Usage
+## Usage with Posit Connect
 
 [Get an API key from your Posit Connect server](https://docs.posit.co/connect/user/api-keys/) with at least publisher privileges:
 
@@ -39,6 +39,24 @@ rsconnect deploy shiny app.py --title "my shiny app"
 ```
 
 [Read more about publisher and admin capabilities on the docs site.](https://docs.posit.co/rsconnect-python)
+
+## Usage with Posit Connect Cloud
+
+Store your credentials, logging in to [Posit Connect Cloud](https://connect.posit.cloud) through your browser:
+
+```bash
+rsconnect add --connect-cloud --account <YOUR-ACCOUNT-NAME> --name cloud
+```
+
+Deploy your application:
+
+```bash
+rsconnect deploy shiny app.py --name cloud --title "my shiny app"
+```
+
+For non-interactive use such as CI, pass a service account credential with
+`--client-id` and `--client-secret`, or the `CONNECT_CLOUD_CLIENT_ID` and
+`CONNECT_CLOUD_CLIENT_SECRET` environment variables.
 
 ## Contributing
 

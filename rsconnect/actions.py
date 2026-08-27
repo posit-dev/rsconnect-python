@@ -13,7 +13,8 @@ import subprocess
 import sys
 import traceback
 import typing
-from os.path import basename, exists, join, relpath
+from os.path import basename, exists, isdir, join, relpath
+from pathlib import PurePath
 from typing import Optional, Sequence, cast
 from warnings import warn
 
@@ -263,10 +264,15 @@ class QuartoInspectResultConfig(TypedDict):
     project: QuartoInspectResultConfigProject
 
 
+class QuartoInspectResultFiles(TypedDict):
+    input: list[str]
+
+
 class QuartoInspectResult(TypedDict):
     quarto: QuartoInspectResultQuarto
     engines: list[str]
     config: NotRequired[QuartoInspectResultConfig]
+    files: NotRequired[QuartoInspectResultFiles]
 
 
 def quarto_inspect(
@@ -300,6 +306,17 @@ def validate_quarto_engines(inspect: QuartoInspectResult):
     if unsupported:
         raise RSConnectException("The following Quarto engine(s) are not supported: %s" % ", ".join(unsupported))
     return engines
+
+
+def quarto_inputs_from_inspect(file_or_directory: str, inspect: QuartoInspectResult) -> list[str]:
+    """The project's render inputs relative to its root, in Quarto's render order.
+
+    Empty for a standalone document; its inspect output has no files section.
+    """
+    if not isdir(file_or_directory):
+        return []
+    inputs = inspect.get("files", {}).get("input", [])
+    return [PurePath(relpath(each, file_or_directory)).as_posix() for each in inputs]
 
 
 # ===============================================================================
