@@ -3269,7 +3269,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         logs_server.authorization(f"Bearer {token}")
         with logs_server:
             response = logs_server.get(
-                f"/v1/logs/{channel}",
+                f"/logs/{channel}",
                 query_params={"traversal_direction": "backward", "limit": 1500},
             )
         # A plain HTTPServer leaves the body as an HTTPResponse rather than

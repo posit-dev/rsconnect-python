@@ -47,7 +47,7 @@ class TestConnectCloudEnvironments(unittest.TestCase):
             self.assertEqual(connect_cloud.urls().api, "https://api.connect.posit.cloud/v1")
             self.assertEqual(connect_cloud.urls().ui, "https://connect.posit.cloud")
             self.assertEqual(connect_cloud.urls().auth, "https://login.posit.cloud")
-            self.assertEqual(connect_cloud.urls().logs, "https://logs.connect.posit.cloud")
+            self.assertEqual(connect_cloud.urls().logs, "https://logs.connect.posit.cloud/v1")
 
     def test_environment_selected_by_env_var(self):
         with mock.patch.dict(os.environ, {connect_cloud.ENVIRONMENT_ENV_VAR: "staging"}, clear=True):
@@ -1409,7 +1409,7 @@ class TestConnectCloudEnvironmentIsPinnedToTheServer(unittest.TestCase):
             self.assertEqual(server.environment, "staging")
             self.assertEqual(server.urls().ui, "https://staging.connect.posit.cloud")
             self.assertEqual(server.urls().auth, "https://login.staging.posit.cloud")
-            self.assertEqual(server.urls().logs, "https://logs.staging.connect.posit.cloud")
+            self.assertEqual(server.urls().logs, "https://logs.staging.connect.posit.cloud/v1")
 
     def test_content_url_uses_the_servers_environment(self):
         server = ConnectCloudServer("acme", url="https://api.staging.connect.posit.cloud/v1")
