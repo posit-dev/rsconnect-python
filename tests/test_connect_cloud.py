@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import ast
 import contextlib
 import io
 import json
 import os
+import pathlib
 import sys
 import tarfile
 import tempfile
@@ -23,11 +25,13 @@ from rsconnect.api import (
     ConnectCloudService,
     RSConnectExecutor,
 )
+from rsconnect.environment import fake_module_file_from_directory
 from rsconnect.exception import DeploymentFailedException, RSConnectException
 from rsconnect.http_support import HTTPResponse, HTTPServer
 from rsconnect.log import VERBOSE
+from rsconnect import main as rsconnect_main
 from rsconnect.main import cli
-from rsconnect.metadata import AppStore, ServerData, ServerStore
+from rsconnect.metadata import SHINYAPPS_API_URL, AppStore, ServerData, ServerStore
 from rsconnect.models import AppModes
 from rsconnect.oauth import InvalidClientError, InvalidGrantError
 from rsconnect import validation
@@ -359,6 +363,49 @@ def _deploy_option_flags() -> Dict[str, set[frozenset[str]]]:
             if isinstance(param, click.Option) and param.name:
                 flags.setdefault(param.name, set()).add(frozenset(param.opts + param.secondary_opts))
     return flags
+
+
+def _commands_defined_in_main(group: Any) -> dict[str, Any]:
+    """A command group's subcommands that main.py declares.
+
+    Test modules register their own onto the real groups (see test_version_check).
+    """
+    return {
+        name: command
+        for name, command in sorted(group.commands.items())
+        if getattr(command.callback, "__module__", None) == rsconnect_main.__name__
+    }
+
+
+def _executor_keywords(callback: Any) -> list[set[str]]:
+    """The keywords each `RSConnectExecutor(...)` in a command's callback passes.
+
+    Read from the source rather than by invoking the command, since the argument a
+    deploy subcommand needs differs for every content type.
+    """
+    tree = ast.parse(pathlib.Path(rsconnect_main.__file__).read_text())
+    functions = {
+        node.name: node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    node = functions.get(callback.__name__)
+    assert node is not None, "no source found for %s" % callback.__name__
+
+    def builds_an_executor(call: ast.Call) -> bool:
+        # `RSConnectExecutor(...)`, and the `RSConnectExecutor.fromConnectServer(...)`
+        # branch `deploy html` takes for a Connect server it already holds.
+        if isinstance(call.func, ast.Name):
+            return call.func.id == "RSConnectExecutor"
+        return (
+            isinstance(call.func, ast.Attribute)
+            and isinstance(call.func.value, ast.Name)
+            and (call.func.value.id == "RSConnectExecutor")
+        )
+
+    return [
+        {keyword.arg for keyword in call.keywords if keyword.arg}
+        for call in ast.walk(node)
+        if isinstance(call, ast.Call) and builds_an_executor(call)
+    ]
 
 
 def _json_response(payload: Any, status: int = 200) -> Any:
@@ -1793,6 +1840,68 @@ class TestConnectCloudAccountVerification(unittest.TestCase):
         self.assertIn("You can publish to: publishable, unknown-permissions.", message)
         self.assertNotIn("view-only", message)
 
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_a_record_account_matching_both_an_id_and_a_name_is_reported(self):
+        # A record key does not say whether it holds an id or a name, so when one
+        # account's name equals another's id either could be the account meant.
+        # Choosing by response order, or by preferring the id, could publish to the
+        # wrong account.
+        _register_accounts(
+            {"id": "9", "name": "acct-2", "permissions": ["content:create"]},
+            {"id": "acct-2", "name": "team-b", "permissions": ["content:create"]},
+        )
+        with self.client:
+            with self.assertRaises(RSConnectException) as context:
+                self.client.get_account_by_id_or_name("acct-2")
+
+        message = str(context.exception)
+        self.assertIn('both the id of the account named "team-b" and the name of another', message)
+        # A lone -A is read as an incomplete shinyapps.io credential when no nickname
+        # or default server names the target, so the suggestion names the target too.
+        # test_the_collision_suggestions_are_accepted_by_validation checks that these
+        # two shapes really do get through validation.
+        self.assertIn("Rerun with --connect-cloud -A team-b, or --connect-cloud -A acct-2", message)
+
+    def test_the_collision_suggestions_are_accepted_by_validation(self):
+        # The suggestion above is a hard-coded string; without this, tightening
+        # validation could make the advice invalid again without failing a test.
+        with self.subTest("nickname and account"):
+            _validate_options(name="cloud", connect_cloud=False, account_name="team-b")
+        with self.subTest("--connect-cloud and account"):
+            _validate_options(account_name="team-b", has_saved_connect_cloud_account=True)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_the_collision_suggestion_uses_the_saved_nickname(self):
+        client = ConnectCloudClient(ConnectCloudServer("acme", access_token="at", server_name="my cloud"))
+        _register_accounts(
+            {"id": "9", "name": "acct-2", "permissions": ["content:create"]},
+            {"id": "acct-2", "name": "team-b", "permissions": ["content:create"]},
+        )
+        with client:
+            with self.assertRaises(RSConnectException) as context:
+                client.get_account_by_id_or_name("acct-2")
+
+        self.assertIn("Rerun with -n 'my cloud' -A team-b, or -n 'my cloud' -A acct-2", str(context.exception))
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_a_record_account_falls_back_to_the_name(self):
+        _register_accounts(
+            {"id": "1", "name": "acme", "permissions": ["content:create"]},
+            {"id": "2", "name": "team-b", "permissions": ["content:create"]},
+        )
+        with self.client:
+            self.assertEqual(self.client.get_account_by_id_or_name("team-b")["id"], "2")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_a_record_account_that_cannot_publish_is_reported_as_such(self):
+        # The permission error must survive the two-pass lookup rather than being
+        # reported as a missing account.
+        _register_accounts({"id": "acct-2", "name": "team-b", "permissions": ["content:read"]})
+        with self.client:
+            with self.assertRaises(RSConnectException) as context:
+                self.client.get_account_by_id_or_name("acct-2")
+        self.assertIn("do not have permission to publish to it", str(context.exception))
+
 
 class TestConnectCloudAddVerifiesAccount(CliTestCase):
     skip_account_check = False
@@ -2580,6 +2689,1029 @@ class TestConnectCloudRecordKey(unittest.TestCase):
 
         self.assertEqual(executor.app_id, "c1")
 
+    def test_migrating_a_name_keyed_record_removes_it(self):
+        # Leaving it would give the directory two records naming one account, which
+        # target inference reads as a history it cannot choose from -- so the feature
+        # would be permanently off for a directory deployed before ids were recorded.
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        app_path = os.path.join(tempdir.name, "app.py")
+
+        store = AppStore(app_path)
+        # app_guid is None on every Connect Cloud deploy (api.py:2288, 2338), so the
+        # comparison that runs in production is the app_id one.
+        store.set("%s#acme" % API, app_path, "u", "c1", None, "T", AppModes.PYTHON_SHINY)
+        store.save()
+
+        executor = RSConnectExecutor.__new__(RSConnectExecutor)
+        executor.remote_server = ConnectCloudServer("acme", account_id="acct-1")
+        executor.app_store = AppStore(app_path)
+        executor.path = app_path
+        executor.app_mode = AppModes.PYTHON_SHINY
+        executor.new = False
+        executor.deployed_info = {"app_url": "u", "app_id": "c1", "app_guid": None, "title": "T"}
+        executor.write_deployed_info()
+
+        keys = sorted(record["server_url"] for record in AppStore(app_path).get_all())
+        self.assertEqual(keys, ["%s#acct-1" % API])
+
+    def test_a_new_deploy_leaves_a_record_it_cannot_claim(self):
+        # --new mints an id that matches nothing, so ownership cannot be established.
+        # The key may hold another account's record -- one account's name can equal
+        # another's id -- and deleting on a guess loses that account's history. The
+        # directory keeps two records and inference declines, saying so.
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        app_path = os.path.join(tempdir.name, "app.py")
+
+        store = AppStore(app_path)
+        store.set("%s#acme" % API, app_path, "u", "old", None, "T", AppModes.PYTHON_SHINY)
+        store.save()
+
+        executor = RSConnectExecutor.__new__(RSConnectExecutor)
+        executor.remote_server = ConnectCloudServer("acme", account_id="acct-1")
+        executor.app_store = AppStore(app_path)
+        executor.path = app_path
+        executor.app_mode = AppModes.PYTHON_SHINY
+        executor.new = True
+        executor.deployed_info = {"app_url": "u", "app_id": "fresh", "app_guid": None, "title": "T"}
+        executor.write_deployed_info()
+
+        keys = sorted(record["server_url"] for record in AppStore(app_path).get_all())
+        self.assertEqual(keys, ["%s#acct-1" % API, "%s#acme" % API])
+
+    def test_a_new_deploy_keeps_another_accounts_record(self):
+        # The collision, with --new: account X (id "9", name "acct-2") deploying while
+        # account Y (id "acct-2") holds the key X's fallback would target.
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        app_path = os.path.join(tempdir.name, "app.py")
+
+        store = AppStore(app_path)
+        store.set("%s#acct-2" % API, app_path, "u", "ys-content", None, "T", AppModes.PYTHON_SHINY)
+        store.save()
+
+        executor = RSConnectExecutor.__new__(RSConnectExecutor)
+        executor.remote_server = ConnectCloudServer("acct-2", account_id="9")
+        executor.app_store = AppStore(app_path)
+        executor.path = app_path
+        executor.app_mode = AppModes.PYTHON_SHINY
+        executor.new = True
+        executor.deployed_info = {"app_url": "u", "app_id": "fresh", "app_guid": None, "title": "T"}
+        executor.write_deployed_info()
+
+        keys = sorted(record["server_url"] for record in AppStore(app_path).get_all())
+        self.assertEqual(keys, ["%s#9" % API, "%s#acct-2" % API])
+
+    def test_migrating_leaves_another_accounts_record_alone(self):
+        # One account's name can equal another's id -- the collision
+        # get_account_by_id_or_name refuses to resolve, reachable here because a typed
+        # -A resolves by name. The other account's record is not ours to delete.
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        app_path = os.path.join(tempdir.name, "app.py")
+
+        store = AppStore(app_path)
+        # Account Y (id "acct-2", name "team-b") holds this key, for other content.
+        store.set("%s#acct-2" % API, app_path, "u", "other", None, "T", AppModes.PYTHON_SHINY)
+        store.save()
+
+        # Now deploy to account X (id "9", name "acct-2"), whose fallback key collides.
+        executor = RSConnectExecutor.__new__(RSConnectExecutor)
+        executor.remote_server = ConnectCloudServer("acct-2", account_id="9")
+        executor.app_store = AppStore(app_path)
+        executor.path = app_path
+        executor.app_mode = AppModes.PYTHON_SHINY
+        executor.new = False
+        executor.deployed_info = {"app_url": "u", "app_id": "c1", "app_guid": None, "title": "T"}
+        executor.write_deployed_info()
+
+        keys = sorted(record["server_url"] for record in AppStore(app_path).get_all())
+        self.assertEqual(keys, ["%s#9" % API, "%s#acct-2" % API])
+
+
+class TestConnectOptionsAgainstAResolvedEntry(unittest.TestCase):
+    """Posit Connect options judged after the store lookup, by what it resolved to.
+
+    The api_key branch of setup_remote_server is tested before the token-and-secret
+    one, so before this was checked after resolution the deploy built a Posit
+    Connect server for the shinyapps.io URL and sent the API key there. Only the
+    store lookup can tell that a nickname names a shinyapps.io credential, so
+    validate_connection_options cannot judge it: no shinyapps.io option is on the
+    command line for it to weigh the Connect options against.
+
+    Also covers the other direction: an entry that is not a shinyapps.io credential
+    must be left alone, even when exported SHINYAPPS_* values are present.
+    """
+
+    def setUp(self):
+        env_patch = mock.patch.dict(os.environ, {}, clear=True)
+        env_patch.start()
+        self.addCleanup(env_patch.stop)
+        self.store = ServerStore(base_dir=tempfile.mkdtemp())
+        self.store.set("sa", SHINYAPPS_API_URL, account_name="acme", token="tok", secret="c2VjcmV0")
+        store_patch = mock.patch("rsconnect.api.ServerStore", return_value=self.store)
+        store_patch.start()
+        self.addCleanup(store_patch.stop)
+
+    def test_a_typed_api_key_is_refused(self):
+        with self.assertRaises(RSConnectException) as context:
+            RSConnectExecutor(path=tempfile.mkdtemp(), name="sa", api_key="key", ctx=_ctx(api_key=TYPED))
+        self.assertIn("may not be passed alongside shinyapps.io", str(context.exception))
+
+    def test_an_exported_api_key_is_dropped(self):
+        # The common shape: nothing unusual typed, CONNECT_API_KEY exported for a
+        # Connect server elsewhere.
+        executor = RSConnectExecutor(path=tempfile.mkdtemp(), name="sa", api_key="key", ctx=_ctx(api_key=ENV))
+        server = executor.remote_server
+        assert isinstance(server, api.ShinyappsServer)
+        self.assertEqual(server.url, SHINYAPPS_API_URL)
+        self.assertEqual(server.token, "tok")
+
+    def test_a_typed_snowflake_connection_is_reported_as_an_spcs_option(self):
+        # Reported the way the Connect Cloud checks report it, rather than as a Posit
+        # Connect option, so one mistake is not described two ways. Reached by URL
+        # because validation requires -s/--server alongside the option.
+        with self.assertRaises(RSConnectException) as context:
+            RSConnectExecutor(
+                path=tempfile.mkdtemp(),
+                server=SHINYAPPS_API_URL,
+                snowflake_connection_name="dev",
+                ctx=_ctx(snowflake_connection_name=TYPED),
+            )
+        self.assertIn("SPCS options (--snowflake-connection-name", str(context.exception))
+
+    def test_a_connect_entry_is_not_treated_as_shinyapps(self):
+        # SHINYAPPS_* exported for other CI work sets token and secret whatever the
+        # target is, so keying the check off them reported the Connect entry's own
+        # stored API key as a conflict and failed a deploy that worked before.
+        self.store.set("prod", "https://connect.example.com", api_key="stored-key")
+
+        executor = RSConnectExecutor(
+            path=tempfile.mkdtemp(),
+            server="https://connect.example.com",
+            account="sa-acct",
+            token="sa-tok",
+            secret="c2VjcmV0",
+            ctx=_ctx(server=ENV, account=ENV, token=ENV, secret=ENV),
+        )
+        server = executor.remote_server
+        assert isinstance(server, api.RSConnectServer)
+        self.assertEqual(server.url, "https://connect.example.com")
+        self.assertEqual(server.api_key, "stored-key")
+
+    def test_an_exported_certificate_is_not_read(self):
+        # Reading it would fail the deploy on a path that has nothing to do with
+        # shinyapps.io, as it would have for Posit Connect Cloud.
+        executor = RSConnectExecutor(
+            path=tempfile.mkdtemp(), name="sa", cacert="/nonexistent/ca.pem", ctx=_ctx(cacert=ENV)
+        )
+        assert isinstance(executor.remote_server, api.ShinyappsServer)
+
+
+class TestInferenceIsWiredToTheCommands(unittest.TestCase):
+    """What TestRedeployTargetInference assumes about the CLI, checked against it.
+
+    Those tests build the executor directly, passing `path` themselves and
+    fabricating the click context. Both are decided in main.py, where nothing else
+    looks: a subcommand that stopped passing `path` would stop inferring, and an
+    option that lost its `envvar` would change what the environment can supply,
+    with every test in that class still green.
+    """
+
+    # `path` is what turns inference on (`infer_target=path is not None`).
+    PATHLESS_DEPLOY_COMMANDS = {
+        # Deploys a repository the server pulls from, so there is no directory
+        # whose record could name a target.
+        "git",
+        # A help stub; it builds no executor.
+        "other-content",
+    }
+
+    def test_every_deploy_subcommand_passes_the_content_path(self):
+        for name, command in _commands_defined_in_main(cli.commands["deploy"]).items():
+            with self.subTest(name):
+                calls = _executor_keywords(command.callback)
+                if name in self.PATHLESS_DEPLOY_COMMANDS:
+                    self.assertTrue(all("path" not in call for call in calls))
+                    continue
+                self.assertTrue(calls, "%s builds no executor" % name)
+                for call in calls:
+                    self.assertIn("path", call)
+
+    def test_no_content_command_passes_a_path(self):
+        # They act on a server, not a directory: a path would make them infer a
+        # target from wherever they were run.
+        for name, command in _commands_defined_in_main(cli.commands["content"]).items():
+            subcommands = _commands_defined_in_main(command) if hasattr(command, "commands") else {"": command}
+            for sub, subcommand in sorted(subcommands.items()):
+                with self.subTest("/".join(filter(None, (name, sub)))):
+                    for call in _executor_keywords(subcommand.callback):
+                        self.assertNotIn("path", call)
+
+    # What the environment may supply, and under which name. These decide whether a
+    # target was named at all, so they are part of the inference contract.
+    ENVIRONMENT_VARIABLES = {
+        "server": "CONNECT_SERVER",
+        "api_key": "CONNECT_API_KEY",
+        "insecure": "CONNECT_INSECURE",
+        "cacert": "CONNECT_CA_CERTIFICATE",
+        "account": ["SHINYAPPS_ACCOUNT"],
+        "token": ["SHINYAPPS_TOKEN", "RSCLOUD_TOKEN"],
+        "secret": ["SHINYAPPS_SECRET", "RSCLOUD_SECRET"],
+        "client_id": "CONNECT_CLOUD_CLIENT_ID",
+        "client_secret": "CONNECT_CLOUD_CLIENT_SECRET",
+    }
+
+    # Their -A comes from connect_cloud_account_arg: they support Posit Connect
+    # Cloud but not shinyapps.io, so SHINYAPPS_ACCOUNT would name a target they
+    # cannot deploy to and is deliberately unbound.
+    CLOUD_ONLY_ACCOUNT_COMMANDS = {"notebook", "quarto"}
+
+    def test_the_target_options_are_bound_to_their_environment_variables(self):
+        for command in _commands_defined_in_main(cli.commands["deploy"]).values():
+            for param in command.params:
+                if not isinstance(param, click.Option) or param.name not in self.ENVIRONMENT_VARIABLES:
+                    continue
+                with self.subTest("%s %s" % (command.name, param.name)):
+                    if param.name == "account" and command.name in self.CLOUD_ONLY_ACCOUNT_COMMANDS:
+                        self.assertIsNone(param.envvar)
+                        continue
+                    self.assertEqual(param.envvar, self.ENVIRONMENT_VARIABLES[param.name])
+
+    def test_the_cloud_only_commands_take_no_shinyapps_options(self):
+        # Why their -A is unbound: with no -T/-S, an exported SHINYAPPS_ACCOUNT
+        # could not complete a credential anyway.
+        for name in self.CLOUD_ONLY_ACCOUNT_COMMANDS:
+            with self.subTest(name):
+                params = {param.name for param in cli.commands["deploy"].commands[name].params}
+                self.assertNotIn("token", params)
+                self.assertNotIn("secret", params)
+
+    def test_the_deploy_commands_carry_every_one_of_them(self):
+        # The loop above is silent about an option that disappeared, so one command
+        # with the full set anchors it.
+        declared = {
+            param.name: param.envvar for param in cli.commands["deploy"].commands["shiny"].params if param.envvar
+        }
+        self.assertEqual(declared, self.ENVIRONMENT_VARIABLES)
+
+    def test_the_connect_cloud_account_variable_is_not_bound_to_an_option(self):
+        # -A is shared with shinyapps.io, so CONNECT_CLOUD_ACCOUNT is read through
+        # validation.effective_connect_cloud_account: bound here it would retarget a
+        # shinyapps.io deploy.
+        for command in _commands_defined_in_main(cli.commands["deploy"]).values():
+            for param in command.params:
+                with self.subTest("%s %s" % (command.name, param.name)):
+                    envvar = param.envvar or []
+                    self.assertNotIn("CONNECT_CLOUD_ACCOUNT", [envvar] if isinstance(envvar, str) else envvar)
+
+
+class TestRedeployTargetInference(unittest.TestCase):
+    """A deploy naming no target goes where this directory went last time.
+
+    Precedence: a target named by option or environment variable, then this
+    directory's single deployment record, then the default server.
+    """
+
+    def setUp(self):
+        env_patch = mock.patch.dict(os.environ, {}, clear=True)
+        env_patch.start()
+        self.addCleanup(env_patch.stop)
+        self.directory = tempfile.mkdtemp()
+        self.store = ServerStore(base_dir=tempfile.mkdtemp())
+        store_patch = mock.patch("rsconnect.api.ServerStore", return_value=self.store)
+        store_patch.start()
+        self.addCleanup(store_patch.stop)
+
+    def _record(self, *keys: str) -> None:
+        """Write a deployment record per key, as a deploy of this directory would."""
+        app_store = AppStore(fake_module_file_from_directory(self.directory))
+        for key in keys:
+            app_store.set(
+                key,
+                self.directory,
+                "https://example.test/app",
+                "1",
+                "guid-1",
+                "T",
+                AppModes.PYTHON_SHINY,
+            )
+
+    def _connect(self, name: str = "prod", url: str = "https://connect.example.com", default: bool = False) -> None:
+        self.store.set(name, url, api_key="key")
+        if default:
+            self.store.set_default(name)
+
+    def _cloud(
+        self,
+        name: str = "cloud",
+        account: str = "acme",
+        account_id: Optional[str] = "acct-1",
+        default: bool = False,
+    ) -> None:
+        self.store.set(
+            name,
+            API,
+            connect_cloud_account_name=account,
+            connect_cloud_account_id=account_id,
+            connect_cloud_access_token="at",
+        )
+        if default:
+            self.store.set_default(name)
+
+    def _executor(self, **kwargs: Any) -> RSConnectExecutor:
+        return RSConnectExecutor(path=self.directory, **kwargs)
+
+    def test_a_connect_record_wins_over_a_cloud_default(self):
+        self._connect()
+        self._cloud(default=True)
+        self._record("https://connect.example.com")
+
+        server = self._executor().remote_server
+        assert isinstance(server, api.RSConnectServer)
+        self.assertEqual(server.url, "https://connect.example.com")
+        self.assertEqual(server.api_key, "key")
+
+    def test_a_cloud_record_wins_over_a_connect_default(self):
+        self._cloud()
+        self._connect(default=True)
+        self._record("%s#acct-1" % API)
+
+        executor = self._executor()
+        server = executor.remote_server
+        assert isinstance(server, ConnectCloudServer)
+        self.assertEqual(server.account_name, "acme")
+        self.assertEqual(server.account_id, "acct-1")
+        self.assertEqual(server.access_token, "at")
+        self.assertEqual(server.server_name, "cloud")
+        # Set up as the credential's own account, and still checked against the
+        # server, since another account may be named "acct-1". The record is found
+        # again either way.
+        self.assertEqual(executor.record_account, "acct-1")
+        self.assertEqual(executor.record_server_key(), "%s#acct-1" % API)
+
+    def test_a_name_keyed_cloud_record_resolves_the_credential(self):
+        # Records written before account ids were recorded are keyed by name.
+        self._cloud()
+        self._connect(default=True)
+        self._record("%s#acme" % API)
+
+        executor = self._executor()
+        server = executor.remote_server
+        assert isinstance(server, ConnectCloudServer)
+        self.assertEqual(server.account_name, "acme")
+        self.assertEqual(server.account_id, "acct-1")
+        self.assertEqual(executor.record_account, "acme")
+        self.assertEqual(executor.record_server_key_fallback(), "%s#acme" % API)
+
+    def test_a_shinyapps_record_resolves_its_credential(self):
+        # The secret is base64 in the store; PositClient decodes it as a signing key.
+        self.store.set("shinyapps", SHINYAPPS_API_URL, account_name="acme", token="tok", secret="c2VjcmV0")
+        self._connect(default=True)
+        self._record(SHINYAPPS_API_URL)
+
+        server = self._executor().remote_server
+        assert isinstance(server, api.ShinyappsServer)
+        self.assertEqual(server.account_name, "acme")
+        self.assertEqual(server.token, "tok")
+
+    def test_the_reported_target_is_not_announced_before_a_conflict(self):
+        # The record names a target the options on this run rule out, so announcing
+        # the redeploy would contradict the error that follows.
+        self.store.set("shinyapps", SHINYAPPS_API_URL, account_name="acme", token="tok", secret="c2VjcmV0")
+        self._connect(default=True)
+        self._record(SHINYAPPS_API_URL)
+
+        with mock.patch.object(api.logger, "info") as info:
+            with self.assertRaises(RSConnectException):
+                self._executor(ctx=_ctx(api_key=TYPED), api_key="key")
+        self.assertEqual([call for call in info.call_args_list if "Redeploying to" in str(call)], [])
+
+    def test_a_typed_connect_option_conflicts_with_an_inferred_shinyapps_target(self):
+        # A typed API key asks for a Posit Connect server, so it is refused rather
+        # than dropped and the content published to shinyapps.io instead.
+        self.store.set("shinyapps", SHINYAPPS_API_URL, account_name="acme", token="tok", secret="c2VjcmV0")
+        self._connect(default=True)
+        self._record(SHINYAPPS_API_URL)
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor(ctx=_ctx(api_key=TYPED), api_key="key")
+        self.assertIn("may not be passed alongside shinyapps.io", str(context.exception))
+
+    def test_environment_connect_options_do_not_ride_along_to_an_inferred_shinyapps_target(self):
+        # An exported CONNECT_API_KEY is just the environment, so it must not fail the
+        # redeploy -- but it cannot be carried either: the api_key branch is tested
+        # first and would build a Posit Connect server for the shinyapps.io URL. The
+        # unreadable certificate path would fail the deploy if it were still read.
+        self.store.set("shinyapps", SHINYAPPS_API_URL, account_name="acme", token="tok", secret="c2VjcmV0")
+        self._connect(default=True)
+        self._record(SHINYAPPS_API_URL)
+
+        server = self._executor(
+            ctx=_ctx(api_key=ENV, insecure=ENV, cacert=ENV),
+            api_key="key",
+            insecure=True,
+            cacert="/no/such/cert",
+        ).remote_server
+        assert isinstance(server, api.ShinyappsServer)
+        self.assertEqual(server.account_name, "acme")
+        self.assertEqual(server.token, "tok")
+
+    def test_a_typed_connect_option_conflicts_with_an_inferred_cloud_target(self):
+        # As it does for a nickname naming a Connect Cloud credential; an
+        # environment-sourced one is ignored there and here.
+        self._cloud()
+        self._connect(default=True)
+        self._record("%s#acct-1" % API)
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor(ctx=_ctx(api_key=TYPED), api_key="key")
+        self.assertIn("may not be passed alongside Posit Connect Cloud", str(context.exception))
+
+        server = self._executor(ctx=_ctx(api_key=ENV), api_key="key").remote_server
+        assert isinstance(server, ConnectCloudServer)
+
+    def test_an_inferred_connect_target_still_takes_the_api_key(self):
+        self._connect()
+        self._cloud(default=True)
+        self._record("https://connect.example.com")
+
+        server = self._executor(api_key="typed-key").remote_server
+        assert isinstance(server, api.RSConnectServer)
+        self.assertEqual(server.api_key, "typed-key")
+
+    def test_several_records_are_refused_over_the_default(self):
+        # A directory deployed to several targets needs one named. The default is
+        # global and the deploy did not ask for it, so it does not choose between
+        # servers this directory really has been deployed to.
+        self._cloud(default=True)
+        self._connect()
+        self._record("https://connect.example.com", "%s#acct-1" % API)
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor()
+        self.assertIn("it has 2 deployment records", str(context.exception))
+
+    def test_no_records_leave_the_default_server_in_charge(self):
+        self._cloud(default=True)
+        self._connect()
+
+        server = self._executor().remote_server
+        assert isinstance(server, ConnectCloudServer)
+
+    def test_several_servers_without_a_default_are_resolved_by_the_record(self):
+        # Naming no target was an error here before, whatever the record said.
+        self._cloud()
+        self._connect()
+        self._record("https://connect.example.com")
+
+        server = self._executor().remote_server
+        assert isinstance(server, api.RSConnectServer)
+        self.assertEqual(server.url, "https://connect.example.com")
+
+    def test_a_divergent_cloud_account_needs_no_default_either(self):
+        self._cloud()
+        self._connect()
+        self._record("%s#acct-2" % API)
+
+        executor = self._executor()
+        assert isinstance(executor.remote_server, ConnectCloudServer)
+        self.assertEqual(executor.record_account, "acct-2")
+
+    def test_without_a_record_the_target_still_has_to_be_named(self):
+        # The record is the only thing that supplies a target here; nothing else
+        # about that resolution changed.
+        self._cloud()
+        self._connect()
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor()
+        self.assertIn("You must specify one of -n/--name", str(context.exception))
+
+    def test_a_declined_record_without_a_default_says_why(self):
+        # The other ambiguity tests all save a default, so they only show that the
+        # default wins. With no default the deploy fails, and the reason the history
+        # went unused has to be in the error: at debug level it is invisible without
+        # -v, and this is the shape every user with two saved Cloud credentials hits.
+        self._cloud(name="personal")
+        self._cloud(name="work", account="team-b", account_id="acct-2")
+        self._record("%s#acct-1" % API)
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor()
+        message = str(context.exception)
+        self.assertIn("This directory has been deployed before", message)
+        self.assertIn("several saved Posit Connect Cloud credentials share the URL", message)
+        self.assertIn("Pass -n/--name", message)
+
+    def test_several_records_without_a_default_say_how_many(self):
+        # Records are counted, not servers: two Connect Cloud records differing only
+        # in account are one server. And --connect-cloud -A is the remedy for a
+        # two-account Cloud history, so the remedy list has to name it.
+        self._connect()
+        self._cloud()
+        self._record("https://connect.example.com", "%s#acct-1" % API)
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor()
+        message = str(context.exception)
+        self.assertIn("This directory has been deployed before, but it has 2 deployment records", message)
+        self.assertIn("--connect-cloud with -A/--account", message)
+
+    def test_two_records_for_different_cloud_accounts_still_decline(self):
+        # The collapse is for one account written under both its id and its name.
+        # Two genuinely different accounts are a history to choose between, and
+        # loosening the check would publish to the saved credential's own account
+        # with no message at all.
+        self._cloud()
+        self._record("%s#acct-1" % API, "%s#acct-9" % API)
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor()
+        self.assertIn("it has 2 deployment records", str(context.exception))
+
+    def test_a_name_that_matches_another_accounts_id_declines(self):
+        # Saved credential id "9", name "acct-2". The second key is either this
+        # account's legacy name-keyed record or another account's id-keyed one, and
+        # the two are the same string, so nothing here can tell them apart. Declining
+        # asks the user; collapsing would publish to whichever guess was made.
+        self._cloud(name="cloud", account="acct-2", account_id="9")
+        self._record("%s#9" % API, "%s#acct-2" % API)
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor()
+        self.assertIn("it has 2 deployment records", str(context.exception))
+
+    def test_a_record_for_an_unsaved_server_says_so(self):
+        self._connect(name="other", url="https://other.example.com")
+        self._record("https://gone.example.com")
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor()
+        self.assertIn("https://gone.example.com, is no longer saved", str(context.exception))
+
+    def test_no_deployment_history_keeps_the_generic_error(self):
+        # A first deploy has nothing to explain, so the ordinary message stands.
+        self._cloud(name="personal")
+        self._cloud(name="work", account="team-b", account_id="acct-2")
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor()
+        self.assertIn("You must specify one of -n/--name", str(context.exception))
+
+    def test_one_saved_server_needs_no_default_to_infer_from(self):
+        self._cloud()
+        self._record("%s#acct-1" % API)
+
+        server = self._executor().remote_server
+        assert isinstance(server, ConnectCloudServer)
+        self.assertEqual(server.account_name, "acme")
+
+    def test_an_explicit_server_suppresses_inference(self):
+        self._cloud()
+        self._connect()
+        self._record("%s#acct-1" % API)
+
+        server = self._executor(server="https://connect.example.com").remote_server
+        assert isinstance(server, api.RSConnectServer)
+
+    def test_an_explicit_nickname_suppresses_inference(self):
+        self._cloud()
+        self._connect()
+        self._record("%s#acct-1" % API)
+
+        server = self._executor(name="prod").remote_server
+        assert isinstance(server, api.RSConnectServer)
+
+    def test_an_environment_sourced_server_suppresses_inference(self):
+        # CONNECT_SERVER names a target as much as -s does.
+        self._cloud()
+        self._connect()
+        self._record("%s#acct-1" % API)
+
+        executor = self._executor(ctx=_ctx(server=ENV), server="https://connect.example.com")
+        assert isinstance(executor.remote_server, api.RSConnectServer)
+
+    def test_a_lone_account_points_at_the_recorded_credential(self):
+        # -A names no server, so this used to reach the shinyapps.io credential rule
+        # and demand -T and -S -- for a directory only ever deployed to Connect Cloud.
+        # The record cannot supply the target (-A leaves the credential open), but it
+        # can say what to add.
+        self._cloud()
+        self._record("%s#acct-1" % API)
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor(account="team-b", ctx=_ctx(account=TYPED))
+        message = str(context.exception)
+        self.assertIn("-A/--account selects the Posit Connect Cloud account", message)
+        self.assertIn('last deployed to "cloud" (Posit Connect Cloud account "acme")', message)
+        self.assertIn("try -n cloud -A team-b", message)
+
+    def test_a_lone_account_points_at_a_shinyapps_record_too(self):
+        # -A does name the shinyapps.io account, but not the server, and the record
+        # already names that. Dropping -A is the remedy, which the credential rule's
+        # demand for -T/--token and -S/--secret does not say.
+        self.store.set("shinyapps", SHINYAPPS_API_URL, account_name="acme", token="tok", secret="c2VjcmV0")
+        self._record(SHINYAPPS_API_URL)
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor(account="other", ctx=_ctx(account=TYPED))
+        message = str(context.exception)
+        self.assertIn("names an account to publish to, not a server", message)
+        self.assertIn("https://api.shinyapps.io", message)
+
+    def test_an_exported_account_does_not_block_the_redeploy(self):
+        # SHINYAPPS_ACCOUNT exported for other work is the environment, not a target:
+        # on its own it is an incomplete shinyapps.io credential, and with the token
+        # and secret alongside it those name a target of their own. Left in place it
+        # suppressed inference and then failed with the shinyapps.io credential rule.
+        self._cloud()
+        self._record("%s#acct-1" % API)
+
+        server = self._executor(account="team-b", ctx=_ctx(account=ENV)).remote_server
+        assert isinstance(server, ConnectCloudServer)
+        self.assertEqual(server.account_name, "acme")
+
+    def test_an_exported_account_still_conflicts_with_a_default_shinyapps_entry(self):
+        # No record supplies a target here, so the variable is not dropped: the
+        # default entry would otherwise publish to its own account rather than the
+        # one SHINYAPPS_ACCOUNT names, and say nothing about it.
+        self.store.set("sa", SHINYAPPS_API_URL, account_name="acme", token="tok", secret="c2VjcmV0")
+        self.store.set_default("sa")
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor(account="other", ctx=_ctx(account=ENV))
+        self.assertIn("must all be provided for shinyapps.io", str(context.exception))
+
+    def test_two_exported_account_variables_are_still_not_a_target(self):
+        # Neither says which server, so together they say no more than either alone.
+        self._connect()
+        self._cloud(default=True)
+        self._record("https://connect.example.com")
+
+        with mock.patch.dict(os.environ, {"CONNECT_CLOUD_ACCOUNT": "team-b"}):
+            server = self._executor(account="sa-acct", ctx=_ctx(account=ENV)).remote_server
+        assert isinstance(server, api.RSConnectServer)
+        self.assertEqual(server.url, "https://connect.example.com")
+
+    def test_a_typed_account_keeps_its_own_error_rather_than_the_default(self):
+        # -A on the command line is the user naming it here, unlike a variable
+        # exported for other work, so it is not quietly ignored. It still does not
+        # send the directory to the default server.
+        self._connect()
+        self._cloud(default=True)
+        self._record("https://connect.example.com")
+
+        with mock.patch.dict(os.environ, {"CONNECT_CLOUD_ACCOUNT": "team-b"}):
+            with self.assertRaises(RSConnectException) as context:
+                self._executor(account="typed", ctx=_ctx(account=TYPED))
+        self.assertIn("names an account to publish to, not a server", str(context.exception))
+
+    def test_a_complete_exported_shinyapps_credential_is_still_a_target(self):
+        self._cloud()
+        self._record("%s#acct-1" % API)
+
+        server = self._executor(
+            account="sa-acct", token="tok", secret="c2VjcmV0", ctx=_ctx(account=ENV, token=ENV, secret=ENV)
+        ).remote_server
+        assert isinstance(server, api.ShinyappsServer)
+        self.assertEqual(server.account_name, "sa-acct")
+
+    def test_a_connect_option_alongside_a_lone_account_keeps_its_own_error(self):
+        # The hint quotes -n <nickname> -A <account>, which would then fail on the
+        # Connect option: that conflict has its own message and has to reach the
+        # user. The message is asserted, not just the hint's absence -- it names
+        # shinyapps.io for a Connect Cloud directory, which is the trade this guard
+        # makes and should not change unnoticed.
+        self._cloud()
+        self._record("%s#acct-1" % API)
+
+        for label, option in (("-k/--api-key", dict(api_key="key")), ("-c/--cacert", dict(cacert="/ca.pem"))):
+            with self.subTest(label):
+                sources = {"account": TYPED}
+                sources.update({name: TYPED for name in option})
+                with self.assertRaises(RSConnectException) as context:
+                    self._executor(account="team-b", ctx=_ctx(**sources), **option)
+                message = str(context.exception)
+                self.assertNotIn("-A/--account selects", message)
+                self.assertIn("may not be passed alongside shinyapps.io options", message)
+
+    def test_a_connect_only_deploy_option_alongside_a_lone_account_suppresses_the_hint(self):
+        # -I/--image and friends are rejected by Posit Connect Cloud too, so the
+        # quoted command would fail on them.
+        self._cloud()
+        self._record("%s#acct-1" % API)
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor(account="team-b", ctx=_ctx(account=TYPED, image=TYPED))
+        self.assertNotIn("-A/--account selects", str(context.exception))
+
+    def test_a_lone_account_does_not_resolve_against_the_default_credential(self):
+        # The default server does not stand in for a directory that has been deployed
+        # before, whatever else the command line names. Here the record cannot pick
+        # between two saved credentials either, so that is what the error says.
+        self._cloud(name="cloud")
+        self._cloud(name="work", account="team-b", account_id="acct-2", default=True)
+        self._record("%s#acct-1" % API)
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor(account="other", ctx=_ctx(account=TYPED))
+        self.assertIn("several saved Posit Connect Cloud credentials share the URL", str(context.exception))
+
+    def test_a_lone_account_with_a_declined_record_says_why(self):
+        # The history cannot name the credential either, so -A is not the thing to
+        # explain -- and the shinyapps.io credential rule explains nothing.
+        self._cloud(name="personal")
+        self._cloud(name="work", account="team-b", account_id="acct-2")
+        self._record("%s#acct-1" % API)
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor(account="other", ctx=_ctx(account=TYPED))
+        self.assertIn("several saved Posit Connect Cloud credentials share the URL", str(context.exception))
+
+    def test_the_connect_cloud_flag_suppresses_inference(self):
+        # Inferring the Connect record would contradict the flag.
+        self._cloud()
+        self._connect()
+        self._record("https://connect.example.com")
+
+        server = self._executor(use_connect_cloud=True, account="acme").remote_server
+        assert isinstance(server, ConnectCloudServer)
+
+    def test_shinyapps_credentials_suppress_inference(self):
+        self._connect()
+        self._record("https://connect.example.com")
+
+        server = self._executor(
+            account="acme", token="tok", secret="c2VjcmV0", ctx=_ctx(token=TYPED, secret=TYPED)
+        ).remote_server
+        assert isinstance(server, api.ShinyappsServer)
+        self.assertEqual(server.account_name, "acme")
+
+    def test_an_environment_sourced_target_is_labelled_as_such(self):
+        # The label has to name the variable's source, or it sends the reader looking
+        # for an option that is not on their command line.
+        self._connect()
+        self._cloud(default=True)
+        self._record("https://connect.example.com")
+
+        with self.assertLogs("rsconnect", level="DEBUG") as captured:
+            self._executor(ctx=_ctx(server=ENV), server="https://connect.example.com")
+        self.assertIn("-s/--server (from ENVIRONMENT) given", "\n".join(captured.output))
+
+    def test_the_recorded_account_survives_an_exported_one(self):
+        # -A carries SHINYAPPS_ACCOUNT here, so the click context reports the account
+        # as environment-sourced even once the record has replaced its value, and
+        # effective_connect_cloud_account would swap in CONNECT_CLOUD_ACCOUNT.
+        self._cloud()
+        self._record("%s#acme" % API)
+
+        with mock.patch.dict(os.environ, {"CONNECT_CLOUD_ACCOUNT": "cloud-acct"}):
+            server = self._executor(account="shinyapps-acct", ctx=_ctx(account=ENV)).remote_server
+        assert isinstance(server, ConnectCloudServer)
+        self.assertEqual(server.account_name, "acme")
+
+    def test_a_lone_cloud_account_variable_does_not_replace_the_recorded_one(self):
+        self._cloud()
+        self._record("%s#acme" % API)
+
+        with mock.patch.dict(os.environ, {"CONNECT_CLOUD_ACCOUNT": "cloud-acct"}):
+            server = self._executor().remote_server
+        assert isinstance(server, ConnectCloudServer)
+        self.assertEqual(server.account_name, "acme")
+
+    def test_the_connect_cloud_account_variable_does_not_block_the_redeploy(self):
+        # It names an account, not a server, so on its own it is not a target. Left
+        # to suppress inference it would send this directory to the default server,
+        # which here is not even a Posit Connect Cloud one.
+        self._cloud(default=True)
+        self._connect()
+        self._record("https://connect.example.com")
+
+        with mock.patch.dict(os.environ, {"CONNECT_CLOUD_ACCOUNT": "team-b"}):
+            server = self._executor().remote_server
+        assert isinstance(server, api.RSConnectServer)
+        self.assertEqual(server.url, "https://connect.example.com")
+
+    def test_new_suppresses_inference(self):
+        # --new disavows the previous deployment, so its record names nothing.
+        self._cloud()
+        self._connect(default=True)
+        self._record("%s#acct-1" % API)
+
+        server = self._executor(new=True).remote_server
+        assert isinstance(server, api.RSConnectServer)
+
+    def test_several_saved_cloud_credentials_are_refused_over_the_default(self):
+        # Only a nickname can pick between them, so the record is not enough. The
+        # default server does not stand in: the record names one server, and the
+        # default is a different one.
+        self._cloud(name="personal")
+        self._cloud(name="work", account="team-b", account_id="acct-2")
+        self._connect(default=True)
+        self._record("%s#acct-1" % API)
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor()
+        message = str(context.exception)
+        self.assertIn("several saved Posit Connect Cloud credentials share the URL", message)
+        # A retry with only -n would publish to that credential's saved account, so
+        # the remedy has to name -A as well.
+        self.assertIn("with -A/--account alongside it", message)
+
+    def test_several_credentials_for_one_url_are_refused_over_the_default(self):
+        # Every saved shinyapps.io account shares one URL, so the record's URL says
+        # no more about which credential to use than a Connect Cloud URL does. The
+        # destination is still known, so a Connect default is not a stand-in for it.
+        self.store.set("sa-work", SHINYAPPS_API_URL, account_name="work", token="tok", secret="c2VjcmV0")
+        self.store.set("sa-home", SHINYAPPS_API_URL, account_name="home", token="tok", secret="c2VjcmV0")
+        self._connect(default=True)
+        self._record(SHINYAPPS_API_URL)
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor()
+        message = str(context.exception)
+        self.assertIn("2 saved credentials share the URL it was last deployed to", message)
+        # -A alongside -n is a Connect Cloud remedy; a shinyapps.io nickname
+        # rejects it, so it is not suggested here.
+        self.assertIn("Pass -n/--name to choose one of them.", message)
+
+    def test_one_connect_server_saved_under_two_nicknames_is_refused_over_the_default(self):
+        # The shared-URL check counts saved servers by URL whatever their type, so
+        # this is not only a Connect Cloud and shinyapps.io shape.
+        self._connect(name="prod")
+        self._connect(name="prod-copy")
+        self._cloud(default=True)
+        self._record("https://connect.example.com")
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor()
+        self.assertIn("2 saved credentials share the URL it was last deployed to", str(context.exception))
+
+    def test_a_record_for_an_unsaved_server_is_refused_over_the_default(self):
+        # Deploying to the default would publish to a server the record does not
+        # name, so the removed credential is reported instead.
+        self._connect(default=True)
+        self._record("https://gone.example.com")
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor()
+        self.assertIn("https://gone.example.com, is no longer saved", str(context.exception))
+
+    def test_an_account_keyed_record_for_a_non_cloud_server_is_refused_over_the_default(self):
+        self._connect()
+        self._cloud(default=True)
+        self._record("https://connect.example.com#acct-1")
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor()
+        self.assertIn("is not a Posit Connect Cloud one", str(context.exception))
+
+    def test_the_content_commands_do_not_infer_a_target(self):
+        # They act on a server, not on a directory, and pass no content path.
+        self._cloud()
+        self._connect(default=True)
+        self._record("%s#acct-1" % API)
+
+        server = RSConnectExecutor().remote_server
+        assert isinstance(server, api.RSConnectServer)
+
+    def test_the_inferred_target_is_reported(self):
+        self._connect()
+        self._cloud(default=True)
+        self._record("https://connect.example.com")
+
+        with self.assertLogs("rsconnect", level="INFO") as captured:
+            self._executor()
+        self.assertIn('Redeploying to "prod" (https://connect.example.com)', "\n".join(captured.output))
+        self.assertIn("-s/--server", "\n".join(captured.output))
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_an_account_the_credential_was_not_saved_with_is_resolved_by_id(self):
+        # One credential can publish to every account its user has rights on, so a
+        # record may name an account other than the credential's own.
+        self._cloud()
+        self._record("%s#acct-2" % API)
+
+        with self.assertLogs("rsconnect", level="INFO") as captured:
+            executor = self._executor()
+        server = executor.remote_server
+        assert isinstance(server, ConnectCloudServer)
+        self.assertEqual(executor.record_account, "acct-2")
+        # Nothing claims to know the account until the server has been asked, so the
+        # reported target does not print the record's raw account id either.
+        self.assertIsNone(server.account_id)
+        self.assertIn('Redeploying to "cloud" (Posit Connect Cloud)', "\n".join(captured.output))
+        self.assertNotIn("acct-2", "\n".join(captured.output))
+
+        _register_json(httpretty.GET, f"{API}/users/me", {"id": "u1"})
+        _register_accounts(
+            {"id": "acct-1", "name": "acme", "permissions": ["content:create"]},
+            {"id": "acct-2", "name": "team-b", "permissions": ["content:create"]},
+        )
+        with self.assertLogs("rsconnect", level="INFO") as captured:
+            executor.validate_connect_cloud_server()
+
+        self.assertEqual(server.account_name, "team-b")
+        self.assertEqual(server.account_id, "acct-2")
+        self.assertEqual(executor.record_server_key(), "%s#acct-2" % API)
+        # Named once resolved, since the line above could not name it.
+        self.assertIn('Publishing to the Posit Connect Cloud account "team-b"', "\n".join(captured.output))
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_a_name_keyed_record_for_another_account_is_resolved_by_name(self):
+        self._cloud()
+        self._record("%s#team-b" % API)
+
+        executor = self._executor()
+        self.assertEqual(executor.record_account, "team-b")
+
+        _register_json(httpretty.GET, f"{API}/users/me", {"id": "u1"})
+        _register_accounts(
+            {"id": "acct-1", "name": "acme", "permissions": ["content:create"]},
+            {"id": "acct-2", "name": "team-b", "permissions": ["content:create"]},
+        )
+        executor.validate_connect_cloud_server()
+
+        server = executor.remote_server
+        assert isinstance(server, ConnectCloudServer)
+        self.assertEqual(server.account_name, "team-b")
+        self.assertEqual(server.account_id, "acct-2")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_a_record_naming_the_credentials_own_account_is_confirmed_once(self):
+        # The account is checked against the server even though the saved credential
+        # already names it, and the reported target has named it, so it is not
+        # announced a second time.
+        self._cloud()
+        self._record("%s#acct-1" % API)
+
+        executor = self._executor()
+        _register_json(httpretty.GET, f"{API}/users/me", {"id": "u1"})
+        _register_accounts(
+            {"id": "acct-1", "name": "acme", "permissions": ["content:create"]},
+            {"id": "acct-2", "name": "team-b", "permissions": ["content:create"]},
+        )
+        with mock.patch.object(api.logger, "info") as info:
+            executor.validate_connect_cloud_server()
+
+        server = executor.remote_server
+        assert isinstance(server, ConnectCloudServer)
+        self.assertEqual(server.account_name, "acme")
+        self.assertEqual(server.account_id, "acct-1")
+        self.assertEqual([call for call in info.call_args_list if "Publishing to" in str(call)], [])
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_a_key_matching_the_credentials_id_and_another_accounts_name_declines(self):
+        # The saved credential's account id is another account's name, so the key is
+        # either this account's id-keyed record or that one's legacy name-keyed
+        # record. Matching the saved credential is not enough to tell them apart.
+        self._cloud()
+        self._record("%s#acct-1" % API)
+
+        executor = self._executor()
+        _register_json(httpretty.GET, f"{API}/users/me", {"id": "u1"})
+        _register_accounts(
+            {"id": "acct-1", "name": "acme", "permissions": ["content:create"]},
+            {"id": "9", "name": "acct-1", "permissions": ["content:create"]},
+        )
+        with self.assertRaises(RSConnectException) as context:
+            executor.validate_connect_cloud_server()
+        self.assertIn('names the Posit Connect Cloud account "acct-1"', str(context.exception))
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_a_key_matching_the_credentials_name_and_another_accounts_id_declines(self):
+        # The same collision the other way round, for a record written before ids
+        # were recorded: the key is the credential's account name and another
+        # account's id.
+        self._cloud()
+        self._record("%s#acme" % API)
+
+        executor = self._executor()
+        _register_json(httpretty.GET, f"{API}/users/me", {"id": "u1"})
+        _register_accounts(
+            {"id": "acct-1", "name": "acme", "permissions": ["content:create"]},
+            {"id": "acme", "name": "team-b", "permissions": ["content:create"]},
+        )
+        with self.assertRaises(RSConnectException) as context:
+            executor.validate_connect_cloud_server()
+        self.assertIn('names the Posit Connect Cloud account "acme"', str(context.exception))
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_an_account_that_no_longer_exists_is_reported(self):
+        self._cloud()
+        self._record("%s#acct-2" % API)
+
+        executor = self._executor()
+        _register_json(httpretty.GET, f"{API}/users/me", {"id": "u1"})
+        _register_accounts({"id": "acct-1", "name": "acme", "permissions": ["content:create"]})
+        with self.assertRaises(RSConnectException) as context:
+            executor.validate_connect_cloud_server()
+        message = str(context.exception)
+        self.assertIn('No Posit Connect Cloud account matching "acct-2"', message)
+        self.assertIn("You can publish to: acme.", message)
+
 
 class TestPresignedUrlErrorRedaction(unittest.TestCase):
     def test_upload_error_does_not_leak_the_signed_url(self):
@@ -3082,7 +4214,7 @@ class TestConnectOnlyDeployOptions(unittest.TestCase):
         # rather than be told it passed -I/--image.
         command = cli.commands["environment"].commands["add"]
         with command.make_context("add", ["my-image:1.0", "-n", "cloud"]) as ctx:
-            self.assertEqual(validation._typed_connect_only_deploy_options(ctx), [])
+            self.assertEqual(validation.typed_connect_only_deploy_options(ctx), [])
 
 
 class TestConnectCloudFindsSavedCredentialsByUrl(unittest.TestCase):
@@ -3539,6 +4671,7 @@ class TestConnectCloudServerValidation(unittest.TestCase):
         executor.client.__exit__ = mock.Mock(return_value=False)
         executor.client.get_account_by_name.return_value = {"id": "acct-1", "name": "acme"}
         executor.visibility = visibility
+        executor.record_account = None
         return executor
 
     def test_visibility_is_accepted(self):

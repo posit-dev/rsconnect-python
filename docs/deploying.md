@@ -489,6 +489,59 @@ deployment. This means that you can keep running `rsconnect deploy notebook my-n
 as you develop new versions of your notebook. The same applies to other Python content
 types.
 
+#### Choosing the Target Server
+
+When a deploy command names no target, the target is chosen in this order:
+
+1. A target named on the command line or in the environment: `-n/--name`,
+   `-s/--server` (`CONNECT_SERVER`), `--connect-cloud`, a typed `-A/--account`, or
+   `-T/--token` (`SHINYAPPS_TOKEN`, `RSCLOUD_TOKEN`) and `-S/--secret`
+   (`SHINYAPPS_SECRET`, `RSCLOUD_SECRET`). An account that only the environment
+   names — `CONNECT_CLOUD_ACCOUNT`, or `SHINYAPPS_ACCOUNT` without its token and
+   secret — is not a target: it says which account to publish to, not which server,
+   so the deployment data below still decides where, and which account. The deploy
+   names the account it is publishing to as it starts.
+2. The saved server this directory was last deployed to, when the deployment data
+   holds exactly one deployment. For Posit Connect Cloud this includes the account
+   that was published to, which may be an account other than the one the saved
+   credential was added with.
+3. The default server (`rsconnect server set-default`).
+
+So a directory keeps redeploying where it went last time, even after the default
+server changes: the default is global, the deployment data is per directory. `--new`
+ignores the deployment data and follows the default server. Such a deploy used to be
+refused unless a default was set, so a redeploy of a directory that has been deployed
+before now needs no options at all.
+
+When the deployment data cannot say where to deploy, the deploy stops and gives the
+reason. It is not sent to the default server, which is global and was not asked for,
+and which could publish the content somewhere this directory has not been. Name the
+target instead. This happens when:
+
+- the directory has been deployed to more than one server;
+- the server it was deployed to is no longer saved;
+- more than one saved credential shares that server's URL, which is always so once
+  two Posit Connect Cloud or shinyapps.io credentials are saved, and possible for one
+  Posit Connect server saved under two nicknames;
+- the deployment data names an account but the credential saved for that URL is not a
+  Posit Connect Cloud one.
+
+`-s/--server` settles all of these but the third, where the URL is what is ambiguous.
+There, use `-n/--name`: it is the only option that picks one credential out — with
+`-A/--account` alongside it for Posit Connect Cloud, to publish to an account other
+than the one the credential was saved with. A `-s/--server` naming a URL that several
+credentials share does not fail; for Posit Connect and shinyapps.io it takes whichever
+was saved first, which is why it is not the way to resolve this. (Several saved Posit
+Connect Cloud credentials are reported instead, since only a nickname distinguishes
+them.)
+
+The default server applies to a directory with no deployment data — the ordinary
+first deploy — and to `--new`. With no default set, those need a target named too.
+
+`-A/--account` on its own is not a target either: it names an account, not a server.
+On a directory that has been deployed before it reports what the deployment data
+names, rather than falling through to the default server.
+
 #### Forcing a New Deployment
 
 To bypass this behavior and force a new deployment, use the `--new` option:

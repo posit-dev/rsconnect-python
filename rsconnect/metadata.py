@@ -795,6 +795,17 @@ class AppStore(DataStore[AppMetadata]):
         """
         return self._get_sorted_values(lambda entry: entry.get("server_url"))
 
+    def remove(self, server_url: str) -> bool:
+        """Forget the deployment recorded under a server key.
+
+        Used when a record has been rewritten under a different key, so that a
+        directory does not keep two records naming one target.
+
+        :param server_url: the key to forget.
+        :return: True if a record was removed.
+        """
+        return self._remove_by_key(server_url)
+
     def set(
         self,
         server_url: str,

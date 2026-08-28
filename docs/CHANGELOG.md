@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Posit Connect Cloud is now a supported deployment target, alongside Posit
   Connect and shinyapps.io.
+- A deploy that names no target now redeploys to the server the directory was last
+  deployed to.
+- A directory that has been deployed before is never sent to the default server. If
+  its deployment data cannot say where to deploy — it names several servers, or one
+  whose credential is no longer saved or is shared by several saved credentials — the
+  deploy stops and gives that reason, rather than publishing somewhere the directory
+  has not been. The default server still applies to a directory with no deployment
+  data, and to `--new`.
+- Deploying to a saved shinyapps.io server no longer builds a Posit Connect client for
+  the shinyapps.io URL when a Posit Connect API key is also in play. Previously
+  `rsconnect deploy ... -n <shinyapps-nickname>` with `CONNECT_API_KEY` set in the
+  environment sent that key to shinyapps.io and failed with an unrelated protocol
+  error; the key is now ignored, as are `CONNECT_INSECURE` and
+  `CONNECT_CA_CERTIFICATE`. Passing `-k/--api-key`, `-i/--insecure`, `-c/--cacert`, or
+  `--snowflake-connection-name` on the command line is now reported as the conflict it
+  is, as it already was for Posit Connect Cloud. Other Posit Connect deploy options
+  (`-I/--image`, `--disable-env-management`, `--node`, `--metadata`) are still accepted
+  and ignored for shinyapps.io.
 - `rsconnect add` now reports invalid option combinations and unreadable
   certificate files as plain error messages. Previously these surfaced as raw
   Python tracebacks.
