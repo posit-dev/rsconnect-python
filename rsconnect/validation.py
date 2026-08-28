@@ -103,17 +103,10 @@ def _reject_options_the_target_has_no_use_for(
     snowflake_connection_name: Optional[str],
     reject_connect_only_deploy_options: bool,
 ):
-    """Reject Posit Connect and SPCS options against a target that has neither.
-
-    Shared by the Posit Connect Cloud and shinyapps.io checks so that an option
-    added to either list applies to both. Environment-sourced values are ignored
-    throughout: a CONNECT_API_KEY exported for another target is just the CI
-    environment, not a request to use it here.
+    """Reject typed Posit Connect and SPCS options for another target.
 
     :param target: how to name the target in the error, e.g. "shinyapps.io".
-    :param reject_connect_only_deploy_options: whether the Connect-only deploy
-    options are rejected as well. True for Posit Connect Cloud; False for
-    shinyapps.io, where they have always been accepted and ignored.
+    :param reject_connect_only_deploy_options: also reject Connect deploy options.
     """
     present_connect_options = _get_present_options(
         {"-k/--api-key": api_key, "-i/--insecure": insecure, "-c/--cacert": cacert},
@@ -151,10 +144,8 @@ def validate_connect_cloud_incompatible_options(
 ):
     """Reject options that have no meaning on Posit Connect Cloud.
 
-    validate_connection_options repeats the credential and SPCS checks, but only
-    when Connect Cloud is selected by flag or URL; a saved nickname or default
-    server is only identified as Connect Cloud after store resolution, so the
-    executor calls this afterwards.
+    This runs after stored targets are resolved, which command-line validation
+    cannot inspect.
     """
     _reject_options_the_target_has_no_use_for(
         ctx,
@@ -176,15 +167,8 @@ def validate_shinyapps_incompatible_options(
 ):
     """Reject options that have no meaning on shinyapps.io.
 
-    Like validate_connect_cloud_incompatible_options, this can only run after
-    store resolution: a nickname, or a directory's deployment record, is known to
-    name a shinyapps.io credential only once the entry has been read, so
-    validate_connection_options cannot judge it (no shinyapps.io option is present
-    on the command line for it to weigh the Connect options against).
-
-    The caller must also clear the values, because the api_key branch of
-    setup_remote_server is tested before the token-and-secret one and would
-    otherwise build a Posit Connect server for the shinyapps.io URL.
+    This runs after stored targets are resolved. The caller must then clear ignored
+    values so they cannot select the Posit Connect client.
     """
     _reject_options_the_target_has_no_use_for(
         ctx,
@@ -193,8 +177,7 @@ def validate_shinyapps_incompatible_options(
         insecure,
         cacert,
         snowflake_connection_name,
-        # These have always been accepted and ignored for shinyapps.io; rejecting
-        # them now would fail deploys that work today.
+        # Preserve the existing behavior for Connect deploy options.
         reject_connect_only_deploy_options=False,
     )
 

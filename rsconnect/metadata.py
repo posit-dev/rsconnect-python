@@ -798,9 +798,6 @@ class AppStore(DataStore[AppMetadata]):
     def remove(self, server_url: str) -> bool:
         """Forget the deployment recorded under a server key.
 
-        Used when a record has been rewritten under a different key, so that a
-        directory does not keep two records naming one target.
-
         :param server_url: the key to forget.
         :return: True if a record was removed.
         """

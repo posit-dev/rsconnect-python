@@ -366,10 +366,7 @@ def _deploy_option_flags() -> Dict[str, set[frozenset[str]]]:
 
 
 def _commands_defined_in_main(group: Any) -> dict[str, Any]:
-    """A command group's subcommands that main.py declares.
-
-    Test modules register their own onto the real groups (see test_version_check).
-    """
+    """Return subcommands declared in main.py, excluding test registrations."""
     return {
         name: command
         for name, command in sorted(group.commands.items())
@@ -378,11 +375,7 @@ def _commands_defined_in_main(group: Any) -> dict[str, Any]:
 
 
 def _executor_keywords(callback: Any) -> list[set[str]]:
-    """The keywords each `RSConnectExecutor(...)` in a command's callback passes.
-
-    Read from the source rather than by invoking the command, since the argument a
-    deploy subcommand needs differs for every content type.
-    """
+    """Return keyword names passed to executors in a command callback."""
     tree = ast.parse(pathlib.Path(rsconnect_main.__file__).read_text())
     functions = {
         node.name: node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
@@ -391,8 +384,7 @@ def _executor_keywords(callback: Any) -> list[set[str]]:
     assert node is not None, "no source found for %s" % callback.__name__
 
     def builds_an_executor(call: ast.Call) -> bool:
-        # `RSConnectExecutor(...)`, and the `RSConnectExecutor.fromConnectServer(...)`
-        # branch `deploy html` takes for a Connect server it already holds.
+        # Include deploy html's fromConnectServer branch.
         if isinstance(call.func, ast.Name):
             return call.func.id == "RSConnectExecutor"
         return (
@@ -1842,10 +1834,7 @@ class TestConnectCloudAccountVerification(unittest.TestCase):
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_a_record_account_matching_both_an_id_and_a_name_is_reported(self):
-        # A record key does not say whether it holds an id or a name, so when one
-        # account's name equals another's id either could be the account meant.
-        # Choosing by response order, or by preferring the id, could publish to the
-        # wrong account.
+        # A record key does not distinguish an account id from a legacy name.
         _register_accounts(
             {"id": "9", "name": "acct-2", "permissions": ["content:create"]},
             {"id": "acct-2", "name": "team-b", "permissions": ["content:create"]},
@@ -1856,15 +1845,9 @@ class TestConnectCloudAccountVerification(unittest.TestCase):
 
         message = str(context.exception)
         self.assertIn('both the id of the account named "team-b" and the name of another', message)
-        # A lone -A is read as an incomplete shinyapps.io credential when no nickname
-        # or default server names the target, so the suggestion names the target too.
-        # test_the_collision_suggestions_are_accepted_by_validation checks that these
-        # two shapes really do get through validation.
         self.assertIn("Rerun with --connect-cloud -A team-b, or --connect-cloud -A acct-2", message)
 
     def test_the_collision_suggestions_are_accepted_by_validation(self):
-        # The suggestion above is a hard-coded string; without this, tightening
-        # validation could make the advice invalid again without failing a test.
         with self.subTest("nickname and account"):
             _validate_options(name="cloud", connect_cloud=False, account_name="team-b")
         with self.subTest("--connect-cloud and account"):
@@ -1894,8 +1877,6 @@ class TestConnectCloudAccountVerification(unittest.TestCase):
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_a_record_account_that_cannot_publish_is_reported_as_such(self):
-        # The permission error must survive the two-pass lookup rather than being
-        # reported as a missing account.
         _register_accounts({"id": "acct-2", "name": "team-b", "permissions": ["content:read"]})
         with self.client:
             with self.assertRaises(RSConnectException) as context:
@@ -2690,16 +2671,11 @@ class TestConnectCloudRecordKey(unittest.TestCase):
         self.assertEqual(executor.app_id, "c1")
 
     def test_migrating_a_name_keyed_record_removes_it(self):
-        # Leaving it would give the directory two records naming one account, which
-        # target inference reads as a history it cannot choose from -- so the feature
-        # would be permanently off for a directory deployed before ids were recorded.
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
         app_path = os.path.join(tempdir.name, "app.py")
 
         store = AppStore(app_path)
-        # app_guid is None on every Connect Cloud deploy (api.py:2288, 2338), so the
-        # comparison that runs in production is the app_id one.
         store.set("%s#acme" % API, app_path, "u", "c1", None, "T", AppModes.PYTHON_SHINY)
         store.save()
 
@@ -2716,10 +2692,7 @@ class TestConnectCloudRecordKey(unittest.TestCase):
         self.assertEqual(keys, ["%s#acct-1" % API])
 
     def test_a_new_deploy_leaves_a_record_it_cannot_claim(self):
-        # --new mints an id that matches nothing, so ownership cannot be established.
-        # The key may hold another account's record -- one account's name can equal
-        # another's id -- and deleting on a guess loses that account's history. The
-        # directory keeps two records and inference declines, saying so.
+        # A new content id cannot prove that the legacy record belongs to this account.
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
         app_path = os.path.join(tempdir.name, "app.py")
@@ -2741,8 +2714,6 @@ class TestConnectCloudRecordKey(unittest.TestCase):
         self.assertEqual(keys, ["%s#acct-1" % API, "%s#acme" % API])
 
     def test_a_new_deploy_keeps_another_accounts_record(self):
-        # The collision, with --new: account X (id "9", name "acct-2") deploying while
-        # account Y (id "acct-2") holds the key X's fallback would target.
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
         app_path = os.path.join(tempdir.name, "app.py")
@@ -2764,19 +2735,14 @@ class TestConnectCloudRecordKey(unittest.TestCase):
         self.assertEqual(keys, ["%s#9" % API, "%s#acct-2" % API])
 
     def test_migrating_leaves_another_accounts_record_alone(self):
-        # One account's name can equal another's id -- the collision
-        # get_account_by_id_or_name refuses to resolve, reachable here because a typed
-        # -A resolves by name. The other account's record is not ours to delete.
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
         app_path = os.path.join(tempdir.name, "app.py")
 
         store = AppStore(app_path)
-        # Account Y (id "acct-2", name "team-b") holds this key, for other content.
         store.set("%s#acct-2" % API, app_path, "u", "other", None, "T", AppModes.PYTHON_SHINY)
         store.save()
 
-        # Now deploy to account X (id "9", name "acct-2"), whose fallback key collides.
         executor = RSConnectExecutor.__new__(RSConnectExecutor)
         executor.remote_server = ConnectCloudServer("acct-2", account_id="9")
         executor.app_store = AppStore(app_path)
@@ -2791,18 +2757,7 @@ class TestConnectCloudRecordKey(unittest.TestCase):
 
 
 class TestConnectOptionsAgainstAResolvedEntry(unittest.TestCase):
-    """Posit Connect options judged after the store lookup, by what it resolved to.
-
-    The api_key branch of setup_remote_server is tested before the token-and-secret
-    one, so before this was checked after resolution the deploy built a Posit
-    Connect server for the shinyapps.io URL and sent the API key there. Only the
-    store lookup can tell that a nickname names a shinyapps.io credential, so
-    validate_connection_options cannot judge it: no shinyapps.io option is on the
-    command line for it to weigh the Connect options against.
-
-    Also covers the other direction: an entry that is not a shinyapps.io credential
-    must be left alone, even when exported SHINYAPPS_* values are present.
-    """
+    """Validate target-specific options after resolving a stored entry."""
 
     def setUp(self):
         env_patch = mock.patch.dict(os.environ, {}, clear=True)
@@ -2820,8 +2775,6 @@ class TestConnectOptionsAgainstAResolvedEntry(unittest.TestCase):
         self.assertIn("may not be passed alongside shinyapps.io", str(context.exception))
 
     def test_an_exported_api_key_is_dropped(self):
-        # The common shape: nothing unusual typed, CONNECT_API_KEY exported for a
-        # Connect server elsewhere.
         executor = RSConnectExecutor(path=tempfile.mkdtemp(), name="sa", api_key="key", ctx=_ctx(api_key=ENV))
         server = executor.remote_server
         assert isinstance(server, api.ShinyappsServer)
@@ -2829,9 +2782,6 @@ class TestConnectOptionsAgainstAResolvedEntry(unittest.TestCase):
         self.assertEqual(server.token, "tok")
 
     def test_a_typed_snowflake_connection_is_reported_as_an_spcs_option(self):
-        # Reported the way the Connect Cloud checks report it, rather than as a Posit
-        # Connect option, so one mistake is not described two ways. Reached by URL
-        # because validation requires -s/--server alongside the option.
         with self.assertRaises(RSConnectException) as context:
             RSConnectExecutor(
                 path=tempfile.mkdtemp(),
@@ -2842,9 +2792,6 @@ class TestConnectOptionsAgainstAResolvedEntry(unittest.TestCase):
         self.assertIn("SPCS options (--snowflake-connection-name", str(context.exception))
 
     def test_a_connect_entry_is_not_treated_as_shinyapps(self):
-        # SHINYAPPS_* exported for other CI work sets token and secret whatever the
-        # target is, so keying the check off them reported the Connect entry's own
-        # stored API key as a conflict and failed a deploy that worked before.
         self.store.set("prod", "https://connect.example.com", api_key="stored-key")
 
         executor = RSConnectExecutor(
@@ -2861,8 +2808,6 @@ class TestConnectOptionsAgainstAResolvedEntry(unittest.TestCase):
         self.assertEqual(server.api_key, "stored-key")
 
     def test_an_exported_certificate_is_not_read(self):
-        # Reading it would fail the deploy on a path that has nothing to do with
-        # shinyapps.io, as it would have for Posit Connect Cloud.
         executor = RSConnectExecutor(
             path=tempfile.mkdtemp(), name="sa", cacert="/nonexistent/ca.pem", ctx=_ctx(cacert=ENV)
         )
@@ -2870,21 +2815,12 @@ class TestConnectOptionsAgainstAResolvedEntry(unittest.TestCase):
 
 
 class TestInferenceIsWiredToTheCommands(unittest.TestCase):
-    """What TestRedeployTargetInference assumes about the CLI, checked against it.
-
-    Those tests build the executor directly, passing `path` themselves and
-    fabricating the click context. Both are decided in main.py, where nothing else
-    looks: a subcommand that stopped passing `path` would stop inferring, and an
-    option that lost its `envvar` would change what the environment can supply,
-    with every test in that class still green.
-    """
+    """Check the CLI contracts used by target inference."""
 
     # `path` is what turns inference on (`infer_target=path is not None`).
     PATHLESS_DEPLOY_COMMANDS = {
-        # Deploys a repository the server pulls from, so there is no directory
-        # whose record could name a target.
+        # The server pulls the repository; there is no local deployment record.
         "git",
-        # A help stub; it builds no executor.
         "other-content",
     }
 
@@ -2900,8 +2836,6 @@ class TestInferenceIsWiredToTheCommands(unittest.TestCase):
                     self.assertIn("path", call)
 
     def test_no_content_command_passes_a_path(self):
-        # They act on a server, not a directory: a path would make them infer a
-        # target from wherever they were run.
         for name, command in _commands_defined_in_main(cli.commands["content"]).items():
             subcommands = _commands_defined_in_main(command) if hasattr(command, "commands") else {"": command}
             for sub, subcommand in sorted(subcommands.items()):
@@ -2909,8 +2843,7 @@ class TestInferenceIsWiredToTheCommands(unittest.TestCase):
                     for call in _executor_keywords(subcommand.callback):
                         self.assertNotIn("path", call)
 
-    # What the environment may supply, and under which name. These decide whether a
-    # target was named at all, so they are part of the inference contract.
+    # Environment-backed options that may affect target selection.
     ENVIRONMENT_VARIABLES = {
         "server": "CONNECT_SERVER",
         "api_key": "CONNECT_API_KEY",
@@ -2923,9 +2856,7 @@ class TestInferenceIsWiredToTheCommands(unittest.TestCase):
         "client_secret": "CONNECT_CLOUD_CLIENT_SECRET",
     }
 
-    # Their -A comes from connect_cloud_account_arg: they support Posit Connect
-    # Cloud but not shinyapps.io, so SHINYAPPS_ACCOUNT would name a target they
-    # cannot deploy to and is deliberately unbound.
+    # These commands support Connect Cloud accounts but not shinyapps.io credentials.
     CLOUD_ONLY_ACCOUNT_COMMANDS = {"notebook", "quarto"}
 
     def test_the_target_options_are_bound_to_their_environment_variables(self):
@@ -2940,8 +2871,6 @@ class TestInferenceIsWiredToTheCommands(unittest.TestCase):
                     self.assertEqual(param.envvar, self.ENVIRONMENT_VARIABLES[param.name])
 
     def test_the_cloud_only_commands_take_no_shinyapps_options(self):
-        # Why their -A is unbound: with no -T/-S, an exported SHINYAPPS_ACCOUNT
-        # could not complete a credential anyway.
         for name in self.CLOUD_ONLY_ACCOUNT_COMMANDS:
             with self.subTest(name):
                 params = {param.name for param in cli.commands["deploy"].commands[name].params}
@@ -2949,17 +2878,13 @@ class TestInferenceIsWiredToTheCommands(unittest.TestCase):
                 self.assertNotIn("secret", params)
 
     def test_the_deploy_commands_carry_every_one_of_them(self):
-        # The loop above is silent about an option that disappeared, so one command
-        # with the full set anchors it.
         declared = {
             param.name: param.envvar for param in cli.commands["deploy"].commands["shiny"].params if param.envvar
         }
         self.assertEqual(declared, self.ENVIRONMENT_VARIABLES)
 
     def test_the_connect_cloud_account_variable_is_not_bound_to_an_option(self):
-        # -A is shared with shinyapps.io, so CONNECT_CLOUD_ACCOUNT is read through
-        # validation.effective_connect_cloud_account: bound here it would retarget a
-        # shinyapps.io deploy.
+        # -A is shared with shinyapps.io; Connect Cloud reads its variable separately.
         for command in _commands_defined_in_main(cli.commands["deploy"]).values():
             for param in command.params:
                 with self.subTest("%s %s" % (command.name, param.name)):
@@ -2968,11 +2893,7 @@ class TestInferenceIsWiredToTheCommands(unittest.TestCase):
 
 
 class TestRedeployTargetInference(unittest.TestCase):
-    """A deploy naming no target goes where this directory went last time.
-
-    Precedence: a target named by option or environment variable, then this
-    directory's single deployment record, then the default server.
-    """
+    """A target, then deployment history, then the default server."""
 
     def setUp(self):
         env_patch = mock.patch.dict(os.environ, {}, clear=True)
@@ -2985,7 +2906,7 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.addCleanup(store_patch.stop)
 
     def _record(self, *keys: str) -> None:
-        """Write a deployment record per key, as a deploy of this directory would."""
+        """Write deployment records for this directory."""
         app_store = AppStore(fake_module_file_from_directory(self.directory))
         for key in keys:
             app_store.set(
@@ -3045,14 +2966,10 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertEqual(server.account_id, "acct-1")
         self.assertEqual(server.access_token, "at")
         self.assertEqual(server.server_name, "cloud")
-        # Set up as the credential's own account, and still checked against the
-        # server, since another account may be named "acct-1". The record is found
-        # again either way.
         self.assertEqual(executor.record_account, "acct-1")
         self.assertEqual(executor.record_server_key(), "%s#acct-1" % API)
 
     def test_a_name_keyed_cloud_record_resolves_the_credential(self):
-        # Records written before account ids were recorded are keyed by name.
         self._cloud()
         self._connect(default=True)
         self._record("%s#acme" % API)
@@ -3066,7 +2983,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertEqual(executor.record_server_key_fallback(), "%s#acme" % API)
 
     def test_a_shinyapps_record_resolves_its_credential(self):
-        # The secret is base64 in the store; PositClient decodes it as a signing key.
         self.store.set("shinyapps", SHINYAPPS_API_URL, account_name="acme", token="tok", secret="c2VjcmV0")
         self._connect(default=True)
         self._record(SHINYAPPS_API_URL)
@@ -3077,8 +2993,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertEqual(server.token, "tok")
 
     def test_the_reported_target_is_not_announced_before_a_conflict(self):
-        # The record names a target the options on this run rule out, so announcing
-        # the redeploy would contradict the error that follows.
         self.store.set("shinyapps", SHINYAPPS_API_URL, account_name="acme", token="tok", secret="c2VjcmV0")
         self._connect(default=True)
         self._record(SHINYAPPS_API_URL)
@@ -3089,8 +3003,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertEqual([call for call in info.call_args_list if "Redeploying to" in str(call)], [])
 
     def test_a_typed_connect_option_conflicts_with_an_inferred_shinyapps_target(self):
-        # A typed API key asks for a Posit Connect server, so it is refused rather
-        # than dropped and the content published to shinyapps.io instead.
         self.store.set("shinyapps", SHINYAPPS_API_URL, account_name="acme", token="tok", secret="c2VjcmV0")
         self._connect(default=True)
         self._record(SHINYAPPS_API_URL)
@@ -3100,10 +3012,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertIn("may not be passed alongside shinyapps.io", str(context.exception))
 
     def test_environment_connect_options_do_not_ride_along_to_an_inferred_shinyapps_target(self):
-        # An exported CONNECT_API_KEY is just the environment, so it must not fail the
-        # redeploy -- but it cannot be carried either: the api_key branch is tested
-        # first and would build a Posit Connect server for the shinyapps.io URL. The
-        # unreadable certificate path would fail the deploy if it were still read.
         self.store.set("shinyapps", SHINYAPPS_API_URL, account_name="acme", token="tok", secret="c2VjcmV0")
         self._connect(default=True)
         self._record(SHINYAPPS_API_URL)
@@ -3119,8 +3027,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertEqual(server.token, "tok")
 
     def test_a_typed_connect_option_conflicts_with_an_inferred_cloud_target(self):
-        # As it does for a nickname naming a Connect Cloud credential; an
-        # environment-sourced one is ignored there and here.
         self._cloud()
         self._connect(default=True)
         self._record("%s#acct-1" % API)
@@ -3142,9 +3048,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertEqual(server.api_key, "typed-key")
 
     def test_several_records_are_refused_over_the_default(self):
-        # A directory deployed to several targets needs one named. The default is
-        # global and the deploy did not ask for it, so it does not choose between
-        # servers this directory really has been deployed to.
         self._cloud(default=True)
         self._connect()
         self._record("https://connect.example.com", "%s#acct-1" % API)
@@ -3161,7 +3064,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         assert isinstance(server, ConnectCloudServer)
 
     def test_several_servers_without_a_default_are_resolved_by_the_record(self):
-        # Naming no target was an error here before, whatever the record said.
         self._cloud()
         self._connect()
         self._record("https://connect.example.com")
@@ -3180,8 +3082,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertEqual(executor.record_account, "acct-2")
 
     def test_without_a_record_the_target_still_has_to_be_named(self):
-        # The record is the only thing that supplies a target here; nothing else
-        # about that resolution changed.
         self._cloud()
         self._connect()
 
@@ -3190,10 +3090,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertIn("You must specify one of -n/--name", str(context.exception))
 
     def test_a_declined_record_without_a_default_says_why(self):
-        # The other ambiguity tests all save a default, so they only show that the
-        # default wins. With no default the deploy fails, and the reason the history
-        # went unused has to be in the error: at debug level it is invisible without
-        # -v, and this is the shape every user with two saved Cloud credentials hits.
         self._cloud(name="personal")
         self._cloud(name="work", account="team-b", account_id="acct-2")
         self._record("%s#acct-1" % API)
@@ -3206,9 +3102,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertIn("Pass -n/--name", message)
 
     def test_several_records_without_a_default_say_how_many(self):
-        # Records are counted, not servers: two Connect Cloud records differing only
-        # in account are one server. And --connect-cloud -A is the remedy for a
-        # two-account Cloud history, so the remedy list has to name it.
         self._connect()
         self._cloud()
         self._record("https://connect.example.com", "%s#acct-1" % API)
@@ -3220,10 +3113,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertIn("--connect-cloud with -A/--account", message)
 
     def test_two_records_for_different_cloud_accounts_still_decline(self):
-        # The collapse is for one account written under both its id and its name.
-        # Two genuinely different accounts are a history to choose between, and
-        # loosening the check would publish to the saved credential's own account
-        # with no message at all.
         self._cloud()
         self._record("%s#acct-1" % API, "%s#acct-9" % API)
 
@@ -3232,10 +3121,7 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertIn("it has 2 deployment records", str(context.exception))
 
     def test_a_name_that_matches_another_accounts_id_declines(self):
-        # Saved credential id "9", name "acct-2". The second key is either this
-        # account's legacy name-keyed record or another account's id-keyed one, and
-        # the two are the same string, so nothing here can tell them apart. Declining
-        # asks the user; collapsing would publish to whichever guess was made.
+        # "%s#acct-2" may be this account's legacy name or another account's id.
         self._cloud(name="cloud", account="acct-2", account_id="9")
         self._record("%s#9" % API, "%s#acct-2" % API)
 
@@ -3252,7 +3138,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertIn("https://gone.example.com, is no longer saved", str(context.exception))
 
     def test_no_deployment_history_keeps_the_generic_error(self):
-        # A first deploy has nothing to explain, so the ordinary message stands.
         self._cloud(name="personal")
         self._cloud(name="work", account="team-b", account_id="acct-2")
 
@@ -3285,7 +3170,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         assert isinstance(server, api.RSConnectServer)
 
     def test_an_environment_sourced_server_suppresses_inference(self):
-        # CONNECT_SERVER names a target as much as -s does.
         self._cloud()
         self._connect()
         self._record("%s#acct-1" % API)
@@ -3294,10 +3178,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         assert isinstance(executor.remote_server, api.RSConnectServer)
 
     def test_a_lone_account_points_at_the_recorded_credential(self):
-        # -A names no server, so this used to reach the shinyapps.io credential rule
-        # and demand -T and -S -- for a directory only ever deployed to Connect Cloud.
-        # The record cannot supply the target (-A leaves the credential open), but it
-        # can say what to add.
         self._cloud()
         self._record("%s#acct-1" % API)
 
@@ -3309,9 +3189,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertIn("try -n cloud -A team-b", message)
 
     def test_a_lone_account_points_at_a_shinyapps_record_too(self):
-        # -A does name the shinyapps.io account, but not the server, and the record
-        # already names that. Dropping -A is the remedy, which the credential rule's
-        # demand for -T/--token and -S/--secret does not say.
         self.store.set("shinyapps", SHINYAPPS_API_URL, account_name="acme", token="tok", secret="c2VjcmV0")
         self._record(SHINYAPPS_API_URL)
 
@@ -3322,10 +3199,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertIn("https://api.shinyapps.io", message)
 
     def test_an_exported_account_does_not_block_the_redeploy(self):
-        # SHINYAPPS_ACCOUNT exported for other work is the environment, not a target:
-        # on its own it is an incomplete shinyapps.io credential, and with the token
-        # and secret alongside it those name a target of their own. Left in place it
-        # suppressed inference and then failed with the shinyapps.io credential rule.
         self._cloud()
         self._record("%s#acct-1" % API)
 
@@ -3334,9 +3207,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertEqual(server.account_name, "acme")
 
     def test_an_exported_account_still_conflicts_with_a_default_shinyapps_entry(self):
-        # No record supplies a target here, so the variable is not dropped: the
-        # default entry would otherwise publish to its own account rather than the
-        # one SHINYAPPS_ACCOUNT names, and say nothing about it.
         self.store.set("sa", SHINYAPPS_API_URL, account_name="acme", token="tok", secret="c2VjcmV0")
         self.store.set_default("sa")
 
@@ -3345,7 +3215,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertIn("must all be provided for shinyapps.io", str(context.exception))
 
     def test_two_exported_account_variables_are_still_not_a_target(self):
-        # Neither says which server, so together they say no more than either alone.
         self._connect()
         self._cloud(default=True)
         self._record("https://connect.example.com")
@@ -3356,9 +3225,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertEqual(server.url, "https://connect.example.com")
 
     def test_a_typed_account_keeps_its_own_error_rather_than_the_default(self):
-        # -A on the command line is the user naming it here, unlike a variable
-        # exported for other work, so it is not quietly ignored. It still does not
-        # send the directory to the default server.
         self._connect()
         self._cloud(default=True)
         self._record("https://connect.example.com")
@@ -3379,11 +3245,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertEqual(server.account_name, "sa-acct")
 
     def test_a_connect_option_alongside_a_lone_account_keeps_its_own_error(self):
-        # The hint quotes -n <nickname> -A <account>, which would then fail on the
-        # Connect option: that conflict has its own message and has to reach the
-        # user. The message is asserted, not just the hint's absence -- it names
-        # shinyapps.io for a Connect Cloud directory, which is the trade this guard
-        # makes and should not change unnoticed.
         self._cloud()
         self._record("%s#acct-1" % API)
 
@@ -3398,8 +3259,6 @@ class TestRedeployTargetInference(unittest.TestCase):
                 self.assertIn("may not be passed alongside shinyapps.io options", message)
 
     def test_a_connect_only_deploy_option_alongside_a_lone_account_suppresses_the_hint(self):
-        # -I/--image and friends are rejected by Posit Connect Cloud too, so the
-        # quoted command would fail on them.
         self._cloud()
         self._record("%s#acct-1" % API)
 
@@ -3408,9 +3267,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertNotIn("-A/--account selects", str(context.exception))
 
     def test_a_lone_account_does_not_resolve_against_the_default_credential(self):
-        # The default server does not stand in for a directory that has been deployed
-        # before, whatever else the command line names. Here the record cannot pick
-        # between two saved credentials either, so that is what the error says.
         self._cloud(name="cloud")
         self._cloud(name="work", account="team-b", account_id="acct-2", default=True)
         self._record("%s#acct-1" % API)
@@ -3420,8 +3276,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertIn("several saved Posit Connect Cloud credentials share the URL", str(context.exception))
 
     def test_a_lone_account_with_a_declined_record_says_why(self):
-        # The history cannot name the credential either, so -A is not the thing to
-        # explain -- and the shinyapps.io credential rule explains nothing.
         self._cloud(name="personal")
         self._cloud(name="work", account="team-b", account_id="acct-2")
         self._record("%s#acct-1" % API)
@@ -3431,7 +3285,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertIn("several saved Posit Connect Cloud credentials share the URL", str(context.exception))
 
     def test_the_connect_cloud_flag_suppresses_inference(self):
-        # Inferring the Connect record would contradict the flag.
         self._cloud()
         self._connect()
         self._record("https://connect.example.com")
@@ -3450,8 +3303,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertEqual(server.account_name, "acme")
 
     def test_an_environment_sourced_target_is_labelled_as_such(self):
-        # The label has to name the variable's source, or it sends the reader looking
-        # for an option that is not on their command line.
         self._connect()
         self._cloud(default=True)
         self._record("https://connect.example.com")
@@ -3461,9 +3312,7 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertIn("-s/--server (from ENVIRONMENT) given", "\n".join(captured.output))
 
     def test_the_recorded_account_survives_an_exported_one(self):
-        # -A carries SHINYAPPS_ACCOUNT here, so the click context reports the account
-        # as environment-sourced even once the record has replaced its value, and
-        # effective_connect_cloud_account would swap in CONNECT_CLOUD_ACCOUNT.
+        # Click still reports -A as environment-sourced after inference replaces it.
         self._cloud()
         self._record("%s#acme" % API)
 
@@ -3482,9 +3331,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertEqual(server.account_name, "acme")
 
     def test_the_connect_cloud_account_variable_does_not_block_the_redeploy(self):
-        # It names an account, not a server, so on its own it is not a target. Left
-        # to suppress inference it would send this directory to the default server,
-        # which here is not even a Posit Connect Cloud one.
         self._cloud(default=True)
         self._connect()
         self._record("https://connect.example.com")
@@ -3495,7 +3341,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertEqual(server.url, "https://connect.example.com")
 
     def test_new_suppresses_inference(self):
-        # --new disavows the previous deployment, so its record names nothing.
         self._cloud()
         self._connect(default=True)
         self._record("%s#acct-1" % API)
@@ -3504,9 +3349,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         assert isinstance(server, api.RSConnectServer)
 
     def test_several_saved_cloud_credentials_are_refused_over_the_default(self):
-        # Only a nickname can pick between them, so the record is not enough. The
-        # default server does not stand in: the record names one server, and the
-        # default is a different one.
         self._cloud(name="personal")
         self._cloud(name="work", account="team-b", account_id="acct-2")
         self._connect(default=True)
@@ -3516,14 +3358,9 @@ class TestRedeployTargetInference(unittest.TestCase):
             self._executor()
         message = str(context.exception)
         self.assertIn("several saved Posit Connect Cloud credentials share the URL", message)
-        # A retry with only -n would publish to that credential's saved account, so
-        # the remedy has to name -A as well.
         self.assertIn("with -A/--account alongside it", message)
 
     def test_several_credentials_for_one_url_are_refused_over_the_default(self):
-        # Every saved shinyapps.io account shares one URL, so the record's URL says
-        # no more about which credential to use than a Connect Cloud URL does. The
-        # destination is still known, so a Connect default is not a stand-in for it.
         self.store.set("sa-work", SHINYAPPS_API_URL, account_name="work", token="tok", secret="c2VjcmV0")
         self.store.set("sa-home", SHINYAPPS_API_URL, account_name="home", token="tok", secret="c2VjcmV0")
         self._connect(default=True)
@@ -3533,13 +3370,9 @@ class TestRedeployTargetInference(unittest.TestCase):
             self._executor()
         message = str(context.exception)
         self.assertIn("2 saved credentials share the URL it was last deployed to", message)
-        # -A alongside -n is a Connect Cloud remedy; a shinyapps.io nickname
-        # rejects it, so it is not suggested here.
         self.assertIn("Pass -n/--name to choose one of them.", message)
 
     def test_one_connect_server_saved_under_two_nicknames_is_refused_over_the_default(self):
-        # The shared-URL check counts saved servers by URL whatever their type, so
-        # this is not only a Connect Cloud and shinyapps.io shape.
         self._connect(name="prod")
         self._connect(name="prod-copy")
         self._cloud(default=True)
@@ -3550,8 +3383,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertIn("2 saved credentials share the URL it was last deployed to", str(context.exception))
 
     def test_a_record_for_an_unsaved_server_is_refused_over_the_default(self):
-        # Deploying to the default would publish to a server the record does not
-        # name, so the removed credential is reported instead.
         self._connect(default=True)
         self._record("https://gone.example.com")
 
@@ -3569,7 +3400,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertIn("is not a Posit Connect Cloud one", str(context.exception))
 
     def test_the_content_commands_do_not_infer_a_target(self):
-        # They act on a server, not on a directory, and pass no content path.
         self._cloud()
         self._connect(default=True)
         self._record("%s#acct-1" % API)
@@ -3589,8 +3419,6 @@ class TestRedeployTargetInference(unittest.TestCase):
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_an_account_the_credential_was_not_saved_with_is_resolved_by_id(self):
-        # One credential can publish to every account its user has rights on, so a
-        # record may name an account other than the credential's own.
         self._cloud()
         self._record("%s#acct-2" % API)
 
@@ -3599,8 +3427,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         server = executor.remote_server
         assert isinstance(server, ConnectCloudServer)
         self.assertEqual(executor.record_account, "acct-2")
-        # Nothing claims to know the account until the server has been asked, so the
-        # reported target does not print the record's raw account id either.
         self.assertIsNone(server.account_id)
         self.assertIn('Redeploying to "cloud" (Posit Connect Cloud)', "\n".join(captured.output))
         self.assertNotIn("acct-2", "\n".join(captured.output))
@@ -3616,7 +3442,6 @@ class TestRedeployTargetInference(unittest.TestCase):
         self.assertEqual(server.account_name, "team-b")
         self.assertEqual(server.account_id, "acct-2")
         self.assertEqual(executor.record_server_key(), "%s#acct-2" % API)
-        # Named once resolved, since the line above could not name it.
         self.assertIn('Publishing to the Posit Connect Cloud account "team-b"', "\n".join(captured.output))
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
@@ -3641,9 +3466,6 @@ class TestRedeployTargetInference(unittest.TestCase):
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_a_record_naming_the_credentials_own_account_is_confirmed_once(self):
-        # The account is checked against the server even though the saved credential
-        # already names it, and the reported target has named it, so it is not
-        # announced a second time.
         self._cloud()
         self._record("%s#acct-1" % API)
 
@@ -3664,9 +3486,7 @@ class TestRedeployTargetInference(unittest.TestCase):
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_a_key_matching_the_credentials_id_and_another_accounts_name_declines(self):
-        # The saved credential's account id is another account's name, so the key is
-        # either this account's id-keyed record or that one's legacy name-keyed
-        # record. Matching the saved credential is not enough to tell them apart.
+        # The key may be this account's id or another account's legacy name.
         self._cloud()
         self._record("%s#acct-1" % API)
 
@@ -3682,9 +3502,7 @@ class TestRedeployTargetInference(unittest.TestCase):
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_a_key_matching_the_credentials_name_and_another_accounts_id_declines(self):
-        # The same collision the other way round, for a record written before ids
-        # were recorded: the key is the credential's account name and another
-        # account's id.
+        # The key may be this account's legacy name or another account's id.
         self._cloud()
         self._record("%s#acme" % API)
 

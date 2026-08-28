@@ -491,56 +491,36 @@ types.
 
 #### Choosing the Target Server
 
-When a deploy command names no target, the target is chosen in this order:
+Deploy commands choose a target in this order:
 
-1. A target named on the command line or in the environment: `-n/--name`,
-   `-s/--server` (`CONNECT_SERVER`), `--connect-cloud`, a typed `-A/--account`, or
-   `-T/--token` (`SHINYAPPS_TOKEN`, `RSCLOUD_TOKEN`) and `-S/--secret`
-   (`SHINYAPPS_SECRET`, `RSCLOUD_SECRET`). An account that only the environment
-   names — `CONNECT_CLOUD_ACCOUNT`, or `SHINYAPPS_ACCOUNT` without its token and
-   secret — is not a target: it says which account to publish to, not which server,
-   so the deployment data below still decides where, and which account. The deploy
-   names the account it is publishing to as it starts.
-2. The saved server this directory was last deployed to, when the deployment data
-   holds exactly one deployment. For Posit Connect Cloud this includes the account
-   that was published to, which may be an account other than the one the saved
-   credential was added with.
+1. A command-line or environment target, such as `-n/--name`, `-s/--server`,
+   `--connect-cloud`, or complete shinyapps.io credentials.
+2. The directory's single deployment record, including its Posit Connect Cloud
+   account.
 3. The default server (`rsconnect server set-default`).
 
-So a directory keeps redeploying where it went last time, even after the default
-server changes: the default is global, the deployment data is per directory. `--new`
-ignores the deployment data and follows the default server. Such a deploy used to be
-refused unless a default was set, so a redeploy of a directory that has been deployed
-before now needs no options at all.
+This keeps redeployments tied to their directory even if the global default changes.
+`--new` ignores deployment records.
 
-When the deployment data cannot say where to deploy, the deploy stops and gives the
-reason. It is not sent to the default server, which is global and was not asked for,
-and which could publish the content somewhere this directory has not been. Name the
-target instead. This happens when:
+An account named only by `CONNECT_CLOUD_ACCOUNT`, or by `SHINYAPPS_ACCOUNT` without
+its token and secret, is not a target because it names no server. A typed
+`-A/--account` also needs `-n/--name` or `--connect-cloud`.
 
-- the directory has been deployed to more than one server;
+A directory with deployment history does not fall back to the default when its target
+cannot be inferred. Name the target explicitly if:
+
+- the directory has more than one recorded target;
 - the server it was deployed to is no longer saved;
-- more than one saved credential shares that server's URL, which is always so once
-  two Posit Connect Cloud or shinyapps.io credentials are saved, and possible for one
-  Posit Connect server saved under two nicknames;
+- more than one saved credential shares the server URL;
 - the deployment data names an account but the credential saved for that URL is not a
   Posit Connect Cloud one.
 
-`-s/--server` settles all of these but the third, where the URL is what is ambiguous.
-There, use `-n/--name`: it is the only option that picks one credential out — with
-`-A/--account` alongside it for Posit Connect Cloud, to publish to an account other
-than the one the credential was saved with. A `-s/--server` naming a URL that several
-credentials share does not fail; for Posit Connect and shinyapps.io it takes whichever
-was saved first, which is why it is not the way to resolve this. (Several saved Posit
-Connect Cloud credentials are reported instead, since only a nickname distinguishes
-them.)
+Use `-n/--name` to choose among credentials that share a URL. For Posit Connect Cloud,
+also pass `-A/--account` when publishing to a different account than the credential's
+saved account.
 
-The default server applies to a directory with no deployment data — the ordinary
-first deploy — and to `--new`. With no default set, those need a target named too.
-
-`-A/--account` on its own is not a target either: it names an account, not a server.
-On a directory that has been deployed before it reports what the deployment data
-names, rather than falling through to the default server.
+The default applies only to a first deploy or `--new`. Without a default, those
+deployments must name a target.
 
 #### Forcing a New Deployment
 
