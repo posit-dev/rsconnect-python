@@ -2886,24 +2886,13 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <ul>
 <li>Posit Connect Cloud is now a supported deployment target, alongside Posit
   Connect and shinyapps.io.</li>
-<li>A deploy that names no target now redeploys to the server the directory was last
-  deployed to.</li>
-<li>A directory that has been deployed before is never sent to the default server. If
-  its deployment data cannot say where to deploy — it names several servers, or one
-  whose credential is no longer saved or is shared by several saved credentials — the
-  deploy stops and gives that reason, rather than publishing somewhere the directory
-  has not been. The default server still applies to a directory with no deployment
-  data, and to <code>--new</code>.</li>
-<li>Deploying to a saved shinyapps.io server no longer builds a Posit Connect client for
-  the shinyapps.io URL when a Posit Connect API key is also in play. Previously
-  <code>rsconnect deploy ... -n &lt;shinyapps-nickname&gt;</code> with <code>CONNECT_API_KEY</code> set in the
-  environment sent that key to shinyapps.io and failed with an unrelated protocol
-  error; the key is now ignored, as are <code>CONNECT_INSECURE</code> and
-  <code>CONNECT_CA_CERTIFICATE</code>. Passing <code>-k/--api-key</code>, <code>-i/--insecure</code>, <code>-c/--cacert</code>, or
-  <code>--snowflake-connection-name</code> on the command line is now reported as the conflict it
-  is, as it already was for Posit Connect Cloud. Other Posit Connect deploy options
-  (<code>-I/--image</code>, <code>--disable-env-management</code>, <code>--node</code>, <code>--metadata</code>) are still accepted
-  and ignored for shinyapps.io.</li>
+<li>A deploy with no target now reuses the directory's single deployment record before
+  the default server. Ambiguous records, removed credentials, and shared server URLs
+  must be resolved explicitly; first deploys and <code>--new</code> still use the default.</li>
+<li>Saved shinyapps.io targets now reject typed Posit Connect and SPCS connection
+  options, while ignoring their environment-sourced values. This prevents values such
+  as <code>CONNECT_API_KEY</code> from being sent to shinyapps.io. Posit Connect deploy options
+  that shinyapps.io has historically ignored remain accepted.</li>
 <li><code>rsconnect add</code> now reports invalid option combinations and unreadable
   certificate files as plain error messages. Previously these surfaced as raw
   Python tracebacks.</li>

@@ -1073,7 +1073,7 @@
 
 
 <h1 id="rsconnect-server-set-default">rsconnect server set-default<a class="headerlink" href="#rsconnect-server-set-default" title="Permanent link">#</a></h1>
-<p>Mark an already-saved server as the default. The default is used when neither -n/--name nor -s/--server is given to other commands, except that deploy commands prefer the target a directory was last deployed to. This only updates local metadata; the server is not contacted. Prefer -n/--name; -s/--server must match the stored URL exactly.</p>
+<p>Mark an already-saved server as the default. The default is used when neither -n/--name nor -s/--server is given; deploys prefer the directory's previous target. This only updates local metadata; the server is not contacted. Prefer -n/--name; -s/--server must match the stored URL exactly.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight"><pre><span></span><code>rsconnect server set-default [OPTIONS]
 </code></pre></div>

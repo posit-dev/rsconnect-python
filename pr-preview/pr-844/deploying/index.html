@@ -2198,53 +2198,33 @@ deployment. This means that you can keep running <code>rsconnect deploy notebook
 as you develop new versions of your notebook. The same applies to other Python content
 types.</p>
 <h4 id="choosing-the-target-server">Choosing the Target Server<a class="headerlink" href="#choosing-the-target-server" title="Permanent link">#</a></h4>
-<p>When a deploy command names no target, the target is chosen in this order:</p>
+<p>Deploy commands choose a target in this order:</p>
 <ol>
-<li>A target named on the command line or in the environment: <code>-n/--name</code>,
-   <code>-s/--server</code> (<code>CONNECT_SERVER</code>), <code>--connect-cloud</code>, a typed <code>-A/--account</code>, or
-   <code>-T/--token</code> (<code>SHINYAPPS_TOKEN</code>, <code>RSCLOUD_TOKEN</code>) and <code>-S/--secret</code>
-   (<code>SHINYAPPS_SECRET</code>, <code>RSCLOUD_SECRET</code>). An account that only the environment
-   names — <code>CONNECT_CLOUD_ACCOUNT</code>, or <code>SHINYAPPS_ACCOUNT</code> without its token and
-   secret — is not a target: it says which account to publish to, not which server,
-   so the deployment data below still decides where, and which account. The deploy
-   names the account it is publishing to as it starts.</li>
-<li>The saved server this directory was last deployed to, when the deployment data
-   holds exactly one deployment. For Posit Connect Cloud this includes the account
-   that was published to, which may be an account other than the one the saved
-   credential was added with.</li>
+<li>A command-line or environment target, such as <code>-n/--name</code>, <code>-s/--server</code>,
+   <code>--connect-cloud</code>, or complete shinyapps.io credentials.</li>
+<li>The directory's single deployment record, including its Posit Connect Cloud
+   account.</li>
 <li>The default server (<code>rsconnect server set-default</code>).</li>
 </ol>
-<p>So a directory keeps redeploying where it went last time, even after the default
-server changes: the default is global, the deployment data is per directory. <code>--new</code>
-ignores the deployment data and follows the default server. Such a deploy used to be
-refused unless a default was set, so a redeploy of a directory that has been deployed
-before now needs no options at all.</p>
-<p>When the deployment data cannot say where to deploy, the deploy stops and gives the
-reason. It is not sent to the default server, which is global and was not asked for,
-and which could publish the content somewhere this directory has not been. Name the
-target instead. This happens when:</p>
+<p>This keeps redeployments tied to their directory even if the global default changes.
+<code>--new</code> ignores deployment records.</p>
+<p>An account named only by <code>CONNECT_CLOUD_ACCOUNT</code>, or by <code>SHINYAPPS_ACCOUNT</code> without
+its token and secret, is not a target because it names no server. A typed
+<code>-A/--account</code> also needs <code>-n/--name</code> or <code>--connect-cloud</code>.</p>
+<p>A directory with deployment history does not fall back to the default when its target
+cannot be inferred. Name the target explicitly if:</p>
 <ul>
-<li>the directory has been deployed to more than one server;</li>
+<li>the directory has more than one recorded target;</li>
 <li>the server it was deployed to is no longer saved;</li>
-<li>more than one saved credential shares that server's URL, which is always so once
-  two Posit Connect Cloud or shinyapps.io credentials are saved, and possible for one
-  Posit Connect server saved under two nicknames;</li>
+<li>more than one saved credential shares the server URL;</li>
 <li>the deployment data names an account but the credential saved for that URL is not a
   Posit Connect Cloud one.</li>
 </ul>
-<p><code>-s/--server</code> settles all of these but the third, where the URL is what is ambiguous.
-There, use <code>-n/--name</code>: it is the only option that picks one credential out — with
-<code>-A/--account</code> alongside it for Posit Connect Cloud, to publish to an account other
-than the one the credential was saved with. A <code>-s/--server</code> naming a URL that several
-credentials share does not fail; for Posit Connect and shinyapps.io it takes whichever
-was saved first, which is why it is not the way to resolve this. (Several saved Posit
-Connect Cloud credentials are reported instead, since only a nickname distinguishes
-them.)</p>
-<p>The default server applies to a directory with no deployment data — the ordinary
-first deploy — and to <code>--new</code>. With no default set, those need a target named too.</p>
-<p><code>-A/--account</code> on its own is not a target either: it names an account, not a server.
-On a directory that has been deployed before it reports what the deployment data
-names, rather than falling through to the default server.</p>
+<p>Use <code>-n/--name</code> to choose among credentials that share a URL. For Posit Connect Cloud,
+also pass <code>-A/--account</code> when publishing to a different account than the credential's
+saved account.</p>
+<p>The default applies only to a first deploy or <code>--new</code>. Without a default, those
+deployments must name a target.</p>
 <h4 id="forcing-a-new-deployment">Forcing a New Deployment<a class="headerlink" href="#forcing-a-new-deployment" title="Permanent link">#</a></h4>
 <p>To bypass this behavior and force a new deployment, use the <code>--new</code> option:</p>
 <div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>deploy<span class="w"> </span>dash<span class="w"> </span>--new<span class="w"> </span>my-app/
