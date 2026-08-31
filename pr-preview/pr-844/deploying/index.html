@@ -2216,13 +2216,19 @@ cannot be inferred. Name the target explicitly if:</p>
 <ul>
 <li>the directory has more than one recorded target;</li>
 <li>the server it was deployed to is no longer saved;</li>
-<li>more than one saved credential shares the server URL;</li>
+<li>more than one saved credential shares the server URL, which is always the case once
+  two Posit Connect Cloud or two shinyapps.io credentials are saved;</li>
 <li>the deployment data names an account but the credential saved for that URL is not a
   Posit Connect Cloud one.</li>
 </ul>
-<p>Use <code>-n/--name</code> to choose among credentials that share a URL. For Posit Connect Cloud,
-also pass <code>-A/--account</code> when publishing to a different account than the credential's
-saved account.</p>
+<p>Use <code>-n/--name</code> to choose among credentials that share a URL — it is the only option
+that picks one credential out. <code>-s/--server</code> settles every other case above, but not
+this one: pointed at a shared URL it does not fail. For Posit Connect and shinyapps.io
+it takes whichever credential was saved first, so the deploy can go somewhere you did
+not intend. (Several saved Posit Connect Cloud credentials are reported instead, since
+only a nickname distinguishes them.)</p>
+<p>For Posit Connect Cloud, also pass <code>-A/--account</code> when publishing to a different
+account than the credential's saved account.</p>
 <p>The default applies only to a first deploy or <code>--new</code>. Without a default, those
 deployments must name a target.</p>
 <h4 id="forcing-a-new-deployment">Forcing a New Deployment<a class="headerlink" href="#forcing-a-new-deployment" title="Permanent link">#</a></h4>
