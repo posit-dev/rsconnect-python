@@ -865,7 +865,11 @@ def bootstrap(
     "--set-default",
     is_flag=True,
     default=False,
-    help=("Mark this server as the default. Deploys prefer the directory's previous target."),
+    help=(
+        "Mark this server as the default, used when no target is named on the command "
+        "line or in the environment. A directory that has been deployed before "
+        "redeploys to its previous target instead."
+    ),
 )
 @click.pass_context
 def add(
@@ -1200,9 +1204,9 @@ def remove(
     "set-default",
     short_help="Set an already-saved server as the default.",
     help=(
-        "Mark an already-saved server as the default. The default is used when "
-        "neither -n/--name nor -s/--server is given; deploys prefer the directory's "
-        "previous target. This only "
+        "Mark an already-saved server as the default. The default is used when no target "
+        "is named on the command line or in the environment, except that a directory "
+        "that has been deployed before redeploys to its previous target. This only "
         "updates local metadata; the server is not contacted. Prefer -n/--name; "
         "-s/--server must match the stored URL exactly."
     ),

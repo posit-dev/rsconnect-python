@@ -511,13 +511,20 @@ cannot be inferred. Name the target explicitly if:
 
 - the directory has more than one recorded target;
 - the server it was deployed to is no longer saved;
-- more than one saved credential shares the server URL;
+- more than one saved credential shares the server URL, which is always the case once
+  two Posit Connect Cloud or two shinyapps.io credentials are saved;
 - the deployment data names an account but the credential saved for that URL is not a
   Posit Connect Cloud one.
 
-Use `-n/--name` to choose among credentials that share a URL. For Posit Connect Cloud,
-also pass `-A/--account` when publishing to a different account than the credential's
-saved account.
+Use `-n/--name` to choose among credentials that share a URL — it is the only option
+that picks one credential out. `-s/--server` settles every other case above, but not
+this one: pointed at a shared URL it does not fail. For Posit Connect and shinyapps.io
+it takes whichever credential was saved first, so the deploy can go somewhere you did
+not intend. (Several saved Posit Connect Cloud credentials are reported instead, since
+only a nickname distinguishes them.)
+
+For Posit Connect Cloud, also pass `-A/--account` when publishing to a different
+account than the credential's saved account.
 
 The default applies only to a first deploy or `--new`. Without a default, those
 deployments must name a target.

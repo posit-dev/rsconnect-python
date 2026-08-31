@@ -1577,12 +1577,16 @@ class RSConnectExecutor:
         infer_target: bool = False,
     ):
         store = ServerStore()
-        # This method may be called again on an existing executor.
+        # Cleared rather than only initialized in __init__, so that calling this
+        # again on an existing executor cannot keep the previous target's account.
         self.record_account = None
         self.record_account_named = False
-        # Report inference only after all target checks pass.
+        # Logged at the end of this method, not here: validation below can still reject
+        # the inferred target, and the redeploy message would contradict the error.
         inferred_description: str | None = None
-        # Prevent Click's -A source from replacing a record account during normalization.
+        # Whether account_name came from the deployment record. Click still reports -A's
+        # own source, so effective_connect_cloud_account would otherwise replace the
+        # record's account with CONNECT_CLOUD_ACCOUNT.
         account_from_record = False
 
         def _source(param: str) -> str:
@@ -1611,8 +1615,11 @@ class RSConnectExecutor:
                 token = None
             if validation.get_parameter_source_name_from_ctx("secret", ctx) == "ENVIRONMENT":
                 secret = None
-        # Explicit targets precede history. Include Click's source in debug output.
+        # A target named on this run -- by option or by environment variable -- suppresses
+        # inference from the deployment history, which otherwise outranks the default server.
         supplied_targets = [
+            # Labelled with click's source: the debug message below says why the record
+            # went unused, so naming an option the user never typed would mislead.
             label if param is None or ctx is None else "%s (from %s)" % (label, _source(param))
             for label, param, value in (
                 ("-n/--name", "name", name),
@@ -1632,6 +1639,10 @@ class RSConnectExecutor:
             and not typed_account
             and not (name or url or use_connect_cloud or token or secret)
         )
+        # Skipping inference: infer_target means this command has a directory to infer
+        # from, and supplied_targets means something already named a target. The
+        # exception is an environment-sourced account, which names no server and so
+        # must not suppress the record. The elif below is where the record is applied.
         if infer_target and supplied_targets and not env_account_only:
             logger.debug(
                 "Not taking the target from this directory's deployment history: %s given."
@@ -1822,9 +1833,13 @@ See command help for further details."
                     "-A/--account, -T/--token, and -S/--secret must all be provided \
 for shinyapps.io. See command help for further details."
                 )
+            # A store entry carrying both a token and a secret is a shinyapps.io
+            # credential. Not the merged locals: an exported SHINYAPPS_TOKEN/SECRET can
+            # sit on a Connect entry, whose own api_key is then the real credential.
             if server_data.from_store and server_data.token and server_data.secret:
-                # Resolution proves this is shinyapps.io. Reject typed Connect values
-                # and clear environment values before the api_key branch below.
+                # Reject typed Connect values and clear environment ones: the api_key
+                # branch below is tested first and would otherwise build a Connect
+                # server for this shinyapps.io URL.
                 validation.validate_shinyapps_incompatible_options(
                     ctx,
                     api_key=api_key,
@@ -2399,9 +2414,14 @@ for shinyapps.io. See command help for further details."
         return self
 
     def record_server_key(self) -> str:
-        """Return this target's deployment-record key.
+        """The key deployment records are stored under for this server.
 
-        Connect Cloud keys include the account id, or its name until the id is known.
+        All Posit Connect Cloud accounts share one API URL, so the account is folded in:
+        without it, deploying the same directory to a second account would find the
+        first account's record and silently update that account's content instead. The
+        account id is preferred over the name because names can be changed in Connect
+        Cloud; the name is used only when no id is known -- a divergent -A, or a server
+        saved before ids were recorded. See record_server_key_fallback for reading those.
         """
         if isinstance(self.remote_server, ConnectCloudServer):
             account = self.remote_server.account_id or self.remote_server.account_name
@@ -2409,7 +2429,9 @@ for shinyapps.io. See command help for further details."
         return self.remote_server.url
 
     def record_server_key_fallback(self) -> Optional[str]:
-        """Return the legacy name-keyed Connect Cloud record location."""
+        """The name-keyed record location, for records written before an account id was
+        known. Consulted on reads when the id-keyed lookup finds nothing; writes always
+        use record_server_key, which migrates the record."""
         if isinstance(self.remote_server, ConnectCloudServer) and self.remote_server.account_id:
             return "%s#%s" % (self.remote_server.url, self.remote_server.account_name)
         return None

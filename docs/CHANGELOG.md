@@ -12,10 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A deploy with no target now reuses the directory's single deployment record before
   the default server. Ambiguous records, removed credentials, and shared server URLs
   must be resolved explicitly; first deploys and `--new` still use the default.
-- Saved shinyapps.io targets now reject typed Posit Connect and SPCS connection
-  options, while ignoring their environment-sourced values. This prevents values such
-  as `CONNECT_API_KEY` from being sent to shinyapps.io. Posit Connect deploy options
-  that shinyapps.io has historically ignored remain accepted.
+- Deploying to a saved shinyapps.io server no longer sends a Posit Connect API key to
+  shinyapps.io. Previously `rsconnect deploy ... -n <shinyapps-nickname>` with
+  `CONNECT_API_KEY` set in the environment failed with an unrelated protocol error;
+  that key is now ignored, as are `CONNECT_INSECURE` and `CONNECT_CA_CERTIFICATE`.
+  Passing `-k/--api-key`, `-i/--insecure`, `-c/--cacert`, or
+  `--snowflake-connection-name` on the command line is now reported as a conflict.
+  Other Posit Connect deploy options remain accepted and ignored for shinyapps.io.
 - `rsconnect add` now reports invalid option combinations and unreadable
   certificate files as plain error messages. Previously these surfaced as raw
   Python tracebacks.

@@ -105,6 +105,9 @@ def _reject_options_the_target_has_no_use_for(
 ):
     """Reject typed Posit Connect and SPCS options for another target.
 
+    Only typed values: a CONNECT_API_KEY or CONNECT_INSECURE exported for another target
+    is the CI environment, not a request to use it here.
+
     :param target: how to name the target in the error, e.g. "shinyapps.io".
     :param reject_connect_only_deploy_options: also reject Connect deploy options.
     """
@@ -177,7 +180,7 @@ def validate_shinyapps_incompatible_options(
         insecure,
         cacert,
         snowflake_connection_name,
-        # Preserve the existing behavior for Connect deploy options.
+        # shinyapps.io accepts and ignores these; rejecting them would break deploys that pass them.
         reject_connect_only_deploy_options=False,
     )
 
