@@ -38,7 +38,7 @@ from .target_helpers import (
 class TestInferenceIsWiredToTheCommands(unittest.TestCase):
     """Check the CLI contracts used by target inference."""
 
-    # `path` is what turns inference on (`infer_target=path is not None`).
+    # A `path` is what turns inference on, unless `infer_target=False` says otherwise.
     PATHLESS_DEPLOY_COMMANDS = {
         # The server pulls the repository; there is no local deployment record.
         "git",
@@ -56,13 +56,16 @@ class TestInferenceIsWiredToTheCommands(unittest.TestCase):
                 for call in calls:
                     self.assertIn("path", call)
 
-    def test_no_content_command_passes_a_path(self):
+    def test_no_content_command_infers_its_target(self):
+        # A content command that needs the deployment record passes a path for it,
+        # and has to turn inference off explicitly.
         for name, command in _commands_defined_in_main(cli.commands["content"]).items():
             subcommands = _commands_defined_in_main(command) if hasattr(command, "commands") else {"": command}
             for sub, subcommand in sorted(subcommands.items()):
                 with self.subTest("/".join(filter(None, (name, sub)))):
                     for call in _executor_keywords(subcommand.callback):
-                        self.assertNotIn("path", call)
+                        if "path" in call:
+                            self.assertIn("infer_target", call)
 
     # Environment-backed options that may affect target selection.
     ENVIRONMENT_VARIABLES = {
@@ -174,6 +177,16 @@ class TestRedeployTargetInference(unittest.TestCase):
         assert isinstance(server, api.RSConnectServer)
         self.assertEqual(server.url, "https://connect.example.com")
         self.assertEqual(server.api_key, "key")
+
+    def test_infer_target_false_leaves_the_record_alone(self):
+        # `content migrate-to-connect-cloud` passes a path for the record it rewrites.
+        self._connect()
+        self._cloud(default=True)
+        self._record("https://connect.example.com")
+
+        server = self._executor(infer_target=False).remote_server
+        assert isinstance(server, ConnectCloudServer)
+        self.assertEqual(server.server_name, "cloud")
 
     def test_a_cloud_record_wins_over_a_connect_default(self):
         self._cloud()
