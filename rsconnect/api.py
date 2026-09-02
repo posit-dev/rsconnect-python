@@ -2602,8 +2602,9 @@ for shinyapps.io. See command help for further details."
         target_key = self.record_server_key()
         fallback_key = self.record_server_key_fallback()
         existing = self.app_store.get(target_key)
-        if existing is None and fallback_key:
-            existing = self.app_store.get(fallback_key)
+        fallback_record = self.app_store.get(fallback_key) if fallback_key and fallback_key != target_key else None
+        if existing is None:
+            existing = fallback_record
         if existing and not overwrite:
             raise RSConnectException(
                 'A Posit Connect Cloud deployment record for account "%s" already exists in %s, for content %s. '
@@ -2646,6 +2647,12 @@ for shinyapps.io. See command help for further details."
                     "permission to publish to it, so the next deploy from this directory would "
                     "fail. Ask an account administrator for the publisher role." % account_name
                 )
+            # An account name can equal another account's id, so a record at the
+            # name-keyed location may be that account's id-keyed one. Asked here, while
+            # the client is open, and only when there is a record to judge.
+            remove_fallback = fallback_record is not None and (
+                service.account_for_id(self.remote_server.account_name) is None
+            )
 
         title = content.get("title") or (source or {}).get("title") or self.title
         self.app_store.set(
@@ -2669,11 +2676,10 @@ for shinyapps.io. See command help for further details."
         # supported setup, so that record is kept.
         if source and _is_shinyapps_record(source):
             self.app_store.remove(source["server_url"])
-        # The name-keyed record is the same account's, now superseded by the id-keyed
-        # one -- the same migration a deploy's write performs. The keys coincide when
-        # the account's name equals its id, and removing it then would delete the
-        # record just written.
-        if fallback_key and fallback_key != target_key:
+        # The name-keyed record is this account's, now superseded by the id-keyed one --
+        # the same migration a deploy's write performs. Kept when the name is another
+        # account's id, because the record is then that account's and still live.
+        if fallback_key and remove_fallback:
             self.app_store.remove(fallback_key)
 
         record = self.app_store.get(target_key)

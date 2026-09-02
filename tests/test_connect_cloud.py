@@ -2819,6 +2819,23 @@ class TestConnectCloudMigrate(unittest.TestCase):
         self.assertEqual(saved.get(MIGRATED_KEY)["app_id"], "c1")
         self.assertIsNone(saved.get("%s#acme" % API))
 
+    def test_overwrite_keeps_a_record_whose_key_is_another_accounts_id(self):
+        # An account name can equal another account's id, so the name-keyed location
+        # can hold that account's own record, pointing at content that still exists.
+        self._record("%s#acme" % API, app_id="theirs")
+        executor = self._executor()
+        executor.client.get_accounts.return_value = [
+            {"id": "acct-1", "name": "acme"},
+            {"id": "acme", "name": "other"},
+        ]
+
+        record = executor.migrate_to_connect_cloud("c1", overwrite=True)
+
+        self.assertEqual(record["server_url"], MIGRATED_KEY)
+        saved = self._store()
+        self.assertEqual(saved.get(MIGRATED_KEY)["app_id"], "c1")
+        self.assertEqual(saved.get("%s#acme" % API)["app_id"], "theirs")
+
     def test_overwrite_replaces_the_existing_cloud_record(self):
         self._record(MIGRATED_KEY, app_id="other")
 
