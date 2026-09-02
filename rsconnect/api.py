@@ -1294,6 +1294,31 @@ def _record_server_url(record: AppMetadata) -> str:
     return record.get("server_url", "").split("#")[0].rstrip("/")
 
 
+def _names_a_server(value: str) -> bool:
+    """Whether a --from-server value identifies a server on its own.
+
+    A URL does, and so does a pseudo server name the alias table resolves -- in
+    either spelling, since a trailing slash is accepted. Nothing validates
+    nicknames, so one spelled like any of those must not shadow it.
+    """
+    stripped = value.rstrip("/")
+    return "://" in value or resolve_server_alias(value) != value or resolve_server_alias(stripped) != stripped
+
+
+def _migration_source_keys(from_server: str) -> tuple[str, str]:
+    """The record key a --from-server value names, as given and slash-insensitive.
+
+    A saved nickname names a server as well as a URL does, and records are keyed by
+    the URL, so the store has to be consulted for a bare name.
+    """
+    named = resolve_server_alias(from_server)
+    if not _names_a_server(from_server):
+        entry = ServerStore().get_by_name(from_server)
+        if entry:
+            named = entry["url"]
+    return named, resolve_server_alias(named.rstrip("/")).rstrip("/")
+
+
 def _is_shinyapps_record(record: AppMetadata) -> bool:
     """Whether a deployment record points at shinyapps.io."""
     return _record_server_url(record) == SHINYAPPS_API_URL
@@ -2280,13 +2305,11 @@ for shinyapps.io. See command help for further details."
         ]
 
         if from_server:
+            named, target = _migration_source_keys(from_server)
             # An exact key wins: records can exist for both slash variants of one URL,
             # and then only the spelling the user typed tells them apart.
-            named = resolve_server_alias(from_server)
             matches = [record for record in candidates if record.get("server_url") == named]
             if not matches:
-                # The shinyapps.io short name resolves by exact comparison, so strip first.
-                target = resolve_server_alias(from_server.rstrip("/")).rstrip("/")
                 matches = [record for record in candidates if _record_server_url(record) == target]
             if not matches:
                 raise RSConnectException(

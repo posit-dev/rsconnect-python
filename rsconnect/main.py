@@ -4932,8 +4932,9 @@ content URL: https://connect.posit.cloud/{account}/content/{content-id}.",
 )
 @click.option(
     "--from-server",
-    help="The URL of the deployment record to migrate, such as `shinyapps.io`. Only needed when \
-the local deployment records cover more than one server.",
+    help="The deployment record to migrate, named by a saved server's nickname or its URL \
+(`shinyapps.io` works too). Only needed when the local deployment records cover more than \
+one server.",
 )
 @click.option(
     "--overwrite",

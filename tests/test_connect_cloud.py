@@ -2595,6 +2595,11 @@ class TestConnectCloudMigrate(unittest.TestCase):
         self.addCleanup(tempdir.cleanup)
         self.app_dir = tempdir.name
         self.store_file = fake_module_file_from_directory(self.app_dir)
+        # --from-server resolves a nickname, so keep the real saved servers out of it.
+        self.server_store = ServerStore(base_dir=tempfile.mkdtemp())
+        store_patch = mock.patch("rsconnect.api.ServerStore", return_value=self.server_store)
+        store_patch.start()
+        self.addCleanup(store_patch.stop)
 
     def _store(self) -> AppStore:
         return AppStore(self.store_file)
@@ -2912,6 +2917,89 @@ class TestConnectCloudMigrate(unittest.TestCase):
 
         self.assertIn("Several deployment records match", str(context.exception))
         self.assertIn("Pass the record's URL exactly", str(context.exception))
+
+    def test_from_server_accepts_a_saved_nickname(self):
+        CONNECT = "https://connect.example.com"
+        self.server_store.set("prod", CONNECT, api_key="key")
+        self._record(SHINYAPPS)
+        self._record(CONNECT, app_id="17", app_mode=AppModes.PYTHON_API)
+
+        record = self._executor().migrate_to_connect_cloud("c1", from_server="prod")
+
+        # The mode proves which record was the source.
+        self.assertEqual(record["app_mode"], "python-api")
+        saved = self._store()
+        self.assertIsNotNone(saved.get(CONNECT), "the Connect record must survive")
+        self.assertIsNotNone(saved.get(SHINYAPPS), "an unselected record is untouched")
+
+    def test_a_nickname_for_a_shinyapps_server_still_removes_its_record(self):
+        # The nickname does not say "shinyapps.io", but it resolves to the same URL,
+        # and that record's content is what was migrated away.
+        self.server_store.set("sa", SHINYAPPS, account_name="acme", token="t", secret="c2VjcmV0")
+        self._record(SHINYAPPS)
+        self._record("https://connect.example.com")
+
+        self._executor().migrate_to_connect_cloud("c1", from_server="sa")
+
+        saved = self._store()
+        self.assertIsNone(saved.get(SHINYAPPS), "the migrated-from record should be gone")
+        self.assertIsNotNone(saved.get("https://connect.example.com"))
+
+    def test_a_nickname_does_not_shadow_the_shinyapps_server_name(self):
+        # Nothing validates nicknames, so a server can be called "shinyapps.io". The
+        # pseudo server name still wins, or the value would name a different record
+        # than it says -- and the dead shinyapps.io record would survive.
+        CONNECT = "https://connect.example.com"
+        self.server_store.set("shinyapps.io", CONNECT, api_key="key")
+        self._record(SHINYAPPS)
+        self._record(CONNECT, app_id="17", app_mode=AppModes.PYTHON_API)
+
+        record = self._executor().migrate_to_connect_cloud("c1", from_server="shinyapps.io")
+
+        self.assertEqual(record["app_mode"], "python-shiny")
+        saved = self._store()
+        self.assertIsNone(saved.get(SHINYAPPS), "the shinyapps.io record is the source")
+        self.assertIsNotNone(saved.get(CONNECT), "the Connect record must survive")
+
+    def test_a_nickname_does_not_shadow_the_slashed_shinyapps_server_name(self):
+        # `shinyapps.io/` is an accepted spelling of the pseudo server name, so a
+        # nickname spelled that way must not claim it either.
+        CONNECT = "https://connect.example.com"
+        self.server_store.set("shinyapps.io/", CONNECT, api_key="key")
+        self._record(SHINYAPPS)
+        self._record(CONNECT, app_id="17", app_mode=AppModes.PYTHON_API)
+
+        record = self._executor().migrate_to_connect_cloud("c1", from_server="shinyapps.io/")
+
+        self.assertEqual(record["app_mode"], "python-shiny")
+        saved = self._store()
+        self.assertIsNone(saved.get(SHINYAPPS), "the shinyapps.io record is the source")
+        self.assertIsNotNone(saved.get(CONNECT), "the Connect record must survive")
+
+    def test_a_url_shaped_nickname_does_not_shadow_the_url(self):
+        # The reverse collision, where the nickname would have selected the record
+        # that gets removed.
+        CONNECT = "https://connect.example.com"
+        self.server_store.set(SHINYAPPS, CONNECT, api_key="key")
+        self._record(SHINYAPPS)
+        self._record(CONNECT, app_id="17", app_mode=AppModes.PYTHON_API)
+
+        record = self._executor().migrate_to_connect_cloud("c1", from_server=SHINYAPPS)
+
+        self.assertEqual(record["app_mode"], "python-shiny")
+        self.assertIsNone(self._store().get(SHINYAPPS))
+        self.assertIsNotNone(self._store().get(CONNECT), "the Connect record must survive")
+
+    def test_a_nickname_whose_server_has_no_record_is_reported(self):
+        self.server_store.set("other", "https://other.example.com", api_key="key")
+        self._record(SHINYAPPS)
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor().migrate_to_connect_cloud("c1", from_server="other")
+
+        self.assertIn("No deployment record", str(context.exception))
+        self.assertIn(SHINYAPPS, str(context.exception))
+        self.assertIsNotNone(self._store().get(SHINYAPPS))
 
     def test_from_server_that_matches_no_record_is_reported(self):
         self._record(SHINYAPPS)
