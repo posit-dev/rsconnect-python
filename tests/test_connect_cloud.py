@@ -2858,6 +2858,61 @@ class TestConnectCloudMigrate(unittest.TestCase):
         self.assertIsNotNone(saved.get(SHINYAPPS), "an unselected record is untouched")
         self.assertIsNotNone(saved.get(MIGRATED_KEY))
 
+    def test_from_server_matches_a_record_stored_with_a_trailing_slash(self):
+        # Record keys are the server URL as it was typed at deploy time, so one can
+        # carry a trailing slash the user does not repeat here.
+        self._record(SHINYAPPS)
+        self._record("https://connect.example.com/")
+
+        self._executor().migrate_to_connect_cloud("c1", from_server="https://connect.example.com")
+
+        saved = self._store()
+        self.assertIsNotNone(saved.get("https://connect.example.com/"), "the Connect record must survive")
+        self.assertIsNotNone(saved.get(MIGRATED_KEY))
+
+    def test_from_server_with_a_trailing_slash_matches_a_record_without_one(self):
+        self._record(SHINYAPPS)
+        self._record("https://connect.example.com")
+
+        self._executor().migrate_to_connect_cloud("c1", from_server="https://connect.example.com/")
+
+        saved = self._store()
+        self.assertIsNotNone(saved.get("https://connect.example.com"), "the Connect record must survive")
+        self.assertIsNotNone(saved.get(MIGRATED_KEY))
+
+    def test_the_shinyapps_short_name_matches_with_a_trailing_slash(self):
+        self._record(SHINYAPPS)
+        self._record("https://connect.example.com")
+
+        self._executor().migrate_to_connect_cloud("c1", from_server="shinyapps.io/")
+
+        saved = self._store()
+        self.assertIsNone(saved.get(SHINYAPPS), "the migrated-from record should be gone")
+        self.assertIsNotNone(saved.get("https://connect.example.com"))
+
+    def test_from_server_picks_the_slash_variant_it_names(self):
+        # Both spellings are separate record keys, and a deploy's lookup is keyed
+        # exactly, so one directory can hold a record for each. Only the spelling
+        # passed here tells them apart.
+        CONNECT = "https://connect.example.com"
+        self._record(CONNECT, app_id="11", app_mode=AppModes.PYTHON_API)
+        self._record(CONNECT + "/", app_id="22", app_mode=AppModes.PYTHON_SHINY)
+
+        self.assertEqual(self._executor().migration_source_record(from_server=CONNECT)["app_id"], "11")
+        self.assertEqual(self._executor().migration_source_record(from_server=CONNECT + "/")["app_id"], "22")
+
+    def test_several_records_matching_one_server_are_reported(self):
+        # Nothing exactly matches what was typed, and normalizing reaches both, so
+        # the choice belongs to the user rather than to record order.
+        self._record("https://connect.example.com/")
+        self._record("https://connect.example.com//")
+
+        with self.assertRaises(RSConnectException) as context:
+            self._executor().migration_source_record(from_server="https://connect.example.com")
+
+        self.assertIn("Several deployment records match", str(context.exception))
+        self.assertIn("Pass the record's URL exactly", str(context.exception))
+
     def test_from_server_that_matches_no_record_is_reported(self):
         self._record(SHINYAPPS)
         executor = self._executor()

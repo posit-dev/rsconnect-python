@@ -1289,9 +1289,14 @@ def _record_server_list(records: list[AppMetadata]) -> str:
     return " Records exist for: %s." % ", ".join(servers)
 
 
+def _record_server_url(record: AppMetadata) -> str:
+    """The server a record's key names, without a Cloud account or trailing slash."""
+    return record.get("server_url", "").split("#")[0].rstrip("/")
+
+
 def _is_shinyapps_record(record: AppMetadata) -> bool:
     """Whether a deployment record points at shinyapps.io."""
-    return record.get("server_url", "").split("#")[0].rstrip("/") == SHINYAPPS_API_URL
+    return _record_server_url(record) == SHINYAPPS_API_URL
 
 
 class RSConnectExecutor:
@@ -2271,16 +2276,27 @@ for shinyapps.io. See command help for further details."
         candidates = [
             record
             for record in self.app_store.get_all()
-            if not connect_cloud.is_connect_cloud_url(record.get("server_url", "").split("#")[0])
+            if not connect_cloud.is_connect_cloud_url(_record_server_url(record))
         ]
 
         if from_server:
-            target = resolve_server_alias(from_server)
-            matches = [record for record in candidates if record.get("server_url") == target]
+            # An exact key wins: records can exist for both slash variants of one URL,
+            # and then only the spelling the user typed tells them apart.
+            named = resolve_server_alias(from_server)
+            matches = [record for record in candidates if record.get("server_url") == named]
+            if not matches:
+                # The shinyapps.io short name resolves by exact comparison, so strip first.
+                target = resolve_server_alias(from_server.rstrip("/")).rstrip("/")
+                matches = [record for record in candidates if _record_server_url(record) == target]
             if not matches:
                 raise RSConnectException(
                     'No deployment record for server "%s" in %s.%s'
                     % (from_server, self.app_store.get_path(), _record_server_list(candidates))
+                )
+            if len(matches) > 1:
+                raise RSConnectException(
+                    'Several deployment records match server "%s" in %s. Pass the record\'s URL '
+                    "exactly.%s" % (from_server, self.app_store.get_path(), _record_server_list(matches))
                 )
             return matches[0]
 
