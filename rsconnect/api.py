@@ -28,6 +28,7 @@ from typing import (
     List,
     Literal,
     Mapping,
+    NamedTuple,
     Optional,
     TypeVar,
     Union,
@@ -1281,6 +1282,18 @@ class ServerDetails(TypedDict):
     python: ServerDetailsPython
 
 
+class RecordTarget(NamedTuple):
+    """A target inferred from one deployment record."""
+
+    name: str
+    # An account id or legacy name, resolved against Connect Cloud before deploy.
+    record_account: Optional[str]
+    # The saved credential's account name, when the record key matches it.
+    saved_account: Optional[str]
+    # Reported only after the current options accept the inferred target.
+    description: str
+
+
 def _record_server_list(records: list[AppMetadata]) -> str:
     """The servers a set of deployment records covers, for an error message."""
     servers = sorted(record.get("server_url", "") for record in records)
@@ -1361,6 +1374,7 @@ class RSConnectExecutor:
         subdirectory: Optional[str] = None,
         polling: bool = True,
         quarto_inputs: Optional[List[str]] = None,
+        infer_target: Optional[bool] = None,
     ) -> None:
         self.remote_server: TargetableServer
         self.client: RSConnectClient | PositClient | ConnectCloudClient
@@ -1407,6 +1421,9 @@ class RSConnectExecutor:
 
         self.logger: logging.Logger | None = logger
         self.ctx = ctx
+        # Connect Cloud account state carried from inference through validation.
+        self.record_account: Optional[str] = None
+        self.record_account_named: bool = False
         self.setup_remote_server(
             ctx=ctx,
             name=name,
@@ -1422,6 +1439,10 @@ class RSConnectExecutor:
             client_id=client_id,
             client_secret=client_secret,
             use_connect_cloud=use_connect_cloud,
+            # A deployment path is what there is to infer from, but a command that
+            # only reads or rewrites the record must not have its target inferred
+            # from it, so it passes infer_target=False alongside the path.
+            infer_target=(path is not None) if infer_target is None else infer_target,
         )
         self.setup_client(cookies)
 
@@ -1505,6 +1526,92 @@ class RSConnectExecutor:
             self.logger.warning(f">> stored {cli_param} value overrides the {cli_param} value from {sourceName}\n")
         return new_previous
 
+    _NAME_A_TARGET = "Pass -n/--name, -s/--server, or --connect-cloud with -A/--account, to say where to deploy."
+    # Only a nickname distinguishes saved credentials that share a URL.
+    _NAME_A_CREDENTIAL = "Pass -n/--name to choose one of them."
+    # Cloud retries also need -A to preserve the record's account.
+    _NAME_A_CLOUD_CREDENTIAL = (
+        "Pass -n/--name to choose one of them, with -A/--account alongside it to publish "
+        "to an account other than the one the credential was saved with."
+    )
+
+    @staticmethod
+    def _target_required_error(decline_reason: str, remedy: str = _NAME_A_TARGET) -> RSConnectException:
+        """The error for a directory with deployment history that cannot be used."""
+        return RSConnectException(
+            "This directory has been deployed before, but %s, so the target has to be named. %s"
+            % (decline_reason, remedy)
+        )
+
+    def _target_from_deployment_record(
+        self, store: ServerStore
+    ) -> tuple[Optional[RecordTarget], Optional[RSConnectException]]:
+        """Infer a target from the directory's sole deployment record.
+
+        Returns either a target or the reason existing history cannot be used.
+        """
+        if self.new:
+            logger.debug("--new was given, so the deployment records name no target.")
+            return None, None
+        records = self.app_store.get_all()
+        if len(records) != 1:
+            logger.debug(
+                "Not taking the target from this directory's deployment history: %d records found." % len(records)
+            )
+            if not records:
+                return None, None
+            return None, self._target_required_error("it has %d deployment records" % len(records))
+        # Connect Cloud keys append the account after "#".
+        key = records[0].get("server_url") or ""
+        record_url, _, record_account = key.partition("#")
+        try:
+            entry = store.get_by_url(record_url)
+        except RSConnectException as exc:
+            logger.debug("Not taking the target from the deployment record for %s: %s" % (key, exc))
+            return None, self._target_required_error(
+                "several saved Posit Connect Cloud credentials share the URL it was deployed to",
+                self._NAME_A_CLOUD_CREDENTIAL,
+            )
+        if entry is None:
+            logger.debug("Not taking the target from the deployment record: no saved server for %s." % record_url)
+            return None, self._target_required_error(
+                "the server it was last deployed to, %s, is no longer saved" % record_url
+            )
+        # A shared URL cannot identify one saved credential.
+        sharing_the_url = [saved for saved in store.get_all_servers() if saved.get("url") == entry["url"]]
+        if len(sharing_the_url) > 1:
+            logger.debug(
+                "Not taking the target from the deployment record for %s: %d saved servers share the URL."
+                % (key, len(sharing_the_url))
+            )
+            return None, self._target_required_error(
+                "%d saved credentials share the URL it was last deployed to, %s" % (len(sharing_the_url), record_url),
+                self._NAME_A_CREDENTIAL,
+            )
+        saved_account = entry.get("connect_cloud_account_name")
+        if record_account and not saved_account:
+            logger.debug(
+                "Not taking the target from the deployment record for %s: the saved server is not a "
+                "Posit Connect Cloud credential." % key
+            )
+            return None, self._target_required_error(
+                "the credential saved for %s is not a Posit Connect Cloud one" % record_url
+            )
+        # The server must resolve id/name collisions even when the saved account matches.
+        named_account = (
+            saved_account
+            if record_account and record_account in (entry.get("connect_cloud_account_id"), saved_account)
+            else None
+        )
+        if not record_account:
+            described = '"%s" (%s)' % (entry["name"], entry["url"])
+        elif named_account:
+            described = '"%s" (Posit Connect Cloud account "%s")' % (entry["name"], named_account)
+        else:
+            # Do not display an unresolved account id as a name.
+            described = '"%s" (Posit Connect Cloud)' % entry["name"]
+        return RecordTarget(entry["name"], record_account or None, named_account, described), None
+
     def setup_remote_server(
         self,
         ctx: Optional[click.Context],
@@ -1521,8 +1628,24 @@ class RSConnectExecutor:
         client_id: Optional[str] = None,
         client_secret: Optional[str] = None,
         use_connect_cloud: bool = False,
+        infer_target: bool = False,
     ):
         store = ServerStore()
+        # Cleared rather than only initialized in __init__, so that calling this
+        # again on an existing executor cannot keep the previous target's account.
+        self.record_account = None
+        self.record_account_named = False
+        # Logged at the end of this method, not here: validation below can still reject
+        # the inferred target, and the redeploy message would contradict the error.
+        inferred_description: str | None = None
+        # Whether account_name came from the deployment record. Click still reports -A's
+        # own source, so effective_connect_cloud_account would otherwise replace the
+        # record's account with CONNECT_CLOUD_ACCOUNT.
+        account_from_record = False
+
+        def _source(param: str) -> str:
+            return validation.get_parameter_source_name_from_ctx(param, ctx)
+
         # --connect-cloud takes precedence over CONNECT_SERVER whatever that
         # variable holds, including a Connect Cloud URL for another environment.
         # Only an explicitly *typed* Connect Cloud API URL survives the flag,
@@ -1546,11 +1669,75 @@ class RSConnectExecutor:
                 token = None
             if validation.get_parameter_source_name_from_ctx("secret", ctx) == "ENVIRONMENT":
                 secret = None
-        # Normalized before validation so the required-account check and the
-        # store lookup below both judge the corrected value. Nickname and
-        # default-server deploys cannot reach here with an environment-sourced
-        # -A: it is dropped above (nickname) or rejected by validation (default).
-        if use_connect_cloud or connect_cloud.is_connect_cloud_url(target_url):
+        # A target named on this run -- by option or by environment variable -- suppresses
+        # inference from the deployment history, which otherwise outranks the default server.
+        supplied_targets = [
+            # Labelled with click's source: the debug message below says why the record
+            # went unused, so naming an option the user never typed would mislead.
+            label if param is None or ctx is None else "%s (from %s)" % (label, _source(param))
+            for label, param, value in (
+                ("-n/--name", "name", name),
+                ("-s/--server", "server", url),
+                ("--connect-cloud", "connect_cloud", use_connect_cloud),
+                ("-A/--account", "account", account_name),
+                ("-T/--token", "token", token),
+                ("-S/--secret", "secret", secret),
+                ("CONNECT_CLOUD_ACCOUNT", None, validation.effective_connect_cloud_account(ctx, None)),
+            )
+            if value
+        ]
+        # Account-only environment values do not identify a server.
+        typed_account = bool(account_name) and _source("account") != "ENVIRONMENT"
+        env_account_only = bool(
+            (account_name or validation.effective_connect_cloud_account(ctx, None))
+            and not typed_account
+            and not (name or url or use_connect_cloud or token or secret)
+        )
+        # Skipping inference: infer_target means this command has a directory to infer
+        # from, and supplied_targets means something already named a target. The
+        # exception is an environment-sourced account, which names no server and so
+        # must not suppress the record. The elif below is where the record is applied.
+        if infer_target and supplied_targets and not env_account_only:
+            logger.debug(
+                "Not taking the target from this directory's deployment history: %s given."
+                % ", ".join(supplied_targets)
+            )
+            # A lone -A cannot identify a credential; history can provide a useful hint.
+            if (
+                account_name
+                and not (name or url or use_connect_cloud or token or secret)
+                and not (api_key or insecure or cacert or snowflake_connection_name)
+                and not validation.typed_connect_only_deploy_options(ctx)
+            ):
+                inferred, decline = self._target_from_deployment_record(store)
+                if inferred is not None and inferred.record_account is not None:
+                    raise RSConnectException(
+                        "-A/--account selects the Posit Connect Cloud account to publish to, and needs "
+                        "-n/--name or --connect-cloud alongside it to say which credential to use. This "
+                        "directory was last deployed to %s; try -n %s -A %s."
+                        % (inferred.description, shlex.quote(inferred.name), shlex.quote(account_name))
+                    )
+                if inferred is not None:
+                    raise RSConnectException(
+                        "-A/--account names an account to publish to, not a server. This directory was "
+                        "last deployed to %s; drop -A/--account to redeploy there, or name a target "
+                        "with -n/--name or -s/--server." % inferred.description
+                    )
+                if decline is not None:
+                    raise decline
+        elif infer_target:
+            inferred, decline = self._target_from_deployment_record(store)
+            if inferred is not None:
+                name = inferred.name
+                account_name = inferred.saved_account or inferred.record_account
+                account_from_record = account_name is not None
+                inferred_description = inferred.description
+                self.record_account = inferred.record_account
+                self.record_account_named = inferred.saved_account is not None
+            elif decline is not None:
+                raise decline
+        # Normalize before validation and store lookup.
+        if not account_from_record and (use_connect_cloud or connect_cloud.is_connect_cloud_url(target_url)):
             account_name = validation.effective_connect_cloud_account(ctx, account_name)
         validation.validate_connection_options(
             ctx=ctx,
@@ -1669,11 +1856,13 @@ class RSConnectExecutor:
         # environment-sourced SHINYAPPS_ACCOUNT must not (CONNECT_CLOUD_ACCOUNT
         # does). For targets named upfront this is a no-op repeat of the
         # normalization before validation.
-        connect_cloud_account = (
-            validation.effective_connect_cloud_account(ctx, account_name)
-            if connect_cloud.is_connect_cloud_url(url)
-            else None
-        )
+        if not connect_cloud.is_connect_cloud_url(url):
+            connect_cloud_account = None
+        elif account_from_record:
+            # Do not replace the record account with an environment value.
+            connect_cloud_account = account_name
+        else:
+            connect_cloud_account = validation.effective_connect_cloud_account(ctx, account_name)
         connect_cloud_account = connect_cloud_account or server_data.connect_cloud_account_name
 
         if not connect_cloud_account:
@@ -1698,6 +1887,24 @@ See command help for further details."
                     "-A/--account, -T/--token, and -S/--secret must all be provided \
 for shinyapps.io. See command help for further details."
                 )
+            # A store entry carrying both a token and a secret is a shinyapps.io
+            # credential. Not the merged locals: an exported SHINYAPPS_TOKEN/SECRET can
+            # sit on a Connect entry, whose own api_key is then the real credential.
+            if server_data.from_store and server_data.token and server_data.secret:
+                # Reject typed Connect values and clear environment ones: the api_key
+                # branch below is tested first and would otherwise build a Connect
+                # server for this shinyapps.io URL.
+                validation.validate_shinyapps_incompatible_options(
+                    ctx,
+                    api_key=api_key,
+                    insecure=insecure,
+                    cacert=cacert,
+                    snowflake_connection_name=snowflake_connection_name,
+                )
+                api_key = None
+                insecure = False
+                cacert = None
+                snowflake_connection_name = None
             # Certificate data is only meaningful for the non-Cloud targets
             # below; read it here so a CONNECT_CA_CERTIFICATE exported for a
             # Connect server cannot fail a Connect Cloud deploy. Keyed off the
@@ -1776,6 +1983,12 @@ for shinyapps.io. See command help for further details."
         else:
             raise RSConnectException("Unable to infer Connect server type and setup server.")
 
+        if inferred_description:
+            logger.info(
+                "Redeploying to %s, from this directory's deployment history. "
+                "Pass -s/--server or -n/--name to deploy elsewhere." % inferred_description
+            )
+
     def setup_client(self, cookies: Optional[CookieJar] = None):
         if isinstance(self.remote_server, RSConnectServer):
             self.client = RSConnectClient(self.remote_server, cookies)
@@ -1823,7 +2036,18 @@ for shinyapps.io. See command help for further details."
             )
         with self.client:
             self.client.get_current_user()
-            if not self.remote_server.account_id and self.remote_server.account_name:
+            if self.record_account:
+                # Record keys may contain an account id or legacy name.
+                account = self.client.get_account_by_id_or_name(self.record_account)
+                already_named = self.record_account_named and account["name"] == self.remote_server.account_name
+                self.remote_server.account_name = account["name"]
+                self.remote_server.account_id = account["id"]
+                if not already_named:
+                    logger.info(
+                        'Publishing to the Posit Connect Cloud account "%s", from this directory\'s '
+                        "deployment history." % account["name"]
+                    )
+            elif not self.remote_server.account_id and self.remote_server.account_name:
                 # Deployment records are keyed by the account id (record_server_key),
                 # which a server saved before ids were recorded, or a divergent -A,
                 # does not have yet. Resolve it before validate_app_mode reads the
@@ -2246,13 +2470,12 @@ for shinyapps.io. See command help for further details."
     def record_server_key(self) -> str:
         """The key deployment records are stored under for this server.
 
-        Every Posit Connect Cloud server shares one API URL, so the account is
-        folded in: without it, deploying the same directory to a second account
-        would find the first account's record and silently update that account's
-        content instead. The account id is preferred over the name because
-        names can be changed in Connect Cloud; the name is used only when no id
-        is known (a divergent -A, or a server saved before ids were recorded
-        see record_server_key_fallback for reading those).
+        All Posit Connect Cloud accounts share one API URL, so the account is folded in:
+        without it, deploying the same directory to a second account would find the
+        first account's record and silently update that account's content instead. The
+        account id is preferred over the name because names can be changed in Connect
+        Cloud; the name is used only when no id is known -- a divergent -A, or a server
+        saved before ids were recorded. See record_server_key_fallback for reading those.
         """
         if isinstance(self.remote_server, ConnectCloudServer):
             account = self.remote_server.account_id or self.remote_server.account_name
@@ -2260,9 +2483,9 @@ for shinyapps.io. See command help for further details."
         return self.remote_server.url
 
     def record_server_key_fallback(self) -> Optional[str]:
-        """The name-keyed record location, for records written before an account
-        id was known. Consulted on reads when the id-keyed lookup finds nothing;
-        writes always use record_server_key, which migrates the record."""
+        """The name-keyed record location, for records written before an account id was
+        known. Consulted on reads when the id-keyed lookup finds nothing; writes always
+        use record_server_key, which migrates the record."""
         if isinstance(self.remote_server, ConnectCloudServer) and self.remote_server.account_id:
             return "%s#%s" % (self.remote_server.url, self.remote_server.account_name)
         return None
@@ -2277,8 +2500,9 @@ for shinyapps.io. See command help for further details."
         if deployed_info is None:
             raise RSConnectException("There is no deployment information to save.")
 
+        record_key = self.record_server_key()
         self.app_store.set(
-            self.record_server_key(),
+            record_key,
             abspath(self.path),
             deployed_info["app_url"],
             deployed_info["app_id"],
@@ -2286,6 +2510,15 @@ for shinyapps.io. See command help for further details."
             deployed_info["title"],
             self.app_mode,
         )
+        # Migrate a legacy name key only when it holds this content; the same string
+        # may be another account's id.
+        fallback_key = self.record_server_key_fallback()
+        if fallback_key and fallback_key != record_key:
+            previous = self.app_store.get(fallback_key)
+            if previous is not None and (previous.get("app_guid") or previous.get("app_id")) == (
+                deployed_info["app_guid"] or deployed_info["app_id"]
+            ):
+                self.app_store.remove(fallback_key)
 
     def migration_source_record(self, from_server: Optional[str] = None) -> Optional[AppMetadata]:
         """The deployment record being migrated away from, if there is one.
@@ -2369,8 +2602,9 @@ for shinyapps.io. See command help for further details."
         target_key = self.record_server_key()
         fallback_key = self.record_server_key_fallback()
         existing = self.app_store.get(target_key)
-        if existing is None and fallback_key:
-            existing = self.app_store.get(fallback_key)
+        fallback_record = self.app_store.get(fallback_key) if fallback_key and fallback_key != target_key else None
+        if existing is None:
+            existing = fallback_record
         if existing and not overwrite:
             raise RSConnectException(
                 'A Posit Connect Cloud deployment record for account "%s" already exists in %s, for content %s. '
@@ -2413,6 +2647,12 @@ for shinyapps.io. See command help for further details."
                     "permission to publish to it, so the next deploy from this directory would "
                     "fail. Ask an account administrator for the publisher role." % account_name
                 )
+            # An account name can equal another account's id, so a record at the
+            # name-keyed location may be that account's id-keyed one. Asked here, while
+            # the client is open, and only when there is a record to judge.
+            remove_fallback = fallback_record is not None and (
+                service.account_for_id(self.remote_server.account_name) is None
+            )
 
         title = content.get("title") or (source or {}).get("title") or self.title
         self.app_store.set(
@@ -2436,11 +2676,10 @@ for shinyapps.io. See command help for further details."
         # supported setup, so that record is kept.
         if source and _is_shinyapps_record(source):
             self.app_store.remove(source["server_url"])
-        # The name-keyed record is the same account's, now superseded by the id-keyed
-        # one -- the same migration a deploy's write performs. The keys coincide when
-        # the account's name equals its id, and removing it then would delete the
-        # record just written.
-        if fallback_key and fallback_key != target_key:
+        # The name-keyed record is this account's, now superseded by the id-keyed one --
+        # the same migration a deploy's write performs. Kept when the name is another
+        # account's id, because the record is then that account's and still live.
+        if fallback_key and remove_fallback:
             self.app_store.remove(fallback_key)
 
         record = self.app_store.get(target_key)
@@ -3317,37 +3556,63 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         return accounts
 
     def get_account_by_name(self, account_name: str) -> ConnectCloudAccount:
-        """Look up an account to publish to, by name.
+        """Look up an account to publish to, by name."""
+        accounts = self.get_accounts()
+        match = next((account for account in accounts if account.get("name") == account_name), None)
+        if match is None:
+            raise self._no_such_account(accounts, 'No Posit Connect Cloud account named "%s".' % account_name)
+        return self._publishable(match)
 
-        An account the caller can see but not publish to is reported separately from
-        one that does not exist, so the two have different remedies: ask for the
-        publisher role, versus fix the name.
+    def get_account_by_id_or_name(self, account: str) -> ConnectCloudAccount:
+        """Look up the account a deployment record names.
+
+        Legacy keys contain names, so an id/name collision is ambiguous.
         """
         accounts = self.get_accounts()
+        by_id = next((candidate for candidate in accounts if candidate.get("id") == account), None)
+        by_name = next((candidate for candidate in accounts if candidate.get("name") == account), None)
+        if by_id is not None and by_name is not None and by_id is not by_name:
+            # -A alone does not identify a target, so include one in the suggestion.
+            target = (
+                ("-n %s" % shlex.quote(self._server.server_name)) if self._server.server_name else "--connect-cloud"
+            )
+            suggestions = ", or ".join("%s -A %s" % (target, shlex.quote(name)) for name in (by_id["name"], account))
+            raise RSConnectException(
+                'This directory\'s deployment history names the Posit Connect Cloud account "%s", which is '
+                'both the id of the account named "%s" and the name of another account. Rerun with %s to say '
+                "which one to publish to." % (account, by_id["name"], suggestions)
+            )
+        match = by_id or by_name
+        if match is None:
+            raise self._no_such_account(
+                accounts,
+                'No Posit Connect Cloud account matching "%s", from this directory\'s deployment history.' % account,
+            )
+        return self._publishable(match)
 
-        for account in accounts:
-            if account.get("name") == account_name:
-                if account.get("permissions") is None:
-                    # Says so rather than staying quiet, since this is the case where
-                    # the check below cannot do anything.
-                    logger.debug(
-                        "Posit Connect Cloud reported no permissions for account %s; "
-                        "skipping the publish permission check." % account_name
-                    )
-                if not self._can_publish(account):
-                    raise RSConnectException(
-                        'You have access to the Posit Connect Cloud account "%s" but do not have '
-                        "permission to publish to it. Ask an account administrator for the publisher role."
-                        % account_name
-                    )
-                return account
+    def _publishable(self, account: ConnectCloudAccount) -> ConnectCloudAccount:
+        """Return an account the caller may publish to."""
+        name = account.get("name")
+        if account.get("permissions") is None:
+            logger.debug(
+                "Posit Connect Cloud reported no permissions for account %s; "
+                "skipping the publish permission check." % name
+            )
+        if not self._can_publish(account):
+            raise RSConnectException(
+                'You have access to the Posit Connect Cloud account "%s" but do not have '
+                "permission to publish to it. Ask an account administrator for the publisher role." % name
+            )
+        return account
 
+    def _no_such_account(self, accounts: list[ConnectCloudAccount], not_found_message: str) -> RSConnectException:
+        """The error for an account that was not found, listing the ones that were."""
         names = sorted(a["name"] for a in accounts if a.get("name") and self._can_publish(a))
         if names:
             available = "You can publish to: %s." % ", ".join(names)
         else:
             available = "You do not have publish access to any Posit Connect Cloud accounts."
-        raise RSConnectException('No Posit Connect Cloud account named "%s". %s' % (account_name, available))
+        return RSConnectException("%s %s" % (not_found_message, available))
 
     @staticmethod
     def _can_publish(account: ConnectCloudAccount) -> bool:

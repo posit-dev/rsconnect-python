@@ -74,7 +74,7 @@ _CONNECT_ONLY_DEPLOY_OPTIONS: dict[str, str] = {
 }
 
 
-def _typed_connect_only_deploy_options(ctx: Optional[click.Context]) -> list[str]:
+def typed_connect_only_deploy_options(ctx: Optional[click.Context]) -> list[str]:
     """The Connect-only deploy options this command line passed.
 
     Judged by parameter source rather than by value: --disable-env-management-py
@@ -94,21 +94,22 @@ def _typed_connect_only_deploy_options(ctx: Optional[click.Context]) -> list[str
     ]
 
 
-def validate_connect_cloud_incompatible_options(
+def _reject_options_the_target_has_no_use_for(
     ctx: Optional[click.Context],
+    target: str,
     api_key: Optional[str],
     insecure: bool,
     cacert: Optional[str],
     snowflake_connection_name: Optional[str],
+    reject_connect_only_deploy_options: bool,
 ):
-    """Reject options that have no meaning on Posit Connect Cloud.
+    """Reject typed Posit Connect and SPCS options for another target.
 
-    validate_connection_options repeats the credential and SPCS checks, but only
-    when Connect Cloud is selected by flag or URL; a saved nickname or default
-    server is only identified as Connect Cloud after store resolution, so the
-    executor calls this afterwards. Environment-sourced values are ignored for
-    the same reason as elsewhere: a CONNECT_API_KEY exported for another target
-    is just the CI environment, not a request to use it here.
+    Only typed values: a CONNECT_API_KEY or CONNECT_INSECURE exported for another target
+    is the CI environment, not a request to use it here.
+
+    :param target: how to name the target in the error, e.g. "shinyapps.io".
+    :param reject_connect_only_deploy_options: also reject Connect deploy options.
     """
     present_connect_options = _get_present_options(
         {"-k/--api-key": api_key, "-i/--insecure": insecure, "-c/--cacert": cacert},
@@ -118,7 +119,7 @@ def validate_connect_cloud_incompatible_options(
     if present_connect_options:
         raise RSConnectException(
             f"Posit Connect options ({', '.join(present_connect_options)}) may not be passed \
-alongside Posit Connect Cloud. See command help for further details."
+alongside {target}. See command help for further details."
         )
     present_spcs_options = _get_present_options(
         {"--snowflake-connection-name": snowflake_connection_name}, ctx, ignore_sources=("ENVIRONMENT",)
@@ -126,14 +127,62 @@ alongside Posit Connect Cloud. See command help for further details."
     if present_spcs_options:
         raise RSConnectException(
             f"SPCS options ({', '.join(present_spcs_options)}) may not be passed \
-alongside Posit Connect Cloud. See command help for further details."
+alongside {target}. See command help for further details."
         )
-    connect_only_deploy_options = _typed_connect_only_deploy_options(ctx)
-    if connect_only_deploy_options:
-        raise RSConnectException(
-            f"Posit Connect options ({', '.join(connect_only_deploy_options)}) may not be passed \
-alongside Posit Connect Cloud. See command help for further details."
-        )
+    if reject_connect_only_deploy_options:
+        connect_only_deploy_options = typed_connect_only_deploy_options(ctx)
+        if connect_only_deploy_options:
+            raise RSConnectException(
+                f"Posit Connect options ({', '.join(connect_only_deploy_options)}) may not be passed \
+alongside {target}. See command help for further details."
+            )
+
+
+def validate_connect_cloud_incompatible_options(
+    ctx: Optional[click.Context],
+    api_key: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    snowflake_connection_name: Optional[str],
+):
+    """Reject options that have no meaning on Posit Connect Cloud.
+
+    This runs after stored targets are resolved, which command-line validation
+    cannot inspect.
+    """
+    _reject_options_the_target_has_no_use_for(
+        ctx,
+        "Posit Connect Cloud",
+        api_key,
+        insecure,
+        cacert,
+        snowflake_connection_name,
+        reject_connect_only_deploy_options=True,
+    )
+
+
+def validate_shinyapps_incompatible_options(
+    ctx: Optional[click.Context],
+    api_key: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    snowflake_connection_name: Optional[str],
+):
+    """Reject options that have no meaning on shinyapps.io.
+
+    This runs after stored targets are resolved. The caller must then clear ignored
+    values so they cannot select the Posit Connect client.
+    """
+    _reject_options_the_target_has_no_use_for(
+        ctx,
+        "shinyapps.io",
+        api_key,
+        insecure,
+        cacert,
+        snowflake_connection_name,
+        # shinyapps.io accepts and ignores these; rejecting them would break deploys that pass them.
+        reject_connect_only_deploy_options=False,
+    )
 
 
 def validate_connect_cloud_credential_options(

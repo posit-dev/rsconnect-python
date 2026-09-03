@@ -489,6 +489,46 @@ deployment. This means that you can keep running `rsconnect deploy notebook my-n
 as you develop new versions of your notebook. The same applies to other Python content
 types.
 
+#### Choosing the Target Server
+
+Deploy commands choose a target in this order:
+
+1. A command-line or environment target, such as `-n/--name`, `-s/--server`,
+   `--connect-cloud`, or complete shinyapps.io credentials.
+2. The directory's single deployment record, including its Posit Connect Cloud
+   account.
+3. The default server (`rsconnect server set-default`).
+
+This keeps redeployments tied to their directory even if the global default changes.
+`--new` ignores deployment records.
+
+An account named only by `CONNECT_CLOUD_ACCOUNT`, or by `SHINYAPPS_ACCOUNT` without
+its token and secret, is not a target because it names no server. A typed
+`-A/--account` also needs `-n/--name` or `--connect-cloud`.
+
+A directory with deployment history does not fall back to the default when its target
+cannot be inferred. Name the target explicitly if:
+
+- the directory has more than one recorded target;
+- the server it was deployed to is no longer saved;
+- more than one saved credential shares the server URL, which is always the case once
+  two Posit Connect Cloud or two shinyapps.io credentials are saved;
+- the deployment data names an account but the credential saved for that URL is not a
+  Posit Connect Cloud one.
+
+Use `-n/--name` to choose among credentials that share a URL — it is the only option
+that picks one credential out. `-s/--server` settles every other case above, but not
+this one: pointed at a shared URL it does not fail. For Posit Connect and shinyapps.io
+it takes whichever credential was saved first, so the deploy can go somewhere you did
+not intend. (Several saved Posit Connect Cloud credentials are reported instead, since
+only a nickname distinguishes them.)
+
+For Posit Connect Cloud, also pass `-A/--account` when publishing to a different
+account than the credential's saved account.
+
+The default applies only to a first deploy or `--new`. Without a default, those
+deployments must name a target.
+
 #### Forcing a New Deployment
 
 To bypass this behavior and force a new deployment, use the `--new` option:

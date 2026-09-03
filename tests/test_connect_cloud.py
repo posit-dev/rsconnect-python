@@ -13,7 +13,6 @@ from unittest import mock
 
 import click
 import httpretty
-from click.core import ParameterSource
 from click.testing import CliRunner
 
 from rsconnect import api, connect_cloud
@@ -32,14 +31,23 @@ from rsconnect.main import cli
 from rsconnect.metadata import AppStore, ServerData, ServerStore
 from rsconnect.models import AppModes
 from rsconnect.oauth import InvalidClientError, InvalidGrantError
-from rsconnect import validation
 from rsconnect.validation import validate_connection_options
 
+from .target_helpers import (
+    API,
+    ENV,
+    TYPED,
+    _cloud_entry,
+    _cloud_server,
+    _ctx,
+    _json_response,
+    _register_accounts,
+    _register_json,
+    _register_pages,
+    _setup_remote_server,
+    _store_with_cloud_entry,
+)
 from .utils import failing_keyring
-
-ENV = ParameterSource.ENVIRONMENT
-TYPED = ParameterSource.COMMANDLINE
-DEFAULT = ParameterSource.DEFAULT
 
 
 class TestConnectCloudEnvironments(unittest.TestCase):
@@ -333,113 +341,8 @@ class TestConnectCloudServerStore(unittest.TestCase):
         self.assertIsNone(data.connect_cloud_access_token)
 
 
-API = "https://api.connect.posit.cloud/v1"
-
-
 def _json_body(request):
     return json.loads(request.body.decode("utf-8"))
-
-
-def _ctx(**sources: ParameterSource) -> click.Context:
-    """A click context recording where each named parameter's value came from.
-
-    Each name is declared as an option, since validation distinguishes options
-    from same-named arguments.
-    """
-    params: list[click.Parameter] = [click.Option(["--%s" % param.replace("_", "-")]) for param in sources]
-    ctx = click.Context(click.Command("deploy", params=params))
-    for param, source in sources.items():
-        ctx.set_parameter_source(param, source)  # pyright: ignore[reportAttributeAccessIssue]
-    return ctx
-
-
-def _deploy_option_flags() -> Dict[str, set[frozenset[str]]]:
-    """The flags each `deploy` subcommand option is spelled with, by parameter name."""
-    flags: Dict[str, set[frozenset[str]]] = {}
-    for command in cli.commands["deploy"].commands.values():
-        for param in command.params:
-            if isinstance(param, click.Option) and param.name:
-                flags.setdefault(param.name, set()).add(frozenset(param.opts + param.secondary_opts))
-    return flags
-
-
-def _json_response(payload: Any, status: int = 200) -> Any:
-    return httpretty.Response(
-        body=json.dumps(payload), adding_headers={"Content-Type": "application/json"}, status=status
-    )
-
-
-def _register_json(method: Any, url: str, payload: Any, status: int = 200) -> None:
-    httpretty.register_uri(
-        method, url, body=json.dumps(payload), adding_headers={"Content-Type": "application/json"}, status=status
-    )
-
-
-def _register_pages(url: str, *pages: Any) -> None:
-    httpretty.register_uri(httpretty.GET, url, responses=[_json_response(p) for p in pages])
-
-
-def _register_accounts(*accounts: Any) -> None:
-    _register_json(httpretty.GET, f"{API}/accounts", {"data": list(accounts), "total": len(accounts)})
-
-
-def _cloud_entry(**fields: Any) -> ServerData:
-    """A resolved store entry for a saved Connect Cloud server named "cloud"."""
-    fields.setdefault("connect_cloud_account_name", "acme")
-    return ServerData("cloud", API, True, **fields)
-
-
-def _store_with_cloud_entry(**fields: Any) -> ServerStore:
-    """A temp-dir ServerStore holding one saved Connect Cloud server named "cloud"."""
-    store = ServerStore(base_dir=tempfile.mkdtemp())
-    fields.setdefault("connect_cloud_account_name", "acme")
-    fields.setdefault("connect_cloud_access_token", "at")
-    store.set("cloud", API, **fields)
-    return store
-
-
-def _setup_remote_server(
-    ctx: Optional[click.Context] = None,
-    store: Optional[ServerStore] = None,
-    resolve: Optional[ServerData] = None,
-    default: Optional[ServerData] = None,
-    has_cloud_account: Optional[bool] = None,
-    environ: Optional[Dict[str, str]] = None,
-    **kwargs: Any,
-) -> RSConnectExecutor:
-    """Run setup_remote_server on a bare executor with the store interactions mocked.
-
-    `store` replaces the ServerStore the executor opens; `resolve` short-circuits
-    the lookup with a prepared entry; `default` additionally makes that entry the
-    default server. `environ` replaces os.environ for the call.
-    """
-    executor = RSConnectExecutor.__new__(RSConnectExecutor)
-    executor.logger = None
-    executor.ctx = None
-    with contextlib.ExitStack() as stack:
-        stack.enter_context(mock.patch.object(api.RSConnectExecutor, "setup_client"))
-        if store is not None:
-            stack.enter_context(mock.patch("rsconnect.api.ServerStore", return_value=store))
-        if default is not None:
-            resolve = default
-            stack.enter_context(mock.patch.object(ServerStore, "get_default", return_value={"name": default.name}))
-        if resolve is not None:
-            stack.enter_context(mock.patch.object(ServerStore, "resolve", return_value=resolve))
-        if has_cloud_account is not None:
-            stack.enter_context(
-                mock.patch.object(ServerStore, "has_connect_cloud_account", return_value=has_cloud_account)
-            )
-        if environ is not None:
-            stack.enter_context(mock.patch.dict(os.environ, environ, clear=True))
-        executor.setup_remote_server(ctx=ctx, **kwargs)
-    return executor
-
-
-def _cloud_server(**kwargs: Any) -> ConnectCloudServer:
-    """Like _setup_remote_server, but returns the resulting ConnectCloudServer."""
-    server = _setup_remote_server(**kwargs).remote_server
-    assert isinstance(server, ConnectCloudServer)
-    return server
 
 
 def _validate_options(ctx: Optional[click.Context] = None, **overrides: Any) -> None:
@@ -1795,6 +1698,57 @@ class TestConnectCloudAccountVerification(unittest.TestCase):
         self.assertIn("You can publish to: publishable, unknown-permissions.", message)
         self.assertNotIn("view-only", message)
 
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_a_record_account_matching_both_an_id_and_a_name_is_reported(self):
+        # A record key does not distinguish an account id from a legacy name.
+        _register_accounts(
+            {"id": "9", "name": "acct-2", "permissions": ["content:create"]},
+            {"id": "acct-2", "name": "team-b", "permissions": ["content:create"]},
+        )
+        with self.client:
+            with self.assertRaises(RSConnectException) as context:
+                self.client.get_account_by_id_or_name("acct-2")
+
+        message = str(context.exception)
+        self.assertIn('both the id of the account named "team-b" and the name of another', message)
+        self.assertIn("Rerun with --connect-cloud -A team-b, or --connect-cloud -A acct-2", message)
+
+    def test_the_collision_suggestions_are_accepted_by_validation(self):
+        with self.subTest("nickname and account"):
+            _validate_options(name="cloud", connect_cloud=False, account_name="team-b")
+        with self.subTest("--connect-cloud and account"):
+            _validate_options(account_name="team-b", has_saved_connect_cloud_account=True)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_the_collision_suggestion_uses_the_saved_nickname(self):
+        client = ConnectCloudClient(ConnectCloudServer("acme", access_token="at", server_name="my cloud"))
+        _register_accounts(
+            {"id": "9", "name": "acct-2", "permissions": ["content:create"]},
+            {"id": "acct-2", "name": "team-b", "permissions": ["content:create"]},
+        )
+        with client:
+            with self.assertRaises(RSConnectException) as context:
+                client.get_account_by_id_or_name("acct-2")
+
+        self.assertIn("Rerun with -n 'my cloud' -A team-b, or -n 'my cloud' -A acct-2", str(context.exception))
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_a_record_account_falls_back_to_the_name(self):
+        _register_accounts(
+            {"id": "1", "name": "acme", "permissions": ["content:create"]},
+            {"id": "2", "name": "team-b", "permissions": ["content:create"]},
+        )
+        with self.client:
+            self.assertEqual(self.client.get_account_by_id_or_name("team-b")["id"], "2")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_a_record_account_that_cannot_publish_is_reported_as_such(self):
+        _register_accounts({"id": "acct-2", "name": "team-b", "permissions": ["content:read"]})
+        with self.client:
+            with self.assertRaises(RSConnectException) as context:
+                self.client.get_account_by_id_or_name("acct-2")
+        self.assertIn("do not have permission to publish to it", str(context.exception))
+
 
 class TestConnectCloudAddVerifiesAccount(CliTestCase):
     skip_account_check = False
@@ -2582,6 +2536,91 @@ class TestConnectCloudRecordKey(unittest.TestCase):
 
         self.assertEqual(executor.app_id, "c1")
 
+    def test_migrating_a_name_keyed_record_removes_it(self):
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        app_path = os.path.join(tempdir.name, "app.py")
+
+        store = AppStore(app_path)
+        store.set("%s#acme" % API, app_path, "u", "c1", None, "T", AppModes.PYTHON_SHINY)
+        store.save()
+
+        executor = RSConnectExecutor.__new__(RSConnectExecutor)
+        executor.remote_server = ConnectCloudServer("acme", account_id="acct-1")
+        executor.app_store = AppStore(app_path)
+        executor.path = app_path
+        executor.app_mode = AppModes.PYTHON_SHINY
+        executor.new = False
+        executor.deployed_info = {"app_url": "u", "app_id": "c1", "app_guid": None, "title": "T"}
+        executor.write_deployed_info()
+
+        keys = sorted(record["server_url"] for record in AppStore(app_path).get_all())
+        self.assertEqual(keys, ["%s#acct-1" % API])
+
+    def test_a_new_deploy_leaves_a_record_it_cannot_claim(self):
+        # A new content id cannot prove that the legacy record belongs to this account.
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        app_path = os.path.join(tempdir.name, "app.py")
+
+        store = AppStore(app_path)
+        store.set("%s#acme" % API, app_path, "u", "old", None, "T", AppModes.PYTHON_SHINY)
+        store.save()
+
+        executor = RSConnectExecutor.__new__(RSConnectExecutor)
+        executor.remote_server = ConnectCloudServer("acme", account_id="acct-1")
+        executor.app_store = AppStore(app_path)
+        executor.path = app_path
+        executor.app_mode = AppModes.PYTHON_SHINY
+        executor.new = True
+        executor.deployed_info = {"app_url": "u", "app_id": "fresh", "app_guid": None, "title": "T"}
+        executor.write_deployed_info()
+
+        keys = sorted(record["server_url"] for record in AppStore(app_path).get_all())
+        self.assertEqual(keys, ["%s#acct-1" % API, "%s#acme" % API])
+
+    def test_a_new_deploy_keeps_another_accounts_record(self):
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        app_path = os.path.join(tempdir.name, "app.py")
+
+        store = AppStore(app_path)
+        store.set("%s#acct-2" % API, app_path, "u", "ys-content", None, "T", AppModes.PYTHON_SHINY)
+        store.save()
+
+        executor = RSConnectExecutor.__new__(RSConnectExecutor)
+        executor.remote_server = ConnectCloudServer("acct-2", account_id="9")
+        executor.app_store = AppStore(app_path)
+        executor.path = app_path
+        executor.app_mode = AppModes.PYTHON_SHINY
+        executor.new = True
+        executor.deployed_info = {"app_url": "u", "app_id": "fresh", "app_guid": None, "title": "T"}
+        executor.write_deployed_info()
+
+        keys = sorted(record["server_url"] for record in AppStore(app_path).get_all())
+        self.assertEqual(keys, ["%s#9" % API, "%s#acct-2" % API])
+
+    def test_migrating_leaves_another_accounts_record_alone(self):
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        app_path = os.path.join(tempdir.name, "app.py")
+
+        store = AppStore(app_path)
+        store.set("%s#acct-2" % API, app_path, "u", "other", None, "T", AppModes.PYTHON_SHINY)
+        store.save()
+
+        executor = RSConnectExecutor.__new__(RSConnectExecutor)
+        executor.remote_server = ConnectCloudServer("acct-2", account_id="9")
+        executor.app_store = AppStore(app_path)
+        executor.path = app_path
+        executor.app_mode = AppModes.PYTHON_SHINY
+        executor.new = False
+        executor.deployed_info = {"app_url": "u", "app_id": "c1", "app_guid": None, "title": "T"}
+        executor.write_deployed_info()
+
+        keys = sorted(record["server_url"] for record in AppStore(app_path).get_all())
+        self.assertEqual(keys, ["%s#9" % API, "%s#acct-2" % API])
+
 
 SHINYAPPS = "https://api.shinyapps.io"
 MIGRATED_KEY = "%s#acct-1" % API
@@ -2779,6 +2818,23 @@ class TestConnectCloudMigrate(unittest.TestCase):
         saved = self._store()
         self.assertEqual(saved.get(MIGRATED_KEY)["app_id"], "c1")
         self.assertIsNone(saved.get("%s#acme" % API))
+
+    def test_overwrite_keeps_a_record_whose_key_is_another_accounts_id(self):
+        # An account name can equal another account's id, so the name-keyed location
+        # can hold that account's own record, pointing at content that still exists.
+        self._record("%s#acme" % API, app_id="theirs")
+        executor = self._executor()
+        executor.client.get_accounts.return_value = [
+            {"id": "acct-1", "name": "acme"},
+            {"id": "acme", "name": "other"},
+        ]
+
+        record = executor.migrate_to_connect_cloud("c1", overwrite=True)
+
+        self.assertEqual(record["server_url"], MIGRATED_KEY)
+        saved = self._store()
+        self.assertEqual(saved.get(MIGRATED_KEY)["app_id"], "c1")
+        self.assertEqual(saved.get("%s#acme" % API)["app_id"], "theirs")
 
     def test_overwrite_replaces_the_existing_cloud_record(self):
         self._record(MIGRATED_KEY, app_id="other")
@@ -3508,89 +3564,6 @@ class TestConnectCloudCredentialOptionsDeferred(unittest.TestCase):
         self.assertEqual(store.get_all_servers(), [])
 
 
-class TestConnectOnlyDeployOptions(unittest.TestCase):
-    """Deploy options that configure Posit Connect features Connect Cloud does not
-    have. Connect Cloud ignores them, so they are rejected rather than accepted and
-    dropped."""
-
-    OPTIONS = validation._CONNECT_ONLY_DEPLOY_OPTIONS
-
-    def test_the_list_covers_every_connect_only_option(self):
-        # Dropping an entry starts accepting that option on Connect Cloud, and would
-        # otherwise just remove its coverage from the tests below.
-        self.assertEqual(
-            set(self.OPTIONS),
-            {
-                "image",
-                "disable_env_management",
-                "env_management_py",
-                "env_management_r",
-                "env_management_node",
-                "node",
-                "draft",
-                "metadata",
-            },
-        )
-
-    def test_the_labels_name_options_the_deploy_commands_really_have(self):
-        declared = _deploy_option_flags()
-        for param, label in self.OPTIONS.items():
-            with self.subTest(param):
-                self.assertEqual(declared.get(param), {frozenset(label.split("/"))})
-
-    def test_each_is_rejected_with_the_flag(self):
-        for param, label in self.OPTIONS.items():
-            with self.subTest(param):
-                with self.assertRaises(RSConnectException) as context:
-                    _setup_remote_server(ctx=_ctx(**{param: TYPED}), account_name="acme", use_connect_cloud=True)
-                message = str(context.exception)
-                self.assertIn(label, message)
-                self.assertIn("may not be passed alongside Posit Connect Cloud", message)
-
-    def test_each_is_rejected_for_a_saved_cloud_nickname(self):
-        # A nickname is only known to name a Connect Cloud credential after the
-        # store lookup, which is why this is checked in the executor.
-        for param, label in self.OPTIONS.items():
-            with self.subTest(param):
-                with self.assertRaises(RSConnectException) as context:
-                    _setup_remote_server(
-                        ctx=_ctx(**{param: TYPED}), resolve=_cloud_entry(connect_cloud_access_token="at"), name="cloud"
-                    )
-                self.assertIn(label, str(context.exception))
-
-    def test_defaulted_options_are_accepted(self):
-        # --disable-env-management-py inverts to False when given and the shorthand
-        # sets the same parameters without being their source, so what the user
-        # typed can only be read from the parameter source.
-        _cloud_server(ctx=_ctx(image=DEFAULT, env_management_py=DEFAULT), account_name="acme", use_connect_cloud=True)
-
-    def test_a_connect_target_still_accepts_them(self):
-        store = ServerStore(base_dir=tempfile.mkdtemp())
-        store.set("prod", "https://connect.example.com", api_key="key")
-        executor = _setup_remote_server(ctx=_ctx(image=TYPED), store=store, name="prod")
-        self.assertIsInstance(executor.remote_server, api.RSConnectServer)
-
-    def test_draft_at_the_deploy_step_does_not_cite_a_connect_version(self):
-        # The CLI rejects --draft before this, but a programmatic caller has no
-        # click context to judge, and a Connect version says nothing to a target
-        # with no draft step.
-        executor = RSConnectExecutor.__new__(RSConnectExecutor)
-        executor.client = mock.Mock(spec=ConnectCloudClient)
-        with self.assertRaises(RSConnectException) as context:
-            executor.should_deploy_as_draft(draft=True, no_verify=False)
-        message = str(context.exception)
-        self.assertIn("only supported by Posit Connect", message)
-        self.assertNotIn("2025.06.0", message)
-
-    def test_a_same_named_argument_is_not_one_of_these_options(self):
-        # `environment add` takes a positional IMAGE, so a Connect Cloud nickname
-        # must reach that command's own "requires a Posit Connect server" error
-        # rather than be told it passed -I/--image.
-        command = cli.commands["environment"].commands["add"]
-        with command.make_context("add", ["my-image:1.0", "-n", "cloud"]) as ctx:
-            self.assertEqual(validation._typed_connect_only_deploy_options(ctx), [])
-
-
 class TestConnectCloudFindsSavedCredentialsByUrl(unittest.TestCase):
     """`--connect-cloud` and `-s connect.posit.cloud` must find a saved server.
 
@@ -4045,6 +4018,7 @@ class TestConnectCloudServerValidation(unittest.TestCase):
         executor.client.__exit__ = mock.Mock(return_value=False)
         executor.client.get_account_by_name.return_value = {"id": "acct-1", "name": "acme"}
         executor.visibility = visibility
+        executor.record_account = None
         return executor
 
     def test_visibility_is_accepted(self):

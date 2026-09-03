@@ -866,7 +866,11 @@ def bootstrap(
     "--set-default",
     is_flag=True,
     default=False,
-    help="Mark this server as the default (used when -n/--name and -s/--server are not specified).",
+    help=(
+        "Mark this server as the default, used when no target is named on the command "
+        "line or in the environment. A directory that has been deployed before "
+        "redeploys to its previous target instead."
+    ),
 )
 @click.pass_context
 def add(
@@ -1201,8 +1205,9 @@ def remove(
     "set-default",
     short_help="Set an already-saved server as the default.",
     help=(
-        "Mark an already-saved server as the default. The default is used when "
-        "neither -n/--name nor -s/--server is given to other commands. This only "
+        "Mark an already-saved server as the default. The default is used when no target "
+        "is named on the command line or in the environment, except that a directory "
+        "that has been deployed before redeploys to its previous target. This only "
         "updates local metadata; the server is not contacted. Prefer -n/--name; "
         "-s/--server must match the stored URL exactly."
     ),
@@ -4976,6 +4981,9 @@ def content_migrate_to_connect_cloud(
         client_secret=client_secret,
         use_connect_cloud=connect_cloud,
         path=file_or_directory,
+        # The record this command rewrites must not also choose the account it is
+        # pointed at; the Connect Cloud target has to be named.
+        infer_target=False,
     ).validate_server()
     if not isinstance(ce.remote_server, ConnectCloudServer):
         raise RSConnectException(
