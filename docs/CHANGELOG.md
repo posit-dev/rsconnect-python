@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- Deploys to Posit Connect Cloud now request the Python version the content needs,
+  instead of leaving Connect Cloud to fall back to Python 3.9. The version comes from
+  the same `.python-version`, `pyproject.toml`, or `setup.cfg` requirement that already
+  goes into the manifest; Connect Cloud does not read it out of the bundle. Connect
+  Cloud offers Python 3.9 through 3.14, and a project requiring something outside that
+  range now fails before the bundle is uploaded rather than during dependency
+  resolution. Content whose bundle has no Python keeps the version already set on it,
+  so a version chosen in the Connect Cloud UI survives a redeploy.
+
 ## [1.31.0] - 2026-09-08
 
 - Posit Connect Cloud is now a supported deployment target, alongside Posit

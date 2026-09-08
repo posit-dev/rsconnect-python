@@ -12,7 +12,11 @@ import os
 from typing import Any, NamedTuple, Optional
 from urllib.parse import urlparse
 
+from packaging.specifiers import InvalidSpecifier, Specifier, SpecifierSet
+from packaging.version import InvalidVersion, Version
+
 from .exception import RSConnectException
+from .log import logger
 from .oauth import (
     ACCESS_TOKEN_FIELD,
     CLIENT_SECRET_FIELD,
@@ -313,3 +317,104 @@ def credentials_from_keyring(url: str, nickname: str) -> tuple[Optional[str], Op
 def delete_credentials_from_keyring(url: str, nickname: str) -> None:
     """Delete a saved credential's secrets from the system keyring."""
     keyring_delete_values(keyring_key(url, nickname), _CREDENTIAL_FIELDS)
+
+
+# The MAJOR.MINOR values Connect Cloud accepts for a revision's python_version,
+# matching the RequestPythonVersion enum in its OpenAPI schema
+# (https://api.connect.posit.cloud/openapi.json). Ordered lowest first.
+PYTHON_VERSIONS = ("3.9", "3.10", "3.11", "3.12", "3.13", "3.14")
+
+
+def _clause_version(clause: Specifier) -> Optional[Version]:
+    """The version a single specifier clause names, or None if it cannot be parsed.
+
+    Strips the wildcard from "==3.11.*", which is not a version on its own.
+    """
+    try:
+        return Version(clause.version.rstrip("*").rstrip("."))
+    except InvalidVersion:
+        return None
+
+
+def _line_satisfies(minor: str, specifier: SpecifierSet) -> bool:
+    """Whether any patch release of a MAJOR.MINOR line satisfies the constraint.
+
+    Connect Cloud names only the minor line, never the patch it runs, so
+    ">=3.11.3" has to be judged against the whole 3.11 line rather than against
+    3.11.0 alone -- otherwise a constraint Connect Cloud can actually meet is
+    reported as unsupported.
+
+    A SpecifierSet exposes no interval to test a range against, so this tests the
+    patches the constraint itself names, one above each of them, and the bottom of
+    the line. Every edge of the region a PEP 440 constraint admits falls on one of
+    those, so a region with anything in it contains one of them.
+    """
+    line = Version(minor).release[:2]
+    patches = {0}
+    for clause in specifier:
+        version = _clause_version(clause)
+        if version is None or version.release[:2] != line:
+            continue
+        patch = version.release[2] if len(version.release) > 2 else 0
+        patches.update((patch, patch + 1))
+    return any(Version("%s.%d" % (minor, patch)) in specifier for patch in sorted(patches))
+
+
+def _minor_version(version: str) -> Optional[str]:
+    """The MAJOR.MINOR prefix of a version string, or None if it has no minor part."""
+    parts = version.strip().split(".")
+    if len(parts) < 2 or not parts[0].isdigit() or not parts[1].isdigit():
+        return None
+    return "%s.%s" % (parts[0], parts[1])
+
+
+def resolve_python_version(requires: Optional[str], local_version: Optional[str]) -> Optional[str]:
+    """Pick the Connect Cloud Python version for a deploy.
+
+    `requires` is the PEP 440 constraint from the manifest's
+    ``environment.python.requires``; `local_version` is the interpreter the
+    bundle was built against, from ``python.version``. Returns None when neither
+    is usable, which leaves the field off the request so Connect Cloud keeps
+    whatever the content already has.
+
+    The interpreter the content was built against wins when Connect Cloud offers
+    its MAJOR.MINOR and the constraint allows it, so a deploy reproduces the
+    development environment. Otherwise the lowest offered line satisfying the
+    constraint is used, which keeps ">=3.10" on the same version as Connect Cloud
+    adds newer ones.
+
+    Connect Cloud picks the patch itself, so a constraint that names one ("==3.11.14")
+    can only be honored as far as its minor line.
+    """
+    specifier = None
+    if requires:
+        try:
+            specifier = SpecifierSet(requires)
+        except InvalidSpecifier:
+            logger.warning(
+                "Ignoring the manifest's Python version requirement, which is not a valid "
+                "PEP 440 constraint: %s" % requires
+            )
+
+    if local_version:
+        local_minor = _minor_version(local_version)
+        try:
+            allowed = specifier is None or Version(local_version) in specifier
+        except InvalidVersion:
+            allowed = False
+            local_minor = None
+        if local_minor in PYTHON_VERSIONS and allowed:
+            return local_minor
+
+    if specifier is None:
+        return None
+
+    for candidate in PYTHON_VERSIONS:
+        if _line_satisfies(candidate, specifier):
+            return candidate
+
+    raise RSConnectException(
+        "This content requires Python %s, which Posit Connect Cloud does not offer. "
+        "Supported versions are %s. Change the requirement in .python-version, "
+        "pyproject.toml, or setup.cfg." % (requires, ", ".join(PYTHON_VERSIONS))
+    )
