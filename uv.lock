@@ -4,8 +4,8 @@ requires-python = ">=3.8"
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
     "python_full_version >= '3.8.1' and python_full_version < '3.9'",
@@ -96,8 +96,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -177,8 +177,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5e/a7/a7dd63622beef68cc0d3c3c36d472e143dd95443d5ebf14cd1a5b4dfbf11/backrefs-7.0.tar.gz", hash = "sha256:4989bb9e1e99eb23647c7160ed51fb21d0b41b5d200f2d3017da41e023097e82", size = 7012453, upload-time = "2026-04-28T16:28:04.215Z" }
@@ -254,8 +254,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -554,8 +554,8 @@ version = "3.0.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c8/72/42a6570fc61b1f8913529728ad314c7cf5961540728dcad22c33fb2db6b6/cloudpickle-3.0.0.tar.gz", hash = "sha256:996d9a482c6fb4f33c1a35335cf8afd065d2a56e973270364840712d9131a882", size = 21231, upload-time = "2023-10-16T12:51:26.352Z" }
@@ -795,8 +795,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b4/91/0a7c28934e50d8ac9a7b117712d176f2953c3170bccced5eaacfa3e96175/coverage-7.14.3.tar.gz", hash = "sha256:1a7563a443f3d53fdeb040ec8c9f7466aed7ca3dc5891aa09d3ca3625fa4387f", size = 924398, upload-time = "2026-06-22T23:10:25.584Z" }
@@ -1001,8 +1001,8 @@ version = "46.0.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -1141,8 +1141,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -1214,8 +1214,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e6/dc/be6cbe99670cd6e4ad387123647cb08e0c32975e223f82551e914c5568a6/filelock-3.29.4.tar.gz", hash = "sha256:10cdb3656fc44541cdf30652a93fb10ec6b05325620eb316bd26893e4201538a", size = 63028, upload-time = "2026-06-13T16:12:00.744Z" }
@@ -1271,8 +1271,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -1331,8 +1331,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -1378,8 +1378,8 @@ version = "9.0.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -1423,8 +1423,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/72/34/14ca021ce8e5dfedc35312d08ba8bf51fdd999c576889fc2c24cb97f4f10/iniconfig-2.3.0.tar.gz", hash = "sha256:c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730", size = 20503, upload-time = "2025-10-18T21:55:43.219Z" }
@@ -1494,8 +1494,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -1700,8 +1700,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -1746,8 +1746,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -1813,8 +1813,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -1853,8 +1853,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -1899,8 +1899,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -1945,8 +1945,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -1997,8 +1997,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -2053,8 +2053,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/2b/f4/69fa6ed85ae003c2378ffa8f6d2e3234662abd02c10d216c0ba96081a238/markdown-3.10.2.tar.gz", hash = "sha256:994d51325d25ad8aa7ce4ebaec003febcce822c3f8c911e3b17c52f7f589f950", size = 368805, upload-time = "2026-02-09T14:57:26.942Z" }
@@ -2086,8 +2086,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -2167,8 +2167,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -2287,8 +2287,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -2390,8 +2390,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -2431,8 +2431,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -2548,8 +2548,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/de/1d/f4da6f02cdffe04d6362210b807146a26044c88d839208aec273bb0d9184/more_itertools-11.1.0.tar.gz", hash = "sha256:48e8f4d9e7e5878571ecf6f2b4e57634f93cd474cc8cfbd2376f2d11b396e30d", size = 145772, upload-time = "2026-05-22T14:14:29.909Z" }
@@ -2601,8 +2601,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -2653,8 +2653,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -2820,8 +2820,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -2883,8 +2883,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/01/91/47e7d486260f618783899587af63ccf7980fb60245c3e63dd4571c6b57ad/pip-26.1.2.tar.gz", hash = "sha256:f49cd134c61cf2fd75e0ce2676db03e4054504a5a4986d00f8299ae632dc4605", size = 1840799, upload-time = "2026-05-31T17:33:58.56Z" }
@@ -2933,8 +2933,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d7/47/e4501f49c178ae1d9f4a75073fda4204f52647993f075a9db4d14930e0c5/platformdirs-4.10.0.tar.gz", hash = "sha256:31e761a6a0ca04faf7353ea759bdba55652be214725111e5aac52dfa29d4bef7", size = 31224, upload-time = "2026-05-28T03:32:53.587Z" }
@@ -2963,8 +2963,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f9/e2/3e91f31a7d2b083fe6ef3fa267035b518369d9511ffab804f839851d2779/pluggy-1.6.0.tar.gz", hash = "sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3", size = 69412, upload-time = "2025-05-15T12:30:07.975Z" }
@@ -3069,8 +3069,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1b/7d/92392ff7815c21062bea51aa7b87d45576f649f16458d78b7cf94b9ab2e6/pycparser-3.0.tar.gz", hash = "sha256:600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29", size = 103492, upload-time = "2026-01-21T14:26:51.89Z" }
@@ -3105,8 +3105,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -3232,8 +3232,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -3361,8 +3361,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -3391,8 +3391,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -3444,8 +3444,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -3481,8 +3481,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -3558,8 +3558,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -3600,8 +3600,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -3768,8 +3768,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/54/ed/79a089b6be93607fa5cdaedf301d7dfb23af5f25c398d5ead2525b063e17/pyyaml-6.0.2.tar.gz", hash = "sha256:d584d9ec91ad65861cc08d42e834324ef890a082e591037abe114850ff7bbc3e", size = 130631, upload-time = "2024-08-06T20:33:50.674Z" }
@@ -3851,8 +3851,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -4009,8 +4009,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -4064,8 +4064,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -4107,8 +4107,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -4160,8 +4160,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -4208,8 +4208,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -4757,7 +4757,7 @@ wheels = [
 
 [[package]]
 name = "rsconnect-python"
-version = "1.30.1.dev1"
+version = "1.31.0"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -4913,8 +4913,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -4957,8 +4957,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8d/d2/ec1acaaff45caed5c2dedb33b67055ba9d4e96b091094df90762e60135fe/setuptools-80.8.0.tar.gz", hash = "sha256:49f7af965996f26d43c8ae34539c8d99c5042fbff34302ea151eaa9c207cd257", size = 1319720, upload-time = "2025-05-20T14:02:53.503Z" }
@@ -5034,8 +5034,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -5139,8 +5139,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -5227,8 +5227,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -5274,8 +5274,8 @@ version = "1.33.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -5323,8 +5323,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -5391,8 +5391,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/46/79/cf31d7a93a8fdc6aa0fbb665be84426a8c5a557d9240b6239e9e11e35fc5/termcolor-3.3.0.tar.gz", hash = "sha256:348871ca648ec6a9a983a13ab626c0acce02f515b9e1983332b17af7979521c5", size = 14434, upload-time = "2025-12-29T12:55:21.882Z" }
@@ -5438,8 +5438,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -5534,8 +5534,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/cc/18/0bbf3884e9eaa38819ebe46a7bd25dcd56b67434402b66a58c4b8e552575/tomlkit-0.13.3.tar.gz", hash = "sha256:430cf247ee57df2b94ee3fbe588e71d362a941ebb545dec29b53961d61add2a1", size = 185207, upload-time = "2025-06-05T07:13:44.947Z" }
@@ -5572,8 +5572,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -5610,8 +5610,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -5652,8 +5652,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -5707,8 +5707,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
@@ -5820,8 +5820,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -5884,8 +5884,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/15/22/9ee70a2574a4f4599c47dd506532914ce044817c7752a79b6a51286319bc/urllib3-2.5.0.tar.gz", hash = "sha256:3fc47733c7e419d4bc3f6b3dc2b4f890bb743906a30d56ba4a5bfa4bbff92760", size = 393185, upload-time = "2025-06-18T14:07:41.644Z" }
@@ -5972,8 +5972,8 @@ source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -6047,8 +6047,8 @@ version = "0.47.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
     "python_full_version == '3.9.*'",
 ]
@@ -6091,8 +6091,8 @@ version = "4.1.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version >= '3.11' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.10.*' and platform_python_implementation != 'PyPy'",
     "python_full_version == '3.10.*' and platform_python_implementation == 'PyPy'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b9/d8/eab98a517c14134c0b2eb4e2387bc5f457334293ec5d2dd3857ec2966802/zipp-4.1.0.tar.gz", hash = "sha256:4cb57381f544315db7688e976e922a2b18cdb513d21cc194eb42232ba2a3e602", size = 26214, upload-time = "2026-05-18T20:08:57.967Z" }
