@@ -1928,10 +1928,17 @@ class TestResolvePythonVersion(unittest.TestCase):
     def test_patch_constraint_on_the_newest_line(self):
         self.assertEqual(connect_cloud.resolve_python_version(">=3.14.99,<3.15", None), "3.14")
 
-    def test_constraint_with_no_lower_bound_sends_nothing(self):
-        # "<3.10" says where to stop, not where to start, so there is no version to
-        # ask for and Connect Cloud picks.
-        self.assertIsNone(connect_cloud.resolve_python_version("!=3.9.5,<3.10", None))
+    def test_constraint_with_no_lower_bound_starts_at_the_lowest_offered(self):
+        # "<3.10" says where to stop, not where to start, so the search begins at the
+        # lowest version Connect Cloud offers.
+        self.assertEqual(connect_cloud.resolve_python_version("!=3.9.5,<3.10", None), "3.9")
+
+    def test_constraint_no_offered_version_can_meet_warns(self):
+        # "<3.9" has no lower bound either, but nothing Connect Cloud offers is under
+        # 3.9, so there is a requirement being broken and it is worth saying so.
+        result, logs = self._resolve_logs("<3.9")
+        self.assertIsNone(result)
+        self.assertIn("No Python version Posit Connect Cloud offers satisfies", logs)
 
     def test_the_highest_lower_bound_is_the_one_that_binds(self):
         # Clauses are ANDed: ">=3.9" does not make 3.9 available when "==3.12.*"
@@ -1942,10 +1949,17 @@ class TestResolvePythonVersion(unittest.TestCase):
         # ">3.11.2" excludes 3.11.2 but not the rest of 3.11.
         self.assertEqual(connect_cloud.resolve_python_version(">3.11.2", None), "3.11")
 
-    def test_major_only_constraint_names_no_line(self):
-        # "==3.*" and ">=3" admit every 3.x, so there is no single version to ask for.
-        self.assertIsNone(connect_cloud.resolve_python_version("==3.*", None))
-        self.assertIsNone(connect_cloud.resolve_python_version(">=3", None))
+    def test_major_only_constraint_takes_the_lowest_offered(self):
+        # "==3.*" and ">=3" admit every 3.x, so the lowest Connect Cloud offers serves.
+        self.assertEqual(connect_cloud.resolve_python_version("==3.*", None), "3.9")
+        self.assertEqual(connect_cloud.resolve_python_version(">=3", None), "3.9")
+
+    def test_major_only_constraint_above_the_lowest_offered(self):
+        # A major with no minor starts at that major's first line. Connect Cloud does
+        # not offer 4.0, but that is its call to make, as with any version it does not
+        # recognize.
+        self.assertEqual(connect_cloud.resolve_python_version(">=4", None), "4.0")
+        self.assertEqual(connect_cloud.resolve_python_version("==4.*", None), "4.0")
 
     def test_major_only_constraint_still_takes_the_local_interpreter(self):
         self.assertEqual(connect_cloud.resolve_python_version("==3.*", "3.12.4"), "3.12")
@@ -1959,6 +1973,70 @@ class TestResolvePythonVersion(unittest.TestCase):
 
     def test_constraint_admitting_nothing_sends_nothing(self):
         self.assertIsNone(connect_cloud.resolve_python_version(">=3.9,<3.9", None))
+
+    def _resolve_logs(self, requires, local_version=None):
+        """Resolve, returning (result, logged text) so the logging can be asserted on.
+
+        Patches the module's logger rather than using assertLogs: rsconnect's logger is
+        its own RSLogger instance, not logging.getLogger("rsconnect"), and the negative
+        cases need to assert that nothing was logged.
+        """
+        with mock.patch.object(connect_cloud.logger, "warning") as warn:
+            with mock.patch.object(connect_cloud.logger, "info") as info:
+                result = connect_cloud.resolve_python_version(requires, local_version)
+        calls = warn.call_args_list + info.call_args_list
+        return result, "\n".join(str(call.args[0]) for call in calls)
+
+    def test_every_resolved_version_is_logged(self):
+        # ".python-version" of "3.11.5" reaches here as "~=3.11.0" -- adapt_python_requires
+        # drops the patch -- so the log is unconditional rather than trying to spot a
+        # requirement that named one.
+        result, logs = self._resolve_logs("~=3.11.0", "3.11.5")
+        self.assertEqual(result, "3.11")
+        self.assertIn("Requesting Python 3.11", logs)
+
+    def test_resolved_version_is_logged_without_a_requirement(self):
+        result, logs = self._resolve_logs(None, "3.12.4")
+        self.assertEqual(result, "3.12")
+        self.assertIn("Requesting Python 3.12", logs)
+
+    def test_nothing_is_logged_when_no_version_is_requested(self):
+        result, logs = self._resolve_logs(None, None)
+        self.assertIsNone(result)
+        self.assertEqual(logs, "")
+
+    def test_requirement_no_offered_version_satisfies_warns_it_will_be_violated(self):
+        result, logs = self._resolve_logs(">=3.8,<3.9")
+        self.assertIsNone(result)
+        self.assertIn("No Python version Posit Connect Cloud offers satisfies", logs)
+        self.assertIn("does not allow", logs)
+
+    def test_requirement_below_the_floor_that_a_newer_version_still_meets(self):
+        # ">=3.8" is met by every version Connect Cloud offers, so it resolves to the
+        # lowest of those rather than to an unaskable 3.8, with nothing to warn about.
+        result, logs = self._resolve_logs(">=3.8")
+        self.assertEqual(result, "3.9")
+        self.assertIn("Requesting Python 3.9", logs)
+
+    def test_local_interpreter_below_the_floor_does_not_block_the_requirement(self):
+        # Built on 3.8, which Connect Cloud cannot run, but ">=3.8" is met by 3.9. An
+        # old interpreter must not produce a worse result than having none at all.
+        result, logs = self._resolve_logs(">=3.8", "3.8.10")
+        self.assertEqual(result, "3.9")
+        self.assertIn("Requesting Python 3.9", logs)
+
+    def test_local_interpreter_below_the_floor_is_not_asked_for(self):
+        # rsconnect runs on Pythons Connect Cloud does not offer; asking for one would
+        # be rejected, so the platform chooses instead.
+        result, logs = self._resolve_logs(None, "3.8.10")
+        self.assertIsNone(result)
+        self.assertIn("does not offer Python 3.8", logs)
+
+    def test_strict_major_only_bound_stays_on_the_first_line(self):
+        # ">4" excludes 4.0.0 but not 4.0.1, so the 4.0 line still serves. The clause
+        # names no minor, so it has to be read against that major's first line to be
+        # counted at all.
+        self.assertEqual(connect_cloud.resolve_python_version(">4,<4.1", None), "4.0")
 
     def test_nothing_to_go_on(self):
         self.assertIsNone(connect_cloud.resolve_python_version(None, None))
