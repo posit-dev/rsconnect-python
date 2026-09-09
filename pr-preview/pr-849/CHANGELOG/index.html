@@ -2898,7 +2898,9 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Deploys to Posit Connect Cloud now request the Python version the content needs,
   instead of leaving Connect Cloud to fall back to Python 3.9. The version comes from
   the same <code>.python-version</code>, <code>pyproject.toml</code>, or <code>setup.cfg</code> requirement that already
-  goes into the manifest.</li>
+  goes into the manifest. The requested version is logged on each deploy. It names a
+  minor version only -- a <code>.python-version</code> of <code>3.11.5</code> requests 3.11 -- because Connect
+  Cloud selects the patch release itself.</li>
 </ul>
 <h2 id="1310-2026-09-08">[1.31.0] - 2026-09-08<a class="headerlink" href="#1310-2026-09-08" title="Permanent link">#</a></h2>
 <ul>
