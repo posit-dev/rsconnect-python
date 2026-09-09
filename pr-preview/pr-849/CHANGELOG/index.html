@@ -2898,11 +2898,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Deploys to Posit Connect Cloud now request the Python version the content needs,
   instead of leaving Connect Cloud to fall back to Python 3.9. The version comes from
   the same <code>.python-version</code>, <code>pyproject.toml</code>, or <code>setup.cfg</code> requirement that already
-  goes into the manifest; Connect Cloud does not read it out of the bundle. Connect
-  Cloud offers Python 3.9 through 3.14, and a project requiring something outside that
-  range now fails before the bundle is uploaded rather than during dependency
-  resolution. Content whose bundle has no Python keeps the version already set on it,
-  so a version chosen in the Connect Cloud UI survives a redeploy.</li>
+  goes into the manifest.</li>
 </ul>
 <h2 id="1310-2026-09-08">[1.31.0] - 2026-09-08<a class="headerlink" href="#1310-2026-09-08" title="Permanent link">#</a></h2>
 <ul>
