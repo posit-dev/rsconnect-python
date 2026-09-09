@@ -319,10 +319,13 @@ def delete_credentials_from_keyring(url: str, nickname: str) -> None:
     keyring_delete_values(keyring_key(url, nickname), _CREDENTIAL_FIELDS)
 
 
-# The MAJOR.MINOR values Connect Cloud accepts for a revision's python_version,
-# matching the RequestPythonVersion enum in its OpenAPI schema
-# (https://api.connect.posit.cloud/openapi.json). Ordered lowest first.
-PYTHON_VERSIONS = ("3.9", "3.10", "3.11", "3.12", "3.13", "3.14")
+# The lowest MAJOR.MINOR Connect Cloud will accept for a revision's python_version
+# (the RequestPythonVersion enum in https://api.connect.posit.cloud/openapi.json).
+MINIMUM_PYTHON_VERSION = Version("3.9")
+
+# Operators that put a floor under the versions a clause admits. "<" and "<=" bound
+# only the top, and "!=" excludes a point, so neither says where the range starts.
+_LOWER_BOUND_OPERATORS = (">=", ">", "==", "===", "~=")
 
 
 def _clause_version(clause: Specifier) -> Optional[Version]:
@@ -336,18 +339,31 @@ def _clause_version(clause: Specifier) -> Optional[Version]:
         return None
 
 
-def _line_satisfies(minor: str, specifier: SpecifierSet) -> bool:
-    """Whether any patch release of a MAJOR.MINOR line satisfies the constraint.
+def _effective_floor(specifier: SpecifierSet) -> Optional[Version]:
+    """The lowest version the constraint admits, or None if it has no lower bound.
 
-    Connect Cloud names only the minor line, never the patch it runs, so
-    ">=3.11.3" has to be judged against the whole 3.11 line rather than against
-    3.11.0 alone -- otherwise a constraint Connect Cloud can actually meet is
-    reported as unsupported.
+    Clauses are ANDed, so the highest of their floors is the one that binds:
+    ">=3.9,==3.12.*" starts at 3.12, not 3.9.
+    """
+    floor = None
+    for clause in specifier:
+        if clause.operator not in _LOWER_BOUND_OPERATORS:
+            continue
+        version = _clause_version(clause)
+        if version is not None and (floor is None or version > floor):
+            floor = version
+    return floor
 
-    A SpecifierSet exposes no interval to test a range against, so this tests the
-    patches the constraint itself names, one above each of them, and the bottom of
-    the line. Every edge of the region a PEP 440 constraint admits falls on one of
-    those, so a region with anything in it contains one of them.
+
+def _line_admits_anything(minor: str, specifier: SpecifierSet) -> bool:
+    """Whether any patch release of a MAJOR.MINOR line satisfies the whole constraint.
+
+    The floor alone is not enough to test: ">3.11.2" excludes 3.11.2 itself while
+    still admitting the rest of the 3.11 line, and an exclusion such as "!=3.11.*"
+    can empty a line the floor sits in. A SpecifierSet exposes no interval to test a
+    range against, so this tests the patches the constraint names on this line, one
+    above each of them, and the bottom of the line -- every edge of the region a PEP
+    440 constraint admits falls on one of those.
     """
     line = Version(minor).release[:2]
     patches = {0}
@@ -360,12 +376,45 @@ def _line_satisfies(minor: str, specifier: SpecifierSet) -> bool:
     return any(Version("%s.%d" % (minor, patch)) in specifier for patch in sorted(patches))
 
 
-def _minor_version(version: str) -> Optional[str]:
-    """The MAJOR.MINOR prefix of a version string, or None if it has no minor part."""
-    parts = version.strip().split(".")
-    if len(parts) < 2 or not parts[0].isdigit() or not parts[1].isdigit():
+# How many minor lines above the constraint's floor to consider when the floor's own
+# line is excluded. Generous for any real requirement, and only there to stop a
+# pathological constraint scanning forever. This is a bound on our own search, not on
+# the versions Connect Cloud offers: it never rejects a version, it only gives up
+# looking for one.
+_LINE_SCAN_LIMIT = 20
+
+
+def _lowest_admitted_line(floor: Version, specifier: SpecifierSet) -> Optional[str]:
+    """The lowest MAJOR.MINOR at or above `floor` that the constraint admits.
+
+    Usually the floor's own line. It is not when an exclusion empties that line, as
+    ">=3.9,!=3.9.*" does, which means 3.10 and is the reason this scans rather than
+    testing the floor alone.
+    """
+    major, minor = floor.release[0], floor.release[1]
+    for offset in range(_LINE_SCAN_LIMIT + 1):
+        candidate = "%d.%d" % (major, minor + offset)
+        if _line_admits_anything(candidate, specifier):
+            return candidate
+    return None
+
+
+def _minor_version(version: Version) -> Optional[str]:
+    """A version as the MAJOR.MINOR string Connect Cloud names its interpreters by.
+
+    None when the version names no minor, as "==3.*" does: there is no single line
+    to ask for.
+    """
+    if len(version.release) < 2:
         return None
-    return "%s.%s" % (parts[0], parts[1])
+    return "%d.%d" % (version.release[0], version.release[1])
+
+
+def _parsed(version: str) -> Optional[Version]:
+    try:
+        return Version(version)
+    except InvalidVersion:
+        return None
 
 
 def resolve_python_version(requires: Optional[str], local_version: Optional[str]) -> Optional[str]:
@@ -373,15 +422,19 @@ def resolve_python_version(requires: Optional[str], local_version: Optional[str]
 
     `requires` is the PEP 440 constraint from the manifest's
     ``environment.python.requires``; `local_version` is the interpreter the
-    bundle was built against, from ``python.version``. Returns None when neither
-    is usable, which leaves the field off the request so Connect Cloud keeps
-    whatever the content already has.
+    bundle was built against, from ``python.version``. Returns None when there is
+    nothing usable to send, which leaves the field off the request so Connect
+    Cloud keeps whatever the content already has.
 
-    The interpreter the content was built against wins when Connect Cloud offers
-    its MAJOR.MINOR and the constraint allows it, so a deploy reproduces the
-    development environment. Otherwise the lowest offered line satisfying the
-    constraint is used, which keeps ">=3.10" on the same version as Connect Cloud
-    adds newer ones.
+    The interpreter the content was built against wins when the constraint allows
+    it, so a deploy reproduces the development environment. Otherwise the lowest
+    version the constraint admits is used, which keeps ">=3.10" on 3.10 as Connect
+    Cloud adds newer ones.
+
+    Whether Connect Cloud offers the result is left to Connect Cloud, so a version
+    it adds after this release still deploys. The one version rule kept here is the
+    floor: below it the request would be rejected outright, and omitting the field
+    to take the platform default is more useful than failing.
 
     Connect Cloud picks the patch itself, so a constraint that names one ("==3.11.14")
     can only be honored as far as its minor line.
@@ -396,25 +449,28 @@ def resolve_python_version(requires: Optional[str], local_version: Optional[str]
                 "PEP 440 constraint: %s" % requires
             )
 
-    if local_version:
-        local_minor = _minor_version(local_version)
-        try:
-            allowed = specifier is None or Version(local_version) in specifier
-        except InvalidVersion:
-            allowed = False
-            local_minor = None
-        if local_minor in PYTHON_VERSIONS and allowed:
-            return local_minor
+    minor = None
+    local = _parsed(local_version) if local_version else None
+    if local is not None and (specifier is None or local in specifier):
+        minor = _minor_version(local)
+    elif specifier is not None:
+        floor = _effective_floor(specifier)
+        # A floor naming only a major version ("==3.*") picks out no line to scan from.
+        if floor is not None and _minor_version(floor) is not None:
+            minor = _lowest_admitted_line(floor, specifier)
+            if minor is None:
+                logger.warning(
+                    "Could not determine a Python version for the requirement %s; "
+                    "Posit Connect Cloud will choose a version for this content." % requires
+                )
 
-    if specifier is None:
+    if minor is None:
         return None
-
-    for candidate in PYTHON_VERSIONS:
-        if _line_satisfies(candidate, specifier):
-            return candidate
-
-    raise RSConnectException(
-        "This content requires Python %s, which Posit Connect Cloud does not offer. "
-        "Supported versions are %s. Change the requirement in .python-version, "
-        "pyproject.toml, or setup.cfg." % (requires, ", ".join(PYTHON_VERSIONS))
-    )
+    if Version(minor) < MINIMUM_PYTHON_VERSION:
+        # Connect Cloud rejects anything lower, so send nothing and let it choose.
+        # rsconnect still runs on Pythons older than Connect Cloud offers.
+        logger.warning(
+            "Posit Connect Cloud does not offer Python %s; it will choose a version for this content." % minor
+        )
+        return None
+    return minor

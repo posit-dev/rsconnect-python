@@ -1908,9 +1908,6 @@ class TestResolvePythonVersion(unittest.TestCase):
     def test_no_constraint_uses_the_local_interpreter(self):
         self.assertEqual(connect_cloud.resolve_python_version(None, "3.13.1"), "3.13")
 
-    def test_local_interpreter_connect_cloud_does_not_offer_is_not_used(self):
-        self.assertEqual(connect_cloud.resolve_python_version(">=3.8", "3.8.10"), "3.9")
-
     def test_patch_constraint_resolves_to_its_minor_line(self):
         # Connect Cloud picks the patch itself, so ">=3.11.3" is honored as 3.11
         # rather than reported as unsupported.
@@ -1931,8 +1928,37 @@ class TestResolvePythonVersion(unittest.TestCase):
     def test_patch_constraint_on_the_newest_line(self):
         self.assertEqual(connect_cloud.resolve_python_version(">=3.14.99,<3.15", None), "3.14")
 
-    def test_excluded_patch_does_not_rule_out_the_line(self):
-        self.assertEqual(connect_cloud.resolve_python_version("!=3.9.5,<3.10", None), "3.9")
+    def test_constraint_with_no_lower_bound_sends_nothing(self):
+        # "<3.10" says where to stop, not where to start, so there is no version to
+        # ask for and Connect Cloud picks.
+        self.assertIsNone(connect_cloud.resolve_python_version("!=3.9.5,<3.10", None))
+
+    def test_the_highest_lower_bound_is_the_one_that_binds(self):
+        # Clauses are ANDed: ">=3.9" does not make 3.9 available when "==3.12.*"
+        # also has to hold.
+        self.assertEqual(connect_cloud.resolve_python_version(">=3.9,==3.12.*", None), "3.12")
+
+    def test_strict_lower_bound_stays_on_its_line(self):
+        # ">3.11.2" excludes 3.11.2 but not the rest of 3.11.
+        self.assertEqual(connect_cloud.resolve_python_version(">3.11.2", None), "3.11")
+
+    def test_major_only_constraint_names_no_line(self):
+        # "==3.*" and ">=3" admit every 3.x, so there is no single version to ask for.
+        self.assertIsNone(connect_cloud.resolve_python_version("==3.*", None))
+        self.assertIsNone(connect_cloud.resolve_python_version(">=3", None))
+
+    def test_major_only_constraint_still_takes_the_local_interpreter(self):
+        self.assertEqual(connect_cloud.resolve_python_version("==3.*", "3.12.4"), "3.12")
+
+    def test_constraint_excluding_the_line_its_floor_sits_in(self):
+        # ">=3.9,!=3.9.*" starts at 3.9 but admits nothing on that line, so it means
+        # 3.10. Sending nothing here would leave a redeploy on the stored 3.9, which
+        # is the version the requirement just ruled out.
+        self.assertEqual(connect_cloud.resolve_python_version(">=3.9,!=3.9.*", None), "3.10")
+        self.assertEqual(connect_cloud.resolve_python_version(">=3.9,!=3.9.*,!=3.10.*", None), "3.11")
+
+    def test_constraint_admitting_nothing_sends_nothing(self):
+        self.assertIsNone(connect_cloud.resolve_python_version(">=3.9,<3.9", None))
 
     def test_nothing_to_go_on(self):
         self.assertIsNone(connect_cloud.resolve_python_version(None, None))
@@ -1943,15 +1969,21 @@ class TestResolvePythonVersion(unittest.TestCase):
     def test_unparsable_constraint_with_no_local_version(self):
         self.assertIsNone(connect_cloud.resolve_python_version("not-a-constraint", None))
 
-    def test_unsupported_version_is_an_error_before_the_deploy(self):
-        with self.assertRaises(RSConnectException) as context:
-            connect_cloud.resolve_python_version("~=3.8.0", "3.8.10")
-        self.assertIn("does not offer", str(context.exception))
-        self.assertIn("3.9, 3.10, 3.11, 3.12, 3.13, 3.14", str(context.exception))
+    def test_version_newer_than_this_release_knows_about_is_sent_anyway(self):
+        # Whether Connect Cloud offers it is Connect Cloud's call: a version added
+        # after this release must not need a new rsconnect to deploy against.
+        self.assertEqual(connect_cloud.resolve_python_version(">=3.20", None), "3.20")
 
-    def test_version_above_the_supported_range_is_an_error(self):
-        with self.assertRaises(RSConnectException):
-            connect_cloud.resolve_python_version(">=3.20", None)
+    def test_version_below_the_floor_sends_nothing(self):
+        # Connect Cloud rejects anything under 3.9 outright, and rsconnect still runs
+        # on older Pythons, so take the platform default rather than fail the deploy.
+        self.assertIsNone(connect_cloud.resolve_python_version("~=3.8.0", "3.8.10"))
+
+    def test_local_interpreter_below_the_floor_sends_nothing(self):
+        self.assertIsNone(connect_cloud.resolve_python_version(None, "3.8.10"))
+
+    def test_unparsable_local_version_is_ignored(self):
+        self.assertIsNone(connect_cloud.resolve_python_version(None, "not-a-version"))
 
 
 class TestConnectCloudPythonVersionFromBundle(unittest.TestCase):
