@@ -2194,8 +2194,9 @@ for shinyapps.io. See command help for further details."
     def python_version_for_connect_cloud(self) -> Optional[str]:
         """The MAJOR.MINOR Python version to ask Connect Cloud for, or None.
 
-        None means the request omits the field, leaving the version Connect Cloud
-        already has on the content. Content with no Python at all lands here too.
+        None means the request omits the field: a redeploy keeps the version already
+        set on the content, and a first deploy takes Connect Cloud's default. Content
+        with no Python at all lands here too.
         """
         manifest = self.bundle_manifest()
         environment: dict[str, Any] = manifest.get("environment") or {}

@@ -2009,7 +2009,7 @@ class TestResolvePythonVersion(unittest.TestCase):
         result, logs = self._resolve_logs(">=3.8,<3.9")
         self.assertIsNone(result)
         self.assertIn("No Python version Posit Connect Cloud offers satisfies", logs)
-        self.assertIn("does not allow", logs)
+        self.assertIn("will not be met", logs)
 
     def test_requirement_below_the_floor_that_a_newer_version_still_meets(self):
         # ">=3.8" is met by every version Connect Cloud offers, so it resolves to the
@@ -2031,6 +2031,13 @@ class TestResolvePythonVersion(unittest.TestCase):
         result, logs = self._resolve_logs(None, "3.8.10")
         self.assertIsNone(result)
         self.assertIn("does not offer Python 3.8", logs)
+
+    def test_local_interpreter_naming_only_a_major_is_not_asked_for(self):
+        # A hand-written manifest can carry a python.version of "3", which names no
+        # line to request.
+        result, logs = self._resolve_logs(None, "3")
+        self.assertIsNone(result)
+        self.assertIn('Python version "3" does not name a minor version', logs)
 
     def test_strict_major_only_bound_stays_on_the_first_line(self):
         # ">4" excludes 4.0.0 but not 4.0.1, so the 4.0 line still serves. The clause

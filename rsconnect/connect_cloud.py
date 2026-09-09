@@ -323,6 +323,13 @@ def delete_credentials_from_keyring(url: str, nickname: str) -> None:
 # (the RequestPythonVersion enum in https://api.connect.posit.cloud/openapi.json).
 MINIMUM_PYTHON_VERSION = Version("3.9")
 
+# Tail of both warnings below. resolve_python_version runs before the deploy knows
+# whether the content already exists, so it has to name both outcomes.
+_VERSION_CHOSEN_BY_CONNECT_CLOUD = (
+    "The content will run on the Python version already set on it in Posit Connect "
+    "Cloud, or Connect Cloud's default if this is a first deployment."
+)
+
 # Operators that put a floor under the versions a clause admits. "<" and "<=" bound
 # only the top, and "!=" excludes a point, so neither says where the range starts.
 _LOWER_BOUND_OPERATORS = (">=", ">", "==", "===", "~=")
@@ -439,11 +446,12 @@ def _parsed(version: str) -> Optional[Version]:
 def _log_requested(minor: str) -> str:
     """Log the version being asked for and return it.
 
-    Said on every deploy, so that a requirement naming a patch -- which is dropped
-    before it reaches here when it comes from .python-version -- is visibly not what
-    was asked for.
+    Said on every deploy, and names the patch as Connect Cloud's choice. A patch the
+    user asked for is already gone by the time it reaches here -- adapt_python_requires
+    turns a .python-version of "3.11.5" into "~=3.11.0" -- so this line is the only
+    place they see that it was not honored.
     """
-    logger.info("Requesting Python %s from Posit Connect Cloud." % minor)
+    logger.info("Requesting Python %s from Posit Connect Cloud, which chooses the patch release." % minor)
     return minor
 
 
@@ -453,8 +461,9 @@ def resolve_python_version(requires: Optional[str], local_version: Optional[str]
     `requires` is the PEP 440 constraint from the manifest's
     ``environment.python.requires``; `local_version` is the interpreter the
     bundle was built against, from ``python.version``. Returns None when there is
-    nothing usable to send, which leaves the field off the request so Connect
-    Cloud keeps whatever the content already has.
+    nothing usable to send, which leaves the field off the request: a redeploy then
+    keeps the version already set on the content, and a first deploy takes Connect
+    Cloud's default.
 
     The interpreter the content was built against wins when the constraint allows
     it. Otherwise the lowest version the constraint admits is used.
@@ -485,9 +494,15 @@ def resolve_python_version(requires: Optional[str], local_version: Optional[str]
         # requirement there is nothing else to go on, so let the platform choose;
         # with one, the search below may still find a version it does offer.
         if specifier is None:
-            logger.warning(
-                "Posit Connect Cloud does not offer Python %s; it will choose a version for this content." % minor
-            )
+            if minor is None:
+                logger.warning(
+                    'The manifest\'s Python version "%s" does not name a minor version to ask Posit '
+                    "Connect Cloud for. %s" % (local_version, _VERSION_CHOSEN_BY_CONNECT_CLOUD)
+                )
+            else:
+                logger.warning(
+                    "Posit Connect Cloud does not offer Python %s. %s" % (minor, _VERSION_CHOSEN_BY_CONNECT_CLOUD)
+                )
             return None
 
     if specifier is None:
@@ -502,9 +517,8 @@ def resolve_python_version(requires: Optional[str], local_version: Optional[str]
     minor = _lowest_admitted_line(start, specifier)
     if minor is None:
         logger.warning(
-            "No Python version Posit Connect Cloud offers satisfies the requirement %s. "
-            "It will choose a version, and the content will run on one the requirement "
-            "does not allow." % requires
+            "No Python version Posit Connect Cloud offers satisfies the requirement %s, so it "
+            "will not be met. %s" % (requires, _VERSION_CHOSEN_BY_CONNECT_CLOUD)
         )
         return None
     return _log_requested(minor)
