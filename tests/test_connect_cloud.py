@@ -577,6 +577,15 @@ class TestConnectCloudClient(unittest.TestCase):
     def test_create_content_without_access_takes_the_server_default(self):
         self.assertNotIn("access", self._create_content())
 
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_create_content_sends_the_python_version(self):
+        body = self._create_content(python_version="3.12")
+        self.assertEqual(body["next_revision"]["python_version"], "3.12")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_create_content_without_a_python_version_omits_it(self):
+        self.assertNotIn("python_version", self._create_content()["next_revision"])
+
     def _update_content(self, **kwargs):
         """PATCH /contents/c1 with the always-required arguments; returns the request body."""
         _register_json(httpretty.PATCH, f"{API}/contents/c1", {"id": "c1", "next_revision": {"id": "r2"}})
@@ -596,6 +605,17 @@ class TestConnectCloudClient(unittest.TestCase):
             {"primary_file": "app.py", "app_mode": "python-shiny", "content_type": "shiny"},
         )
         self.assertEqual(httpretty.last_request().querystring["new_bundle"], ["true"])
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_update_content_sends_the_python_version(self):
+        body = self._update_content(python_version="3.12")
+        self.assertEqual(body["revision_overrides"]["python_version"], "3.12")
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_update_content_without_a_python_version_keeps_the_stored_one(self):
+        # A redeploy of content with no Python must not clear a version the user
+        # picked in the Connect Cloud UI.
+        self.assertNotIn("python_version", self._update_content()["revision_overrides"])
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_update_content_without_secrets_leaves_them_alone(self):
@@ -1854,11 +1874,12 @@ class TestConnectCloudAppModes(unittest.TestCase):
         )
 
 
-def _bundle_with_manifest(metadata, files=None, manifest_path="manifest.json"):
+def _bundle_with_manifest(metadata, files=None, manifest_path="manifest.json", **extra):
     """A minimal gzipped bundle containing just a manifest.json."""
     body = {"version": 1, "metadata": metadata}
     if files is not None:
         body["files"] = {name: {"checksum": "0"} for name in files}
+    body.update(extra)
     manifest = json.dumps(body).encode("utf-8")
     buffer = io.BytesIO()
     with tarfile.open(mode="w:gz", fileobj=buffer) as tar:
@@ -1867,6 +1888,217 @@ def _bundle_with_manifest(metadata, files=None, manifest_path="manifest.json"):
         tar.addfile(info, io.BytesIO(manifest))
     buffer.seek(0)
     return buffer
+
+
+class TestResolvePythonVersion(unittest.TestCase):
+    def test_uses_the_interpreter_the_bundle_was_built_against(self):
+        self.assertEqual(connect_cloud.resolve_python_version("~=3.12.0", "3.12.4"), "3.12")
+
+    def test_falls_back_to_the_lowest_version_satisfying_the_constraint(self):
+        # Developed on 3.9, but the project requires 3.10+.
+        self.assertEqual(connect_cloud.resolve_python_version(">=3.10", "3.9.6"), "3.10")
+
+    def test_open_ended_constraint_does_not_track_new_versions(self):
+        # ">=3.10" must keep landing on 3.10 as Connect Cloud adds newer versions.
+        self.assertEqual(connect_cloud.resolve_python_version(">=3.10", None), "3.10")
+
+    def test_wildcard_constraint(self):
+        self.assertEqual(connect_cloud.resolve_python_version("==3.11.*", "3.12.4"), "3.11")
+
+    def test_no_constraint_uses_the_local_interpreter(self):
+        self.assertEqual(connect_cloud.resolve_python_version(None, "3.13.1"), "3.13")
+
+    def test_patch_constraint_resolves_to_its_minor_line(self):
+        # Connect Cloud picks the patch itself, so ">=3.11.3" is honored as 3.11
+        # rather than reported as unsupported.
+        self.assertEqual(connect_cloud.resolve_python_version(">=3.11.3,<3.12", None), "3.11")
+
+    def test_exact_patch_constraint_resolves_to_its_minor_line(self):
+        self.assertEqual(connect_cloud.resolve_python_version("==3.11.2", None), "3.11")
+
+    def test_patch_constraint_the_local_interpreter_fails(self):
+        # Built on 3.12 but constrained to a 3.11 patch: the 3.11 line still serves.
+        self.assertEqual(connect_cloud.resolve_python_version(">=3.11.3,<3.12", "3.12.4"), "3.11")
+
+    def test_high_patch_numbers_are_not_a_cutoff(self):
+        # Both name the same minor line, so both must resolve the same way.
+        self.assertEqual(connect_cloud.resolve_python_version("==3.11.99", None), "3.11")
+        self.assertEqual(connect_cloud.resolve_python_version("==3.11.100", None), "3.11")
+
+    def test_patch_constraint_on_the_newest_line(self):
+        self.assertEqual(connect_cloud.resolve_python_version(">=3.14.99,<3.15", None), "3.14")
+
+    def test_constraint_with_no_lower_bound_starts_at_the_lowest_offered(self):
+        # "<3.10" says where to stop, not where to start, so the search begins at the
+        # lowest version Connect Cloud offers.
+        self.assertEqual(connect_cloud.resolve_python_version("!=3.9.5,<3.10", None), "3.9")
+
+    def test_constraint_no_offered_version_can_meet_warns(self):
+        # "<3.9" has no lower bound either, but nothing Connect Cloud offers is under
+        # 3.9, so there is a requirement being broken and it is worth saying so.
+        result, logs = self._resolve_logs("<3.9")
+        self.assertIsNone(result)
+        self.assertIn("No Python version Posit Connect Cloud offers satisfies", logs)
+
+    def test_the_highest_lower_bound_is_the_one_that_binds(self):
+        # Clauses are ANDed: ">=3.9" does not make 3.9 available when "==3.12.*"
+        # also has to hold.
+        self.assertEqual(connect_cloud.resolve_python_version(">=3.9,==3.12.*", None), "3.12")
+
+    def test_strict_lower_bound_stays_on_its_line(self):
+        # ">3.11.2" excludes 3.11.2 but not the rest of 3.11.
+        self.assertEqual(connect_cloud.resolve_python_version(">3.11.2", None), "3.11")
+
+    def test_major_only_constraint_takes_the_lowest_offered(self):
+        # "==3.*" and ">=3" admit every 3.x, so the lowest Connect Cloud offers serves.
+        self.assertEqual(connect_cloud.resolve_python_version("==3.*", None), "3.9")
+        self.assertEqual(connect_cloud.resolve_python_version(">=3", None), "3.9")
+
+    def test_major_only_constraint_above_the_lowest_offered(self):
+        # A major with no minor starts at that major's first line. Connect Cloud does
+        # not offer 4.0, but that is its call to make, as with any version it does not
+        # recognize.
+        self.assertEqual(connect_cloud.resolve_python_version(">=4", None), "4.0")
+        self.assertEqual(connect_cloud.resolve_python_version("==4.*", None), "4.0")
+
+    def test_major_only_constraint_still_takes_the_local_interpreter(self):
+        self.assertEqual(connect_cloud.resolve_python_version("==3.*", "3.12.4"), "3.12")
+
+    def test_constraint_excluding_the_line_its_floor_sits_in(self):
+        # ">=3.9,!=3.9.*" starts at 3.9 but admits nothing on that line, so it means
+        # 3.10. Sending nothing here would leave a redeploy on the stored 3.9, which
+        # is the version the requirement just ruled out.
+        self.assertEqual(connect_cloud.resolve_python_version(">=3.9,!=3.9.*", None), "3.10")
+        self.assertEqual(connect_cloud.resolve_python_version(">=3.9,!=3.9.*,!=3.10.*", None), "3.11")
+
+    def test_constraint_admitting_nothing_sends_nothing(self):
+        self.assertIsNone(connect_cloud.resolve_python_version(">=3.9,<3.9", None))
+
+    def _resolve_logs(self, requires, local_version=None):
+        """Resolve, returning (result, logged text) so the logging can be asserted on.
+
+        Patches the module's logger rather than using assertLogs: rsconnect's logger is
+        its own RSLogger instance, not logging.getLogger("rsconnect"), and the negative
+        cases need to assert that nothing was logged.
+        """
+        with mock.patch.object(connect_cloud.logger, "warning") as warn:
+            with mock.patch.object(connect_cloud.logger, "info") as info:
+                result = connect_cloud.resolve_python_version(requires, local_version)
+        calls = warn.call_args_list + info.call_args_list
+        return result, "\n".join(str(call.args[0]) for call in calls)
+
+    def test_every_resolved_version_is_logged(self):
+        # ".python-version" of "3.11.5" reaches here as "~=3.11.0" -- adapt_python_requires
+        # drops the patch -- so the log is unconditional rather than trying to spot a
+        # requirement that named one.
+        result, logs = self._resolve_logs("~=3.11.0", "3.11.5")
+        self.assertEqual(result, "3.11")
+        self.assertIn("Requesting Python 3.11", logs)
+
+    def test_resolved_version_is_logged_without_a_requirement(self):
+        result, logs = self._resolve_logs(None, "3.12.4")
+        self.assertEqual(result, "3.12")
+        self.assertIn("Requesting Python 3.12", logs)
+
+    def test_nothing_is_logged_when_no_version_is_requested(self):
+        result, logs = self._resolve_logs(None, None)
+        self.assertIsNone(result)
+        self.assertEqual(logs, "")
+
+    def test_requirement_no_offered_version_satisfies_warns_it_will_be_violated(self):
+        result, logs = self._resolve_logs(">=3.8,<3.9")
+        self.assertIsNone(result)
+        self.assertIn("No Python version Posit Connect Cloud offers satisfies", logs)
+        self.assertIn("will not be met", logs)
+
+    def test_requirement_below_the_floor_that_a_newer_version_still_meets(self):
+        # ">=3.8" is met by every version Connect Cloud offers, so it resolves to the
+        # lowest of those rather than to an unaskable 3.8, with nothing to warn about.
+        result, logs = self._resolve_logs(">=3.8")
+        self.assertEqual(result, "3.9")
+        self.assertIn("Requesting Python 3.9", logs)
+
+    def test_local_interpreter_below_the_floor_does_not_block_the_requirement(self):
+        # Built on 3.8, which Connect Cloud cannot run, but ">=3.8" is met by 3.9. An
+        # old interpreter must not produce a worse result than having none at all.
+        result, logs = self._resolve_logs(">=3.8", "3.8.10")
+        self.assertEqual(result, "3.9")
+        self.assertIn("Requesting Python 3.9", logs)
+
+    def test_local_interpreter_below_the_floor_is_not_asked_for(self):
+        # rsconnect runs on Pythons Connect Cloud does not offer; asking for one would
+        # be rejected, so the platform chooses instead.
+        result, logs = self._resolve_logs(None, "3.8.10")
+        self.assertIsNone(result)
+        self.assertIn("does not offer Python 3.8", logs)
+
+    def test_local_interpreter_naming_only_a_major_is_not_asked_for(self):
+        # A hand-written manifest can carry a python.version of "3", which names no
+        # line to request.
+        result, logs = self._resolve_logs(None, "3")
+        self.assertIsNone(result)
+        self.assertIn('Python version "3" does not name a minor version', logs)
+
+    def test_strict_major_only_bound_stays_on_the_first_line(self):
+        # ">4" excludes 4.0.0 but not 4.0.1, so the 4.0 line still serves. The clause
+        # names no minor, so it has to be read against that major's first line to be
+        # counted at all.
+        self.assertEqual(connect_cloud.resolve_python_version(">4,<4.1", None), "4.0")
+
+    def test_nothing_to_go_on(self):
+        self.assertIsNone(connect_cloud.resolve_python_version(None, None))
+
+    def test_unparsable_constraint_is_ignored(self):
+        self.assertEqual(connect_cloud.resolve_python_version("not-a-constraint", "3.12.4"), "3.12")
+
+    def test_unparsable_constraint_with_no_local_version(self):
+        self.assertIsNone(connect_cloud.resolve_python_version("not-a-constraint", None))
+
+    def test_version_newer_than_this_release_knows_about_is_sent_anyway(self):
+        # Whether Connect Cloud offers it is Connect Cloud's call: a version added
+        # after this release must not need a new rsconnect to deploy against.
+        self.assertEqual(connect_cloud.resolve_python_version(">=3.20", None), "3.20")
+
+    def test_version_below_the_floor_sends_nothing(self):
+        # Connect Cloud rejects anything under 3.9 outright, and rsconnect still runs
+        # on older Pythons, so take the platform default rather than fail the deploy.
+        self.assertIsNone(connect_cloud.resolve_python_version("~=3.8.0", "3.8.10"))
+
+    def test_local_interpreter_below_the_floor_sends_nothing(self):
+        self.assertIsNone(connect_cloud.resolve_python_version(None, "3.8.10"))
+
+    def test_unparsable_local_version_is_ignored(self):
+        self.assertIsNone(connect_cloud.resolve_python_version(None, "not-a-version"))
+
+
+class TestConnectCloudPythonVersionFromBundle(unittest.TestCase):
+    def _executor(self, bundle):
+        executor = RSConnectExecutor.__new__(RSConnectExecutor)
+        executor.bundle = bundle
+        executor.path = "/deploys/some-project"
+        executor.quarto_inputs = None
+        return executor
+
+    def _bundle(self, **extra):
+        return _bundle_with_manifest({"appmode": "python-shiny", "entrypoint": "app.py"}, **extra)
+
+    def test_reads_the_requirement_and_the_interpreter_from_the_manifest(self):
+        executor = self._executor(
+            self._bundle(
+                python={"version": "3.12.4"},
+                environment={"python": {"requires": "~=3.12.0"}},
+            )
+        )
+        self.assertEqual(executor.python_version_for_connect_cloud(), "3.12")
+
+    def test_manifest_with_no_requirement_uses_the_interpreter(self):
+        executor = self._executor(self._bundle(python={"version": "3.13.1"}))
+        self.assertEqual(executor.python_version_for_connect_cloud(), "3.13")
+
+    def test_manifest_with_no_python_section_sends_nothing(self):
+        # R and Quarto-with-R content has no Python at all.
+        executor = self._executor(self._bundle())
+        self.assertIsNone(executor.python_version_for_connect_cloud())
 
 
 class TestConnectCloudPrimaryFile(unittest.TestCase):
@@ -2129,6 +2361,13 @@ class TestConnectCloudService(unittest.TestCase):
         self.assertEqual(result.revision_id, "r1")
         self.assertEqual(result.upload_url, "https://up.example/1")
         self.assertEqual(result.app_url, "https://connect.posit.cloud/acme/content/c1")
+
+    def test_prepare_deploy_passes_the_python_version_through(self):
+        self._prepare_deploy(python_version="3.12")
+        self.assertEqual(self.client.create_content.call_args.kwargs["python_version"], "3.12")
+
+        self._prepare_deploy(app_id="c1", python_version="3.12")
+        self.assertEqual(self.client.update_content.call_args.kwargs["python_version"], "3.12")
 
     def test_prepare_deploy_without_env_vars_does_not_touch_secrets(self):
         # env_vars is empty when no -E was given; the PATCH must then omit

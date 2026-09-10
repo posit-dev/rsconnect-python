@@ -2165,16 +2165,15 @@ for shinyapps.io. See command help for further details."
             )
             upload_result = S3Server(upload_url).handle_bad_response(upload_result, is_httpresponse=True)
 
-    def primary_file_for_connect_cloud(self) -> str:
-        """The entrypoint to report to Connect Cloud, read from the built bundle.
+    def bundle_manifest(self) -> dict[str, Any]:
+        """The manifest of the built bundle.
 
-        Connect Cloud needs a `primary_file` and uses it to decide, for example,
-        whether Shiny content is R or Python. Every deploy path writes the
-        entrypoint into the bundle's manifest, so reading it back from there
-        avoids having to thread it separately through each command.
+        Every deploy path writes what Connect Cloud needs into the bundle's
+        manifest, so reading it back from there avoids having to thread the same
+        values separately through each command.
         """
         if self.bundle is None:
-            raise RSConnectException("A bundle must be created before determining the primary file.")
+            raise RSConnectException("A bundle must be created before reading its manifest.")
 
         position = self.bundle.tell()
         try:
@@ -2186,12 +2185,34 @@ for shinyapps.io. See command help for further details."
                 extracted = tar.extractfile(member) if member is not None else None
                 if extracted is None:
                     raise RSConnectException("The bundle does not contain a manifest.json.")
-                manifest = json.loads(extracted.read().decode("utf-8"))
+                return cast("dict[str, Any]", json.loads(extracted.read().decode("utf-8")))
         except (tarfile.TarError, KeyError, ValueError) as exc:
             raise RSConnectException("Could not read the bundle manifest: %s" % exc) from exc
         finally:
             self.bundle.seek(position)
 
+    def python_version_for_connect_cloud(self) -> Optional[str]:
+        """The MAJOR.MINOR Python version to ask Connect Cloud for, or None.
+
+        None means the request omits the field: a redeploy keeps the version already
+        set on the content, and a first deploy takes Connect Cloud's default. Content
+        with no Python at all lands here too.
+        """
+        manifest = self.bundle_manifest()
+        environment: dict[str, Any] = manifest.get("environment") or {}
+        requirement: dict[str, Any] = environment.get("python") or {}
+        interpreter: dict[str, Any] = manifest.get("python") or {}
+        requires: Optional[str] = requirement.get("requires")
+        local_version: Optional[str] = interpreter.get("version")
+        return connect_cloud.resolve_python_version(requires, local_version)
+
+    def primary_file_for_connect_cloud(self) -> str:
+        """The entrypoint to report to Connect Cloud, read from the built bundle.
+
+        Connect Cloud needs a `primary_file` and uses it to decide, for example,
+        whether Shiny content is R or Python.
+        """
+        manifest = self.bundle_manifest()
         metadata = manifest.get("metadata") or {}
         primary_file = metadata.get("entrypoint") or metadata.get("primary_rmd") or metadata.get("primary_html")
         files = manifest.get("files") or {}
@@ -2302,6 +2323,7 @@ for shinyapps.io. See command help for further details."
                     title=self.title,
                     app_mode=self.app_mode,
                     primary_file=self.primary_file_for_connect_cloud(),
+                    python_version=self.python_version_for_connect_cloud(),
                     env_vars=self.env_vars,
                     update_title=not self.title_is_default,
                     app_id_is_explicit=self.app_id_is_explicit,
@@ -3293,6 +3315,7 @@ class ConnectCloudAccountSearchResults(TypedDict):
 class ConnectCloudRevision(TypedDict):
     id: str
     content_id: NotRequired[str]
+    python_version: NotRequired[Optional[str]]
     status: NotRequired[str]
     source_bundle_upload_url: NotRequired[str]
     publish_result: NotRequired[Optional[str]]
@@ -3648,21 +3671,29 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         primary_file: str,
         secrets: Optional[list[dict[str, str]]] = None,
         access: Optional[str] = None,
+        python_version: Optional[str] = None,
     ) -> ConnectCloudContent:
         """Create content to upload a bundle into.
 
         `access` is the content's visibility ("public" or "private"). Omitted from
         the request when None so the server picks its own default.
+
+        `python_version` is MAJOR.MINOR. Omitted when None, which is how content
+        with no Python is created; Connect Cloud then falls back to its own
+        default rather than reading the version out of the bundle's manifest.
         """
+        next_revision: dict[str, Any] = {
+            "source_type": "bundle",
+            "content_type": content_type,
+            "app_mode": app_mode,
+            "primary_file": primary_file,
+        }
+        if python_version is not None:
+            next_revision["python_version"] = python_version
         body: dict[str, Any] = {
             "account_id": account_id,
             "title": title,
-            "next_revision": {
-                "source_type": "bundle",
-                "content_type": content_type,
-                "app_mode": app_mode,
-                "primary_file": primary_file,
-            },
+            "next_revision": next_revision,
             "secrets": secrets or [],
         }
         if access is not None:
@@ -3680,6 +3711,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         new_bundle: bool = True,
         title: Optional[str] = None,
         access: Optional[str] = None,
+        python_version: Optional[str] = None,
     ) -> ConnectCloudContent:
         """Update content, optionally minting a fresh revision to upload into.
 
@@ -3693,14 +3725,19 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         deploy without -E/-t must leave the existing values alone. `access` (the
         content's visibility) is omitted the same way, so a redeploy without
         -V keeps whatever visibility the content already has.
+
+        `python_version` is omitted when None for the same reason: a redeploy of
+        content whose bundle carries no Python version keeps the version already
+        set on the content, including one chosen in the Connect Cloud UI.
         """
-        body: dict[str, Any] = {
-            "revision_overrides": {
-                "primary_file": primary_file,
-                "app_mode": app_mode,
-                "content_type": content_type,
-            },
+        revision_overrides: dict[str, Any] = {
+            "primary_file": primary_file,
+            "app_mode": app_mode,
+            "content_type": content_type,
         }
+        if python_version is not None:
+            revision_overrides["python_version"] = python_version
+        body: dict[str, Any] = {"revision_overrides": revision_overrides}
         if secrets is not None:
             body["secrets"] = secrets
         if title is not None:
@@ -3895,6 +3932,7 @@ class ConnectCloudService:
         update_title: bool = False,
         app_id_is_explicit: bool = False,
         visibility: Optional[str] = None,
+        python_version: Optional[str] = None,
     ) -> ConnectCloudDeployResult:
         """Create or fetch the content item and get a revision to upload into.
 
@@ -3961,6 +3999,7 @@ class ConnectCloudService:
                 content_type=content_type,
                 app_mode=app_mode.name(),
                 primary_file=primary_file,
+                python_version=python_version,
                 secrets=secrets,
                 access=visibility,
             )
@@ -3975,6 +4014,7 @@ class ConnectCloudService:
                 primary_file=primary_file,
                 app_mode=app_mode.name(),
                 content_type=content_type,
+                python_version=python_version,
                 secrets=secrets,
                 new_bundle=upload,
                 title=title if update_title and title else None,
