@@ -97,7 +97,8 @@ before _EACH_ release, even beta releases.
 VERSION="$(uv version --bump stable --dry-run --short)"  # use "--bump minor" if there are new features
 git checkout -b "release-$VERSION" main
 uv version "$VERSION"
-sed -i "s/^## Unreleased/## [$VERSION] - $(date +%Y-%m-%d)/" docs/CHANGELOG.md
+# perl, not sed: GNU sed (Linux) and BSD sed (macOS) take different -i arguments
+perl -pi -e "s/^## Unreleased/## [$VERSION] - $(date +%Y-%m-%d)/" docs/CHANGELOG.md
 git commit -am "Release $VERSION"
 git push -u origin "release-$VERSION"
 gh pr create --title "Release $VERSION" --body "Release $VERSION"
@@ -129,7 +130,7 @@ version
 ```bash
 VERSION="$(uv version --bump patch --bump dev --dry-run --short)"  # e.g. 1.29.1 -> 1.29.2.dev1
 git checkout -b "rearm-$VERSION" main
-sed -i '0,/^## \[/s//## Unreleased\n\n&/' docs/CHANGELOG.md
+perl -0777 -pi -e 's/^## \[/## Unreleased\n\n$&/m' docs/CHANGELOG.md
 uv version "$VERSION"
 git commit -am "Begin $VERSION development"
 git push -u origin "rearm-$VERSION"
