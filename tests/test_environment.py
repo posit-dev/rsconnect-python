@@ -4,6 +4,7 @@ import os
 import tempfile
 import shutil
 import subprocess
+from pathlib import Path
 from unittest import TestCase
 from unittest import mock
 
@@ -219,6 +220,14 @@ def test_pyproject_dependencies(tmp_path):
     assert not any("rsconnect" in line for line in dep_lines)
     assert env.source == "pyproject_toml"
     assert env.package_manager == "pip"
+
+
+def test_requirements_file_keeps_crlf_line_endings(tmp_path: Path):
+    (tmp_path / "requirements.txt").write_bytes(b"numpy\r\npandas\r\n")
+
+    env = detect_environment(str(tmp_path))
+
+    assert env.contents == "numpy\r\npandas\r\n"
 
 
 def test_pyproject_dependencies_missing(tmp_path):

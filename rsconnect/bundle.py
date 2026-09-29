@@ -565,10 +565,9 @@ def write_manifest(
     if environment.source == "file":
         skipped.append(environment_relative_path)
     else:
-        with open(environment_file, "w") as f:
-            f.write(environment.contents)
-            created.append(environment_relative_path)
-            logger.debug("wrote environment file: %s", environment_file)
+        write_environment_file(environment, output_dir)
+        created.append(environment_relative_path)
+        logger.debug("wrote environment file: %s", environment_file)
 
     return created, skipped
 
@@ -2365,8 +2364,10 @@ def write_environment_file(
     :param directory: the directory where the file should be written.
     """
     environment_file_path = join(directory, environment.filename)
-    with open(environment_file_path, "w") as f:
-        f.write(environment.contents)
+    # Write bytes so that the file matches the manifest checksum on all platforms.
+    # Text mode changes line endings and encoding on Windows.
+    with open(environment_file_path, "wb") as f:
+        f.write(to_bytes(environment.contents))
 
 
 def describe_manifest(

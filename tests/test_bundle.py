@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import builtins
 import io
 import json
 import os
@@ -7,6 +8,7 @@ import tarfile
 import tempfile
 from os.path import abspath, basename, dirname, join
 from pathlib import Path
+from typing import Any
 from unittest import TestCase, mock
 
 import pytest
@@ -37,6 +39,7 @@ from rsconnect.bundle import (
     make_tensorflow_manifest,
     make_voila_bundle,
     default_title_from_bundle,
+    file_checksum,
     open_bundle,
     read_bundle_app_mode,
     read_bundle_manifest,
@@ -45,12 +48,16 @@ from rsconnect.bundle import (
     validate_entry_point,
     validate_extra_files,
     validate_node_entry_point,
+    write_api_manifest_json,
+    write_environment_file,
+    write_manifest,
 )
 from rsconnect.shiny_express import escape_to_var_name
 from rsconnect.environment_node import NodeEnvironment
 from rsconnect.environment import Environment, PackageInstaller
 from rsconnect.exception import RSConnectException
 from rsconnect.models import AppModes
+import rsconnect.bundle
 
 from .utils import get_dir, get_manifest_path
 
@@ -3442,3 +3449,42 @@ def test_resolve_shiny_express_entrypoint_normalizes_py_extension(tmp_path):
 def test_resolve_shiny_express_entrypoint_non_express_unchanged(tmp_path):
     (tmp_path / "app.py").write_text("from shiny import App\n")
     assert resolve_shiny_express_entrypoint("app.py", str(tmp_path)) == "app.py"
+
+
+@pytest.fixture
+def windows_text_mode(monkeypatch: pytest.MonkeyPatch):
+    """Give `open` in rsconnect.bundle the Windows text-mode defaults: CRLF line endings and cp1252."""
+
+    def windows_open(file: str, mode: str = "r", *args: Any, **kwargs: Any) -> Any:
+        if "b" not in mode:
+            kwargs.setdefault("newline", "\r\n")
+            kwargs.setdefault("encoding", "cp1252")
+        return builtins.open(file, mode, *args, **kwargs)
+
+    monkeypatch.setattr(rsconnect.bundle, "open", windows_open, raising=False)
+
+
+def make_generated_environment(contents: str) -> Environment:
+    environment = Environment.create_python_environment(get_dir("pip1"))
+    environment.contents = contents
+    environment.source = "pip_freeze"
+    return environment
+
+
+def test_write_api_manifest_checksum_matches_environment_file(tmp_path: Path, windows_text_mode: None):
+    (tmp_path / "app.py").write_text("from shiny import App\n")
+    environment = make_generated_environment("# café\nshiny==1.0.0\nnumpy\n")
+
+    write_api_manifest_json(str(tmp_path), "app:app", environment, AppModes.PYTHON_SHINY, [], [])
+    write_environment_file(environment, str(tmp_path))
+
+    manifest = json.loads((tmp_path / "manifest.json").read_text())
+    assert manifest["files"]["requirements.txt"]["checksum"] == file_checksum(tmp_path / "requirements.txt")
+
+
+def test_write_notebook_manifest_keeps_environment_file_bytes(tmp_path: Path, windows_text_mode: None):
+    environment = make_generated_environment("# café\njupyter\nnumpy\n")
+
+    write_manifest(".", "notebook.ipynb", environment, str(tmp_path))
+
+    assert (tmp_path / "requirements.txt").read_bytes() == to_bytes(environment.contents)

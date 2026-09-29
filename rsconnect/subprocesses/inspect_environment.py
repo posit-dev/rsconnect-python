@@ -148,7 +148,8 @@ def output_file(dirname: str, filename: str, package_manager: str):
         if not os.path.exists(path):
             return None
 
-        with open(path, "r") as f:
+        # Keep CRLF line endings. Text mode changes them to LF.
+        with open(path, "r", newline="") as f:
             data = f.read()
 
         data = "\n".join([line for line in data.split("\n") if "rsconnect" not in line])

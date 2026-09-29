@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- `write-manifest` now writes `requirements.txt` with the same bytes that it uses for
+  the manifest checksum. On Windows, the file had CRLF line endings and the checksum did
+  not match. An existing requirements file with CRLF line endings also has the correct
+  checksum now.
+
 ## [1.31.1] - 2026-09-10
 
 - Deploys to Posit Connect Cloud now request the Python version the content needs,
