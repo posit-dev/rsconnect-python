@@ -149,22 +149,34 @@ requires-python = ">=3.11.3"
 name = "aiofiles"
 version = "24.1.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://example.com/aiofiles-24.1.0.tar.gz", hash = "sha256:1" }
-wheels = [{ url = "https://example.com/aiofiles-24.1.0-py3-none-any.whl", hash = "sha256:2" }]
+[package.sdist]
+url = "https://example.com/aiofiles-24.1.0.tar.gz"
+hash = "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+[[package.wheels]]
+url = "https://example.com/aiofiles-24.1.0-py3-none-any.whl"
+hash = "sha256:2222222222222222222222222222222222222222222222222222222222222222"
 
 [[package]]
 name = "annotated-doc"
 version = "0.0.4"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://example.com/annotated_doc-0.0.4.tar.gz", hash = "sha256:3" }
-wheels = [{ url = "https://example.com/annotated_doc-0.0.4-py3-none-any.whl", hash = "sha256:4" }]
+[package.sdist]
+url = "https://example.com/annotated_doc-0.0.4.tar.gz"
+hash = "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+[[package.wheels]]
+url = "https://example.com/annotated_doc-0.0.4-py3-none-any.whl"
+hash = "sha256:4444444444444444444444444444444444444444444444444444444444444444"
 
 [[package]]
 name = "annotated-types"
 version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://example.com/annotated_types-0.7.0.tar.gz", hash = "sha256:5" }
-wheels = [{ url = "https://example.com/annotated_types-0.7.0-py3-none-any.whl", hash = "sha256:6" }]
+[package.sdist]
+url = "https://example.com/annotated_types-0.7.0.tar.gz"
+hash = "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+[[package.wheels]]
+url = "https://example.com/annotated_types-0.7.0-py3-none-any.whl"
+hash = "sha256:6666666666666666666666666666666666666666666666666666666666666666"
 
 [[package]]
 name = "demo"
