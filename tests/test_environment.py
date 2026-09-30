@@ -4,6 +4,7 @@ import os
 import tempfile
 import shutil
 import subprocess
+from pathlib import Path
 from unittest import TestCase
 from unittest import mock
 
@@ -44,7 +45,8 @@ class TestEnvironment(TestCase):
         self.assertEqual(get_default_locale(lambda: (None, None)), "")
 
     def test_file(self):
-        result = Environment.create_python_environment(get_dir("pip1"))
+        directory = get_dir("pip1")
+        result = Environment.create_python_environment(directory)
 
         self.assertTrue(version_re.match(result.pip))
 
@@ -53,7 +55,7 @@ class TestEnvironment(TestCase):
 
         expected = Environment.from_dict(
             dict(
-                contents="numpy\npandas\nmatplotlib\n",
+                contents=Path(directory, "requirements.txt").read_bytes().decode("utf-8"),
                 filename="requirements.txt",
                 locale=result.locale,
                 package_manager="pip",
@@ -72,7 +74,7 @@ class TestEnvironment(TestCase):
             shutil.copytree(get_dir("pip1"), project_dir)
             os.makedirs(os.path.join(project_dir, "alt"), exist_ok=True)
             custom_requirements = os.path.join(project_dir, "alt", "custom.txt")
-            with open(custom_requirements, "w") as f:
+            with open(custom_requirements, "w", newline="\n") as f:
                 f.write("foo==1.0\nbar>=2.0\nrsconnect==0.1\n")
 
             result = Environment.create_python_environment(
@@ -148,22 +150,34 @@ requires-python = ">=3.11.3"
 name = "aiofiles"
 version = "24.1.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://example.com/aiofiles-24.1.0.tar.gz", hash = "sha256:1" }
-wheels = [{ url = "https://example.com/aiofiles-24.1.0-py3-none-any.whl", hash = "sha256:2" }]
+[package.sdist]
+url = "https://example.com/aiofiles-24.1.0.tar.gz"
+hash = "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+[[package.wheels]]
+url = "https://example.com/aiofiles-24.1.0-py3-none-any.whl"
+hash = "sha256:2222222222222222222222222222222222222222222222222222222222222222"
 
 [[package]]
 name = "annotated-doc"
 version = "0.0.4"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://example.com/annotated_doc-0.0.4.tar.gz", hash = "sha256:3" }
-wheels = [{ url = "https://example.com/annotated_doc-0.0.4-py3-none-any.whl", hash = "sha256:4" }]
+[package.sdist]
+url = "https://example.com/annotated_doc-0.0.4.tar.gz"
+hash = "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+[[package.wheels]]
+url = "https://example.com/annotated_doc-0.0.4-py3-none-any.whl"
+hash = "sha256:4444444444444444444444444444444444444444444444444444444444444444"
 
 [[package]]
 name = "annotated-types"
 version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://example.com/annotated_types-0.7.0.tar.gz", hash = "sha256:5" }
-wheels = [{ url = "https://example.com/annotated_types-0.7.0-py3-none-any.whl", hash = "sha256:6" }]
+[package.sdist]
+url = "https://example.com/annotated_types-0.7.0.tar.gz"
+hash = "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+[[package.wheels]]
+url = "https://example.com/annotated_types-0.7.0-py3-none-any.whl"
+hash = "sha256:6666666666666666666666666666666666666666666666666666666666666666"
 
 [[package]]
 name = "demo"
@@ -219,6 +233,14 @@ def test_pyproject_dependencies(tmp_path):
     assert not any("rsconnect" in line for line in dep_lines)
     assert env.source == "pyproject_toml"
     assert env.package_manager == "pip"
+
+
+def test_requirements_file_keeps_crlf_line_endings(tmp_path: Path):
+    (tmp_path / "requirements.txt").write_bytes(b"numpy\r\npandas\r\n")
+
+    env = Environment.create_python_environment(str(tmp_path))
+
+    assert env.contents == "numpy\r\npandas\r\n"
 
 
 def test_pyproject_dependencies_missing(tmp_path):

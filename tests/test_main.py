@@ -15,6 +15,7 @@ from click.testing import CliRunner
 
 from rsconnect import VERSION
 from rsconnect.api import RSConnectClient, RSConnectServer
+from rsconnect.bundle import file_checksum
 from rsconnect.json_web_token import SECRET_KEY_ENV
 from rsconnect.log import console_logger, logger as rs_logger
 from rsconnect.main import cli, env_management_callback, make_notebook_html_bundle
@@ -2147,6 +2148,19 @@ class TestWriteManifestExcludeRenv:
         manifest = json.loads((content / "manifest.json").read_text())
         assert "platform" not in manifest
         assert "packages" not in manifest
+
+
+class TestWriteManifestCRLF:
+    def test_checksum_matches_crlf_requirements_file(self, tmp_path):
+        (tmp_path / "app.py").write_text("from shiny import App\n")
+        (tmp_path / "requirements.txt").write_bytes(b"shiny==1.0.0\r\nnumpy\r\n")
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["write-manifest", "shiny", str(tmp_path)])
+        assert result.exit_code == 0, result.output
+
+        manifest = json.loads((tmp_path / "manifest.json").read_text())
+        assert manifest["files"]["requirements.txt"]["checksum"] == file_checksum(tmp_path / "requirements.txt")
 
 
 class TestDefaultServer:
