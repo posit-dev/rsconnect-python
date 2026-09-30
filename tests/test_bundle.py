@@ -13,6 +13,7 @@ from unittest import TestCase, mock
 
 import pytest
 
+import rsconnect.bundle
 from rsconnect.bundle import (
     Manifest,
     _default_title,
@@ -57,7 +58,6 @@ from rsconnect.environment_node import NodeEnvironment
 from rsconnect.environment import Environment, PackageInstaller
 from rsconnect.exception import RSConnectException
 from rsconnect.models import AppModes
-import rsconnect.bundle
 
 from .utils import get_dir, get_manifest_path
 
