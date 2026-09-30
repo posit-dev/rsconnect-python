@@ -315,7 +315,9 @@ def filter_pip_freeze_output(pip_stdout: str):
 
 def strip_ref(line: str):
     # remove erroneous conda build paths that will break pip install
-    return line.split(" @ file:", 1)[0].strip()
+    # Keep a CRLF line ending. The caller splits on "\n", so the "\r" stays on the line.
+    line_ending = "\r" if line.endswith("\r") else ""
+    return line.split(" @ file:", 1)[0].strip() + line_ending
 
 
 def exclude(line: str):

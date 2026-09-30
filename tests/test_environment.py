@@ -237,7 +237,7 @@ def test_pyproject_dependencies(tmp_path):
 def test_requirements_file_keeps_crlf_line_endings(tmp_path: Path):
     (tmp_path / "requirements.txt").write_bytes(b"numpy\r\npandas\r\n")
 
-    env = detect_environment(str(tmp_path))
+    env = Environment.create_python_environment(str(tmp_path))
 
     assert env.contents == "numpy\r\npandas\r\n"
 

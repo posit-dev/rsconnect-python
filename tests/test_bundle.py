@@ -3488,3 +3488,14 @@ def test_write_notebook_manifest_keeps_environment_file_bytes(tmp_path: Path, wi
     write_manifest(".", "notebook.ipynb", environment, str(tmp_path))
 
     assert (tmp_path / "requirements.txt").read_bytes() == to_bytes(environment.contents)
+
+
+def test_write_api_manifest_checksum_matches_crlf_requirements_file(tmp_path: Path):
+    (tmp_path / "app.py").write_text("from shiny import App\n")
+    (tmp_path / "requirements.txt").write_bytes(b"shiny==1.0.0\r\nnumpy\r\n")
+    environment = Environment.create_python_environment(str(tmp_path))
+
+    write_api_manifest_json(str(tmp_path), "app:app", environment, AppModes.PYTHON_SHINY, [], [])
+
+    manifest = json.loads((tmp_path / "manifest.json").read_text())
+    assert manifest["files"]["requirements.txt"]["checksum"] == file_checksum(tmp_path / "requirements.txt")
