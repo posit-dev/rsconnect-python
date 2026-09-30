@@ -45,7 +45,8 @@ class TestEnvironment(TestCase):
         self.assertEqual(get_default_locale(lambda: (None, None)), "")
 
     def test_file(self):
-        result = Environment.create_python_environment(get_dir("pip1"))
+        directory = get_dir("pip1")
+        result = Environment.create_python_environment(directory)
 
         self.assertTrue(version_re.match(result.pip))
 
@@ -54,7 +55,7 @@ class TestEnvironment(TestCase):
 
         expected = Environment.from_dict(
             dict(
-                contents="numpy\npandas\nmatplotlib\n",
+                contents=Path(directory, "requirements.txt").read_bytes().decode("utf-8"),
                 filename="requirements.txt",
                 locale=result.locale,
                 package_manager="pip",
@@ -73,7 +74,7 @@ class TestEnvironment(TestCase):
             shutil.copytree(get_dir("pip1"), project_dir)
             os.makedirs(os.path.join(project_dir, "alt"), exist_ok=True)
             custom_requirements = os.path.join(project_dir, "alt", "custom.txt")
-            with open(custom_requirements, "w") as f:
+            with open(custom_requirements, "w", newline="\n") as f:
                 f.write("foo==1.0\nbar>=2.0\nrsconnect==0.1\n")
 
             result = Environment.create_python_environment(

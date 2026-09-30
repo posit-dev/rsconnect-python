@@ -119,8 +119,9 @@ class TestBundle(TestCase):
                 ],
             )
 
+            # Compare to the file on disk. On Windows, git can check out the fixture with CRLF line endings.
             reqs = tar.extractfile("requirements.txt").read()
-            self.assertEqual(reqs, b"numpy\npandas\nmatplotlib\n")
+            self.assertEqual(reqs, Path(directory, "requirements.txt").read_bytes())
 
             manifest = json.loads(tar.extractfile("manifest.json").read().decode("utf-8"))
 
@@ -160,7 +161,7 @@ class TestBundle(TestCase):
                         "dummy.ipynb": {
                             "checksum": ipynb_hash,
                         },
-                        "requirements.txt": {"checksum": "5f2a5e862fe7afe3def4a57bb5cfb214"},
+                        "requirements.txt": {"checksum": file_checksum(Path(directory, "requirements.txt"))},
                     },
                 },
             )
