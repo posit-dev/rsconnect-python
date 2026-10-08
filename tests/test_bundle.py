@@ -782,9 +782,13 @@ class TestBundle(TestCase):
         self.assertFalse(keep_manifest_specified_file("rsconnect/bogus.file"))
         self.assertFalse(keep_manifest_specified_file("rsconnect-python"))
         self.assertFalse(keep_manifest_specified_file("rsconnect-python/bogus.file"))
+        self.assertFalse(keep_manifest_specified_file(".rsconnect-python/servers.json"))
+        self.assertTrue(keep_manifest_specified_file("nested/rsconnect-python/app.json"))
+        self.assertFalse(keep_manifest_specified_file("nested/.rsconnect-python/pending.json"))
         self.assertFalse(keep_manifest_specified_file(".svn/bogus.file"))
         # noinspection SpellCheckingInspection
         self.assertFalse(keep_manifest_specified_file(".Rproj.user/bogus.file"))
+        self.assertTrue(keep_manifest_specified_file("nested/node_modules/local-data.js"))
 
     def test_manifest_bundle(self):
         # noinspection SpellCheckingInspection
@@ -3243,6 +3247,329 @@ def _make_node_env(**overrides):
     )
     defaults.update(overrides)
     return NodeEnvironment(**defaults)
+
+
+def _make_test_environment():
+    return Environment.from_dict(
+        {
+            "contents": "flask==3.0.0\n",
+            "filename": "requirements.txt",
+            "locale": "en_US.UTF-8",
+            "package_manager": "pip",
+            "pip": "23.0.1",
+            "python": "3.12.0",
+            "source": "file",
+        }
+    )
+
+
+def _bundle_snapshot(bundle_file):
+    with tarfile.open(mode="r:gz", fileobj=bundle_file) as tar:
+        members = {name: tar.extractfile(name).read() for name in tar.getnames()}
+    return members, json.loads(members["manifest.json"].decode("utf-8"))
+
+
+def test_node_bundle_excludes_config_paths_and_explicit_extras(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    config_dir = project / "nested" / "custom-state"
+    config_dir.mkdir(parents=True)
+    monkeypatch.setattr(rsconnect.bundle.metadata, "config_dirname", lambda: str(config_dir))
+
+    (project / "app.js").write_text("// app")
+    (project / "package.json").write_text("{}")
+    (project / "data.csv").write_text("safe")
+    (project / "nested" / "keep.txt").write_text("safe")
+    nested_node_module = project / "feature" / "node_modules" / "kept.js"
+    nested_node_module.parent.mkdir(parents=True)
+    nested_node_module.write_text("safe")
+
+    secret_files = [
+        project / ".rsconnect-python" / "servers.json",
+        project / "nested" / ".rsconnect-python" / "pending.json",
+        config_dir / "servers.json",
+        config_dir / "pending.json",
+    ]
+    for secret_file in secret_files:
+        secret_file.parent.mkdir(parents=True, exist_ok=True)
+        secret_file.write_text("SECRET")
+    project_metadata = project / "nested" / "rsconnect-python" / "application.json"
+    project_metadata.parent.mkdir(parents=True)
+    project_metadata.write_text("project metadata")
+
+    extras = [
+        "data.csv",
+        ".rsconnect-python/servers.json",
+        "nested/.rsconnect-python/pending.json",
+        "nested/rsconnect-python/application.json",
+        "nested/custom-state/servers.json",
+    ]
+    try:
+        (project / "config-alias").symlink_to(config_dir, target_is_directory=True)
+    except (NotImplementedError, OSError):
+        pass
+    else:
+        extras.append("config-alias/pending.json")
+
+    bundle_file = make_nodejs_bundle(str(project), "app.js", _make_node_env(), extras, [])
+    members, manifest = _bundle_snapshot(bundle_file)
+    names = set(members)
+
+    expected = {
+        "manifest.json",
+        "app.js",
+        "package.json",
+        "data.csv",
+        "nested/keep.txt",
+        "nested/rsconnect-python/application.json",
+        "feature/node_modules/kept.js",
+    }
+    assert names == expected
+    assert set(manifest["files"]) == expected - {"manifest.json"}
+    assert b"SECRET" not in b"".join(members.values())
+
+
+def test_manifest_bundle_removes_config_entries_only(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    config_dir = project / "state" / "custom-store"
+    config_dir.mkdir(parents=True)
+    monkeypatch.setattr(rsconnect.bundle.metadata, "config_dirname", lambda: str(config_dir))
+
+    (project / "app.py").write_text("# app")
+    nested_node_module = project / "feature" / "node_modules" / "kept.js"
+    nested_node_module.parent.mkdir(parents=True)
+    nested_node_module.write_text("safe")
+    ignored_file = project / "packrat" / "packrat.lock"
+    ignored_file.parent.mkdir()
+    ignored_file.write_text("ignored by existing rules")
+
+    secret_paths = [
+        ".rsconnect-python/servers.json",
+        "nested/.rsconnect-python/pending.json",
+        "state/custom-store/servers.json",
+    ]
+    for relative_path in secret_paths:
+        secret_file = project / relative_path
+        secret_file.parent.mkdir(parents=True, exist_ok=True)
+        secret_file.write_text("SECRET")
+    project_metadata = project / "nested" / "rsconnect-python" / "application.json"
+    project_metadata.parent.mkdir(parents=True)
+    project_metadata.write_text("project metadata")
+
+    files = {
+        "app.py": {"checksum": "app"},
+        "nested/rsconnect-python/application.json": {"checksum": "project-metadata"},
+        "feature/node_modules/kept.js": {"checksum": "nested-node-module"},
+        "packrat/packrat.lock": {"checksum": "existing-ignore"},
+        **{path: {"checksum": "secret"} for path in secret_paths},
+    }
+    try:
+        (project / "config-alias").symlink_to(config_dir, target_is_directory=True)
+    except (NotImplementedError, OSError):
+        pass
+    else:
+        files["config-alias/servers.json"] = {"checksum": "secret-alias"}
+
+    manifest_path = project / "manifest.json"
+    manifest_path.write_text(json.dumps({"version": 1, "metadata": {"appmode": "python-api"}, "files": files}))
+    with make_manifest_bundle(manifest_path) as bundle_file:
+        members, manifest = _bundle_snapshot(bundle_file)
+    names = set(members)
+
+    assert names == {
+        "manifest.json",
+        "app.py",
+        "nested/rsconnect-python/application.json",
+        "feature/node_modules/kept.js",
+    }
+    assert set(manifest["files"]) == {
+        "app.py",
+        "nested/rsconnect-python/application.json",
+        "feature/node_modules/kept.js",
+        "packrat/packrat.lock",
+    }
+    assert not any(".rsconnect-python" in name for name in manifest["files"])
+    assert "state/custom-store/servers.json" not in manifest["files"]
+    assert "config-alias/servers.json" not in manifest["files"]
+    assert b"SECRET" not in b"".join(members.values())
+
+
+def test_notebook_source_bundle_filters_config_extras(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    config_dir = project / "nested" / "custom-state"
+    config_dir.mkdir(parents=True)
+    monkeypatch.setattr(rsconnect.bundle.metadata, "config_dirname", lambda: str(config_dir))
+
+    notebook = project / "notebook.ipynb"
+    notebook.write_text("{}")
+    (project / "data.csv").write_text("safe")
+    (config_dir / "servers.json").write_text("SECRET")
+    (project / ".rsconnect-python").mkdir()
+    (project / ".rsconnect-python" / "pending.json").write_text("SECRET")
+    extras = ["data.csv", "nested/custom-state/servers.json", ".rsconnect-python/pending.json"]
+    try:
+        (project / "config-alias").symlink_to(config_dir, target_is_directory=True)
+    except (NotImplementedError, OSError):
+        pass
+    else:
+        extras.append("config-alias/servers.json")
+
+    environment = _make_test_environment()
+    with make_notebook_source_bundle(
+        str(notebook),
+        environment,
+        extras,
+        hide_all_input=False,
+        hide_tagged_input=False,
+    ) as bundle_file:
+        members, manifest = _bundle_snapshot(bundle_file)
+    names = set(members)
+
+    assert names == {"manifest.json", "notebook.ipynb", "requirements.txt", "data.csv"}
+    assert set(manifest["files"]) == names - {"manifest.json"}
+    assert b"SECRET" not in b"".join(members.values())
+
+
+@pytest.mark.parametrize("path_kind", ["active_config", "reserved_path", "symlink_alias"])
+def test_notebook_html_bundle_rejects_config_paths_before_conversion(tmp_path, monkeypatch, path_kind):
+    project = tmp_path / "project"
+    project.mkdir()
+    if path_kind == "active_config":
+        config_dir = project / "custom-state"
+        notebook = config_dir / "private.ipynb"
+        error_match = "inside the rsconnect-python configuration directory"
+    elif path_kind == "reserved_path":
+        config_dir = tmp_path / "user-config"
+        notebook = project / ".rsconnect-python" / "private.ipynb"
+        error_match = "credential configuration file"
+    else:
+        config_dir = tmp_path / "user-config"
+        notebook = project / "private.ipynb"
+        error_match = "credential configuration file"
+
+    config_dir.mkdir(parents=True)
+    monkeypatch.setattr(rsconnect.bundle.metadata, "config_dirname", lambda: str(config_dir))
+    if path_kind == "symlink_alias":
+        target = config_dir / "private.ipynb"
+        target.write_text("{}")
+        try:
+            notebook.symlink_to(target)
+        except (NotImplementedError, OSError):
+            pytest.skip("symlinks are unavailable")
+    else:
+        notebook.parent.mkdir(parents=True, exist_ok=True)
+        notebook.write_text("{}")
+
+    callback_calls = []
+
+    def check_output(command):
+        callback_calls.append(command)
+        return b"Python 3.12"
+
+    with pytest.raises(RSConnectException, match=error_match):
+        make_notebook_html_bundle(
+            str(notebook),
+            sys.executable,
+            hide_all_input=False,
+            hide_tagged_input=True,
+            check_output=check_output,
+        )
+    assert callback_calls == []
+
+
+def test_standalone_quarto_bundle_filters_config_extras(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    config_dir = project / "nested" / "custom-state"
+    config_dir.mkdir(parents=True)
+    monkeypatch.setattr(rsconnect.bundle.metadata, "config_dirname", lambda: str(config_dir))
+
+    document = project / "report.qmd"
+    document.write_text("# report")
+    (project / "data.csv").write_text("safe")
+    (config_dir / "servers.json").write_text("SECRET")
+    extras = ["data.csv", "nested/custom-state/servers.json"]
+    try:
+        (project / "config-alias").symlink_to(config_dir, target_is_directory=True)
+    except (NotImplementedError, OSError):
+        pass
+    else:
+        extras.append("config-alias/servers.json")
+
+    inspect = {"quarto": {"version": "1.4.0"}, "engines": [], "files": {"input": [str(document)]}}
+    with make_quarto_source_bundle(
+        str(document),
+        inspect,
+        AppModes.STATIC_QUARTO,
+        None,
+        extras,
+        [],
+    ) as bundle_file:
+        members, manifest = _bundle_snapshot(bundle_file)
+    names = set(members)
+
+    assert names == {"manifest.json", "report.qmd", "data.csv"}
+    assert set(manifest["files"]) == names - {"manifest.json"}
+    assert b"SECRET" not in b"".join(members.values())
+
+
+def test_bundle_rejects_config_directory_as_content_root(tmp_path, monkeypatch):
+    config_dir = tmp_path / "custom-config"
+    config_dir.mkdir()
+    monkeypatch.setattr(rsconnect.bundle.metadata, "config_dirname", lambda: str(config_dir))
+    content_root = tmp_path / "config-alias"
+    try:
+        content_root.symlink_to(config_dir, target_is_directory=True)
+    except (NotImplementedError, OSError):
+        content_root = config_dir
+
+    with pytest.raises(RSConnectException, match="inside the rsconnect-python configuration directory"):
+        make_nodejs_bundle(str(content_root), "app.js", _make_node_env(), [], [])
+
+
+def test_write_api_manifest_excludes_current_home_config_extra(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    monkeypatch.setenv("HOME", str(project))
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.delenv("APPDATA", raising=False)
+
+    config_dir = Path(rsconnect.bundle.metadata.config_dirname()).resolve()
+    config_dir.mkdir(parents=True)
+    pending_state = config_dir / "pending.json"
+    pending_state.write_text("SECRET")
+    (project / "app.py").write_text("app = object()")
+    (project / "data.csv").write_text("safe")
+    (project / "requirements.txt").write_text("flask==3.0.0\n")
+    extra_files = [str(pending_state), str(project / "data.csv")]
+    environment = _make_test_environment()
+
+    assert write_api_manifest_json(
+        str(project),
+        "app:app",
+        environment,
+        AppModes.PYTHON_FASTAPI,
+        extra_files,
+        [],
+    )
+    manifest = json.loads((project / "manifest.json").read_text())
+    with make_manifest_bundle(project / "manifest.json") as bundle_file:
+        members, bundled_manifest = _bundle_snapshot(bundle_file)
+    names = set(members)
+
+    assert "app.py" in manifest["files"]
+    assert "data.csv" in manifest["files"]
+    assert all("pending.json" not in path for path in manifest["files"])
+    assert names == {"manifest.json", "app.py", "data.csv", "requirements.txt"}
+    assert set(bundled_manifest["files"]) == names - {"manifest.json"}
+    assert "app.py" in bundled_manifest["files"]
+    assert "data.csv" in bundled_manifest["files"]
+    assert all("pending.json" not in path for path in bundled_manifest["files"])
+    for path in ("app.py", "data.csv", "requirements.txt"):
+        assert bundled_manifest["files"][path]["checksum"] == file_checksum(project / path)
+    assert b"SECRET" not in b"".join(members.values())
 
 
 class TestNodeJSManifest:

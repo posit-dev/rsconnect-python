@@ -42,6 +42,8 @@ from typing import (
     cast,
 )
 
+from . import metadata
+
 # Even though TypedDict is available in Python 3.8, because it's used with NotRequired,
 # they should both come from the same typing module.
 # https://peps.python.org/pep-0655/#usage-in-python-3-11
@@ -79,8 +81,51 @@ directories_ignore_list = [
     "node_modules/",
 ]
 directories_to_ignore = {Path(d) for d in directories_ignore_list}
+_config_dir_names = {".rsconnect-python"}
 
 mimetypes.add_type("text/ipynb", ".ipynb")
+
+
+def _resolved_config_dir() -> Path:
+    return Path(metadata.config_dirname()).expanduser().resolve()
+
+
+def _path_is_within(path: Path, directory: Path) -> bool:
+    return path == directory or directory in path.parents
+
+
+def _is_config_path(
+    path: str | Path,
+    base_dir: str | Path | None = None,
+    config_dir: Path | None = None,
+) -> bool:
+    candidate = Path(path)
+    if _config_dir_names.intersection(candidate.parts):
+        return True
+    if config_dir is None:
+        if base_dir is None and not candidate.is_absolute():
+            return False
+        config_dir = _resolved_config_dir()
+    if base_dir is not None and not candidate.is_absolute():
+        candidate = Path(base_dir) / candidate
+    return _path_is_within(candidate.resolve(), config_dir)
+
+
+def _ensure_content_root_is_safe(path: str | Path, config_dir: Path) -> None:
+    content_root = Path(path)
+    if content_root.is_file():
+        content_root = content_root.parent
+    content_root = content_root.resolve()
+    if _path_is_within(content_root, config_dir):
+        raise RSConnectException(
+            f"Cannot bundle content from '{content_root}' because it is inside the "
+            f"rsconnect-python configuration directory '{config_dir}'. "
+            "Choose a content directory outside the configuration directory."
+        )
+
+
+def _filter_config_paths(paths: Sequence[str], base_dir: str | Path, config_dir: Path) -> list[str]:
+    return [path for path in paths if not _is_config_path(path, base_dir, config_dir)]
 
 
 class ManifestDataFile(TypedDict):
@@ -623,6 +668,11 @@ def make_notebook_source_bundle(
         extra_files = []
     base_dir = dirname(file)
     nb_name = basename(file)
+    config_dir = _resolved_config_dir()
+    _ensure_content_root_is_safe(base_dir, config_dir)
+    if _is_config_path(file, config_dir=config_dir):
+        raise RSConnectException("A credential configuration file cannot be bundled as notebook content.")
+    extra_files = _filter_config_paths(extra_files, base_dir, config_dir)
 
     manifest = make_source_manifest(
         AppModes.JUPYTER_NOTEBOOK,
@@ -740,6 +790,11 @@ def make_notebook_html_bundle(
     hide_tagged_input: bool,
     check_output: Callable[..., bytes] = subprocess.check_output,
 ) -> typing.IO[bytes]:
+    config_dir = _resolved_config_dir()
+    _ensure_content_root_is_safe(dirname(filename), config_dir)
+    if _is_config_path(filename, config_dir=config_dir):
+        raise RSConnectException("A credential configuration file cannot be bundled as notebook content.")
+
     # noinspection SpellCheckingInspection
     cmd = [
         python,
@@ -780,7 +835,12 @@ def make_notebook_html_bundle(
     return bundle_file
 
 
-def keep_manifest_specified_file(relative_path: str, ignore_path_set: set[Path] = directories_to_ignore) -> bool:
+def keep_manifest_specified_file(
+    relative_path: str,
+    ignore_path_set: set[Path] = directories_to_ignore,
+    base_dir: str | Path | None = None,
+    config_dir: Path | None = None,
+) -> bool:
     """
     A helper to see if the relative path given, which is assumed to have come
     from a manifest.json file, should be kept or ignored.
@@ -788,6 +848,8 @@ def keep_manifest_specified_file(relative_path: str, ignore_path_set: set[Path] 
     :param relative_path: the relative path name to check.
     :return: True, if the path should kept or False, if it should be ignored.
     """
+    if _is_config_path(relative_path, base_dir, config_dir):
+        return False
     p = Path(relative_path)
     for parent in p.parents:
         if parent in ignore_path_set:
@@ -950,7 +1012,16 @@ def make_manifest_bundle(manifest_path: str | Path) -> typing.IO[bytes]:
     manifest, raw_manifest = read_manifest_file(manifest_path)
 
     base_dir = dirname(manifest_path)
-    files = list(filter(keep_manifest_specified_file, manifest.get("files", {}).keys()))
+    config_dir = _resolved_config_dir()
+    _ensure_content_root_is_safe(base_dir, config_dir)
+    manifest_files = manifest.get("files", {})
+    config_files = {path for path in manifest_files if _is_config_path(path, base_dir, config_dir)}
+    files = [
+        path for path in manifest_files if keep_manifest_specified_file(path, base_dir=base_dir, config_dir=config_dir)
+    ]
+    if config_files:
+        manifest["files"] = {path: value for path, value in manifest_files.items() if path not in config_files}
+        raw_manifest = json.dumps(manifest, indent=2)
 
     if "manifest.json" in files:
         # this will be created
@@ -1230,6 +1301,48 @@ def make_tensorflow_bundle(
     return bundle.to_file(directory)
 
 
+def _should_skip_walk_directory(
+    cur_dir: str,
+    sub_dirs: list[str],
+    exclude_paths: set[Path],
+    config_dir: Path,
+) -> bool:
+    sub_dirs[:] = [
+        sub_dir for sub_dir in sub_dirs if not _is_config_path(join(cur_dir, sub_dir), config_dir=config_dir)
+    ]
+    current_dir = Path(cur_dir)
+    return current_dir in exclude_paths or any(parent in exclude_paths for parent in current_dir.parents)
+
+
+def _iter_directory_files(
+    path: str,
+    extra_files: Sequence[str],
+    excludes: Sequence[str],
+    use_abspath: bool,
+    config_dir: Path,
+) -> Iterator[str]:
+    glob_set = create_glob_set(path, excludes)
+    exclude_paths = {Path(p) for p in excludes}
+    for cur_dir, sub_dirs, files in os.walk(path):
+        if _should_skip_walk_directory(cur_dir, sub_dirs, exclude_paths, config_dir):
+            continue
+        for file in files:
+            cur_path = os.path.join(cur_dir, file)
+            rel_path = relpath(cur_path, path)
+            if Path(cur_path) in exclude_paths:
+                continue
+            if not keep_manifest_specified_file(
+                rel_path,
+                exclude_paths | directories_to_ignore,
+                base_dir=path,
+                config_dir=config_dir,
+            ):
+                continue
+            if rel_path not in extra_files and glob_set.matches(cur_path):
+                continue
+            yield abspath(cur_path) if use_abspath else rel_path
+
+
 def create_file_list(
     path: str,
     extra_files: Sequence[str],
@@ -1247,32 +1360,19 @@ def create_file_list(
     :return: the list of relevant files, relative to the given directory.
     """
     extra_files = extra_files or []
-    excludes = excludes if excludes else []
-    glob_set = create_glob_set(path, excludes)
-    exclude_paths = {Path(p) for p in excludes}
-    file_set: set[str] = set(extra_files)
+    excludes = excludes or []
+    config_dir = _resolved_config_dir()
+    content_root = Path(path).parent if isfile(path) else Path(path)
+    _ensure_content_root_is_safe(content_root, config_dir)
+    file_set: set[str] = set(_filter_config_paths(extra_files, content_root, config_dir))
 
     if isfile(path):
-        path_to_add = abspath(path) if use_abspath else path
-        file_set.add(path_to_add)
+        if not _is_config_path(path, config_dir=config_dir):
+            path_to_add = abspath(path) if use_abspath else path
+            file_set.add(path_to_add)
         return sorted(file_set)
 
-    for cur_dir, _, files in os.walk(path):
-        if Path(cur_dir) in exclude_paths:
-            continue
-        if any(parent in exclude_paths for parent in Path(cur_dir).parents):
-            continue
-        for file in files:
-            cur_path = os.path.join(cur_dir, file)
-            rel_path = relpath(cur_path, path)
-
-            if Path(cur_path) in exclude_paths:
-                continue
-            if keep_manifest_specified_file(rel_path, exclude_paths | directories_to_ignore) and (
-                rel_path in extra_files or not glob_set.matches(cur_path)
-            ):
-                path_to_add = abspath(cur_path) if use_abspath else rel_path
-                file_set.add(path_to_add)
+    file_set.update(_iter_directory_files(path, extra_files, excludes, use_abspath, config_dir))
 
     return sorted(file_set)
 
@@ -1712,7 +1812,11 @@ def make_quarto_manifest(
         # Standalone Quarto document
         base_dir = dirname(file_or_directory)
         file_name = basename(file_or_directory)
-        relevant_files = [file_name] + list(extra_files or [])
+        config_dir = _resolved_config_dir()
+        _ensure_content_root_is_safe(base_dir, config_dir)
+        if _is_config_path(file_or_directory, config_dir=config_dir):
+            raise RSConnectException("A credential configuration file cannot be bundled as Quarto content.")
+        relevant_files = [file_name] + _filter_config_paths(extra_files or [], base_dir, config_dir)
 
     manifest = make_source_manifest(
         app_mode,
