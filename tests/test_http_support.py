@@ -31,6 +31,50 @@ class TestHTTPSupport(TestCase):
         with self.assertRaises(ValueError):
             HTTPServer("ftp://example.com")
 
+    def test_request_timeout_override_does_not_change_the_default(self):
+        from unittest.mock import patch
+
+        with patch("rsconnect.http_support.get_request_timeout", return_value=37):
+            with HTTPServer("http://example.com", request_timeout=0.25) as bounded:
+                self.assertEqual(bounded._conn.timeout, 0.25)
+            with HTTPServer("http://example.com") as ordinary:
+                self.assertEqual(ordinary._conn.timeout, 37)
+
+    def test_expired_request_deadline_prevents_network_io(self):
+        import socket
+        from unittest.mock import patch
+
+        with patch("rsconnect.http_support.time.monotonic", return_value=100):
+            with HTTPServer("http://example.com", request_deadline=99) as server:
+                with patch.object(server._conn, "request") as send:
+                    response = server.get("/settings")
+        self.assertIsInstance(response.exception, socket.timeout)
+        send.assert_not_called()
+
+    def test_deadline_updates_an_existing_socket_for_each_request(self):
+        from unittest.mock import Mock, patch
+
+        clock = [100]
+        with patch("rsconnect.http_support.time.monotonic", side_effect=lambda: clock[0]):
+            with HTTPServer("http://example.com", request_timeout=20, request_deadline=110) as server:
+                transport = server._conn
+                transport.sock = Mock()
+                reply = Mock()
+                reply.status = 200
+                reply.read.return_value = b"{}"
+                reply.getheaders.return_value = []
+                reply.getheader.return_value = "application/json"
+                with patch.object(transport, "request"):
+                    with patch.object(transport, "getresponse", return_value=reply):
+                        server.get("/first")
+                        self.assertEqual(transport.timeout, 10)
+                        transport.sock.settimeout.assert_called_with(10)
+                        clock[0] = 107
+                        server.get("/next")
+                        self.assertEqual(transport.timeout, 3)
+                        transport.sock.settimeout.assert_called_with(3)
+                transport.sock = None
+
     def test_header_stuff(self):
         server = HTTPServer("http://example.com")
         self.assertIsNone(server.get_authorization())

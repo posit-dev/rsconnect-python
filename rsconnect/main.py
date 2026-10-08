@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -213,6 +214,197 @@ def output_params(
                     val = "%s (values hidden)" % sorted(cast("dict[str, str]", v))
                 sourceName = validation.get_parameter_source_name_from_ctx(k, ctx)
                 logger.log(VERBOSE, "    %-18s%s (from %s)", (k + ":"), val, sourceName)
+
+
+def device_login_args(kind: Literal["connect", "cloud"]) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Add resumable login options without changing the blocking command path."""
+
+    def decorate(func: Callable[..., Any]) -> Callable[..., Any]:
+        @click.option("--no-wait", is_flag=True, help="Start device login, print approval details as JSON, and exit.")
+        @click.option("--finish", is_flag=True, help="Finish a pending device login selected by --name.")
+        @click.option(
+            "--timeout",
+            type=click.IntRange(min=1),
+            default=120,
+            show_default=True,
+            help="Maximum seconds for the entire finish invocation, including account lookup. Requires --finish.",
+        )
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            no_wait = kwargs.pop("no_wait")
+            finish = kwargs.pop("finish")
+            timeout = kwargs.pop("timeout")
+            timeout_supplied = (
+                validation.get_parameter_source_name_from_ctx("timeout", click.get_current_context()) == "COMMANDLINE"
+            )
+            resumable = no_wait or finish
+            if resumable or timeout_supplied:
+                _set_json_verbosity(kwargs.get("verbose", 0))
+            if timeout_supplied and not finish:
+                raise RSConnectException("--timeout requires --finish.")
+            if not resumable:
+                return func(*args, **kwargs)
+            if no_wait and finish:
+                raise RSConnectException("Specify only one of --no-wait or --finish.")
+            logger.log(VERBOSE, "Finishing device authentication." if finish else "Starting device authentication.")
+            result = _run_device_login(kind, kwargs, finish, timeout)
+            click.echo(json.dumps(result))
+
+        return wrapper
+
+    return decorate
+
+
+def _set_json_verbosity(verbose: int) -> None:
+    """Reserve stdout for JSON while allowing diagnostics on stderr."""
+    set_verbosity(0, quiet=True)
+    if verbose:
+        logger.setLevel(VERBOSE if verbose == 1 else logging.DEBUG)
+
+
+def preflight_exception_handler(func: Callable[P, T]) -> Callable[P, T]:
+    """Report operational preflight failures separately from incompatibility."""
+
+    @wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs):
+        try:
+            return func(*args, **kwargs)
+        except click.UsageError as exc:
+            exc.show()
+            sys.exit(exc.exit_code)
+        except RSConnectException as exc:
+            click.echo(
+                json.dumps(
+                    {
+                        "status": "error",
+                        "runtime": click.get_current_context().params.get("runtime", "python"),
+                        "error": exc.message,
+                        "changed_files": [],
+                        "warnings": [],
+                        "actions": ["Resolve the reported error before retrying preflight."],
+                    }
+                )
+            )
+            sys.exit(1)
+        finally:
+            logger.set_in_feedback(False)
+
+    return wrapper
+
+
+def _validate_preflight_options(ctx: click.Context) -> None:
+    params = ctx.params
+    if params["new"] and params["app_id"]:
+        raise click.UsageError("Specify only one of --new or --app-id.")
+    if params["runtime"] == "nodejs":
+        if params["fix"]:
+            raise click.UsageError("--fix applies only to Python projects; Node.js metadata is left unchanged.")
+    elif params["node"]:
+        raise click.UsageError("--node requires --runtime nodejs.")
+
+
+def _run_device_login(
+    kind: Literal["connect", "cloud"], params: dict[str, Any], finish: bool, timeout: int
+) -> dict[str, Any]:
+    from .device_login import finish_login
+
+    name = params.get("name")
+    if kind == "cloud" and not (
+        params.get("connect_cloud") or connect_cloud_auth.is_connect_cloud_url(params.get("server"))
+    ):
+        raise RSConnectException("--no-wait and --finish on add require --connect-cloud.")
+    if finish:
+        if not name:
+            raise RSConnectException("--finish requires --name to select the pending login.")
+        _validate_device_login_finish(params)
+        return finish_login(kind, name, timeout)
+    if kind == "connect":
+        return _start_connect_device_login(params)
+    return _start_cloud_device_login(params)
+
+
+def _validate_device_login_finish(params: dict[str, Any]) -> None:
+    ctx = click.get_current_context()
+    start_options = (
+        "server_arg",
+        "server",
+        "account",
+        "identity_token",
+        "identity_token_file",
+        "client_id",
+        "client_secret",
+        "insecure",
+        "cacert",
+        "set_default",
+        "no_set_default",
+        "use_device_code",
+        "api_key",
+        "snowflake_connection_name",
+        "token",
+        "secret",
+    )
+    for option in start_options:
+        if params.get(option) and validation.get_parameter_source_name_from_ctx(option, ctx) == "COMMANDLINE":
+            raise RSConnectException("--finish uses the saved login options; pass only --name and --timeout.")
+
+
+def _start_connect_device_login(params: dict[str, Any]) -> dict[str, Any]:
+    from urllib.parse import urlparse
+
+    from .device_login import start_connect_login
+
+    if params.get("identity_token") or params.get("identity_token_file"):
+        raise RSConnectException("--no-wait cannot be combined with identity token authentication.")
+    ctx = click.get_current_context()
+    server: Optional[str] = params.get("server")
+    positional: Optional[str] = params.get("server_arg")
+    if positional and validation.get_parameter_source_name_from_ctx("server", ctx) == "COMMANDLINE":
+        raise RSConnectException("You must specify only one of SERVER or -s/--server.")
+    server = positional or server
+    if not server:
+        raise RSConnectException("You must specify the server as a SERVER argument or with -s/--server.")
+    ca_data = read_certificate_file(params["cacert"]) if params.get("cacert") else None
+    return start_connect_login(
+        server,
+        params.get("name") or urlparse(server).hostname or server,
+        insecure=params["insecure"],
+        ca_data=ca_data,
+        set_default=not params["no_set_default"],
+        client_id=params.get("client_id"),
+    )
+
+
+def _start_cloud_device_login(params: dict[str, Any]) -> dict[str, Any]:
+    from .device_login import start_cloud_login
+
+    if params.get("client_id") or params.get("client_secret"):
+        raise RSConnectException("--no-wait cannot be combined with service account credentials.")
+    ctx = click.get_current_context()
+    account = validation.effective_connect_cloud_account(ctx, params.get("account"))
+    if not account:
+        raise RSConnectException("--no-wait requires --account for Posit Connect Cloud.")
+    server: Optional[str] = params.get("server")
+    validation.validate_connection_options(
+        ctx=ctx,
+        url=server,
+        api_key=params.get("api_key"),
+        insecure=params["insecure"],
+        cacert=params.get("cacert"),
+        account_name=account,
+        token=params.get("token"),
+        secret=params.get("secret"),
+        snowflake_connection_name=params.get("snowflake_connection_name"),
+        connect_cloud=params["connect_cloud"],
+    )
+    from_environment = validation.get_parameter_source_name_from_ctx("server", ctx) == "ENVIRONMENT"
+    if not connect_cloud_auth.is_connect_cloud_url(server) or (params.get("connect_cloud") and from_environment):
+        server = connect_cloud_auth.SERVER_NAME
+    return start_cloud_login(
+        account,
+        params.get("name") or "cloud",
+        url=connect_cloud_auth.resolve_url(server),
+        set_default=params["set_default"],
+    )
 
 
 def server_args(func: Callable[P, T]) -> Callable[P, T]:
@@ -853,7 +1045,7 @@ def bootstrap(
     help=(
         "Associate a simple nickname with the information needed to interact with a deployment target. "
         "Specifying an existing nickname will cause its stored information to be replaced by what is given "
-        "on the command line."
+        "on the command line. Resumable device login requires the nickname to identify the same target."
     ),
     no_args_is_help=True,
 )
@@ -862,6 +1054,7 @@ def bootstrap(
 @spcs_args
 @cloud_shinyapps_args
 @connect_cloud_args
+@device_login_args("cloud")
 @click.option(
     "--set-default",
     is_flag=True,
@@ -1145,6 +1338,70 @@ def details(
 
 
 @cli.command(
+    short_help="Check a project's runtime availability on Posit Connect.",
+    help=(
+        "Report server runtime versions and the project's runtime constraint as JSON. "
+        "This command supports Posit Connect, including OAuth credentials; it does not support Posit Connect Cloud. "
+        "No project files change unless --fix is given. An incompatible constraint exits with status 3; "
+        "operational errors exit with status 1."
+    ),
+)
+@server_args
+@spcs_args
+@click.argument("directory", default=".", type=click.Path(exists=True))
+@click.option("--fix", is_flag=True, help="For new content without a constraint, create a suggested .python-version.")
+@click.option("--new", is_flag=True, help="Check a new content item even when a deployment record exists.")
+@click.option("--app-id", "-a", help="Check an existing content item by ID or GUID.")
+@click.option("--runtime", type=click.Choice(["python", "nodejs"]), default="python", show_default=True)
+@click.option("--node", type=click.Path(exists=True, dir_okay=False), help="Node.js executable for --runtime nodejs.")
+@cli_exception_handler
+@preflight_exception_handler
+@click.pass_context
+def preflight(
+    ctx: click.Context,
+    directory: str,
+    fix: bool,
+    new: bool,
+    app_id: Optional[str],
+    runtime: str,
+    node: Optional[str],
+    name: Optional[str],
+    server: Optional[str],
+    api_key: Optional[str],
+    snowflake_connection_name: Optional[str],
+    insecure: bool,
+    cacert: Optional[str],
+    verbose: int,
+):
+    from .preflight import run_preflight
+
+    _set_json_verbosity(verbose)
+    logger.log(VERBOSE, "Checking %s runtime availability.", runtime)
+    _validate_preflight_options(ctx)
+    ce = RSConnectExecutor(
+        ctx=ctx,
+        name=name,
+        server=server,
+        api_key=api_key,
+        snowflake_connection_name=snowflake_connection_name,
+        insecure=insecure,
+        cacert=cacert,
+        path=directory,
+        app_id=app_id,
+        new=new,
+    ).validate_server()
+    if runtime == "nodejs":
+        from .preflight_node import run_node_preflight
+
+        result = run_node_preflight(ce, directory, node)
+    else:
+        result = run_preflight(ce, directory, fix)
+    click.echo(json.dumps(result))
+    if result["status"] == "incompatible":
+        sys.exit(3)
+
+
+@cli.command(
     short_help="Remove the information about a Posit Connect server.",
     help=(
         "Remove the information about a Posit Connect server by nickname or URL. One of --name or --server is required."
@@ -1378,6 +1635,7 @@ def _login_with_token_exchange(
 )
 @click.option("--verbose", "-v", count=True, help="Enable verbose output. Use -vv for very verbose (debug) output.")
 @cli_exception_handler
+@device_login_args("connect")
 def login(
     server_arg: Optional[str],
     server: Optional[str],

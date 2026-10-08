@@ -74,6 +74,11 @@ class TestDiscoverOAuthMetadata:
         result = discover_oauth_metadata(FAKE_URL)
         assert result == FAKE_METADATA
 
+    def test_client_specific_request_timeout(self, mock_http_server: MagicMock):
+        mock_http_server.get.return_value = _make_response(200, FAKE_METADATA)
+        assert discover_oauth_metadata(FAKE_URL, request_timeout=0.25) == FAKE_METADATA
+        assert mock_http_server.request_timeout == 0.25
+
     def test_server_not_supporting_oauth(self, mock_http_server: MagicMock):
         mock_http_server.get.return_value = _make_response(404, None)
         with pytest.raises(RSConnectException, match="does not support OAuth"):
@@ -90,6 +95,11 @@ class TestRegisterClient:
         mock_http_server.post.return_value = _make_response(200, {"client_id": "test-client-123"})
         result = register_client(FAKE_METADATA, FAKE_URL)
         assert result == "test-client-123"
+
+    def test_client_specific_request_timeout(self, mock_http_server: MagicMock):
+        mock_http_server.post.return_value = _make_response(200, {"client_id": "bounded-client"})
+        assert register_client(FAKE_METADATA, FAKE_URL, request_timeout=0.25) == "bounded-client"
+        assert mock_http_server.request_timeout == 0.25
 
     def test_failure(self, mock_http_server: MagicMock):
         mock_http_server.post.return_value = _make_response(
@@ -283,6 +293,11 @@ class TestDeviceCodeFlow:
 
 
 class TestRefreshAccessToken:
+    def test_client_specific_request_timeout(self, mock_http_server: MagicMock):
+        mock_http_server.request.return_value = _make_response(200, {"access_token": "new-at"})
+        refresh_access_token(FAKE_METADATA, "client-1", "old-rt", request_timeout=0.25)
+        assert mock_http_server.request_timeout == 0.25
+
     def test_success(self, mock_http_server: MagicMock):
         mock_http_server.request.return_value = _make_response(
             200, {"access_token": "new-at", "refresh_token": "new-rt", "expires_in": 7200}
@@ -721,6 +736,13 @@ class TestStreamBodyRetry:
 
 
 class TestLoginCommand:
+    @pytest.fixture(autouse=True)
+    def isolated_server_store(self, tmp_path: Any, monkeypatch: Any):
+        from rsconnect import main
+        from rsconnect.metadata import ServerStore
+
+        monkeypatch.setattr(main, "server_store", ServerStore(str(tmp_path)))
+
     @patch("rsconnect.oauth.keyring_store_token", return_value=True)
     @patch("rsconnect.oauth.login_with_browser")
     @patch("rsconnect.oauth.register_client", return_value="new-client-id")

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- `login` and `add --connect-cloud` can start device-code authentication and return
+  approval details as JSON. Finish a pending login by nickname with `--finish`.
+  Use `--timeout` to bound the entire finish invocation, including account lookup.
+- Added `rsconnect preflight` to check Python and Node.js runtime availability on
+  self-hosted Posit Connect and Snowpark Container Services (SPCS). For first
+  publishes, it considers server installations marked publishable. Python
+  preflight can add a missing `.python-version` for new content with no
+  constraint; Node.js preflight checks `package.json`'s `engines.node` range and
+  server runtime availability.
+  Preflight accepts Python file targets as well as directories. Its JSON reports
+  distinguish unresolved checks from operational errors. Runtime incompatibility
+  exits with status 3; operational errors exit with status 1.
 - `write-manifest` now writes `requirements.txt` with the same bytes that it uses for
   the manifest checksum. On Windows, the file had CRLF line endings and the checksum did
   not match. An existing requirements file with CRLF line endings also has the correct

@@ -24,6 +24,36 @@ from .utils import require_api_key, require_connect
 
 
 class TestAPI(TestCase):
+    @httpretty.activate(allow_net_connect=False)
+    def test_nodejs_settings_preserves_runtime_flags(self):
+        settings = {
+            "enabled": True,
+            "installations": [{"version": "22.22.2", "publishable": False}],
+            "status": {"configured": True, "licensed": True},
+        }
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/server_settings/nodejs",
+            body=json.dumps(settings),
+            content_type="application/json",
+        )
+        client = RSConnectClient(RSConnectServer("http://test-server", "api_key"))
+        self.assertEqual(client.nodejs_settings(), settings)
+        self.assertEqual(httpretty.last_request().headers["Authorization"], "Key api_key")
+
+    @httpretty.activate(allow_net_connect=False)
+    def test_nodejs_settings_reports_permission_failure(self):
+        httpretty.register_uri(
+            httpretty.GET,
+            "http://test-server/__api__/v1/server_settings/nodejs",
+            status=403,
+            body=json.dumps({"error": "Forbidden"}),
+            content_type="application/json",
+        )
+        client = RSConnectClient(RSConnectServer("http://test-server", "api_key"))
+        with self.assertRaises(RSConnectException):
+            client.nodejs_settings()
+
     def test_executor_init(self):
         connect_server = require_connect()
         api_key = require_api_key()

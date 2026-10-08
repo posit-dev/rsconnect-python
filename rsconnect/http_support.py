@@ -10,6 +10,7 @@ import os
 import re
 import socket
 import ssl
+import time
 from http import client as http
 from http.cookies import SimpleCookie
 from typing import IO, Any, Dict, List, Mapping, Optional, Tuple, Union, cast
@@ -387,6 +388,8 @@ class HTTPServer(object):
         disable_tls_check: bool = False,
         ca_data: Optional[str | bytes] = None,
         cookies: Optional[CookieJar] = None,
+        request_timeout: Optional[float] = None,
+        request_deadline: Optional[float] = None,
     ):
         """
         Constructs an HTTPServer object.
@@ -399,6 +402,9 @@ class HTTPServer(object):
         certificates.
         :param cookies: an optional cookie jar.  Must be of type `CookieJar` defined in this
         same file (i.e., not the one Python provides).
+        :param request_timeout: an optional socket timeout for this client, in seconds.
+        :param request_deadline: an optional absolute time.monotonic() deadline across requests.
+            When omitted, CONNECT_REQUEST_TIMEOUT supplies the timeout.
         """
         self._url = urlparse(url)
 
@@ -410,6 +416,8 @@ class HTTPServer(object):
         self._cookies = cookies if cookies is not None else CookieJar()
         self._headers = {"User-Agent": _user_agent}
         self._conn = None
+        self.request_timeout = request_timeout
+        self.request_deadline = request_deadline
         self._proxy_headers = _get_proxy_headers()
 
         self._inject_cookies()
@@ -446,6 +454,8 @@ class HTTPServer(object):
             self._disable_tls_check,
             self._ca_data,
         )
+        if self.request_timeout is not None:
+            self._conn.timeout = self.request_timeout
         return self
 
     def __exit__(self, *args: object):
@@ -524,6 +534,19 @@ class HTTPServer(object):
     def get_extra_headers(self, url: str, method: str, body: str | bytes | IO[bytes] | None) -> dict[str, str]:
         return {}
 
+    def _apply_request_deadline(self) -> None:
+        if self.request_deadline is None:
+            return
+        remaining = self.request_deadline - time.monotonic()
+        if remaining <= 0:
+            raise socket.timeout("HTTP request deadline exceeded.")
+        timeout = self.request_timeout if self.request_timeout is not None else get_request_timeout()
+        self.request_timeout = min(timeout, remaining)
+        if self._conn is not None:
+            self._conn.timeout = self.request_timeout
+            if self._conn.sock is not None:
+                self._conn.sock.settimeout(self.request_timeout)
+
     def _do_request(
         self,
         method: str,
@@ -545,6 +568,7 @@ class HTTPServer(object):
         local_connection = False
 
         try:
+            self._apply_request_deadline()
             if logger.is_debugging():
                 logger.debug(f"Request: {method} {_redacted_uri_for_log(full_uri)}")
                 logger.debug("Headers:")

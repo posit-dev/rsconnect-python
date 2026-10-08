@@ -236,14 +236,18 @@ def login_client_credentials(
     )
 
 
-def refresh(refresh_token: str, environment: Optional[str] = None) -> dict[str, Any]:
+def refresh(
+    refresh_token: str, environment: Optional[str] = None, request_timeout: Optional[float] = None
+) -> dict[str, Any]:
     """Mint a new access token from a refresh token."""
     env = environment or environment_name()
+    request_options = {"request_timeout": request_timeout} if request_timeout is not None else {}
     return refresh_access_token(
         metadata=urls(env).oauth_metadata(),
         client_id=client_id(env),
         refresh_token=refresh_token,
         scope=SCOPE,
+        **request_options,
     )
 
 

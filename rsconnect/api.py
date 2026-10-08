@@ -59,7 +59,7 @@ from .bundle import _default_title, _find_manifest_member
 from .shiny_express import unescape_from_var_name
 from .certificates import read_certificate_file
 from .environment import fake_module_file_from_directory
-from .exception import DeploymentFailedException, RSConnectException
+from .exception import ConnectCloudAccountNotFoundError, DeploymentFailedException, RSConnectException
 from .http_support import (
     BearerTokenHTTPServer,
     CookieJar,
@@ -667,6 +667,11 @@ class RSConnectClient(BearerTokenHTTPServer):
         response = cast(Union[PyInfo, HTTPResponse], self.get("v1/server_settings/python"))
         response = self._server.handle_bad_response(response)
         return response
+
+    def nodejs_settings(self) -> dict[str, Any]:
+        """Return Node.js availability and publishability information."""
+        response = self.get("v1/server_settings/nodejs")
+        return cast(typing.Dict[str, Any], self._server.handle_bad_response(response))
 
     def app_get(self, app_id: str) -> ContentItemV0:
         response = cast(Union[ContentItemV0, HTTPResponse], self.get(f"applications/{app_id}"))
@@ -3389,6 +3394,15 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         server = self._server
         return bool(server.refresh_token or (server.client_id and server.client_secret))
 
+    def _refresh_user_token(self) -> dict[str, Any]:
+        request_options: dict[str, float] = {}
+        if self.request_deadline is not None:
+            remaining = self.request_deadline - time.monotonic()
+            if remaining <= 0:
+                raise RSConnectException("Device login finish deadline exceeded.")
+            request_options["request_timeout"] = min(self.request_timeout or remaining, remaining)
+        return connect_cloud.refresh(cast(str, self._server.refresh_token), self._server.environment, **request_options)
+
     def _attempt_token_refresh(self) -> bool:
         """Mint a new access token and apply it to this client.
 
@@ -3410,7 +3424,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
                     server.client_id, server.client_secret, server.environment
                 )
             elif server.refresh_token:
-                tokens = connect_cloud.refresh(server.refresh_token, server.environment)
+                tokens = self._refresh_user_token()
             else:
                 return False
         except InvalidClientError as exc:
@@ -3635,7 +3649,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
             available = "You can publish to: %s." % ", ".join(names)
         else:
             available = "You do not have publish access to any Posit Connect Cloud accounts."
-        return RSConnectException("%s %s" % (not_found_message, available))
+        return ConnectCloudAccountNotFoundError("%s %s" % (not_found_message, available))
 
     @staticmethod
     def _can_publish(account: ConnectCloudAccount) -> bool:
