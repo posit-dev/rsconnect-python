@@ -1,0 +1,1398 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../logout/">
+      
+      
+        <link rel="next" href="../quickstart/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../images/favicon.ico">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>preflight - rsconnect-python</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Open Sans";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../docs/css/custom.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+<!-- Google Analytics 4 (G-XXXXXXXXXX) -->
+<script>
+    /* Use GA when hosted by our public docs site, not when installed. */
+    if (location.href.indexOf("docs.posit.co") >= 0) {
+        window.dataLayer = window.dataLayer || []
+        function gtag() { dataLayer.push(arguments) }
+        /* Set up integration and send page view */
+        gtag("js", new Date())
+        gtag("config", "")
+
+        /* Register virtual event handlers */
+        document.addEventListener("DOMContentLoaded", function () {
+            if (document.forms.search) {
+                var query = document.forms.search.query
+                query.addEventListener("blur", function () {
+                    if (this.value) {
+                        gtag("event", "search", { search_term: this.value })
+                    }
+                })
+            }
+
+            /* Send page view on location change */
+            if (typeof location$ !== "undefined")
+                location$.subscribe(function (url) {
+                    gtag("config", "", {
+                        page_path: url.pathname
+                    })
+                })
+        })
+        /* Create script tag */
+        var script = document.createElement("script")
+        script.async = true
+        script.src = "https://www.googletagmanager.com/gtag/js?id="
+
+        /* Inject script tag */
+        var container = document.getElementsByTagName("head")[0]
+        var firstChild = container.firstChild
+        container.insertBefore(script, firstChild)
+    }
+</script>
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#rsconnect-preflight" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="header.title">
+    <a href="../.." title="rsconnect-python" class="md-header__button md-logo" aria-label="rsconnect-python">
+      
+  <img src="../../images/iconPositConnect.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            rsconnect-python
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              preflight
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="md-header__options">
+      
+    </div>
+        <!-- Color palette -->
+        
+        <form class="md-header__option" data-md-component="palette">
+          
+            
+            
+            <input
+              class="md-option"
+              data-md-color-media="(prefers-color-scheme)"
+              data-md-color-scheme=""
+              data-md-color-primary="white"
+              data-md-color-accent="blue"
+              type="radio"
+              name="__palette"
+              id="__palette_1"
+            />
+            
+              <label
+                class="md-header__button md-icon"
+                title="Switch to light mode"
+                for="__palette_3"
+                hidden
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+              </label>
+            
+          
+            
+            
+            <input
+              class="md-option"
+              data-md-color-media=""
+              data-md-color-scheme="default"
+              data-md-color-primary="white"
+              data-md-color-accent=""
+              type="radio"
+              name="__palette"
+              id="__palette_2"
+            />
+            
+              <label
+                class="md-header__button md-icon"
+                title="Switch to dark mode"
+                for="__palette_1"
+                hidden
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+              </label>
+            
+          
+            
+            
+            <input
+              class="md-option"
+              data-md-color-media=""
+              data-md-color-scheme="slate"
+              data-md-color-primary="black"
+              data-md-color-accent=""
+              type="radio"
+              name="__palette"
+              id="__palette_3"
+            />
+            
+              <label
+                class="md-header__button md-icon"
+                title="Switch to light mode"
+                for="__palette_2"
+                hidden
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+              </label>
+            
+          
+        </form>
+      
+    <div class="md-flex__cell md-flex__cell--shrink left-nav">
+      <ul class="md-tabs__list">
+        <li class="md-tabs__item"><a href="../../CHANGELOG/" title="Release Notes" class="md-tabs__link md-source">Release Notes</a></li>
+        <li class="md-tabs__item"><a href="https://support.posit.co/hc/en-us" title="Posit Support" class="md-tabs__link md-source">Help</a></li>
+      </ul>
+    </div>
+    
+    
+  </nav>
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="rsconnect-python" class="md-nav__button md-logo" aria-label="rsconnect-python" data-md-component="logo">
+      
+  <img src="../../images/iconPositConnect.svg" alt="logo">
+
+    </a>
+    rsconnect-python
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../programmatic-provisioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Programmatic Provisioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deploying/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploying Content
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../server-administration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server Administration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_1" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5_1" id="__nav_5_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    rsconnect
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_1_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    rsconnect
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../content/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    content
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    deploy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../environment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../info/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    info
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../login/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    login
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../logout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    logout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    preflight
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    preflight
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#add-a-python-version-pin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Add a Python version pin
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_1_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_1_10" id="__nav_5_1_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    server
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_1_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_1_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    server
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../add/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    add
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bootstrap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bootstrap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    details
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../list/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    list
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../remove/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    remove
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../set-default/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    set-default
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../system/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    system
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    version
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../write-manifest/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    write-manifest
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#add-a-python-version-pin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Add a Python version pin
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="rsconnect-preflight"><code>rsconnect preflight</code><a class="headerlink" href="#rsconnect-preflight" title="Permanent link">#</a></h1>
+<p>Use <code>preflight</code> to compare a project's runtime constraint with versions reported by a
+self-hosted Posit Connect or Snowpark Container Services (SPCS) server. It supports
+OAuth credentials and does not support Posit Connect Cloud. Preflight checks runtime
+availability only. It does not assess application or dependency compatibility.
+Preflight requires a POSIX system such as Linux or macOS; existing deployment commands remain available on Windows.</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>preflight<span class="w"> </span>--name<span class="w"> </span>myserver<span class="w"> </span>./project
+</code></pre></div>
+<p>The <code>--runtime</code> option accepts <code>python</code> or <code>nodejs</code> and defaults to <code>python</code>. Select
+Node.js with <code>--runtime nodejs</code>:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>preflight<span class="w"> </span>-n<span class="w"> </span>myserver<span class="w"> </span>./node-app<span class="w"> </span>--runtime<span class="w"> </span>nodejs
+</code></pre></div>
+<p>For Node.js, preflight compares <code>package.json</code>'s <code>engines.node</code> constraint with server
+Node.js installations using npm semver. Node.js must be enabled and allowed by the
+server license. For first publishes, an installation must also be marked publishable.
+If a legacy server omits required runtime or publishability flags, the result can be
+<code>unknown</code>.</p>
+<p>Use <code>--node</code> with a path to select the local Node.js executable. It is valid only with
+<code>--runtime nodejs</code>; passing it with Python is an error. Node.js preflight does not
+support <code>--fix</code> and does not modify <code>package.json</code>, <code>package-lock.json</code>, or other
+project files.</p>
+<p>The command prints a JSON report with <code>status</code> set to <code>ok</code>, <code>incompatible</code>, or
+<code>unknown</code>, along with runtime diagnostics, <code>warnings</code>, and <code>actions</code>. Operational errors return an <code>error</code> report.
+For Python, the
+report includes:</p>
+<ul>
+<li><code>status</code>, <code>runtime</code>, <code>server</code>, <code>warnings</code>, and <code>actions</code>: check results, runtime name, and suggested next steps</li>
+<li><code>publishable_python_versions</code>: Python versions from installations the server marks publishable for first publishes</li>
+<li><code>local_python</code>: the local Python version</li>
+<li><code>local_python_publishable</code>: whether the server marks the local Python minor version publishable, or <code>null</code> if unknown</li>
+<li><code>recommended_python</code>: a suggested Python minor version for unconstrained first publication, or <code>null</code></li>
+<li><code>python_requires</code>: the project’s declared Python requirement, if present</li>
+<li><code>existing_content</code>: an object with <code>exists</code>, <code>app_id</code>, <code>installed_python_version</code>, <code>server_python_versions</code>, and <code>python_compatibility</code></li>
+<li><code>quarto_available</code>: whether the local Quarto command is available</li>
+<li><code>changed_files</code>: files changed by <code>--fix</code></li>
+</ul>
+<p>For Node.js, the report includes:</p>
+<ul>
+<li><code>status</code>, <code>runtime</code>, <code>server</code>, <code>warnings</code>, and <code>actions</code>: check results, runtime name, and suggested next steps</li>
+<li><code>local_node</code>: the selected local Node.js version</li>
+<li><code>node_requires</code>: the <code>package.json</code> <code>engines.node</code> range</li>
+<li><code>server_node_versions</code>: the server-reported installed Node.js versions</li>
+<li><code>publishable_node_versions</code>: versions marked publishable for first publishes</li>
+<li><code>nodejs_enabled</code> and <code>nodejs_status</code>: server Node.js availability and status</li>
+<li><code>existing_content</code>: an object with <code>exists</code>, <code>app_id</code>, <code>node_version</code>, and <code>compatibility</code></li>
+<li><code>changed_files</code>: empty because Node.js preflight does not change project files</li>
+</ul>
+<p>The server's enabled, license, and publishable flags inform the status. Treat <code>unknown</code>
+as unresolved and inspect <code>warnings</code> and <code>actions</code>; do not treat it as compatible. An
+<code>incompatible</code> result exits with status 3. An <code>ok</code> or <code>unknown</code> result exits with status 0.
+Operational errors exit with status 1. Their JSON contains <code>status: error</code>, <code>runtime</code>, <code>error</code>, <code>changed_files</code>, <code>warnings</code>, and <code>actions</code>.
+Invalid command syntax exits with status 2 and prints diagnostics to stderr.
+Use <code>-v</code> or <code>-vv</code> for diagnostics on stderr; stdout remains reserved for the JSON result.</p>
+<p>Use <code>--new</code> to check a new content item when the project has a deployment record. Use <code>--app-id</code> to check a content item by its identifier (ID) or globally unique identifier (GUID). Do not combine these options.</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>preflight<span class="w"> </span>--name<span class="w"> </span>myserver<span class="w"> </span>./project<span class="w"> </span>--new
+rsconnect<span class="w"> </span>preflight<span class="w"> </span>--name<span class="w"> </span>myserver<span class="w"> </span>./project<span class="w"> </span>--app-id<span class="w"> </span><span class="m">00000000</span>-0000-0000-0000-000000000000
+</code></pre></div>
+<p>For content deployed from a notebook, manifest, bundle, or Quarto file, pass that file to select its deployment record:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>preflight<span class="w"> </span>--name<span class="w"> </span>myserver<span class="w"> </span>./project/report.ipynb
+</code></pre></div>
+<p>Preflight reads project metadata and local prerequisites from the file's parent directory.
+An unreadable content item or ambiguous deployment record returns <code>unknown</code>; inspect its actions before deploying.
+If a directory contains file deployment history, pass the exact deployed file or <code>--app-id</code> to resolve the target.
+An unresolved target prevents <code>--fix</code> from creating a Python pin.
+Symlinked, non-regular, or oversized deployment records also return <code>unknown</code>.
+Inspect the suggested actions and repair the record, or pass <code>--app-id</code> to select the existing content directly.</p>
+<h2 id="add-a-python-version-pin">Add a Python version pin<a class="headerlink" href="#add-a-python-version-pin" title="Permanent link">#</a></h2>
+<p>For new content with no Python constraint, add <code>--fix</code> to create a missing <code>.python-version</code> file:</p>
+<div class="highlight"><pre><span></span><code>rsconnect<span class="w"> </span>preflight<span class="w"> </span>--name<span class="w"> </span>myserver<span class="w"> </span>./project<span class="w"> </span>--fix
+</code></pre></div>
+<p>The command chooses an installation the server marks publishable for first publishes. If its Python minor version differs from the local Python version, the report includes a compatibility warning. <code>--fix</code> never overwrites an existing <code>.python-version</code> file or adds a pin when the project declares a Python constraint. The report lists any file it creates in <code>changed_files</code>.</p>
+<h1 id="preflight">preflight<a class="headerlink" href="#preflight" title="Permanent link">#</a></h1>
+<p>Report server runtime versions and the project's runtime constraint as JSON. This command supports Posit Connect, including OAuth credentials; it does not support Posit Connect Cloud. No project files change unless --fix is given. An incompatible constraint exits with status 3; operational errors exit with status 1.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight"><pre><span></span><code>preflight [OPTIONS] [DIRECTORY]
+</code></pre></div>
+<p><strong>Options:</strong></p>
+<div class="highlight"><pre><span></span><code>  -n, --name TEXT                 The nickname of the Posit Connect server to
+                                  deploy to.
+  -s, --server TEXT               The URL for the Posit Connect server to
+                                  deploy to. (Also settable via CONNECT_SERVER
+                                  environment variable.)
+  -k, --api-key TEXT              The API key to use to authenticate with
+                                  Posit Connect. (Also settable via
+                                  CONNECT_API_KEY environment variable.)
+  -i, --insecure                  Disable TLS certification/host validation.
+                                  (Also settable via CONNECT_INSECURE
+                                  environment variable.)
+  -c, --cacert FILE               The path to trusted TLS CA certificates.
+                                  (Also settable via CONNECT_CA_CERTIFICATE
+                                  environment variable.)
+  -v, --verbose                   Enable verbose output. Use -vv for very
+                                  verbose (debug) output.
+  --snowflake-connection-name TEXT
+                                  The name of the Snowflake connection in the
+                                  configuration file
+  --fix                           For new content without a constraint, create
+                                  a suggested .python-version.
+  --new                           Check a new content item even when a
+                                  deployment record exists.
+  -a, --app-id TEXT               Check an existing content item by ID or
+                                  GUID.
+  --runtime [python|nodejs]       [default: python]
+  --node FILE                     Node.js executable for --runtime nodejs.
+  --help                          Show this message and exit.
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        
+
+<!-- Application footer -->
+<footer class="md-footer">
+
+  <!-- Link to previous and/or next page -->
+  
+  <nav class="md-footer__inner md-grid" aria-label="footer.title">
+
+        <!-- Link to previous page -->
+        
+          
+            
+
+            <a href="../logout/" class="md-footer__link md-footer__link--prev" rel="prev">
+              <div class="md-footer__button md-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+              </div>
+              <div class="md-footer__title">
+                <div class="md-ellipsis">
+                  <span class="md-footer__direction">
+                    Previous
+                  </span>
+                  logout
+                </div>
+              </div>
+            </a>
+          
+
+        
+
+        <!-- Link to next page -->
+        
+          
+            
+
+            <a href="../quickstart/" class="md-footer__link md-footer__link--next" rel="next">
+              <div class="md-footer__title">
+                <div class="md-ellipsis">
+                  <span class="md-footer__direction">
+                    Next
+                  </span>
+                  quickstart
+                </div>
+              </div>
+              <div class="md-footer__button md-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+              </div>
+            </a>
+            
+        
+      </nav>
+    </div>
+  
+
+  <!-- Further information -->
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+
+      <!-- Copyright and theme information -->
+      <div class="md-footer-copyright">
+        
+          <div class="md-footer-copyright__highlight">
+            Copyright &#169; <script type="text/javascript">
+              document.write(new Date().getFullYear());
+            </script>
+            Posit Software, PBC. All Rights Reserved
+          </div>
+        
+        <!-- powered by
+        <a href="https://www.mkdocs.org">MkDocs</a>
+        and
+        <a href="https://squidfunk.github.io/mkdocs-material/">
+          Material for MkDocs</a> -->
+      </div>
+      <a href="https://posit.co/" class="nav-link" target="_blank">
+        <img src="/images/posit-logo-fullcolor-TM.svg" alt="Posit" title="Posit">
+      </a>
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.expand"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
