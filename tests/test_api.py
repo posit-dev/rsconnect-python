@@ -60,6 +60,20 @@ class TestAPI(TestCase):
         ce = RSConnectExecutor(url=connect_server, api_key=api_key, insecure=True)
         self.assertEqual(ce.remote_server.url, connect_server)
 
+    def test_executor_accepts_a_preloaded_app_store(self):
+        with patch("rsconnect.api.fake_module_file_from_directory", return_value="module.py"):
+            with patch("rsconnect.api.AppStore") as app_store:
+                default_executor = RSConnectExecutor(url="https://connect.example.com", api_key="key")
+                app_store.assert_called_once_with("module.py")
+                app_store.reset_mock()
+                preloaded_store = Mock()
+                injected_executor = RSConnectExecutor(
+                    url="https://connect.example.com", api_key="key", app_store=preloaded_store
+                )
+                app_store.assert_not_called()
+                self.assertIs(default_executor.app_store, app_store.return_value)
+                self.assertIs(injected_executor.app_store, preloaded_store)
+
     def test_output_task_log(self):
         first_task = {
             "output": ["line 1", "line 2", "line 3"],
@@ -184,7 +198,8 @@ class TestSystemRuntimeCachesAPI(TestCase):
         with patch.object(RSConnectClient, "get", return_value=failed_response):
             with self.assertRaises(RSConnectException) as cm:
                 ce.verify_api_key()
-        self.assertIn("connection refused", str(cm.exception))
+        self.assertEqual(str(cm.exception), "Could not connect to http://test-server/ - connection refused")
+        self.assertIs(cm.exception.cause, failed_response.exception)
 
     # The deprecated module-level verify_api_key() is reached via actions.test_api_key()
     # during `rsconnect add`, so it must accept the same credentials as the executor path.
@@ -537,6 +552,7 @@ class SPCSConnectServerTestCase(TestCase):
         mock_server_instance = mock_http_server.return_value
         mock_response = Mock()
         mock_response.status = 401
+        mock_response.exception = None
         mock_response.full_uri = "https://example.snowflakecomputing.com/oauth/token"
         mock_response.reason = "Unauthorized"
         mock_server_instance.request.return_value = mock_response
@@ -550,8 +566,13 @@ class SPCSConnectServerTestCase(TestCase):
         }
 
         # Call the method and verify it raises the expected exception
-        with pytest.raises(RSConnectException, match="Failed to exchange Snowflake token"):
+        with pytest.raises(RSConnectException) as raised:
             server.exchange_token()
+        self.assertEqual(
+            raised.value.message,
+            "Failed to exchange Snowflake token: Received an unexpected response from "
+            "https://spcs.example.com (calling https://example.snowflakecomputing.com/oauth/token): 401 Unauthorized",
+        )
 
     @patch("rsconnect.api.HTTPServer")
     @patch("rsconnect.api.SPCSConnectServer.token_endpoint")

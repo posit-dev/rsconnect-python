@@ -15,10 +15,14 @@ from unittest.mock import Mock
 import pytest
 
 from rsconnect import connect_cloud, device_login, oauth
+from rsconnect.environment import fake_module_file_from_directory
 from rsconnect.exception import ConnectCloudAccountNotFoundError, RSConnectException
 from rsconnect.http_support import HTTPResponse
-from rsconnect.metadata import ServerStore
+from rsconnect.metadata import AppStore, ServerStore
+from rsconnect.models import AppModes
 
+
+pytestmark = pytest.mark.skipif(os.name != "posix", reason="Agent login and preflight require POSIX.")
 
 SERVER = "https://connect.example.com"
 METADATA = {
@@ -77,16 +81,20 @@ def login_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
             disable_tls_check: bool = False,
             ca_data: Any = None,
             request_timeout: float | None = None,
+            request_deadline: float | None = None,
             **kwargs: Any,
         ) -> None:
             self.url = url
             self.disable_tls_check = disable_tls_check
             self.ca_data = ca_data
             self.request_timeout = request_timeout
+            self.request_deadline = request_deadline
             self.entered_timeout = None
+            self.entered_deadline = None
 
         def __enter__(self) -> Any:
             self.entered_timeout = self.request_timeout
+            self.entered_deadline = self.request_deadline
             self.instances.append(self)
             return self
 
@@ -107,7 +115,7 @@ def login_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
         def post(self, path: str, **kwargs: Any) -> Any:
             return self.request("POST", path, **kwargs)
 
-    monkeypatch.setattr(device_login, "HTTPServer", HTTPBoundary)
+    monkeypatch.setattr(oauth, "HTTPServer", HTTPBoundary)
     return SimpleNamespace(path=tmp_path, clock=clock, http=HTTPBoundary)
 
 
@@ -160,6 +168,7 @@ def test_connect_start_uses_oauth_helpers_with_one_bounded_deadline(login_env: A
         "expires_in": 600,
     }
     assert [client.entered_timeout for client in login_env.http.instances] == [120, 108, 101]
+    assert [client.entered_deadline for client in login_env.http.instances] == [120, 120, 120]
     assert [client.calls[0][1] for client in login_env.http.instances] == [
         "/.well-known/oauth-authorization-server",
         "/oauth/register",
@@ -168,6 +177,40 @@ def test_connect_start_uses_oauth_helpers_with_one_bounded_deadline(login_env: A
     state_file = _state_path("connect", "work")
     assert state_file.exists()
     assert stat.S_IMODE(state_file.stat().st_mode) == 0o600
+
+
+def test_start_and_finish_share_form_transport_and_keep_endpoint_queries(
+    login_env: Any, monkeypatch: pytest.MonkeyPatch
+):
+    metadata = {
+        **METADATA,
+        "device_authorization_endpoint": SERVER + "/oauth/device?tenant=acme",
+        "token_endpoint": SERVER + "/oauth/token?tenant=acme",
+    }
+    _stub_connect_discovery(monkeypatch, metadata)
+    monkeypatch.setattr(device_login, "keyring_store_token", lambda *args: False)
+    _queue_device(login_env)
+
+    device_login.start_connect_login(SERVER, "work", client_id="client")
+    login_env.clock.advance(5)
+    login_env.http.responses.extend(
+        [
+            _response(400, {"error": "authorization_pending"}),
+            _response(200, {"access_token": "approved-access", "refresh_token": "approved-refresh"}),
+        ]
+    )
+
+    result = device_login.finish_login("connect", "work", timeout=30)
+
+    assert result == {"status": "done", "name": "work", "server": SERVER}
+    assert [client.calls[0][1] for client in login_env.http.instances] == [
+        "/oauth/device?tenant=acme",
+        "/oauth/token?tenant=acme",
+        "/oauth/token?tenant=acme",
+    ]
+    assert login_env.http.instances[0].entered_deadline == 120
+    assert login_env.http.instances[1].entered_deadline == 35
+    assert login_env.http.instances[2].entered_deadline == 35
 
 
 def test_same_target_reuses_code_and_other_target_is_rejected(login_env: Any, monkeypatch: pytest.MonkeyPatch):
@@ -274,6 +317,48 @@ def test_saved_tls_and_client_id_are_reused(login_env: Any, monkeypatch: pytest.
     assert device_login._read_state("connect", "work")["client_id"] == "saved-client"
 
 
+@pytest.mark.parametrize("name", ["work", "alias"])
+@pytest.mark.parametrize(
+    "saved_url",
+    [
+        SERVER + "/",
+        "https://CONNECT.example.com:443",
+        SERVER + "?tab=login",
+        SERVER + "/__api__",
+        SERVER + "?refresh_token=url-query-secret#access_token=url-fragment-secret",
+    ],
+)
+def test_connect_finish_preserves_saved_url_key_and_deployment_history(
+    login_env: Any, monkeypatch: pytest.MonkeyPatch, name: str, saved_url: str
+):
+    _stub_connect_discovery(monkeypatch)
+    keyring_save = Mock(return_value=False)
+    monkeypatch.setattr(device_login, "keyring_store_token", keyring_save)
+    store = device_login._store()
+    store.set("work", saved_url, oauth_client_id="saved-client")
+    project = login_env.path / "project"
+    project.mkdir()
+    app_file = fake_module_file_from_directory(str(project))
+    history = AppStore(app_file)
+    history.set(saved_url, app_file, SERVER + "/content/existing", "existing-id", None, "Existing", "python-api")
+    original_history = Path(history.get_path()).read_bytes()
+    _queue_device(login_env)
+    device_login.start_connect_login(SERVER, name)
+    login_env.clock.advance(5)
+    login_env.http.responses.append({"access_token": "approved-access", "refresh_token": "approved-refresh"})
+
+    result = device_login.finish_login("connect", name)
+
+    saved = device_login._store().get_by_name(name)
+    assert result == {"status": "done", "name": name, "server": SERVER}
+    assert saved["url"] == saved_url
+    assert saved["oauth_access_token"] == "approved-access"
+    keyring_save.assert_called_once_with(saved_url, "approved-access", "approved-refresh")
+    assert history.resolve(saved["url"], None, AppModes.get_by_name("python-api"))[0] == "existing-id"
+    assert Path(history.get_path()).read_bytes() == original_history
+    assert not _state_path("connect", name).exists()
+
+
 @pytest.mark.parametrize(
     ("saved_tls", "explicit_tls", "expected_insecure", "expected_ca"),
     [
@@ -362,6 +447,49 @@ def test_invalid_client_retries_registration_once(login_env: Any, monkeypatch: p
     assert len(registered) == 1
     assert len(login_env.http.instances) == 2
     assert device_login._read_state("connect", "work")["client_id"] == "replacement-client"
+
+
+@pytest.mark.parametrize("source", ["explicit", "saved", "registered"])
+def test_invalid_client_id_never_persists_pending_state(login_env: Any, monkeypatch: pytest.MonkeyPatch, source: str):
+    _stub_connect_discovery(monkeypatch)
+    options: dict[str, Any] = {}
+    if source == "explicit":
+        options["client_id"] = "invalid\nclient"
+    elif source == "saved":
+        device_login._store().set("work", SERVER, oauth_client_id="invalid\nclient")
+    else:
+        monkeypatch.setattr(device_login, "register_client", lambda *args, **kwargs: "invalid\nclient")
+
+    with pytest.raises(RSConnectException, match="OAuth client ID"):
+        device_login.start_connect_login(SERVER, "work", **options)
+
+    assert not _state_path("connect", "work").exists()
+    assert not login_env.http.instances
+
+
+@pytest.mark.parametrize("field", ["interval", "expires_in"])
+def test_non_finite_device_timing_is_rejected_before_saving(
+    login_env: Any, monkeypatch: pytest.MonkeyPatch, field: str
+):
+    _stub_connect_discovery(monkeypatch)
+    _queue_device(login_env, _response(200, {**DEVICE_RESPONSE, field: 10**1000}))
+
+    with pytest.raises(RSConnectException, match="invalid expiry or interval"):
+        device_login.start_connect_login(SERVER, "work", client_id="client")
+
+    assert not _state_path("connect", "work").exists()
+
+
+def test_read_state_rejects_unrepresentable_poll_interval(login_env: Any, monkeypatch: pytest.MonkeyPatch):
+    _stub_connect_discovery(monkeypatch)
+    _queue_device(login_env)
+    device_login.start_connect_login(SERVER, "work", client_id="client")
+    state = device_login._read_state("connect", "work")
+    state["interval"] = 10**1000
+    device_login._write_state(state)
+
+    with pytest.raises(RSConnectException, match="Pending device login state is invalid"):
+        device_login._read_state("connect", "work")
 
 
 def test_start_error_does_not_echo_server_description(login_env: Any, monkeypatch: pytest.MonkeyPatch):
@@ -879,7 +1007,29 @@ def test_bytes_ca_is_persisted_and_reused_during_finish(login_env: Any, monkeypa
             [RSConnectException("temporary account lookup failure"), {"id": "team-id"}],
             [],
             RSConnectException,
-            "temporary account lookup failure",
+            "account lookup failed",
+        ),
+        (
+            [
+                RSConnectException(
+                    "Rejected cloud-access-secret", status=200, cause=OSError("original transport error")
+                ),
+                {"id": "team-id"},
+            ],
+            [],
+            RSConnectException,
+            r"account lookup failed \(HTTP 200\)",
+        ),
+        (
+            [
+                RSConnectException(
+                    "Rejected cloud-access-secret", status=503, cause=OSError("original transport error")
+                ),
+                {"id": "team-id"},
+            ],
+            [],
+            RSConnectException,
+            r"account lookup failed \(HTTP 503\)",
         ),
         (
             [{"id": "team-id"}, {"id": "team-id"}],
@@ -927,7 +1077,7 @@ def test_cloud_checkpoint_retries_permission_lookup_or_save(
             return False
 
     monkeypatch.setattr(device_login.api, "ConnectCloudServer", CloudServer)
-    monkeypatch.setattr(device_login.api, "ConnectCloudClient", CloudClient)
+    monkeypatch.setattr(device_login, "_DeviceLoginCloudClient", CloudClient)
     monkeypatch.setattr(connect_cloud, "store_credentials_in_keyring", lambda *args: False)
     original_set = ServerStore.set
     failures = iter(save_failures)
@@ -939,9 +1089,13 @@ def test_cloud_checkpoint_retries_permission_lookup_or_save(
         return original_set(store, *args, **kwargs)
 
     monkeypatch.setattr(ServerStore, "set", maybe_fail_save)
-    with pytest.raises(expected_error, match=expected_message):
+    with pytest.raises(expected_error, match=expected_message) as raised:
         device_login.finish_login("cloud", "cloud-login")
 
+    assert "cloud-access-secret" not in str(raised.value)
+    if isinstance(lookup_results[0], RSConnectException):
+        assert raised.value.status == lookup_results[0].status
+        assert raised.value.cause is lookup_results[0].cause
     checkpoint = device_login._read_state("cloud", "cloud-login")
     assert checkpoint["tokens"]["access_token"] == "cloud-access-secret"
     assert len(login_env.http.instances) == 2
@@ -959,6 +1113,7 @@ def test_cloud_checkpoint_retries_permission_lookup_or_save(
     assert device_login._store().get_default() is None
     assert clients[0].request_timeout <= 120
     assert clients[0].request_deadline == login_env.clock.monotonic() + 120
+    assert clients[0]._suppress_oauth_response_logging is True
     assert not _state_path("cloud", "cloud-login").exists()
 
 
@@ -998,7 +1153,7 @@ def test_cloud_refresh_invalid_grant_removes_the_consumed_device_checkpoint(
                 raise RSConnectException("Cloud session expired") from error
 
     monkeypatch.setattr(device_login.api, "ConnectCloudServer", CloudServer)
-    monkeypatch.setattr(device_login.api, "ConnectCloudClient", CloudClient)
+    monkeypatch.setattr(device_login, "_DeviceLoginCloudClient", CloudClient)
 
     with pytest.raises(oauth.InvalidGrantError, match="OAuth grant is invalid"):
         device_login.finish_login("cloud", "cloud-login")
@@ -1006,6 +1161,60 @@ def test_cloud_refresh_invalid_grant_removes_the_consumed_device_checkpoint(
     assert not _state_path("cloud", "cloud-login").exists()
     with pytest.raises(RSConnectException, match="No pending"):
         device_login.finish_login("cloud", "cloud-login")
+
+
+def test_cloud_finish_refresh_uses_client_id_saved_at_start(login_env: Any, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(connect_cloud.ENVIRONMENT_ENV_VAR, "production")
+    monkeypatch.setenv(connect_cloud.OAUTH_CLIENT_ID_ENV_VAR, "started-client")
+    _queue_device(login_env)
+    device_login.start_cloud_login("team", "cloud-login")
+    state = device_login._read_state("cloud", "cloud-login")
+    state["tokens"] = {
+        "access_token": "cloud-access",
+        "refresh_token": "cloud-refresh",
+        "expires_at": login_env.clock.time() + 3600,
+    }
+    monkeypatch.setenv(connect_cloud.OAUTH_CLIENT_ID_ENV_VAR, "current-client")
+    monkeypatch.setattr(device_login.api.time, "monotonic", lambda: 10.0)
+    refresh = Mock(return_value={"access_token": "refreshed-access"})
+    monkeypatch.setattr(connect_cloud, "refresh", refresh)
+
+    cloud_server, client, _ = device_login._cloud_login_client(state, 20.0)
+    client._refresh_user_token()
+
+    assert cloud_server.oauth_client_id == "started-client"
+    refresh.assert_called_once_with(
+        "cloud-refresh",
+        "production",
+        request_timeout=10.0,
+        request_deadline=20.0,
+        client_id_override="started-client",
+        suppress_response_logging=True,
+    )
+
+
+def test_registration_error_is_private_and_can_be_retried(login_env: Any):
+    login_env.http.responses.extend(
+        [
+            _response(200, METADATA),
+            _response(503, {"error": "server_error", "error_description": "device-code-secret"}),
+        ]
+    )
+
+    with pytest.raises(RSConnectException, match="client registration failed") as failed:
+        device_login.start_connect_login(SERVER, "work")
+
+    assert "device-code-secret" not in str(failed.value)
+    assert not _state_path("connect", "work").exists()
+    assert login_env.http.instances[-1]._suppress_oauth_response_logging is True
+    login_env.http.responses.extend(
+        [
+            _response(200, METADATA),
+            _response(201, {"client_id": "registered-client"}),
+            _response(200, DEVICE_RESPONSE),
+        ]
+    )
+    assert device_login.start_connect_login(SERVER, "work")["status"] == "pending"
 
 
 def test_missing_cloud_account_removes_checkpoint_for_corrected_start(login_env: Any, monkeypatch: pytest.MonkeyPatch):
@@ -1017,29 +1226,11 @@ def test_missing_cloud_account_removes_checkpoint_for_corrected_start(login_env:
         {"access_token": "cloud-access", "refresh_token": "cloud-refresh", "expires_in": 3600}
     )
 
-    class CloudServer:
-        def __init__(self, **kwargs: Any) -> None:
-            self.access_token = kwargs["access_token"]
-            self.refresh_token = kwargs["refresh_token"]
-
-    class CloudClient:
-        request_timeout = None
-        request_deadline = None
-
-        def __init__(self, server: Any) -> None:
-            self.server = server
-
-        def __enter__(self) -> Any:
-            return self
-
-        def __exit__(self, *args: Any) -> bool:
-            return False
-
-        def get_account_by_name(self, account_name: str) -> dict[str, str]:
-            raise ConnectCloudAccountNotFoundError('No Posit Connect Cloud account named "typo".')
-
-    monkeypatch.setattr(device_login.api, "ConnectCloudServer", CloudServer)
-    monkeypatch.setattr(device_login.api, "ConnectCloudClient", CloudClient)
+    monkeypatch.setattr(
+        device_login.api.ConnectCloudClient,
+        "get_accounts",
+        lambda self: [{"id": "team-id", "name": "correct-team"}],
+    )
 
     with pytest.raises(ConnectCloudAccountNotFoundError):
         device_login.finish_login("cloud", "cloud-login")
@@ -1092,7 +1283,7 @@ def test_cloud_account_deadline_returns_pending_and_checkpoints_rotated_tokens(
             return {"id": "team-id"}
 
     monkeypatch.setattr(device_login.api, "ConnectCloudServer", CloudServer)
-    monkeypatch.setattr(device_login.api, "ConnectCloudClient", CloudClient)
+    monkeypatch.setattr(device_login, "_DeviceLoginCloudClient", CloudClient)
     monkeypatch.setattr(connect_cloud, "store_credentials_in_keyring", lambda *args: False)
 
     result = device_login.finish_login("cloud", "cloud-login", timeout=5)

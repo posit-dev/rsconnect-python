@@ -4,6 +4,7 @@ Use `preflight` to compare a project's runtime constraint with versions reported
 self-hosted Posit Connect or Snowpark Container Services (SPCS) server. It supports
 OAuth credentials and does not support Posit Connect Cloud. Preflight checks runtime
 availability only. It does not assess application or dependency compatibility.
+Preflight requires a POSIX system such as Linux or macOS; existing deployment commands remain available on Windows.
 
 ```{.bash filename="Terminal"}
 rsconnect preflight --name myserver ./project
@@ -77,6 +78,8 @@ Preflight reads project metadata and local prerequisites from the file's parent 
 An unreadable content item or ambiguous deployment record returns `unknown`; inspect its actions before deploying.
 If a directory contains file deployment history, pass the exact deployed file or `--app-id` to resolve the target.
 An unresolved target prevents `--fix` from creating a Python pin.
+Symlinked, non-regular, or oversized deployment records also return `unknown`.
+Inspect the suggested actions and repair the record, or pass `--app-id` to select the existing content directly.
 
 ## Add a Python version pin
 

@@ -14,6 +14,7 @@ from .api import ConnectCloudServer, RSConnectClient, RSConnectExecutor, RSConne
 from .environment_node import NodeEnvironment
 from .exception import RSConnectException
 from .preflight import _deployment_target
+from .validation import require_posix
 
 _SEMVER_SCRIPT = """
 const fs = require("fs");
@@ -113,10 +114,7 @@ def _npm_cli_path() -> Optional[str]:
     npm = shutil.which("npm")
     if not npm:
         return None
-    if os.name == "nt":
-        npm_cli = Path(npm).resolve().parent / "node_modules" / "npm" / "bin" / "npm-cli.js"
-    else:
-        npm_cli = Path(os.path.realpath(npm))
+    npm_cli = Path(os.path.realpath(npm))
     return str(npm_cli) if npm_cli.is_file() and _is_npm_installation(npm_cli) else None
 
 
@@ -461,6 +459,7 @@ def _reported_status(
 
 def run_node_preflight(executor: RSConnectExecutor, project: str, node: Optional[str] = None) -> Dict[str, Any]:
     """Check Node.js project metadata against a validated Connect executor."""
+    require_posix("Deployment preflight")
     server, client = _validated_executor(executor)
     warnings: List[str] = []
     actions: List[str] = []

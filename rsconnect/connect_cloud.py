@@ -237,14 +237,26 @@ def login_client_credentials(
 
 
 def refresh(
-    refresh_token: str, environment: Optional[str] = None, request_timeout: Optional[float] = None
+    refresh_token: str,
+    environment: Optional[str] = None,
+    request_timeout: Optional[float] = None,
+    request_deadline: Optional[float] = None,
+    client_id_override: Optional[str] = None,
+    *,
+    suppress_response_logging: bool = False,
 ) -> dict[str, Any]:
     """Mint a new access token from a refresh token."""
     env = environment or environment_name()
-    request_options = {"request_timeout": request_timeout} if request_timeout is not None else {}
+    request_options: dict[str, Any] = {}
+    if request_timeout is not None:
+        request_options["request_timeout"] = request_timeout
+    if request_deadline is not None:
+        request_options["request_deadline"] = request_deadline
+    if suppress_response_logging:
+        request_options["suppress_response_logging"] = True
     return refresh_access_token(
         metadata=urls(env).oauth_metadata(),
-        client_id=client_id(env),
+        client_id=client_id_override if client_id_override is not None else client_id(env),
         refresh_token=refresh_token,
         scope=SCOPE,
         **request_options,

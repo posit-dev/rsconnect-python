@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any, cast
 
@@ -11,7 +12,10 @@ from rsconnect.api import ConnectCloudServer, RSConnectClient, RSConnectExecutor
 from rsconnect.exception import RSConnectException
 from rsconnect.environment import fake_module_file_from_directory
 from rsconnect.metadata import AppStore, sha1
-from rsconnect.preflight import run_preflight
+from rsconnect.preflight import load_preflight_app_store, run_preflight
+
+
+pytestmark = pytest.mark.skipif(os.name != "posix", reason="Agent login and preflight require POSIX.")
 
 SERVER_URL = "https://connect.example.test"
 DEFAULT_SETTINGS = {
@@ -58,13 +62,19 @@ def make_executor(
     server: Any = None,
 ) -> tuple[RSConnectExecutor, Client, Any]:
     client = Client(DEFAULT_SETTINGS if settings is None else settings, content)
-    app_store = Store(record) if store is None else store
+    app_store = Store() if store is None else store
     executor = cast(Any, RSConnectExecutor.__new__(RSConnectExecutor))
     executor.remote_server = server or RSConnectServer(SERVER_URL, "api-key")
     executor.client = client
     executor.app_store = app_store
+    executor.path = str(project)
     executor.app_id = app_id
     executor.new = new
+    if record is not None:
+        module_file = Path(fake_module_file_from_directory(str(project)))
+        metadata_path = module_file.parent / "rsconnect-python" / f"{module_file.stem}.json"
+        metadata_path.parent.mkdir(parents=True, exist_ok=True)
+        metadata_path.write_text(json.dumps({executor.record_server_key(): record}), encoding="utf-8")
     return cast(RSConnectExecutor, executor), client, app_store
 
 
@@ -134,7 +144,7 @@ def test_existing_content_checks_all_installed_versions_for_redeploy(tmp_path):
 
     result = run_preflight(executor, str(tmp_path))
 
-    assert store.requests == [SERVER_URL]
+    assert store.requests == []
     assert client.content_requests == ["saved-guid"]
     assert result["status"] == "ok"
     assert result["publishable_python_versions"] == ["3.10.14"]
@@ -211,7 +221,7 @@ def test_directory_resolves_each_info_lookup_candidate(tmp_path, candidate):
         "manifest": manifest,
     }[candidate]
     save_deployment_record(target, "saved-guid")
-    executor, client, _ = make_executor(project, store=AppStore(str(module)))
+    executor, client, _ = make_executor(project)
 
     result = run_preflight(executor, str(project), fix=True)
 
@@ -225,10 +235,9 @@ def test_directory_resolves_each_info_lookup_candidate(tmp_path, candidate):
 def test_ambiguous_directory_records_are_unknown_and_do_not_fix(tmp_path):
     project = tmp_path / "project"
     project.mkdir()
-    module = Path(fake_module_file_from_directory(str(project)))
     save_deployment_record(project, "directory-guid")
     save_deployment_record(project / "manifest.json", "manifest-guid")
-    executor, client, _ = make_executor(project, store=AppStore(str(module)))
+    executor, client, _ = make_executor(project)
 
     result = run_preflight(executor, str(project), fix=True)
 
@@ -266,7 +275,7 @@ def test_directory_with_single_file_deployment_is_unknown_and_does_not_fix(
             "test",
             "python-shiny",
         )
-        store = AppStore(fake_module_file_from_directory(str(project)))
+        store = Store()
     executor, client, _ = make_executor(project, store=store)
 
     result = run_preflight(executor, str(project), fix=True)
@@ -297,6 +306,64 @@ def test_unreadable_appstore_is_unknown_and_does_not_fix(tmp_path):
     assert not (project / ".python-version").exists()
 
 
+def test_oversized_valid_appstore_is_unknown_and_never_fixed(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    module_file = Path(fake_module_file_from_directory(str(project)))
+    metadata_path = module_file.parent / "rsconnect-python" / f"{module_file.stem}.json"
+    metadata_path.parent.mkdir()
+    oversized = json.dumps({SERVER_URL: {"app_id": "saved-guid", "title": "x" * (2 * 1024 * 1024)}})
+    assert len(oversized.encode("utf-8")) > 1024 * 1024
+    metadata_path.write_text(oversized, encoding="utf-8")
+    executor, _, _ = make_executor(project)
+
+    result = run_preflight(executor, str(project), fix=True)
+
+    assert result["status"] == "unknown"
+    assert result["existing_content"]["exists"] is True
+    assert result["existing_content"]["app_id"] is None
+    assert result["changed_files"] == []
+    assert any("byte limit" in warning for warning in result["warnings"])
+    assert result["actions"]
+    assert not (project / ".python-version").exists()
+
+
+@pytest.mark.parametrize(
+    "contents, warning_text",
+    [
+        pytest.param("[" * 10000 + "0" + "]" * 10000, "recursion", id="nested-json"),
+        pytest.param(
+            '{"app_id":' + "9" * 5000 + "}",
+            "integer string conversion",
+            id="integer-digit-limit",
+            marks=pytest.mark.skipif(
+                not 0 < getattr(sys, "get_int_max_str_digits", lambda: 0)() < 5000,
+                reason="Interpreter does not enforce this integer digit limit.",
+            ),
+        ),
+    ],
+)
+def test_parser_rejected_appstore_is_unknown_and_never_fixed(tmp_path, contents, warning_text):
+    project = tmp_path / "project"
+    project.mkdir()
+    module_file = Path(fake_module_file_from_directory(str(project)))
+    metadata_path = module_file.parent / "rsconnect-python" / f"{module_file.stem}.json"
+    metadata_path.parent.mkdir()
+    metadata_path.write_text(contents, encoding="utf-8")
+
+    store = load_preflight_app_store(str(project))
+    assert store.get_all() == []
+    executor, client, _ = make_executor(project, store=store)
+    result = run_preflight(executor, str(project), fix=True)
+
+    assert result["status"] == "unknown"
+    assert result["changed_files"] == []
+    assert result["actions"]
+    assert any(warning_text in warning.lower() for warning in result["warnings"])
+    assert client.content_requests == []
+    assert not (project / ".python-version").exists()
+
+
 def test_malformed_record_id_is_unknown_and_does_not_fix(tmp_path):
     executor, client, _ = make_executor(tmp_path, record={"app_id": ["not-a-content-id"]})
 
@@ -319,13 +386,16 @@ def test_exact_file_target_uses_its_deployment_record_and_parent_metadata(tmp_pa
     (project / ".python-version").write_text("3.11\n", encoding="utf-8")
     if store_kind == "file":
         save_deployment_record(content_file, "saved-guid")
+        record = None
         store = None
     else:
-        store = Store({"app_id": "saved-guid", "app_guid": "saved-guid"})
+        record = {"app_id": "saved-guid", "app_guid": "saved-guid"}
+        store = None
 
     executor, client, _ = make_executor(
         project,
         content={"saved-guid": {"py_version": "3.11.8"}},
+        record=record,
         store=store,
     )
 
@@ -349,10 +419,8 @@ def test_appstore_config_fallback_record_is_used(tmp_path, monkeypatch):
     fallback = config_dir / "applications" / f"{sha1(os.path.abspath(module))}.json"
     fallback.parent.mkdir(parents=True)
     fallback.write_text(json.dumps({SERVER_URL: {"app_id": "saved-id", "app_guid": "saved-guid"}}))
-    store = AppStore(str(module))
     executor, client, _ = make_executor(
         project,
-        store=store,
         content={"saved-guid": {"py_version": "3.12.1"}},
     )
 

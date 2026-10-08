@@ -16,7 +16,14 @@ The command exits with JSON that includes the approval URL, the user code, and t
 
 If a valid pending login already exists for the same account and nickname, the command reuses it.
 Starting a login for a different target with that nickname fails.
-The command stores pending logins under its configuration directory. Files use owner-only permissions on POSIX; Windows access follows the directory's access control list.
+The command stores pending logins under its configuration directory. Files use owner-only permissions on POSIX.
+Resumable device login requires a POSIX system such as Linux or macOS. Use a private configuration directory.
+Existing blocking login remains available on Windows.
+
+Pending state contains device codes and token checkpoints in plaintext, even when final credentials use a keyring.
+Owner-only permissions restrict ordinary access to your operating-system account; processes running as that account and backups can still read it.
+Finish pending logins promptly. Abandoned state has no background cleanup, and deleting local state does not revoke an issued token.
+Use HTTPS with certificate verification and keep the configuration directory private and outside your application directory.
 
 Finish the login after the user approves:
 
@@ -25,6 +32,8 @@ rsconnect add --connect-cloud --name cloud --finish --timeout 120
 ```
 
 The timeout bounds the entire finish invocation, including account lookup.
+Slowly streamed response headers and bodies use the remaining timeout budget. An operating-system DNS lookup can still outlast it.
+Finish reuses the OAuth client selected when the login started.
 The command prints JSON with `status` set to `pending` or `done`. Finish requires `--connect-cloud` and `--name`.
 It accepts `--connect-cloud`, `--name`, `--finish`, optional `--timeout`, and optional verbosity flags.
 

@@ -14,20 +14,22 @@ import tempfile
 import time
 from contextlib import contextmanager
 from typing import Any, Dict, Generator, Mapping, Optional, cast
-from urllib.parse import urlencode, urlsplit, urlunsplit
+from urllib.parse import urlsplit, urlunsplit
 
 from . import api, connect_cloud
 from .exception import ConnectCloudAccountNotFoundError, RSConnectException
-from .http_support import HTTPResponse, HTTPServer
 from .metadata import ServerDataDict, ServerStore, config_dirname
 from .oauth import (
     InvalidClientError,
     InvalidGrantError,
+    _oauth_response_data,
+    _post_oauth_form_request,
     _unwrap_json_response,
     discover_oauth_metadata,
     keyring_store_token,
     register_client,
 )
+from .validation import require_posix
 
 _START_TIMEOUT = 120
 _STATE_LOCK_TIMEOUT = 10
@@ -266,7 +268,7 @@ def _validate_open_state_file(path: str, descriptor: int, purpose: str) -> None:
     info = os.fstat(descriptor)
     if not stat.S_ISREG(info.st_mode) or not _same_open_file(path, descriptor):
         raise RSConnectException("Pending device login %s is not a regular file." % purpose)
-    if os.name == "posix" and (info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o077):
+    if info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) & 0o077:
         raise RSConnectException("Pending device login %s is not owner-only." % purpose)
 
 
@@ -289,11 +291,7 @@ def _open_state_lock(kind: str, name: str) -> int:
     try:
         os.makedirs(directory, mode=0o700, exist_ok=True)
         flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
-        if os.name == "nt":
-            flags |= getattr(os, "O_BINARY", 0)
         descriptor = _open_state_file(path, flags, 0o600, "lock")
-        if os.name == "nt" and os.fstat(descriptor).st_size == 0:
-            os.write(descriptor, b"\0")
         return descriptor
     except OSError as exc:
         if descriptor is not None:
@@ -302,15 +300,9 @@ def _open_state_lock(kind: str, name: str) -> int:
 
 
 def _try_state_lock(descriptor: int) -> None:
-    if os.name == "nt":
-        import msvcrt
+    import fcntl
 
-        os.lseek(descriptor, 0, os.SEEK_SET)
-        msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
-    else:
-        import fcntl
-
-        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
 
 def _acquire_state_lock(descriptor: int, name: str, deadline: float) -> None:
@@ -350,6 +342,7 @@ def _write_state(state: dict[str, Any]) -> None:
         raise RSConnectException("Could not safely write pending device login state.") from exc
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            _validate_open_state_file(temporary, stream.fileno(), "write")
             json.dump(state, stream, separators=(",", ":"), sort_keys=True)
             stream.flush()
             os.fsync(stream.fileno())
@@ -371,6 +364,10 @@ def _valid_number(value: Any) -> bool:
         return math.isfinite(value)
     except OverflowError:
         return False
+
+
+def _positive_finite_duration(value: Any) -> bool:
+    return type(value) is int and value >= 1 and _valid_number(value)
 
 
 def _validate_tokens(tokens: Any) -> None:
@@ -462,7 +459,7 @@ def _validate_state_codes(raw: dict[str, Any]) -> None:
 def _validate_state_polling(raw: dict[str, Any]) -> None:
     if not _valid_number(raw["expires_at"]) or not _valid_number(raw["last_poll_at"]):
         raise RSConnectException("Pending device login state is invalid.")
-    if type(raw["interval"]) is not int or raw["interval"] < 1:
+    if not _positive_finite_duration(raw["interval"]):
         raise RSConnectException("Pending device login state is invalid.")
     _validate_tokens(raw["tokens"])
 
@@ -571,7 +568,10 @@ def _resolve_tls(
 ) -> tuple[bool, Optional[str | bytes], Optional[str]]:
     tls_insecure, tls_ca = _tls_settings(saved, insecure, ca_data)
     saved_id = saved.get("oauth_client_id") if saved else None
-    return tls_insecure, tls_ca, client_id or (str(saved_id) if saved_id else None)
+    resolved_client_id = client_id if client_id is not None else (str(saved_id) if saved_id else None)
+    if resolved_client_id is not None:
+        resolved_client_id = _identifier(resolved_client_id, "OAuth client ID")
+    return tls_insecure, tls_ca, resolved_client_id
 
 
 def _tls_settings(
@@ -623,15 +623,19 @@ def _post_form(
     insecure: bool,
     ca_data: Optional[str | bytes],
     request_timeout: float,
+    request_deadline: Optional[float] = None,
 ) -> Any:
     base, path = _endpoint_location(endpoint)
-    with HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data, request_timeout=request_timeout) as server:
-        return server.request(
-            "POST",
-            path,
-            body=urlencode(fields).encode("utf-8"),
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
+    return _post_oauth_form_request(
+        base,
+        path,
+        fields,
+        insecure,
+        ca_data,
+        request_timeout,
+        request_deadline,
+        suppress_response_logging=True,
+    )
 
 
 def _device_authorization_response(response: Any) -> dict[str, Any]:
@@ -651,11 +655,20 @@ def _register_device_client(
     deadline: float,
 ) -> str:
     try:
-        return register_client(metadata, server, insecure, ca_data, request_timeout=_remaining(deadline))
+        client_id = register_client(
+            metadata,
+            server,
+            insecure,
+            ca_data,
+            request_timeout=_remaining(deadline),
+            request_deadline=deadline,
+            suppress_response_logging=True,
+        )
     except InvalidClientError:
         raise
     except RSConnectException:
         raise RSConnectException("OAuth client registration failed.") from None
+    return _identifier(client_id, "OAuth client ID")
 
 
 def _start_device_request(
@@ -667,12 +680,18 @@ def _start_device_request(
     ca_data: Optional[str | bytes],
     deadline: float,
 ) -> tuple[str, dict[str, Any]]:
+    client_id = _identifier(client_id, "OAuth client ID")
     fields = {"client_id": client_id}
     if scope:
         fields["scope"] = scope
     try:
         response = _post_form(
-            metadata["device_authorization_endpoint"], fields, insecure, ca_data, _remaining(deadline)
+            metadata["device_authorization_endpoint"],
+            fields,
+            insecure,
+            ca_data,
+            _remaining(deadline),
+            request_deadline=deadline,
         )
         return client_id, _device_authorization_response(response)
     except InvalidClientError:
@@ -681,7 +700,12 @@ def _start_device_request(
         client_id = _register_device_client(metadata, server, insecure, ca_data, deadline)
         fields["client_id"] = client_id
         response = _post_form(
-            metadata["device_authorization_endpoint"], fields, insecure, ca_data, _remaining(deadline)
+            metadata["device_authorization_endpoint"],
+            fields,
+            insecure,
+            ca_data,
+            _remaining(deadline),
+            request_deadline=deadline,
         )
         return client_id, _device_authorization_response(response)
 
@@ -699,6 +723,7 @@ def _make_state(
     ca_data: Optional[str | bytes],
     account: Optional[str],
 ) -> dict[str, Any]:
+    client_id = _identifier(client_id, "OAuth client ID")
     device_code = response.get("device_code")
     user_code = response.get("user_code")
     verification = response.get("verification_uri_complete") or response.get("verification_uri")
@@ -707,11 +732,11 @@ def _make_state(
     verification_uri = cast(str, verification)
     expires_in = response.get("expires_in", 600)
     interval = response.get("interval", 5)
-    if type(expires_in) is not int or expires_in < 1 or type(interval) is not int or interval < 1:
+    if not _positive_finite_duration(expires_in) or not _positive_finite_duration(interval):
         raise RSConnectException("Device authorization returned an invalid expiry or interval.")
     ca_text, ca_b64 = _ca_values(ca_data)
     now = time.time()
-    return {
+    state = {
         "version": 1,
         "kind": kind,
         "name": name,
@@ -733,6 +758,7 @@ def _make_state(
         "account": account,
         "tokens": None,
     }
+    return _validate_state(kind, name, state)
 
 
 def _start_result(state: dict[str, Any]) -> dict[str, Any]:
@@ -754,7 +780,10 @@ def start_connect_login(
     set_default: bool = True,
     client_id: Optional[str] = None,
 ) -> dict[str, Any]:
+    require_posix("Resumable device login")
     name = _identifier(name, "Nickname")
+    if client_id is not None:
+        client_id = _identifier(client_id, "OAuth client ID")
     with _state_lock("connect", name, time.monotonic() + _STATE_LOCK_TIMEOUT):
         _remove_temporary_state_files("connect", name)
         return _start_connect_login(url, name, insecure, ca_data, set_default, client_id)
@@ -784,11 +813,18 @@ def _start_connect_login(
     insecure, ca_data, client_id = _resolve_tls(_saved_connect_entry(store, name, server), insecure, ca_data, client_id)
     deadline = time.monotonic() + _START_TIMEOUT
     metadata = _metadata(
-        discover_oauth_metadata(server, insecure, ca_data, request_timeout=_remaining(deadline)),
+        discover_oauth_metadata(
+            server,
+            insecure,
+            ca_data,
+            request_timeout=_remaining(deadline),
+            request_deadline=deadline,
+            suppress_response_logging=True,
+        ),
         server,
     )
     if not client_id:
-        client_id = register_client(metadata, server, insecure, ca_data, request_timeout=_remaining(deadline))
+        client_id = _register_device_client(metadata, server, insecure, ca_data, deadline)
     client_id, response = _start_device_request(metadata, server, client_id, None, insecure, ca_data, deadline)
     state = _make_state(
         "connect", name, server, metadata, response, client_id, None, set_default, insecure, ca_data, None
@@ -803,6 +839,7 @@ def start_cloud_login(
     url: Optional[str] = None,
     set_default: bool = False,
 ) -> dict[str, Any]:
+    require_posix("Resumable device login")
     name = _identifier(name, "Nickname")
     with _state_lock("cloud", name, time.monotonic() + _STATE_LOCK_TIMEOUT):
         _remove_temporary_state_files("cloud", name)
@@ -831,7 +868,7 @@ def _start_cloud_login(
 
     environment = connect_cloud.environment_for_url(server)
     metadata = _metadata(connect_cloud.urls(environment).oauth_metadata(), server)
-    client_id = connect_cloud.client_id(environment)
+    client_id = _identifier(connect_cloud.client_id(environment), "OAuth client ID")
     deadline = time.monotonic() + _START_TIMEOUT
     client_id, response = _start_device_request(metadata, server, client_id, connect_cloud.SCOPE, False, None, deadline)
     state = _make_state(
@@ -859,15 +896,10 @@ def _raise_device_error(code: Any) -> None:
 
 
 def _response_data(response: Any) -> tuple[dict[str, Any], Optional[int]]:
-    if isinstance(response, HTTPResponse):
-        data, status = response.json_data, response.status
-    elif isinstance(response, dict):
-        data, status = cast(Dict[str, Any], response), 200
-    else:
+    data, status = _oauth_response_data(response)
+    if data is None:
         raise RSConnectException("Device token request returned an unexpected response.")
-    if not isinstance(data, dict):
-        raise RSConnectException("Device token request returned an unexpected response.")
-    return cast(Dict[str, Any], data), status
+    return data, status
 
 
 def _device_token_response(response: Any) -> dict[str, Any]:
@@ -927,12 +959,14 @@ def _poll_for_token(state: dict[str, Any], deadline: float) -> Optional[dict[str
         if state["scope"]:
             fields["scope"] = state["scope"]
         try:
+            request_deadline = min(deadline, time.monotonic() + request_timeout)
             response = _post_form(
                 state["token_endpoint"],
                 fields,
                 state["insecure"],
                 _state_ca(state),
                 request_timeout,
+                request_deadline=request_deadline,
             )
             tokens = _device_token_response(response)
         except (_Pending, _SlowDown) as error:
@@ -982,6 +1016,10 @@ def _finalize_connect(state: dict[str, Any]) -> dict[str, Any]:
     name, server, tokens = state["name"], state["server"], state["tokens"]
     store = _store()
     _assert_nickname_target(store, "connect", name, server)
+    saved = _saved_connect_entry(store, name, server)
+    if saved is not None:
+        # Deployment history and keyring entries use the exact saved URL.
+        server = saved["url"]
     in_keyring = keyring_store_token(server, tokens["access_token"], tokens["refresh_token"])
     ca_data = _state_ca(state)
     ca_text = ca_data.decode("utf-8") if isinstance(ca_data, bytes) else ca_data
@@ -996,7 +1034,13 @@ def _finalize_connect(state: dict[str, Any]) -> dict[str, Any]:
         oauth_token_expiry=tokens["expires_at"],
         set_as_default=state["set_default"],
     )
-    return {"status": "done", "name": name, "server": server}
+    return {"status": "done", "name": name, "server": state["server"]}
+
+
+class _DeviceLoginCloudClient(api.ConnectCloudClient):
+    def _no_such_account(self, accounts: list[api.ConnectCloudAccount], not_found_message: str) -> RSConnectException:
+        error = super()._no_such_account(accounts, not_found_message)
+        return ConnectCloudAccountNotFoundError(error.message)
 
 
 def _cloud_login_client(
@@ -1008,8 +1052,10 @@ def _cloud_login_client(
         access_token=tokens["access_token"],
         refresh_token=tokens["refresh_token"],
         url=state["server"],
+        oauth_client_id=state["client_id"],
     )
-    client = api.ConnectCloudClient(cloud_server)
+    client = _DeviceLoginCloudClient(cloud_server)
+    client._suppress_oauth_response_logging = True
     client.request_timeout = deadline - time.monotonic()
     client.request_deadline = deadline
     if client.request_timeout <= 0:
@@ -1032,6 +1078,14 @@ def _lookup_cloud_account(
             raise InvalidGrantError() from exc
         if deadline <= time.monotonic():
             raise _FinishDeadline() from exc
+        if isinstance(exc, RSConnectException):
+            status_detail = " (HTTP %s)" % exc.status if exc.status is not None else ""
+            safe_error = RSConnectException(
+                "Posit Connect Cloud account lookup failed%s." % status_detail,
+                cause=exc.cause,
+                status=exc.status,
+            )
+            raise safe_error from None
         raise
     return account
 
@@ -1124,6 +1178,7 @@ def _validate_finish_args(kind: str, name: str, timeout: int) -> str:
 
 
 def finish_login(kind: str, name: str, timeout: int = 120) -> dict[str, Any]:
+    require_posix("Resumable device login")
     name = _validate_finish_args(kind, name, timeout)
     deadline = time.monotonic() + timeout
     try:

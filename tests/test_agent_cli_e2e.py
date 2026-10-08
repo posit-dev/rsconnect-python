@@ -18,6 +18,9 @@ import pytest
 
 from rsconnect.metadata import AppStore
 
+
+pytestmark = pytest.mark.skipif(os.name != "posix", reason="Agent login and preflight require POSIX.")
+
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _CONTENT_GUID = "11111111-1111-4111-8111-111111111111"
 _DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code"
@@ -56,16 +59,44 @@ class _Handler(BaseHTTPRequestHandler):
             self.server.requests.append(record)  # type: ignore[attr-defined]
         return record
 
-    def _json(self, status: int, data: object) -> None:
-        body = json.dumps(data).encode("utf-8")
-        self.send_response(status)
+    def _json(
+        self, status: int, data: object, reason: str | None = None, extra_headers: dict[str, str] | None = None
+    ) -> None:
+        body = data if isinstance(data, bytes) else json.dumps(data).encode("utf-8")
+        phase = self.server.slow_response_phase  # type: ignore[attr-defined]
+        if phase and urlsplit(self.path).path in self.server.slow_response_paths:  # type: ignore[attr-defined]
+            self._slow_json(status, body, phase)
+            return
+        self.send_response(status, reason)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        for key, value in (extra_headers or {}).items():
+            self.send_header(key, value)
         self.end_headers()
         try:
             self.wfile.write(body)
         except (BrokenPipeError, ConnectionResetError):
             pass
+
+    def _slow_json(self, status: int, body: bytes, phase: str) -> None:
+        headers = (
+            f"HTTP/1.0 {status} OK\r\nContent-Type: application/json\r\nContent-Length: {len(body)}\r\n\r\n"
+        ).encode("ascii")
+        try:
+            if phase == "headers":
+                self._drip(headers)
+                self.wfile.write(body)
+            else:
+                self.wfile.write(headers)
+                self._drip(body)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+    def _drip(self, data: bytes) -> None:
+        for byte in data:
+            self.wfile.write(bytes([byte]))
+            self.wfile.flush()
+            time.sleep(0.06)
 
     def do_GET(self) -> None:
         record = self._record()
@@ -119,6 +150,13 @@ class _Handler(BaseHTTPRequestHandler):
             delay = self.server.account_delays.pop(0) if self.server.account_delays else 0.0  # type: ignore[attr-defined]
         if delay:
             time.sleep(delay)
+        if self.server.echo_account_error:  # type: ignore[attr-defined]
+            secret = record["headers"]["authorization"].split(" ", 1)[-1]  # type: ignore[index,union-attr]
+            data: object = {"error": "Rejected " + secret, "provider_context": "Echo " + secret}
+            if self.server.echo_account_error == "string":  # type: ignore[attr-defined]
+                data = json.dumps("Rejected " + secret).encode("utf-8")
+            self._json(503, data, "Echo " + secret, {"X-Provider-Context": "Echo " + secret})
+            return
         if status != 200:
             self._json(status, {"error": "temporary account lookup failure"})
             return
@@ -130,7 +168,7 @@ class _Handler(BaseHTTPRequestHandler):
         body = record["body"]
         fields = parse_qs(body.decode("utf-8")) if isinstance(body, bytes) else {}
         if path == "/oauth/register":
-            self._json(201, {"client_id": "local-oauth-client"})
+            self._json(201, {"client_id": self.server.registration_client_id})  # type: ignore[attr-defined]
         elif path == "/oauth/device/authorize":
             self._device_authorization()
         elif path == "/oauth/token":
@@ -162,8 +200,28 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _token_response(self, fields: dict[str, list[str]]) -> None:
         grant_type = fields.get("grant_type", [""])[0]
+        expected_client = self.server.expected_oauth_client_id  # type: ignore[attr-defined]
+        if expected_client and fields.get("client_id") != [expected_client]:
+            self._json(400, {"error": "invalid_grant"})
+            return
         if grant_type == "refresh_token":
             time.sleep(self.server.refresh_delay)  # type: ignore[attr-defined]
+            if self.server.echo_refresh_error:  # type: ignore[attr-defined]
+                secret = fields["refresh_token"][0]
+                data: object = {
+                    "error": "temporarily_unavailable",
+                    "error_description": "Rejected credential " + secret,
+                    "provider_context": "Echo " + secret,
+                }
+                if self.server.echo_refresh_error == "malformed":  # type: ignore[attr-defined]
+                    data = ('{"error_description": ' + secret + ', "refresh_token": "' + secret + '"').encode("utf-8")
+                self._json(
+                    503,
+                    data,
+                    "Echo " + secret,
+                    {"Location": "/retry?refresh_token=" + secret, "X-Provider-Context": "Echo " + secret},
+                )
+                return
             self._json(
                 200,
                 {
@@ -183,6 +241,7 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(400, {"error": self.server.device_error})  # type: ignore[attr-defined]
         elif not self.server.approved:  # type: ignore[attr-defined]
             self._json(400, {"error": "authorization_pending"})
+            self.server.first_device_poll_started.set()  # type: ignore[attr-defined]
         else:
             self._json(
                 200,
@@ -228,10 +287,16 @@ class _LocalHTTPServer(ThreadingHTTPServer):
         self.device_error: str | None = None
         self.authorization_error: str | None = None
         self.authorization_error_description = "device-code-secret"
+        self.registration_client_id = "local-oauth-client"
+        self.expected_oauth_client_id: str | None = None
         self.device_interval = 1
         self.account_statuses: list[int] = []
         self.account_delays: list[float] = []
         self.refresh_delay = 0.0
+        self.echo_refresh_error: str | None = None
+        self.echo_account_error: str | None = None
+        self.slow_response_phase: str | None = None
+        self.slow_response_paths: set[str] = set()
         self.server_settings_status: int | None = None
         self.reject_api_key = False
         self.content_statuses: dict[str, int] = {}
@@ -1003,7 +1068,7 @@ def test_device_login_verbose_output_keeps_json_clean_and_hides_secrets(
         assert "[DEBUG]" in started.stderr
         assert "Request: POST" in started.stderr
         assert "Request: POST" in finished.stderr
-        assert "<redacted>" in started.stderr
+        assert "<OAuth response body omitted>" in started.stderr
         assert "<redacted>" in finished.stderr
     else:
         assert "[DEBUG]" not in started.stderr
@@ -1253,3 +1318,477 @@ def test_cloud_finish_deadline_covers_delayed_refresh_and_keeps_checkpoint(
     saved = _saved_servers(home)[name]
     assert saved["connect_cloud_access_token"] == "access-token"
     assert saved["connect_cloud_refresh_token"] == "refresh-token"
+
+
+@pytest.mark.parametrize("phase", ["headers", "body"])
+@pytest.mark.parametrize("kind", ["connect", "cloud"])
+def test_finish_deadline_interrupts_slow_responses_and_can_resume(
+    tmp_path: Path, local_http_server: _LocalHTTPServer, phase: str, kind: str
+) -> None:
+    home = tmp_path / "home"
+    environment = _cli_environment(home)
+    name = "slow-response-" + kind
+    if kind == "cloud":
+        start_args = ["add", "--connect-cloud", "--account", "team", "--name", name, "--no-wait"]
+        finish_args = ["add", "--connect-cloud", "--name", name, "--finish"]
+        cloud_base = local_http_server.base_url
+        slow_path = "/v1/accounts"
+    else:
+        start_args = ["login", "--server", local_http_server.base_url, "--name", name, "--no-wait"]
+        finish_args = ["login", "--name", name, "--finish"]
+        cloud_base = None
+        slow_path = "/oauth/token"
+    started = _run_cli(start_args, environment, cloud_base_url=cloud_base)
+    assert started.returncode == 0, _output(started)
+    local_http_server.approved = True
+    time.sleep(1.1)
+    local_http_server.slow_response_phase = phase
+    local_http_server.slow_response_paths = {slow_path}
+
+    started_at = time.monotonic()
+    timed_out = _run_cli([*finish_args, "--timeout", "2"], environment, cloud_base_url=cloud_base)
+    elapsed = time.monotonic() - started_at
+
+    assert timed_out.returncode == 0, _output(timed_out)
+    assert _json_output(timed_out)["status"] == "pending"
+    assert elapsed < 3.2, f"slow {phase} bypassed the finish deadline: {elapsed:.2f}s"
+    state = json.loads(_device_states(home, kind)[0].read_text(encoding="utf-8"))
+    if kind == "cloud":
+        assert state["tokens"]["access_token"] == "access-token"
+    else:
+        assert state["tokens"] is None
+        assert state["last_poll_at"] > 0
+    assert not list(home.rglob("servers.json"))
+    assert "local-device-code" not in _output(timed_out)
+    assert "refresh-token" not in _output(timed_out)
+
+    local_http_server.slow_response_paths.clear()
+    retried = _run_cli([*finish_args, "--timeout", "5"], environment, cloud_base_url=cloud_base)
+    assert retried.returncode == 0, _output(retried)
+    assert _json_output(retried)["status"] == "done"
+    assert not _device_states(home, kind)
+    token_requests = _requests(local_http_server, "/oauth/token")
+    assert len(token_requests) == (1 if kind == "cloud" else 2)
+
+
+def test_invalid_registration_client_id_leaves_no_state_and_allows_corrected_start(
+    tmp_path: Path, local_http_server: _LocalHTTPServer
+) -> None:
+    home = tmp_path / "home"
+    environment = _cli_environment(home)
+    local_http_server.registration_client_id = "invalid\nclient"
+    args = ["login", "--server", local_http_server.base_url, "--name", "invalid-client", "--no-wait"]
+
+    rejected = _run_cli(args, environment)
+
+    assert rejected.returncode == 1
+    assert rejected.stdout == ""
+    assert "client ID" in rejected.stderr
+    assert not _device_states(home, "connect")
+    assert not list(home.rglob("servers.json"))
+    local_http_server.registration_client_id = "local-oauth-client"
+    corrected = _run_cli(args, environment)
+    assert corrected.returncode == 0, _output(corrected)
+    assert _json_output(corrected)["status"] == "pending"
+
+
+def test_existing_blocking_device_login_handles_pending_http_responses(
+    tmp_path: Path, local_http_server: _LocalHTTPServer
+) -> None:
+    home = tmp_path / "home"
+    environment = _cli_environment(home)
+    name = "blocking-device-login"
+    process = _start_cli(
+        ["login", "--server", local_http_server.base_url, "--name", name, "--use-device-code"],
+        environment,
+    )
+    try:
+        assert local_http_server.first_device_poll_started.wait(timeout=10)
+        local_http_server.approved = True
+        finished = _collect_cli(process)
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.communicate(timeout=5)
+
+    assert finished.returncode == 0, _output(finished)
+    assert "ABCD-EFGH" in finished.stdout
+    assert "Waiting for authorization" in finished.stdout
+    assert len(_requests(local_http_server, "/oauth/token")) == 2
+    assert _saved_servers(home)[name]["oauth_access_token"] == "access-token"
+    assert not _device_states(home, "connect")
+    for request in _requests(local_http_server, "/oauth/token"):
+        assert _form(request)["grant_type"] == [_DEVICE_GRANT]
+        assert _form(request)["client_id"] == ["local-oauth-client"]
+
+
+@pytest.mark.parametrize("verbose", [[], ["-vv"]])
+@pytest.mark.parametrize("response_kind", ["json", "malformed"])
+def test_cloud_refresh_error_does_not_leak_credentials_and_can_resume(
+    tmp_path: Path, local_http_server: _LocalHTTPServer, verbose: list[str], response_kind: str
+) -> None:
+    home = tmp_path / "home"
+    environment = _cli_environment(home)
+    name = "private-refresh-errors"
+    started = _run_cli(
+        ["add", "--connect-cloud", "--account", "team", "--name", name, "--no-wait"],
+        environment,
+        cloud_base_url=local_http_server.base_url,
+    )
+    assert started.returncode == 0, _output(started)
+    local_http_server.approved = True
+    local_http_server.account_statuses = [401]
+    local_http_server.echo_refresh_error = response_kind
+    finish_args = ["add", "--connect-cloud", "--name", name, "--finish", "--timeout", "5", *verbose]
+
+    failed = _run_cli(finish_args, environment, cloud_base_url=local_http_server.base_url)
+
+    assert failed.returncode == 1, _output(failed)
+    assert failed.stdout == ""
+    assert "token refresh failed" in failed.stderr
+    for secret in ("device-code-secret", "access-token", "refresh-token"):
+        assert secret not in _output(failed)
+    forms = [_form(request) for request in _requests(local_http_server, "/oauth/token")]
+    assert [form["grant_type"] for form in forms] == [[_DEVICE_GRANT], ["refresh_token"]]
+    assert forms[-1]["refresh_token"] == ["refresh-token"]
+    checkpoint = json.loads(_device_states(home, "cloud")[0].read_text(encoding="utf-8"))["tokens"]
+    assert checkpoint["refresh_token"] == "refresh-token"
+
+    local_http_server.echo_refresh_error = None
+    local_http_server.account_statuses = [401, 200]
+    retried = _run_cli(finish_args, environment, cloud_base_url=local_http_server.base_url)
+    assert retried.returncode == 0, _output(retried)
+    assert _json_output(retried)["status"] == "done"
+    assert not _device_states(home, "cloud")
+    for secret in ("device-code-secret", "access-token", "refresh-token"):
+        assert secret not in _output(retried)
+
+
+@pytest.mark.parametrize("verbose", [[], ["-vv"]])
+@pytest.mark.parametrize("response_kind", ["json", "string"])
+def test_cloud_account_error_does_not_leak_credentials_and_can_resume(
+    tmp_path: Path, local_http_server: _LocalHTTPServer, verbose: list[str], response_kind: str
+) -> None:
+    home = tmp_path / "home"
+    environment = _cli_environment(home)
+    name = "private-account-errors"
+    started = _run_cli(
+        ["add", "--connect-cloud", "--account", "team", "--name", name, "--no-wait"],
+        environment,
+        cloud_base_url=local_http_server.base_url,
+    )
+    assert started.returncode == 0, _output(started)
+    local_http_server.approved = True
+    local_http_server.echo_account_error = response_kind
+    finish_args = ["add", "--connect-cloud", "--name", name, "--finish", "--timeout", "5", *verbose]
+
+    failed = _run_cli(finish_args, environment, cloud_base_url=local_http_server.base_url)
+
+    assert failed.returncode == 1, _output(failed)
+    assert failed.stdout == ""
+    assert "account lookup failed" in failed.stderr.lower()
+    for secret in ("device-code-secret", "access-token", "refresh-token"):
+        assert secret not in _output(failed)
+    checkpoint = json.loads(_device_states(home, "cloud")[0].read_text(encoding="utf-8"))["tokens"]
+    assert checkpoint["access_token"] == "access-token"
+    assert checkpoint["refresh_token"] == "refresh-token"
+    assert _requests(local_http_server, "/v1/accounts")[-1]["headers"]["authorization"] == "Bearer access-token"  # type: ignore[index]
+
+    local_http_server.echo_account_error = None
+    retried = _run_cli(finish_args, environment, cloud_base_url=local_http_server.base_url)
+
+    assert retried.returncode == 0, _output(retried)
+    assert _json_output(retried)["status"] == "done"
+    assert not _device_states(home, "cloud")
+    for secret in ("device-code-secret", "access-token", "refresh-token"):
+        assert secret not in _output(retried)
+
+
+def test_cloud_finish_refresh_uses_the_client_id_saved_at_start(
+    tmp_path: Path, local_http_server: _LocalHTTPServer
+) -> None:
+    home = tmp_path / "home"
+    environment = _cli_environment(home)
+    environment["CONNECT_CLOUD_OAUTH_CLIENT_ID"] = "initial-client"
+    name = "saved-cloud-client"
+    started = _run_cli(
+        ["add", "--connect-cloud", "--account", "team", "--name", name, "--no-wait"],
+        environment,
+        cloud_base_url=local_http_server.base_url,
+    )
+    assert started.returncode == 0, _output(started)
+    assert _form(_requests(local_http_server, "/oauth/device/authorize")[0])["client_id"] == ["initial-client"]
+    local_http_server.approved = True
+    local_http_server.account_statuses = [401, 200]
+    local_http_server.expected_oauth_client_id = "initial-client"
+    environment["CONNECT_CLOUD_OAUTH_CLIENT_ID"] = "changed-client"
+
+    finished = _run_cli(
+        ["add", "--connect-cloud", "--name", name, "--finish", "--timeout", "5"],
+        environment,
+        cloud_base_url=local_http_server.base_url,
+    )
+
+    assert finished.returncode == 0, _output(finished)
+    assert _json_output(finished)["status"] == "done"
+    token_forms = [_form(record) for record in _requests(local_http_server, "/oauth/token")]
+    assert [form["grant_type"] for form in token_forms] == [[_DEVICE_GRANT], ["refresh_token"]]
+    assert [form["client_id"] for form in token_forms] == [["initial-client"], ["initial-client"]]
+    saved = _saved_servers(home)[name]
+    assert saved["connect_cloud_access_token"] == "refreshed-access-token"
+    assert saved["connect_cloud_refresh_token"] == "refreshed-refresh-token"
+    assert not _device_states(home, "cloud")
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX FIFOs and symlinks are required")
+@pytest.mark.parametrize("runtime", ["python", "nodejs"])
+@pytest.mark.parametrize("record_kind", ["module-symlink", "manifest-symlink", "module-fifo"])
+def test_preflight_rejects_unsafe_deployment_records_without_reading_or_fixing(
+    tmp_path: Path, local_http_server: _LocalHTTPServer, runtime: str, record_kind: str
+) -> None:
+    environment = _cli_environment(tmp_path / "home")
+    project = tmp_path / "unsafe-record-project"
+    if runtime == "nodejs":
+        _write_node_project(project, project.name, "^22")
+    else:
+        project.mkdir()
+    metadata_directory = project / "rsconnect-python"
+    metadata_directory.mkdir()
+    filename = "manifest.json" if record_kind == "manifest-symlink" else project.name + ".json"
+    record = metadata_directory / filename
+    outside = tmp_path / "outside.json"
+    outside.write_text(
+        json.dumps(
+            {
+                local_http_server.base_url: {
+                    "app_id": _CONTENT_GUID,
+                    "app_guid": _CONTENT_GUID,
+                    "app_mode": "python-api",
+                    "version": 1,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    original = outside.read_bytes()
+    if record_kind == "module-fifo":
+        os.mkfifo(record)
+    else:
+        record.symlink_to(outside)
+    runtime_args = ["--runtime", "nodejs"] if runtime == "nodejs" else ["--fix"]
+
+    result = _run_cli(
+        [
+            "preflight",
+            "--server",
+            local_http_server.base_url,
+            "--api-key",
+            "local-key",
+            str(project),
+            *runtime_args,
+        ],
+        environment,
+    )
+
+    assert result.returncode == 0, _output(result)
+    report = _json_output(result)
+    assert report["status"] == "unknown"
+    assert report["changed_files"] == []
+    assert report["actions"]
+    assert report["warnings"]
+    assert any("regular" in warning.lower() or "symlink" in warning.lower() for warning in report["warnings"])
+    assert outside.read_bytes() == original
+    assert not (project / ".python-version").exists()
+    assert not _requests(local_http_server, "/__api__/v1/content/" + _CONTENT_GUID)
+
+
+def test_oversized_valid_deployment_record_is_unknown_and_explicit_id_bypasses_it(
+    tmp_path: Path, local_http_server: _LocalHTTPServer
+) -> None:
+    environment = _cli_environment(tmp_path / "home")
+    project = tmp_path / "oversized-project"
+    project.mkdir()
+    metadata_directory = project / "rsconnect-python"
+    metadata_directory.mkdir()
+    record = metadata_directory / (project.name + ".json")
+    record.write_text(
+        json.dumps(
+            {
+                local_http_server.base_url: {
+                    "app_id": _CONTENT_GUID,
+                    "app_guid": _CONTENT_GUID,
+                    "app_mode": "python-api",
+                    "version": 1,
+                    "title": "x" * (2 * 1024 * 1024),
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    arguments = [
+        "preflight",
+        "--server",
+        local_http_server.base_url,
+        "--api-key",
+        "local-key",
+        str(project),
+        "--fix",
+    ]
+
+    result = _run_cli(arguments, environment)
+
+    assert result.returncode == 0, _output(result)
+    report = _json_output(result)
+    assert report["status"] == "unknown"
+    assert report["changed_files"] == []
+    assert any("limit" in warning for warning in report["warnings"])
+    assert report["actions"]
+    assert not (project / ".python-version").exists()
+    assert not _requests(local_http_server, "/__api__/v1/content/" + _CONTENT_GUID)
+
+    explicit = _run_cli([*arguments, "--app-id", _CONTENT_GUID], environment)
+    assert explicit.returncode == 0, _output(explicit)
+    assert _json_output(explicit)["status"] == "ok"
+    assert _json_output(explicit)["existing_content"]["app_id"] == _CONTENT_GUID  # type: ignore[index]
+    assert not (project / ".python-version").exists()
+    assert len(_requests(local_http_server, "/__api__/v1/content/" + _CONTENT_GUID)) == 1
+
+
+@pytest.mark.parametrize("runtime", ["python", "nodejs"])
+@pytest.mark.parametrize(
+    "contents, warning_text",
+    [
+        pytest.param("[" * 10000 + "0" + "]" * 10000, "recursion", id="nested-json"),
+        pytest.param(
+            '{"app_id":' + "9" * 5000 + "}",
+            "integer string conversion",
+            id="integer-digit-limit",
+            marks=pytest.mark.skipif(
+                not 0 < getattr(sys, "get_int_max_str_digits", lambda: 0)() < 5000,
+                reason="Interpreter does not enforce this integer digit limit.",
+            ),
+        ),
+    ],
+)
+def test_parser_rejected_deployment_record_is_unknown_without_fixing(
+    tmp_path: Path, local_http_server: _LocalHTTPServer, runtime: str, contents: str, warning_text: str
+) -> None:
+    environment = _cli_environment(tmp_path / "home")
+    project = tmp_path / "nested-project"
+    if runtime == "nodejs":
+        _write_node_project(project, project.name, "^22")
+    else:
+        project.mkdir()
+    metadata_directory = project / "rsconnect-python"
+    metadata_directory.mkdir()
+    record = metadata_directory / (project.name + ".json")
+    record.write_text(contents, encoding="utf-8")
+    runtime_args = ["--runtime", "nodejs"] if runtime == "nodejs" else ["--fix"]
+
+    result = _run_cli(
+        ["preflight", "--server", local_http_server.base_url, "--api-key", "local-key", str(project), *runtime_args],
+        environment,
+    )
+
+    assert result.returncode == 0, _output(result)
+    report = _json_output(result)
+    assert report["status"] == "unknown"
+    assert report["changed_files"] == []
+    assert report["actions"]
+    assert any(warning_text in warning.lower() for warning in report["warnings"])
+    assert not (project / ".python-version").exists()
+    assert not _requests(local_http_server, "/__api__/v1/content/" + _CONTENT_GUID)
+
+
+def test_resumable_reauthentication_preserves_legacy_url_and_content_history(
+    tmp_path: Path, local_http_server: _LocalHTTPServer
+) -> None:
+    home = tmp_path / "home"
+    environment = _cli_environment(home)
+    name = "legacy-url"
+    saved_url = local_http_server.base_url + "/"
+    local_http_server.approved = True
+    legacy = _run_cli(
+        ["login", saved_url, "--name", name, "--use-device-code", "--client-id", "local-oauth-client"],
+        environment,
+    )
+    assert legacy.returncode == 0, _output(legacy)
+    assert _saved_servers(home)[name]["url"] == saved_url
+    project = tmp_path / "legacy-project"
+    project.mkdir()
+    app_file = str(project / (project.name + ".py"))
+    history = AppStore(app_file)
+    history.set(
+        saved_url,
+        app_file,
+        saved_url + "content/" + _CONTENT_GUID,
+        _CONTENT_GUID,
+        _CONTENT_GUID,
+        "Existing content",
+        "python-api",
+    )
+    history_path = Path(history.get_path())
+    original_history = history_path.read_bytes()
+    started = _run_cli(["login", saved_url, "--name", name, "--no-wait"], environment)
+    assert started.returncode == 0, _output(started)
+
+    finished = _run_cli(["login", "--name", name, "--finish", "--timeout", "5"], environment)
+
+    assert finished.returncode == 0, _output(finished)
+    assert _json_output(finished)["server"] == local_http_server.base_url
+    assert _saved_servers(home)[name]["url"] == saved_url
+    assert _device_states(home, "connect") == []
+    named = _run_cli(["preflight", "--name", name, str(project), "--fix"], environment)
+    assert named.returncode == 0, _output(named)
+    named_report = _json_output(named)
+    assert named_report["existing_content"]["app_id"] == _CONTENT_GUID  # type: ignore[index]
+    assert named_report["changed_files"] == []
+    inferred = _run_cli(["preflight", str(project), "--fix"], environment)
+    assert inferred.returncode == 0, _output(inferred)
+    inferred_report = _json_output(inferred)
+    assert inferred_report["server"] == saved_url
+    assert inferred_report["existing_content"]["app_id"] == _CONTENT_GUID  # type: ignore[index]
+    assert inferred_report["changed_files"] == []
+    assert len(_requests(local_http_server, "/__api__/v1/content/" + _CONTENT_GUID)) == 2
+    assert history_path.read_bytes() == original_history
+    assert not (project / ".python-version").exists()
+
+
+def test_safe_deployment_history_still_selects_its_server_before_the_default(
+    tmp_path: Path, local_http_server: _LocalHTTPServer
+) -> None:
+    home = tmp_path / "home"
+    environment = _cli_environment(home)
+    _login_connect("history-target", environment, local_http_server)
+    servers = _saved_servers(home)
+    servers["history-target"]["default"] = False
+    servers["other-default"] = {
+        "name": "other-default",
+        "url": "http://127.0.0.1:1",
+        "api_key": "unused-key",
+        "default": True,
+    }
+    next(home.rglob("servers.json")).write_text(json.dumps(servers), encoding="utf-8")
+    project = tmp_path / "history-target-project"
+    project.mkdir()
+    module_file = project / (project.name + ".py")
+    AppStore(str(module_file)).set(
+        local_http_server.base_url,
+        str(module_file),
+        local_http_server.base_url + "/content/" + _CONTENT_GUID,
+        _CONTENT_GUID,
+        _CONTENT_GUID,
+        "saved content",
+        "python-api",
+    )
+
+    result = _run_cli(["preflight", str(project), "--fix"], environment)
+
+    assert result.returncode == 0, _output(result)
+    report = _json_output(result)
+    assert report["status"] == "ok"
+    assert report["server"] == local_http_server.base_url
+    assert report["existing_content"]["app_id"] == _CONTENT_GUID  # type: ignore[index]
+    assert report["changed_files"] == []
+    assert not (project / ".python-version").exists()
+    assert _saved_servers(home)["other-default"]["default"] is True

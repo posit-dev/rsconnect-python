@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import configparser
-import json
 import os
 import platform
 import shutil
@@ -17,6 +16,7 @@ from .api import ConnectCloudServer, RSConnectClient, RSConnectExecutor, RSConne
 from .environment import fake_module_file_from_directory
 from .exception import RSConnectException
 from .metadata import AppStore
+from .validation import require_posix
 from .pyproject import (
     InvalidVersionConstraintError,
     TOMLDecodeError,
@@ -26,7 +26,7 @@ from .pyproject import (
 )
 
 _METADATA_FILES = (".python-version", "pyproject.toml", "setup.cfg")
-_APP_STORE_READ_ERRORS = (OSError, UnicodeError, json.JSONDecodeError, AttributeError, TypeError)
+_APP_STORE_READ_ERRORS = (OSError, ValueError, RecursionError, AttributeError, TypeError)
 
 
 def _invalid_declared_metadata(project_path: Path) -> Optional[str]:
@@ -152,6 +152,22 @@ def _deployment_store_paths(target: str) -> list[str]:
     return paths
 
 
+def load_preflight_app_store(path: str) -> AppStore:
+    """Load safe deployment history for executor target inference."""
+    module_file = fake_module_file_from_directory(path)
+    try:
+        store = AppStore(module_file, strict_read=True)
+        records = store.get_all()
+        if not isinstance(records, list) or any(
+            not isinstance(record, Mapping) or not isinstance(record.get("server_url"), str) or not record["server_url"]
+            for record in records
+        ):
+            raise TypeError("Malformed local deployment metadata.")
+    except _APP_STORE_READ_ERRORS:
+        return AppStore(module_file, autoload=False, strict_read=True)
+    return store
+
+
 def _read_app_store_record(store: Any, server_key: str) -> tuple[Optional[Mapping[str, Any]], Optional[str]]:
     try:
         record = store.get(server_key)
@@ -167,12 +183,13 @@ def _read_app_store_record(store: Any, server_key: str) -> tuple[Optional[Mappin
 def _read_deployment_records(executor: RSConnectExecutor, target: str) -> tuple[list[Mapping[str, Any]], Optional[str]]:
     directory = os.path.isdir(target)
     module_file = fake_module_file_from_directory(target) if directory else None
+    executor_module = fake_module_file_from_directory(executor.path)
     try:
         stores: list[Any] = []
         for path in _deployment_store_paths(target):
-            stores.append(executor.app_store if path == module_file else AppStore(path))
+            stores.append(AppStore(executor_module if path == module_file else path, strict_read=True))
         if not directory:
-            stores.append(executor.app_store)
+            stores.append(AppStore(executor_module, strict_read=True))
     except _APP_STORE_READ_ERRORS as err:
         return [], f"Could not read local deployment metadata: {err}"
 
@@ -191,7 +208,7 @@ def _file_deployment_records(source: Path, server_key: str) -> tuple[list[Mappin
     records: list[Mapping[str, Any]] = []
     try:
         for app_file in (str(source), fake_module_file_from_directory(str(source))):
-            record, issue = _read_app_store_record(AppStore(app_file), server_key)
+            record, issue = _read_app_store_record(AppStore(app_file, strict_read=True), server_key)
             if issue:
                 return [], issue
             if record is not None:
@@ -519,6 +536,7 @@ def _status_advice(
 
 def run_preflight(executor: RSConnectExecutor, project: str, fix: bool = False) -> dict[str, Any]:
     """Check project Python metadata against a validated Connect executor."""
+    require_posix("Deployment preflight")
     server, client = _validated_python_executor(executor)
 
     warnings: list[str] = []
