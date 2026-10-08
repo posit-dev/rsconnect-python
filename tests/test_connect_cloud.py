@@ -24,7 +24,7 @@ from rsconnect.api import (
     RSConnectExecutor,
 )
 from rsconnect.environment import fake_module_file_from_directory
-from rsconnect.exception import DeploymentFailedException, RSConnectException
+from rsconnect.exception import ConnectCloudAccountNotFoundError, DeploymentFailedException, RSConnectException
 from rsconnect.http_support import HTTPResponse, HTTPServer
 from rsconnect.log import VERBOSE
 from rsconnect.main import cli
@@ -212,6 +212,12 @@ class TestConnectCloudAuth(unittest.TestCase):
         kwargs = refresh.call_args.kwargs
         self.assertEqual(kwargs["scope"], "vivid")
         self.assertEqual(kwargs["refresh_token"], "rt")
+
+    def test_refresh_can_limit_its_request_timeout(self):
+        with mock.patch("rsconnect.connect_cloud.refresh_access_token") as refresh:
+            refresh.return_value = {"access_token": "new"}
+            connect_cloud.refresh("rt", "production", request_timeout=0.25)
+        self.assertEqual(refresh.call_args.kwargs["request_timeout"], 0.25)
 
 
 class TestConnectCloudServer(unittest.TestCase):
@@ -517,6 +523,8 @@ class TestConnectCloudClient(unittest.TestCase):
             with self.assertRaises(RSConnectException) as context:
                 self.client.get_account_by_name("acme")
         self.assertIn("acme", str(context.exception))
+        self.assertIsInstance(context.exception, ConnectCloudAccountNotFoundError)
+        self.assertIsNone(context.exception.status)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_deleted_content_is_surfaced_as_404(self):
@@ -774,6 +782,27 @@ class TestConnectCloudClientTokenRefresh(unittest.TestCase):
         self.assertEqual(server.access_token, "fresh")
         self.assertEqual(server.refresh_token, "rt2")
         self.assertEqual(httpretty.last_request().headers["Authorization"], "Bearer fresh")
+
+    def test_refresh_uses_the_remaining_finish_budget(self):
+        server = ConnectCloudServer("acme", access_token="stale", refresh_token="rt")
+        client = ConnectCloudClient(server)
+        client.request_timeout = 20
+        client.request_deadline = 105
+        with mock.patch("rsconnect.api.time.monotonic", return_value=100):
+            with mock.patch("rsconnect.connect_cloud.refresh", return_value={"access_token": "fresh"}) as refresh:
+                self.assertTrue(client._attempt_token_refresh())
+        refresh.assert_called_once_with("rt", "production", request_timeout=5)
+        self.assertEqual(server.access_token, "fresh")
+
+    def test_expired_finish_budget_does_not_refresh(self):
+        server = ConnectCloudServer("acme", access_token="stale", refresh_token="rt")
+        client = ConnectCloudClient(server)
+        client.request_deadline = 100
+        with mock.patch("rsconnect.api.time.monotonic", return_value=100):
+            with mock.patch("rsconnect.connect_cloud.refresh") as refresh:
+                self.assertFalse(client._attempt_token_refresh())
+        refresh.assert_not_called()
+        self.assertEqual(server.access_token, "stale")
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_401_uses_client_credentials_when_available(self):
@@ -1667,6 +1696,7 @@ class TestConnectCloudAccountVerification(unittest.TestCase):
         message = str(context.exception)
         self.assertIn('No Posit Connect Cloud account named "typo"', message)
         self.assertIn("alpha, beta", message)
+        self.assertIsInstance(context.exception, ConnectCloudAccountNotFoundError)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_no_accounts_at_all(self):
@@ -1675,6 +1705,7 @@ class TestConnectCloudAccountVerification(unittest.TestCase):
             with self.assertRaises(RSConnectException) as context:
                 self.client.get_account_by_name("anything")
         self.assertIn("do not have publish access to any", str(context.exception))
+        self.assertIsInstance(context.exception, ConnectCloudAccountNotFoundError)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_a_view_only_account_is_rejected(self):
@@ -1687,6 +1718,7 @@ class TestConnectCloudAccountVerification(unittest.TestCase):
         message = str(context.exception)
         self.assertIn('You have access to the Posit Connect Cloud account "acme"', message)
         self.assertIn("do not have permission to publish to it", message)
+        self.assertNotIsInstance(context.exception, ConnectCloudAccountNotFoundError)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_a_publishable_account_resolves(self):

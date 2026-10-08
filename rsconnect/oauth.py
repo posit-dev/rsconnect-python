@@ -83,6 +83,7 @@ def discover_oauth_metadata(
     url: str,
     insecure: bool = False,
     ca_data: Optional[str | bytes] = None,
+    request_timeout: Optional[float] = None,
 ) -> dict[str, Any]:
     """Fetch OAuth 2.0 Authorization Server Metadata (RFC 8414).
 
@@ -90,6 +91,7 @@ def discover_oauth_metadata(
     the server does not support OAuth.
     """
     server = HTTPServer(url, disable_tls_check=insecure, ca_data=ca_data)
+    server.request_timeout = request_timeout
     with server:
         response = server.get("/.well-known/oauth-authorization-server")
 
@@ -115,6 +117,7 @@ def register_client(
     url: str,
     insecure: bool = False,
     ca_data: Optional[str | bytes] = None,
+    request_timeout: Optional[float] = None,
 ) -> str:
     """Register an OAuth client via Dynamic Client Registration (RFC 7591).
 
@@ -133,6 +136,7 @@ def register_client(
         grant_types.append("urn:ietf:params:oauth:grant-type:device_code")
 
     server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
+    server.request_timeout = request_timeout
     with server:
         response = server.post(
             path,
@@ -454,6 +458,7 @@ def refresh_access_token(
     insecure: bool = False,
     ca_data: Optional[str | bytes] = None,
     scope: Optional[str] = None,
+    request_timeout: Optional[float] = None,
 ) -> dict[str, Any]:
     """Refresh an OAuth access token using a refresh token.
 
@@ -469,7 +474,8 @@ def refresh_access_token(
     if scope:
         params["scope"] = scope
 
-    data = _post_token_request(str(metadata["token_endpoint"]), params, insecure, ca_data)
+    request_options = {"request_timeout": request_timeout} if request_timeout is not None else {}
+    data = _post_token_request(str(metadata["token_endpoint"]), params, insecure, ca_data, **request_options)
     if "access_token" not in data:
         raise RSConnectException("Token refresh returned an unexpected response.")
 
@@ -510,12 +516,14 @@ def _post_token_request(
     params: dict[str, str],
     insecure: bool = False,
     ca_data: Optional[str | bytes] = None,
+    request_timeout: Optional[float] = None,
 ) -> dict[str, Any]:
     """POST a form-encoded request to an OAuth token endpoint and return the JSON body."""
     parsed = urlparse(token_endpoint)
     base = f"{parsed.scheme}://{parsed.netloc}"
 
     server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
+    server.request_timeout = request_timeout
     with server:
         response = server.request(
             "POST",
