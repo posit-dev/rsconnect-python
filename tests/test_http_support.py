@@ -312,29 +312,20 @@ class TestCookieJar(TestCase):
         )
 
     def test_cookie_values_do_not_reach_the_debug_log(self):
-        # Cookies are session credentials; the jar logs names only.
+        # Cookie names can carry credentials too; diagnostics expose only the count.
         jar = CookieJar()
+        cookie_name = "echoed-refresh-token-name"
+        cookie_value = "echoed-refresh-token-value"
         with self.assertLogs("rsconnect", level="DEBUG") as captured:
-            jar.store_cookies(FakeSetCookieResponse(["session=s3ssionv4lue"]))
+            jar.store_cookies(FakeSetCookieResponse([f"{cookie_name}={cookie_value}"]))
             header = jar.get_cookie_header_value()
 
-        self.assertEqual(header, "session=s3ssionv4lue")
-        log_text = "\n".join(captured.output)
-        self.assertNotIn("s3ssionv4lue", log_text)
-        self.assertIn("session", log_text)
-
-    def test_cookie_names_and_values_can_be_omitted_when_opted_in(self):
-        from unittest.mock import patch
-
-        jar = CookieJar()
-        cookie_name = "oauth-refresh-cookie-name"
-        cookie_value = "oauth-refresh-cookie-value"
-        with patch("rsconnect.http_support.logger.debug") as debug:
-            jar.store_cookies(FakeSetCookieResponse([f"{cookie_name}={cookie_value}"]), suppress_logs=True)
-            header = jar.get_cookie_header_value(suppress_logs=True)
-
-        debug.assert_not_called()
         self.assertEqual(header, f"{cookie_name}={cookie_value}")
+        self.assertEqual(jar.as_dict(), {"keys": [cookie_name], "content": {cookie_name: cookie_value}})
+        log_text = "\n".join(captured.output)
+        self.assertNotIn(cookie_name, log_text)
+        self.assertNotIn(cookie_value, log_text)
+        self.assertIn("1 cookie(s)", log_text)
 
 
 class TestDebugLogRedaction(TestCase):
@@ -416,6 +407,7 @@ class TestDebugLogRedaction(TestCase):
 
         body = '{"error": "An object with that name already exists.", "code": 26}'
         redacted = str(_redacted_body_for_log(body))
+        self.assertIn('"error": "An object with that name already exists."', redacted)
         self.assertIn('"code": 26', redacted)
 
     def test_streams_are_left_alone(self):
@@ -449,7 +441,72 @@ class TestDebugLogRedaction(TestCase):
 
         self.assertEqual(_redacted_header_for_log("Cookie", "session=abc; other=def"), "<redacted>")
 
-    def test_oauth_redirect_destination_is_suppressed_when_opted_in(self):
+    def test_oauth_error_fields_and_redirect_location_are_redacted_in_http_logs(self):
+        from unittest.mock import Mock, patch
+
+        location = (
+            "/callback?refresh%5Ftoken=redirect-secret"
+            "#access%5Ftoken=fragment-secret&error_description=location-secret&tab=summary"
+        )
+        body = '{"error":"invalid_grant","error_description":"description-secret","user_code":"code-secret"}'
+
+        def make_response(status, response_body, headers, reason):
+            response = Mock()
+            response.status = status
+            response.reason = reason
+            response.read.return_value = response_body
+            response.getheaders.return_value = headers
+            header_values = {key.lower(): value for key, value in headers}
+            response.getheader.side_effect = lambda key, default=None: header_values.get(key.lower(), default)
+            return response
+
+        redirect = make_response(302, b"", [("Location", location)], "reason-secret")
+        final = make_response(
+            200,
+            body.encode(),
+            [("Content-Type", "application/json"), ("X-Debug-Context", "ordinary-debug-context")],
+            "reason-secret",
+        )
+
+        with HTTPServer("http://example.com") as server:
+            transport = cast(Any, server._conn)
+            with self.assertLogs("rsconnect", level="DEBUG") as captured:
+                with patch.object(transport, "request") as send:
+                    with patch.object(transport, "getresponse", side_effect=[redirect, final]):
+                        response = cast(HTTPResponse, server.get("/start"))
+
+        log_text = "\n".join(captured.output)
+        for secret in (
+            "redirect-secret",
+            "location-secret",
+            "description-secret",
+            "code-secret",
+            "reason-secret",
+            "fragment-secret",
+        ):
+            self.assertNotIn(secret, log_text)
+        self.assertIn("Content-Type: application/json", log_text)
+        self.assertIn("X-Debug-Context: ordinary-debug-context", log_text)
+        self.assertIn(
+            "Redirected to: http://example.com/callback?refresh%5Ftoken=<redacted>"
+            "#access%5Ftoken=<redacted>&error_description=<redacted>&tab=summary",
+            log_text,
+        )
+        self.assertIn('"error_description": "<redacted>"', log_text)
+        self.assertIn('"user_code": "<redacted>"', log_text)
+        self.assertEqual(send.call_args_list[1].args[1], location)
+        self.assertEqual(response.reason, "reason-secret")
+        self.assertEqual(response.response_body, body)
+        self.assertEqual(
+            response.json_data,
+            {
+                "error": "invalid_grant",
+                "error_description": "description-secret",
+                "user_code": "code-secret",
+            },
+        )
+
+    def test_oauth_redirect_destination_is_suppressed_without_changing_routing(self):
         from unittest.mock import Mock, patch
 
         location = "http://example.com/opaque/path-refresh-token?resume=opaque-query-token"
@@ -486,24 +543,17 @@ class TestDebugLogRedaction(TestCase):
         self.assertEqual(response.reason, "final-reason-refresh-token")
         self.assertEqual(response.response_body, "{}")
 
-    def test_oauth_response_body_is_omitted_when_opted_in(self):
+    def test_oauth_response_body_suppression_keeps_response_data_unchanged(self):
         from unittest.mock import Mock, patch
 
         secret = "echoed-refresh-token"
-        cookie_name = "oauth-cookie-name"
-        cookie_value = "oauth-cookie-value"
-        endpoint = "/oauth/token?refresh_token=endpoint-secret"
         body = f'{{"error":"{secret}","error_description":"{secret}"}}'
         content_type = f"application/json; debug={secret}"
         reply = Mock()
         reply.status = 503
         reply.reason = "reason-secret"
         reply.read.return_value = body.encode()
-        reply.getheaders.return_value = [
-            ("Content-Type", content_type),
-            ("X-Debug-Context", secret),
-            ("Set-Cookie", f"{cookie_name}={cookie_value}"),
-        ]
+        reply.getheaders.return_value = [("Content-Type", content_type), ("X-Debug-Context", secret)]
         header_values = {key.lower(): value for key, value in reply.getheaders.return_value}
         reply.getheader.side_effect = lambda key, default=None: header_values.get(key.lower(), default)
 
@@ -513,33 +563,38 @@ class TestDebugLogRedaction(TestCase):
             with self.assertLogs("rsconnect", level="DEBUG") as captured:
                 with patch.object(transport, "request"):
                     with patch.object(transport, "getresponse", return_value=reply):
-                        response = cast(HTTPResponse, server.get(endpoint))
+                        response = cast(HTTPResponse, server.get("/oauth/token"))
 
         log_text = "\n".join(captured.output)
         self.assertIn("Response: 503", log_text)
         self.assertIn("<OAuth response headers omitted>", log_text)
         self.assertIn("<OAuth response body omitted>", log_text)
-        for private_value in (secret, cookie_name, cookie_value, "endpoint-secret", "X-Debug-Context", "reason-secret"):
-            self.assertNotIn(private_value, log_text)
+        self.assertNotIn(secret, log_text)
+        self.assertNotIn("X-Debug-Context", log_text)
+        self.assertNotIn("reason-secret", log_text)
         self.assertEqual(response.reason, "reason-secret")
         self.assertEqual(response.content_type, content_type)
         self.assertEqual(response._response.getheader("Content-Type"), content_type)
         self.assertEqual(response._response.getheader("X-Debug-Context"), secret)
-        self.assertEqual(response._response.getheader("Set-Cookie"), f"{cookie_name}={cookie_value}")
         self.assertEqual(response.response_body, body)
         self.assertEqual(response.json_data, {"error": secret, "error_description": secret})
 
-    def test_default_oauth_response_logging_keeps_baseline_diagnostics(self):
+    def test_malformed_json_is_logged_as_a_placeholder(self):
         from unittest.mock import Mock, patch
 
-        body = '{"message":"ordinary response"}'
+        from rsconnect.http_support import _redacted_body_for_log
+
+        body = '{"error_description":"malformed-secret", "broken": "'
+        self.assertEqual(_redacted_body_for_log(body), "<invalid JSON>")
+
         reply = Mock()
-        reply.status = 200
-        reply.reason = "ordinary reason"
+        reply.status = 400
+        reply.reason = "Bad Request"
         reply.read.return_value = body.encode()
-        reply.getheaders.return_value = [("Content-Type", "application/json"), ("X-Debug-Context", "ordinary context")]
-        header_values = {key.lower(): value for key, value in reply.getheaders.return_value}
-        reply.getheader.side_effect = lambda key, default=None: header_values.get(key.lower(), default)
+        reply.getheaders.return_value = [("Content-Type", "application/json")]
+        reply.getheader.side_effect = lambda key, default=None: (
+            "application/json" if key.lower() == "content-type" else default
+        )
 
         with HTTPServer("http://example.com") as server:
             transport = cast(Any, server._conn)
@@ -549,82 +604,27 @@ class TestDebugLogRedaction(TestCase):
                         response = cast(HTTPResponse, server.get("/token"))
 
         log_text = "\n".join(captured.output)
-        self.assertIn("Response: 200 ordinary reason", log_text)
-        self.assertIn("X-Debug-Context: ordinary context", log_text)
-        self.assertIn("ordinary response", log_text)
-        self.assertNotIn("<OAuth response", log_text)
+        self.assertIn("<invalid JSON>", log_text)
+        self.assertNotIn("malformed-secret", log_text)
         self.assertEqual(response.response_body, body)
+        self.assertIsNone(response.json_data)
 
-    def test_default_redirect_logging_keeps_destination_visible(self):
-        from unittest.mock import Mock, patch
-
-        location = "http://example.com/reports/current?tab=summary"
-        request_target = "/reports/current?tab=summary"
-
-        def make_response(status, body, headers, reason):
-            response = Mock()
-            response.status = status
-            response.reason = reason
-            response.read.return_value = body
-            response.getheaders.return_value = headers
-            header_values = {key.lower(): value for key, value in headers}
-            response.getheader.side_effect = lambda key, default=None: header_values.get(key.lower(), default)
-            return response
-
-        redirect = make_response(302, b"", [("Location", location)], "Found")
-        final = make_response(
-            200,
-            b'{"message":"done"}',
-            [("Content-Type", "application/json")],
-            "OK",
-        )
-
-        with HTTPServer("http://example.com") as server:
-            transport = cast(Any, server._conn)
-            with self.assertLogs("rsconnect", level="DEBUG") as captured:
-                with patch.object(transport, "request") as send:
-                    with patch.object(transport, "getresponse", side_effect=[redirect, final]):
-                        response = cast(HTTPResponse, server.get("/start"))
-
-        log_text = "\n".join(captured.output)
-        self.assertIn("Location: " + location, log_text)
-        self.assertIn("Redirected to: " + location, log_text)
-        self.assertEqual(send.call_args_list[1].args[1], request_target)
-        self.assertEqual(response.response_body, '{"message":"done"}')
-
-    def test_default_http_failure_logging_keeps_exception_details(self):
+    def test_bad_status_line_text_is_not_logged_with_a_traceback(self):
+        from http.client import BadStatusLine
         from unittest.mock import patch
 
-        failure = OSError("ordinary transport detail")
+        failure = BadStatusLine("refresh-token-in-status-line")
         with HTTPServer("http://example.com") as server:
             transport = cast(Any, server._conn)
             with self.assertLogs("rsconnect", level="DEBUG") as captured:
                 with patch.object(transport, "request"):
                     with patch.object(transport, "getresponse", side_effect=failure):
-                        response = cast(HTTPResponse, server.get("/ordinary"))
+                        response = cast(HTTPResponse, server.get("/token"))
 
         log_text = "\n".join(captured.output)
-        self.assertIn("Traceback", log_text)
-        self.assertIn("ordinary transport detail", log_text)
-        self.assertIs(response.exception, failure)
-
-    def test_http_failure_logging_omits_exception_details_when_opted_in(self):
-        from unittest.mock import patch
-
-        failure = OSError("oauth transport detail")
-        with HTTPServer("http://example.com") as server:
-            server._suppress_oauth_response_logging = True
-            transport = cast(Any, server._conn)
-            with self.assertLogs("rsconnect", level="DEBUG") as captured:
-                with patch.object(transport, "request"):
-                    with patch.object(transport, "getresponse", side_effect=failure):
-                        response = cast(HTTPResponse, server.get("/oauth/token?access_token=endpoint-secret"))
-
-        log_text = "\n".join(captured.output)
-        self.assertIn("OSError", log_text)
-        self.assertNotIn("oauth transport detail", log_text)
-        self.assertNotIn("endpoint-secret", log_text)
+        self.assertNotIn("refresh-token-in-status-line", log_text)
         self.assertNotIn("Traceback", log_text)
+        self.assertIn("BadStatusLine", log_text)
         self.assertIs(response.exception, failure)
 
     def test_a_connection_failure_response_has_a_none_status(self):
@@ -657,6 +657,35 @@ class TestDebugLogRedaction(TestCase):
         self.assertNotIn("tok123", redacted)
         self.assertNotIn("AKIA", redacted)
         self.assertIn("X-Amz-Expires=300", redacted)
+
+    def test_encoded_query_names_are_redacted_without_rewriting_other_parameters(self):
+        from rsconnect.http_support import _redacted_uri_for_log
+
+        uri = "/path?keep=%2f+value&refresh%5Ftoken=echoed-secret&X-Amz%2dSignature=signature-secret&tail=a+b#section"
+        self.assertEqual(
+            _redacted_uri_for_log(uri),
+            "/path?keep=%2f+value&refresh%5Ftoken=<redacted>&X-Amz%2dSignature=<redacted>&tail=a+b#section",
+        )
+
+    def test_encoded_fragment_fields_are_redacted_with_and_without_a_query(self):
+        from rsconnect.http_support import _redacted_uri_for_log
+
+        for prefix in ("/callback", "/callback?keep=%2f+value"):
+            with self.subTest(prefix=prefix):
+                self.assertEqual(
+                    _redacted_uri_for_log(prefix + "#refresh%5Ftoken=fragment-secret&tab=a+b"),
+                    prefix + "#refresh%5Ftoken=<redacted>&tab=a+b",
+                )
+                self.assertEqual(_redacted_uri_for_log(prefix + "#ordinary-section"), prefix + "#ordinary-section")
+
+    def test_queryless_uri_text_and_fragment_credentials_remain_redacted(self):
+        from rsconnect.http_support import _redacted_uri_for_log
+
+        self.assertEqual(_redacted_uri_for_log("account token=plain-secret"), "account token=<redacted>")
+        self.assertEqual(
+            _redacted_uri_for_log("/callback#refresh_token=fragment-secret"),
+            "/callback#refresh_token=<redacted>",
+        )
 
     def test_azure_sas_sig_param_is_redacted(self):
         # Azure-style presigned URLs carry the signature in a bare "sig" param.

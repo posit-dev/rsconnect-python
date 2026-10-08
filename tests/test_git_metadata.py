@@ -297,4 +297,6 @@ class TestIntegration:
         with patch.object(RSConnectClient, "post", return_value=bad_response):
             with pytest.raises(RSConnectException) as cm:
                 client.upload_bundle("guid", io.BytesIO(b"tarball"), metadata={"source": "git"})
-        assert "connection refused" in str(cm.value)
+        assert str(cm.value) == "Could not connect to http://test-server (OSError)"
+        assert cm.value.cause is bad_response.exception
+        assert "connection refused" not in str(cm.value)
