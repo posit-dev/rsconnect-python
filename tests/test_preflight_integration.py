@@ -17,6 +17,9 @@ from rsconnect.exception import RSConnectException
 
 from .utils import optional_ca_data, require_api_key, require_connect
 
+
+pytestmark = pytest.mark.skipif(os.name != "posix", reason="Agent login and preflight require POSIX.")
+
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _TRUE_VALUES = {"1", "true", "yes", "on"}
 

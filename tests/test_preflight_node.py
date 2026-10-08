@@ -20,12 +20,16 @@ from rsconnect.api import (
     SPCSConnectServer,
 )
 from rsconnect.exception import RSConnectException
+from rsconnect.environment import fake_module_file_from_directory
 from rsconnect.preflight_node import (
     _evaluate_node_range,
     _npm_cli_path,
     _parse_node_evaluation,
     run_node_preflight,
 )
+
+
+pytestmark = pytest.mark.skipif(os.name != "posix", reason="Agent login and preflight require POSIX.")
 
 SERVER_URL = "https://connect.example.test"
 DEFAULT_SETTINGS = {
@@ -85,15 +89,24 @@ def make_executor(
     store: FakeStore | None = None,
     server: Any = None,
     settings_error: RSConnectException | None = None,
+    path: Path | None = None,
 ) -> tuple[RSConnectExecutor, FakeClient, FakeStore]:
     client = FakeClient(settings, content, settings_error)
-    app_store = store or FakeStore(record)
+    app_store = store or FakeStore()
     executor = cast(Any, RSConnectExecutor.__new__(RSConnectExecutor))
     executor.remote_server = server or RSConnectServer(SERVER_URL, "api-key")
     executor.client = client
     executor.app_store = app_store
+    executor.path = str(path or Path.cwd())
     executor.app_id = app_id
     executor.new = new
+    if record is not None:
+        if path is None:
+            raise AssertionError("a project path is required for a saved deployment record")
+        module_file = Path(fake_module_file_from_directory(str(path)))
+        metadata_path = module_file.parent / "rsconnect-python" / f"{module_file.stem}.json"
+        metadata_path.parent.mkdir(parents=True, exist_ok=True)
+        metadata_path.write_text(json.dumps({executor.record_server_key(): record}), encoding="utf-8")
     return cast(RSConnectExecutor, executor), client, app_store
 
 
@@ -199,6 +212,7 @@ def test_redeploy_uses_all_installed_versions_and_current_version_is_information
     project = make_project(tmp_path / "app")
     fake_preflight_tools(monkeypatch)
     executor, client, store = make_executor(
+        path=project,
         content={"saved-guid": {"node_version": "18.17.0"}},
         record={"app_id": "saved-id", "app_guid": "saved-guid"},
         settings={
@@ -210,7 +224,7 @@ def test_redeploy_uses_all_installed_versions_and_current_version_is_information
 
     result = run_node_preflight(executor, str(project))
 
-    assert store.requests == [SERVER_URL]
+    assert store.requests == []
     assert client.content_requests == ["saved-guid"]
     assert result["status"] == "ok"
     assert result["existing_content"] == {
@@ -236,7 +250,7 @@ def test_redeploy_uses_all_installed_versions_and_current_version_is_information
 def test_unreadable_existing_content_is_unknown(tmp_path, monkeypatch, content_status, settings):
     project = make_project(tmp_path / "app")
     fake_preflight_tools(monkeypatch)
-    executor, client, _ = make_executor(record={"app_guid": "saved-guid"}, settings=settings)
+    executor, client, _ = make_executor(path=project, record={"app_guid": "saved-guid"}, settings=settings)
 
     def inaccessible_content(app_id):
         raise RSConnectException("Content lookup failed.", status=content_status)
@@ -311,6 +325,7 @@ def test_unresolved_target_overrides_empty_server_candidate_set(tmp_path, monkey
     project = make_project(tmp_path / "app")
     disable_local_node_tools(monkeypatch)
     executor, _, _ = make_executor(
+        path=project,
         record={},
         settings={"enabled": True, "status": {"state": "ready"}, "installations": []},
     )
@@ -742,7 +757,7 @@ def test_npm_shim_cannot_supply_global_semver(tmp_path, monkeypatch):
 
     bin_directory = tmp_path / "volta" / "bin"
     bin_directory.mkdir(parents=True)
-    npm_shim = bin_directory / ("npm.cmd" if os.name == "nt" else "npm")
+    npm_shim = bin_directory / "npm"
     npm_root = tmp_path / "volta" / "tools" / "image" / "node" / "22.22.1" / "lib" / "node_modules" / "npm"
     npm_cli = npm_root / "bin" / "npm-cli.js"
     npm_cli.parent.mkdir(parents=True)
@@ -755,17 +770,11 @@ def test_npm_shim_cannot_supply_global_semver(tmp_path, monkeypatch):
         "module.exports = {validRange: () => '^20.0.0', valid: value => value, satisfies: () => false};",
         encoding="utf-8",
     )
-    if os.name == "nt":
-        npm_shim.write_text(
-            f"@{subprocess.list2cmdline([node, str(npm_cli)])} %*\r\n",
-            encoding="utf-8",
-        )
-    else:
-        npm_shim.write_text(
-            f'#!/bin/sh\nexec {shlex.quote(node)} {shlex.quote(str(npm_cli))} "$@"\n',
-            encoding="utf-8",
-        )
-        npm_shim.chmod(0o755)
+    npm_shim.write_text(
+        f'#!/bin/sh\nexec {shlex.quote(node)} {shlex.quote(str(npm_cli))} "$@"\n',
+        encoding="utf-8",
+    )
+    npm_shim.chmod(0o755)
     global_semver = bin_directory / "node_modules" / "semver"
     global_semver.mkdir(parents=True)
     (global_semver / "package.json").write_text(json.dumps({"name": "semver"}), encoding="utf-8")

@@ -79,11 +79,60 @@ def _unwrap_json_response(response: Any) -> dict[str, Any]:
     raise RSConnectException("Unexpected OAuth response format.")
 
 
+def _oauth_response_data(response: Any) -> tuple[Optional[dict[str, Any]], Optional[int]]:
+    """Return an OAuth response's JSON object and HTTP status when available."""
+    if isinstance(response, HTTPResponse):
+        data = response.json_data
+        return (cast(Dict[str, Any], data) if isinstance(data, dict) else None, response.status)
+    if isinstance(response, dict):
+        return cast(Dict[str, Any], response), 200
+    return None, None
+
+
+def _blocking_device_code_response_data(response: Any) -> dict[str, Any]:
+    data, status = _oauth_response_data(response)
+    if data is not None:
+        return data
+    if isinstance(response, HTTPResponse):
+        raise RSConnectException(f"Device code token request failed: HTTP {status}.")
+    raise RSConnectException("Device code token request returned an unexpected response.")
+
+
+def _post_oauth_form_request(
+    base_url: str,
+    path: str,
+    params: Mapping[str, str],
+    insecure: bool = False,
+    ca_data: Optional[str | bytes] = None,
+    request_timeout: Optional[float] = None,
+    request_deadline: Optional[float] = None,
+    *,
+    suppress_response_logging: bool = False,
+) -> Any:
+    """POST a form and return the raw response so device polling can inspect pending errors."""
+    server = HTTPServer(base_url, disable_tls_check=insecure, ca_data=ca_data)
+    server._suppress_oauth_response_logging = suppress_response_logging
+    if request_timeout is not None:
+        server.request_timeout = request_timeout
+    if request_deadline is not None:
+        server.request_deadline = request_deadline
+    with server:
+        return server.request(
+            "POST",
+            path,
+            body=urlencode(params).encode("utf-8"),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+
 def discover_oauth_metadata(
     url: str,
     insecure: bool = False,
     ca_data: Optional[str | bytes] = None,
     request_timeout: Optional[float] = None,
+    request_deadline: Optional[float] = None,
+    *,
+    suppress_response_logging: bool = False,
 ) -> dict[str, Any]:
     """Fetch OAuth 2.0 Authorization Server Metadata (RFC 8414).
 
@@ -91,7 +140,9 @@ def discover_oauth_metadata(
     the server does not support OAuth.
     """
     server = HTTPServer(url, disable_tls_check=insecure, ca_data=ca_data)
+    server._suppress_oauth_response_logging = suppress_response_logging
     server.request_timeout = request_timeout
+    server.request_deadline = request_deadline
     with server:
         response = server.get("/.well-known/oauth-authorization-server")
 
@@ -118,6 +169,9 @@ def register_client(
     insecure: bool = False,
     ca_data: Optional[str | bytes] = None,
     request_timeout: Optional[float] = None,
+    request_deadline: Optional[float] = None,
+    *,
+    suppress_response_logging: bool = False,
 ) -> str:
     """Register an OAuth client via Dynamic Client Registration (RFC 7591).
 
@@ -136,7 +190,9 @@ def register_client(
         grant_types.append("urn:ietf:params:oauth:grant-type:device_code")
 
     server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
+    server._suppress_oauth_response_logging = suppress_response_logging
     server.request_timeout = request_timeout
+    server.request_deadline = request_deadline
     with server:
         response = server.post(
             path,
@@ -179,24 +235,20 @@ def _exchange_code_for_token(
     base = f"{parsed.scheme}://{parsed.netloc}"
     path = parsed.path
 
-    body = urlencode(
-        {
-            "grant_type": "authorization_code",
-            "client_id": client_id,
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "code_verifier": code_verifier,
-        }
-    ).encode("utf-8")
-
-    server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
-    with server:
-        response = server.request(
-            "POST",
-            path,
-            body=body,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
+    params = {
+        "grant_type": "authorization_code",
+        "client_id": client_id,
+        "code": code,
+        "redirect_uri": redirect_uri,
+        "code_verifier": code_verifier,
+    }
+    response = _post_oauth_form_request(
+        base,
+        path,
+        params,
+        insecure,
+        ca_data,
+    )
 
     data = _unwrap_json_response(response)
     if "access_token" not in data:
@@ -341,16 +393,7 @@ def login_with_device_code(
     params = {"client_id": client_id}
     if scope:
         params["scope"] = scope
-    body = urlencode(params).encode("utf-8")
-
-    server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
-    with server:
-        response = server.request(
-            "POST",
-            path,
-            body=body,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
+    response = _post_oauth_form_request(base, path, params, insecure, ca_data)
 
     resp = _unwrap_json_response(response)
     device_code = str(resp.get("device_code", ""))
@@ -403,29 +446,9 @@ def _poll_for_device_token(
         }
         if scope:
             params["scope"] = scope
-        body = urlencode(params).encode("utf-8")
+        response = _post_oauth_form_request(base, path, params, insecure, ca_data)
 
-        server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
-        with server:
-            response = server.request(
-                "POST",
-                path,
-                body=body,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-
-        # Extract JSON from the response (raw HTTPServer always returns HTTPResponse)
-        json_data: Optional[dict[str, Any]] = None
-        if isinstance(response, HTTPResponse):
-            if isinstance(response.json_data, dict):
-                json_data = response.json_data
-            else:
-                raise RSConnectException(f"Device code token request failed: HTTP {response.status}.")
-        elif isinstance(response, dict):
-            json_data = response
-
-        if json_data is None:
-            raise RSConnectException("Device code token request returned an unexpected response.")
+        json_data = _blocking_device_code_response_data(response)
 
         if "access_token" in json_data:
             return json_data
@@ -459,6 +482,9 @@ def refresh_access_token(
     ca_data: Optional[str | bytes] = None,
     scope: Optional[str] = None,
     request_timeout: Optional[float] = None,
+    request_deadline: Optional[float] = None,
+    *,
+    suppress_response_logging: bool = False,
 ) -> dict[str, Any]:
     """Refresh an OAuth access token using a refresh token.
 
@@ -474,7 +500,13 @@ def refresh_access_token(
     if scope:
         params["scope"] = scope
 
-    request_options = {"request_timeout": request_timeout} if request_timeout is not None else {}
+    request_options: dict[str, Any] = {}
+    if request_timeout is not None:
+        request_options["request_timeout"] = request_timeout
+    if request_deadline is not None:
+        request_options["request_deadline"] = request_deadline
+    if suppress_response_logging:
+        request_options["suppress_response_logging"] = True
     data = _post_token_request(str(metadata["token_endpoint"]), params, insecure, ca_data, **request_options)
     if "access_token" not in data:
         raise RSConnectException("Token refresh returned an unexpected response.")
@@ -517,20 +549,25 @@ def _post_token_request(
     insecure: bool = False,
     ca_data: Optional[str | bytes] = None,
     request_timeout: Optional[float] = None,
+    request_deadline: Optional[float] = None,
+    *,
+    suppress_response_logging: bool = False,
 ) -> dict[str, Any]:
     """POST a form-encoded request to an OAuth token endpoint and return the JSON body."""
     parsed = urlparse(token_endpoint)
     base = f"{parsed.scheme}://{parsed.netloc}"
 
-    server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
-    server.request_timeout = request_timeout
-    with server:
-        response = server.request(
-            "POST",
-            parsed.path,
-            body=urlencode(params).encode("utf-8"),
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
+    logging_options = {"suppress_response_logging": True} if suppress_response_logging else {}
+    response = _post_oauth_form_request(
+        base,
+        parsed.path,
+        params,
+        insecure,
+        ca_data,
+        request_timeout,
+        request_deadline,
+        **logging_options,
+    )
 
     return _unwrap_json_response(response)
 

@@ -9,6 +9,11 @@ from rsconnect.connect_cloud import is_connect_cloud_url
 from rsconnect.exception import RSConnectException
 
 
+def require_posix(feature: str) -> None:
+    if os.name != "posix":
+        raise RSConnectException(f"{feature} is supported only on POSIX systems (Linux and macOS).")
+
+
 def get_parameter_source_name_from_ctx(
     var_or_param_name: str,
     ctx: Optional[click.Context],

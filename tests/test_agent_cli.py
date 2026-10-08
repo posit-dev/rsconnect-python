@@ -3,14 +3,20 @@
 import inspect
 import json
 import logging
+import os
 from unittest.mock import Mock, patch
 
+import click
 import pytest
 from click.testing import CliRunner
 
+from rsconnect import main
 from rsconnect.main import cli
 from rsconnect.api import RSConnectClient, RSConnectServer
 from rsconnect.exception import RSConnectException
+
+
+pytestmark = pytest.mark.skipif(os.name != "posix", reason="Agent login and preflight require POSIX.")
 
 
 def cli_runner():
@@ -56,6 +62,60 @@ def test_connect_start_json_and_default_policy():
         set_default=False,
         client_id="public-client",
     )
+
+
+def test_login_callback_keeps_legacy_signature_and_saves_credentials(tmp_path, monkeypatch):
+    store = main.ServerStore(str(tmp_path))
+    monkeypatch.setattr(main, "server_store", store)
+    metadata = {"authorization_endpoint": "https://example.test/authorize"}
+    tokens = {"access_token": "access", "refresh_token": "refresh"}
+
+    with patch("rsconnect.oauth.discover_oauth_metadata", return_value=metadata) as discover:
+        with patch("rsconnect.oauth.register_client", return_value="client") as register:
+            with patch("rsconnect.oauth.login_with_browser", return_value=tokens) as login:
+                with patch("rsconnect.oauth.keyring_store_token", return_value=False) as save_token:
+                    with click.Context(main.login, info_name="login"):
+                        main.login.callback(
+                            None, "https://example.test", "legacy", False, None, None, None, False, None, False, 0
+                        )
+
+    discover.assert_called_once_with("https://example.test", False, None)
+    register.assert_called_once_with(metadata, "https://example.test", False, None)
+    login.assert_called_once_with("https://example.test", "client", metadata, False, None)
+    save_token.assert_called_once_with("https://example.test", "access", "refresh")
+    assert store.get_by_name("legacy")["oauth_client_id"] == "client"
+    assert json.loads((tmp_path / "servers.json").read_text())["legacy"]["oauth_access_token"] == "access"
+
+
+def test_add_callback_keeps_legacy_signature_and_saves_credentials(tmp_path, monkeypatch):
+    store = main.ServerStore(str(tmp_path))
+    monkeypatch.setattr(main, "server_store", store)
+    server = RSConnectServer("https://connect.example.test", "api-key")
+
+    with patch("rsconnect.main._test_server_and_api", return_value=(server, None)) as check:
+        with click.Context(main.add, info_name="add"):
+            main.add.callback(
+                "legacy",
+                "https://connect.example.test",
+                "api-key",
+                None,
+                False,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                False,
+                True,
+                0,
+            )
+
+    check.assert_called_once_with("https://connect.example.test", "api-key", False, None)
+    assert store.get_by_name("legacy")["api_key"] == "api-key"
+    saved = json.loads((tmp_path / "servers.json").read_text())["legacy"]
+    assert saved["url"] == "https://connect.example.test"
+    assert saved["default"] is True
 
 
 @pytest.mark.parametrize(

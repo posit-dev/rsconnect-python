@@ -231,9 +231,9 @@ def device_login_args(kind: Literal["connect", "cloud"]) -> Callable[[Callable[.
         )
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            no_wait = kwargs.pop("no_wait")
-            finish = kwargs.pop("finish")
-            timeout = kwargs.pop("timeout")
+            no_wait = kwargs.pop("no_wait", False)
+            finish = kwargs.pop("finish", False)
+            timeout = kwargs.pop("timeout", 120)
             timeout_supplied = (
                 validation.get_parameter_source_name_from_ctx("timeout", click.get_current_context()) == "COMMANDLINE"
             )
@@ -306,6 +306,7 @@ def _validate_preflight_options(ctx: click.Context) -> None:
 def _run_device_login(
     kind: Literal["connect", "cloud"], params: dict[str, Any], finish: bool, timeout: int
 ) -> dict[str, Any]:
+    validation.require_posix("Resumable device login")
     from .device_login import finish_login
 
     name = params.get("name")
@@ -1373,9 +1374,10 @@ def preflight(
     cacert: Optional[str],
     verbose: int,
 ):
-    from .preflight import run_preflight
+    from .preflight import load_preflight_app_store, run_preflight
 
     _set_json_verbosity(verbose)
+    validation.require_posix("Deployment preflight")
     logger.log(VERBOSE, "Checking %s runtime availability.", runtime)
     _validate_preflight_options(ctx)
     ce = RSConnectExecutor(
@@ -1389,6 +1391,7 @@ def preflight(
         path=directory,
         app_id=app_id,
         new=new,
+        app_store=load_preflight_app_store(directory),
     ).validate_server()
     if runtime == "nodejs":
         from .preflight_node import run_node_preflight
