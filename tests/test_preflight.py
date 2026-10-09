@@ -329,12 +329,11 @@ def test_oversized_valid_appstore_is_unknown_and_never_fixed(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "contents, warning_text",
+    "contents",
     [
-        pytest.param("[" * 10000 + "0" + "]" * 10000, "recursion", id="nested-json"),
+        pytest.param("[" * 10000 + "0" + "]" * 10000, id="nested-json"),
         pytest.param(
             '{"app_id":' + "9" * 5000 + "}",
-            "integer string conversion",
             id="integer-digit-limit",
             marks=pytest.mark.skipif(
                 not 0 < getattr(sys, "get_int_max_str_digits", lambda: 0)() < 5000,
@@ -343,7 +342,7 @@ def test_oversized_valid_appstore_is_unknown_and_never_fixed(tmp_path):
         ),
     ],
 )
-def test_parser_rejected_appstore_is_unknown_and_never_fixed(tmp_path, contents, warning_text):
+def test_unusable_appstore_metadata_is_unknown_and_never_fixed(tmp_path, contents):
     project = tmp_path / "project"
     project.mkdir()
     module_file = Path(fake_module_file_from_directory(str(project)))
@@ -359,9 +358,68 @@ def test_parser_rejected_appstore_is_unknown_and_never_fixed(tmp_path, contents,
     assert result["status"] == "unknown"
     assert result["changed_files"] == []
     assert result["actions"]
-    assert any(warning_text in warning.lower() for warning in result["warnings"])
+    assert any("local deployment metadata" in warning.lower() for warning in result["warnings"])
     assert client.content_requests == []
     assert not (project / ".python-version").exists()
+
+
+def test_recursion_error_reading_appstore_is_unknown_and_never_fixed(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    real_app_store = AppStore
+
+    def recursive_app_store(path, *args, **kwargs):
+        if kwargs.get("autoload", True):
+            raise RecursionError("simulated nested metadata")
+        return real_app_store(path, *args, **kwargs)
+
+    monkeypatch.setattr("rsconnect.preflight.AppStore", recursive_app_store)
+    store = load_preflight_app_store(str(project))
+    assert store.get_all() == []
+    executor, client, _ = make_executor(project, store=store)
+
+    result = run_preflight(executor, str(project), fix=True)
+
+    assert result["status"] == "unknown"
+    assert result["changed_files"] == []
+    assert any("local deployment metadata" in warning.lower() for warning in result["warnings"])
+    assert client.content_requests == []
+    assert not (project / ".python-version").exists()
+
+
+def test_load_preflight_app_store_uses_exact_file_history(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    report = project / "report.ipynb"
+    report.write_text("{}", encoding="utf-8")
+    save_deployment_record(report, "exact-guid")
+
+    store = load_preflight_app_store(str(report))
+
+    assert store.get(SERVER_URL)["app_guid"] == "exact-guid"
+
+
+def test_load_preflight_app_store_falls_back_to_historical_synthetic_file_key(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    report = project / "report.ipynb"
+    report.write_text("{}", encoding="utf-8")
+    config_dir = tmp_path / "user-config"
+    monkeypatch.setattr("rsconnect.metadata.config_dirname", lambda: str(config_dir))
+    synthetic_store = AppStore(fake_module_file_from_directory(str(report)))
+    synthetic_store.set(
+        SERVER_URL,
+        str(report),
+        "https://connect.example.test/content",
+        "saved-guid",
+        "saved-guid",
+        "test",
+        "python-shiny",
+    )
+
+    store = load_preflight_app_store(str(report))
+
+    assert store.get(SERVER_URL)["app_guid"] == "saved-guid"
 
 
 def test_malformed_record_id_is_unknown_and_does_not_fix(tmp_path):

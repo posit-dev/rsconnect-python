@@ -213,6 +213,37 @@ def test_start_and_finish_share_form_transport_and_keep_endpoint_queries(
     assert login_env.http.instances[2].entered_deadline == 35
 
 
+@pytest.mark.parametrize("kind", ["connect", "cloud"])
+@pytest.mark.parametrize("elapsed", [119.99, 120, 120.01])
+def test_start_rechecks_deadline_after_complete_authorization(
+    login_env: Any, monkeypatch: pytest.MonkeyPatch, kind: str, elapsed: float
+):
+    _stub_connect_discovery(monkeypatch)
+    monkeypatch.setenv(connect_cloud.ENVIRONMENT_ENV_VAR, "production")
+    _queue_device(login_env)
+    original_request = device_login._start_device_request
+
+    def completed_request(*args: Any, **kwargs: Any):
+        result = original_request(*args, **kwargs)
+        login_env.clock.advance(elapsed)
+        return result
+
+    monkeypatch.setattr(device_login, "_start_device_request", completed_request)
+
+    def start():
+        if kind == "connect":
+            return device_login.start_connect_login(SERVER, "work")
+        return device_login.start_cloud_login("team", "work")
+
+    if elapsed >= 120:
+        with pytest.raises(RSConnectException, match="start exceeded its 120-second limit"):
+            start()
+        assert device_login._read_state(kind, "work") is None
+    else:
+        assert start()["status"] == "pending"
+        assert device_login._read_state(kind, "work")["device_code"] == "device-code-secret"
+
+
 def test_same_target_reuses_code_and_other_target_is_rejected(login_env: Any, monkeypatch: pytest.MonkeyPatch):
     _stub_connect_discovery(monkeypatch)
     _queue_device(login_env)
@@ -257,7 +288,7 @@ def test_live_state_is_scoped_by_kind_and_name(login_env: Any, monkeypatch: pyte
 
 
 @pytest.mark.parametrize("kind", ["connect", "cloud"])
-def test_start_can_replace_an_expired_code_even_with_checkpointed_tokens(
+def test_start_reuses_expired_checkpoint_and_preserves_target(
     login_env: Any, monkeypatch: pytest.MonkeyPatch, kind: str
 ):
     _stub_connect_discovery(monkeypatch)
@@ -277,6 +308,37 @@ def test_start_can_replace_an_expired_code_even_with_checkpointed_tokens(
         "expires_at": login_env.clock.time() + 3600,
     }
     device_login._write_state(state)
+    login_env.clock.advance(601)
+    _queue_device(login_env, _response(200, {**DEVICE_RESPONSE, "user_code": "NEW-CODE"}))
+
+    result = start()
+
+    assert result["user_code"] == "ABCD-EFGH"
+    assert result["expires_in"] == 0
+    assert device_login._read_state(kind, "work")["tokens"] == state["tokens"]
+    assert len(login_env.http.instances) == 1
+    with pytest.raises(RSConnectException, match="different target"):
+        if kind == "connect":
+            device_login.start_connect_login("https://elsewhere.example.com", "work")
+        else:
+            device_login.start_cloud_login("other-team", "work")
+    assert device_login._read_state(kind, "work")["tokens"] == state["tokens"]
+
+
+@pytest.mark.parametrize("kind", ["connect", "cloud"])
+def test_start_replaces_expired_code_without_checkpointed_tokens(
+    login_env: Any, monkeypatch: pytest.MonkeyPatch, kind: str
+):
+    _stub_connect_discovery(monkeypatch)
+    monkeypatch.setenv(connect_cloud.ENVIRONMENT_ENV_VAR, "production")
+    _queue_device(login_env)
+
+    def start():
+        if kind == "connect":
+            return device_login.start_connect_login(SERVER, "work")
+        return device_login.start_cloud_login("team", "work")
+
+    start()
     login_env.clock.advance(601)
     _queue_device(login_env, _response(200, {**DEVICE_RESPONSE, "user_code": "NEW-CODE"}))
 
@@ -950,6 +1012,9 @@ def test_connect_token_checkpoint_resumes_store_failure(login_env: Any, monkeypa
     assert stat.S_IMODE(_state_path("connect", "work").stat().st_mode) == 0o600
 
     login_env.clock.advance(601)
+    resumed = device_login.start_connect_login(SERVER, "work")
+    assert resumed["user_code"] == "ABCD-EFGH"
+    assert device_login._read_state("connect", "work")["tokens"]["access_token"] == "access-secret"
     result = device_login.finish_login("connect", "work")
     saved = device_login._store().get_by_name("work")
     assert result["status"] == "done"
@@ -1089,6 +1154,7 @@ def test_cloud_checkpoint_retries_permission_lookup_or_save(
         return original_set(store, *args, **kwargs)
 
     monkeypatch.setattr(ServerStore, "set", maybe_fail_save)
+    finish_deadline = login_env.clock.monotonic() + 120
     with pytest.raises(expected_error, match=expected_message) as raised:
         device_login.finish_login("cloud", "cloud-login")
 
@@ -1099,6 +1165,11 @@ def test_cloud_checkpoint_retries_permission_lookup_or_save(
     checkpoint = device_login._read_state("cloud", "cloud-login")
     assert checkpoint["tokens"]["access_token"] == "cloud-access-secret"
     assert len(login_env.http.instances) == 2
+
+    login_env.clock.advance(601)
+    resumed = device_login.start_cloud_login("team", "cloud-login")
+    assert resumed["user_code"] == "ABCD-EFGH"
+    assert device_login._read_state("cloud", "cloud-login")["tokens"]["access_token"] == "cloud-access-secret"
 
     completed = device_login.finish_login("cloud", "cloud-login")
     saved = device_login._store().get_by_name("cloud-login")
@@ -1112,7 +1183,7 @@ def test_cloud_checkpoint_retries_permission_lookup_or_save(
     assert saved["connect_cloud_access_token"] == "cloud-access-secret"
     assert device_login._store().get_default() is None
     assert clients[0].request_timeout <= 120
-    assert clients[0].request_deadline == login_env.clock.monotonic() + 120
+    assert clients[0].request_deadline == finish_deadline
     assert clients[0]._suppress_oauth_response_logging is True
     assert not _state_path("cloud", "cloud-login").exists()
 

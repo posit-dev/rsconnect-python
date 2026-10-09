@@ -34,7 +34,7 @@ pytestmark = pytest.mark.skipif(os.name != "posix", reason="Agent login and pref
 SERVER_URL = "https://connect.example.test"
 DEFAULT_SETTINGS = {
     "enabled": True,
-    "status": {"state": "ready"},
+    "status": {"enabled": True},
     "installations": [
         {"version": "22.4.1", "publishable": True},
         {"version": "20.18.0", "publishable": False},
@@ -162,7 +162,7 @@ def test_new_content_reports_node_runtime_fields_and_does_not_mutate_project(tmp
         "server_node_versions": ["22.4.1", "20.18.0"],
         "publishable_node_versions": ["22.4.1"],
         "nodejs_enabled": True,
-        "nodejs_status": {"state": "ready"},
+        "nodejs_status": {"enabled": True},
         "existing_content": {
             "exists": False,
             "app_id": None,
@@ -217,7 +217,7 @@ def test_redeploy_uses_all_installed_versions_and_current_version_is_information
         record={"app_id": "saved-id", "app_guid": "saved-guid"},
         settings={
             "enabled": True,
-            "status": {},
+            "status": {"enabled": True},
             "installations": [{"version": "20.18.0", "publishable": False}],
         },
     )
@@ -402,6 +402,40 @@ def test_go_runtime_status_shape_is_compatible_when_all_flags_are_true(tmp_path,
     assert result["nodejs_status"] == GO_RUNTIME_SETTINGS["status"]
 
 
+@pytest.mark.parametrize("status", [None, {}, {"state": "ready"}])
+def test_missing_nodejs_status_flags_are_actionable_unknown(tmp_path, monkeypatch, status):
+    project = make_project(tmp_path / "app")
+    fake_preflight_tools(monkeypatch)
+    executor, _, _ = make_executor(
+        new=True,
+        settings={**DEFAULT_SETTINGS, "status": status},
+    )
+
+    result = run_node_preflight(executor, str(project))
+
+    assert result["status"] == "unknown"
+    assert any("did not return Node.js runtime status flags" in warning for warning in result["warnings"])
+    assert any("status flags" in action for action in result["actions"])
+
+
+def test_missing_status_flags_do_not_hide_a_proven_version_mismatch(tmp_path, monkeypatch):
+    project = make_project(tmp_path / "app", {"name": "demo", "engines": {"node": "^99.0.0"}})
+    fake_preflight_tools(monkeypatch, matches=False)
+    executor, _, _ = make_executor(
+        new=True,
+        settings={
+            "enabled": True,
+            "status": {},
+            "installations": [{"version": "22.4.1", "publishable": True}],
+        },
+    )
+
+    result = run_node_preflight(executor, str(project))
+
+    assert result["status"] == "incompatible"
+    assert any("No publishable server Node.js version" in warning for warning in result["warnings"])
+
+
 @pytest.mark.parametrize(
     "settings",
     [
@@ -441,6 +475,20 @@ def test_explicitly_disabled_nodejs_is_incompatible(tmp_path, monkeypatch):
     assert any("license" in action.lower() for action in result["actions"])
 
 
+@pytest.mark.parametrize("enabled_field", [{}, {"enabled": None}, {"enabled": "true"}])
+def test_missing_or_invalid_top_level_enabled_is_actionable_unknown(tmp_path, monkeypatch, enabled_field):
+    project = make_project(tmp_path / "app")
+    fake_preflight_tools(monkeypatch)
+    settings = {key: value for key, value in DEFAULT_SETTINGS.items() if key != "enabled"}
+    settings.update(enabled_field)
+    executor, _, _ = make_executor(new=True, settings=settings)
+
+    result = run_node_preflight(executor, str(project))
+
+    assert result["status"] == "unknown"
+    assert "Check whether Node.js is enabled in the Connect server settings." in result["actions"]
+
+
 def test_unsupported_settings_endpoint_is_unknown(tmp_path, monkeypatch):
     project = make_project(tmp_path / "app")
     fake_preflight_tools(monkeypatch)
@@ -454,6 +502,7 @@ def test_unsupported_settings_endpoint_is_unknown(tmp_path, monkeypatch):
     assert result["status"] == "unknown"
     assert result["nodejs_enabled"] is None
     assert any("HTTP 404" in warning for warning in result["warnings"])
+    assert result["actions"].count("Check whether this Connect server exposes Node.js runtime settings.") == 1
 
 
 @pytest.mark.parametrize(
@@ -839,7 +888,7 @@ def test_preflight_distinguishes_absent_range_from_wildcard_for_prereleases(
         new=True,
         settings={
             "enabled": True,
-            "status": {"state": "ready"},
+            "status": {"enabled": True},
             "installations": [{"version": "22.0.0-rc.1", "publishable": True}],
         },
     )

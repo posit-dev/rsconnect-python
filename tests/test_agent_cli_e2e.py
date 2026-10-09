@@ -40,6 +40,21 @@ if cloud_base:
         logs=cloud_base + "/v1",
     )
 
+token_read_delay = os.environ.get("RSCONNECT_E2E_TOKEN_READ_DELAY")
+if token_read_delay:
+    import http.client
+    import time
+
+    original_read = http.client.HTTPResponse.read
+
+    def read_completed_token(self, *args, **kwargs):
+        body = original_read(self, *args, **kwargs)
+        if self.status == 200 and b'"access_token"' in body:
+            time.sleep(float(token_read_delay))
+        return body
+
+    http.client.HTTPResponse.read = read_completed_token
+
 runpy.run_module("rsconnect.main", run_name="__main__")
 """
 
@@ -353,6 +368,7 @@ def _cli_environment(home: Path) -> dict[str, str]:
         "CONNECT_CLOUD_OAUTH_CLIENT_ID",
         "SHINYAPPS_ACCOUNT",
         "RSCONNECT_E2E_CLOUD_BASE_URL",
+        "RSCONNECT_E2E_TOKEN_READ_DELAY",
         "HTTP_PROXY",
         "http_proxy",
         "HTTPS_PROXY",
@@ -1320,6 +1336,59 @@ def test_cloud_finish_deadline_covers_delayed_refresh_and_keeps_checkpoint(
     assert saved["connect_cloud_refresh_token"] == "refresh-token"
 
 
+@pytest.mark.parametrize("kind", ["connect", "cloud"])
+def test_completed_token_response_is_checkpointed_after_deadline_and_device_expiry(
+    tmp_path: Path, local_http_server: _LocalHTTPServer, kind: str
+) -> None:
+    home = tmp_path / "home"
+    environment = _cli_environment(home)
+    name = "completed-token-" + kind
+    if kind == "cloud":
+        start_args = ["add", "--connect-cloud", "--account", "team", "--name", name, "--no-wait"]
+        finish_args = ["add", "--connect-cloud", "--name", name, "--finish"]
+        cloud_base = local_http_server.base_url
+    else:
+        start_args = ["login", "--server", local_http_server.base_url, "--name", name, "--no-wait"]
+        finish_args = ["login", "--name", name, "--finish"]
+        cloud_base = None
+
+    started = _run_cli(start_args, environment, cloud_base_url=cloud_base)
+    assert started.returncode == 0, _output(started)
+    local_http_server.approved = True
+    time.sleep(1.1)
+    delayed_environment = {**environment, "RSCONNECT_E2E_TOKEN_READ_DELAY": "1.2"}
+    pending = _run_cli([*finish_args, "--timeout", "1"], delayed_environment, cloud_base_url=cloud_base)
+
+    assert pending.returncode == 0, _output(pending)
+    assert _json_output(pending)["status"] == "pending"
+    state_path = _device_states(home, kind)[0]
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert state["tokens"]["access_token"] == "access-token"
+    assert state["tokens"]["refresh_token"] == "refresh-token"
+    state["expires_at"] = time.time() - 1
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+    local_http_server.device_error = "invalid_grant"
+
+    restarted = _run_cli(start_args, environment, cloud_base_url=cloud_base)
+    assert restarted.returncode == 0, _output(restarted)
+    assert _json_output(restarted)["expires_in"] == 0
+    assert json.loads(state_path.read_text(encoding="utf-8"))["tokens"] == state["tokens"]
+    assert len(_requests(local_http_server, "/oauth/device/authorize")) == 1
+
+    finished = _run_cli([*finish_args, "--timeout", "5"], environment, cloud_base_url=cloud_base)
+    assert finished.returncode == 0, _output(finished)
+    assert _json_output(finished)["status"] == "done"
+    assert not _device_states(home, kind)
+    assert len(_requests(local_http_server, "/oauth/token")) == 1
+    saved = _saved_servers(home)[name]
+    token_field = "connect_cloud_access_token" if kind == "cloud" else "oauth_access_token"
+    assert saved[token_field] == "access-token"
+    for result in (started, pending, restarted, finished):
+        assert "access-token" not in _output(result)
+        assert "refresh-token" not in _output(result)
+        assert "local-device-code" not in _output(result)
+
+
 @pytest.mark.parametrize("phase", ["headers", "body"])
 @pytest.mark.parametrize("kind", ["connect", "cloud"])
 def test_finish_deadline_interrupts_slow_responses_and_can_resume(
@@ -1658,7 +1727,7 @@ def test_oversized_valid_deployment_record_is_unknown_and_explicit_id_bypasses_i
 @pytest.mark.parametrize(
     "contents, warning_text",
     [
-        pytest.param("[" * 10000 + "0" + "]" * 10000, "recursion", id="nested-json"),
+        pytest.param("[" * 10000 + "0" + "]" * 10000, "deployment metadata", id="nested-json"),
         pytest.param(
             '{"app_id":' + "9" * 5000 + "}",
             "integer string conversion",
@@ -1670,7 +1739,7 @@ def test_oversized_valid_deployment_record_is_unknown_and_explicit_id_bypasses_i
         ),
     ],
 )
-def test_parser_rejected_deployment_record_is_unknown_without_fixing(
+def test_unusable_deployment_record_is_unknown_without_fixing(
     tmp_path: Path, local_http_server: _LocalHTTPServer, runtime: str, contents: str, warning_text: str
 ) -> None:
     environment = _cli_environment(tmp_path / "home")
@@ -1696,6 +1765,7 @@ def test_parser_rejected_deployment_record_is_unknown_without_fixing(
     assert report["changed_files"] == []
     assert report["actions"]
     assert any(warning_text in warning.lower() for warning in report["warnings"])
+    assert record.read_text(encoding="utf-8") == contents
     assert not (project / ".python-version").exists()
     assert not _requests(local_http_server, "/__api__/v1/content/" + _CONTENT_GUID)
 
@@ -1754,8 +1824,9 @@ def test_resumable_reauthentication_preserves_legacy_url_and_content_history(
     assert not (project / ".python-version").exists()
 
 
+@pytest.mark.parametrize("filename", [None, "app.py", "manifest.json"])
 def test_safe_deployment_history_still_selects_its_server_before_the_default(
-    tmp_path: Path, local_http_server: _LocalHTTPServer
+    tmp_path: Path, local_http_server: _LocalHTTPServer, filename: str | None
 ) -> None:
     home = tmp_path / "home"
     environment = _cli_environment(home)
@@ -1771,7 +1842,9 @@ def test_safe_deployment_history_still_selects_its_server_before_the_default(
     next(home.rglob("servers.json")).write_text(json.dumps(servers), encoding="utf-8")
     project = tmp_path / "history-target-project"
     project.mkdir()
-    module_file = project / (project.name + ".py")
+    module_file = project / (filename or project.name + ".py")
+    if filename:
+        module_file.write_text("{}" if filename.endswith(".json") else "app = object()\n", encoding="utf-8")
     AppStore(str(module_file)).set(
         local_http_server.base_url,
         str(module_file),
@@ -1782,7 +1855,8 @@ def test_safe_deployment_history_still_selects_its_server_before_the_default(
         "python-api",
     )
 
-    result = _run_cli(["preflight", str(project), "--fix"], environment)
+    target = module_file if filename else project
+    result = _run_cli(["preflight", str(target), "--fix"], environment)
 
     assert result.returncode == 0, _output(result)
     report = _json_output(result)

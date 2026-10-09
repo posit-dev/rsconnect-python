@@ -155,16 +155,24 @@ def _deployment_store_paths(target: str) -> list[str]:
 def load_preflight_app_store(path: str) -> AppStore:
     """Load safe deployment history for executor target inference."""
     module_file = fake_module_file_from_directory(path)
-    try:
-        store = AppStore(module_file, strict_read=True)
-        records = store.get_all()
-        if not isinstance(records, list) or any(
-            not isinstance(record, Mapping) or not isinstance(record.get("server_url"), str) or not record["server_url"]
-            for record in records
-        ):
-            raise TypeError("Malformed local deployment metadata.")
-    except _APP_STORE_READ_ERRORS:
-        return AppStore(module_file, autoload=False, strict_read=True)
+    store_paths = [path, module_file] if os.path.isfile(path) else [module_file]
+    store = AppStore(module_file, autoload=False, strict_read=True)
+    for store_path in store_paths:
+        try:
+            candidate = AppStore(store_path, strict_read=True)
+            records = candidate.get_all()
+            if not isinstance(records, list) or any(
+                not isinstance(record, Mapping)
+                or not isinstance(record.get("server_url"), str)
+                or not record["server_url"]
+                for record in records
+            ):
+                raise TypeError("Malformed local deployment metadata.")
+        except _APP_STORE_READ_ERRORS:
+            return AppStore(store_path, autoload=False, strict_read=True)
+        store = candidate
+        if records:
+            return store
     return store
 
 
