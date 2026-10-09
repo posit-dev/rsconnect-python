@@ -176,11 +176,16 @@ def _evaluate_node_range(
     return _parse_node_evaluation(result.stdout, len(versions))
 
 
-def _server_status(value: Any, warnings: List[str]) -> Tuple[Optional[Dict[str, Any]], bool]:
+def _server_status(value: Any, warnings: List[str], actions: List[str]) -> Tuple[Optional[Dict[str, Any]], bool]:
     if not isinstance(value, MappingABC):
-        warnings.append("Connect did not return Node.js status metadata; compatibility is unknown.")
+        warnings.append("Connect did not return Node.js runtime status flags; compatibility is unknown.")
+        actions.append("Check whether this Connect server exposes Node.js runtime status flags.")
         return None, False
     status = dict(cast(Mapping[str, Any], value))
+    if not any(field in status for field in _NODEJS_STATUS_FLAGS):
+        warnings.append("Connect did not return Node.js runtime status flags; compatibility is unknown.")
+        actions.append("Check whether this Connect server exposes Node.js runtime status flags.")
+        return status, False
     complete = True
     for field in _NODEJS_STATUS_FLAGS:
         if field not in status:
@@ -222,30 +227,34 @@ def _server_installations(value: Any, warnings: List[str]) -> Tuple[List[Tuple[s
     return installations, metadata_complete, publishability_complete
 
 
-def _server_nodejs_info(settings: Any, warnings: List[str]) -> Dict[str, Any]:
+def _server_nodejs_info(settings: Any, warnings: List[str], actions: List[str]) -> Dict[str, Any]:
     info: Dict[str, Any] = {
         "enabled": None,
         "status": None,
         "installations": [],
-        "metadata_complete": False,
+        "status_complete": False,
+        "runtime_complete": False,
         "publishability_complete": False,
     }
     if not isinstance(settings, MappingABC):
         warnings.append("Connect did not return Node.js settings; compatibility is unknown.")
+        actions.append("Check whether this Connect server exposes Node.js runtime settings.")
         return info
 
     settings = cast(Mapping[str, Any], settings)
     enabled = settings.get("enabled")
     if not isinstance(enabled, bool):
         warnings.append("Connect did not report whether Node.js is enabled; compatibility is unknown.")
-    status, status_complete = _server_status(settings.get("status"), warnings)
+        actions.append("Check whether Node.js is enabled in the Connect server settings.")
+    status, status_complete = _server_status(settings.get("status"), warnings, actions)
     installations, installations_complete, publishability_complete = _server_installations(
         settings.get("installations"), warnings
     )
     info["enabled"] = enabled if isinstance(enabled, bool) else None
     info["status"] = status
     info["installations"] = installations
-    info["metadata_complete"] = isinstance(enabled, bool) and status_complete and installations_complete
+    info["status_complete"] = status_complete
+    info["runtime_complete"] = isinstance(enabled, bool) and installations_complete
     info["publishability_complete"] = publishability_complete
     return info
 
@@ -283,7 +292,7 @@ def _unmatched_server_compatibility(
 def _server_compatibility(info: Dict[str, Any], is_new: bool, evaluation: Optional[Dict[str, Any]]) -> str:
     if info["enabled"] is False or _nodejs_status_failures(info):
         return "incompatible"
-    if info["enabled"] is not True or not info["metadata_complete"]:
+    if not info["runtime_complete"]:
         return "unknown"
 
     installations = info["installations"]
@@ -294,7 +303,7 @@ def _server_compatibility(info: Dict[str, Any], is_new: bool, evaluation: Option
     if not _valid_node_evaluation(evaluation):
         return "unknown"
     if _has_matching_installation(indices, cast(Dict[str, Any], evaluation)):
-        return "compatible"
+        return "compatible" if info["status_complete"] else "unknown"
     return _unmatched_server_compatibility(indices, is_new, info, cast(Dict[str, Any], evaluation))
 
 
@@ -359,9 +368,8 @@ def _read_server_nodejs_info(client: RSConnectClient, warnings: List[str], actio
         settings = client.nodejs_settings()
     except RSConnectException as err:
         warnings.append(f"Could not read server Node.js settings: {err}")
-        actions.append("Check whether this Connect server exposes Node.js runtime settings.")
         settings = None
-    return _server_nodejs_info(settings, warnings)
+    return _server_nodejs_info(settings, warnings, actions)
 
 
 def _evaluate_project_range(

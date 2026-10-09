@@ -772,6 +772,10 @@ def _start_result(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _device_code_expired(state: dict[str, Any]) -> bool:
+    return state["tokens"] is None and state["expires_at"] <= time.time()
+
+
 def start_connect_login(
     url: str,
     name: str,
@@ -801,7 +805,7 @@ def _start_connect_login(
     store = _store()
     _assert_nickname_target(store, "connect", name, server)
     state = _read_state("connect", name)
-    if state and state["expires_at"] <= time.time():
+    if state and _device_code_expired(state):
         _remove_state("connect", name)
         state = None
     if state:
@@ -826,6 +830,7 @@ def _start_connect_login(
     if not client_id:
         client_id = _register_device_client(metadata, server, insecure, ca_data, deadline)
     client_id, response = _start_device_request(metadata, server, client_id, None, insecure, ca_data, deadline)
+    _remaining(deadline)
     state = _make_state(
         "connect", name, server, metadata, response, client_id, None, set_default, insecure, ca_data, None
     )
@@ -857,7 +862,7 @@ def _start_cloud_login(
     store = _store()
     _assert_nickname_target(store, "cloud", name, server, account)
     state = _read_state("cloud", name)
-    if state and state["expires_at"] <= time.time():
+    if state and _device_code_expired(state):
         _remove_state("cloud", name)
         state = None
     if state:
@@ -871,6 +876,7 @@ def _start_cloud_login(
     client_id = _identifier(connect_cloud.client_id(environment), "OAuth client ID")
     deadline = time.monotonic() + _START_TIMEOUT
     client_id, response = _start_device_request(metadata, server, client_id, connect_cloud.SCOPE, False, None, deadline)
+    _remaining(deadline)
     state = _make_state(
         "cloud",
         name,
@@ -1161,7 +1167,7 @@ def _load_pending(kind: str, name: str) -> dict[str, Any]:
     state = _read_state(kind, name)
     if state is None:
         raise RSConnectException('No pending "%s" login exists for nickname "%s".' % (kind, name))
-    if state["tokens"] is None and state["expires_at"] <= time.time():
+    if _device_code_expired(state):
         _remove_state(kind, name)
         raise _Expired()
     _assert_nickname_target(_store(), kind, name, state["server"], state["account"])
