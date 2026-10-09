@@ -1,8 +1,12 @@
+import json
 import os
 import shutil
+import subprocess
+import sys
 import tempfile
 from os.path import exists, join
 from unittest import TestCase
+from unittest.mock import patch
 
 from rsconnect.api import RSConnectServer
 from rsconnect.exception import RSConnectException
@@ -377,6 +381,110 @@ class TestAppMetadata(TestCase):
         new_app_store = AppStore(self.nb_path)
         new_app_store.load()
         self.assertEqual(new_app_store._data, self.app_store._data)
+
+
+class TestStrictAppStoreReads(TestCase):
+    def setUp(self):
+        self.tempdir = tempfile.mkdtemp()
+        self.app_file = join(self.tempdir, "report.ipynb")
+        with open(self.app_file, "w"):
+            pass
+        self.store = AppStore(self.app_file, autoload=False, strict_read=True)
+        self.record = {"app_id": "saved-guid"}
+        self.contents = {"https://connect.example.test": self.record}
+
+    def tearDown(self):
+        shutil.rmtree(self.tempdir)
+
+    def _write_primary(self, data: bytes) -> None:
+        os.makedirs(os.path.dirname(self.store._primary_path), exist_ok=True)
+        with open(self.store._primary_path, "wb") as metadata_file:
+            metadata_file.write(data)
+
+    def test_strict_read_loads_regular_metadata_and_missing_store(self):
+        self._write_primary(json.dumps(self.contents).encode("utf-8"))
+
+        loaded = AppStore(self.app_file, strict_read=True)
+
+        self.assertEqual(loaded.get("https://connect.example.test"), self.record)
+        missing = AppStore(join(self.tempdir, "missing.py"), strict_read=True)
+        self.assertIsNone(missing.get("https://connect.example.test"))
+
+    def test_strict_read_uses_secondary_when_primary_is_missing(self):
+        config_dir = join(self.tempdir, "config")
+        with patch("rsconnect.metadata.config_dirname", return_value=config_dir):
+            unloaded = AppStore(self.app_file, autoload=False, strict_read=True)
+            secondary_path = unloaded._secondary_path
+            assert secondary_path is not None
+            os.makedirs(os.path.dirname(secondary_path), exist_ok=True)
+            with open(secondary_path, "w", encoding="utf-8") as metadata_file:
+                json.dump(self.contents, metadata_file)
+
+            loaded = AppStore(self.app_file, strict_read=True)
+
+        self.assertEqual(loaded.get("https://connect.example.test"), self.record)
+        self.assertEqual(loaded.get_path(), secondary_path)
+
+    def test_strict_read_rejects_symlinked_primary_and_secondary(self):
+        target = join(self.tempdir, "target.json")
+        with open(target, "w", encoding="utf-8") as metadata_file:
+            json.dump(self.contents, metadata_file)
+        os.makedirs(os.path.dirname(self.store._primary_path), exist_ok=True)
+        try:
+            os.symlink(target, self.store._primary_path)
+        except (NotImplementedError, OSError):
+            self.skipTest("symlinks are unavailable")
+
+        with self.assertRaisesRegex(OSError, "symlink"):
+            AppStore(self.app_file, strict_read=True)
+        self.assertEqual(AppStore(self.app_file).get("https://connect.example.test"), self.record)
+
+        os.unlink(self.store._primary_path)
+        config_dir = join(self.tempdir, "config")
+        with patch("rsconnect.metadata.config_dirname", return_value=config_dir):
+            unloaded = AppStore(self.app_file, autoload=False, strict_read=True)
+            secondary_path = unloaded._secondary_path
+            assert secondary_path is not None
+            os.makedirs(os.path.dirname(secondary_path), exist_ok=True)
+            os.symlink(target, secondary_path)
+            with self.assertRaisesRegex(OSError, "symlink"):
+                AppStore(self.app_file, strict_read=True)
+
+    def test_strict_read_rejects_oversized_metadata_before_parsing(self):
+        oversized = json.dumps({"https://connect.example.test": {"title": "x" * (2 * 1024 * 1024)}}).encode("utf-8")
+        self.assertGreater(len(oversized), 1024 * 1024)
+        self._write_primary(oversized)
+
+        with self.assertRaisesRegex(OSError, "limit"):
+            AppStore(self.app_file, strict_read=True)
+
+    def test_strict_read_rejects_fifo_without_blocking(self):
+        if not hasattr(os, "mkfifo"):
+            self.skipTest("FIFOs are unavailable")
+        os.makedirs(os.path.dirname(self.store._primary_path), exist_ok=True)
+        try:
+            os.mkfifo(self.store._primary_path)
+        except OSError:
+            self.skipTest("FIFOs are unavailable")
+
+        environment = os.environ.copy()
+        environment.update(HOME=self.tempdir, XDG_CONFIG_HOME=self.tempdir, APPDATA=self.tempdir)
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; from rsconnect.metadata import AppStore; AppStore(sys.argv[1], strict_read=True)",
+                self.app_file,
+            ],
+            cwd=os.getcwd(),
+            env=environment,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("non-regular", result.stderr)
 
 
 class TestHelpers(TestCase):

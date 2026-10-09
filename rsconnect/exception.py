@@ -13,3 +13,7 @@ class RSConnectException(Exception):
 
 class DeploymentFailedException(RSConnectException):
     pass
+
+
+class ConnectCloudAccountNotFoundError(RSConnectException):
+    """A completed account lookup did not find the requested Cloud account."""

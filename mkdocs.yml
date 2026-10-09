@@ -46,6 +46,7 @@ nav:
       - integration: commands/integration.md
       - login: commands/login.md
       - logout: commands/logout.md
+      - preflight: commands/preflight.md
       - quickstart: commands/quickstart.md
       - server:
         - add: commands/add.md

@@ -259,6 +259,7 @@ class ConnectCloudServer(AbstractRemoteServer):
         url: Optional[str] = None,
         server_name: Optional[str] = None,
         account_id: Optional[str] = None,
+        oauth_client_id: Optional[str] = None,
     ):
         # Accepts the bare "connect.posit.cloud" a user types for --server, the
         # same way ShinyappsServer accepts "shinyapps.io".
@@ -267,6 +268,9 @@ class ConnectCloudServer(AbstractRemoteServer):
         # The account's id, when it is known without asking the server. Only valid
         # for account_name: the two must be set together.
         self.account_id = account_id
+        # An in-progress device login keeps the public OAuth client it started
+        # with, even if CONNECT_CLOUD_OAUTH_CLIENT_ID changes before it finishes.
+        self.oauth_client_id = oauth_client_id
         self.access_token = access_token
         self.refresh_token = refresh_token
         # Retained so a new access token can be minted non-interactively when
@@ -667,6 +671,11 @@ class RSConnectClient(BearerTokenHTTPServer):
         response = cast(Union[PyInfo, HTTPResponse], self.get("v1/server_settings/python"))
         response = self._server.handle_bad_response(response)
         return response
+
+    def nodejs_settings(self) -> dict[str, Any]:
+        """Return Node.js availability and publishability information."""
+        response = self.get("v1/server_settings/nodejs")
+        return cast(typing.Dict[str, Any], self._server.handle_bad_response(response))
 
     def app_get(self, app_id: str) -> ContentItemV0:
         response = cast(Union[ContentItemV0, HTTPResponse], self.get(f"applications/{app_id}"))
@@ -1375,6 +1384,7 @@ class RSConnectExecutor:
         polling: bool = True,
         quarto_inputs: Optional[List[str]] = None,
         infer_target: Optional[bool] = None,
+        app_store: Optional[AppStore] = None,
     ) -> None:
         self.remote_server: TargetableServer
         self.client: RSConnectClient | PositClient | ConnectCloudClient
@@ -1398,7 +1408,9 @@ class RSConnectExecutor:
         # None outside the Quarto deploy commands.
         self.quarto_inputs = quarto_inputs
         self.app_mode: AppMode | None = None
-        self.app_store: AppStore = AppStore(fake_module_file_from_directory(self.path))
+        self.app_store: AppStore = (
+            app_store if app_store is not None else AppStore(fake_module_file_from_directory(self.path))
+        )
         self.app_store_version: int | None = None
         self.api_key_is_required: bool | None = None
         # `deploy manifest` / `deploy bundle` pre-resolve `title` to a
@@ -3389,6 +3401,26 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         server = self._server
         return bool(server.refresh_token or (server.client_id and server.client_secret))
 
+    def _refresh_user_token(self) -> dict[str, Any]:
+        request_options: dict[str, Any] = {}
+        if self.request_deadline is not None:
+            remaining = self.request_deadline - time.monotonic()
+            if remaining <= 0:
+                raise RSConnectException("Device login finish deadline exceeded.")
+            request_options["request_timeout"] = min(self.request_timeout or remaining, remaining)
+            request_options["request_deadline"] = self.request_deadline
+        if self._server.oauth_client_id is not None:
+            request_options["client_id_override"] = self._server.oauth_client_id
+        if self._suppress_oauth_response_logging:
+            request_options["suppress_response_logging"] = True
+        return connect_cloud.refresh(cast(str, self._server.refresh_token), self._server.environment, **request_options)
+
+    def _warn_refresh_failure(self, exception: Exception) -> None:
+        if self._suppress_oauth_response_logging:
+            logger.warning("Posit Connect Cloud token refresh failed (%s)." % type(exception).__name__)
+        else:
+            logger.warning("Posit Connect Cloud token refresh failed: %s" % exception)
+
     def _attempt_token_refresh(self) -> bool:
         """Mint a new access token and apply it to this client.
 
@@ -3410,13 +3442,13 @@ class ConnectCloudClient(BearerTokenHTTPServer):
                     server.client_id, server.client_secret, server.environment
                 )
             elif server.refresh_token:
-                tokens = connect_cloud.refresh(server.refresh_token, server.environment)
+                tokens = self._refresh_user_token()
             else:
                 return False
         except InvalidClientError as exc:
             if not service_account:
                 # This CLI's own OAuth client, not the user's credential.
-                logger.warning("Posit Connect Cloud token refresh failed: %s" % exc)
+                self._warn_refresh_failure(exc)
                 return False
             raise RSConnectException(
                 "The Posit Connect Cloud service account credential was rejected — it has been revoked or "
@@ -3425,7 +3457,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
             ) from exc
         except InvalidGrantError as exc:
             if service_account:
-                logger.warning("Posit Connect Cloud token refresh failed: %s" % exc)
+                self._warn_refresh_failure(exc)
                 return False
             self._persist_tokens(None, None)
             raise RSConnectException(
@@ -3433,7 +3465,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
                 "Authenticate again with `%s`." % self._add_command()
             ) from exc
         except RSConnectException as exc:
-            logger.warning("Posit Connect Cloud token refresh failed: %s" % exc)
+            self._warn_refresh_failure(exc)
             return False
 
         access_token = tokens.get("access_token")
