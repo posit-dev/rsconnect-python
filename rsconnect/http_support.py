@@ -638,7 +638,7 @@ class HTTPServer(object):
                     raise socket.timeout("HTTP request deadline exceeded.")
             response_body = response.read()
             with request_lock:
-                self._apply_request_deadline()
+                # A complete token response must reach its checkpoint even after the deadline.
                 request_completed = True
             return response, response_body
         except Exception:

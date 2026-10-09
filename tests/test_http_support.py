@@ -1,6 +1,6 @@
 import threading
 import time
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from http.server import BaseHTTPRequestHandler, HTTPServer as _TestHTTPServer
 from typing import Any, Generator, cast
 from unittest import TestCase
@@ -167,6 +167,49 @@ class TestHTTPSupport(TestCase):
             receive.assert_called_once_with()
             reply.read.assert_called_once_with()
             self.assertEqual(response.status, 200)
+
+    def test_completed_token_response_survives_deadline_and_prevents_another_request(self):
+        import socket
+        from unittest.mock import Mock, patch
+
+        for timer_fired in (False, True):
+            clock = [100]
+            with self.subTest(timer_fired=timer_fired), ExitStack() as stack:
+                stack.enter_context(patch("rsconnect.http_support.time.monotonic", side_effect=lambda: clock[0]))
+                server = stack.enter_context(HTTPServer("http://example.com", request_deadline=110))
+                timer = stack.enter_context(patch("rsconnect.http_support.threading.Timer"))
+                interrupt = stack.enter_context(patch("rsconnect.http_support._interrupt_socket"))
+                transport = cast(Any, server._conn)
+                transport.sock = Mock()
+                reply = Mock()
+                reply.status = 200
+                reply.reason = "OK"
+                reply.getheaders.return_value = []
+                reply.getheader.return_value = "application/json"
+
+                def read_completed_body():
+                    clock[0] = 111
+                    if timer_fired:
+                        timer.call_args.args[1]()
+                    return b'{"access_token":"completed-token","refresh_token":"saved-refresh"}'
+
+                reply.read.side_effect = read_completed_body
+                send = stack.enter_context(patch.object(transport, "request"))
+                stack.enter_context(patch.object(transport, "getresponse", return_value=reply))
+                response = cast(HTTPResponse, server.get("/token"))
+                next_response = cast(HTTPResponse, server.get("/accounts"))
+
+                self.assertIsNone(response.exception)
+                self.assertEqual(
+                    response.json_data,
+                    {"access_token": "completed-token", "refresh_token": "saved-refresh"},
+                )
+                self.assertIsInstance(next_response.exception, socket.timeout)
+                self.assertEqual(send.call_count, 1)
+                self.assertEqual(interrupt.call_count, int(timer_fired))
+                timer.return_value.cancel.assert_called_once_with()
+                timer.return_value.join.assert_called_once_with()
+                transport.sock = None
 
     def test_deadline_interrupts_slow_response_headers(self):
         import socket
