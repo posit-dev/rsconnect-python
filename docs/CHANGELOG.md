@@ -7,12 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+- Credential files written through the default file backend now use private
+  temporary files and atomic replacement, requiring write access to the parent
+  directory. Unchanged regular files have their permissions repaired. Default
+  protected saves replace a destination symlink even when its bytes are unchanged; hard-linked
+  copies no longer share subsequent updates.
+- Authentication errors and verbose HTTP diagnostics omit provider-supplied
+  error descriptions, response reasons and redirect headers that could expose
+  credentials. OAuth response bodies and redirect destinations are also omitted
+  from verbose logs, along with all OAuth response header values.
+  Resumable Cloud account lookup uses the same protection. Encoded credential
+  query names are redacted, and cookie diagnostics omit names as well as values.
+- Generated manifests and bundles exclude `.rsconnect-python` directories and
+  the configured CLI credential directory, including explicit extra files and
+  symlink aliases. Publishing from inside that directory is rejected, including
+  static notebook rendering before execution. Prepared
+  bundle archives remain unchanged.
 - `login` and `add --connect-cloud` can start device-code authentication and return
   approval details as JSON. Finish a pending login by nickname with `--finish`.
   Use `--timeout` to bound the entire finish invocation, including account lookup.
   Resumable login requires POSIX (Linux or macOS). Pending state is validated
-  before saving and uses owner-only permissions. Resumable authentication omits
-  sensitive provider diagnostics. Connect Cloud finish retains the original OAuth client.
+  before saving and uses owner-only permissions. Connect Cloud finish retains the original OAuth client.
 - Added `rsconnect preflight` to check Python and Node.js runtime availability on
   self-hosted Posit Connect and Snowpark Container Services (SPCS), from POSIX systems. For first
   publishes, it considers server installations marked publishable. Python

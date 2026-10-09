@@ -20,7 +20,7 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 import click
 
 from .exception import RSConnectException
-from .http_support import HTTPResponse, HTTPServer
+from .http_support import HTTPResponse, HTTPServer, _redacted_uri_for_log
 from .log import logger
 
 # pyright: reportMissingTypeStubs=false
@@ -28,6 +28,29 @@ from .log import logger
 _KEYRING_SERVICE = "rsconnect-python"
 _CLIENT_NAME = "rsconnect-python"
 _CALLBACK_TIMEOUT_SECONDS = 600
+_SAFE_OAUTH_ERROR_CODES = frozenset(
+    {
+        "access_denied",
+        "authorization_pending",
+        "expired_token",
+        "invalid_client",
+        "invalid_grant",
+        "invalid_request",
+        "invalid_scope",
+        "invalid_target",
+        "no_code",
+        "server_error",
+        "slow_down",
+        "temporarily_unavailable",
+        "unauthorized_client",
+        "unsupported_grant_type",
+        "unsupported_response_type",
+    }
+)
+
+
+def _safe_oauth_error_code(error: str) -> str:
+    return error if error in _SAFE_OAUTH_ERROR_CODES else "unknown_error"
 
 
 class InvalidClientError(RSConnectException):
@@ -47,8 +70,7 @@ class InvalidGrantError(RSConnectException):
 
     def __init__(self, description: Optional[str] = None) -> None:
         self.description = description
-        detail = f": {description}" if description else "."
-        super().__init__(f"The OAuth grant is invalid, expired, or has been revoked{detail}")
+        super().__init__("The OAuth grant is invalid, expired, or has been revoked.")
 
 
 def _check_oauth_error_response(response: HTTPResponse) -> None:
@@ -61,7 +83,7 @@ def _check_oauth_error_response(response: HTTPResponse) -> None:
         if error == "invalid_grant":
             raise InvalidGrantError(description or None)
         if description or error:
-            raise RSConnectException(f"OAuth error: {description or error}")
+            raise RSConnectException(f"OAuth error: {_safe_oauth_error_code(error)}")
 
 
 def _unwrap_json_response(response: Any) -> dict[str, Any]:
@@ -106,12 +128,10 @@ def _post_oauth_form_request(
     ca_data: Optional[str | bytes] = None,
     request_timeout: Optional[float] = None,
     request_deadline: Optional[float] = None,
-    *,
-    suppress_response_logging: bool = False,
 ) -> Any:
     """POST a form and return the raw response so device polling can inspect pending errors."""
     server = HTTPServer(base_url, disable_tls_check=insecure, ca_data=ca_data)
-    server._suppress_oauth_response_logging = suppress_response_logging
+    server._suppress_oauth_response_logging = True
     if request_timeout is not None:
         server.request_timeout = request_timeout
     if request_deadline is not None:
@@ -131,8 +151,6 @@ def discover_oauth_metadata(
     ca_data: Optional[str | bytes] = None,
     request_timeout: Optional[float] = None,
     request_deadline: Optional[float] = None,
-    *,
-    suppress_response_logging: bool = False,
 ) -> dict[str, Any]:
     """Fetch OAuth 2.0 Authorization Server Metadata (RFC 8414).
 
@@ -140,7 +158,7 @@ def discover_oauth_metadata(
     the server does not support OAuth.
     """
     server = HTTPServer(url, disable_tls_check=insecure, ca_data=ca_data)
-    server._suppress_oauth_response_logging = suppress_response_logging
+    server._suppress_oauth_response_logging = True
     server.request_timeout = request_timeout
     server.request_deadline = request_deadline
     with server:
@@ -170,8 +188,6 @@ def register_client(
     ca_data: Optional[str | bytes] = None,
     request_timeout: Optional[float] = None,
     request_deadline: Optional[float] = None,
-    *,
-    suppress_response_logging: bool = False,
 ) -> str:
     """Register an OAuth client via Dynamic Client Registration (RFC 7591).
 
@@ -190,7 +206,7 @@ def register_client(
         grant_types.append("urn:ietf:params:oauth:grant-type:device_code")
 
     server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
-    server._suppress_oauth_response_logging = suppress_response_logging
+    server._suppress_oauth_response_logging = True
     server.request_timeout = request_timeout
     server.request_deadline = request_deadline
     with server:
@@ -285,7 +301,7 @@ class _CallbackHandler(BaseHTTPRequestHandler):
             self.result_queue.put(("error", "no_code", "No authorization code in callback"))
 
     def log_message(self, format: str, *args: object) -> None:
-        logger.debug(f"OAuth callback server: {format % args}")
+        logger.debug("OAuth callback server handled a request.")
 
 
 def login_with_browser(
@@ -346,7 +362,7 @@ def login_with_browser(
 
     result = result_queue.get_nowait()
     if result[0] == "error":
-        raise RSConnectException(f"OAuth authentication failed: {result[1]} — {result[2]}")
+        raise RSConnectException(f"OAuth authentication failed: {_safe_oauth_error_code(result[1] or '')}")
 
     _, code, returned_state = result
     if returned_state != state:
@@ -466,8 +482,7 @@ def _poll_for_device_token(
         elif error == "access_denied":
             raise RSConnectException("Authorization was denied by the user.")
         elif error:
-            description = str(json_data.get("error_description", error))
-            raise RSConnectException(f"Device code flow failed: {description}")
+            raise RSConnectException(f"Device code flow failed: {_safe_oauth_error_code(error)}")
         else:
             raise RSConnectException("Device code token request returned an unexpected response.")
 
@@ -483,8 +498,6 @@ def refresh_access_token(
     scope: Optional[str] = None,
     request_timeout: Optional[float] = None,
     request_deadline: Optional[float] = None,
-    *,
-    suppress_response_logging: bool = False,
 ) -> dict[str, Any]:
     """Refresh an OAuth access token using a refresh token.
 
@@ -505,8 +518,6 @@ def refresh_access_token(
         request_options["request_timeout"] = request_timeout
     if request_deadline is not None:
         request_options["request_deadline"] = request_deadline
-    if suppress_response_logging:
-        request_options["suppress_response_logging"] = True
     data = _post_token_request(str(metadata["token_endpoint"]), params, insecure, ca_data, **request_options)
     if "access_token" not in data:
         raise RSConnectException("Token refresh returned an unexpected response.")
@@ -550,14 +561,11 @@ def _post_token_request(
     ca_data: Optional[str | bytes] = None,
     request_timeout: Optional[float] = None,
     request_deadline: Optional[float] = None,
-    *,
-    suppress_response_logging: bool = False,
 ) -> dict[str, Any]:
     """POST a form-encoded request to an OAuth token endpoint and return the JSON body."""
     parsed = urlparse(token_endpoint)
     base = f"{parsed.scheme}://{parsed.netloc}"
 
-    logging_options = {"suppress_response_logging": True} if suppress_response_logging else {}
     response = _post_oauth_form_request(
         base,
         parsed.path,
@@ -566,7 +574,6 @@ def _post_token_request(
         ca_data,
         request_timeout,
         request_deadline,
-        **logging_options,
     )
 
     return _unwrap_json_response(response)
@@ -623,6 +630,7 @@ def exchange_token_for_api_key(
     ).encode("utf-8")
 
     server = HTTPServer(base, disable_tls_check=insecure, ca_data=ca_data)
+    server._suppress_oauth_response_logging = True
     with server:
         response = server.request(
             "POST",
@@ -635,7 +643,10 @@ def exchange_token_for_api_key(
         raise RSConnectException("Unexpected response from the OIDC token exchange.")
 
     if response.exception:
-        raise RSConnectException("Could not connect to %s - %s" % (url, response.exception), cause=response.exception)
+        raise RSConnectException(
+            "Could not connect to %s (%s)" % (_redacted_uri_for_log(url), type(response.exception).__name__),
+            cause=response.exception,
+        )
 
     status = response.status
     data = response.json_data if isinstance(response.json_data, dict) else {}
@@ -658,24 +669,21 @@ def _token_exchange_error(status: Optional[int], data: dict[str, Any]) -> RSConn
         lowered = description.lower()
         if "ambiguous" in lowered:
             return RSConnectException(
-                f"The identity token matched more than one service principal on Connect ({description}). "
+                "The identity token matched more than one service principal on Connect. "
                 "Resolve the duplicate access grants on the server, or authenticate with an API key."
             )
         if "verif" in lowered:
             return RSConnectException(
-                f"Connect could not verify the identity token ({description}). "
+                "Connect could not verify the identity token. "
                 "Check the server clock and the OIDC issuer configuration, or authenticate with an API key."
             )
         return RSConnectException(
-            f"Connect did not grant access for this identity token ({description or 'no match'}). "
+            "Connect did not grant access for this identity token. "
             "Confirm access has been configured for the target content and that the token's "
             "audience matches it, or authenticate with an API key."
         )
 
-    detail = error
-    if description:
-        detail = f"{error}: {description}" if error else description
-    suffix = f" ({detail})" if detail else ""
+    suffix = f" ({_safe_oauth_error_code(error)})" if error else ""
     return RSConnectException(f"OIDC token exchange failed (HTTP {status}){suffix}.")
 
 

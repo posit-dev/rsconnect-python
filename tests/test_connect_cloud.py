@@ -219,12 +219,6 @@ class TestConnectCloudAuth(unittest.TestCase):
             connect_cloud.refresh("rt", "production", request_timeout=0.25)
         self.assertEqual(refresh.call_args.kwargs["request_timeout"], 0.25)
 
-    def test_refresh_can_suppress_response_logging(self):
-        with mock.patch("rsconnect.connect_cloud.refresh_access_token") as refresh:
-            refresh.return_value = {"access_token": "new"}
-            connect_cloud.refresh("rt", "production", suppress_response_logging=True)
-        self.assertIs(refresh.call_args.kwargs["suppress_response_logging"], True)
-
     def test_refresh_honors_saved_client_override_and_deadline(self):
         with mock.patch.dict(
             os.environ,
@@ -833,21 +827,6 @@ class TestConnectCloudClientTokenRefresh(unittest.TestCase):
         )
         self.assertEqual(server.access_token, "fresh")
 
-    def test_private_refresh_suppresses_logging_and_limits_warning_details(self):
-        server = ConnectCloudServer("acme", access_token="stale", refresh_token="rt")
-        client = ConnectCloudClient(server)
-        client._suppress_oauth_response_logging = True
-        failure = RSConnectException("refresh response contained private details")
-
-        with mock.patch("rsconnect.connect_cloud.refresh", side_effect=failure) as refresh:
-            with self.assertLogs("rsconnect", level="WARNING") as captured:
-                self.assertFalse(client._attempt_token_refresh())
-
-        refresh.assert_called_once_with("rt", "production", suppress_response_logging=True)
-        log_text = "\n".join(captured.output)
-        self.assertIn("RSConnectException", log_text)
-        self.assertNotIn("refresh response contained private details", log_text)
-
     def test_expired_finish_budget_does_not_refresh(self):
         server = ConnectCloudServer("acme", access_token="stale", refresh_token="rt")
         client = ConnectCloudClient(server)
@@ -1062,7 +1041,8 @@ class TestConnectCloudClientTokenRefresh(unittest.TestCase):
         self.assertIn("401", exception.message)
         log_text = "\n".join(captured.output)
         self.assertIn("token refresh failed", log_text)
-        self.assertIn(secret, log_text)
+        self.assertIn("RSConnectException", log_text)
+        self.assertNotIn(secret, log_text)
         self.assertEqual(self._stored_entry()["connect_cloud_refresh_token"], "rt")
         self.assertEqual(len(httpretty.latest_requests()), 1)
 

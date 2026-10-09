@@ -15,7 +15,7 @@ import time
 from http import client as http
 from http.cookies import SimpleCookie
 from typing import IO, Any, Dict, List, Mapping, Optional, Tuple, Union, cast
-from urllib.parse import urlencode, urljoin, urlparse
+from urllib.parse import unquote_plus, urlencode, urljoin, urlparse
 from warnings import warn
 
 from . import VERSION
@@ -51,6 +51,7 @@ _SENSITIVE_HEADERS = {
     "x-auth-token",
     "x-auth-signature",
     "x-rsc-authorization",
+    "location",
 }
 _SENSITIVE_FIELDS = (
     "client_secret",
@@ -72,6 +73,8 @@ _SENSITIVE_FIELDS = (
     "subject_token",
     # PKCE (RFC 7636).
     "code_verifier",
+    "error_description",
+    "user_code",
     # The bootstrap response body carries a freshly minted admin API key.
     "api_key",
     "id_token",
@@ -82,6 +85,7 @@ _SENSITIVE_FIELD_SET = frozenset(_SENSITIVE_FIELDS)
 # redaction: in JSON bodies a bare "code" key is an error code (Connect,
 # shinyapps.io), which the debug log must keep readable.
 _SENSITIVE_FORM_ONLY_FIELDS = _SENSITIVE_FIELDS + ("code",)
+_SENSITIVE_QUERY_FIELDS = frozenset(_SENSITIVE_FORM_ONLY_FIELDS)
 _SENSITIVE_FORM_FIELD = re.compile(r"\b(%s)=[^&\s'\"]*" % "|".join(_SENSITIVE_FORM_ONLY_FIELDS), re.IGNORECASE)
 _SENSITIVE_JSON_FIELD = re.compile(r'"(%s)"\s*:\s*"[^"]*"' % "|".join(_SENSITIVE_FIELDS), re.IGNORECASE)
 
@@ -96,8 +100,26 @@ def _redacted_header_for_log(key: str, value: str) -> str:
 
 
 def _redacted_uri_for_log(uri: str) -> str:
-    """Redact credential-bearing query parameters, e.g. a presigned upload URL's."""
-    return _SENSITIVE_FORM_FIELD.sub(r"\1=<redacted>", uri)
+    """Redact credential fields in query strings and OAuth-style fragments."""
+    uri = _SENSITIVE_FORM_FIELD.sub(r"\1=<redacted>", uri)
+    before_fragment, fragment_marker, fragment = uri.partition("#")
+    suffix = fragment_marker + _redacted_query_for_log(fragment) if fragment_marker else ""
+    path, query_marker, query = before_fragment.partition("?")
+    if not query_marker:
+        return before_fragment + suffix
+    return path + query_marker + _redacted_query_for_log(query) + suffix
+
+
+def _redacted_query_for_log(query: str) -> str:
+    """Redact sensitive query values while preserving parameter spelling and order."""
+    parameters: list[str] = []
+    for parameter in query.split("&"):
+        name, separator, _ = parameter.partition("=")
+        if separator and unquote_plus(name).casefold() in _SENSITIVE_QUERY_FIELDS:
+            parameters.append(name + "=<redacted>")
+        else:
+            parameters.append(parameter)
+    return "&".join(parameters)
 
 
 def _redact_json_value(value: JsonData) -> JsonData:
@@ -121,8 +143,8 @@ def _redacted_body_for_log(body: object) -> object:
     Only affects what is logged; the body itself is sent untouched. Streams and
     other non-text bodies are logged as their repr, which carries no content.
     JSON bodies are parsed and redacted structurally, since a secret containing
-    an escaped quote would leak past a regex; everything else falls back to the
-    form-encoded pattern.
+    an escaped quote would leak past a regex. Malformed JSON is logged as a
+    placeholder instead of falling back to patterns that may miss escaped data.
     """
     if isinstance(body, bytes):
         text = body.decode("utf-8", errors="replace")
@@ -136,7 +158,7 @@ def _redacted_body_for_log(body: object) -> object:
         try:
             return json.dumps(_redact_json_value(json.loads(text)))
         except (json.JSONDecodeError, ValueError):
-            pass
+            return "<invalid JSON>"
 
     text = _SENSITIVE_FORM_FIELD.sub(r"\1=<redacted>", text)
     return _SENSITIVE_JSON_FIELD.sub(r'"\1": "<redacted>"', text)
@@ -639,8 +661,7 @@ class HTTPServer(object):
     ) -> None:
         if not logger.is_debugging():
             return
-        private_uri = suppress_uri_logging or self._suppress_oauth_response_logging
-        logged_uri = "<OAuth endpoint>" if private_uri else _redacted_uri_for_log(full_uri)
+        logged_uri = "<OAuth redirect>" if suppress_uri_logging else _redacted_uri_for_log(full_uri)
         logger.debug(f"Request: {method} {logged_uri}")
         logger.debug("Headers:")
         for key, value in headers.items():
@@ -651,10 +672,7 @@ class HTTPServer(object):
     def _log_response(self, response: http.HTTPResponse, response_body: str | bytes) -> None:
         if not logger.is_debugging():
             return
-        if self._suppress_oauth_response_logging:
-            logger.debug(f"Response: {response.status}")
-        else:
-            logger.debug(f"Response: {response.status} {response.reason}")
+        logger.debug(f"Response: {response.status}")
         logger.debug("Headers:")
         if self._suppress_oauth_response_logging:
             logger.debug("--> <OAuth response headers omitted>")
@@ -737,10 +755,7 @@ class HTTPServer(object):
             socket.gaierror,
             socket.timeout,
         ) as exception:
-            if self._suppress_oauth_response_logging:
-                logger.debug("An exception occurred processing the HTTP request (%s)." % type(exception).__name__)
-            else:
-                logger.debug("An exception occurred processing the HTTP request.", exc_info=True)
+            logger.debug("An exception occurred processing the HTTP request (%s)." % type(exception).__name__)
             return HTTPResponse(full_uri, exception=exception)
 
     def _follow_redirect(
@@ -789,19 +804,12 @@ class HTTPServer(object):
         return response
 
     def _handle_set_cookie(self, response: http.HTTPResponse):
-        if self._suppress_oauth_response_logging:
-            self._cookies.store_cookies(response, suppress_logs=True)
-        else:
-            self._cookies.store_cookies(response)
+        self._cookies.store_cookies(response)
         self._inject_cookies()
 
     def _inject_cookies(self):
         if len(self._cookies) > 0:
-            self._headers["Cookie"] = (
-                self._cookies.get_cookie_header_value(suppress_logs=True)
-                if self._suppress_oauth_response_logging
-                else self._cookies.get_cookie_header_value()
-            )
+            self._headers["Cookie"] = self._cookies.get_cookie_header_value()
         elif "Cookie" in self._headers:
             del self._headers["Cookie"]
 
@@ -879,7 +887,7 @@ class CookieJar(object):
         self._content: dict[str, str] = {}
         self._reference = SimpleCookie()
 
-    def store_cookies(self, response: http.HTTPResponse, *, suppress_logs: bool = False):
+    def store_cookies(self, response: http.HTTPResponse):
         headers = filter(lambda h: h[0].lower() == "set-cookie", response.getheaders())
 
         for header in headers:
@@ -888,17 +896,12 @@ class CookieJar(object):
                 if morsel.key not in self._keys:
                     self._keys.append(morsel.key)
                 self._content[morsel.key] = morsel.value
-                # Cookies are session credentials; names only, like the header log.
-                if not suppress_logs:
-                    logger.debug(f"--> Set cookie {morsel.key}: <redacted>")
 
-        if not suppress_logs:
-            logger.debug(f"CookieJar contents: {self._keys}")
+        logger.debug("CookieJar contains %d cookie(s).", len(self._keys))
 
-    def get_cookie_header_value(self, *, suppress_logs: bool = False):
+    def get_cookie_header_value(self):
         result = "; ".join([f"{key}={self._reference.value_encode(self._content[key])[1]}" for key in self._keys])
-        if not suppress_logs:
-            logger.debug(f"Cookie: {'; '.join(f'{key}=<redacted>' for key in self._keys)}")
+        logger.debug("Sending Cookie header with %d cookie(s).", len(self._keys))
         return result
 
     def as_dict(self):

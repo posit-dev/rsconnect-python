@@ -12,6 +12,8 @@ import os
 import shutil
 import stat
 import sys
+import tempfile
+from contextlib import suppress
 from datetime import datetime, timezone
 from io import BufferedWriter
 from os.path import abspath, basename, dirname, exists, join
@@ -54,6 +56,8 @@ SHINYAPPS_API_URL = "https://api.shinyapps.io"
 
 # App deployment history is small; strict reads cap it at 1 MiB.
 _MAX_METADATA_BYTES = 1024 * 1024
+
+_DEFAULT_OPEN = open
 
 
 def resolve_server_alias(url: str) -> str:
@@ -102,6 +106,13 @@ def makedirs(filepath: str):
         os.makedirs(dirname(filepath))
     except OSError:
         pass
+
+
+def _chmod_private_file(descriptor: int, path: str) -> None:
+    if hasattr(os, "fchmod"):
+        os.fchmod(descriptor, 0o600)
+    else:
+        os.chmod(path, 0o600)
 
 
 def _normalize_server_url(server_url: str):
@@ -291,13 +302,34 @@ class DataStore(Generic[T]):
     # noinspection PyShadowingBuiltins
     def save_to(self, path: str, data: bytes, open: Callable[..., BufferedWriter] = open):
         """
-        Save our data to the specified file.
+        Save our data to the specified file. Protected stores use an atomic write
+        with the default opener; supplied openers keep the direct destination-path
+        write behavior.
         """
-        with open(path, "wb") as f:
-            f.write(data)
+        if self._chmod and open is _DEFAULT_OPEN:
+            descriptor, temporary_path = tempfile.mkstemp(prefix=".%s." % basename(path), dir=dirname(path) or ".")
+            try:
+                with os.fdopen(descriptor, "wb") as stream:
+                    descriptor = -1
+                    _chmod_private_file(stream.fileno(), temporary_path)
+                    stream.write(data)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.replace(temporary_path, path)
+                temporary_path = ""
+            finally:
+                with suppress(OSError):
+                    os.close(descriptor)
+                with suppress(OSError):
+                    os.unlink(temporary_path)
+        else:
+            with open(path, "wb") as f:
+                f.write(data)
+            if self._chmod:
+                os.chmod(path, 0o600)
         self._real_path = path
 
-    def _already_holds(self, path: str, data: bytes) -> bool:
+    def _already_holds(self, path: str, data: bytes, opener: Callable[..., BufferedWriter] = open) -> bool:
         """
         Whether this store was loaded from `path` and that file already holds `data`.
 
@@ -305,6 +337,9 @@ class DataStore(Generic[T]):
         location still migrates to the primary one on the next save.
         """
         if self._real_path != path or not exists(path):
+            return False
+        # Default protected writes must replace symlinks even when their target matches.
+        if self._chmod and opener is _DEFAULT_OPEN and os.path.islink(path):
             return False
         try:
             with open(path, "rb") as f:
@@ -323,18 +358,22 @@ class DataStore(Generic[T]):
         A save that would not change the file is skipped.
         """
         data = json.dumps(self._data, indent=4).encode("utf-8")
-        if not self._already_holds(self._primary_path, data):
-            try:
-                makedirs(self._primary_path)
-                self.save_to(self._primary_path, data, open)
-            except OSError:
-                if not self._secondary_path:
-                    raise
-                makedirs(self._secondary_path)
-                self.save_to(self._secondary_path, data, open)
+        if self._already_holds(self._primary_path, data, open):
+            if self._chmod and open is _DEFAULT_OPEN:
+                metadata = os.lstat(self._primary_path)
+                # Avoid chmod following a symlink to an unrelated target.
+                if stat.S_ISREG(metadata.st_mode) and stat.S_IMODE(metadata.st_mode) != 0o600:
+                    os.chmod(self._primary_path, 0o600)
+            return
 
-            if self._chmod and self._real_path is not None:
-                os.chmod(self._real_path, 0o600)
+        try:
+            makedirs(self._primary_path)
+            self.save_to(self._primary_path, data, open)
+        except OSError:
+            if not self._secondary_path:
+                raise
+            makedirs(self._secondary_path)
+            self.save_to(self._secondary_path, data, open)
 
 
 class ServerDataDict(TypedDict):

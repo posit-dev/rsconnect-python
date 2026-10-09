@@ -8,6 +8,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tarfile
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -147,17 +148,23 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(200, {"api_enabled": True, "installations": self.server.python_installations})  # type: ignore[attr-defined]
         elif path == "/__api__/v1/server_settings/nodejs":
             self._json(200, self.server.nodejs_settings)  # type: ignore[attr-defined]
-        elif path.startswith("/__api__/v1/content/"):
-            content_id = path.rsplit("/", 1)[-1]
-            status = self.server.content_statuses.get(content_id)  # type: ignore[attr-defined]
-            if status is not None and status != 200:
-                self._json(status, {"error": "content lookup failed"})
-            else:
-                self._json(200, {"py_version": "3.12.8", "node_version": "22.22.2"})
+        elif path.startswith("/__api__/v1/content"):
+            self._connect_content_response(path)
         elif path == "/v1/accounts":
             self._cloud_accounts(record)
         else:
             self._json(404, {"error": "not found"})
+
+    def _connect_content_response(self, path: str) -> None:
+        if path == "/__api__/v1/content":
+            self._json(200, [])
+            return
+        content_id = path.rsplit("/", 1)[-1]
+        status = self.server.content_statuses.get(content_id)  # type: ignore[attr-defined]
+        if status is not None and status != 200:
+            self._json(status, {"error": "content lookup failed"})
+        else:
+            self._json(200, {"py_version": "3.12.8", "node_version": "22.22.2"})
 
     def _cloud_accounts(self, record: dict[str, object]) -> None:
         with self.server.lock:  # type: ignore[attr-defined]
@@ -1607,6 +1614,121 @@ def test_cloud_finish_refresh_uses_the_client_id_saved_at_start(
     assert saved["connect_cloud_access_token"] == "refreshed-access-token"
     assert saved["connect_cloud_refresh_token"] == "refreshed-refresh-token"
     assert not _device_states(home, "cloud")
+
+
+@pytest.mark.parametrize("explicit_extra", [False, True])
+def test_pending_login_inside_project_is_excluded_from_manifest_and_bundle(
+    tmp_path: Path, local_http_server: _LocalHTTPServer, explicit_extra: bool
+) -> None:
+    project = tmp_path / "project-home"
+    environment = _cli_environment(project)
+    environment.pop("XDG_CONFIG_HOME", None)
+    (project / "app.py").write_text("app = object()\n", encoding="utf-8")
+    (project / "requirements.txt").write_text("", encoding="utf-8")
+    (project / "assets").mkdir()
+    (project / "assets" / "keep.txt").write_text("keep this content\n", encoding="utf-8")
+    started = _run_cli(["login", local_http_server.base_url, "--name", "inside-project", "--no-wait"], environment)
+    assert started.returncode == 0, _output(started)
+    state = _device_states(project, "connect")[0]
+    original_state = state.read_bytes()
+    arguments = ["write-manifest", "api", "--entrypoint", "app:app", "--exclude-renv", str(project)]
+    if explicit_extra:
+        arguments.append(str(state))
+
+    generated = _run_cli(arguments, environment)
+
+    assert generated.returncode == 0, _output(generated)
+    manifest_path = project / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert {"app.py", "requirements.txt", "assets/keep.txt"} <= set(manifest["files"])
+    assert state.relative_to(project).as_posix() not in manifest["files"]
+    assert state.read_bytes() == original_state
+    output = tmp_path / "content.tar.gz"
+    packaged = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import shutil,sys; from rsconnect.bundle import make_manifest_bundle; "
+            "bundle=make_manifest_bundle(sys.argv[1]); "
+            "out=open(sys.argv[2],'wb'); shutil.copyfileobj(bundle,out); out.close(); bundle.close()",
+            str(manifest_path),
+            str(output),
+        ],
+        cwd=str(_REPO_ROOT),
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert packaged.returncode == 0, _output(packaged)
+    with tarfile.open(output, "r:gz") as bundle:
+        assert {"app.py", "requirements.txt", "assets/keep.txt", "manifest.json"} <= set(bundle.getnames())
+        assert state.relative_to(project).as_posix() not in bundle.getnames()
+        for member in bundle.getmembers():
+            if member.isfile():
+                file = bundle.extractfile(member)
+                assert file is not None
+                assert b"device-code-secret" not in file.read()
+
+
+def test_static_notebook_in_config_is_rejected_before_execution_or_upload(
+    tmp_path: Path, local_http_server: _LocalHTTPServer
+) -> None:
+    home = tmp_path / "home"
+    environment = _cli_environment(home)
+    started = _run_cli(
+        ["login", "--name", "static-guard", "--server", local_http_server.base_url, "--no-wait"],
+        environment,
+    )
+    assert started.returncode == 0, _output(started)
+    state = _device_states(home, "connect")[0]
+    notebook = state.parent / "restricted.ipynb"
+    marker = tmp_path / "notebook-executed"
+    notebook.write_text(
+        json.dumps(
+            {
+                "nbformat": 4,
+                "nbformat_minor": 5,
+                "metadata": {},
+                "cells": [
+                    {
+                        "cell_type": "code",
+                        "metadata": {},
+                        "execution_count": None,
+                        "outputs": [],
+                        "source": f"from pathlib import Path; Path({str(marker)!r}).write_text('executed')",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (notebook.parent / "requirements.txt").write_text("", encoding="utf-8")
+
+    deployed = _run_cli(
+        [
+            "deploy",
+            "notebook",
+            "--server",
+            local_http_server.base_url,
+            "--api-key",
+            "synthetic-api-key",
+            "--static",
+            "--new",
+            "--exclude-renv",
+            str(notebook),
+        ],
+        environment,
+    )
+
+    assert deployed.returncode == 1, _output(deployed)
+    assert "configuration directory" in _output(deployed)
+    assert not marker.exists()
+    assert state.exists()
+    assert not any(
+        record["method"] == "POST" and str(record["path"]).startswith("/__api__/")
+        for record in local_http_server.requests
+    )
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX FIFOs and symlinks are required")

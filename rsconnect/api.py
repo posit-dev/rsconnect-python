@@ -167,7 +167,8 @@ class AbstractRemoteServer:
             safe_uri = _redacted_uri_for_log(response.full_uri)
             if response.exception:
                 raise RSConnectException(
-                    "Could not connect to %s - %s" % (_redacted_uri_for_log(self.url), response.exception),
+                    "Could not connect to %s (%s)"
+                    % (_redacted_uri_for_log(self.url), type(response.exception).__name__),
                     cause=response.exception,
                 )
             # Sometimes an ISP will respond to an unknown server name by returning a friendly
@@ -188,12 +189,11 @@ class AbstractRemoteServer:
                     raise RSConnectException(error, status=response.status)
                 if response.status is None or response.status < 200 or response.status > 299:
                     raise RSConnectException(
-                        "Received an unexpected response from %s (calling %s): %s %s"
+                        "Received an unexpected response from %s (calling %s): %s"
                         % (
                             self.remote_name,
                             safe_uri,
                             response.status,
-                            response.reason,
                         ),
                         status=response.status,
                     )
@@ -203,12 +203,11 @@ class AbstractRemoteServer:
                     # prior function call was not converted from a HTTPResponse to JSON. This
                     # should never happen, so raise an exception.
                     raise RSConnectException(
-                        "Received an unexpected response from %s (calling %s): %s %s"
+                        "Received an unexpected response from %s (calling %s): %s"
                         % (
                             self.remote_name,
                             safe_uri,
                             response.status,
-                            response.reason,
                         )
                     )
         return response
@@ -400,6 +399,7 @@ class SPCSConnectServer(AbstractRemoteServer):
     def exchange_token(self) -> str:
         try:
             server = HTTPServer(url=self.token_endpoint())
+            server._suppress_oauth_response_logging = True
             payload = self.fmt_payload()
 
             response = server.request(
@@ -412,17 +412,17 @@ class SPCSConnectServer(AbstractRemoteServer):
             # since we don't want to pick up its json decoding assumptions
             if response.exception is not None:
                 raise RSConnectException(
-                    "Could not connect to %s - %s" % (self.token_endpoint(), response.exception),
+                    "Could not connect to %s (%s)"
+                    % (_redacted_uri_for_log(self.token_endpoint()), type(response.exception).__name__),
                     cause=response.exception,
                 )
             if response.status is None or response.status < 200 or response.status > 299:
                 raise RSConnectException(
-                    "Received an unexpected response from %s (calling %s): %s %s"
+                    "Received an unexpected response from %s (calling %s): %s"
                     % (
                         self.url,
-                        response.full_uri,
+                        _redacted_uri_for_log(response.full_uri),
                         response.status,
-                        response.reason,
                     )
                 )
 
@@ -598,10 +598,12 @@ class RSConnectClient(BearerTokenHTTPServer):
                     store._set(entry_name, entry)  # type: ignore[possibly-undefined]
                 logger.warning("OAuth client was re-registered; please run `rsconnect login` again.")
             except Exception as exc:
-                logger.warning(f"OAuth client re-registration failed: {exc}. Please run `rsconnect login` again.")
+                logger.warning(
+                    "OAuth client re-registration failed (%s). Please run `rsconnect login` again." % type(exc).__name__
+                )
             return False
         except Exception as exc:
-            logger.warning(f"OAuth token refresh failed: {exc}")
+            logger.warning("OAuth token refresh failed (%s)." % type(exc).__name__)
             return False
 
         new_access = token_response["access_token"]
@@ -3411,15 +3413,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
             request_options["request_deadline"] = self.request_deadline
         if self._server.oauth_client_id is not None:
             request_options["client_id_override"] = self._server.oauth_client_id
-        if self._suppress_oauth_response_logging:
-            request_options["suppress_response_logging"] = True
         return connect_cloud.refresh(cast(str, self._server.refresh_token), self._server.environment, **request_options)
-
-    def _warn_refresh_failure(self, exception: Exception) -> None:
-        if self._suppress_oauth_response_logging:
-            logger.warning("Posit Connect Cloud token refresh failed (%s)." % type(exception).__name__)
-        else:
-            logger.warning("Posit Connect Cloud token refresh failed: %s" % exception)
 
     def _attempt_token_refresh(self) -> bool:
         """Mint a new access token and apply it to this client.
@@ -3448,7 +3442,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
         except InvalidClientError as exc:
             if not service_account:
                 # This CLI's own OAuth client, not the user's credential.
-                self._warn_refresh_failure(exc)
+                logger.warning("Posit Connect Cloud token refresh failed (%s)." % type(exc).__name__)
                 return False
             raise RSConnectException(
                 "The Posit Connect Cloud service account credential was rejected — it has been revoked or "
@@ -3457,7 +3451,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
             ) from exc
         except InvalidGrantError as exc:
             if service_account:
-                self._warn_refresh_failure(exc)
+                logger.warning("Posit Connect Cloud token refresh failed (%s)." % type(exc).__name__)
                 return False
             self._persist_tokens(None, None)
             raise RSConnectException(
@@ -3465,7 +3459,7 @@ class ConnectCloudClient(BearerTokenHTTPServer):
                 "Authenticate again with `%s`." % self._add_command()
             ) from exc
         except RSConnectException as exc:
-            self._warn_refresh_failure(exc)
+            logger.warning("Posit Connect Cloud token refresh failed (%s)." % type(exc).__name__)
             return False
 
         access_token = tokens.get("access_token")
