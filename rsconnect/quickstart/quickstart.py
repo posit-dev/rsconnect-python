@@ -109,7 +109,10 @@ def run_quickstart(
     target.mkdir()
     try:
         _scaffold(target, name=name, spec=spec, requires_python=requires_python)
-        _install_venv(target)
+        # Without ``--python``, build the venv on the running interpreter.
+        # Otherwise uv picks the newest Python matching ``requires-python``,
+        # which may be too new for some dependencies to have wheels yet.
+        _install_venv(target, python=sys.executable if python_version is None else None)
     except BaseException:
         shutil.rmtree(target, ignore_errors=True)
         raise
@@ -440,8 +443,12 @@ def _format_local_run(spec: TemplateSpec, *, name: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _install_venv(target: pathlib.Path) -> None:
+def _install_venv(target: pathlib.Path, python: typing.Optional[str] = None) -> None:
     """Populate ``.venv/`` via ``uv venv`` + ``uv sync``.
+
+    ``python`` is passed to ``uv venv --python``; when omitted, uv chooses an
+    interpreter from ``requires-python``. ``uv sync`` keeps the venv's
+    interpreter as long as it satisfies ``requires-python``.
 
     stdout/stderr are inherited from the parent process so users see uv's
     own progress output in real time ("Creating environment...", "Resolving
@@ -456,7 +463,8 @@ def _install_venv(target: pathlib.Path) -> None:
     env.pop("VIRTUAL_ENV", None)
     # ``uv venv`` first so ``uv sync`` reads the freshly-created ``.venv``;
     # if the first step fails there is no point continuing.
-    for command in (("uv", "venv"), ("uv", "sync")):
+    venv_command = ("uv", "venv") if python is None else ("uv", "venv", "--python", python)
+    for command in (venv_command, ("uv", "sync")):
         result = subprocess.run(list(command), cwd=target, env=env)
         if result.returncode != 0:
             joined = " ".join(command)
