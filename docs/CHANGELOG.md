@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with the Python that runs `rsconnect`. Before, uv picked the newest installed Python
   that satisfied `requires-python`. Dependencies could then fail to install on a
   Python version so new that they had no wheels for it yet.
+- On Python 3.9 and later, rsconnect-python now requires PyJWT 2.15.0 or later, which
+  fixes several security advisories. Python 3.8 keeps the old minimum, because no fixed
+  PyJWT release supports it.
 
 ## [1.31.1] - 2026-09-10
 
