@@ -2910,6 +2910,10 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
   the manifest checksum. On Windows, the file had CRLF line endings and the checksum did
   not match. An existing requirements file with CRLF line endings also has the correct
   checksum now.</li>
+<li><code>rsconnect quickstart</code> without <code>--python</code> now creates the project's virtual environment
+  with the Python that runs <code>rsconnect</code>. Before, uv picked the newest installed Python
+  that satisfied <code>requires-python</code>. Dependencies could then fail to install on a
+  Python version so new that they had no wheels for it yet.</li>
 <li>On Python 3.9 and later, rsconnect-python now requires PyJWT 2.15.0 or later, which
   fixes several security advisories. Python 3.8 keeps the old minimum, because no fixed
   PyJWT release supports it.</li>
