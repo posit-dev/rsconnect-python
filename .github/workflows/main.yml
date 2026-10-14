@@ -33,20 +33,20 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: test (py${{ matrix.python-version }} ${{ matrix.os }})
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
-    - uses: astral-sh/setup-uv@v6
+    - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       with:
         version: ">=0.9.0"
-    - uses: extractions/setup-just@v3
+    - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
     # Fail fast if uv.lock has drifted from pyproject.toml.
     - run: uv lock --locked
     - run: just lint
     - run: uv run --python ${{ matrix.python-version }} --group test rsconnect version
     - run: just test ${{ matrix.python-version }}
     - if: github.event_name == 'pull_request' && matrix.python-version == '3.8'
-      uses: orgoro/coverage@v3
+      uses: orgoro/coverage@d77626a5fa35d39123e86d6c62907fabe2491496 # v3
       with:
         coverageFile: coverage.xml
         token: ${{ secrets.GITHUB_TOKEN }}
@@ -55,13 +55,13 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
-    - uses: astral-sh/setup-uv@v6
+    - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       with:
         version: ">=0.9.0"
-    - uses: extractions/setup-just@v3
+    - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
     - run: just lint
     # --upgrade forces a fresh resolve (ignoring the lock) so prereleases are
     # actually exercised; plain `--prerelease allow` against the lock is a no-op.
@@ -75,13 +75,13 @@ jobs:
         package_name: ["rsconnect_python", "rsconnect"]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
-    - uses: astral-sh/setup-uv@v6
+    - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       with:
         version: ">=0.9.0"
-    - uses: extractions/setup-just@v3
+    - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
     - run: uv sync --group test
     - name: assert tag matches pyproject version
       if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
@@ -114,33 +114,33 @@ jobs:
         uv run --no-project --with "$WHL" rsconnect version
         uv run --no-project --with "$WHL" rsconnect --help
     - name: create github release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
       if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags') && matrix.package_name == 'rsconnect_python'
       with:
         files: |
           dist/*.whl
         token: ${{ secrets.GITHUB_TOKEN }}
     - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-      uses: pypa/gh-action-pypi-publish@release/v1
+      uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
 
   docs:
     needs: test-python-versions
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
-    - uses: astral-sh/setup-uv@v6
+    - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       with:
         version: ">=0.9.0"
-    - uses: extractions/setup-just@v3
+    - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
     - name: build docs
       run: just docs
-    - uses: actions/upload-artifact@v5
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: docs
         path: site/
-    - uses: aws-actions/configure-aws-credentials@v4
+    - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
       id: creds
       with:
         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
@@ -148,7 +148,7 @@ jobs:
     - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: just sync-latest-docs-to-s3
     - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-      uses: aws-actions/configure-aws-credentials@v4
+      uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
       with:
         role-to-assume: ${{ secrets.DOCS_AWS_ROLE }}
         aws-region: us-east-1
@@ -174,8 +174,8 @@ jobs:
     env:
       python-version: '3.13'
     steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: ">=0.9.0"
       # Prepare the environment on the runner BEFORE entering with-connect, so
@@ -183,7 +183,7 @@ jobs:
       - run: uv sync --python ${{ env.python-version }} --group test
       - run: uv run --no-sync rsconnect version
       - name: Run integration tests
-        uses: posit-dev/with-connect@main
+        uses: posit-dev/with-connect@0783dabdd24e360e985a4588ce1239c3dc31c542 # main
         with:
           version: ${{ matrix.version }}
           # License file valid until 2026-12-05

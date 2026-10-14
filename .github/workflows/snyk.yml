@@ -16,10 +16,10 @@ jobs:
   snyk-monitor:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up uv and Python
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           python-version: '3.11'
           activate-environment: true
@@ -29,7 +29,7 @@ jobs:
           uv pip compile pyproject.toml --output-file requirements.txt
           uv pip install -r requirements.txt
 
-      - uses: snyk/actions/setup@master
+      - uses: snyk/actions/setup@9adf32b1121593767fc3c057af55b55db032dc04 # v1.0.0
 
       - name: Run Snyk (requirements.txt)
         run: snyk monitor --file="requirements.txt" --package-manager=pip --project-name="requirements.txt" --org=${{ env.SNYK_ORG }}
