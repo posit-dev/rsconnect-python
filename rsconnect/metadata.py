@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import sys
 from datetime import datetime, timezone
 from io import BufferedWriter
@@ -50,6 +51,9 @@ T = TypeVar("T", bound=Mapping[str, object])
 # connect_cloud.SERVER_NAME. Used by api.ShinyappsServer as well.
 SHINYAPPS_SERVER_NAME = "shinyapps.io"
 SHINYAPPS_API_URL = "https://api.shinyapps.io"
+
+# App deployment history is small; strict reads cap it at 1 MiB.
+_MAX_METADATA_BYTES = 1024 * 1024
 
 
 def resolve_server_alias(url: str) -> str:
@@ -111,15 +115,25 @@ class DataStore(Generic[T]):
     an optional secondary one.
     """
 
-    def __init__(self, primary_path: str, secondary_path: Optional[str] = None, chmod: bool = False):
+    def __init__(
+        self,
+        primary_path: str,
+        secondary_path: Optional[str] = None,
+        chmod: bool = False,
+        *,
+        autoload: bool = True,
+        strict_read: bool = False,
+    ):
         self._primary_path = primary_path
         self._secondary_path = secondary_path
         self._chmod = chmod
+        self._strict_read = strict_read
         self._data: dict[str, T] = {}
         self._real_path: str | None = None
         self._lock = Lock()
 
-        self.load()
+        if autoload:
+            self.load()
 
     def count(self):
         """
@@ -135,12 +149,50 @@ class DataStore(Generic[T]):
 
         Returns True if the data was successfully loaded.
         """
+        if self._strict_read:
+            return self._load_from_strict(path)
         if exists(path):
             with open(path, "rb") as f:
                 self._data = json.loads(f.read().decode("utf-8"))
                 self._real_path = path
                 return True
         return False
+
+    def _load_from_strict(self, path: str) -> bool:
+        try:
+            before = os.lstat(path)
+            if stat.S_ISLNK(before.st_mode):
+                raise OSError(f"Refusing to read symlinked metadata file: {path}")
+            if not stat.S_ISREG(before.st_mode):
+                raise OSError(f"Refusing to read non-regular metadata file: {path}")
+            if before.st_size > _MAX_METADATA_BYTES:
+                raise OSError(f"Metadata file exceeds the {_MAX_METADATA_BYTES}-byte limit: {path}")
+
+            # ponytail: Windows lacks O_NOFOLLOW; use a native opener for stronger reparse-point race protection.
+            flags = (
+                os.O_RDONLY
+                | getattr(os, "O_BINARY", 0)
+                | getattr(os, "O_NONBLOCK", 0)
+                | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_CLOEXEC", 0)
+            )
+            descriptor = os.open(path, flags)
+        except (FileNotFoundError, NotADirectoryError):
+            return False
+        with os.fdopen(descriptor, "rb") as metadata_file:
+            opened = os.fstat(metadata_file.fileno())
+            if not stat.S_ISREG(opened.st_mode):
+                raise OSError(f"Refusing to read non-regular metadata file: {path}")
+            if (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
+                raise OSError(f"Metadata file changed while opening: {path}")
+            if opened.st_size > _MAX_METADATA_BYTES:
+                raise OSError(f"Metadata file exceeds the {_MAX_METADATA_BYTES}-byte limit: {path}")
+            data = metadata_file.read(_MAX_METADATA_BYTES + 1)
+        if len(data) > _MAX_METADATA_BYTES:
+            raise OSError(f"Metadata file exceeds the {_MAX_METADATA_BYTES}-byte limit: {path}")
+        self._data = json.loads(data.decode("utf-8"))
+        self._real_path = path
+        return True
 
     def load(self):
         """
@@ -774,11 +826,13 @@ class AppStore(DataStore[AppMetadata]):
     are made.
     """
 
-    def __init__(self, app_file: str, version: int = 1):
+    def __init__(self, app_file: str, version: int = 1, *, autoload: bool = True, strict_read: bool = False):
         base_name = str(basename(app_file).rsplit(".", 1)[0]) + ".json"
         super(AppStore, self).__init__(
             join(dirname(app_file), "rsconnect-python", base_name),
             join(config_dirname(), "applications", sha1(abspath(app_file)) + ".json"),
+            autoload=autoload,
+            strict_read=strict_read,
         )
         self.version = version
 

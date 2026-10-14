@@ -1,3 +1,8 @@
+import threading
+import time
+from contextlib import ExitStack, contextmanager
+from http.server import BaseHTTPRequestHandler, HTTPServer as _TestHTTPServer
+from typing import Any, Generator, cast
 from unittest import TestCase
 
 from rsconnect.http_support import (
@@ -5,9 +10,58 @@ from rsconnect.http_support import (
     _user_agent,
     _create_ssl_connection,
     append_to_path,
-    HTTPServer,
     CookieJar,
+    HTTPResponse,
+    HTTPServer,
 )
+
+
+class _DeadlineHandler(BaseHTTPRequestHandler):
+    def do_GET(self) -> None:
+        if self.path == "/slow-headers":
+            for part in (
+                b"HTTP/1.0 200 OK\r\n",
+                b"Content-Length: 0\r\n",
+                b"Content-Type: application/json\r\n",
+                b"\r\n",
+            ):
+                if not self._send(part):
+                    return
+                time.sleep(0.14)
+        elif self.path == "/slow-body":
+            if not self._send(b"HTTP/1.0 200 OK\r\nContent-Length: 8\r\nContent-Type: application/json\r\n\r\n"):
+                return
+            for byte in b"12345678":
+                if not self._send(bytes((byte,))):
+                    return
+                time.sleep(0.08)
+        else:
+            self._send(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nContent-Type: application/json\r\n\r\n{}")
+
+    def _send(self, data: bytes) -> bool:
+        try:
+            self.connection.sendall(data)
+        except OSError:
+            return False
+        return True
+
+    def log_message(self, format: str, *args: object) -> None:
+        pass
+
+
+@contextmanager
+def _deadline_test_server() -> Generator[str, None, None]:
+    server = _TestHTTPServer(("127.0.0.1", 0), _DeadlineHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+        if thread.is_alive():
+            raise AssertionError("HTTP test server thread did not stop.")
 
 
 class TestHTTPSupport(TestCase):
@@ -30,6 +84,196 @@ class TestHTTPSupport(TestCase):
     def test_HTTPServer_instantiation_error(self):
         with self.assertRaises(ValueError):
             HTTPServer("ftp://example.com")
+
+    def test_request_timeout_override_does_not_change_the_default(self):
+        from unittest.mock import patch
+
+        with patch("rsconnect.http_support.get_request_timeout", return_value=37):
+            with HTTPServer("http://example.com", request_timeout=0.25) as bounded:
+                self.assertEqual(bounded._conn.timeout, 0.25)
+            with HTTPServer("http://example.com") as ordinary:
+                self.assertEqual(ordinary._conn.timeout, 37)
+
+    def test_expired_request_deadline_prevents_network_io(self):
+        import socket
+        from unittest.mock import patch
+
+        with patch("rsconnect.http_support.time.monotonic", return_value=100):
+            with HTTPServer("http://example.com", request_deadline=99) as server:
+                with patch.object(server._conn, "request") as send:
+                    response = server.get("/settings")
+        self.assertIsInstance(response.exception, socket.timeout)
+        send.assert_not_called()
+
+    def test_deadline_updates_an_existing_socket_for_each_request(self):
+        from unittest.mock import Mock, patch
+
+        clock = [100]
+        with patch("rsconnect.http_support.time.monotonic", side_effect=lambda: clock[0]):
+            with HTTPServer("http://example.com", request_timeout=20, request_deadline=110) as server:
+                transport = server._conn
+                transport.sock = Mock()
+                reply = Mock()
+                reply.status = 200
+                reply.read.return_value = b"{}"
+                reply.getheaders.return_value = []
+                reply.getheader.return_value = "application/json"
+                with patch.object(transport, "request"):
+                    with patch.object(transport, "getresponse", return_value=reply):
+                        server.get("/first")
+                        self.assertEqual(transport.timeout, 10)
+                        transport.sock.settimeout.assert_called_with(10)
+                        clock[0] = 107
+                        server.get("/next")
+                        self.assertEqual(transport.timeout, 3)
+                        transport.sock.settimeout.assert_called_with(3)
+                transport.sock = None
+
+    def test_deadline_uses_remaining_time_when_request_timeout_is_disabled(self):
+        from unittest.mock import Mock, patch
+
+        with patch("rsconnect.http_support.time.monotonic", return_value=100):
+            with patch("rsconnect.http_support.get_request_timeout", return_value=0):
+                with HTTPServer("http://example.com", request_deadline=110) as server:
+                    transport = cast(Any, server._conn)
+                    reply = Mock()
+                    reply.status = 200
+                    reply.reason = "OK"
+                    reply.read.return_value = b"{}"
+                    reply.getheaders.return_value = []
+                    reply.getheader.return_value = "application/json"
+                    with patch.object(transport, "request"):
+                        with patch.object(transport, "getresponse", return_value=reply):
+                            server.get("/settings")
+                    self.assertEqual(transport.timeout, 10)
+
+    def test_no_deadline_keeps_http_connection_call_shapes(self):
+        from unittest.mock import Mock, patch
+
+        with HTTPServer("http://example.com") as server:
+            transport = cast(Any, server._conn)
+            reply = Mock()
+            reply.status = 200
+            reply.reason = "OK"
+            reply.read.return_value = b"{}"
+            reply.getheaders.return_value = []
+            reply.getheader.return_value = "application/json"
+            with patch("rsconnect.http_support.threading.Timer", side_effect=AssertionError):
+                with patch.object(transport, "request") as send:
+                    with patch.object(transport, "getresponse", return_value=reply) as receive:
+                        response = cast(HTTPResponse, server.get("/settings"))
+
+            send.assert_called_once_with("GET", "/settings", None, {"User-Agent": _user_agent})
+            receive.assert_called_once_with()
+            reply.read.assert_called_once_with()
+            self.assertEqual(response.status, 200)
+
+    def test_completed_token_response_survives_deadline_and_prevents_another_request(self):
+        import socket
+        from unittest.mock import Mock, patch
+
+        for timer_fired in (False, True):
+            clock = [100]
+            with self.subTest(timer_fired=timer_fired), ExitStack() as stack:
+                stack.enter_context(patch("rsconnect.http_support.time.monotonic", side_effect=lambda: clock[0]))
+                server = stack.enter_context(HTTPServer("http://example.com", request_deadline=110))
+                timer = stack.enter_context(patch("rsconnect.http_support.threading.Timer"))
+                interrupt = stack.enter_context(patch("rsconnect.http_support._interrupt_socket"))
+                transport = cast(Any, server._conn)
+                transport.sock = Mock()
+                reply = Mock()
+                reply.status = 200
+                reply.reason = "OK"
+                reply.getheaders.return_value = []
+                reply.getheader.return_value = "application/json"
+
+                def read_completed_body():
+                    clock[0] = 111
+                    if timer_fired:
+                        timer.call_args.args[1]()
+                    return b'{"access_token":"completed-token","refresh_token":"saved-refresh"}'
+
+                reply.read.side_effect = read_completed_body
+                send = stack.enter_context(patch.object(transport, "request"))
+                stack.enter_context(patch.object(transport, "getresponse", return_value=reply))
+                response = cast(HTTPResponse, server.get("/token"))
+                next_response = cast(HTTPResponse, server.get("/accounts"))
+
+                self.assertIsNone(response.exception)
+                self.assertEqual(
+                    response.json_data,
+                    {"access_token": "completed-token", "refresh_token": "saved-refresh"},
+                )
+                self.assertIsInstance(next_response.exception, socket.timeout)
+                self.assertEqual(send.call_count, 1)
+                self.assertEqual(interrupt.call_count, int(timer_fired))
+                timer.return_value.cancel.assert_called_once_with()
+                timer.return_value.join.assert_called_once_with()
+                transport.sock = None
+
+    def test_deadline_interrupts_slow_response_headers(self):
+        import socket
+
+        with _deadline_test_server() as url:
+            deadline = time.monotonic() + 0.2
+            with HTTPServer(url, request_timeout=1, request_deadline=deadline) as server:
+                started = time.monotonic()
+                response = cast(HTTPResponse, server.get("/slow-headers"))
+                elapsed = time.monotonic() - started
+
+        self.assertIsInstance(response.exception, socket.timeout)
+        self.assertLess(elapsed, 0.35)
+
+    def test_deadline_interrupts_http10_slow_body_and_joins_timer(self):
+        import socket
+        from unittest.mock import patch
+
+        timers: list[threading.Timer] = []
+
+        class TrackingTimer(threading.Timer):
+            def start(self) -> None:
+                timers.append(self)
+                super().start()
+
+        with _deadline_test_server() as url:
+            with patch("rsconnect.http_support.threading.Timer", new=TrackingTimer):
+                deadline = time.monotonic() + 0.2
+                with HTTPServer(url, request_timeout=1, request_deadline=deadline) as server:
+                    started = time.monotonic()
+                    response = cast(HTTPResponse, server.get("/slow-body"))
+                    elapsed = time.monotonic() - started
+
+        self.assertIsInstance(response.exception, socket.timeout)
+        self.assertLess(elapsed, 0.45)
+        self.assertEqual(len(timers), 1)
+        self.assertFalse(timers[0].is_alive())
+
+    def test_deadline_timer_is_opt_in_and_cancelled_after_success(self):
+        from unittest.mock import patch
+
+        timers: list[threading.Timer] = []
+
+        class TrackingTimer(threading.Timer):
+            def start(self) -> None:
+                timers.append(self)
+                super().start()
+
+        with _deadline_test_server() as url:
+            with patch("rsconnect.http_support._interrupt_socket") as interrupt:
+                with patch("rsconnect.http_support.threading.Timer", new=TrackingTimer):
+                    with HTTPServer(url) as ordinary:
+                        response = cast(HTTPResponse, ordinary.get("/quick"))
+                    self.assertEqual(response.status, 200)
+                    self.assertEqual(timers, [])
+
+                    with HTTPServer(url, request_deadline=time.monotonic() + 2) as bounded:
+                        response = cast(HTTPResponse, bounded.get("/quick"))
+                    self.assertEqual(response.status, 200)
+
+                interrupt.assert_not_called()
+
+        self.assertEqual(len(timers), 1)
+        self.assertFalse(timers[0].is_alive())
 
     def test_header_stuff(self):
         server = HTTPServer("http://example.com")
@@ -121,6 +365,19 @@ class TestCookieJar(TestCase):
         log_text = "\n".join(captured.output)
         self.assertNotIn("s3ssionv4lue", log_text)
         self.assertIn("session", log_text)
+
+    def test_cookie_names_and_values_can_be_omitted_when_opted_in(self):
+        from unittest.mock import patch
+
+        jar = CookieJar()
+        cookie_name = "oauth-refresh-cookie-name"
+        cookie_value = "oauth-refresh-cookie-value"
+        with patch("rsconnect.http_support.logger.debug") as debug:
+            jar.store_cookies(FakeSetCookieResponse([f"{cookie_name}={cookie_value}"]), suppress_logs=True)
+            header = jar.get_cookie_header_value(suppress_logs=True)
+
+        debug.assert_not_called()
+        self.assertEqual(header, f"{cookie_name}={cookie_value}")
 
 
 class TestDebugLogRedaction(TestCase):
@@ -234,6 +491,184 @@ class TestDebugLogRedaction(TestCase):
         from rsconnect.http_support import _redacted_header_for_log
 
         self.assertEqual(_redacted_header_for_log("Cookie", "session=abc; other=def"), "<redacted>")
+
+    def test_oauth_redirect_destination_is_suppressed_when_opted_in(self):
+        from unittest.mock import Mock, patch
+
+        location = "http://example.com/opaque/path-refresh-token?resume=opaque-query-token"
+        request_target = "/opaque/path-refresh-token?resume=opaque-query-token"
+
+        def make_response(status, body, headers, reason):
+            response = Mock()
+            response.status = status
+            response.reason = reason
+            response.read.return_value = body
+            response.getheaders.return_value = headers
+            header_values = {key.lower(): value for key, value in headers}
+            response.getheader.side_effect = lambda key, default=None: header_values.get(key.lower(), default)
+            return response
+
+        redirect = make_response(302, b"", [("Location", location)], "reason-refresh-token")
+        final = make_response(200, b"{}", [("Content-Type", "application/json")], "final-reason-refresh-token")
+
+        with HTTPServer("http://example.com") as server:
+            server._suppress_oauth_response_logging = True
+            transport = cast(Any, server._conn)
+            with self.assertLogs("rsconnect", level="DEBUG") as captured:
+                with patch.object(transport, "request") as send:
+                    with patch.object(transport, "getresponse", side_effect=[redirect, final]):
+                        response = cast(HTTPResponse, server.post("/oauth/start", body=b"payload"))
+
+        log_text = "\n".join(captured.output)
+        for secret in ("path-refresh-token", "opaque-query-token", "reason-refresh-token"):
+            self.assertNotIn(secret, log_text)
+        self.assertIn("Following HTTP redirect", log_text)
+        self.assertEqual(send.call_args_list[0].args[:3], ("POST", "/oauth/start", b"payload"))
+        self.assertEqual(send.call_args_list[1].args[:3], ("GET", request_target, b"payload"))
+        self.assertEqual(response.full_uri, request_target)
+        self.assertEqual(response.reason, "final-reason-refresh-token")
+        self.assertEqual(response.response_body, "{}")
+
+    def test_oauth_response_body_is_omitted_when_opted_in(self):
+        from unittest.mock import Mock, patch
+
+        secret = "echoed-refresh-token"
+        cookie_name = "oauth-cookie-name"
+        cookie_value = "oauth-cookie-value"
+        endpoint = "/oauth/token?refresh_token=endpoint-secret"
+        body = f'{{"error":"{secret}","error_description":"{secret}"}}'
+        content_type = f"application/json; debug={secret}"
+        reply = Mock()
+        reply.status = 503
+        reply.reason = "reason-secret"
+        reply.read.return_value = body.encode()
+        reply.getheaders.return_value = [
+            ("Content-Type", content_type),
+            ("X-Debug-Context", secret),
+            ("Set-Cookie", f"{cookie_name}={cookie_value}"),
+        ]
+        header_values = {key.lower(): value for key, value in reply.getheaders.return_value}
+        reply.getheader.side_effect = lambda key, default=None: header_values.get(key.lower(), default)
+
+        with HTTPServer("http://example.com") as server:
+            server._suppress_oauth_response_logging = True
+            transport = cast(Any, server._conn)
+            with self.assertLogs("rsconnect", level="DEBUG") as captured:
+                with patch.object(transport, "request"):
+                    with patch.object(transport, "getresponse", return_value=reply):
+                        response = cast(HTTPResponse, server.get(endpoint))
+
+        log_text = "\n".join(captured.output)
+        self.assertIn("Response: 503", log_text)
+        self.assertIn("<OAuth response headers omitted>", log_text)
+        self.assertIn("<OAuth response body omitted>", log_text)
+        for private_value in (secret, cookie_name, cookie_value, "endpoint-secret", "X-Debug-Context", "reason-secret"):
+            self.assertNotIn(private_value, log_text)
+        self.assertEqual(response.reason, "reason-secret")
+        self.assertEqual(response.content_type, content_type)
+        self.assertEqual(response._response.getheader("Content-Type"), content_type)
+        self.assertEqual(response._response.getheader("X-Debug-Context"), secret)
+        self.assertEqual(response._response.getheader("Set-Cookie"), f"{cookie_name}={cookie_value}")
+        self.assertEqual(response.response_body, body)
+        self.assertEqual(response.json_data, {"error": secret, "error_description": secret})
+
+    def test_default_oauth_response_logging_keeps_baseline_diagnostics(self):
+        from unittest.mock import Mock, patch
+
+        body = '{"message":"ordinary response"}'
+        reply = Mock()
+        reply.status = 200
+        reply.reason = "ordinary reason"
+        reply.read.return_value = body.encode()
+        reply.getheaders.return_value = [("Content-Type", "application/json"), ("X-Debug-Context", "ordinary context")]
+        header_values = {key.lower(): value for key, value in reply.getheaders.return_value}
+        reply.getheader.side_effect = lambda key, default=None: header_values.get(key.lower(), default)
+
+        with HTTPServer("http://example.com") as server:
+            transport = cast(Any, server._conn)
+            with self.assertLogs("rsconnect", level="DEBUG") as captured:
+                with patch.object(transport, "request"):
+                    with patch.object(transport, "getresponse", return_value=reply):
+                        response = cast(HTTPResponse, server.get("/token"))
+
+        log_text = "\n".join(captured.output)
+        self.assertIn("Response: 200 ordinary reason", log_text)
+        self.assertIn("X-Debug-Context: ordinary context", log_text)
+        self.assertIn("ordinary response", log_text)
+        self.assertNotIn("<OAuth response", log_text)
+        self.assertEqual(response.response_body, body)
+
+    def test_default_redirect_logging_keeps_destination_visible(self):
+        from unittest.mock import Mock, patch
+
+        location = "http://example.com/reports/current?tab=summary"
+        request_target = "/reports/current?tab=summary"
+
+        def make_response(status, body, headers, reason):
+            response = Mock()
+            response.status = status
+            response.reason = reason
+            response.read.return_value = body
+            response.getheaders.return_value = headers
+            header_values = {key.lower(): value for key, value in headers}
+            response.getheader.side_effect = lambda key, default=None: header_values.get(key.lower(), default)
+            return response
+
+        redirect = make_response(302, b"", [("Location", location)], "Found")
+        final = make_response(
+            200,
+            b'{"message":"done"}',
+            [("Content-Type", "application/json")],
+            "OK",
+        )
+
+        with HTTPServer("http://example.com") as server:
+            transport = cast(Any, server._conn)
+            with self.assertLogs("rsconnect", level="DEBUG") as captured:
+                with patch.object(transport, "request") as send:
+                    with patch.object(transport, "getresponse", side_effect=[redirect, final]):
+                        response = cast(HTTPResponse, server.get("/start"))
+
+        log_text = "\n".join(captured.output)
+        self.assertIn("Location: " + location, log_text)
+        self.assertIn("Redirected to: " + location, log_text)
+        self.assertEqual(send.call_args_list[1].args[1], request_target)
+        self.assertEqual(response.response_body, '{"message":"done"}')
+
+    def test_default_http_failure_logging_keeps_exception_details(self):
+        from unittest.mock import patch
+
+        failure = OSError("ordinary transport detail")
+        with HTTPServer("http://example.com") as server:
+            transport = cast(Any, server._conn)
+            with self.assertLogs("rsconnect", level="DEBUG") as captured:
+                with patch.object(transport, "request"):
+                    with patch.object(transport, "getresponse", side_effect=failure):
+                        response = cast(HTTPResponse, server.get("/ordinary"))
+
+        log_text = "\n".join(captured.output)
+        self.assertIn("Traceback", log_text)
+        self.assertIn("ordinary transport detail", log_text)
+        self.assertIs(response.exception, failure)
+
+    def test_http_failure_logging_omits_exception_details_when_opted_in(self):
+        from unittest.mock import patch
+
+        failure = OSError("oauth transport detail")
+        with HTTPServer("http://example.com") as server:
+            server._suppress_oauth_response_logging = True
+            transport = cast(Any, server._conn)
+            with self.assertLogs("rsconnect", level="DEBUG") as captured:
+                with patch.object(transport, "request"):
+                    with patch.object(transport, "getresponse", side_effect=failure):
+                        response = cast(HTTPResponse, server.get("/oauth/token?access_token=endpoint-secret"))
+
+        log_text = "\n".join(captured.output)
+        self.assertIn("OSError", log_text)
+        self.assertNotIn("oauth transport detail", log_text)
+        self.assertNotIn("endpoint-secret", log_text)
+        self.assertNotIn("Traceback", log_text)
+        self.assertIs(response.exception, failure)
 
     def test_a_connection_failure_response_has_a_none_status(self):
         # Exception-only responses used to have no status attribute at all, so

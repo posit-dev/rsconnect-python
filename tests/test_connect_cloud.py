@@ -213,6 +213,38 @@ class TestConnectCloudAuth(unittest.TestCase):
         self.assertEqual(kwargs["scope"], "vivid")
         self.assertEqual(kwargs["refresh_token"], "rt")
 
+    def test_refresh_can_limit_its_request_timeout(self):
+        with mock.patch("rsconnect.connect_cloud.refresh_access_token") as refresh:
+            refresh.return_value = {"access_token": "new"}
+            connect_cloud.refresh("rt", "production", request_timeout=0.25)
+        self.assertEqual(refresh.call_args.kwargs["request_timeout"], 0.25)
+
+    def test_refresh_can_suppress_response_logging(self):
+        with mock.patch("rsconnect.connect_cloud.refresh_access_token") as refresh:
+            refresh.return_value = {"access_token": "new"}
+            connect_cloud.refresh("rt", "production", suppress_response_logging=True)
+        self.assertIs(refresh.call_args.kwargs["suppress_response_logging"], True)
+
+    def test_refresh_honors_saved_client_override_and_deadline(self):
+        with mock.patch.dict(
+            os.environ,
+            {connect_cloud.OAUTH_CLIENT_ID_ENV_VAR: "current-client"},
+            clear=True,
+        ):
+            with mock.patch("rsconnect.connect_cloud.refresh_access_token") as refresh:
+                refresh.return_value = {"access_token": "new"}
+                connect_cloud.refresh(
+                    "rt",
+                    "production",
+                    request_timeout=0.25,
+                    request_deadline=12.5,
+                    client_id_override="pending-client",
+                )
+
+        self.assertEqual(refresh.call_args.kwargs["client_id"], "pending-client")
+        self.assertEqual(refresh.call_args.kwargs["request_timeout"], 0.25)
+        self.assertEqual(refresh.call_args.kwargs["request_deadline"], 12.5)
+
 
 class TestConnectCloudServer(unittest.TestCase):
     def test_defaults_url_to_selected_environment(self):
@@ -516,7 +548,11 @@ class TestConnectCloudClient(unittest.TestCase):
         with self.client:
             with self.assertRaises(RSConnectException) as context:
                 self.client.get_account_by_name("acme")
-        self.assertIn("acme", str(context.exception))
+        self.assertEqual(
+            context.exception.message, 'No Posit Connect Cloud account named "acme". You can publish to: other.'
+        )
+        self.assertIs(type(context.exception), RSConnectException)
+        self.assertIsNone(context.exception.status)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_deleted_content_is_surfaced_as_404(self):
@@ -775,6 +811,53 @@ class TestConnectCloudClientTokenRefresh(unittest.TestCase):
         self.assertEqual(server.refresh_token, "rt2")
         self.assertEqual(httpretty.last_request().headers["Authorization"], "Bearer fresh")
 
+    def test_refresh_uses_the_remaining_finish_budget(self):
+        server = ConnectCloudServer("acme", access_token="stale", refresh_token="rt", oauth_client_id="pending-client")
+        client = ConnectCloudClient(server)
+        client.request_timeout = 20
+        client.request_deadline = 105
+        with mock.patch.dict(
+            os.environ,
+            {connect_cloud.OAUTH_CLIENT_ID_ENV_VAR: "current-client"},
+            clear=True,
+        ):
+            with mock.patch("rsconnect.api.time.monotonic", return_value=100):
+                with mock.patch("rsconnect.connect_cloud.refresh", return_value={"access_token": "fresh"}) as refresh:
+                    self.assertTrue(client._attempt_token_refresh())
+        refresh.assert_called_once_with(
+            "rt",
+            "production",
+            request_timeout=5,
+            request_deadline=105,
+            client_id_override="pending-client",
+        )
+        self.assertEqual(server.access_token, "fresh")
+
+    def test_private_refresh_suppresses_logging_and_limits_warning_details(self):
+        server = ConnectCloudServer("acme", access_token="stale", refresh_token="rt")
+        client = ConnectCloudClient(server)
+        client._suppress_oauth_response_logging = True
+        failure = RSConnectException("refresh response contained private details")
+
+        with mock.patch("rsconnect.connect_cloud.refresh", side_effect=failure) as refresh:
+            with self.assertLogs("rsconnect", level="WARNING") as captured:
+                self.assertFalse(client._attempt_token_refresh())
+
+        refresh.assert_called_once_with("rt", "production", suppress_response_logging=True)
+        log_text = "\n".join(captured.output)
+        self.assertIn("RSConnectException", log_text)
+        self.assertNotIn("refresh response contained private details", log_text)
+
+    def test_expired_finish_budget_does_not_refresh(self):
+        server = ConnectCloudServer("acme", access_token="stale", refresh_token="rt")
+        client = ConnectCloudClient(server)
+        client.request_deadline = 100
+        with mock.patch("rsconnect.api.time.monotonic", return_value=100):
+            with mock.patch("rsconnect.connect_cloud.refresh") as refresh:
+                self.assertFalse(client._attempt_token_refresh())
+        refresh.assert_not_called()
+        self.assertEqual(server.access_token, "stale")
+
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_401_uses_client_credentials_when_available(self):
         server = ConnectCloudServer("acme", access_token="stale", client_id="cid", client_secret="csecret")
@@ -969,14 +1052,17 @@ class TestConnectCloudClientTokenRefresh(unittest.TestCase):
     def test_a_transient_refresh_failure_leaves_the_original_401_and_warns(self):
         self._save_entry(connect_cloud_access_token="stale", connect_cloud_refresh_token="rt")
         server = ConnectCloudServer("acme", access_token="stale", refresh_token="rt", server_name="cloud")
+        secret = "refresh-token-secret"
 
         with self.assertLogs("rsconnect", level="WARNING") as captured:
             exception = self._get_user_with_refresh_failure(
-                server, "refresh", RSConnectException("Could not connect to https://login.posit.cloud")
+                server, "refresh", RSConnectException(f"Could not connect to https://login.posit.cloud: {secret}")
             )
 
         self.assertIn("401", exception.message)
-        self.assertIn("token refresh failed", "\n".join(captured.output))
+        log_text = "\n".join(captured.output)
+        self.assertIn("token refresh failed", log_text)
+        self.assertIn(secret, log_text)
         self.assertEqual(self._stored_entry()["connect_cloud_refresh_token"], "rt")
         self.assertEqual(len(httpretty.latest_requests()), 1)
 
@@ -1665,8 +1751,8 @@ class TestConnectCloudAccountVerification(unittest.TestCase):
                 self.client.get_account_by_name("typo")
 
         message = str(context.exception)
-        self.assertIn('No Posit Connect Cloud account named "typo"', message)
-        self.assertIn("alpha, beta", message)
+        self.assertEqual(message, 'No Posit Connect Cloud account named "typo". You can publish to: alpha, beta.')
+        self.assertIs(type(context.exception), RSConnectException)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_no_accounts_at_all(self):
@@ -1674,19 +1760,74 @@ class TestConnectCloudAccountVerification(unittest.TestCase):
         with self.client:
             with self.assertRaises(RSConnectException) as context:
                 self.client.get_account_by_name("anything")
-        self.assertIn("do not have publish access to any", str(context.exception))
+        self.assertEqual(
+            context.exception.message,
+            'No Posit Connect Cloud account named "anything". '
+            "You do not have publish access to any Posit Connect Cloud accounts.",
+        )
+        self.assertIs(type(context.exception), RSConnectException)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
-    def test_a_view_only_account_is_rejected(self):
-        # Without this the failure surfaces later as a raw error from POST /contents.
-        _register_accounts({"id": "1", "name": "acme", "permissions": ["content:read"]})
+    def test_a_missing_record_account_lists_available_accounts(self):
+        _register_accounts({"id": "1", "name": "alpha"}, {"id": "2", "name": "beta"})
         with self.client:
             with self.assertRaises(RSConnectException) as context:
-                self.client.get_account_by_name("acme")
+                self.client.get_account_by_id_or_name("stale-id")
 
-        message = str(context.exception)
-        self.assertIn('You have access to the Posit Connect Cloud account "acme"', message)
-        self.assertIn("do not have permission to publish to it", message)
+        self.assertEqual(
+            context.exception.message,
+            'No Posit Connect Cloud account matching "stale-id", from this directory\'s deployment history. '
+            "You can publish to: alpha, beta.",
+        )
+        self.assertIs(type(context.exception), RSConnectException)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_a_missing_record_account_with_no_accounts_preserves_message(self):
+        _register_accounts()
+        with self.client:
+            with self.assertRaises(RSConnectException) as context:
+                self.client.get_account_by_id_or_name("stale-id")
+
+        self.assertEqual(
+            context.exception.message,
+            'No Posit Connect Cloud account matching "stale-id", from this directory\'s deployment history. '
+            "You do not have publish access to any Posit Connect Cloud accounts.",
+        )
+        self.assertIs(type(context.exception), RSConnectException)
+
+    @httpretty.activate(verbose=True, allow_net_connect=False)
+    def test_a_view_only_account_is_rejected_after_retrying_unauthorized_lookup(self):
+        # Without this the failure surfaces later as a raw error from POST /contents.
+        httpretty.register_uri(
+            httpretty.GET,
+            f"{API}/accounts",
+            responses=[
+                httpretty.Response(body="", status=401),
+                _json_response({"data": [{"id": "1", "name": "acme", "permissions": ["content:read"]}], "total": 1}),
+            ],
+        )
+        server = ConnectCloudServer("acme", access_token="stale", refresh_token="rt")
+        client = ConnectCloudClient(server)
+
+        with mock.patch("rsconnect.connect_cloud.refresh", return_value={"access_token": "fresh"}) as refresh:
+            with client:
+                with self.assertRaises(RSConnectException) as context:
+                    client.get_account_by_name("acme")
+
+        refresh.assert_called_once_with("rt", "production")
+        self.assertEqual(
+            [request.headers["Authorization"] for request in httpretty.latest_requests()],
+            [
+                "Bearer stale",
+                "Bearer fresh",
+            ],
+        )
+        self.assertEqual(
+            context.exception.message,
+            'You have access to the Posit Connect Cloud account "acme" but do not have '
+            "permission to publish to it. Ask an account administrator for the publisher role.",
+        )
+        self.assertIs(type(context.exception), RSConnectException)
 
     @httpretty.activate(verbose=True, allow_net_connect=False)
     def test_a_publishable_account_resolves(self):

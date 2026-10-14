@@ -74,6 +74,17 @@ class TestDiscoverOAuthMetadata:
         result = discover_oauth_metadata(FAKE_URL)
         assert result == FAKE_METADATA
 
+    def test_client_specific_request_timeout_and_deadline(self, mock_http_server: MagicMock):
+        mock_http_server.get.return_value = _make_response(200, FAKE_METADATA)
+        assert discover_oauth_metadata(FAKE_URL, request_timeout=0.25, request_deadline=12.5) == FAKE_METADATA
+        assert mock_http_server.request_timeout == 0.25
+        assert mock_http_server.request_deadline == 12.5
+
+    def test_response_logging_can_be_suppressed(self, mock_http_server: MagicMock):
+        mock_http_server.get.return_value = _make_response(200, FAKE_METADATA)
+        assert discover_oauth_metadata(FAKE_URL, suppress_response_logging=True) == FAKE_METADATA
+        assert mock_http_server._suppress_oauth_response_logging is True
+
     def test_server_not_supporting_oauth(self, mock_http_server: MagicMock):
         mock_http_server.get.return_value = _make_response(404, None)
         with pytest.raises(RSConnectException, match="does not support OAuth"):
@@ -91,12 +102,28 @@ class TestRegisterClient:
         result = register_client(FAKE_METADATA, FAKE_URL)
         assert result == "test-client-123"
 
+    def test_client_specific_request_timeout_and_deadline(self, mock_http_server: MagicMock):
+        mock_http_server.post.return_value = _make_response(200, {"client_id": "bounded-client"})
+        assert register_client(FAKE_METADATA, FAKE_URL, request_timeout=0.25, request_deadline=12.5) == "bounded-client"
+        assert mock_http_server.request_timeout == 0.25
+        assert mock_http_server.request_deadline == 12.5
+
+    def test_response_logging_can_be_suppressed(self, mock_http_server: MagicMock):
+        mock_http_server.post.return_value = _make_response(200, {"client_id": "test-client-123"})
+        assert register_client(FAKE_METADATA, FAKE_URL, suppress_response_logging=True) == "test-client-123"
+        assert mock_http_server._suppress_oauth_response_logging is True
+
     def test_failure(self, mock_http_server: MagicMock):
         mock_http_server.post.return_value = _make_response(
             400, {"error": "invalid_request", "error_description": "bad request"}
         )
-        with pytest.raises(RSConnectException, match="OAuth error"):
+        with pytest.raises(RSConnectException, match="OAuth error") as raised:
             register_client(FAKE_METADATA, FAKE_URL)
+        assert "bad request" in str(raised.value)
+
+    def test_client_id_response_keeps_legacy_stringification(self, mock_http_server: MagicMock):
+        mock_http_server.post.return_value = _make_response(200, {"client_id": "bad\nclient"})
+        assert register_client(FAKE_METADATA, FAKE_URL) == "bad\nclient"
 
     def test_missing_registration_endpoint(self):
         metadata = {k: v for k, v in FAKE_METADATA.items() if k != "registration_endpoint"}
@@ -264,6 +291,28 @@ class TestDeviceCodeFlow:
         assert result["access_token"] == "at-final"
 
     @patch("rsconnect.oauth.time.sleep")
+    @patch("rsconnect.oauth.webbrowser.open", return_value=False)
+    def test_legacy_device_flow_keeps_path_only_when_endpoint_has_query(
+        self, _open: MagicMock, _, mock_http_server: MagicMock
+    ):
+        metadata = {
+            **FAKE_METADATA,
+            "device_authorization_endpoint": FAKE_METADATA["device_authorization_endpoint"] + "?tenant=acme",
+            "token_endpoint": FAKE_METADATA["token_endpoint"] + "?tenant=acme",
+        }
+        mock_http_server.request.side_effect = [
+            _make_response(200, {"device_code": "dc", "user_code": "UC", "verification_uri": "https://verify"}),
+            _make_response(200, {"access_token": "at"}),
+        ]
+
+        login_with_device_code(FAKE_URL, "client-1", metadata)
+
+        assert [call.args[1] for call in mock_http_server.request.call_args_list] == [
+            "/oauth/v1/device",
+            "/oauth/v1/token",
+        ]
+
+    @patch("rsconnect.oauth.time.sleep")
     def test_poll_expired(self, _, mock_http_server: MagicMock):
         mock_http_server.request.return_value = _make_response(400, {"error": "expired_token"})
         with pytest.raises(RSConnectException, match="expired"):
@@ -281,8 +330,60 @@ class TestDeviceCodeFlow:
         with pytest.raises(RSConnectException, match="unexpected response"):
             _poll_for_device_token(FAKE_METADATA, "client-1", "device-code-1", 5, 600)
 
+    @pytest.mark.parametrize(
+        ("response", "message"),
+        [
+            (_make_response(502), "Device code token request failed: HTTP 502."),
+            (object(), "Device code token request returned an unexpected response."),
+        ],
+    )
+    def test_poll_preserves_raw_response_errors(
+        self, monkeypatch: pytest.MonkeyPatch, mock_http_server: MagicMock, response: Any, message: str
+    ):
+        monkeypatch.setattr("rsconnect.oauth.time.sleep", lambda _interval: None)
+        mock_http_server.request.return_value = response
+
+        with pytest.raises(RSConnectException) as raised:
+            _poll_for_device_token(FAKE_METADATA, "client-1", "device-code-1", 5, 600)
+
+        assert str(raised.value) == message
+
 
 class TestRefreshAccessToken:
+    def test_client_specific_request_timeout_and_deadline(self, mock_http_server: MagicMock):
+        mock_http_server.request.return_value = _make_response(200, {"access_token": "new-at"})
+        refresh_access_token(
+            FAKE_METADATA,
+            "client-1",
+            "old-rt",
+            request_timeout=0.25,
+            request_deadline=12.5,
+        )
+        assert mock_http_server.request_timeout == 0.25
+        assert mock_http_server.request_deadline == 12.5
+
+    def test_response_logging_can_be_suppressed(self, mock_http_server: MagicMock):
+        mock_http_server.request.return_value = _make_response(200, {"access_token": "new-at"})
+        refresh_access_token(
+            FAKE_METADATA,
+            "client-1",
+            "old-rt",
+            request_timeout=0.25,
+            request_deadline=12.5,
+            suppress_response_logging=True,
+        )
+        assert mock_http_server.request_timeout == 0.25
+        assert mock_http_server.request_deadline == 12.5
+        assert mock_http_server._suppress_oauth_response_logging is True
+
+    def test_refresh_keeps_legacy_path_only_for_token_query(self, mock_http_server: MagicMock):
+        metadata = {**FAKE_METADATA, "token_endpoint": FAKE_METADATA["token_endpoint"] + "?tenant=acme"}
+        mock_http_server.request.return_value = _make_response(200, {"access_token": "new-at"})
+
+        refresh_access_token(metadata, "client-1", "old-rt")
+
+        assert mock_http_server.request.call_args.args[1] == "/oauth/v1/token"
+
     def test_success(self, mock_http_server: MagicMock):
         mock_http_server.request.return_value = _make_response(
             200, {"access_token": "new-at", "refresh_token": "new-rt", "expires_in": 7200}
@@ -721,6 +822,13 @@ class TestStreamBodyRetry:
 
 
 class TestLoginCommand:
+    @pytest.fixture(autouse=True)
+    def isolated_server_store(self, tmp_path: Any, monkeypatch: Any):
+        from rsconnect import main
+        from rsconnect.metadata import ServerStore
+
+        monkeypatch.setattr(main, "server_store", ServerStore(str(tmp_path)))
+
     @patch("rsconnect.oauth.keyring_store_token", return_value=True)
     @patch("rsconnect.oauth.login_with_browser")
     @patch("rsconnect.oauth.register_client", return_value="new-client-id")
